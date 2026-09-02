@@ -19,8 +19,8 @@ interface Project {
 }
 
 const STATUS_COLORS: Record<string,string> = {
-  planning:"bg-gray-100 text-gray-600", active:"bg-blue-100 text-blue-700",
-  on_hold:"bg-amber-100 text-amber-700", completed:"bg-green-100 text-green-700", cancelled:"bg-red-100 text-red-700"
+  planning:"bg-surface2 text-ink2", active:"bg-info-50 text-info",
+  on_hold:"bg-warn-50 text-warn", completed:"bg-pos-50 text-pos", cancelled:"bg-neg-50 text-neg"
 };
 const STATUS_FR: Record<string,string> = { planning:"Planification", active:"En cours", on_hold:"En pause", completed:"Terminé", cancelled:"Annulé" };
 
@@ -54,7 +54,7 @@ export default function ProjectDetailPage() {
     setTaskModal(false); setNewTask({ label:"", weight:1, status:"todo" });
   }
 
-  if (loading) return <div className="p-6"><div className="h-64 bg-white rounded-xl animate-pulse border border-clay/20"/></div>;
+  if (loading) return <div className="p-6"><div className="h-64 bg-surface rounded-xl animate-pulse border border-clay/20"/></div>;
   if (!project) return <div className="p-6 text-moss">Projet introuvable</div>;
 
   const tasksDone = project.tasks.filter(t => t.status === "done").length;
@@ -75,28 +75,28 @@ export default function ProjectDetailPage() {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Taux d'exécution */}
-        <div className="bg-white rounded-xl border border-clay/20 p-4">
+        <div className="bg-surface rounded-xl border border-clay/20 p-4">
           <p className="text-xs text-moss mb-2">Taux d'exécution</p>
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-sand rounded-full"><div className="h-2 rounded-full bg-green-500 transition-all" style={{ width:`${project.executionRate}%` }}/></div>
-            <span className={`text-sm font-bold font-mono ${project.executionRate>=80?"text-green-700":project.executionRate>=40?"text-amber-600":"text-red-500"}`}>{project.executionRate}%</span>
+            <div className="flex-1 h-2 bg-sand rounded-full"><div className="h-2 rounded-full bg-pos transition-all" style={{ width:`${project.executionRate}%` }}/></div>
+            <span className={`text-sm font-bold font-mono ${project.executionRate>=80?"text-pos":project.executionRate>=40?"text-warn":"text-neg"}`}>{project.executionRate}%</span>
           </div>
           <p className="text-xs text-moss mt-1">{tasksDone}/{tasksTotal} tâches</p>
         </div>
         {/* Budget */}
-        <div className="bg-white rounded-xl border border-clay/20 p-4">
+        <div className="bg-surface rounded-xl border border-clay/20 p-4">
           <p className="text-xs text-moss mb-1">Budget consommé</p>
-          <p className={`text-xl font-bold font-mono ${project.budgetRate>100?"text-red-600":project.budgetRate>80?"text-amber-600":"text-green-700"}`}>{project.budgetRate}%</p>
+          <p className={`text-xl font-bold font-mono ${project.budgetRate>100?"text-neg":project.budgetRate>80?"text-warn":"text-pos"}`}>{project.budgetRate}%</p>
           <p className="text-xs text-moss">{project.spentAmount.toLocaleString("fr-FR")} / {project.budget.toLocaleString("fr-FR")} XOF</p>
         </div>
         {/* Jalons */}
-        <div className="bg-white rounded-xl border border-clay/20 p-4">
+        <div className="bg-surface rounded-xl border border-clay/20 p-4">
           <p className="text-xs text-moss mb-1">Jalons</p>
           <p className="text-xl font-bold text-ink">{project.milestones.filter(m => m.completedAt).length} / {project.milestones.length}</p>
           <p className="text-xs text-moss">jalons atteints</p>
         </div>
         {/* Dates */}
-        <div className="bg-white rounded-xl border border-clay/20 p-4">
+        <div className="bg-surface rounded-xl border border-clay/20 p-4">
           <p className="text-xs text-moss mb-1">Période</p>
           <p className="text-sm font-medium text-ink">{project.startDate ? new Date(project.startDate).toLocaleDateString("fr-FR") : "—"}</p>
           <p className="text-xs text-moss">→ {project.endDate ? new Date(project.endDate).toLocaleDateString("fr-FR") : "Illimitée"}</p>
@@ -107,7 +107,7 @@ export default function ProjectDetailPage() {
       <div className="flex gap-1 bg-sand p-1 rounded-xl w-fit">
         {(["tasks","milestones","docs","team","messages"] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm transition-colors ${activeTab===tab?"bg-white text-ink font-medium":"text-moss hover:text-ink"}`}>
+            className={`px-4 py-2 rounded-lg text-sm transition-colors ${activeTab===tab?"bg-surface text-ink font-medium":"text-moss hover:text-ink"}`}>
             {{ tasks:`Tâches (${tasksTotal})`, milestones:`Jalons (${project.milestones.length})`, docs:`Documents (${project.documents.length})`, team:`Équipe (${project.projectMembers.length})`, messages:"Messages" }[tab]}
           </button>
         ))}
@@ -115,7 +115,7 @@ export default function ProjectDetailPage() {
 
       {/* Contenu onglets */}
       {activeTab === "tasks" && (
-        <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+        <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
           <div className="flex justify-between items-center px-5 py-3 border-b border-clay/10">
             <p className="font-semibold text-ink text-sm">Tâches</p>
             <button onClick={() => setTaskModal(true)} className="text-xs text-cedar hover:underline">+ Ajouter</button>
@@ -125,7 +125,7 @@ export default function ProjectDetailPage() {
             {project.tasks.map(task => (
               <div key={task._id} className="flex items-center gap-4 px-5 py-3">
                 <select value={task.status} onChange={e => updateTaskStatus(task._id, e.target.value)}
-                  className={`text-xs rounded-full px-2 py-0.5 font-medium border-0 cursor-pointer ${task.status==="done"?"bg-green-100 text-green-700":task.status==="in_progress"?"bg-blue-100 text-blue-700":task.status==="blocked"?"bg-red-100 text-red-600":"bg-gray-100 text-gray-600"}`}>
+                  className={`text-xs rounded-full px-2 py-0.5 font-medium border-0 cursor-pointer ${task.status==="done"?"bg-pos-50 text-pos":task.status==="in_progress"?"bg-info-50 text-info":task.status==="blocked"?"bg-neg-50 text-neg":"bg-surface2 text-ink2"}`}>
                   <option value="todo">À faire</option>
                   <option value="in_progress">En cours</option>
                   <option value="done">Terminé</option>
@@ -141,17 +141,17 @@ export default function ProjectDetailPage() {
 
       {activeTab === "milestones" && (
         <div className="space-y-3">
-          {project.milestones.length === 0 && <div className="bg-white rounded-xl border border-clay/20 p-8 text-center text-moss text-sm">Aucun jalon défini</div>}
+          {project.milestones.length === 0 && <div className="bg-surface rounded-xl border border-clay/20 p-8 text-center text-moss text-sm">Aucun jalon défini</div>}
           {project.milestones.map(m => (
-            <div key={m._id} className={`bg-white rounded-xl border p-4 flex items-start justify-between ${m.completedAt?"border-green-200":"border-clay/20"}`}>
+            <div key={m._id} className={`bg-surface rounded-xl border p-4 flex items-start justify-between ${m.completedAt?"border-pos/25":"border-clay/20"}`}>
               <div>
                 <p className="font-medium text-ink text-sm">{m.label}</p>
                 {m.dueDate && <p className="text-xs text-moss mt-0.5">Échéance : {new Date(m.dueDate).toLocaleDateString("fr-FR")}</p>}
                 {m.amount > 0 && <p className="text-xs text-moss">Montant : {m.amount.toLocaleString("fr-FR")} XOF</p>}
               </div>
               {m.completedAt
-                ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">✅ Atteint le {new Date(m.completedAt).toLocaleDateString("fr-FR")}</span>
-                : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">En attente</span>
+                ? <span className="text-xs bg-pos-50 text-pos px-2 py-0.5 rounded-full">✅ Atteint le {new Date(m.completedAt).toLocaleDateString("fr-FR")}</span>
+                : <span className="text-xs bg-surface2 text-ink3 px-2 py-0.5 rounded-full">En attente</span>
               }
             </div>
           ))}
@@ -159,7 +159,7 @@ export default function ProjectDetailPage() {
       )}
 
       {activeTab === "docs" && (
-        <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+        <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
           <div className="flex justify-between items-center px-5 py-3 border-b border-clay/10">
             <p className="font-semibold text-ink text-sm">Documents ({project.documents.length})</p>
             <button className="text-xs text-cedar hover:underline">+ Joindre un document</button>
@@ -177,7 +177,7 @@ export default function ProjectDetailPage() {
       )}
 
       {activeTab === "team" && (
-        <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+        <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
           <div className="flex justify-between items-center px-5 py-3 border-b border-clay/10">
             <p className="font-semibold text-ink text-sm">Équipe projet ({project.projectMembers.length})</p>
             <button className="text-xs text-cedar hover:underline">+ Ajouter un membre</button>
@@ -199,7 +199,7 @@ export default function ProjectDetailPage() {
       )}
 
       {activeTab === "messages" && userId && (
-        <div className="bg-white rounded-xl border border-clay/20 overflow-hidden" style={{ height: "450px" }}>
+        <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden" style={{ height: "450px" }}>
           <MessageComposer currentUserId={userId} conversationId={project.conversationId} compact />
         </div>
       )}

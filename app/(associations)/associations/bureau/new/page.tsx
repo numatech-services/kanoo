@@ -89,12 +89,12 @@ export default function NewBureauMemberPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200 text-sm">
+        <div className="bg-neg-50 text-neg p-4 rounded-lg border border-neg/25 text-sm">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSave} className="bg-white p-6 rounded-xl shadow-sm border space-y-5">
+      <form onSubmit={handleSave} className="bg-surface p-6 rounded-xl shadow-sm border space-y-5">
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Prénom" required>
             <input className={inputCls} value={form.firstName} onChange={(e) => u("firstName", e.target.value)} required />

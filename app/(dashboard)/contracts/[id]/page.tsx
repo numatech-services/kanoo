@@ -60,7 +60,7 @@ export default function ContractDetailPage() {
         <StatusBadge status={contract.status} />
       </div>
       
-      <div className="bg-white rounded-xl border p-6 shadow-sm">
+      <div className="bg-surface rounded-xl border p-6 shadow-sm">
         <h2 className="font-semibold mb-4">Informations Générales</h2>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div className="text-moss">Montant:</div>

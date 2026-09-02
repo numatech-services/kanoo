@@ -61,7 +61,7 @@ export default function NumberingPage() {
   const u = (k: keyof NumberingConfig, v: unknown) => setConfig(p => ({ ...p, [k]: v }));
   const inp = "px-3 py-2 border border-clay/30 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-cedar/30 uppercase";
 
-  if (loading) return <div className="h-64 bg-white rounded-xl animate-pulse border border-clay/20" />;
+  if (loading) return <div className="h-64 bg-surface rounded-xl animate-pulse border border-clay/20" />;
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -76,7 +76,7 @@ export default function NumberingPage() {
       <form onSubmit={handleSave} className="space-y-5">
 
         {/* Préfixes par type */}
-        <div className="bg-white rounded-xl border border-clay/20 p-5">
+        <div className="bg-surface rounded-xl border border-clay/20 p-5">
           <h2 className="font-semibold text-ink mb-4">Préfixes par type de document</h2>
           <p className="text-xs text-moss mb-4">Max 10 caractères — lettres majuscules, chiffres, <code>-</code> ou <code>/</code></p>
           <div className="space-y-3">
@@ -99,7 +99,7 @@ export default function NumberingPage() {
         </div>
 
         {/* Format */}
-        <div className="bg-white rounded-xl border border-clay/20 p-5">
+        <div className="bg-surface rounded-xl border border-clay/20 p-5">
           <h2 className="font-semibold text-ink mb-4">Format du numéro</h2>
           <div className="space-y-4">
 
@@ -150,7 +150,7 @@ export default function NumberingPage() {
         </div>
 
         {/* Migration — numéro de départ */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+        <div className="bg-warn-50 border border-warn/25 rounded-xl p-5">
           <h2 className="font-semibold text-ink mb-2">Migration depuis un ancien logiciel</h2>
           <p className="text-xs text-moss mb-3">
             Si vous migrez depuis un autre système, définissez le numéro de départ pour éviter les doublons avec vos factures existantes.
@@ -166,12 +166,12 @@ export default function NumberingPage() {
             />
           </div>
           <p className="text-xs text-moss mt-2">
-            Exemple : si votre dernière facture était <code className="bg-white px-1 rounded">FAC-2024-00847</code>, saisissez <strong>848</strong>.
+            Exemple : si votre dernière facture était <code className="bg-surface px-1 rounded">FAC-2024-00847</code>, saisissez <strong>848</strong>.
           </p>
         </div>
 
         {/* Prévisualisation live */}
-        <div className="bg-white rounded-xl border border-clay/20 p-5">
+        <div className="bg-surface rounded-xl border border-clay/20 p-5">
           <h2 className="font-semibold text-ink mb-3">Prévisualisation</h2>
           <div className="flex flex-wrap gap-2">
             {FIELDS.map(f => (

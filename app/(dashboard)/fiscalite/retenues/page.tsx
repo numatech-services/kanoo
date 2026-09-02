@@ -55,7 +55,7 @@ export default function RetenuesPage() {
     { key:"montantNet", label:"Net versé (XOF)", className:"text-right font-mono", render:(v)=>Number(v).toLocaleString("fr-FR") },
     { key:"article", label:"Base légale", className:"text-xs text-moss" },
     { key:"date", label:"Date", render:(v)=>new Date(String(v)).toLocaleDateString("fr-FR") },
-    { key:"isPaid", label:"Versé DGI", render:(v)=>v ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Versé</span> : <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">En attente</span> },
+    { key:"isPaid", label:"Versé DGI", render:(v)=>v ? <span className="text-xs bg-pos-50 text-pos px-2 py-0.5 rounded-full">Versé</span> : <span className="text-xs bg-neg-50 text-neg px-2 py-0.5 rounded-full">En attente</span> },
   ];
 
   return (
@@ -74,9 +74,9 @@ export default function RetenuesPage() {
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Total retenues {new Date().getFullYear()}</p><p className="text-xl font-bold font-mono text-cedar mt-1">{totalRetenues.toLocaleString("fr-FR")} XOF</p></div>
-        <div className={`rounded-xl border p-4 ${nonVersees>0?"bg-red-50 border-red-200":"bg-white border-clay/20"}`}><p className="text-xs text-moss">Non versées à DGI</p><p className={`text-xl font-bold font-mono mt-1 ${nonVersees>0?"text-red-600":"text-green-700"}`}>{nonVersees.toLocaleString("fr-FR")} XOF</p></div>
-        <div className="bg-white rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Nombre de retenues</p><p className="text-xl font-bold mt-1">{total}</p></div>
+        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Total retenues {new Date().getFullYear()}</p><p className="text-xl font-bold font-mono text-cedar mt-1">{totalRetenues.toLocaleString("fr-FR")} XOF</p></div>
+        <div className={`rounded-xl border p-4 ${nonVersees>0?"bg-neg-50 border-neg/25":"bg-surface border-clay/20"}`}><p className="text-xs text-moss">Non versées à DGI</p><p className={`text-xl font-bold font-mono mt-1 ${nonVersees>0?"text-neg":"text-pos"}`}>{nonVersees.toLocaleString("fr-FR")} XOF</p></div>
+        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Nombre de retenues</p><p className="text-xl font-bold mt-1">{total}</p></div>
       </div>
 
       <DataTable columns={columns} data={retenues} loading={loading} keyExtractor={r=>r._id} emptyMessage="Aucune retenue à la source enregistrée"/>
@@ -101,9 +101,9 @@ export default function RetenuesPage() {
             <input type="number" className={inputCls} value={form.montantBrut} onChange={e=>u("montantBrut",Number(e.target.value))} min={0} required/>
           </FormField>
           {simulatedRetenue > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 grid grid-cols-3 text-xs text-center">
-              <div><p className="font-bold text-amber-800">{simulatedRetenue.toLocaleString("fr-FR")} XOF</p><p className="text-amber-600 mt-0.5">Retenue à verser à DGI</p></div>
-              <div><p className="font-bold text-green-800">{simulatedNet.toLocaleString("fr-FR")} XOF</p><p className="text-green-600 mt-0.5">Net à verser au bénéficiaire</p></div>
+            <div className="bg-warn-50 border border-warn/25 rounded-xl p-3 grid grid-cols-3 text-xs text-center">
+              <div><p className="font-bold text-warn">{simulatedRetenue.toLocaleString("fr-FR")} XOF</p><p className="text-warn mt-0.5">Retenue à verser à DGI</p></div>
+              <div><p className="font-bold text-pos">{simulatedNet.toLocaleString("fr-FR")} XOF</p><p className="text-pos mt-0.5">Net à verser au bénéficiaire</p></div>
               <div><p className="font-bold text-ink">{form.montantBrut.toLocaleString("fr-FR")} XOF</p><p className="text-moss mt-0.5">Montant brut total</p></div>
             </div>
           )}

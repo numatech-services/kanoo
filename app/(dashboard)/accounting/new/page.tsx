@@ -51,12 +51,12 @@ export default function NewAccountingEntryPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+        <div className="p-4 bg-neg-50 border border-neg/25 text-neg rounded-xl text-sm">
           <strong>Erreur de validation :</strong> {error}
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-clay/20 p-6">
+      <div className="bg-surface rounded-2xl border border-clay/20 p-6">
         <AccountingEntryForm 
           onSave={handleSave} 
           onCancel={() => router.push("/accounting")} 

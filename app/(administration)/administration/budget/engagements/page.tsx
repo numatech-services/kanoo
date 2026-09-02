@@ -16,10 +16,10 @@ interface Engagement {
 }
 
 const statusStyle = {
-  en_attente: { label: "En attente", cls: "bg-amber-50 text-amber-700 border-amber-100", icon: Clock },
-  approuve: { label: "Approuvé", cls: "bg-emerald-50 text-emerald-700 border-emerald-100", icon: CheckCircle2 },
-  rejete: { label: "Rejeté", cls: "bg-red-50 text-red-700 border-red-100", icon: AlertCircle },
-  mandate: { label: "Mandaté", cls: "bg-blue-50 text-blue-700 border-blue-100", icon: FileStack },
+  en_attente: { label: "En attente", cls: "bg-warn-50 text-warn border-warn/25", icon: Clock },
+  approuve: { label: "Approuvé", cls: "bg-pos-50 text-pos border-pos/25", icon: CheckCircle2 },
+  rejete: { label: "Rejeté", cls: "bg-neg-50 text-neg border-neg/25", icon: AlertCircle },
+  mandate: { label: "Mandaté", cls: "bg-info-50 text-info border-info/25", icon: FileStack },
 };
 
 export default function EngagementsPage() {
@@ -66,14 +66,14 @@ export default function EngagementsPage() {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-moss/50" size={16} />
         <input 
-          className="w-full pl-10 pr-4 py-2.5 bg-white border border-clay/20 rounded-2xl text-xs outline-none focus:border-cedar transition-all" 
+          className="w-full pl-10 pr-4 py-2.5 bg-surface border border-clay/20 rounded-2xl text-xs outline-none focus:border-cedar transition-all" 
           placeholder="Rechercher une référence ou un bénéficiaire..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      <div className="bg-white rounded-[2rem] border border-clay/10 overflow-hidden shadow-sm">
+      <div className="bg-surface rounded-[2rem] border border-clay/10 overflow-hidden shadow-sm">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-sand/10 border-b border-clay/10">

@@ -88,7 +88,7 @@ export default function TenderDetailPage() {
     setIsAttributing(false);
   };
 
-  if (!tender) return <div className="p-6"><div className="h-32 bg-white rounded-xl animate-pulse"/></div>;
+  if (!tender) return <div className="p-6"><div className="h-32 bg-surface rounded-xl animate-pulse"/></div>;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 p-4">
@@ -101,9 +101,9 @@ export default function TenderDetailPage() {
           <div className="flex items-center gap-3 mt-1">
             <h1 className="text-3xl font-bold text-ink">{tender.reference}</h1>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${
-              tender.status === 'planning' ? 'bg-amber-50 text-amber-600 border-amber-200' : 
-              tender.status === 'attributed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 
-              'bg-blue-50 text-blue-600 border-blue-200'
+              tender.status === 'planning' ? 'bg-warn-50 text-warn border-warn/25' : 
+              tender.status === 'attributed' ? 'bg-pos-50 text-pos border-pos/25' : 
+              'bg-info-50 text-info border-info/25'
             }`}>
               {tender.status}
             </span>
@@ -122,7 +122,7 @@ export default function TenderDetailPage() {
           )}
           <button 
             onClick={deleteTender}
-            className="flex-1 md:flex-none border border-red-200 text-red-500 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 transition-all"
+            className="flex-1 md:flex-none border border-neg/25 text-neg px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-neg-50 transition-all"
           >
             Supprimer
           </button>
@@ -132,7 +132,7 @@ export default function TenderDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* COLONNE GAUCHE : Détails Techniques */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-2xl border border-clay/20 p-6 shadow-sm">
+          <div className="bg-surface rounded-2xl border border-clay/20 p-6 shadow-sm">
             <h2 className="text-lg font-bold text-ink mb-4 border-b border-clay/10 pb-2">Détails techniques</h2>
             <div className="space-y-4">
               {[
@@ -157,8 +157,8 @@ export default function TenderDetailPage() {
             <h2 className="text-lg font-bold text-ink mb-4">Suivi & Attribution</h2>
             
             {tender.status === 'attributed' ? (
-              <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 space-y-2">
-                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Marché Attribué</p>
+              <div className="bg-pos-50 p-4 rounded-xl border border-pos/25 space-y-2">
+                <p className="text-[10px] font-bold text-pos uppercase tracking-wider">Marché Attribué</p>
                 <div>
                   <p className="text-xs text-clay">Titulaire du marché :</p>
                   <p className="font-bold text-ink">{tender.winnerId}</p>
@@ -169,7 +169,7 @@ export default function TenderDetailPage() {
                 </div>
               </div>
             ) : isAttributing ? (
-              <div className="bg-white p-4 rounded-xl border border-moss/30 shadow-inner space-y-4">
+              <div className="bg-surface p-4 rounded-xl border border-moss/30 shadow-inner space-y-4">
                 <h3 className="text-sm font-bold text-moss">Saisie de l'adjudicataire</h3>
                 <div>
                   <label className="text-[10px] font-bold text-clay uppercase">Nom de l'entreprise</label>
@@ -204,7 +204,7 @@ export default function TenderDetailPage() {
                   disabled={tender.status === 'planning'}
                   className={`w-full py-3 rounded-xl font-bold text-sm shadow-sm transition-all ${
                     tender.status === 'planning' 
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                    ? 'bg-surface2 text-ink3 cursor-not-allowed' 
                     : 'bg-ink text-white hover:bg-moss'
                   }`}
                 >

@@ -43,7 +43,7 @@ export default function ServicesPage() {
   useEffect(() => { loadServices(); }, [loadServices]);
 
   const columns: Column<IServiceProduct>[] = [
-    { key: "code", label: "Code", className: "font-mono font-bold text-emerald-700" },
+    { key: "code", label: "Code", className: "font-mono font-bold text-pos" },
     { key: "label", label: "Libellé du Service" },
     { 
       key: "unitPrice", 
@@ -61,7 +61,7 @@ export default function ServicesPage() {
       key: "isActive", 
       label: "Statut",
       render: (v) => (
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${v ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${v ? 'bg-pos-50 text-pos' : 'bg-neg-50 text-neg'}`}>
           {v ? "ACTIF" : "INACTIF"}
         </span>
       )
@@ -112,17 +112,17 @@ async function handleSubmit(e: React.FormEvent) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Catalogue des Services</h1>
-          <p className="text-sm text-emerald-700 italic font-medium">Gestion des prestations et tarifs de l'entité</p>
+          <p className="text-sm text-pos italic font-medium">Gestion des prestations et tarifs de l'entité</p>
         </div>
         <button 
           onClick={() => setModalOpen(true)}
-          className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-emerald-700 transition-all active:scale-95"
+          className="px-5 py-2.5 bg-pos text-white rounded-xl text-sm font-bold shadow-lg hover:brightness-95 transition-all active:scale-95"
         >
           + Nouveau Service
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-clay/10 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-clay/10 shadow-sm overflow-hidden">
         <DataTable 
           columns={columns} 
           data={services} 
@@ -167,7 +167,7 @@ async function handleSubmit(e: React.FormEvent) {
             <button type="button" onClick={() => setModalOpen(false)} className="text-sm font-medium text-moss">Annuler</button>
             <button 
               type="submit" disabled={saving}
-              className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold disabled:opacity-50"
+              className="px-6 py-2 bg-pos text-white rounded-xl text-sm font-bold disabled:opacity-50"
             >
               {saving ? "Enregistrement..." : "Enregistrer le Service"}
             </button>

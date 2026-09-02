@@ -40,7 +40,7 @@ useEffect(() => {
   if (loading) {
     return (
       <div className="p-6">
-        <div className="h-48 bg-white rounded-xl animate-pulse border border-clay/20" />
+        <div className="h-48 bg-surface rounded-xl animate-pulse border border-clay/20" />
         <p className="mt-4 text-xs text-moss">Chargement du projet…</p>
       </div>
     );
@@ -50,7 +50,7 @@ useEffect(() => {
   if (errorInfo || !item) {
     return (
       <div className="p-6 space-y-4">
-        <div className="p-4 border border-red-200 bg-red-50 text-red-700 rounded-xl">
+        <div className="p-4 border border-neg/25 bg-neg-50 text-neg rounded-xl">
           <h2 className="font-bold">Erreur de chargement</h2>
           <p className="text-sm">Message: {errorInfo || "Projet introuvable"}</p>
           <p className="text-xs mt-2 font-mono">ID URL: {String(id)}</p>
@@ -79,10 +79,10 @@ useEffect(() => {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-clay/20 p-5 shadow-sm">
+      <div className="bg-surface rounded-xl border border-clay/20 p-5 shadow-sm">
         <div className="space-y-2">
           {/* Debug: Affiche toutes les clés reçues si le tableau est vide */}
-          {Object.entries(item).length === 0 && <p className="text-xs text-red-500">L'objet projet est vide.</p>}
+          {Object.entries(item).length === 0 && <p className="text-xs text-neg">L'objet projet est vide.</p>}
           
           {Object.entries(item)
             .filter(([k]) => !["_id", "tenantId", "__v", "createdAt", "updatedAt"].includes(k))

@@ -15,7 +15,7 @@ interface Employee {
 }
 
 const TYPE_LABELS: Record<string,string> = { employee:"Employé", intern:"Stagiaire", freelance:"Freelance" };
-const TYPE_COLORS: Record<string,string> = { employee:"bg-blue-100 text-blue-700", intern:"bg-amber-100 text-amber-700", freelance:"bg-purple-100 text-purple-700" };
+const TYPE_COLORS: Record<string,string> = { employee:"bg-info-50 text-info", intern:"bg-warn-50 text-warn", freelance:"bg-section-soft text-section" };
 const CONTRACT_LABELS: Record<string,string> = { cdi:"CDI", cdd:"CDD", stage:"Stage", freelance:"Freelance", consultant:"Consultant" };
 
 export default function EmployeesPage() {
@@ -70,7 +70,7 @@ export default function EmployeesPage() {
     {key:"contractEndDate",label:"Fin de contrat",render:(v)=>{
       if(!v) return <span className="text-moss text-xs">CDI / Sans fin</span>;
       const expiring = isExpiringSoon(String(v));
-      return <span className={`text-sm ${expiring?"text-amber-600 font-semibold":"text-moss"}`}>{new Date(String(v)).toLocaleDateString("fr-FR")}{expiring?" ⚠":""}</span>;
+      return <span className={`text-sm ${expiring?"text-warn font-semibold":"text-moss"}`}>{new Date(String(v)).toLocaleDateString("fr-FR")}{expiring?" ⚠":""}</span>;
     }},
     {key:"isActive",label:"",render:(v)=><StatusBadge status={v?"active":"inactive"}/>},
   ];
@@ -88,9 +88,9 @@ export default function EmployeesPage() {
       </div>
 
       {alertCount > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-3">
-          <span className="text-amber-600 font-bold">⚠</span>
-          <p className="text-sm text-amber-800">{alertCount} contrat{alertCount>1?"s":""} expire{alertCount===1?"":"nt"} dans les 30 prochains jours.</p>
+        <div className="bg-warn-50 border border-warn/25 rounded-xl p-3 flex items-center gap-3">
+          <span className="text-warn font-bold">⚠</span>
+          <p className="text-sm text-warn">{alertCount} contrat{alertCount>1?"s":""} expire{alertCount===1?"":"nt"} dans les 30 prochains jours.</p>
         </div>
       )}
 

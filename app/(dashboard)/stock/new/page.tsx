@@ -56,10 +56,10 @@ export default function NewProductPage() {
         <ArrowLeft size={16} /> Retour au stock
       </button>
 
-      <div className="bg-white rounded-3xl border border-clay/10 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-3xl border border-clay/10 shadow-sm overflow-hidden">
         <div className="bg-sand/30 p-6 border-b border-clay/10">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-white rounded-2xl shadow-sm text-cedar">
+            <div className="p-3 bg-surface rounded-2xl shadow-sm text-cedar">
               <Package size={24} />
             </div>
             <div>

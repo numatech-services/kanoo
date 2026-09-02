@@ -138,7 +138,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
+      {error && <div className="p-3 bg-neg-50 border border-neg/25 rounded-lg text-neg text-sm">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <FormField label="Client" required className="md:col-span-1">
@@ -171,7 +171,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
             <span className="col-span-1"></span>
           </div>
           {lines.map((line, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2 px-3 py-2 border-t border-clay/10 bg-white items-center">
+            <div key={i} className="grid grid-cols-12 gap-2 px-3 py-2 border-t border-clay/10 bg-surface items-center">
               {/* Description */}
               <div className="col-span-3">
                 <input className={inputCls} value={line.description} onChange={e => updateLine(i, "description", e.target.value)} placeholder="Description du produit/service" required />
@@ -213,7 +213,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
 
               {/* Suppression */}
               <div className="col-span-1 flex items-center justify-center">
-                <button type="button" onClick={() => removeLine(i)} disabled={lines.length === 1} className="text-moss hover:text-red-500 disabled:opacity-30 text-lg">×</button>
+                <button type="button" onClick={() => removeLine(i)} disabled={lines.length === 1} className="text-moss hover:text-neg disabled:opacity-30 text-lg">×</button>
               </div>
             </div>
           ))}
@@ -221,7 +221,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
       </div>
 
       <div className="flex justify-end">
-        <div className="w-64 space-y-2 bg-white rounded-xl border border-clay/20 p-4">
+        <div className="w-64 space-y-2 bg-surface rounded-xl border border-clay/20 p-4">
           {[
             ["Total HT", `${totalHT.toLocaleString("fr-FR")} XOF`, "text-moss"],
             ["TVA", `${totalTVA.toLocaleString("fr-FR")} XOF`, "text-moss"],

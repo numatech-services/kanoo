@@ -213,7 +213,7 @@ export default function ActiviteDetailPage() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="table-dense">
             <thead><tr className="text-left text-xs uppercase tracking-wide text-ink3 bg-surface2">
               <th className="px-4 py-2.5 font-semibold">Participant</th><th className="px-4 py-2.5 font-semibold">Contact</th><th className="px-4 py-2.5 font-semibold">Billet</th><th className="px-4 py-2.5 font-semibold">Statut</th><th className="px-4 py-2.5 font-semibold">Pointé</th><th className="px-4 py-2.5 font-semibold text-right">Billet</th>
             </tr></thead>

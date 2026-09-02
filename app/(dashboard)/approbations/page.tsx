@@ -65,13 +65,13 @@ export default function ApprobationsPage() {
           <p className="text-sm text-moss">Ressource : <strong className="text-ink">{decideModal?.resource}</strong></p>
           <div className="flex gap-3">
             {(["approved","rejected"] as const).map(d => (
-              <button key={d} onClick={() => setDecision(d)} className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all ${decision===d ? (d==="approved"?"border-green-500 bg-green-50 text-green-700":"border-red-500 bg-red-50 text-red-700") : "border-clay/30 text-moss"}`}>{d==="approved"?"✅ Approuver":"❌ Refuser"}</button>
+              <button key={d} onClick={() => setDecision(d)} className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all ${decision===d ? (d==="approved"?"border-pos/25 bg-pos-50 text-pos":"border-neg/25 bg-neg-50 text-neg") : "border-clay/30 text-moss"}`}>{d==="approved"?"✅ Approuver":"❌ Refuser"}</button>
             ))}
           </div>
           <div><label className={lbl}>Commentaire {decision==="rejected"?"(obligatoire)":""}</label><textarea className={inp} rows={3} value={comment} onChange={e=>setComment(e.target.value)} placeholder="Motif de la décision…" /></div>
           <div className="flex justify-end gap-3">
             <button onClick={() => setDecideModal(null)} className="px-4 py-2 text-sm border border-clay/30 rounded-lg text-moss hover:bg-sand">Annuler</button>
-            <button onClick={handleDecide} disabled={deciding || (decision==="rejected" && !comment.trim())} className={`px-5 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-60 ${decision==="approved"?"bg-green-600 hover:bg-green-700":"bg-red-600 hover:bg-red-700"}`}>{deciding?"Traitement…":"Confirmer"}</button>
+            <button onClick={handleDecide} disabled={deciding || (decision==="rejected" && !comment.trim())} className={`px-5 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-60 ${decision==="approved"?"bg-pos hover:brightness-95":"bg-neg hover:brightness-95"}`}>{deciding?"Traitement…":"Confirmer"}</button>
           </div>
         </div>
       </Modal>

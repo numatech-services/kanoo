@@ -38,7 +38,7 @@ function SouscrireForm() {
 
   return (
     <form onSubmit={step === 1 ? (e) => { e.preventDefault(); setStep(2); } : handleSubmit} className="space-y-5">
-      {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
+      {error && <div className="p-3 bg-neg-50 border border-neg/25 rounded-lg text-neg text-sm">{error}</div>}
 
       {step === 1 && (
         <>
@@ -66,7 +66,7 @@ function SouscrireForm() {
           </div>
           <div><label className={lbl}>Email de connexion *</label><input type="email" className={inp} value={form.adminEmail} onChange={e=>setForm(p=>({...p,adminEmail:e.target.value}))} required /></div>
           <div><label className={lbl}>Mot de passe *</label><input type="password" className={inp} value={form.adminPassword} onChange={e=>setForm(p=>({...p,adminPassword:e.target.value}))} placeholder="Minimum 8 caractères" required minLength={8} /></div>
-          <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-800">✅ 30 jours d'essai gratuit — Aucune carte bancaire requise</div>
+          <div className="bg-pos-50 border border-pos/25 rounded-xl p-3 text-xs text-pos">✅ 30 jours d'essai gratuit — Aucune carte bancaire requise</div>
           <div className="flex gap-3">
             <button type="button" onClick={()=>setStep(1)} className="px-4 py-3 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">← Retour</button>
             <button type="submit" disabled={loading} className="flex-1 py-3 bg-cedar text-white rounded-xl font-medium hover:bg-ink transition-colors disabled:opacity-60">{loading?"Création…":"Créer mon compte gratuit"}</button>
@@ -85,7 +85,7 @@ export default function SouscrirePage() {
           <Link href="/" className="text-2xl font-bold text-ink">Kanoo</Link>
           <p className="text-moss mt-2">Commencez votre essai gratuit de 30 jours</p>
         </div>
-        <div className="bg-white rounded-2xl shadow-soft p-8">
+        <div className="bg-surface rounded-2xl shadow-soft p-8">
           <Suspense fallback={<div className="h-64 animate-pulse bg-sand rounded-xl" />}>
             <SouscrireForm />
           </Suspense>

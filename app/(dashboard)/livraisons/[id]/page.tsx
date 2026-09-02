@@ -34,7 +34,7 @@ export default function LivraisonDetailPage() {
     setShowSignForm(false); load(); setSigning(false);
   }
 
-  if(loading) return <div className="p-6"><div className="h-48 bg-white rounded-xl animate-pulse border border-clay/20"/></div>;
+  if(loading) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-clay/20"/></div>;
   if(!delivery) return <div className="p-6 text-moss">Bon de livraison introuvable</div>;
   if (!mounted) return null;
 
@@ -44,11 +44,11 @@ export default function LivraisonDetailPage() {
         <div><Link href="/livraisons" className="text-xs text-moss hover:text-ink">← Bons de livraison</Link><h1 className="text-2xl font-bold text-ink mt-1">{delivery.number}</h1></div>
         <div className="flex gap-2 mt-2">
           <button onClick={()=>window.print()} className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">🖨️ Imprimer</button>
-          {!delivery.signedAt && delivery.status!=="delivered" && <button onClick={()=>setShowSignForm(true)} className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700">✍️ Signer la livraison</button>}
+          {!delivery.signedAt && delivery.status!=="delivered" && <button onClick={()=>setShowSignForm(true)} className="px-4 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95">✍️ Signer la livraison</button>}
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
         <div className="bg-cedar text-white p-5 flex justify-between">
           <div><p className="text-lg font-bold">BON DE LIVRAISON</p><p className="text-white/70 text-sm font-mono">{delivery.number}</p></div>
           <div className="text-right"><p className="text-sm">{new Date(delivery.deliveryDate).toLocaleDateString("fr-FR")}</p><StatusBadge status={delivery.status}/></div>
@@ -66,8 +66,8 @@ export default function LivraisonDetailPage() {
           </div>
         </div>
 
-        <table className="w-full text-sm p-5">
-          <thead><tr className="bg-sand/50 border-b border-clay/20">{["Description","Volume","Unité","Observations"].map(h=><th key={h} className="px-4 py-2 text-left text-xs font-semibold text-moss uppercase">{h}</th>)}</tr></thead>
+        <table className="table-dense">
+          <thead><tr className="bg-sand/50 border-b border-clay/20">{["Description","Volume","Unité","Observations"].map(h=><th key={h} >{h}</th>)}</tr></thead>
           <tbody>
             {delivery.lines.map((l,i)=>(
               <tr key={i} className="border-b border-clay/10">
@@ -85,7 +85,7 @@ export default function LivraisonDetailPage() {
           <div>
             <p className="text-xs text-moss font-semibold uppercase mb-2">Reçu par le client</p>
             {delivery.signedBy
-              ? <div className="h-16 border border-green-200 bg-green-50 rounded-xl flex items-center justify-center"><p className="text-green-700 font-medium text-sm">✅ {delivery.signedBy} — {delivery.signedAt?new Date(delivery.signedAt).toLocaleDateString("fr-FR"):""}</p></div>
+              ? <div className="h-16 border border-pos/25 bg-pos-50 rounded-xl flex items-center justify-center"><p className="text-pos font-medium text-sm">✅ {delivery.signedBy} — {delivery.signedAt?new Date(delivery.signedAt).toLocaleDateString("fr-FR"):""}</p></div>
               : <div className="h-16 border border-clay/20 rounded-xl flex items-center justify-center text-xs text-moss">Non signé</div>
             }
           </div>
@@ -93,11 +93,11 @@ export default function LivraisonDetailPage() {
       </div>
 
       {showSignForm && (
-        <div className="bg-white rounded-xl border border-clay/20 p-5">
+        <div className="bg-surface rounded-xl border border-clay/20 p-5">
           <h2 className="font-semibold text-ink mb-4">Confirmer la livraison</h2>
           <form onSubmit={handleSign} className="flex gap-3">
             <input className="flex-1 px-3 py-2 border border-clay/30 rounded-lg text-sm" value={signerName} onChange={e=>setSignerName(e.target.value)} placeholder="Nom du réceptionnaire" required/>
-            <button type="submit" disabled={signing||!signerName} className="px-5 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-60">{signing?"Signature…":"Confirmer la réception"}</button>
+            <button type="submit" disabled={signing||!signerName} className="px-5 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{signing?"Signature…":"Confirmer la réception"}</button>
             <button type="button" onClick={()=>setShowSignForm(false)} className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">Annuler</button>
           </form>
         </div>

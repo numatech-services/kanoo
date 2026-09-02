@@ -97,7 +97,7 @@ export default function AccountingPage() {
       key: "isLettered", 
       label: "Lettré", 
       render: (v) => (
-        <span className={`text-xs px-2 py-0.5 rounded-full ${v ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+        <span className={`text-xs px-2 py-0.5 rounded-full ${v ? "bg-pos-50 text-pos" : "bg-surface2 text-ink3"}`}>
           {v ? "Oui" : "Non"}
         </span>
       ) 

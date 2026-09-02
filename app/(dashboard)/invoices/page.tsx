@@ -145,7 +145,7 @@ export default function InvoicesPage() {
       render: (v, row) => {
         const overdue = row.status !== "paid" && new Date(String(v)) < new Date();
         return (
-          <span className={`text-sm ${overdue ? "text-red-600 font-medium" : "text-moss"}`}>
+          <span className={`text-sm ${overdue ? "text-neg font-medium" : "text-moss"}`}>
             {formatDate(String(v))}
           </span>
         );
@@ -161,7 +161,7 @@ export default function InvoicesPage() {
     {
       key: "paidAmount",
       label: "Payé",
-      className: "text-right font-mono text-green-700",
+      className: "text-right font-mono text-pos",
       render: (v) => <span>{Number(v) > 0 ? formatXOF(Number(v)) : "—"}</span>,
     },
     {
@@ -223,7 +223,7 @@ export default function InvoicesPage() {
         <select
           value={status}
           onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-          className="px-3 py-2 bg-white border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30 text-ink"
+          className="px-3 py-2 bg-surface border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30 text-ink"
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>

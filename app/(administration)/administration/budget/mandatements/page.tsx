@@ -49,7 +49,7 @@ export default function MandatementsPage() {
           <p className="text-xs text-moss font-bold italic">Ordres de paiement et mise en règlement</p>
         </div>
         <div className="flex gap-2">
-            <div className="bg-white px-4 py-2 rounded-xl border border-clay/10 flex items-center gap-2">
+            <div className="bg-surface px-4 py-2 rounded-xl border border-clay/10 flex items-center gap-2">
                 <Landmark size={14} className="text-moss" />
                 <span className="text-[10px] font-black uppercase text-ink">{items.length} Mandats émis</span>
             </div>
@@ -60,14 +60,14 @@ export default function MandatementsPage() {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-moss/50" size={16} />
         <input 
-          className="w-full pl-10 pr-4 py-3 bg-white border border-clay/10 rounded-2xl text-xs outline-none focus:border-cedar shadow-sm transition-all" 
+          className="w-full pl-10 pr-4 py-3 bg-surface border border-clay/10 rounded-2xl text-xs outline-none focus:border-cedar shadow-sm transition-all" 
           placeholder="Rechercher un mandat ou un bénéficiaire..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      <div className="bg-white rounded-[2rem] border border-clay/10 p-4 md:p-8 min-h-[400px]">
+      <div className="bg-surface rounded-[2rem] border border-clay/10 p-4 md:p-8 min-h-[400px]">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="animate-spin text-cedar" size={32} />
@@ -79,10 +79,10 @@ export default function MandatementsPage() {
               <Link 
                 key={item._id} 
                 href={`/administration/budget/mandatements/${item._id}`}
-                className="flex items-center justify-between p-6 bg-sand/10 rounded-3xl border border-clay/5 hover:border-cedar/30 hover:bg-white hover:shadow-xl hover:shadow-cedar/5 transition-all group"
+                className="flex items-center justify-between p-6 bg-sand/10 rounded-3xl border border-clay/5 hover:border-cedar/30 hover:bg-surface hover:shadow-xl hover:shadow-cedar/5 transition-all group"
               >
                 <div className="flex items-center gap-5">
-                  <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center shadow-sm group-hover:bg-cedar group-hover:text-white transition-all">
+                  <div className="w-14 h-14 rounded-2xl bg-surface flex items-center justify-center shadow-sm group-hover:bg-cedar group-hover:text-white transition-all">
                     <FileCheck size={24} />
                   </div>
                   <div>
@@ -102,8 +102,8 @@ export default function MandatementsPage() {
                         <p className="text-lg font-black text-ink font-mono tracking-tighter">
                             {item.amount.toLocaleString()} <span className="text-[10px] text-moss/40">XOF</span>
                         </p>
-                        <p className="text-[9px] font-black text-green-600 uppercase flex items-center justify-end gap-1">
-                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                        <p className="text-[9px] font-black text-pos uppercase flex items-center justify-end gap-1">
+                            <span className="w-1.5 h-1.5 bg-pos rounded-full animate-pulse"></span>
                             Prêt pour règlement
                         </p>
                     </div>

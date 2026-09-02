@@ -202,7 +202,7 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
             await fetch("/api/auth/logout", { method: "POST" }); 
             window.location.href = "/login"; 
           }}
-          className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-white/50 hover:bg-red-500/10 hover:text-red-400 transition-all"
+          className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-white/50 hover:bg-neg/10 hover:text-neg transition-all"
         >
           <LogOut size={16} />
           <span>Déconnexion</span>

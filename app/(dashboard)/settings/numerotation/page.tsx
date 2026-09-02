@@ -92,7 +92,7 @@ export default function NumerotationPage() {
   if (loading) {
     return (
       <div className="space-y-4 max-w-2xl">
-        {[1, 2, 3].map(i => <div key={i} className="h-20 bg-white rounded-xl animate-pulse border border-clay/20" />)}
+        {[1, 2, 3].map(i => <div key={i} className="h-20 bg-surface rounded-xl animate-pulse border border-clay/20" />)}
       </div>
     );
   }
@@ -113,7 +113,7 @@ export default function NumerotationPage() {
       </div>
 
       {/* Préfixes */}
-      <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
         <div className="px-5 py-4 border-b border-clay/10 flex justify-between items-center">
           <h2 className="font-semibold text-ink">Préfixes des documents</h2>
           <button onClick={handleReset} className="text-xs text-moss hover:text-ink hover:underline">
@@ -142,7 +142,7 @@ export default function NumerotationPage() {
                     <input
                       className={`w-24 px-3 py-2 border rounded-lg text-sm font-mono uppercase text-center focus:outline-none focus:ring-2 focus:ring-cedar/30 ${
                         !validation
-                          ? "border-red-300 bg-red-50"
+                          ? "border-neg/25 bg-neg-50"
                           : modified
                           ? "border-cedar/50 bg-cedar/5"
                           : "border-clay/30"
@@ -158,7 +158,7 @@ export default function NumerotationPage() {
                     <span className="text-moss text-sm font-mono">00001</span>
                   </div>
                   {!validation && (
-                    <p className="text-xs text-red-600 mt-1">2 à 6 caractères (lettres, chiffres, tiret)</p>
+                    <p className="text-xs text-neg mt-1">2 à 6 caractères (lettres, chiffres, tiret)</p>
                   )}
                 </div>
                 <div className="text-right min-w-0">
@@ -174,7 +174,7 @@ export default function NumerotationPage() {
       </div>
 
       {/* Migration — numéro de départ */}
-      <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
         <button
           onClick={() => setShowMigration(!showMigration)}
           className="w-full px-5 py-4 flex justify-between items-center text-left hover:bg-sand/50 transition-colors"
@@ -188,7 +188,7 @@ export default function NumerotationPage() {
 
         {showMigration && (
           <div className="px-5 pb-5 pt-2 border-t border-clay/10">
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 mb-4">
+            <div className="bg-warn-50 border border-warn/25 rounded-xl p-3 text-xs text-warn mb-4">
               ⚠️ <strong>Important :</strong> Si vos dernières factures se terminent à FAC-2025-00247, saisissez <strong>247</strong> comme numéro de départ pour que la prochaine facture soit FAC-2025-00248.
             </div>
             <div className="grid grid-cols-2 gap-4">

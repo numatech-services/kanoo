@@ -94,7 +94,7 @@ export default function RecettesPage() {
 
   // Définition des colonnes
   const columns: Column<Revenue>[] = [
-    { key: "reference", label: "Quittance", className: "font-mono font-bold text-emerald-700" },
+    { key: "reference", label: "Quittance", className: "font-mono font-bold text-pos" },
     { key: "payerName", label: "Contribuable" },
     { 
       key: "budgetChapterId", 
@@ -124,13 +124,13 @@ export default function RecettesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink tracking-tight">Recettes & Taxes</h1>
-          <p className="text-sm text-moss mt-0.5 font-medium italic text-emerald-700 tracking-wide">
+          <p className="text-sm text-moss mt-0.5 font-medium italic text-pos tracking-wide">
             Trésorerie Public — Gestion des encaissements
           </p>
         </div>
         <button 
           onClick={() => setModalOpen(true)}
-          className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-emerald-700 transition-all active:scale-95"
+          className="px-5 py-2.5 bg-pos text-white rounded-xl text-sm font-bold shadow-lg hover:brightness-95 transition-all active:scale-95"
         >
           + Nouvel Encaissement
         </button>
@@ -138,15 +138,15 @@ export default function RecettesPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-clay/10 shadow-sm">
+        <div className="bg-surface p-5 rounded-2xl border border-clay/10 shadow-sm">
           <p className={labelClass}>Total Collecté</p>
-          <p className="text-3xl font-black text-emerald-600">
+          <p className="text-3xl font-black text-pos">
             {totalCollecte.toLocaleString("fr-FR")} <span className="text-xs">XOF</span>
           </p>
         </div>
       </div>
 {/* Tableau de données */}
-<div className="bg-white rounded-2xl border border-clay/10 shadow-sm overflow-hidden">
+<div className="bg-surface rounded-2xl border border-clay/10 shadow-sm overflow-hidden">
   <DataTable 
     columns={columns} 
     data={Array.isArray(revenues) ? revenues : []} 
@@ -189,7 +189,7 @@ export default function RecettesPage() {
             <div>
               <label className={labelClass}>Montant à percevoir (XOF) *</label>
               <input 
-                type="number" className={`${inputClass} font-mono font-bold text-emerald-700 text-lg`}
+                type="number" className={`${inputClass} font-mono font-bold text-pos text-lg`}
                 value={form.amount} onChange={e => setForm({...form, amount: Number(e.target.value)})} required 
               />
             </div>
@@ -225,7 +225,7 @@ export default function RecettesPage() {
             <button 
               type="submit" 
               disabled={saving}
-              className="px-8 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 shadow-md disabled:opacity-50 transition-colors"
+              className="px-8 py-2 bg-pos text-white rounded-xl text-sm font-bold hover:brightness-95 shadow-md disabled:opacity-50 transition-colors"
             >
               {saving ? "Traitement..." : "Valider et Générer Quittance"}
             </button>

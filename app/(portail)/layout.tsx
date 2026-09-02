@@ -2,7 +2,7 @@ import Link from "next/link";
 export default function PortailLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-sand flex flex-col">
-      <nav className="bg-white border-b border-clay/20 px-6 py-4 flex items-center justify-between">
+      <nav className="bg-surface border-b border-clay/20 px-6 py-4 flex items-center justify-between">
         <Link href="/" className="text-lg font-bold text-cedar">Kanoo</Link>
         <span className="text-sm text-moss">Espace extérieur</span>
       </nav>

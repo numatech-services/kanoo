@@ -58,8 +58,8 @@ export default function AssoDashboardPage() {
       value: stats?.activeMembers ?? 0, 
       sub: "Membres actifs en base",
       icon: Users, 
-      color: "text-blue-600",
-      bg: "bg-blue-50",
+      color: "text-info",
+      bg: "bg-info-50",
       link: "/associations/membres"
     },
     { 
@@ -67,8 +67,8 @@ export default function AssoDashboardPage() {
       value: loading ? "..." : formatFCFA(stats?.totalContributions || 0), 
       sub: "Collectées cette année",
       icon: CreditCard, 
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
+      color: "text-pos",
+      bg: "bg-pos-50",
       link: "/associations/cotisations"
     },
     { 
@@ -76,8 +76,8 @@ export default function AssoDashboardPage() {
       value: loading ? "..." : formatFCFA(stats?.totalDonations || 0), 
       sub: "Fonds récoltés",
       icon: Heart, 
-      color: "text-purple-600",
-      bg: "bg-purple-50",
+      color: "text-section",
+      bg: "bg-section-soft",
       link: "/associations/dons"
     },
     { 
@@ -85,8 +85,8 @@ export default function AssoDashboardPage() {
       value: stats?.activeProjects ?? 0, 
       sub: "Activités en cours",
       icon: Folder, 
-      color: "text-amber-600",
-      bg: "bg-amber-50",
+      color: "text-warn",
+      bg: "bg-warn-50",
       link: "/associations/projets"
     },
   ];
@@ -108,7 +108,7 @@ export default function AssoDashboardPage() {
       {/* KPI GRID (Bento Style) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiCards.map((card) => (
-          <Link href={card.link} key={card.label} className="bg-white rounded-[2rem] border border-clay/10 p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
+          <Link href={card.link} key={card.label} className="bg-surface rounded-[2rem] border border-clay/10 p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
             <div className="flex flex-col gap-5">
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${card.bg}`}>
                 <card.icon className={`w-6 h-6 ${card.color}`} strokeWidth={2.5} />
@@ -129,7 +129,7 @@ export default function AssoDashboardPage() {
         
         {/* ANALYSE FINANCIÈRE */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-[2.5rem] border border-clay/15 overflow-hidden shadow-sm">
+          <div className="bg-surface rounded-[2.5rem] border border-clay/15 overflow-hidden shadow-sm">
             <div className="px-8 py-6 border-b border-clay/5 flex justify-between items-center bg-sand/5">
               <h2 className="text-[10px] font-black text-ink uppercase tracking-[0.2em] flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-cedar" /> Flux des revenus (FCFA)
@@ -153,7 +153,7 @@ export default function AssoDashboardPage() {
           </div>
 
           {/* DERNIÈRES ACTIVITÉS */}
-          <div className="bg-white rounded-[2.5rem] border border-clay/15 p-8 shadow-sm">
+          <div className="bg-surface rounded-[2.5rem] border border-clay/15 p-8 shadow-sm">
              <h3 className="text-[10px] font-black text-ink uppercase tracking-widest mb-6 flex items-center gap-2">
                 <Activity size={16} className="text-cedar" /> Journal des opérations
              </h3>
@@ -184,8 +184,8 @@ export default function AssoDashboardPage() {
                 
                 <div className="space-y-3">
                     <Link href="/associations/cotisations?status=unpaid" className="flex items-center gap-4 p-4 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
-                        <div className="w-10 h-10 rounded-2xl bg-red-500/20 flex items-center justify-center shrink-0">
-                            <CreditCard className="w-5 h-5 text-red-400" />
+                        <div className="w-10 h-10 rounded-2xl bg-neg/20 flex items-center justify-center shrink-0">
+                            <CreditCard className="w-5 h-5 text-neg" />
                         </div>
                         <div className="flex-1">
                             <p className="text-[10px] font-black uppercase tracking-widest text-white">Retards</p>
@@ -195,8 +195,8 @@ export default function AssoDashboardPage() {
                     </Link>
 
                     <Link href="/associations/assemblee" className="flex items-center gap-4 p-4 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
-                        <div className="w-10 h-10 rounded-2xl bg-blue-500/20 flex items-center justify-center shrink-0">
-                            <Megaphone className="w-5 h-5 text-blue-400" />
+                        <div className="w-10 h-10 rounded-2xl bg-info/20 flex items-center justify-center shrink-0">
+                            <Megaphone className="w-5 h-5 text-info" />
                         </div>
                         <div className="flex-1">
                             <p className="text-[10px] font-black uppercase tracking-widest text-white">Gouvernance</p>
@@ -207,7 +207,7 @@ export default function AssoDashboardPage() {
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-white/10">
-                    <button className="w-full py-4 bg-cedar text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-ink transition-all shadow-lg active:scale-95">
+                    <button className="w-full py-4 bg-cedar text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-surface hover:text-ink transition-all shadow-lg active:scale-95">
                         Exporter Bilan Financier
                     </button>
                 </div>
@@ -218,7 +218,7 @@ export default function AssoDashboardPage() {
           <div className="bg-sand/30 rounded-[2.5rem] border border-clay/10 p-8">
              <p className="text-[10px] font-black text-moss uppercase tracking-widest mb-6 italic">Accès Gouvernance</p>
              <div className="space-y-3">
-                <Link href="/associations/bureau" className="flex items-center justify-between p-4 bg-white rounded-2xl border border-clay/5 hover:border-cedar transition-all group">
+                <Link href="/associations/bureau" className="flex items-center justify-between p-4 bg-surface rounded-2xl border border-clay/5 hover:border-cedar transition-all group">
                     <div className="flex items-center gap-3">
                         <Building2 size={16} className="text-cedar" />
                         <span className="text-[10px] font-black text-ink uppercase">Le Bureau</span>

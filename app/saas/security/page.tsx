@@ -12,9 +12,9 @@ interface Control {
 }
 
 const STYLES: Record<Level, { badge: string; dot: string; text: string }> = {
-  ok:       { badge: "bg-green-50 border-green-200",  dot: "bg-green-600",  text: "text-green-800" },
-  warn:     { badge: "bg-amber-50 border-amber-200",  dot: "bg-amber-500",  text: "text-amber-800" },
-  critical: { badge: "bg-red-50 border-red-200",      dot: "bg-red-600",    text: "text-red-800" },
+  ok:       { badge: "bg-pos-50 border-pos/25",  dot: "bg-pos",  text: "text-pos" },
+  warn:     { badge: "bg-warn-50 border-warn/25",  dot: "bg-warn",  text: "text-warn" },
+  critical: { badge: "bg-neg-50 border-neg/25",      dot: "bg-neg",    text: "text-neg" },
 };
 
 const SUMMARY: Record<Level, string> = {
@@ -60,7 +60,7 @@ export default function SecurityPage() {
       )}
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 text-sm">
+        <div className="p-4 bg-neg-50 border border-neg/25 rounded-xl text-neg text-sm">
           Impossible de relever la posture : {error}
         </div>
       )}
@@ -78,7 +78,7 @@ export default function SecurityPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {controls.map(c => (
-              <div key={c.key} className="bg-white rounded-xl border border-clay/20 p-4">
+              <div key={c.key} className="bg-surface rounded-xl border border-clay/20 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-xs text-moss">{c.label}</p>
                   <span className={`h-2 w-2 rounded-full shrink-0 mt-1 ${STYLES[c.level].dot}`} />

@@ -68,7 +68,7 @@ export function DevisForm({ initial, onSave, onCancel }: DevisFormProps) {
               <option value={0.19}>TVA 19%</option><option value={0.10}>TVA 10%</option><option value={0}>Exo.</option>
             </select>
             <div className="col-span-2 flex items-center justify-end"><span className="font-mono text-sm font-bold">{line.totalTTC.toLocaleString("fr-FR")}</span></div>
-            <button type="button" onClick={()=>lines.length>1&&setLines(p=>p.filter((_,j)=>j!==i))} className="col-span-1 text-moss hover:text-red-500 text-xl">×</button>
+            <button type="button" onClick={()=>lines.length>1&&setLines(p=>p.filter((_,j)=>j!==i))} className="col-span-1 text-moss hover:text-neg text-xl">×</button>
           </div>
         ))}
       </div>

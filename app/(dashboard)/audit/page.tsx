@@ -5,7 +5,7 @@ import { Pagination } from "@/components/ui/Pagination";
 
 interface Log { _id: string; userEmail: string; userRole: string; action: string; resource: string; resourceId?: string; ip?: string; createdAt: string; }
 
-const ACTION_COLORS: Record<string, string> = { CREATE:"bg-green-100 text-green-700", UPDATE:"bg-blue-100 text-blue-700", DELETE:"bg-red-100 text-red-700", LOGIN:"bg-purple-100 text-purple-700", PAYMENT:"bg-amber-100 text-amber-700", APPROVE:"bg-teal-100 text-teal-700", REJECT:"bg-red-100 text-red-700" };
+const ACTION_COLORS: Record<string, string> = { CREATE:"bg-pos-50 text-pos", UPDATE:"bg-info-50 text-info", DELETE:"bg-neg-50 text-neg", LOGIN:"bg-section-soft text-section", PAYMENT:"bg-warn-50 text-warn", APPROVE:"bg-teal-100 text-teal-700", REJECT:"bg-neg-50 text-neg" };
 
 export default function AuditPage() {
   const [mounted, setMounted] = useState(false);
@@ -29,7 +29,7 @@ export default function AuditPage() {
   const columns: Column<Log>[] = [
     { key: "createdAt", label: "Date/heure", render: (v) => <span className="text-xs text-moss">{new Date(String(v)).toLocaleString("fr-FR")}</span> },
     { key: "userEmail", label: "Utilisateur", className: "text-sm" },
-    { key: "action", label: "Action", render: (v) => { const s = String(v); return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ACTION_COLORS[s]||"bg-gray-100 text-gray-600"}`}>{s}</span>; } },
+    { key: "action", label: "Action", render: (v) => { const s = String(v); return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ACTION_COLORS[s]||"bg-surface2 text-ink2"}`}>{s}</span>; } },
     { key: "resource", label: "Ressource", className: "text-sm text-moss" },
     { key: "resourceId", label: "ID ressource", className: "font-mono text-xs text-moss" },
     { key: "ip", label: "IP", className: "font-mono text-xs text-moss" },

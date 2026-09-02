@@ -68,7 +68,7 @@ export default function ClientsPage() {
       render: (v) => {
         const n = Number(v);
         return (
-          <span className={n < 0 ? "text-red-600" : n > 0 ? "text-green-700" : "text-moss"}>
+          <span className={n < 0 ? "text-neg" : n > 0 ? "text-pos" : "text-moss"}>
             {n.toLocaleString("fr-FR")}
           </span>
         );

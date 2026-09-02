@@ -36,8 +36,8 @@ export default function ContractsPage() {
     {key:"clientId",label:"Client",render:(v)=>typeof v==="object"&&v?(v as {name:string}).name:<span className="text-moss">—</span>},
     {key:"amount",label:"Montant (XOF)",className:"text-right font-mono",render:(v)=>Number(v)>0?Number(v).toLocaleString("fr-FR"):"—"},
     {key:"paymentMode",label:"Mode paiement",render:(v)=><span className="text-xs text-moss">{PAYMENT_MODE_LABELS[String(v)]||String(v)}</span>},
-    {key:"isRecurring",label:"Type",render:(v,r)=>v?<span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">{r.billingFrequency}</span>:<span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Ponctuel</span>},
-    {key:"invoiceIds",label:"Factures",render:(v)=>{const arr=v as string[];return arr.length>0?<span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{arr.length} facture{arr.length>1?"s":""}</span>:<span className="text-xs text-moss">0</span>;}},
+    {key:"isRecurring",label:"Type",render:(v,r)=>v?<span className="text-xs bg-section-soft text-section px-2 py-0.5 rounded-full">{r.billingFrequency}</span>:<span className="text-xs bg-surface2 text-ink2 px-2 py-0.5 rounded-full">Ponctuel</span>},
+    {key:"invoiceIds",label:"Factures",render:(v)=>{const arr=v as string[];return arr.length>0?<span className="text-xs bg-info-50 text-info px-2 py-0.5 rounded-full">{arr.length} facture{arr.length>1?"s":""}</span>:<span className="text-xs text-moss">0</span>;}},
     {key:"status",label:"Statut",render:(v)=><StatusBadge status={String(v)}/>},
   ];
 

@@ -77,7 +77,7 @@ export default function OnboardingPage() {
         </div>
         <div><label className={lbl}>Email de l'organisation</label><input type="email" className={inp} value={form.email} onChange={e=>u("email",e.target.value)}/></div>
         <div><label className={lbl}>Adresse</label><input className={inp} value={form.address} onChange={e=>u("address",e.target.value)} placeholder="Niamey, Niger"/></div>
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
+        <div className="p-3 bg-info-50 border border-info/25 rounded-xl text-xs text-info">
           💡 Ces informations apparaîtront sur toutes vos factures et documents officiels.
         </div>
       </div>
@@ -85,7 +85,7 @@ export default function OnboardingPage() {
     2: (
       <div className="space-y-4">
         <div className="p-3 bg-sand rounded-xl text-xs text-moss mb-2">
-          Personnalisez les préfixes de vos documents. Exemple : préfixe <code className="bg-white px-1 rounded">NML</code> → <strong>NML-2025-00001</strong>
+          Personnalisez les préfixes de vos documents. Exemple : préfixe <code className="bg-surface px-1 rounded">NML</code> → <strong>NML-2025-00001</strong>
         </div>
         {[
           ["invoicePrefix","Factures (ex: FAC, INV, NML)","FAC"],
@@ -107,12 +107,12 @@ export default function OnboardingPage() {
     ),
     3: (
       <div className="space-y-4">
-        <div className="flex items-center justify-between p-4 bg-white border border-clay/20 rounded-xl">
+        <div className="flex items-center justify-between p-4 bg-surface border border-clay/20 rounded-xl">
           <div><p className="font-medium text-ink text-sm">TVA Niger (19%)</p><p className="text-xs text-moss mt-0.5">Taxe sur la Valeur Ajoutée — CGI Niger</p></div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" className="sr-only" checked={form.tvaActif} onChange={e=>u("tvaActif",e.target.checked)}/>
             <div className={`w-10 h-5 rounded-full transition-colors ${form.tvaActif?"bg-cedar":"bg-clay/30"}`}>
-              <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 ml-0.5 transition-transform ${form.tvaActif?"translate-x-5":""}`}/>
+              <div className={`w-4 h-4 bg-surface rounded-full shadow mt-0.5 ml-0.5 transition-transform ${form.tvaActif?"translate-x-5":""}`}/>
             </div>
           </label>
         </div>
@@ -127,16 +127,16 @@ export default function OnboardingPage() {
             </select>
           </div>
         )}
-        <div className="flex items-center justify-between p-4 bg-white border border-clay/20 rounded-xl">
+        <div className="flex items-center justify-between p-4 bg-surface border border-clay/20 rounded-xl">
           <div><p className="font-medium text-ink text-sm">CNSS (Caisse Nationale de Sécurité Sociale)</p><p className="text-xs text-moss mt-0.5">3,6% salarié + 16,4% patronal</p></div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" className="sr-only" checked={form.cnssActif} onChange={e=>u("cnssActif",e.target.checked)}/>
             <div className={`w-10 h-5 rounded-full transition-colors ${form.cnssActif?"bg-cedar":"bg-clay/30"}`}>
-              <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 ml-0.5 transition-transform ${form.cnssActif?"translate-x-5":""}`}/>
+              <div className={`w-4 h-4 bg-surface rounded-full shadow mt-0.5 ml-0.5 transition-transform ${form.cnssActif?"translate-x-5":""}`}/>
             </div>
           </label>
         </div>
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+        <div className="p-3 bg-warn-50 border border-warn/25 rounded-xl text-xs text-warn">
           ⚠ Ces paramètres affectent les calculs fiscaux automatiques. Vous pouvez les modifier à tout moment dans <strong>Fiscalité → Paramètres</strong>.
         </div>
       </div>
@@ -149,7 +149,7 @@ export default function OnboardingPage() {
         <div><label className={lbl}>Banque principale</label><input className={inp} value={form.bankName} onChange={e=>u("bankName",e.target.value)} placeholder="BIA Niger, Coris Bank, Ecobank…"/></div>
         <div><label className={lbl}>N° de compte</label><input className={inp} value={form.bankAccount} onChange={e=>u("bankAccount",e.target.value)} placeholder="XXXXXXXXXXXX"/></div>
         <div><label className={lbl}>Solde de départ (XOF)</label><input type="number" className={inp} value={form.bankBalance} onChange={e=>u("bankBalance",Number(e.target.value))} min={0}/></div>
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
+        <div className="p-3 bg-info-50 border border-info/25 rounded-xl text-xs text-info">
           💡 Vous pouvez ajouter d'autres comptes (caisse, mobile money) depuis <strong>Trésorerie</strong> après l'onboarding.
         </div>
       </div>
@@ -174,7 +174,7 @@ export default function OnboardingPage() {
           </button>
         </div>
         {form.importClients && (
-          <div className="p-4 bg-white border border-clay/20 rounded-xl">
+          <div className="p-4 bg-surface border border-clay/20 rounded-xl">
             <p className="text-sm font-medium text-ink mb-2">Format CSV attendu :</p>
             <code className="text-xs bg-sand px-3 py-2 rounded-lg block font-mono">nom,email,telephone,nif,adresse</code>
             <p className="text-xs text-moss mt-2">Vous pourrez importer votre fichier depuis <strong>Clients → Importer</strong> après l'onboarding.</p>
@@ -184,9 +184,9 @@ export default function OnboardingPage() {
     ),
     6: (
       <div className="space-y-5">
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-          <p className="font-semibold text-green-800">🎉 Configuration terminée !</p>
-          <p className="text-sm text-green-700 mt-1">Votre organisation est prête. Voici les ressources pour démarrer rapidement.</p>
+        <div className="bg-pos-50 border border-pos/25 rounded-xl p-4">
+          <p className="font-semibold text-pos">🎉 Configuration terminée !</p>
+          <p className="text-sm text-pos mt-1">Votre organisation est prête. Voici les ressources pour démarrer rapidement.</p>
         </div>
 
         {/* Vidéos de formation */}
@@ -195,8 +195,8 @@ export default function OnboardingPage() {
           <div className="grid grid-cols-2 gap-3">
             {VIDEO_LINKS.map(v => (
               <a key={v.label} href={v.url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-white border border-clay/20 rounded-xl hover:border-cedar/40 transition-colors">
-                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-sm flex-shrink-0">▶️</div>
+                className="flex items-center gap-3 p-3 bg-surface border border-clay/20 rounded-xl hover:border-cedar/40 transition-colors">
+                <div className="w-8 h-8 bg-neg-50 rounded-lg flex items-center justify-center text-sm flex-shrink-0">▶️</div>
                 <div><p className="text-xs font-medium text-ink">{v.label}</p><p className="text-xs text-moss">{v.duration}</p></div>
               </a>
             ))}
@@ -209,7 +209,7 @@ export default function OnboardingPage() {
           <div className="grid grid-cols-2 gap-3">
             {GUIDE_LINKS.map(g => (
               <a key={g.label} href={g.href} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-white border border-clay/20 rounded-xl hover:border-cedar/40 transition-colors">
+                className="flex items-center gap-3 p-3 bg-surface border border-clay/20 rounded-xl hover:border-cedar/40 transition-colors">
                 <span className="text-lg">{g.icon}</span>
                 <p className="text-xs font-medium text-ink">{g.label}</p>
               </a>
@@ -226,7 +226,7 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        <div className="p-4 bg-white border border-clay/20 rounded-xl">
+        <div className="p-4 bg-surface border border-clay/20 rounded-xl">
           <p className="text-xs font-semibold text-moss uppercase tracking-wide mb-3">Récapitulatif de votre configuration</p>
           <dl className="space-y-1.5 text-xs">
             {[
@@ -260,7 +260,7 @@ export default function OnboardingPage() {
         </div>
 
         {/* Barre de progression */}
-        <div className="h-2 bg-white border border-clay/20 rounded-full mb-6 overflow-hidden">
+        <div className="h-2 bg-surface border border-clay/20 rounded-full mb-6 overflow-hidden">
           <div className="h-2 bg-cedar rounded-full transition-all duration-500" style={{ width:`${progress}%` }}/>
         </div>
 
@@ -269,7 +269,7 @@ export default function OnboardingPage() {
           {STEPS.map(s => (
             <button key={s.id} onClick={() => completed.has(s.id) ? setStep(s.id) : undefined}
               className={`flex flex-col items-center text-center ${s.id === step ? "opacity-100" : completed.has(s.id) ? "opacity-80 cursor-pointer" : "opacity-30"}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm mb-1 ${s.id === step ? "bg-cedar text-white" : completed.has(s.id) ? "bg-green-500 text-white" : "bg-white border border-clay/30 text-moss"}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm mb-1 ${s.id === step ? "bg-cedar text-white" : completed.has(s.id) ? "bg-pos text-white" : "bg-surface border border-clay/30 text-moss"}`}>
                 {completed.has(s.id) ? "✓" : s.icon}
               </div>
               <p className="text-xs text-moss hidden sm:block">{s.title.split(" ")[0]}</p>
@@ -278,7 +278,7 @@ export default function OnboardingPage() {
         </div>
 
         {/* Carte étape */}
-        <div className="bg-white rounded-2xl border border-clay/20 p-6 shadow-sm">
+        <div className="bg-surface rounded-2xl border border-clay/20 p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-5">
             <span className="text-2xl">{STEPS[step-1].icon}</span>
             <div>
@@ -293,7 +293,7 @@ export default function OnboardingPage() {
         <div className="flex gap-3 mt-4">
           {step > 1 && (
             <button onClick={() => setStep(s => s - 1)}
-              className="px-5 py-3 border border-clay/30 rounded-xl text-sm text-moss hover:bg-white transition-colors">
+              className="px-5 py-3 border border-clay/30 rounded-xl text-sm text-moss hover:bg-surface transition-colors">
               ← Retour
             </button>
           )}

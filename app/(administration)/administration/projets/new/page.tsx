@@ -12,7 +12,7 @@ export default function NewProjetAdminPage() {
   return (
     <div className="max-w-2xl space-y-5">
       <div><a href="/administration/projets" className="text-xs text-moss hover:text-ink">← Projets</a><h1 className="text-2xl font-bold text-ink mt-1">Nouveau projet public</h1></div>
-      <div className="bg-white rounded-2xl border border-clay/20 p-6"><ProjectForm onSave={handleSave} onCancel={() => router.push("/administration/projets")}/></div>
+      <div className="bg-surface rounded-2xl border border-clay/20 p-6"><ProjectForm onSave={handleSave} onCancel={() => router.push("/administration/projets")}/></div>
     </div>
   );
 }

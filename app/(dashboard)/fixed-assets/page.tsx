@@ -84,14 +84,14 @@ export default function FixedAssetsPage() {
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Valeur d'acquisition</p><p className="text-xl font-bold font-mono text-ink mt-1">{((stats.totalAcquisitionCost||0)/1_000_000).toFixed(1)}M XOF</p></div>
-        <div className="bg-white rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Valeur nette comptable</p><p className="text-xl font-bold font-mono text-green-700 mt-1">{((stats.totalNetValue||0)/1_000_000).toFixed(1)}M XOF</p></div>
-        <div className="bg-white rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Amortissements cumulés</p><p className="text-xl font-bold font-mono text-amber-700 mt-1">{(totalDepreciation/1_000_000).toFixed(1)}M XOF</p><div className="mt-2 h-1.5 bg-sand rounded-full"><div className="h-1.5 bg-amber-400 rounded-full" style={{width:`${depRate}%`}}/></div></div>
-        <div className="bg-white rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Immobilisations actives</p><p className="text-xl font-bold text-ink mt-1">{stats.count || 0}</p></div>
+        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Valeur d'acquisition</p><p className="text-xl font-bold font-mono text-ink mt-1">{((stats.totalAcquisitionCost||0)/1_000_000).toFixed(1)}M XOF</p></div>
+        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Valeur nette comptable</p><p className="text-xl font-bold font-mono text-pos mt-1">{((stats.totalNetValue||0)/1_000_000).toFixed(1)}M XOF</p></div>
+        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Amortissements cumulés</p><p className="text-xl font-bold font-mono text-warn mt-1">{(totalDepreciation/1_000_000).toFixed(1)}M XOF</p><div className="mt-2 h-1.5 bg-sand rounded-full"><div className="h-1.5 bg-warn rounded-full" style={{width:`${depRate}%`}}/></div></div>
+        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Immobilisations actives</p><p className="text-xl font-bold text-ink mt-1">{stats.count || 0}</p></div>
       </div>
 
-      {loading ? <div className="h-48 bg-white rounded-xl animate-pulse border border-clay/20"/> : (
-        <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+      {loading ? <div className="h-48 bg-surface rounded-xl animate-pulse border border-clay/20"/> : (
+        <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
           <div className="px-5 py-3 border-b border-clay/10 flex justify-between items-center">
             <p className="font-semibold text-ink text-sm">Liste des immobilisations</p>
           </div>
@@ -106,7 +106,7 @@ export default function FixedAssetsPage() {
                   <td className="px-3 py-3 text-xs text-moss">{CAT_LABELS[a.category]||a.category}</td>
                   <td className="px-3 py-3 text-right font-mono">{a.acquisitionCost.toLocaleString("fr-FR")}</td>
                   <td className="px-3 py-3 text-right font-mono font-medium">{(a.currentNetValue||a.acquisitionCost).toLocaleString("fr-FR")}</td>
-                  <td className="px-3 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${a.status==="active"?"bg-green-100 text-green-700":a.status==="fully_depreciated"?"bg-gray-100 text-gray-500":"bg-red-100 text-red-600"}`}>{a.status==="active"?"Actif":a.status==="fully_depreciated"?"Amorti":"Cédé"}</span></td>
+                  <td className="px-3 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${a.status==="active"?"bg-pos-50 text-pos":a.status==="fully_depreciated"?"bg-surface2 text-ink3":"bg-neg-50 text-neg"}`}>{a.status==="active"?"Actif":a.status==="fully_depreciated"?"Amorti":"Cédé"}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -116,7 +116,7 @@ export default function FixedAssetsPage() {
 
       {/* Plan d'amortissement inline */}
       {selectedAsset && (
-        <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+        <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
           <div className="px-5 py-3 border-b border-clay/10 bg-sand">
             <p className="font-semibold text-ink text-sm">{selectedAsset.name} — Plan d'amortissement ({selectedAsset.depreciationMethod === "linear" ? "Linéaire" : "Dégressif"})</p>
             <p className="text-xs text-moss">{selectedAsset.acquisitionCost.toLocaleString("fr-FR")} XOF · {selectedAsset.usefulLifeYears} ans</p>
@@ -125,14 +125,14 @@ export default function FixedAssetsPage() {
             <thead><tr className="bg-sand/50"><th className="px-4 py-2 text-xs text-moss font-medium text-left">Année</th><th className="px-4 py-2 text-xs text-moss font-medium text-right">Dotation</th><th className="px-4 py-2 text-xs text-moss font-medium text-right">Cumul</th><th className="px-4 py-2 text-xs text-moss font-medium text-right">VNC</th><th className="px-4 py-2 text-xs text-moss font-medium text-center w-36">Action</th></tr></thead>
             <tbody>
               {selectedAsset.depreciationSchedule.map(entry => (
-                <tr key={entry.year} className={`border-t border-clay/10 ${entry.year === currentYear ? "bg-blue-50/40" : ""}`}>
-                  <td className="px-4 py-2.5 font-medium">{entry.year}{entry.year === currentYear && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">En cours</span>}</td>
+                <tr key={entry.year} className={`border-t border-clay/10 ${entry.year === currentYear ? "bg-info-50/40" : ""}`}>
+                  <td className="px-4 py-2.5 font-medium">{entry.year}{entry.year === currentYear && <span className="ml-2 text-xs bg-info-50 text-info px-1.5 py-0.5 rounded">En cours</span>}</td>
                   <td className="px-4 py-2.5 text-right font-mono">{entry.annuity.toLocaleString("fr-FR")}</td>
-                  <td className="px-4 py-2.5 text-right font-mono text-amber-700">{entry.cumulative.toLocaleString("fr-FR")}</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-warn">{entry.cumulative.toLocaleString("fr-FR")}</td>
                   <td className="px-4 py-2.5 text-right font-mono font-medium">{entry.netValue.toLocaleString("fr-FR")}</td>
                   <td className="px-4 py-2.5 text-center">
                     {entry.posted
-                      ? <span className="text-xs text-green-700">✅ Comptabilisé</span>
+                      ? <span className="text-xs text-pos">✅ Comptabilisé</span>
                       : entry.year <= currentYear
                       ? <button onClick={() => handlePostDepreciation(selectedAsset._id, entry.year)} disabled={postingYear === entry.year}
                           className="text-xs bg-cedar text-white px-3 py-1 rounded-lg hover:bg-ink disabled:opacity-60">

@@ -20,12 +20,12 @@ export function FormField({ label, required, error, hint, children, className = 
       </label>
       {children}
       {hint && !error && <p className="text-xs text-moss/70">{hint}</p>}
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-neg">{error}</p>}
     </div>
   );
 }
 
 // Shared input/select class strings for consistency across forms
-export const inputCls = "w-full px-3 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30 bg-white disabled:bg-sand disabled:text-moss";
+export const inputCls = "w-full px-3 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30 bg-surface disabled:bg-sand disabled:text-moss";
 export const selectCls = inputCls;
 export const textareaCls = `${inputCls} resize-y`;

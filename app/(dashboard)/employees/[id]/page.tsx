@@ -30,7 +30,7 @@ export default function EmployeeDetailPage() {
     setEditOpen(false);
   }
 
-  if (!item) return <div className="p-6"><div className="h-48 bg-white rounded-xl animate-pulse border border-clay/20" /></div>;
+  if (!item) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-clay/20" /></div>;
 
   return (
     <div className="space-y-5 max-w-3xl">
@@ -42,7 +42,7 @@ export default function EmployeeDetailPage() {
         </div>
         <button onClick={()=>setEditOpen(true)} className="mt-2 px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">Modifier</button>
       </div>
-      <div className="bg-white rounded-xl border border-clay/20 p-5">
+      <div className="bg-surface rounded-xl border border-clay/20 p-5">
         <div className="space-y-2">
           {Object.entries(item).filter(([k]) => !["_id","tenantId","__v","createdAt","updatedAt","lines","approvers","decisions","attendees"].includes(k)).map(([k, v]) => {
             if (v === null || v === undefined) return null;

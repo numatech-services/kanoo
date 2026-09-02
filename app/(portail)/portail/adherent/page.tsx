@@ -26,7 +26,7 @@ export default function PortailAdherentPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="space-y-4">{[1,2,3].map(i=><div key={i} className="h-24 bg-white rounded-xl animate-pulse border border-clay/20"/>)}</div>;
+  if (loading) return <div className="space-y-4">{[1,2,3].map(i=><div key={i} className="h-24 bg-surface rounded-xl animate-pulse border border-clay/20"/>)}</div>;
 
   if (error) return (
     <div className="text-center py-20">
@@ -54,18 +54,18 @@ export default function PortailAdherentPage() {
 
       {/* Cotisations */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-clay/20 p-5">
+        <div className="bg-surface rounded-xl border border-clay/20 p-5">
           <p className="text-xs text-moss uppercase font-semibold mb-1">Cotisations payées</p>
-          <p className="text-3xl font-bold text-green-700">{data.cotisationsPaid}</p>
+          <p className="text-3xl font-bold text-pos">{data.cotisationsPaid}</p>
         </div>
-        <div className={`rounded-xl border p-5 ${data.cotisationsPending>0?"bg-amber-50 border-amber-200":"bg-white border-clay/20"}`}>
+        <div className={`rounded-xl border p-5 ${data.cotisationsPending>0?"bg-warn-50 border-warn/25":"bg-surface border-clay/20"}`}>
           <p className="text-xs text-moss uppercase font-semibold mb-1">En attente</p>
-          <p className={`text-3xl font-bold ${data.cotisationsPending>0?"text-amber-600":"text-green-700"}`}>{data.cotisationsPending}</p>
+          <p className={`text-3xl font-bold ${data.cotisationsPending>0?"text-warn":"text-pos"}`}>{data.cotisationsPending}</p>
         </div>
       </div>
 
       {/* Dernières cotisations */}
-      <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
         <div className="px-5 py-4 border-b border-clay/10 flex justify-between items-center">
           <h2 className="font-semibold text-ink">Historique des cotisations</h2>
           <Link href="/portail/adherent/cotisations" className="text-xs text-cedar hover:underline">Voir tout →</Link>
@@ -76,8 +76,8 @@ export default function PortailAdherentPage() {
             <div className="text-right">
               <p className="font-mono font-bold">{c.amount.toLocaleString("fr-FR")} XOF</p>
               {c.paidAt
-                ? <span className="text-xs text-green-700">✅ Payée le {new Date(c.paidAt).toLocaleDateString("fr-FR")}</span>
-                : <span className="text-xs text-amber-600">⏳ En attente</span>
+                ? <span className="text-xs text-pos">✅ Payée le {new Date(c.paidAt).toLocaleDateString("fr-FR")}</span>
+                : <span className="text-xs text-warn">⏳ En attente</span>
               }
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function PortailAdherentPage() {
 
       {/* Prochaines assemblées */}
       {data.assemblees.length > 0 && (
-        <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+        <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
           <h2 className="font-semibold text-ink px-5 py-4 border-b border-clay/10">Prochaines assemblées</h2>
           {data.assemblees.map(a => (
             <div key={a._id} className="px-5 py-3 border-b border-clay/10 last:border-0">

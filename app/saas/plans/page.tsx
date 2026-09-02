@@ -111,7 +111,7 @@ export default function PlansPage() {
           {plans.map((p) => (
             <div 
               key={p.code} 
-              className={`bg-white rounded-[2rem] border-2 p-6 flex flex-col justify-between transition-all ${
+              className={`bg-surface rounded-[2rem] border-2 p-6 flex flex-col justify-between transition-all ${
                 p.highlighted ? "border-cedar shadow-xl scale-[1.02]" : "border-clay/10 shadow-sm"
               }`}
             >
@@ -133,7 +133,7 @@ export default function PlansPage() {
                 <ul className="space-y-2 mb-6">
                   {p.features.map((f, i) => (
                     <li key={i} className="text-xs text-ink flex items-start gap-2 font-medium">
-                      <span className="text-green-500 font-bold">✓</span> {f}
+                      <span className="text-pos font-bold">✓</span> {f}
                     </li>
                   ))}
                 </ul>
@@ -188,7 +188,7 @@ export default function PlansPage() {
 
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase text-moss ml-1">Type de cible</label>
-            <select name="targetType" defaultValue={selectedPlan?.targetType} className="w-full p-3 border rounded-xl text-sm bg-white">
+            <select name="targetType" defaultValue={selectedPlan?.targetType} className="w-full p-3 border rounded-xl text-sm bg-surface">
               <option value="pme">PME / Entreprise</option>
               <option value="association">Association</option>
               <option value="administration">Administration</option>

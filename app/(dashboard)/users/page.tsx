@@ -99,7 +99,7 @@ export default function UsersPage() {
       render: (_v, r) => (
         <button 
           onClick={() => handleRevokeSession(r._id, `${r.firstName} ${r.lastName}`)}
-          className="text-xs text-red-600 hover:text-red-800 font-medium"
+          className="text-xs text-neg hover:text-neg font-medium"
         >
           Révoquer session
         </button>

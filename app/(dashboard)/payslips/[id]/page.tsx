@@ -61,8 +61,8 @@ export default function PayslipDetailPage() {
   }
 
   if (!mounted) return null;
-  if (loading) return <div className="p-6"><div className="h-64 bg-white rounded-xl animate-pulse border border-clay/20"/></div>;
-  if (!payslip) return <div className="p-6 text-moss font-medium text-center bg-white rounded-xl border border-clay/10">Bulletin introuvable</div>;
+  if (loading) return <div className="p-6"><div className="h-64 bg-surface rounded-xl animate-pulse border border-clay/20"/></div>;
+  if (!payslip) return <div className="p-6 text-moss font-medium text-center bg-surface rounded-xl border border-clay/10">Bulletin introuvable</div>;
 
   const emp = payslip.employeeId;
 
@@ -81,7 +81,7 @@ export default function PayslipDetailPage() {
         <div className="flex gap-3">
           <button 
             onClick={() => window.print()} 
-            className="px-5 py-2.5 bg-white border border-clay/30 rounded-xl text-sm font-bold text-ink hover:bg-sand transition-all shadow-sm flex items-center gap-2"
+            className="px-5 py-2.5 bg-surface border border-clay/30 rounded-xl text-sm font-bold text-ink hover:bg-sand transition-all shadow-sm flex items-center gap-2"
           >
             <span>🖨️</span> Imprimer
           </button>
@@ -90,12 +90,12 @@ export default function PayslipDetailPage() {
             <button 
               onClick={handlePay} 
               disabled={paying} 
-              className="px-5 py-2.5 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 disabled:opacity-50 shadow-md transition-all"
+              className="px-5 py-2.5 bg-pos text-white rounded-xl text-sm font-bold hover:brightness-95 disabled:opacity-50 shadow-md transition-all"
             >
               {paying ? "Paiement en cours..." : "💳 Marquer comme payé"}
             </button>
           ) : (
-            <div className="px-5 py-2.5 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm font-bold flex items-center gap-2">
+            <div className="px-5 py-2.5 bg-pos-50 border border-pos/25 text-pos rounded-xl text-sm font-bold flex items-center gap-2">
               <span>✅</span> Payé le {payslip.paidAt ? new Date(payslip.paidAt).toLocaleDateString("fr-FR") : "—"}
             </div>
           )}
@@ -103,7 +103,7 @@ export default function PayslipDetailPage() {
       </div>
 
       {/* Le Bulletin (Partie imprimable) */}
-      <div className="bg-white rounded-2xl border border-clay/20 shadow-xl overflow-hidden print:border-none print:shadow-none" id="payslip-to-print">
+      <div className="bg-surface rounded-2xl border border-clay/20 shadow-xl overflow-hidden print:border-none print:shadow-none" id="payslip-to-print">
         {/* En-tête Entreprise */}
         <div className="bg-cedar text-white p-8 flex justify-between items-center">
           <div>
@@ -127,7 +127,7 @@ export default function PayslipDetailPage() {
               <p className="text-moss">République du Niger</p>
             </div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-clay/10 shadow-sm">
+          <div className="bg-surface p-4 rounded-xl border border-clay/10 shadow-sm">
             <p className="text-[10px] font-bold text-moss uppercase tracking-widest mb-3">Salarié</p>
             {emp ? (
               <div className="text-sm space-y-1">
@@ -138,14 +138,14 @@ export default function PayslipDetailPage() {
                 {emp.bankAccount && <p className="text-moss text-xs truncate">RIB: {emp.bankAccount}</p>}
               </div>
             ) : (
-              <p className="text-red-500 italic text-sm">Infos employé manquantes</p>
+              <p className="text-neg italic text-sm">Infos employé manquantes</p>
             )}
           </div>
         </div>
 
         {/* Corps du bulletin */}
         <div className="p-8">
-          <table className="w-full">
+          <table className="table-dense">
             <thead>
               <tr className="border-b-2 border-clay/20 text-[11px] font-bold text-moss uppercase tracking-wider text-left">
                 <th className="pb-3">Désignation</th>
@@ -164,7 +164,7 @@ export default function PayslipDetailPage() {
                 <tr className="border-b border-clay/10 text-moss">
                   <td className="py-3 pl-4">Cotisation CNSS Salariale (3.6%)</td>
                   <td className="py-3 text-right font-mono">—</td>
-                  <td className="py-3 text-right font-mono text-red-600">-{payslip.cnssEmployee.toLocaleString("fr-FR")}</td>
+                  <td className="py-3 text-right font-mono text-neg">-{payslip.cnssEmployee.toLocaleString("fr-FR")}</td>
                 </tr>
               )}
 
@@ -172,7 +172,7 @@ export default function PayslipDetailPage() {
                 <tr className="border-b border-clay/10 text-moss">
                   <td className="py-3 pl-4">Autres retenues / Avances</td>
                   <td className="py-3 text-right font-mono">—</td>
-                  <td className="py-3 text-right font-mono text-red-600">-{payslip.otherDeductions.toLocaleString("fr-FR")}</td>
+                  <td className="py-3 text-right font-mono text-neg">-{payslip.otherDeductions.toLocaleString("fr-FR")}</td>
                 </tr>
               )}
             </tbody>
@@ -192,7 +192,7 @@ export default function PayslipDetailPage() {
         {/* Pied de page / Mentions légales */}
         <div className="p-8 bg-sand/10 border-t border-clay/10 flex justify-between items-end">
           <div className="space-y-4">
-            <div className="p-3 bg-white border border-clay/20 rounded-lg inline-block">
+            <div className="p-3 bg-surface border border-clay/20 rounded-lg inline-block">
                <p className="text-[10px] font-bold text-moss uppercase mb-1">Cotisations Patronales (Info)</p>
                <p className="text-xs font-mono">CNSS Employeur (16.4%): {payslip.cnssEmployer.toLocaleString("fr-FR")} XOF</p>
             </div>

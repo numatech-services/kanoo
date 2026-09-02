@@ -24,7 +24,7 @@ export default function PortailFournisseurPage() {
       .catch(()=>setError("Connexion impossible")).finally(()=>setLoading(false));
   }, []);
 
-  if (loading) return <div className="space-y-4">{[1,2,3].map(i=><div key={i} className="h-24 bg-white rounded-xl animate-pulse border border-clay/20"/>)}</div>;
+  if (loading) return <div className="space-y-4">{[1,2,3].map(i=><div key={i} className="h-24 bg-surface rounded-xl animate-pulse border border-clay/20"/>)}</div>;
 
   if (error) return (
     <div className="text-center py-20">
@@ -56,9 +56,9 @@ export default function PortailFournisseurPage() {
           <Link href="/portail/fournisseur/appels-offres" className="text-xs text-cedar hover:underline">Voir tout →</Link>
         </div>
         {data.openTenders.length === 0
-          ? <div className="bg-white rounded-xl border border-clay/20 p-8 text-center text-moss text-sm">Aucun appel d'offres en cours</div>
+          ? <div className="bg-surface rounded-xl border border-clay/20 p-8 text-center text-moss text-sm">Aucun appel d'offres en cours</div>
           : data.openTenders.map(t => (
-            <div key={t._id} className="bg-white rounded-xl border border-clay/20 p-4 mb-3">
+            <div key={t._id} className="bg-surface rounded-xl border border-clay/20 p-4 mb-3">
               <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0">
                   <p className="font-mono text-xs text-cedar">{t.reference}</p>
@@ -81,12 +81,12 @@ export default function PortailFournisseurPage() {
 
       {/* Contrats */}
       {data.contracts.length > 0 && (
-        <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+        <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
           <h2 className="font-semibold text-ink px-5 py-4 border-b border-clay/10">Mes contrats</h2>
           {data.contracts.map(c => (
             <div key={c._id} className="flex items-center justify-between px-5 py-3 border-b border-clay/10 last:border-0">
               <div><p className="font-mono text-xs text-cedar">{c.reference}</p><p className="text-sm font-medium text-ink">{c.title}</p></div>
-              <div className="text-right"><p className="font-mono text-sm">{c.amount?.toLocaleString("fr-FR")} XOF</p><span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{c.status}</span></div>
+              <div className="text-right"><p className="font-mono text-sm">{c.amount?.toLocaleString("fr-FR")} XOF</p><span className="text-xs bg-pos-50 text-pos px-2 py-0.5 rounded-full">{c.status}</span></div>
             </div>
           ))}
         </div>

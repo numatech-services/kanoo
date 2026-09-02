@@ -25,7 +25,7 @@ export default function GlobalError({ error, reset }: ErrorProps) {
           Une erreur inattendue s'est produite. Nos équipes ont été notifiées.
         </p>
         {error.digest && (
-          <p className="text-xs font-mono text-moss/60 mt-2 bg-white border border-clay/20 rounded-lg px-3 py-1.5 inline-block">
+          <p className="text-xs font-mono text-moss/60 mt-2 bg-surface border border-clay/20 rounded-lg px-3 py-1.5 inline-block">
             Réf. : {error.digest}
           </p>
         )}
@@ -38,7 +38,7 @@ export default function GlobalError({ error, reset }: ErrorProps) {
           </button>
           <Link
             href="/dashboard"
-            className="px-6 py-3 border border-clay/30 text-moss rounded-xl font-medium hover:bg-white transition-colors"
+            className="px-6 py-3 border border-clay/30 text-moss rounded-xl font-medium hover:bg-surface transition-colors"
           >
             Tableau de bord
           </Link>

@@ -126,7 +126,7 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
         </FormField>
         
         <FormField label="Statut">
-          <select className={selectCls + " font-bold " + (status === 'received' ? 'text-green-600' : '')} 
+          <select className={selectCls + " font-bold " + (status === 'received' ? 'text-pos' : '')} 
                   value={status} onChange={e=>setStatus(e.target.value)}>
             <option value="draft">Brouillon</option>
             <option value="confirmed">Confirmé</option>
@@ -168,7 +168,7 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
             </div>
             
             <button type="button" onClick={()=>lines.length>1&&setLines(p=>p.filter((_,j)=>j!==i))} 
-                    className="text-moss hover:text-red-500 font-bold text-center">×</button>
+                    className="text-moss hover:text-neg font-bold text-center">×</button>
           </div>
         ))}
       </div>

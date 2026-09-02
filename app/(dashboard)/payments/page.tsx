@@ -88,7 +88,7 @@ export default function PaymentsPage() {
     { 
       key: "amount", 
       label: "Montant", 
-      className: "font-mono font-bold text-green-700 text-right",
+      className: "font-mono font-bold text-pos text-right",
       render: (v) => `${Number(v).toLocaleString("fr-FR")} XOF` 
     },
     { 
@@ -109,7 +109,7 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-clay/20 overflow-hidden shadow-sm">
+      <div className="bg-surface rounded-2xl border border-clay/20 overflow-hidden shadow-sm">
         <DataTable 
           columns={columns} 
           data={items} 

@@ -145,13 +145,13 @@ export default function MarchesPublicsPage() {
       </div>
 
       {/* Seuils Niger */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800 shadow-sm">
+      <div className="bg-warn-50 border border-warn/25 rounded-xl p-3 text-[11px] text-warn shadow-sm">
         <strong>Seuils Niger :</strong> &lt; 5M = Achat direct — 5M–30M = Restreinte — 30M–100M = AO ouvert — &gt; 100M = Publicité nationale
       </div>
 
       {/* Filtre de Statut */}
       <div className="flex justify-end">
-        <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }} className="px-3 py-2 border border-clay/30 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-cedar/20">
+        <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }} className="px-3 py-2 border border-clay/30 rounded-lg text-sm bg-surface outline-none focus:ring-2 focus:ring-cedar/20">
             <option value="">Tous les statuts</option>
             {["planning","published","evaluation","attributed","cancelled"].map(s=>(
                 <option key={s} value={s}>{s.replace(/_/g," ").toUpperCase()}</option>
@@ -160,7 +160,7 @@ export default function MarchesPublicsPage() {
       </div>
 
       {/* Tableau */}
-      <div className="bg-white rounded-2xl border border-clay/10 shadow-sm overflow-x-auto transition-all">
+      <div className="bg-surface rounded-2xl border border-clay/10 shadow-sm overflow-x-auto transition-all">
         <DataTable 
           columns={columns} 
           data={tenders} 

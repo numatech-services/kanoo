@@ -72,7 +72,7 @@ export function SearchCommand() {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
       <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-      <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="relative w-full max-w-xl bg-surface rounded-2xl shadow-xl overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-clay/20">
           <span className="text-moss">🔍</span>
           <input

@@ -77,7 +77,7 @@ export default function ConfidentialitePage() {
                 onClick={() => toggle(c.key, !consents[c.key])}
                 className={`relative w-11 h-6 rounded-full transition-colors flex-none ${consents[c.key] ? "bg-accent" : "bg-line2"}`}
               >
-                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${consents[c.key] ? "translate-x-6" : "translate-x-1"}`} />
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-surface transition-transform ${consents[c.key] ? "translate-x-6" : "translate-x-1"}`} />
               </button>
             </div>
           ))}

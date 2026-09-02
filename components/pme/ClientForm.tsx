@@ -66,7 +66,7 @@ export function ClientForm({ initial, onSave, onCancel }: ClientFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="p-3 bg-neg-50 border border-neg/25 rounded-lg text-neg text-sm">
           {error}
         </div>
       )}

@@ -84,7 +84,7 @@ export default function NewDeliveryPage() {
         <ArrowLeft className="w-4 h-4 mr-1" /> Retour
       </button>
 
-      <div className="bg-white rounded-2xl border border-clay/20 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-clay/20 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-clay/10 bg-sand/5">
           <h1 className="text-xl font-bold text-ink">Nouveau Bon de Livraison</h1>
           <p className="text-sm text-moss">Créez un BL à partir d'une facture existante</p>
@@ -123,10 +123,10 @@ export default function NewDeliveryPage() {
 
           {/* Info Client (Lecture seule) */}
           {form.clientName && (
-            <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
-              <p className="text-xs text-emerald-700 font-bold uppercase">Client lié</p>
-              <p className="text-sm font-semibold text-emerald-900">{form.clientName}</p>
-              <p className="text-xs text-emerald-600 mt-1">{form.deliveryAddress}</p>
+            <div className="p-4 bg-pos-50 border border-pos/25 rounded-xl">
+              <p className="text-xs text-pos font-bold uppercase">Client lié</p>
+              <p className="text-sm font-semibold text-pos">{form.clientName}</p>
+              <p className="text-xs text-pos mt-1">{form.deliveryAddress}</p>
             </div>
           )}
 
@@ -136,7 +136,7 @@ export default function NewDeliveryPage() {
               <Package className="w-4 h-4" /> Articles à livrer
             </h3>
             <div className="border border-clay/10 rounded-xl overflow-hidden">
-              <table className="w-full text-sm text-left">
+              <table className="table-dense">
                 <thead className="bg-sand/30 text-moss text-[10px] uppercase font-bold">
                   <tr>
                     <th className="px-4 py-2">Description</th>

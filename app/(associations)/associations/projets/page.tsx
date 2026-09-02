@@ -19,11 +19,11 @@ const STATUS_FR: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = { 
-  planning: "bg-gray-100 text-gray-600", active: "bg-blue-100 text-blue-700", on_hold: "bg-amber-100 text-amber-700", completed: "bg-green-100 text-green-700", cancelled: "bg-red-100 text-red-600" 
+  planning: "bg-surface2 text-ink2", active: "bg-info-50 text-info", on_hold: "bg-warn-50 text-warn", completed: "bg-pos-50 text-pos", cancelled: "bg-neg-50 text-neg" 
 };
 
 // Fonction pour déterminer la couleur de la barre
-const getExecColor = (r: number) => r >= 80 ? "bg-green-500" : r >= 40 ? "bg-amber-400" : "bg-red-400";
+const getExecColor = (r: number) => r >= 80 ? "bg-pos" : r >= 40 ? "bg-warn" : "bg-neg";
 
 export default function ProjetsONGPage() {
   const router = useRouter();
@@ -74,27 +74,27 @@ export default function ProjetsONGPage() {
       {/* Ces trois totaux étaient calculés puis jetés : la page ne les affichait
           nulle part. */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-clay/20 p-4">
+        <div className="bg-surface rounded-xl border border-clay/20 p-4">
           <p className="text-xs text-moss">Budget cumulé{statusFilter ? " (filtré)" : ""}</p>
           <p className="text-xl font-bold text-ink mt-1 tabular-nums">{xof(totalBudget)}</p>
         </div>
-        <div className="bg-white rounded-xl border border-clay/20 p-4">
+        <div className="bg-surface rounded-xl border border-clay/20 p-4">
           <p className="text-xs text-moss">Dépensé</p>
           <p className="text-xl font-bold text-ink mt-1 tabular-nums">{xof(totalSpent)}</p>
         </div>
-        <div className="bg-white rounded-xl border border-clay/20 p-4">
+        <div className="bg-surface rounded-xl border border-clay/20 p-4">
           <p className="text-xs text-moss">Taux d&apos;exécution</p>
-          <p className={`text-xl font-bold mt-1 tabular-nums ${execRate > 100 ? "text-red-600" : "text-ink"}`}>
+          <p className={`text-xl font-bold mt-1 tabular-nums ${execRate > 100 ? "text-neg" : "text-ink"}`}>
             {execRate}&nbsp;%
           </p>
-          {execRate > 100 && <p className="text-xs text-red-600 mt-1">Dépassement du budget alloué</p>}
+          {execRate > 100 && <p className="text-xs text-neg mt-1">Dépassement du budget alloué</p>}
         </div>
       </div>
 
       {/* Filtres */}
       <div className="flex gap-2 flex-wrap">
         {(["", "planning", "active", "on_hold", "completed", "cancelled"] as const).map(s => (
-          <button key={s} onClick={() => setStatusFilter(s)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${statusFilter === s ? "bg-cedar text-white" : "bg-white text-moss border border-clay/20"}`}>
+          <button key={s} onClick={() => setStatusFilter(s)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${statusFilter === s ? "bg-cedar text-white" : "bg-surface text-moss border border-clay/20"}`}>
             {s ? STATUS_FR[s].toUpperCase() : "TOUS"}
           </button>
         ))}
@@ -115,7 +115,7 @@ export default function ProjetsONGPage() {
           const budgetRate = p.budget > 0 ? Math.round((p.spentAmount / p.budget) * 100) : 0;
 
           return (
-            <div key={p._id} onClick={() => router.push(`/associations/projets/${p._id}`)} className="bg-white rounded-xl border border-clay/20 p-5 hover:shadow-md cursor-pointer transition-all">
+            <div key={p._id} onClick={() => router.push(`/associations/projets/${p._id}`)} className="bg-surface rounded-xl border border-clay/20 p-5 hover:shadow-md cursor-pointer transition-all">
               <div className="flex justify-between mb-4">
                 <p className="font-bold text-ink">{p.name}</p>
                 <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${STATUS_COLOR[p.status]}`}>
@@ -138,10 +138,10 @@ export default function ProjetsONGPage() {
               <div className="mb-4">
                 <div className="flex justify-between text-[10px] font-bold text-moss mb-1">
                   <span>BUDGET CONSOMMÉ</span>
-                  <span className={budgetRate > 100 ? "text-red-500" : ""}>{budgetRate}%</span>
+                  <span className={budgetRate > 100 ? "text-neg" : ""}>{budgetRate}%</span>
                 </div>
                 <div className="h-1.5 bg-sand rounded-full overflow-hidden">
-                  <div className={`h-full ${budgetRate > 100 ? "bg-red-500" : "bg-blue-500"}`} style={{ width: `${Math.min(budgetRate, 100)}%` }} />
+                  <div className={`h-full ${budgetRate > 100 ? "bg-neg" : "bg-info"}`} style={{ width: `${Math.min(budgetRate, 100)}%` }} />
                 </div>
                 <p className="text-[9px] text-right mt-1 text-moss font-mono">
                    {p.spentAmount.toLocaleString()} / {p.budget.toLocaleString()} XOF

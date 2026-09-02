@@ -40,7 +40,7 @@ export default function OfflinePage() {
           }
         </p>
         {pending > 0 && (
-          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+          <div className="mt-4 bg-warn-50 border border-warn/25 rounded-xl p-3 text-sm text-warn">
             <strong>{pending}</strong> action{pending > 1 ? "s" : ""} en attente de synchronisation
           </div>
         )}
@@ -52,7 +52,7 @@ export default function OfflinePage() {
             </button>
           )}
           <button onClick={() => router.back()}
-            className="px-6 py-3 border border-clay/30 text-moss rounded-xl hover:bg-white transition-colors">
+            className="px-6 py-3 border border-clay/30 text-moss rounded-xl hover:bg-surface transition-colors">
             ← Retour
           </button>
         </div>

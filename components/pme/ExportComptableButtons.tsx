@@ -8,11 +8,11 @@ interface ExportBtnProps {
 
 const FORMATS = [
   { key: "fec",    label: "FEC (DGI Niger)",    icon: "📋", color: "text-cedar border-cedar/30 hover:bg-cedar/5" },
-  { key: "sage",   label: "SAGE 100",            icon: "📊", color: "text-blue-600 border-blue-200 hover:bg-blue-50" },
-  { key: "ohada",  label: "OHADA Grand Livre",   icon: "📒", color: "text-green-700 border-green-200 hover:bg-green-50" },
-  { key: "cegid",  label: "Cegid",               icon: "📁", color: "text-purple-600 border-purple-200 hover:bg-purple-50" },
-  { key: "ebp",    label: "EBP",                 icon: "📁", color: "text-orange-600 border-orange-200 hover:bg-orange-50" },
-  { key: "divalto",label: "Divalto",             icon: "📁", color: "text-indigo-600 border-indigo-200 hover:bg-indigo-50" },
+  { key: "sage",   label: "SAGE 100",            icon: "📊", color: "text-info border-info/25 hover:bg-info-50" },
+  { key: "ohada",  label: "OHADA Grand Livre",   icon: "📒", color: "text-pos border-pos/25 hover:bg-pos-50" },
+  { key: "cegid",  label: "Cegid",               icon: "📁", color: "text-section border-section/25 hover:bg-section-soft" },
+  { key: "ebp",    label: "EBP",                 icon: "📁", color: "text-warn border-warn/25 hover:bg-warn-50" },
+  { key: "divalto",label: "Divalto",             icon: "📁", color: "text-info border-info/25 hover:bg-info-50" },
 ];
 
 export function ExportComptableButtons({ annee, mois }: ExportBtnProps) {

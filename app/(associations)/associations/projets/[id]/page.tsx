@@ -209,14 +209,14 @@ export default function ProjectDetailPage() {
           <h1 className="text-3xl font-bold text-ink mt-2">{project.name}</h1>
           <p className="text-moss font-mono text-xs opacity-70">{project.code}</p>
         </div>
-        <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${project.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-sand text-ink'}`}>
+        <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${project.status === 'completed' ? 'bg-pos-50 text-pos' : 'bg-sand text-ink'}`}>
           {STATUS_FR[project.status] || project.status}
         </div>
       </div>
 
       {/* DASHBOARD PROGRESS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-3xl border border-clay/10 shadow-sm">
+        <div className="bg-surface p-5 rounded-3xl border border-clay/10 shadow-sm">
           <div className="flex justify-between items-center mb-3">
             <span className="text-[10px] font-bold uppercase text-moss flex items-center gap-1 italic">
               <ClipboardList size={14} /> Avancement Physique
@@ -224,11 +224,11 @@ export default function ProjectDetailPage() {
             <span className="font-mono font-bold text-ink">{currentExecRate}%</span>
           </div>
           <div className="h-2 bg-sand rounded-full overflow-hidden">
-            <div className="h-full bg-green-500 transition-all duration-700" style={{ width: `${currentExecRate}%` }} />
+            <div className="h-full bg-pos transition-all duration-700" style={{ width: `${currentExecRate}%` }} />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-clay/10 shadow-sm">
+        <div className="bg-surface p-5 rounded-3xl border border-clay/10 shadow-sm">
           <div className="flex justify-between items-center mb-3">
             <span className="text-[10px] font-bold uppercase text-moss flex items-center gap-1 italic">
               <Banknote size={14} /> Consommation Budget
@@ -236,7 +236,7 @@ export default function ProjectDetailPage() {
             <span className="font-mono font-bold text-ink">{currentBudgetRate}%</span>
           </div>
           <div className="h-2 bg-sand rounded-full overflow-hidden">
-            <div className={`h-full transition-all duration-700 ${currentBudgetRate > 100 ? 'bg-red-500' : 'bg-cedar'}`} style={{ width: `${Math.min(currentBudgetRate, 100)}%` }} />
+            <div className={`h-full transition-all duration-700 ${currentBudgetRate > 100 ? 'bg-neg' : 'bg-cedar'}`} style={{ width: `${Math.min(currentBudgetRate, 100)}%` }} />
           </div>
         </div>
 
@@ -245,7 +245,7 @@ export default function ProjectDetailPage() {
             <p className="text-lg font-black text-ink">
                 {project.spentAmount.toLocaleString()} <span className="text-[10px] opacity-40">/ {project.budget.toLocaleString()} XOF</span>
             </p>
-            <button onClick={() => setBudgetModal(true)} className="mt-2 text-[10px] font-bold text-cedar hover:scale-105 transition-transform flex items-center gap-1 bg-white px-3 py-1 rounded-full shadow-sm border border-cedar/10">
+            <button onClick={() => setBudgetModal(true)} className="mt-2 text-[10px] font-bold text-cedar hover:scale-105 transition-transform flex items-center gap-1 bg-surface px-3 py-1 rounded-full shadow-sm border border-cedar/10">
                <Plus size={10} /> AJOUTER UNE DÉPENSE
             </button>
         </div>
@@ -253,9 +253,9 @@ export default function ProjectDetailPage() {
 
       {/* ALERTES GESTION */}
       {currentBudgetRate > currentExecRate + 15 && (
-        <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex gap-3 items-center animate-pulse">
-          <AlertCircle className="text-red-600" size={20} />
-          <p className="text-[11px] text-red-700 font-bold uppercase tracking-tight">
+        <div className="bg-neg-50 border border-neg/25 p-4 rounded-2xl flex gap-3 items-center animate-pulse">
+          <AlertCircle className="text-neg" size={20} />
+          <p className="text-[11px] text-neg font-bold uppercase tracking-tight">
             Alerte : Le budget est consommé plus vite que l'avancement réel du projet.
           </p>
         </div>
@@ -264,14 +264,14 @@ export default function ProjectDetailPage() {
       {/* TABS NAVIGATION */}
       <div className="flex gap-2 bg-sand/30 p-1.5 rounded-2xl w-fit">
         {["tasks", "docs", "team", "messages"].map((t) => (
-          <button key={t} onClick={() => setActiveTab(t as any)} className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === t ? "bg-white text-cedar shadow-sm" : "text-moss hover:bg-white/50"}`}>
+          <button key={t} onClick={() => setActiveTab(t as any)} className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === t ? "bg-surface text-cedar shadow-sm" : "text-moss hover:bg-white/50"}`}>
             {t === "tasks" ? "Tâches" : t === "docs" ? "Documents" : t === "team" ? "Équipe" : "Messages"}
           </button>
         ))}
       </div>
 
       {/* MAIN CONTENT AREA */}
-      <div className="bg-white rounded-3xl border border-clay/10 p-8 min-h-[400px] shadow-sm relative">
+      <div className="bg-surface rounded-3xl border border-clay/10 p-8 min-h-[400px] shadow-sm relative">
         {activeTab === "tasks" && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -282,7 +282,7 @@ export default function ProjectDetailPage() {
               {project.tasks.map(task => (
                 <div key={task._id} className="py-4 flex justify-between items-center group">
                   <div className="flex items-center gap-3">
-                    {(task.status === 'done' || task.status === 'completed') ? <CheckCircle2 size={20} className="text-green-500" /> : <div className="w-[20px] h-[20px] border-2 border-clay/20 rounded-full" />}
+                    {(task.status === 'done' || task.status === 'completed') ? <CheckCircle2 size={20} className="text-pos" /> : <div className="w-[20px] h-[20px] border-2 border-clay/20 rounded-full" />}
                     <p className={`text-sm font-bold ${task.status === "done" ? "line-through text-moss opacity-50" : "text-ink"}`}>{task.label}</p>
                   </div>
                   <select 
@@ -372,7 +372,7 @@ export default function ProjectDetailPage() {
              disabled={currentExecRate < 100}
              className={`px-12 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all shadow-xl ${
                currentExecRate === 100 
-               ? "bg-green-600 text-white hover:bg-green-700 hover:-translate-y-1 active:translate-y-0" 
+               ? "bg-pos text-white hover:brightness-95 hover:-translate-y-1 active:translate-y-0" 
                : "bg-clay/10 text-moss cursor-not-allowed opacity-50"
              }`}
            >

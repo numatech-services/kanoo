@@ -14,7 +14,7 @@ export function MarcheForm({ initial, onSave, onCancel }: MarcheFormProps) {
       <FormField label="Montant estimé (XOF)" required hint={procedure ? `Procédure applicable : ${LIBELLES_PROCEDURES[procedure]}` : undefined}>
         <input type="number" className={inputCls} value={form.estimatedAmount} onChange={e=>u("estimatedAmount",Number(e.target.value))} min={0} required />
       </FormField>
-      {procedure && <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-medium">⚖️ {LIBELLES_PROCEDURES[procedure]}</div>}
+      {procedure && <div className="p-3 bg-warn-50 border border-warn/25 rounded-xl text-xs text-warn font-medium">⚖️ {LIBELLES_PROCEDURES[procedure]}</div>}
       <FormField label="Date limite de dépôt des offres"><input type="date" className={inputCls} value={form.bidsDeadline} onChange={e=>u("bidsDeadline",e.target.value)} /></FormField>
       <FormField label="Notes"><textarea className={textareaCls} rows={2} value={form.notes} onChange={e=>u("notes",e.target.value)} /></FormField>
       <div className="flex justify-end gap-3 pt-3 border-t border-clay/20">

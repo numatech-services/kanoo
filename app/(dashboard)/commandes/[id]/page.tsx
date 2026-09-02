@@ -70,7 +70,7 @@ export default function CommandeDetailPage() {
   }, [editOpen]);
 
   if (loading) return <div className="p-6 text-moss italic">Chargement du bon de commande...</div>;
-  if (!item) return <div className="p-6 text-red-500">Commande introuvable.</div>;
+  if (!item) return <div className="p-6 text-neg">Commande introuvable.</div>;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -86,7 +86,7 @@ export default function CommandeDetailPage() {
         </div>
         
         <div className="flex gap-2">
-          <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-white border border-clay/30 rounded-xl text-sm font-medium hover:bg-sand transition-colors">
+          <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-surface border border-clay/30 rounded-xl text-sm font-medium hover:bg-sand transition-colors">
             <Printer size={16} /> Imprimer
           </button>
           
@@ -104,9 +104,9 @@ export default function CommandeDetailPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
-          <div className="bg-white rounded-2xl border border-clay/20 p-6 shadow-sm print:border-none">
+          <div className="bg-surface rounded-2xl border border-clay/20 p-6 shadow-sm print:border-none">
             <h3 className="text-sm font-bold text-moss uppercase mb-4 tracking-wider">Articles</h3>
-            <table className="w-full text-sm">
+            <table className="table-dense">
               <thead>
                 <tr className="text-left text-moss border-b border-clay/10">
                   <th className="pb-3 font-medium">Désignation</th>
@@ -130,12 +130,12 @@ export default function CommandeDetailPage() {
         </div>
 
         <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-clay/20 p-5 shadow-sm">
+          <div className="bg-surface rounded-2xl border border-clay/20 p-5 shadow-sm">
             <p className="text-[10px] font-bold text-moss uppercase mb-2">Fournisseur</p>
             <p className="text-ink font-bold">{item.supplierId?.name || "—"}</p>
           </div>
 
-          <div className="bg-ink text-white rounded-2xl p-6 shadow-lg print:bg-white print:text-ink print:border">
+          <div className="bg-ink text-white rounded-2xl p-6 shadow-lg print:bg-surface print:text-ink print:border">
             <div className="space-y-3">
               <div className="flex justify-between text-xs opacity-70">
                 <span>TOTAL HT</span>
@@ -160,7 +160,7 @@ export default function CommandeDetailPage() {
       {/* TEST DE RENDU DIRECT SI LA MODAL EST CASSÉE */}
       {editOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-clay/10 flex justify-between items-center">
               <h2 className="text-xl font-bold text-ink">Modifier le Bon de Commande</h2>
               <button onClick={() => setEditOpen(false)} className="text-moss hover:text-ink">✕</button>
@@ -174,7 +174,7 @@ export default function CommandeDetailPage() {
                   onCancel={() => setEditOpen(false)} 
                 />
               ) : (
-                <p className="text-red-500 text-center">Données introuvables</p>
+                <p className="text-neg text-center">Données introuvables</p>
               )}
             </div>
           </div>

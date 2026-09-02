@@ -17,7 +17,7 @@ export default function ConnexionAdherentPage() {
   return (
     <div className="max-w-sm mx-auto">
       <div className="text-center mb-8"><p className="text-3xl mb-2">🤝</p><h1 className="text-2xl font-bold text-ink">Espace adhérent</h1><p className="text-moss text-sm mt-1">Connectez-vous avec votre email et code d'accès</p></div>
-      {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-4">{error}</div>}
+      {error && <div className="p-3 bg-neg-50 border border-neg/25 rounded-xl text-neg text-sm mb-4">{error}</div>}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div><label className="block text-xs font-medium text-moss mb-1">Email</label><input type="email" className={inp} value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} required/></div>
         <div><label className="block text-xs font-medium text-moss mb-1">Code d'accès</label><input type="password" className={inp} value={form.accessCode} onChange={e=>setForm(p=>({...p,accessCode:e.target.value}))} required/></div>

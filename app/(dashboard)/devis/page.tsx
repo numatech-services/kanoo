@@ -38,7 +38,7 @@ export default function DevisPage() {
     {key:"number",label:"N° Devis",className:"font-mono font-semibold text-cedar",render:(v,r)=><Link href={`/devis/${r._id}`} className="hover:underline">{String(v)}</Link>},
     {key:"clientId",label:"Client",render:(v)=>typeof v==="object"&&v?(v as {name:string}).name:"—"},
     {key:"issueDate",label:"Date",render:(v)=>new Date(String(v)).toLocaleDateString("fr-FR")},
-    {key:"validUntil",label:"Validité",render:(v)=>{const d=new Date(String(v));const expired=d<new Date();return<span className={expired?"text-red-500 text-sm":"text-moss text-sm"}>{d.toLocaleDateString("fr-FR")}</span>;}},
+    {key:"validUntil",label:"Validité",render:(v)=>{const d=new Date(String(v));const expired=d<new Date();return<span className={expired?"text-neg text-sm":"text-moss text-sm"}>{d.toLocaleDateString("fr-FR")}</span>;}},
     {key:"totalHT",label:"HT (XOF)",className:"text-right font-mono",render:(v)=>Number(v).toLocaleString("fr-FR")},
     {key:"totalTTC",label:"TTC (XOF)",className:"text-right font-mono font-semibold",render:(v)=>Number(v).toLocaleString("fr-FR")},
     {key:"status",label:"Statut",render:(v)=><StatusBadge status={String(v)}/>},
@@ -46,8 +46,8 @@ export default function DevisPage() {
       ? <span className="text-xs text-moss bg-sand px-2 py-0.5 rounded">Converti ✓</span>
       : (
         <div className="flex gap-1">
-          <button onClick={e=>{e.stopPropagation();setConvertDialog({id:String(v),number:row.number,type:"invoice"});}} className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">→ Facture</button>
-          <button onClick={e=>{e.stopPropagation();setConvertDialog({id:String(v),number:row.number,type:"proforma"});}} className="px-2 py-1 bg-amber-500 text-white text-xs rounded hover:bg-amber-600">→ Proforma</button>
+          <button onClick={e=>{e.stopPropagation();setConvertDialog({id:String(v),number:row.number,type:"invoice"});}} className="px-2 py-1 bg-pos text-white text-xs rounded hover:brightness-95">→ Facture</button>
+          <button onClick={e=>{e.stopPropagation();setConvertDialog({id:String(v),number:row.number,type:"proforma"});}} className="px-2 py-1 bg-warn text-white text-xs rounded hover:brightness-95">→ Proforma</button>
         </div>
       )
     },
@@ -60,7 +60,7 @@ export default function DevisPage() {
         <Link href="/devis/new" className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink">+ Nouveau devis</Link>
       </div>
 
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+      <div className="bg-warn-50 border border-warn/25 rounded-xl p-3 text-xs text-warn">
         <strong>Flux :</strong> Devis → accepté par client → bouton <strong>"→ Facture"</strong> (facture définitive avec écriture comptable) ou <strong>"→ Proforma"</strong> (facture pro forma sans comptabilisation).
       </div>
 

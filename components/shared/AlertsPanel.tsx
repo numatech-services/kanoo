@@ -12,9 +12,9 @@ interface Alert {
 }
 
 const SEVERITY_STYLES = {
-  high:   "border-l-4 border-red-400 bg-red-50",
-  medium: "border-l-4 border-amber-400 bg-amber-50",
-  low:    "border-l-4 border-blue-400 bg-blue-50",
+  high:   "border-l-4 border-neg/25 bg-neg-50",
+  medium: "border-l-4 border-warn/25 bg-warn-50",
+  low:    "border-l-4 border-info/25 bg-info-50",
 };
 
 const SEVERITY_ICONS = { high: "🔴", medium: "🟡", low: "🔵" };
@@ -32,7 +32,7 @@ export function AlertsPanel() {
   }, []);
 
   return (
-    <div className="bg-white rounded-xl border border-clay/20 p-5">
+    <div className="bg-surface rounded-xl border border-clay/20 p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold text-ink">Alertes</h2>
         <Link href="/notifications" className="text-xs text-cedar hover:underline">

@@ -55,12 +55,12 @@ export default function NewProjetAssoPage() {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+            <div className="bg-neg-50 border border-neg/25 rounded-lg p-4 text-sm text-neg">
               {error}
             </div>
           )}
 
-          <div className="bg-white rounded-2xl border border-clay/20 p-6">
+          <div className="bg-surface rounded-2xl border border-clay/20 p-6">
             <ProjectForm
               onSave={handleSave}
               onCancel={() => router.push("/associations/projets")}

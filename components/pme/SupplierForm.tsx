@@ -62,7 +62,7 @@ export function SupplierForm({ initial, onSave, onCancel }: SupplierFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <p className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <p className="px-3 py-2 bg-neg-50 border border-neg/25 rounded-lg text-sm text-neg">
           {error}
         </p>
       )}

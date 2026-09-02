@@ -113,7 +113,7 @@ export function OfflineBanner() {
   // Les échecs priment : ils demandent une décision et ne disparaissent pas seuls.
   if (failedCount > 0) {
     return (
-      <div className={`${shell} bg-red-700 text-white`}>
+      <div className={`${shell} bg-neg text-white`}>
         <div className="flex items-center gap-3">
           <span aria-hidden>⚠</span>
           <div className="flex-1">
@@ -153,7 +153,7 @@ export function OfflineBanner() {
 
   if (needsAuth) {
     return (
-      <div className={`${shell} bg-amber-600 text-white flex items-center gap-3`}>
+      <div className={`${shell} bg-warn text-white flex items-center gap-3`}>
         <span aria-hidden>🔒</span>
         <div className="flex-1">
           <p>Session expirée pendant la coupure</p>
@@ -170,7 +170,7 @@ export function OfflineBanner() {
 
   if (!isOnline) {
     return (
-      <div className={`${shell} bg-amber-600 text-white flex items-center gap-3`}>
+      <div className={`${shell} bg-warn text-white flex items-center gap-3`}>
         <span className="animate-pulse" aria-hidden>📡</span>
         <div>
           <p>Vous êtes hors-ligne</p>
@@ -186,7 +186,7 @@ export function OfflineBanner() {
 
   if (syncing) {
     return (
-      <div className={`${shell} bg-blue-600 text-white flex items-center gap-3`}>
+      <div className={`${shell} bg-info text-white flex items-center gap-3`}>
         <span className="animate-spin" aria-hidden>🔄</span>
         <span>Synchronisation en cours…</span>
       </div>
@@ -196,7 +196,7 @@ export function OfflineBanner() {
   // Confirmation : uniquement ce qui est réellement passé.
   if (justSynced > 0) {
     return (
-      <div className={`${shell} bg-green-700 text-white flex items-center gap-3`}>
+      <div className={`${shell} bg-pos text-white flex items-center gap-3`}>
         <span aria-hidden>✅</span>
         <span>
           {justSynced} action{justSynced > 1 ? "s" : ""} synchronisée{justSynced > 1 ? "s" : ""}
@@ -208,7 +208,7 @@ export function OfflineBanner() {
   // En ligne avec une file résiduelle : ne pas prétendre que tout est passé.
   if (pendingCount > 0) {
     return (
-      <div className={`${shell} bg-slate-700 text-white flex items-center gap-3`}>
+      <div className={`${shell} bg-line text-white flex items-center gap-3`}>
         <span aria-hidden>⏳</span>
         <div className="flex-1">
           <p>{pendingCount} action{pendingCount > 1 ? "s" : ""} en attente d&apos;envoi</p>

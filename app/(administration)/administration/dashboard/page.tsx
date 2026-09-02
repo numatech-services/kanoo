@@ -9,20 +9,20 @@ interface Marche { _id: string; reference: string; title: string; status: string
 interface Mandatement { _id: string; reference: string; description: string; amount: number; status: string; createdAt: string; }
 
 const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
-  draft:          { label: "Brouillon",   cls: "bg-gray-100 text-gray-600" },
-  pending:        { label: "En attente",  cls: "bg-amber-100 text-amber-700" },
-  approved:       { label: "Approuvé",   cls: "bg-green-100 text-green-700" },
-  rejected:       { label: "Rejeté",     cls: "bg-red-100 text-red-700" },
-  paid:           { label: "Payé",        cls: "bg-green-100 text-green-700" },
-  published:      { label: "Publié",      cls: "bg-blue-100 text-blue-700" },
-  evaluation:     { label: "Évaluation",  cls: "bg-purple-100 text-purple-700" },
+  draft:          { label: "Brouillon",   cls: "bg-surface2 text-ink2" },
+  pending:        { label: "En attente",  cls: "bg-warn-50 text-warn" },
+  approved:       { label: "Approuvé",   cls: "bg-pos-50 text-pos" },
+  rejected:       { label: "Rejeté",     cls: "bg-neg-50 text-neg" },
+  paid:           { label: "Payé",        cls: "bg-pos-50 text-pos" },
+  published:      { label: "Publié",      cls: "bg-info-50 text-info" },
+  evaluation:     { label: "Évaluation",  cls: "bg-section-soft text-section" },
   awarded:        { label: "Attribué",    cls: "bg-teal-100 text-teal-700" },
-  cancelled:      { label: "Annulé",      cls: "bg-gray-100 text-gray-500" },
-  sent:           { label: "Émis",        cls: "bg-blue-100 text-blue-700" },
+  cancelled:      { label: "Annulé",      cls: "bg-surface2 text-ink3" },
+  sent:           { label: "Émis",        cls: "bg-info-50 text-info" },
 };
 
 function StatusPill({ status }: { status: string }) {
-  const s = STATUS_LABELS[status] || { label: status, cls: "bg-gray-100 text-gray-600" };
+  const s = STATUS_LABELS[status] || { label: status, cls: "bg-surface2 text-ink2" };
   return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.cls}`}>{s.label}</span>;
 }
 
@@ -94,10 +94,10 @@ export default function AdminDashboardPage() {
   const marchesEnCours = safeMarches.filter(m => m && !["cancelled","awarded"].includes(m.status)).length;
 
   const kpis = [
-    { label: "Budget alloué",       value: loadingCh ? "—" : fmt(totalAlloue),  icon: "📊", color: "bg-blue-50 text-blue-700",   href: "/administration/budget" },
-    { label: "Crédits engagés",     value: loadingCh ? "—" : fmt(totalEngage),  icon: "📝", color: "bg-amber-50 text-amber-700", href: "/administration/budget/engagements" },
-    { label: "Mandatements payés",  value: loadingCh ? "—" : fmt(totalPaye),    icon: "✅", color: "bg-green-50 text-green-700",  href: "/administration/budget/mandatements" },
-    { label: "Marchés en cours",    value: loadingMa ? "—" : String(marchesEnCours), icon: "📜", color: "bg-purple-50 text-purple-700", href: "/administration/marches-publics" },
+    { label: "Budget alloué",       value: loadingCh ? "—" : fmt(totalAlloue),  icon: "📊", color: "bg-info-50 text-info",   href: "/administration/budget" },
+    { label: "Crédits engagés",     value: loadingCh ? "—" : fmt(totalEngage),  icon: "📝", color: "bg-warn-50 text-warn", href: "/administration/budget/engagements" },
+    { label: "Mandatements payés",  value: loadingCh ? "—" : fmt(totalPaye),    icon: "✅", color: "bg-pos-50 text-pos",  href: "/administration/budget/mandatements" },
+    { label: "Marchés en cours",    value: loadingMa ? "—" : String(marchesEnCours), icon: "📜", color: "bg-section-soft text-section", href: "/administration/marches-publics" },
   ];
 
   return (
@@ -110,7 +110,7 @@ export default function AdminDashboardPage() {
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {kpis.map(c => (
-          <Link key={c.label} href={c.href} className="bg-white rounded-xl border border-clay/20 p-5 hover:shadow-md transition-shadow">
+          <Link key={c.label} href={c.href} className="bg-surface rounded-xl border border-clay/20 p-5 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs text-moss font-medium uppercase tracking-wide">{c.label}</p>
@@ -123,7 +123,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Taux d'exécution budgétaire par chapitre */}
-      <div className="bg-white rounded-xl border border-clay/20 p-6">
+      <div className="bg-surface rounded-xl border border-clay/20 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-ink">Exécution budgétaire par chapitre</h2>
           <Link href="/administration/budget" className="text-xs text-cedar hover:underline">Voir tout →</Link>
@@ -144,7 +144,7 @@ export default function AdminDashboardPage() {
                     <span className="text-moss ml-2 shrink-0">{p}% <span className="text-xs">({fmt(ch.engagedAmount)} / {fmt(ch.allocatedAmount)})</span></span>
                   </div>
                   <div className="h-2 bg-sand rounded-full">
-                    <div className={`h-2 rounded-full transition-all ${p > 90 ? "bg-red-500" : p > 70 ? "bg-amber-400" : "bg-cedar"}`} style={{ width: `${p}%` }} />
+                    <div className={`h-2 rounded-full transition-all ${p > 90 ? "bg-neg" : p > 70 ? "bg-warn" : "bg-cedar"}`} style={{ width: `${p}%` }} />
                   </div>
                 </div>
               );
@@ -155,7 +155,7 @@ export default function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Engagements récents */}
-        <div className="bg-white rounded-xl border border-clay/20">
+        <div className="bg-surface rounded-xl border border-clay/20">
           <div className="flex items-center justify-between px-5 py-4 border-b border-clay/10">
             <h2 className="font-semibold text-ink">Engagements récents</h2>
             <Link href="/administration/budget/engagements" className="text-xs text-cedar hover:underline">Voir tout →</Link>
@@ -184,7 +184,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Marchés récents */}
-        <div className="bg-white rounded-xl border border-clay/20">
+        <div className="bg-surface rounded-xl border border-clay/20">
           <div className="flex items-center justify-between px-5 py-4 border-b border-clay/10">
             <h2 className="font-semibold text-ink">Marchés publics</h2>
             <Link href="/administration/marches-publics" className="text-xs text-cedar hover:underline">Voir tout →</Link>
@@ -214,7 +214,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Mandatements récents */}
-      <div className="bg-white rounded-xl border border-clay/20">
+      <div className="bg-surface rounded-xl border border-clay/20">
         <div className="flex items-center justify-between px-5 py-4 border-b border-clay/10">
           <h2 className="font-semibold text-ink">Mandatements récents</h2>
           <Link href="/administration/budget/mandatements" className="text-xs text-cedar hover:underline">Voir tout →</Link>
@@ -225,9 +225,9 @@ export default function AdminDashboardPage() {
           <p className="text-sm text-moss text-center py-8">Aucun mandatement</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="table-dense">
               <thead><tr className="border-b border-clay/10 bg-sand/50">
-                {["Référence","Description","Montant","Statut"].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-moss uppercase">{h}</th>)}
+                {["Référence","Description","Montant","Statut"].map(h => <th key={h} >{h}</th>)}
               </tr></thead>
               <tbody>
                 {safeMandatements.map(m => {

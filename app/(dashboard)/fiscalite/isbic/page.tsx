@@ -56,11 +56,11 @@ export default function ISBICPage() {
       {!loading && d && (
         <div className="space-y-4">
           {/* Compte de résultat simplifié */}
-          <div className="bg-white rounded-xl border border-clay/20 p-5">
+          <div className="bg-surface rounded-xl border border-clay/20 p-5">
             <h2 className="font-semibold text-ink mb-4">Résultat fiscal {d.annee}</h2>
             {[
-              ["Total produits (comptes 7xx)", d.produits || 0, "text-green-700"],
-              ["Total charges (comptes 6xx)", d.charges || 0, "text-red-600"],
+              ["Total produits (comptes 7xx)", d.produits || 0, "text-pos"],
+              ["Total charges (comptes 6xx)", d.charges || 0, "text-neg"],
               ["Résultat comptable", d.resultatComptable || 0, "font-bold text-ink"],
               ["Résultat fiscal imposable", d.resultatFiscal || 0, "font-bold text-cedar"],
             ].map(([label, val, cls]) => (
@@ -73,12 +73,12 @@ export default function ISBICPage() {
 
           {/* Calcul IS */}
           {d.calcul && (
-            <div className="bg-white rounded-xl border border-clay/20 p-5">
+            <div className="bg-surface rounded-xl border border-clay/20 p-5">
               <h2 className="font-semibold text-ink mb-4">Calcul de l'IS</h2>
               <div className="space-y-2.5 text-sm">
                 <div className="flex justify-between"><span className="text-moss">IS théorique ({Math.round(d.calcul.taux*100)}%)</span><span className="font-mono">{d.calcul.montantTheorique.toLocaleString("fr-FR")} XOF</span></div>
                 <div className="flex justify-between"><span className="text-moss">Minimum forfaitaire</span><span className="font-mono">1 000 000 XOF</span></div>
-                {d.calcul.isMinimumApplique && <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">⚠ IS théorique inférieur au minimum — le minimum forfaitaire s'applique</div>}
+                {d.calcul.isMinimumApplique && <div className="p-2 bg-warn-50 border border-warn/25 rounded-lg text-xs text-warn">⚠ IS théorique inférieur au minimum — le minimum forfaitaire s'applique</div>}
                 <div className="flex justify-between pt-2 border-t border-clay/20 font-bold text-base">
                   <span>IS/BIC dû {d.annee}</span>
                   <span className="font-mono text-cedar">{d.calcul.montantDu.toLocaleString("fr-FR")} XOF</span>
@@ -89,13 +89,13 @@ export default function ISBICPage() {
 
           {/* Acomptes provisionnels */}
           {d.acomptes && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <p className="text-sm font-semibold text-blue-800 mb-3">📅 Acomptes provisionnels {(d.annee||year)+1}</p>
+            <div className="bg-info-50 border border-info/25 rounded-xl p-4">
+              <p className="text-sm font-semibold text-info mb-3">📅 Acomptes provisionnels {(d.annee||year)+1}</p>
               <div className="grid grid-cols-2 gap-3">
                 {[d.acomptes.acompte1, d.acomptes.acompte2].map((a, i) => (
-                  <div key={i} className="bg-white rounded-lg p-3">
+                  <div key={i} className="bg-surface rounded-lg p-3">
                     <p className="text-xs text-moss">Acompte {i+1} — à verser le {a.echeance}</p>
-                    <p className="font-bold font-mono text-blue-800">{a.montant.toLocaleString("fr-FR")} XOF</p>
+                    <p className="font-bold font-mono text-info">{a.montant.toLocaleString("fr-FR")} XOF</p>
                   </div>
                 ))}
               </div>
@@ -103,7 +103,7 @@ export default function ISBICPage() {
           )}
 
           <div className="flex items-center justify-between pt-2">
-            <span className={`text-sm px-3 py-1 rounded-full font-medium ${d.statut==="submitted"?"bg-green-100 text-green-700":"bg-gray-100 text-gray-600"}`}>
+            <span className={`text-sm px-3 py-1 rounded-full font-medium ${d.statut==="submitted"?"bg-pos-50 text-pos":"bg-surface2 text-ink2"}`}>
               {d.statut === "submitted" ? "✅ Déclaration soumise" : "⬜ Non soumise"}
             </span>
             {d.statut !== "submitted" && (

@@ -62,9 +62,9 @@ export default function BureauPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">{[...Array(6)].map((_,i) => <div key={i} className="h-32 bg-white rounded-xl animate-pulse border border-clay/20"/>)}</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">{[...Array(6)].map((_,i) => <div key={i} className="h-32 bg-surface rounded-xl animate-pulse border border-clay/20"/>)}</div>
       ) : members.length === 0 ? (
-        <div className="bg-white rounded-xl border border-clay/20 p-12 text-center"><p className="text-4xl mb-3">&#127963;</p><p className="text-moss">Aucun membre du bureau enregistré</p></div>
+        <div className="bg-surface rounded-xl border border-clay/20 p-12 text-center"><p className="text-4xl mb-3">&#127963;</p><p className="text-moss">Aucun membre du bureau enregistré</p></div>
       ) : (
         <div className="space-y-6">
           {Object.entries(grouped).map(([role, roleMembers]) => (
@@ -72,7 +72,7 @@ export default function BureauPage() {
               <p className="text-xs font-semibold uppercase tracking-widest text-moss mb-3">{ROLES.find(r => r[0] === role)?.[1] || role}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {roleMembers.map(m => (
-                  <div key={m._id} className="bg-white rounded-xl border border-clay/20 p-5">
+                  <div key={m._id} className="bg-surface rounded-xl border border-clay/20 p-5">
                     <div className="flex items-start gap-3 mb-3">
                       <div className="w-10 h-10 bg-cedar text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0">
                         {m.firstName[0]}{m.lastName[0]}
@@ -82,8 +82,8 @@ export default function BureauPage() {
                         <p className="text-xs text-moss">{ROLES.find(r => r[0] === m.role)?.[1] || m.customRoleLabel}</p>
                       </div>
                       {m.isActive
-                        ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Actif</span>
-                        : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inactif</span>
+                        ? <span className="text-xs bg-pos-50 text-pos px-2 py-0.5 rounded-full">Actif</span>
+                        : <span className="text-xs bg-surface2 text-ink3 px-2 py-0.5 rounded-full">Inactif</span>
                       }
                     </div>
                     {m.email && <p className="text-xs text-moss mb-1">✉ {m.email}</p>}
@@ -98,7 +98,7 @@ export default function BureauPage() {
                         {m.projectIds.map(p => (
                           <div key={p._id} className="flex items-center justify-between text-xs mb-1">
                             <span className="text-ink truncate">{p.code} — {p.name}</span>
-                            <span className={`ml-2 px-1.5 py-0.5 rounded font-mono flex-shrink-0 ${p.executionRate >= 80 ? "bg-green-100 text-green-700" : p.executionRate >= 40 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{p.executionRate}%</span>
+                            <span className={`ml-2 px-1.5 py-0.5 rounded font-mono flex-shrink-0 ${p.executionRate >= 80 ? "bg-pos-50 text-pos" : p.executionRate >= 40 ? "bg-warn-50 text-warn" : "bg-surface2 text-ink2"}`}>{p.executionRate}%</span>
                           </div>
                         ))}
                       </div>

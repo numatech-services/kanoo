@@ -1,5 +1,34 @@
 # Kanoo — Changelog
 
+## V1.3.1 — Septembre 2026
+
+### Propagation du système de design aux 126 écrans
+
+Ce n'était pas un travail cosmétique. Les tokens historiques (`sand`, `clay`,
+`moss`, `cedar`) étaient bien câblés sur des variables CSS et basculaient
+correctement en thème sombre — mais **`bg-white` et les ~430 couleurs Tailwind
+brutes semées dans l'application ne basculaient pas**. Une carte `bg-white` sur
+un fond sombre restait blanche, un `bg-red-50` restait rose pâle. Le mode sombre
+était donc troué sur la quasi-totalité des écrans.
+
+- **430 couleurs brutes converties en tokens sémantiques** dans 154 fichiers :
+  vert → `pos`, rouge → `neg`, ambre → `warn`, bleu → `info`, gris → neutres du
+  thème. 287 `bg-white` deviennent `bg-surface`.
+- Les `bg-white/20` posés **sur des fonds colorés** ont été rétablis : ce sont
+  des voiles, pas des surfaces — les convertir les rendait invisibles.
+- Les survols devenus sans effet (`bg-pos` suivi de `hover:bg-pos`) passent en
+  `hover:brightness-95`.
+- **`DataTable` densifié une fois pour les 31 écrans** qui l'utilisent, plus
+  11 tableaux écrits à la main : la ligne passe de 52 à 40 pixels.
+- **Deux tests structurels** refusent désormais toute couleur brute et tout
+  fond blanc opaque qui reviendrait — la vitrine publique, volontairement en
+  thème clair, est exclue.
+
+**Vérification**
+
+264 tests au vert, 0 erreur de type, 0 erreur de lint, build de production
+réussi (198 pages).
+
 ## V1.3.0 — Septembre 2026
 
 ### Factures d'avoir, densité, palette de commandes

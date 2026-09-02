@@ -121,6 +121,43 @@ describe("Conventions des routes API", () => {
   });
 });
 
+describe("Cohérence du thème", () => {
+  const PALETTE = "red|rose|green|emerald|amber|orange|yellow|blue|indigo|sky|gray|slate|zinc|neutral|purple|violet";
+
+  function screenFiles(): string[] {
+    return execSync(
+      "find app components -name '*.tsx' -not -path '*/node_modules/*'",
+      { cwd: ROOT, encoding: "utf-8" }
+    ).trim().split("\n").filter(Boolean);
+  }
+
+  const screens = screenFiles().map(path => ({
+    path,
+    src: readFileSync(join(ROOT, path), "utf-8"),
+  }));
+
+  it("aucune couleur Tailwind brute dans l'application", () => {
+    // Les tokens du thème basculent en mode sombre via des variables CSS ;
+    // `bg-red-50` ou `text-green-700` sont des valeurs figées qui restent
+    // claires sur fond sombre. Une seule suffit à trouer l'écran.
+    const offenders = screens
+      .filter(f => !f.path.startsWith("app/(public)"))   // vitrine : clair assumé
+      .filter(f => new RegExp(`\\b(bg|text|border)-(${PALETTE})-[0-9]{2,3}\\b`).test(f.src))
+      .map(f => f.path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("aucun fond blanc opaque hors vitrine", () => {
+    // `bg-white/20` est un voile sur fond coloré : légitime. `bg-white` seul
+    // est une surface qui ne bascule pas.
+    const offenders = screens
+      .filter(f => !f.path.startsWith("app/(public)"))
+      .filter(f => /\bbg-white\b(?!\/)/.test(f.src))
+      .map(f => f.path);
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe("Lecture des erreurs capturées", () => {
   it("lit le message d'une Error", () => {
     expect(errorMessage(new Error("échec de connexion"))).toBe("échec de connexion");

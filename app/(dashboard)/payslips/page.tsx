@@ -87,16 +87,16 @@ export default function PayslipsPage() {
     },
     { key: "month", label: "Période", render: (v, row) => `${MONTHS[Number(v)]} ${row.year}` },
     { key: "grossSalary", label: "Brut (XOF)", className: "text-right font-mono", render: (v) => Number(v).toLocaleString("fr-FR") },
-    { key: "cnssEmployee", label: "CNSS salarié", className: "text-right font-mono text-amber-700", render: (v) => `-${Number(v).toLocaleString("fr-FR")}` },
-    { key: "cnssEmployer", label: "CNSS patronal", className: "text-right font-mono text-red-600", render: (v) => Number(v).toLocaleString("fr-FR") },
-    { key: "netSalary", label: "Net (XOF)", className: "text-right font-mono font-bold text-green-700", render: (v) => Number(v).toLocaleString("fr-FR") },
+    { key: "cnssEmployee", label: "CNSS salarié", className: "text-right font-mono text-warn", render: (v) => `-${Number(v).toLocaleString("fr-FR")}` },
+    { key: "cnssEmployer", label: "CNSS patronal", className: "text-right font-mono text-neg", render: (v) => Number(v).toLocaleString("fr-FR") },
+    { key: "netSalary", label: "Net (XOF)", className: "text-right font-mono font-bold text-pos", render: (v) => Number(v).toLocaleString("fr-FR") },
     { 
       key: "isPaid", 
       label: "Payé", 
       render: (v, row) => (
         <button 
           onClick={() => router.push(`/payslips/${row._id}`)}
-          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${v ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}
+          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${v ? "bg-pos-50 text-pos" : "bg-warn-50 text-warn"}`}
         >
           {v ? "Oui" : "Non"}
         </button>
@@ -137,14 +137,14 @@ export default function PayslipsPage() {
           + Générer un bulletin
         </button>
       </div>
-      <div className="bg-white rounded-xl border border-clay/20 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-xl border border-clay/20 shadow-sm overflow-hidden">
         <DataTable columns={columns} data={payslips} loading={loading} keyExtractor={(p) => p._id} emptyMessage="Aucun bulletin généré" />
       </div>
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nouveau bulletin" size="md">
         <form onSubmit={handleGenerate} className="space-y-4">
-          {genError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg">{genError}</div>}
+          {genError && <div className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{genError}</div>}
           <label className="block text-xs font-medium text-moss">Sélectionner l'Employé *</label>
           <select 
             className="w-full px-3 py-2 border rounded-lg text-sm" 

@@ -57,7 +57,7 @@ export function Modal({ open, onClose, title, children, size = "md" }: ModalProp
       <div
         role="dialog"
         aria-modal="true"
-        className={`relative w-full ${SIZE_CLASSES[size]} bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200`}
+        className={`relative w-full ${SIZE_CLASSES[size]} bg-surface rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-5 border-b border-clay/10 bg-sand/10">

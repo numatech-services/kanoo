@@ -20,7 +20,7 @@ export default function SettingsPage() {
       <div className="grid md:grid-cols-2 gap-4">
         {SETTINGS_ITEMS.map(item => (
           <Link key={item.href} href={item.href}
-            className="bg-white rounded-xl border border-clay/20 p-5 hover:border-cedar/40 hover:shadow-sm transition-all group flex gap-4">
+            className="bg-surface rounded-xl border border-clay/20 p-5 hover:border-cedar/40 hover:shadow-sm transition-all group flex gap-4">
             <span className="text-2xl mt-0.5 flex-shrink-0">{item.icon}</span>
             <div>
               <p className="font-semibold text-ink text-sm group-hover:text-cedar transition-colors">{item.title}</p>

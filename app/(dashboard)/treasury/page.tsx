@@ -35,20 +35,20 @@ export default function TreasuryPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Trésorerie</h1><p className="text-sm text-moss mt-0.5">Solde total : <span className={`font-bold ${totalBalance >= 0 ? "text-green-700" : "text-red-600"}`}>{totalBalance.toLocaleString("fr-FR")} XOF</span></p></div>
+        <div><h1 className="text-2xl font-bold text-ink">Trésorerie</h1><p className="text-sm text-moss mt-0.5">Solde total : <span className={`font-bold ${totalBalance >= 0 ? "text-pos" : "text-neg"}`}>{totalBalance.toLocaleString("fr-FR")} XOF</span></p></div>
         <button onClick={() => setModalOpen(true)} className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink transition-colors">+ Nouveau compte</button>
       </div>
 
-      {loading ? <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{[...Array(3)].map((_,i) => <div key={i} className="h-32 bg-white rounded-xl border border-clay/20 animate-pulse" />)}</div> : (
+      {loading ? <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{[...Array(3)].map((_,i) => <div key={i} className="h-32 bg-surface rounded-xl border border-clay/20 animate-pulse" />)}</div> : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {accounts.map(a => (
-            <div key={a._id} className="bg-white rounded-xl border border-clay/20 p-5">
+            <div key={a._id} className="bg-surface rounded-xl border border-clay/20 p-5">
               <div className="flex items-start justify-between mb-3">
                 <span className="text-2xl">{TYPE_ICONS[a.type] || "💰"}</span>
                 <span className="text-xs text-moss bg-sand px-2 py-0.5 rounded-full">{TYPE_LABELS[a.type] || a.type}</span>
               </div>
               <p className="font-semibold text-ink">{a.label}</p>
-              <p className={`text-2xl font-bold mt-2 font-mono ${a.balance >= 0 ? "text-green-700" : "text-red-600"}`}>{a.balance.toLocaleString("fr-FR")} <span className="text-sm font-normal text-moss">XOF</span></p>
+              <p className={`text-2xl font-bold mt-2 font-mono ${a.balance >= 0 ? "text-pos" : "text-neg"}`}>{a.balance.toLocaleString("fr-FR")} <span className="text-sm font-normal text-moss">XOF</span></p>
             </div>
           ))}
           {accounts.length === 0 && <div className="col-span-3 text-center text-moss py-12">Aucun compte de trésorerie configuré</div>}
@@ -58,7 +58,7 @@ export default function TreasuryPage() {
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+          <div className="relative bg-surface rounded-2xl shadow-xl p-6 w-full max-w-md">
             <h2 className="text-lg font-semibold text-ink mb-4">Nouveau compte</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div><label className={lbl}>Libellé *</label><input className={inp} value={newAccount.label} onChange={e => setNewAccount(p=>({...p,label:e.target.value}))} required /></div>

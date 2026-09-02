@@ -47,9 +47,9 @@ function ChapterRow({ chapter, depth = 0 }: { chapter: BudgetChapter; depth?: nu
         </td>
         <td className="px-4 py-3 text-sm">{chapter.label}</td>
         <td className="px-4 py-3 text-right font-mono text-sm">{formatXOF(chapter.allocatedAmount)}</td>
-        <td className="px-4 py-3 text-right font-mono text-sm text-amber-700">{formatXOF(chapter.engagedAmount)}</td>
+        <td className="px-4 py-3 text-right font-mono text-sm text-warn">{formatXOF(chapter.engagedAmount)}</td>
         <td className="px-4 py-3 text-right">
-          <span className={`font-mono text-sm ${isOverEngaged ? "text-red-600 font-bold" : "text-green-700"}`}>
+          <span className={`font-mono text-sm ${isOverEngaged ? "text-neg font-bold" : "text-pos"}`}>
             {formatXOF(available)}
           </span>
         </td>
@@ -58,7 +58,7 @@ function ChapterRow({ chapter, depth = 0 }: { chapter: BudgetChapter; depth?: nu
           <div className="flex items-center gap-2">
             <div className="flex-1 h-2 bg-clay/20 rounded-full w-20">
               <div
-                className={`h-2 rounded-full transition-all ${tauxEngagement > 90 ? "bg-red-400" : tauxEngagement > 70 ? "bg-amber-400" : "bg-green-400"}`}
+                className={`h-2 rounded-full transition-all ${tauxEngagement > 90 ? "bg-neg" : tauxEngagement > 70 ? "bg-warn" : "bg-pos"}`}
                 style={{ width: `${Math.min(100, tauxEngagement)}%` }}
               />
             </div>
@@ -117,10 +117,10 @@ export default function BudgetPage() {
         <div className="grid grid-cols-3 gap-4">
           {[
             { label: "Budget total alloué", value: data.totals.allocated, color: "text-ink" },
-            { label: "Engagements", value: data.totals.engaged, color: "text-amber-700" },
-            { label: "Disponible", value: data.totals.allocated - data.totals.engaged, color: data.totals.allocated - data.totals.engaged < 0 ? "text-red-600" : "text-green-700" },
+            { label: "Engagements", value: data.totals.engaged, color: "text-warn" },
+            { label: "Disponible", value: data.totals.allocated - data.totals.engaged, color: data.totals.allocated - data.totals.engaged < 0 ? "text-neg" : "text-pos" },
           ].map((item) => (
-            <div key={item.label} className="bg-white rounded-xl border border-clay/20 p-5">
+            <div key={item.label} className="bg-surface rounded-xl border border-clay/20 p-5">
               <p className="text-xs text-moss font-medium uppercase tracking-wide">{item.label}</p>
               <p className={`text-xl font-bold mt-1 font-mono ${item.color}`}>{formatXOF(item.value)}</p>
             </div>
@@ -129,13 +129,13 @@ export default function BudgetPage() {
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="table-dense">
             <thead>
               <tr className="border-b border-clay/20 bg-sand/50">
                 {["Code", "Intitulé", "Alloué", "Engagé", "Disponible", "Payé", "Taux engagement"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-moss uppercase tracking-wide">{h}</th>
+                  <th key={h} >{h}</th>
                 ))}
               </tr>
             </thead>

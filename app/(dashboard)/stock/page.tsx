@@ -104,7 +104,7 @@ export default function StockPage() {
       label: "En Stock", 
       className: "text-right font-mono font-bold", 
       render: (v, r) => (
-        <span className={r.isAlert ? "text-red-600 bg-red-50 px-2 py-1 rounded-md" : "text-green-700"}>
+        <span className={r.isAlert ? "text-neg bg-neg-50 px-2 py-1 rounded-md" : "text-pos"}>
           {Number(v).toLocaleString()}
         </span>
       ) 
@@ -120,11 +120,11 @@ export default function StockPage() {
       key: "isAlert", 
       label: "Statut", 
       render: (v) => v ? (
-        <span className="flex items-center gap-1 text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">
+        <span className="flex items-center gap-1 text-[10px] bg-neg-50 text-neg px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">
           <AlertTriangle size={10} /> Critique
         </span>
       ) : (
-        <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">OK</span>
+        <span className="text-[10px] bg-pos-50 text-pos px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">OK</span>
       ) 
     },
     { 
@@ -161,7 +161,7 @@ export default function StockPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-clay/10 p-5 shadow-sm">
+        <div className="bg-surface rounded-2xl border border-clay/10 p-5 shadow-sm">
           <p className="text-[10px] font-bold text-moss uppercase">Valeur de l'inventaire</p>
           <p className="text-2xl font-bold font-mono text-ink mt-2">{Math.round(totalValue).toLocaleString("fr-FR")} <small className="text-xs font-normal opacity-50">XOF</small></p>
         </div>
@@ -173,31 +173,31 @@ export default function StockPage() {
           onClick={() => { setAlertOnly(v => !v); setPage(1); }}
           aria-pressed={alertOnly}
           className={`text-left rounded-2xl border p-5 shadow-sm transition-colors ${
-            alertOnly ? "bg-red-100 border-red-300 ring-2 ring-red-200"
-                      : alertCount > 0 ? "bg-red-50 border-red-100 hover:bg-red-100"
-                                       : "bg-white border-clay/10 hover:bg-sand/40"
+            alertOnly ? "bg-neg-50 border-neg/25 ring-2 ring-red-200"
+                      : alertCount > 0 ? "bg-neg-50 border-neg/25 hover:bg-neg-50"
+                                       : "bg-surface border-clay/10 hover:bg-sand/40"
           }`}
         >
           <p className="text-[10px] font-bold text-moss uppercase">Ruptures / Alertes</p>
-          <p className={`text-2xl font-bold mt-2 ${alertCount > 0 ? "text-red-600" : "text-green-700"}`}>{alertCount}</p>
+          <p className={`text-2xl font-bold mt-2 ${alertCount > 0 ? "text-neg" : "text-pos"}`}>{alertCount}</p>
           <p className="text-[10px] text-moss mt-1">
             {alertOnly ? "Filtre actif — cliquez pour tout afficher" : "Cliquez pour ne voir que les alertes"}
           </p>
         </button>
-        <div className="bg-white rounded-2xl border border-clay/10 p-5 shadow-sm">
+        <div className="bg-surface rounded-2xl border border-clay/10 p-5 shadow-sm">
           <p className="text-[10px] font-bold text-moss uppercase">Total Références</p>
           <p className="text-2xl font-bold mt-2 text-ink">{total}</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-clay/10 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-clay/10 shadow-sm overflow-hidden">
         <DataTable columns={columns} data={items} loading={loading} keyExtractor={s => s._id} />
       </div>
 
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
 
      <Modal open={!!mvtModal} onClose={() => setMvtModal(null)} title="Mouvement de Stock">
-        <div className="p-6 space-y-5 bg-white">
+        <div className="p-6 space-y-5 bg-surface">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={lbl}>Opération</label>

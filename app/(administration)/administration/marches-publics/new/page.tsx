@@ -41,7 +41,7 @@ export default function NewMarchePublicPage() {
         <h1 className="text-2xl font-bold text-ink mt-1">Nouveau marché public</h1>
       </div>
       
-      <div className="bg-white rounded-2xl border border-clay/20 p-6">
+      <div className="bg-surface rounded-2xl border border-clay/20 p-6">
         <MarcheForm 
           onSave={handleSave} 
           onCancel={() => router.push("/administration/marches-publics")} 

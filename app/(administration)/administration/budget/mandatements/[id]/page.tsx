@@ -95,13 +95,13 @@ export default function MandatementActionPage() {
           <ArrowLeft size={18} />
           <span className="text-[10px] font-black uppercase tracking-widest">Retour aux attentes</span>
         </Link>
-        <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
+        <div className="flex items-center gap-2 px-3 py-1 bg-pos-50 text-pos rounded-full border border-pos/25">
           <ShieldCheck size={14} />
           <span className="text-[10px] font-black uppercase">Engagement Approuvé</span>
         </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] border border-clay/10 shadow-xl overflow-hidden">
+      <div className="bg-surface rounded-[2.5rem] border border-clay/10 shadow-xl overflow-hidden">
         <div className="bg-ink p-8 text-white flex justify-between items-center">
           <div>
             <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] mb-1">Dossier de Mandatement</p>

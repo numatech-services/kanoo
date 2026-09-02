@@ -35,7 +35,7 @@ function ActivateForm() {
         <input className="w-full px-4 py-2.5 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30 font-mono" value={token} onChange={e=>setToken(e.target.value)} placeholder="Collez votre token ici…" required />
         <p className="text-xs text-moss mt-1">Le token vous a été envoyé par email lors de votre inscription.</p>
       </div>
-      {result && !result.success && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{result.message}</div>}
+      {result && !result.success && <div className="p-3 bg-neg-50 border border-neg/25 rounded-lg text-neg text-sm">{result.message}</div>}
       <button type="submit" disabled={loading || !token} className="w-full py-3 bg-cedar text-white rounded-xl font-medium hover:bg-ink transition-colors disabled:opacity-60">{loading ? "Activation…" : "Activer mon compte"}</button>
       <div className="text-center"><button type="button" onClick={async () => { const email = prompt("Votre email pour renvoyer le lien :"); if (email) { await fetch("/api/public/activation/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) }); alert("Si votre email est enregistré, vous recevrez un nouveau lien."); } }} className="text-sm text-cedar hover:underline">Renvoyer le lien d'activation</button></div>
     </form>
@@ -50,7 +50,7 @@ export default function ActiverComptePage() {
           <Link href="/" className="text-2xl font-bold text-ink">Kanoo</Link>
           <p className="text-moss mt-2">Activation de votre compte</p>
         </div>
-        <div className="bg-white rounded-2xl shadow-soft p-8">
+        <div className="bg-surface rounded-2xl shadow-soft p-8">
           <Suspense fallback={<div className="h-32 animate-pulse bg-sand rounded-xl" />}>
             <ActivateForm />
           </Suspense>

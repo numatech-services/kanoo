@@ -12,10 +12,10 @@ interface BillingRow {
 }
 
 const STATUS_STYLE: Record<string, string> = {
-  active: "bg-green-100 text-green-700",
-  trial: "bg-amber-100 text-amber-700",
-  suspended: "bg-red-100 text-red-600",
-  cancelled: "bg-red-100 text-red-600",
+  active: "bg-pos-50 text-pos",
+  trial: "bg-warn-50 text-warn",
+  suspended: "bg-neg-50 text-neg",
+  cancelled: "bg-neg-50 text-neg",
 };
 
 export default function BillingPage() {
@@ -69,7 +69,7 @@ export default function BillingPage() {
     {
       key: "subscriptionStatus", label: "Statut",
       render: (v) => (
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[String(v)] || "bg-gray-100 text-gray-600"}`}>
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[String(v)] || "bg-surface2 text-ink2"}`}>
           {String(v)}
         </span>
       ),
@@ -91,14 +91,14 @@ export default function BillingPage() {
             <button
               onClick={() => setStatus(row._id, "active")}
               disabled={busy || row.subscriptionStatus === "active"}
-              className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-2 py-1 bg-pos text-white text-xs rounded hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Activer
             </button>
             <button
               onClick={() => setStatus(row._id, "suspended")}
               disabled={busy || row.subscriptionStatus === "suspended"}
-              className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-2 py-1 bg-neg text-white text-xs rounded hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Suspendre
             </button>
@@ -110,9 +110,9 @@ export default function BillingPage() {
 
   const count = (status: string) => tenants.filter(t => t.subscriptionStatus === status).length;
   const cards = [
-    { label: "Périodes d'essai", value: count("trial"), color: "text-amber-700" },
-    { label: "Actifs", value: count("active"), color: "text-green-700" },
-    { label: "Suspendus", value: count("suspended"), color: "text-red-700" },
+    { label: "Périodes d'essai", value: count("trial"), color: "text-warn" },
+    { label: "Actifs", value: count("active"), color: "text-pos" },
+    { label: "Suspendus", value: count("suspended"), color: "text-neg" },
   ];
 
   return (
@@ -120,14 +120,14 @@ export default function BillingPage() {
       <h1 className="text-2xl font-bold text-ink">Facturation &amp; Abonnements</h1>
 
       {error && (
-        <p className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+        <p className="px-4 py-3 bg-neg-50 border border-neg/25 rounded-xl text-sm text-neg">
           {error}
         </p>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {cards.map(c => (
-          <div key={c.label} className="bg-white rounded-xl border border-clay/20 p-4">
+          <div key={c.label} className="bg-surface rounded-xl border border-clay/20 p-4">
             <p className="text-xs text-moss">{c.label}</p>
             <p className={`text-3xl font-bold mt-1 tabular-nums ${c.color}`}>{c.value}</p>
           </div>

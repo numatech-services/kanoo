@@ -49,7 +49,7 @@ export default function EditInvoicePage() {
   if (loading) {
     return (
       <div className="p-6">
-        <div className="h-64 bg-white rounded-xl animate-pulse border border-clay/20" />
+        <div className="h-64 bg-surface rounded-xl animate-pulse border border-clay/20" />
       </div>
     );
   }
@@ -94,7 +94,7 @@ export default function EditInvoicePage() {
         <h1 className="text-2xl font-bold text-ink mt-1">Modifier la facture</h1>
       </div>
 
-      <div className="bg-white rounded-2xl border border-clay/20 p-6">
+      <div className="bg-surface rounded-2xl border border-clay/20 p-6">
         <InvoiceForm 
           initial={invoiceData} 
           onSave={handleUpdate} 

@@ -125,7 +125,7 @@ export function CreditNoteDialog({
 
         {mode === "partial" && (
           <div className="border border-line rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
+            <table className="table-dense">
               <thead>
                 <tr className="bg-surface2/60 border-b border-line">
                   <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-ink3 font-bold">Ligne</th>

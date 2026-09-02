@@ -25,7 +25,7 @@ export function ConfirmDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" onClick={busy ? undefined : onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+      <div className="relative bg-surface rounded-2xl shadow-xl p-6 w-full max-w-sm">
         <h3 className="text-lg font-semibold text-ink">{title}</h3>
         <p className="text-sm text-moss mt-2">{message}</p>
         <div className="flex gap-3 mt-6">
@@ -37,7 +37,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={busy}
             className={`flex-1 py-2 rounded-xl text-sm font-medium text-white transition-colors disabled:opacity-60 ${
-              danger ? "bg-red-600 hover:bg-red-700" : "bg-cedar hover:bg-ink"
+              danger ? "bg-neg hover:brightness-95" : "bg-cedar hover:bg-ink"
             }`}
           >
             {busy ? busyLabel : confirmLabel}

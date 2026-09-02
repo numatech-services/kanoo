@@ -22,13 +22,13 @@ async function getRecentDeliveries() {
 
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    draft:               { label: "Brouillon",    cls: "bg-gray-100 text-gray-600" },
-    issued:              { label: "Émis",         cls: "bg-blue-100 text-blue-700" },
-    delivered:           { label: "Livré",        cls: "bg-green-100 text-green-700" },
-    partially_delivered: { label: "Part. livré", cls: "bg-amber-100 text-amber-700" },
-    returned:            { label: "Retourné",     cls: "bg-red-100 text-red-700" },
+    draft:               { label: "Brouillon",    cls: "bg-surface2 text-ink2" },
+    issued:              { label: "Émis",         cls: "bg-info-50 text-info" },
+    delivered:           { label: "Livré",        cls: "bg-pos-50 text-pos" },
+    partially_delivered: { label: "Part. livré", cls: "bg-warn-50 text-warn" },
+    returned:            { label: "Retourné",     cls: "bg-neg-50 text-neg" },
   };
-  const s = map[status] || { label: status, cls: "bg-gray-100 text-gray-600" };
+  const s = map[status] || { label: status, cls: "bg-surface2 text-ink2" };
   return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.cls}`}>{s.label}</span>;
 }
 
@@ -36,7 +36,7 @@ export async function RecentDeliveries() {
   const deliveries = await getRecentDeliveries();
 
   return (
-    <div className="bg-white rounded-xl border border-clay/20">
+    <div className="bg-surface rounded-xl border border-clay/20">
       <div className="flex items-center justify-between px-5 py-4 border-b border-clay/10">
         <h2 className="font-semibold text-ink">Bons de livraison</h2>
         <Link href="/livraisons" className="text-sm text-cedar hover:underline">Voir tout →</Link>

@@ -60,7 +60,7 @@ export default function NewMarchePage() {
         <h1 className="text-2xl font-bold text-ink mt-1">Nouveau marché</h1>
       </div>
 
-      <div className={`bg-white rounded-2xl border border-clay/20 p-6 ${isSubmitting ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-surface rounded-2xl border border-clay/20 p-6 ${isSubmitting ? 'opacity-50 pointer-events-none' : ''}`}>
         <MarcheForm 
           onSave={handleSave} 
           onCancel={() => router.push("/marches")} 

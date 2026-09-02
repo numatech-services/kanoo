@@ -146,7 +146,7 @@ export function SignatureCanvas({
       </div>
 
       {/* Zone de signature */}
-      <div className="border-2 border-clay/30 rounded-xl overflow-hidden bg-white">
+      <div className="border-2 border-clay/30 rounded-xl overflow-hidden bg-surface">
         <div className="h-6 bg-sand/50 border-b border-clay/20 flex items-center px-3">
           <span className="text-xs text-moss">{label}</span>
         </div>

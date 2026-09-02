@@ -24,10 +24,10 @@ const ICONS: Record<ToastType, string> = {
   success: "✅", error: "❌", warning: "⚠️", info: "ℹ️",
 };
 const BG: Record<ToastType, string> = {
-  success: "bg-green-50 border-green-300 text-green-800",
-  error:   "bg-red-50 border-red-300 text-red-800",
-  warning: "bg-amber-50 border-amber-300 text-amber-800",
-  info:    "bg-blue-50 border-blue-300 text-blue-800",
+  success: "bg-pos-50 border-pos/25 text-pos",
+  error:   "bg-neg-50 border-neg/25 text-neg",
+  warning: "bg-warn-50 border-warn/25 text-warn",
+  info:    "bg-info-50 border-info/25 text-info",
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {

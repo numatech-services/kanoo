@@ -45,7 +45,7 @@ export default function TarifsPage() {
             aria-label="Basculer mensuel / annuel"
             className={`relative w-12 h-6 rounded-full transition-colors ${billing === "yearly" ? "bg-accent" : "bg-line2"}`}
           >
-            <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${billing === "yearly" ? "translate-x-7" : "translate-x-1"}`} />
+            <span className={`absolute top-1 w-4 h-4 rounded-full bg-surface transition-transform ${billing === "yearly" ? "translate-x-7" : "translate-x-1"}`} />
           </button>
           <span className={`text-sm ${billing === "yearly" ? "text-ink font-semibold" : "text-ink2"}`}>
             Annuel <span className="text-acacia font-semibold">(−17 %)</span>

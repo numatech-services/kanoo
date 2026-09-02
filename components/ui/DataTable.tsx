@@ -66,26 +66,27 @@ export function DataTable<T>({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-14 border-b border-clay/10 animate-pulse bg-sand/40" />
+      <div className="surface-card overflow-hidden">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="h-10 border-b border-line last:border-0 animate-pulse bg-surface2/50" />
         ))}
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+    <div className="surface-card overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        {/* Densité et styles d'en-tête portés par .table-dense : une seule
+            définition pour les 31 écrans qui passent par ce composant. */}
+        <table className="table-dense">
           <thead>
-            <tr className="border-b border-clay/20 bg-sand/50">
+            <tr>
               {columns.map((col) => (
                 <th
                   key={String(col.key)}
-                  className={`px-4 py-3 text-left text-xs font-semibold text-moss uppercase tracking-wide ${
-                    col.sortable ? "cursor-pointer hover:text-ink select-none" : ""
-                  } ${col.className || ""}`}
+                  scope="col"
+                  className={`${col.sortable ? "cursor-pointer hover:text-ink select-none" : ""} ${col.className || ""}`}
                   onClick={() => col.sortable && handleSort(String(col.key))}
                 >
                   <span className="flex items-center gap-1">
@@ -102,7 +103,7 @@ export function DataTable<T>({
             {/* sorted est maintenant garanti d'être un tableau (safeData) */}
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="text-center text-moss py-12">
+                <td colSpan={columns.length} className="text-center text-ink2 py-12">
                   {emptyMessage}
                 </td>
               </tr>
@@ -110,15 +111,13 @@ export function DataTable<T>({
               sorted.map((row, index) => (
                 <tr
                   key={rowKey(row, index)}
-                  className={`border-b border-clay/10 last:border-0 ${
-                    onRowClick ? "cursor-pointer hover:bg-sand/40 transition-colors" : ""
-                  }`}
+                  className={onRowClick ? "cursor-pointer" : ""}
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((col) => {
                     const val = (row as Record<string, unknown>)[String(col.key)];
                     return (
-                      <td key={String(col.key)} className={`px-4 py-3 text-ink ${col.className || ""}`}>
+                      <td key={String(col.key)} className={`text-ink ${col.className || ""}`}>
                         {col.render ? col.render(val, row) : String(val ?? "—")}
                       </td>
                     );

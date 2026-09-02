@@ -64,7 +64,7 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
+      {error && <div className="p-3 bg-neg-50 border border-neg/25 rounded-lg text-neg text-sm">{error}</div>}
 
       {/* Type */}
       <fieldset className="space-y-3">
@@ -132,13 +132,13 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
 
         {/* Simulation paie */}
         {(isEmployee ? form.grossSalary : form.indemnity) > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 grid grid-cols-4 gap-3 text-xs">
+          <div className="bg-info-50 border border-info/25 rounded-xl p-3 grid grid-cols-4 gap-3 text-xs">
             {isEmployee && form.includeCnss && <>
-              <div className="text-center"><p className="font-semibold text-blue-800">{cnssEmployee.toLocaleString("fr-FR")} XOF</p><p className="text-blue-600 mt-0.5">CNSS salarié</p></div>
-              <div className="text-center"><p className="font-semibold text-blue-800">{cnssEmployer.toLocaleString("fr-FR")} XOF</p><p className="text-blue-600 mt-0.5">CNSS patronal</p></div>
+              <div className="text-center"><p className="font-semibold text-info">{cnssEmployee.toLocaleString("fr-FR")} XOF</p><p className="text-info mt-0.5">CNSS salarié</p></div>
+              <div className="text-center"><p className="font-semibold text-info">{cnssEmployer.toLocaleString("fr-FR")} XOF</p><p className="text-info mt-0.5">CNSS patronal</p></div>
             </>}
-            {form.otherDeductionAmount > 0 && <div className="text-center"><p className="font-semibold text-amber-800">{form.otherDeductionAmount.toLocaleString("fr-FR")} XOF</p><p className="text-amber-600 mt-0.5">Autre retenue</p></div>}
-            <div className="text-center"><p className="font-bold text-green-800">{Math.max(0,netSalary).toLocaleString("fr-FR")} XOF</p><p className="text-green-600 mt-0.5">{isEmployee?"Net estimé":"Montant net"}</p></div>
+            {form.otherDeductionAmount > 0 && <div className="text-center"><p className="font-semibold text-warn">{form.otherDeductionAmount.toLocaleString("fr-FR")} XOF</p><p className="text-warn mt-0.5">Autre retenue</p></div>}
+            <div className="text-center"><p className="font-bold text-pos">{Math.max(0,netSalary).toLocaleString("fr-FR")} XOF</p><p className="text-pos mt-0.5">{isEmployee?"Net estimé":"Montant net"}</p></div>
           </div>
         )}
       </fieldset>

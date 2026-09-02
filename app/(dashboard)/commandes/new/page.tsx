@@ -55,7 +55,7 @@ export default function NewCommandePage() {
         <h1 className="text-2xl font-bold text-ink mt-1">Nouveau bon de commande</h1>
       </div>
       
-      <div className="bg-white rounded-2xl border border-clay/20 p-6 shadow-sm">
+      <div className="bg-surface rounded-2xl border border-clay/20 p-6 shadow-sm">
         <CommandeForm 
           onSave={handleSave} 
           onCancel={() => router.push("/commandes")} 

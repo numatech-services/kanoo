@@ -10,8 +10,8 @@ interface Member {
 interface CodeStatus { hasCode: boolean; generatedAt?: string; sentAt?: string; }
 
 const STATUS_COLORS: Record<string,string> = {
-  active:"bg-green-100 text-green-700", inactive:"bg-gray-100 text-gray-500",
-  suspended:"bg-amber-100 text-amber-700", expelled:"bg-red-100 text-red-600"
+  active:"bg-pos-50 text-pos", inactive:"bg-surface2 text-ink3",
+  suspended:"bg-warn-50 text-warn", expelled:"bg-neg-50 text-neg"
 };
 const STATUS_FR: Record<string,string> = { active:"Actif", inactive:"Inactif", suspended:"Suspendu", expelled:"Exclu" };
 
@@ -48,7 +48,7 @@ export default function MembreDetailPage() {
   }
 
   if (!mounted) return null;
-  if (loading) return <div className="space-y-4"><div className="h-8 w-48 bg-sand animate-pulse rounded-lg"/><div className="h-64 bg-white rounded-xl animate-pulse border border-clay/20"/></div>;
+  if (loading) return <div className="space-y-4"><div className="h-8 w-48 bg-sand animate-pulse rounded-lg"/><div className="h-64 bg-surface rounded-xl animate-pulse border border-clay/20"/></div>;
   if (!member) return <div className="text-moss p-6">Adhérent introuvable</div>;
 
   return (
@@ -63,7 +63,7 @@ export default function MembreDetailPage() {
       </div>
 
       {/* Informations */}
-      <div className="bg-white rounded-xl border border-clay/20 p-5">
+      <div className="bg-surface rounded-xl border border-clay/20 p-5">
         <h2 className="font-semibold text-ink text-sm mb-4">Informations</h2>
         <dl className="space-y-2.5 text-sm">
           {[
@@ -81,59 +81,59 @@ export default function MembreDetailPage() {
       </div>
 
       {/* Code d'accès portail */}
-      <div className="bg-white rounded-xl border border-clay/20 p-5">
+      <div className="bg-surface rounded-xl border border-clay/20 p-5">
         <h2 className="font-semibold text-ink text-sm mb-1">Code d'accès — Portail adhérent</h2>
         <p className="text-xs text-moss mb-4">
           Permet à l'adhérent de se connecter sur <code className="bg-sand px-1 rounded">/portail/adherent</code> avec son email et ce code.
         </p>
 
         {codeStatus?.hasCode ? (
-          <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-xl mb-3">
+          <div className="flex items-center justify-between p-3 bg-pos-50 border border-pos/25 rounded-xl mb-3">
             <div>
-              <p className="text-sm font-medium text-green-800">✅ Code actif</p>
-              {codeStatus.generatedAt && <p className="text-xs text-green-600">Généré le {new Date(codeStatus.generatedAt).toLocaleDateString("fr-FR")}</p>}
-              {codeStatus.sentAt && <p className="text-xs text-green-600">Envoyé le {new Date(codeStatus.sentAt).toLocaleDateString("fr-FR")}</p>}
+              <p className="text-sm font-medium text-pos">✅ Code actif</p>
+              {codeStatus.generatedAt && <p className="text-xs text-pos">Généré le {new Date(codeStatus.generatedAt).toLocaleDateString("fr-FR")}</p>}
+              {codeStatus.sentAt && <p className="text-xs text-pos">Envoyé le {new Date(codeStatus.sentAt).toLocaleDateString("fr-FR")}</p>}
             </div>
             <button onClick={handleGenerateCode} disabled={sendingCode}
-              className="text-xs border border-green-300 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100 disabled:opacity-60">
+              className="text-xs border border-pos/25 text-pos px-3 py-1.5 rounded-lg hover:bg-pos-50 disabled:opacity-60">
               {sendingCode ? "Génération…" : "Régénérer"}
             </button>
           </div>
         ) : (
-          <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl mb-3">
+          <div className="flex items-center justify-between p-3 bg-warn-50 border border-warn/25 rounded-xl mb-3">
             <div>
-              <p className="text-sm font-medium text-amber-800">⚠ Aucun code généré</p>
-              <p className="text-xs text-amber-600">L'adhérent ne peut pas encore accéder au portail</p>
+              <p className="text-sm font-medium text-warn">⚠ Aucun code généré</p>
+              <p className="text-xs text-warn">L'adhérent ne peut pas encore accéder au portail</p>
             </div>
             <button onClick={handleGenerateCode} disabled={sendingCode}
-              className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 disabled:opacity-60">
+              className="text-xs bg-warn text-white px-3 py-1.5 rounded-lg hover:bg-warn disabled:opacity-60">
               {sendingCode ? "Génération…" : "Générer le code"}
             </button>
           </div>
         )}
 
         {codeResult && (
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-            <p className="text-sm font-semibold text-blue-800 mb-2">Code généré :</p>
+          <div className="p-4 bg-info-50 border border-info/25 rounded-xl">
+            <p className="text-sm font-semibold text-info mb-2">Code généré :</p>
             <div className="flex items-center gap-3 mb-3">
-              <span className="font-mono text-2xl font-bold text-blue-900 tracking-widest bg-white px-4 py-2 rounded-lg border border-blue-200">{codeResult.code}</span>
+              <span className="font-mono text-2xl font-bold text-info tracking-widest bg-surface px-4 py-2 rounded-lg border border-info/25">{codeResult.code}</span>
               <button onClick={() => navigator.clipboard?.writeText(codeResult.code)}
-                className="text-xs text-blue-600 hover:underline">Copier</button>
+                className="text-xs text-info hover:underline">Copier</button>
             </div>
             <div className="flex gap-4 text-xs">
-              <span className={codeResult.sentSMS ? "text-green-700" : "text-gray-400"}>
+              <span className={codeResult.sentSMS ? "text-pos" : "text-ink3"}>
                 {codeResult.sentSMS ? "✅" : "○"} SMS {!member.phone && "(pas de téléphone)"}
               </span>
-              <span className={codeResult.sentEmail ? "text-green-700" : "text-gray-400"}>
+              <span className={codeResult.sentEmail ? "text-pos" : "text-ink3"}>
                 {codeResult.sentEmail ? "✅" : "○"} Email {!member.email && "(pas d'email)"}
               </span>
             </div>
-            <p className="text-xs text-blue-600 mt-2">Ce code ne sera plus affiché. Conservez-le si vous devez le communiquer manuellement.</p>
+            <p className="text-xs text-info mt-2">Ce code ne sera plus affiché. Conservez-le si vous devez le communiquer manuellement.</p>
           </div>
         )}
 
         {!member.phone && !member.email && (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+          <p className="text-xs text-warn bg-warn-50 border border-warn/25 rounded-lg px-3 py-2 mt-2">
             ⚠ Aucun email ni téléphone enregistré — le code ne pourra pas être envoyé automatiquement.
           </p>
         )}

@@ -5,8 +5,8 @@ import Link from "next/link";
 interface Project { _id:string; code:string; name:string; status:string; executionRate:number; budgetRate:number; budget:number; spentAmount:number; startDate?:string; endDate?:string; tasks:Array<{status:string}>; documents:Array<{_id:string}>; }
 
 const STATUS_FR: Record<string,string> = { planning:"Planification", active:"En cours", on_hold:"En pause", completed:"Terminé", cancelled:"Annulé" };
-const STATUS_COL: Record<string,string> = { planning:"bg-gray-100 text-gray-600", active:"bg-blue-100 text-blue-700", on_hold:"bg-amber-100 text-amber-700", completed:"bg-green-100 text-green-700", cancelled:"bg-red-100 text-red-600" };
-const execColor = (r:number) => r>=80?"bg-green-500":r>=50?"bg-amber-400":"bg-red-400";
+const STATUS_COL: Record<string,string> = { planning:"bg-surface2 text-ink2", active:"bg-info-50 text-info", on_hold:"bg-warn-50 text-warn", completed:"bg-pos-50 text-pos", cancelled:"bg-neg-50 text-neg" };
+const execColor = (r:number) => r>=80?"bg-pos":r>=50?"bg-warn":"bg-neg";
 
 export default function ProjetsAdminPage() {
   const [mounted, setMounted] = useState(false);
@@ -38,10 +38,10 @@ export default function ProjetsAdminPage() {
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Projets</p><p className="text-2xl font-bold text-ink mt-1">{projects.length}</p></div>
-        <div className="bg-white rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Budget total</p><p className="text-2xl font-bold font-mono text-ink mt-1">{(totalBudget/1_000_000).toFixed(1)}M</p></div>
-        <div className="bg-white rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Taux d'exécution moyen</p><p className={`text-2xl font-bold mt-1 ${avgExec>=60?"text-green-700":"text-amber-600"}`}>{avgExec}%</p></div>
-        <div className="bg-white rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">En cours</p><p className="text-2xl font-bold text-blue-700 mt-1">{projects.filter(p=>p.status==="active").length}</p></div>
+        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Projets</p><p className="text-2xl font-bold text-ink mt-1">{projects.length}</p></div>
+        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Budget total</p><p className="text-2xl font-bold font-mono text-ink mt-1">{(totalBudget/1_000_000).toFixed(1)}M</p></div>
+        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Taux d'exécution moyen</p><p className={`text-2xl font-bold mt-1 ${avgExec>=60?"text-pos":"text-warn"}`}>{avgExec}%</p></div>
+        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">En cours</p><p className="text-2xl font-bold text-info mt-1">{projects.filter(p=>p.status==="active").length}</p></div>
       </div>
 
       <div className="flex gap-2 flex-wrap">
@@ -53,15 +53,15 @@ export default function ProjetsAdminPage() {
       </div>
 
       {loading
-        ? <div className="space-y-3">{[...Array(3)].map((_,i)=><div key={i} className="h-20 bg-white rounded-xl animate-pulse border border-clay/20"/>)}</div>
+        ? <div className="space-y-3">{[...Array(3)].map((_,i)=><div key={i} className="h-20 bg-surface rounded-xl animate-pulse border border-clay/20"/>)}</div>
         : projects.length === 0
-        ? <div className="bg-white rounded-xl border border-clay/20 p-12 text-center"><p className="text-4xl mb-3">📋</p><p className="text-moss">Aucun projet trouvé</p></div>
+        ? <div className="bg-surface rounded-xl border border-clay/20 p-12 text-center"><p className="text-4xl mb-3">📋</p><p className="text-moss">Aucun projet trouvé</p></div>
         : (
           <div className="space-y-3">
             {projects.map(p => {
               const tasksDone = p.tasks.filter(t => t.status==="done").length;
               return (
-                <Link key={p._id} href={`/administration/projets/${p._id}`} className="bg-white rounded-xl border border-clay/20 p-5 hover:border-cedar/40 transition-all flex items-center gap-6 block">
+                <Link key={p._id} href={`/administration/projets/${p._id}`} className="bg-surface rounded-xl border border-clay/20 p-5 hover:border-cedar/40 transition-all flex items-center gap-6 block">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
                       <span className="font-mono text-xs text-moss">{p.code}</span>
@@ -75,7 +75,7 @@ export default function ProjetsAdminPage() {
                       </div>
                       <div>
                         <div className="flex justify-between text-xs text-moss mb-1"><span>Budget</span><span className="font-mono">{p.budgetRate}%</span></div>
-                        <div className="h-2 bg-sand rounded-full"><div className={`h-2 rounded-full ${p.budgetRate>100?"bg-red-500":p.budgetRate>80?"bg-amber-400":"bg-blue-400"}`} style={{width:`${Math.min(p.budgetRate,100)}%`}}/></div>
+                        <div className="h-2 bg-sand rounded-full"><div className={`h-2 rounded-full ${p.budgetRate>100?"bg-neg":p.budgetRate>80?"bg-warn":"bg-info"}`} style={{width:`${Math.min(p.budgetRate,100)}%`}}/></div>
                       </div>
                     </div>
                   </div>

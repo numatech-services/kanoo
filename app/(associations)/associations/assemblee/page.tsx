@@ -9,10 +9,10 @@ export default function AssembleePage() {
   useEffect(()=>{setMounted(true);load();},[load]);
   const columns: Column<AG>[] = [
     {key:"title",label:"Intitulé"},
-    {key:"type",label:"Type",render:(v)=><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${v==="ordinary"?"bg-blue-100 text-blue-700":"bg-amber-100 text-amber-700"}`}>{v==="ordinary"?"Ordinaire":"Extraordinaire"}</span>},
+    {key:"type",label:"Type",render:(v)=><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${v==="ordinary"?"bg-info-50 text-info":"bg-warn-50 text-warn"}`}>{v==="ordinary"?"Ordinaire":"Extraordinaire"}</span>},
     {key:"date",label:"Date",render:(v)=>new Date(String(v)).toLocaleDateString("fr-FR")},
     {key:"location",label:"Lieu"},
-    {key:"quorumAchieved",label:"Quorum",render:(v,r)=><span className={Number(v)>=r.quorumRequired?"text-green-700":"text-red-600"}>{Number(v)}/{r.quorumRequired}</span>},
+    {key:"quorumAchieved",label:"Quorum",render:(v,r)=><span className={Number(v)>=r.quorumRequired?"text-pos":"text-neg"}>{Number(v)}/{r.quorumRequired}</span>},
     {key:"decisions",label:"Résolutions",render:(v)=>{const d=v as AG["decisions"];return `${d.filter(x=>x.passed).length}/${d.length} adoptées`;}},
   ];
   if (!mounted) return null;

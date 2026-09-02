@@ -137,7 +137,7 @@ export default function InvoiceDetailPage() {
     load();
   }
 
-  if (loading) return <div className="p-6"><div className="h-64 bg-white rounded-xl animate-pulse border border-clay/20" /></div>;
+  if (loading) return <div className="p-6"><div className="h-64 bg-surface rounded-xl animate-pulse border border-clay/20" /></div>;
   if (!invoice) return <div className="p-6 text-moss">Facture introuvable</div>;
 
   const remaining = Math.max(0, invoice.totalTTC - invoice.paidAmount);
@@ -185,12 +185,12 @@ export default function InvoiceDetailPage() {
           </button>
 
           {invoice.status === "draft" && (
-            <button onClick={sendInvoice} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700">
+            <button onClick={sendInvoice} className="px-4 py-2 bg-info text-white rounded-xl text-sm font-medium hover:brightness-95">
               Émettre
             </button>
           )}
           {["sent", "partial"].includes(invoice.status) && remaining > 0 && (
-            <button onClick={() => setPaymentOpen(true)} className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700">
+            <button onClick={() => setPaymentOpen(true)} className="px-4 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95">
               Paiement
             </button>
           )}
@@ -212,21 +212,21 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-clay/20 p-4 flex flex-wrap gap-6">
+      <div className="bg-surface rounded-xl border border-clay/20 p-4 flex flex-wrap gap-6">
         <div><p className="text-xs text-moss">Statut</p><div className="mt-1"><StatusBadge status={invoice.status}/></div></div>
         <div><p className="text-xs text-moss">Émission</p><p className="font-medium text-ink mt-1 text-sm">{new Date(invoice.issueDate).toLocaleDateString("fr-FR")}</p></div>
         <div><p className="text-xs text-moss">Échéance</p>
-          <p className={`font-medium mt-1 text-sm ${invoice.status !== "paid" && new Date(invoice.dueDate) < new Date() ? "text-red-600" : "text-ink"}`}>
+          <p className={`font-medium mt-1 text-sm ${invoice.status !== "paid" && new Date(invoice.dueDate) < new Date() ? "text-neg" : "text-ink"}`}>
             {new Date(invoice.dueDate).toLocaleDateString("fr-FR")}
           </p>
         </div>
         <div><p className="text-xs text-moss">Total TTC</p><p className="font-mono font-bold text-ink mt-1">{invoice.totalTTC.toLocaleString("fr-FR")} XOF</p></div>
-        <div><p className="text-xs text-moss">Encaissé</p><p className="font-mono font-bold text-green-700 mt-1">{invoice.paidAmount.toLocaleString("fr-FR")} XOF</p></div>
-        {remaining > 0 && <div><p className="text-xs text-moss">Reste dû</p><p className="font-mono font-bold text-red-600 mt-1">{remaining.toLocaleString("fr-FR")} XOF</p></div>}
+        <div><p className="text-xs text-moss">Encaissé</p><p className="font-mono font-bold text-pos mt-1">{invoice.paidAmount.toLocaleString("fr-FR")} XOF</p></div>
+        {remaining > 0 && <div><p className="text-xs text-moss">Reste dû</p><p className="font-mono font-bold text-neg mt-1">{remaining.toLocaleString("fr-FR")} XOF</p></div>}
       </div>
 
       {invoice.clientId && (
-        <div className="bg-white rounded-xl border border-clay/20 p-4">
+        <div className="bg-surface rounded-xl border border-clay/20 p-4">
           <p className="text-xs text-moss font-semibold uppercase tracking-wide mb-2">Client</p>
           <p className="font-semibold text-ink">{invoice.clientId.name}</p>
           {invoice.clientId.nif && <p className="text-xs text-moss mt-0.5">NIF : {invoice.clientId.nif}</p>}
@@ -234,8 +234,8 @@ export default function InvoiceDetailPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
+        <table className="table-dense">
           <thead>
             <tr className="bg-sand/50">
               {["Description", "Volume", "P.U. HT", "TVA", "Total TTC"].map((h, index) => (
@@ -277,7 +277,7 @@ export default function InvoiceDetailPage() {
       </div>
 
       {invoice.notes && (
-        <div className="bg-white rounded-xl border border-clay/20 p-4">
+        <div className="bg-surface rounded-xl border border-clay/20 p-4">
           <p className="text-xs text-moss font-semibold uppercase tracking-wide mb-2">Notes</p>
           <p className="text-sm text-ink whitespace-pre-wrap">{invoice.notes}</p>
         </div>

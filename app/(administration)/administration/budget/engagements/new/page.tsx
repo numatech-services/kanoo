@@ -60,7 +60,7 @@ export default function NewEngagementPage() {
     }
   };
 
-  const inputCls = "w-full bg-sand/20 border border-clay/10 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:border-cedar focus:bg-white transition-all placeholder:text-moss/30";
+  const inputCls = "w-full bg-sand/20 border border-clay/10 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:border-cedar focus:bg-surface transition-all placeholder:text-moss/30";
   const labelCls = "text-[10px] font-black uppercase tracking-[0.2em] text-moss mb-2 block ml-1";
 
   return (
@@ -77,7 +77,7 @@ export default function NewEngagementPage() {
         <h1 className="text-xl font-black text-ink uppercase tracking-tighter">Nouvel Engagement Budgétaire</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] border border-clay/10 p-10 shadow-sm space-y-10">
+      <form onSubmit={handleSubmit} className="bg-surface rounded-[2.5rem] border border-clay/10 p-10 shadow-sm space-y-10">
         
         {/* Section 1 : Imputation Budgétaire */}
         <section className="space-y-6">
@@ -122,7 +122,7 @@ export default function NewEngagementPage() {
         {/* Section 2 : Bénéficiaire & Montant */}
         <section className="space-y-6">
           <div className="flex items-center gap-3 pb-2 border-b border-clay/5">
-             <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600">
+             <div className="w-8 h-8 rounded-lg bg-warn/10 flex items-center justify-center text-warn">
                 <User size={16} />
              </div>
              <h2 className="text-xs font-black uppercase tracking-widest text-ink">Détails Financiers</h2>

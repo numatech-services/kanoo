@@ -60,8 +60,8 @@ export default function MarcheDetailPage() {
   }
 
   // État de chargement ou erreur
-  if (error) return <div className="p-6 text-red-500 font-bold bg-white rounded-xl border">Erreur : {error}</div>;
-  if (!item) return <div className="p-6"><div className="h-48 bg-white rounded-xl animate-pulse border border-clay/20" /></div>;
+  if (error) return <div className="p-6 text-neg font-bold bg-surface rounded-xl border">Erreur : {error}</div>;
+  if (!item) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-clay/20" /></div>;
 
   return (
     <div className="space-y-5 max-w-3xl p-4">
@@ -82,7 +82,7 @@ export default function MarcheDetailPage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-clay/20 p-5 shadow-sm">
+      <div className="bg-surface rounded-xl border border-clay/20 p-5 shadow-sm">
         <div className="space-y-2">
           {Object.entries(item)
             .filter(([k]) => !["_id", "tenantId", "__v", "createdAt", "updatedAt", "lines", "approvers", "decisions", "attendees"].includes(k))
@@ -103,7 +103,7 @@ export default function MarcheDetailPage() {
 
       {/* Modal d'édition */}
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Modifier le marché">
-        <div className="p-6 bg-white">
+        <div className="p-6 bg-surface">
           <MarcheForm
             initial={item}
             onSave={handleSave}

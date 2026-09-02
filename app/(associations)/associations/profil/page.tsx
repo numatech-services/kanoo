@@ -84,7 +84,7 @@ export default function ProfilPage() {
           <ArrowLeft className="w-4 h-4" /> Retour
         </Link>
         {status && (
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold animate-in zoom-in-95 ${status.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold animate-in zoom-in-95 ${status.type === 'success' ? 'bg-pos-50 text-pos' : 'bg-neg-50 text-neg'}`}>
             {status.type === 'success' && <CheckCircle2 className="w-4 h-4" />}
             {status.msg}
           </div>
@@ -92,12 +92,12 @@ export default function ProfilPage() {
       </div>
 
       {/* Carte d'identité visuelle */}
-      <div className="flex items-center gap-6 bg-white p-8 rounded-3xl border border-clay/15 shadow-sm">
+      <div className="flex items-center gap-6 bg-surface p-8 rounded-3xl border border-clay/15 shadow-sm">
         <div className="relative group">
           <div className="w-24 h-24 bg-cedar text-white rounded-full flex items-center justify-center text-3xl font-bold shadow-inner uppercase">
             {formData.firstName?.[0]}{formData.lastName?.[0]}
           </div>
-          <button className="absolute bottom-0 right-0 p-2 bg-white border border-clay/20 rounded-full shadow-md text-ink hover:text-cedar transition-transform active:scale-90">
+          <button className="absolute bottom-0 right-0 p-2 bg-surface border border-clay/20 rounded-full shadow-md text-ink hover:text-cedar transition-transform active:scale-90">
             <Camera className="w-4 h-4" />
           </button>
         </div>
@@ -109,7 +109,7 @@ export default function ProfilPage() {
              <span className="text-moss font-bold flex items-center gap-2 uppercase text-[10px] tracking-widest bg-clay/5 px-2 py-1 rounded-md">
               <Shield className="w-3 h-3 text-cedar" /> {formData.role.replace(/_/g, " ")}
             </span>
-            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Compte Actif</span>
+            <span className="text-[10px] font-bold text-pos uppercase tracking-widest">Compte Actif</span>
           </div>
         </div>
       </div>
@@ -117,7 +117,7 @@ export default function ProfilPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Formulaire Principal */}
-        <div className="md:col-span-2 bg-white p-8 rounded-3xl border border-clay/15 shadow-sm space-y-8">
+        <div className="md:col-span-2 bg-surface p-8 rounded-3xl border border-clay/15 shadow-sm space-y-8">
           <div>
             <h2 className="text-xs font-bold text-ink uppercase tracking-wider border-b border-clay/10 pb-4">
               Détails du profil
@@ -199,7 +199,7 @@ export default function ProfilPage() {
 
         {/* Sidebar Actions */}
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-3xl border border-clay/15 shadow-sm">
+          <div className="bg-surface p-6 rounded-3xl border border-clay/15 shadow-sm">
             <h2 className="text-xs font-bold text-ink uppercase tracking-wider mb-4 flex items-center gap-2">
               <Lock className="w-4 h-4 text-cedar" /> Sécurité
             </h2>
@@ -211,7 +211,7 @@ export default function ProfilPage() {
             </button>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-clay/15 shadow-sm">
+          <div className="bg-surface p-6 rounded-3xl border border-clay/15 shadow-sm">
             <h2 className="text-xs font-bold text-ink uppercase tracking-wider mb-2 flex items-center gap-2">
                Informations Système
             </h2>

@@ -55,7 +55,7 @@ export function PublicTenderManager({ tender: initialTender }: PublicTenderManag
   return (
     <div className="space-y-6">
       {/* 1. Header & Statut Principal */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl border border-clay/20 shadow-sm gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface p-6 rounded-2xl border border-clay/20 shadow-sm gap-4">
         <div>
           <h1 className="text-2xl font-bold text-ink">{tender.reference}</h1>
           <p className="text-sm text-clay">{tender.object}</p>
@@ -63,7 +63,7 @@ export function PublicTenderManager({ tender: initialTender }: PublicTenderManag
         
         <div className="flex items-center gap-3">
           <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-            tender.status === 'attributed' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+            tender.status === 'attributed' ? 'bg-pos-50 text-pos' : 'bg-info-50 text-info'
           }`}>
             {tender.status}
           </span>
@@ -81,7 +81,7 @@ export function PublicTenderManager({ tender: initialTender }: PublicTenderManag
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 2. Détails Techniques (Gauche) */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-clay/20">
+        <div className="lg:col-span-2 bg-surface p-6 rounded-2xl border border-clay/20">
           <h3 className="font-bold text-ink mb-4 border-b pb-2">Informations Générales</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
             <div>
@@ -108,18 +108,18 @@ export function PublicTenderManager({ tender: initialTender }: PublicTenderManag
           <h3 className="font-bold text-ink mb-4">Adjudication</h3>
           
           {tender.status === 'attributed' ? (
-            <div className="space-y-3 bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+            <div className="space-y-3 bg-pos-50 p-4 rounded-xl border border-pos/25">
               <div>
-                <p className="text-[10px] text-emerald-600 font-bold uppercase">Titulaire</p>
+                <p className="text-[10px] text-pos font-bold uppercase">Titulaire</p>
                 <p className="font-bold text-ink">{tender.winnerId}</p>
               </div>
               <div>
-                <p className="text-[10px] text-emerald-600 font-bold uppercase">Montant Final</p>
+                <p className="text-[10px] text-pos font-bold uppercase">Montant Final</p>
                 <p className="font-bold text-ink">{tender.winnerAmount?.toLocaleString()} XOF</p>
               </div>
             </div>
           ) : isAttributing ? (
-            <div className="space-y-4 bg-white p-4 rounded-xl shadow-inner border border-moss/20">
+            <div className="space-y-4 bg-surface p-4 rounded-xl shadow-inner border border-moss/20">
               <div>
                 <label className="text-[10px] font-bold text-clay uppercase">Nom de l'entreprise</label>
                 <input 
@@ -147,7 +147,7 @@ export function PublicTenderManager({ tender: initialTender }: PublicTenderManag
               disabled={tender.status === 'planning'}
               className={`w-full py-3 rounded-xl font-bold text-sm shadow-sm transition-all ${
                 tender.status === 'planning' 
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                ? 'bg-surface2 text-ink3 cursor-not-allowed' 
                 : 'bg-ink text-white hover:bg-moss'
               }`}
             >

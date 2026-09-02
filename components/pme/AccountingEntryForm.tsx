@@ -54,7 +54,7 @@ export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormPro
       }
     }} className="space-y-4">
       
-      {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm font-medium">{error}</div>}
+      {error && <div className="p-3 bg-neg-50 border border-neg/25 rounded-lg text-neg text-sm font-medium">{error}</div>}
 
       <div className="grid grid-cols-3 gap-4">
         <FormField label="Journal" required><select className={selectCls} value={journalCode} onChange={e=>setJournalCode(e.target.value)}>{JOURNALS.map(([v,l])=><option key={v} value={v}>{v} — {l}</option>)}</select></FormField>
@@ -75,14 +75,14 @@ export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormPro
         {lines.map((l,i)=>(
           <div key={i} className="grid grid-cols-12 gap-2 mb-2">
             <input 
-              className={`${inputCls} col-span-3 ${!l.accountCode && error ? 'border-red-400' : ''}`} 
+              className={`${inputCls} col-span-3 ${!l.accountCode && error ? 'border-neg/25' : ''}`} 
               value={l.accountCode} 
               onChange={e=>updateLine(i,"accountCode",e.target.value)} 
               placeholder="Ex: 411000" 
               required 
             />
             <input 
-              className={`${inputCls} col-span-4 ${!l.accountLabel && error ? 'border-red-400' : ''}`} 
+              className={`${inputCls} col-span-4 ${!l.accountLabel && error ? 'border-neg/25' : ''}`} 
               value={l.accountLabel} 
               onChange={e=>updateLine(i,"accountLabel",e.target.value)} 
               placeholder="Ex: Client" 
@@ -90,7 +90,7 @@ export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormPro
             />
             <input type="number" className={inputCls+" col-span-2 text-right"} value={l.debit} onChange={e=>updateLine(i,"debit",parseFloat(e.target.value)||0)} min={0} step="0.01" />
             <input type="number" className={inputCls+" col-span-2 text-right"} value={l.credit} onChange={e=>updateLine(i,"credit",parseFloat(e.target.value)||0)} min={0} step="0.01" />
-            <button type="button" onClick={()=>lines.length>2&&setLines(p=>p.filter((_,j)=>j!==i))} className="text-moss hover:text-red-500 text-xl">×</button>
+            <button type="button" onClick={()=>lines.length>2&&setLines(p=>p.filter((_,j)=>j!==i))} className="text-moss hover:text-neg text-xl">×</button>
           </div>
         ))}
 
@@ -99,7 +99,7 @@ export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormPro
         <div className="flex justify-end gap-8 mt-4 p-3 bg-sand/30 rounded-xl border border-clay/10 text-sm font-mono">
           <span className={totalDebit>0?"text-ink font-bold":"text-moss"}>Total Débits : {totalDebit.toLocaleString("fr-FR", {minimumFractionDigits: 2})}</span>
           <span className={totalCredit>0?"text-ink font-bold":"text-moss"}>Total Crédits : {totalCredit.toLocaleString("fr-FR", {minimumFractionDigits: 2})}</span>
-          <span className={balanced && allLinesFilled ?"text-green-700 font-bold":"text-red-600 font-bold"}>
+          <span className={balanced && allLinesFilled ?"text-pos font-bold":"text-neg font-bold"}>
             {balanced && allLinesFilled ? "✅ Prêt à saisir" : !allLinesFilled ? "❌ Infos manquantes" : "❌ Déséquilibrée"}
           </span>
         </div>

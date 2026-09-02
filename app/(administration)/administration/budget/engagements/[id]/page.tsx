@@ -78,7 +78,7 @@ export default function EngagementDetailsPage() {
   // Écran d'erreur si l'engagement n'est pas trouvé ou accès refusé
   if (errorMsg || !data) return (
     <div className="flex flex-col items-center justify-center p-20 gap-6">
-        <div className="bg-red-50 text-red-500 p-8 rounded-[2rem] border border-red-100 text-center max-w-md">
+        <div className="bg-neg-50 text-neg p-8 rounded-[2rem] border border-neg/25 text-center max-w-md">
             <XCircle size={40} className="mx-auto mb-4 opacity-20" />
             <p className="font-black italic uppercase text-xs">Engagement introuvable</p>
             <p className="text-[10px] opacity-60 font-mono mt-2 break-all">ID: {id}</p>
@@ -109,7 +109,7 @@ export default function EngagementDetailsPage() {
               <button 
                 disabled={updating}
                 onClick={() => handleStatusUpdate('rejete')}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-600 text-[10px] font-black uppercase border border-red-100 hover:bg-red-100 transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neg-50 text-neg text-[10px] font-black uppercase border border-neg/25 hover:bg-neg-50 transition-all disabled:opacity-50"
               >
                 <XCircle size={14} /> {updating ? "..." : "Rejeter"}
               </button>
@@ -127,13 +127,13 @@ export default function EngagementDetailsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <div className="bg-white rounded-[2.5rem] border border-clay/10 p-10 shadow-sm relative overflow-hidden">
+          <div className="bg-surface rounded-[2.5rem] border border-clay/10 p-10 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8">
                 <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter 
-                  ${data.status === 'en_attente' ? 'bg-amber-50 text-amber-600' : 
-                    data.status === 'approuve' ? 'bg-emerald-50 text-emerald-600' : 
+                  ${data.status === 'en_attente' ? 'bg-warn-50 text-warn' : 
+                    data.status === 'approuve' ? 'bg-pos-50 text-pos' : 
                     data.status === 'mandate' ? 'bg-ink text-white' :
-                    'bg-red-50 text-red-600'}`}>
+                    'bg-neg-50 text-neg'}`}>
                     {data.status?.replace('_', ' ')}
                 </span>
             </div>

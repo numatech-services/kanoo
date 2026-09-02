@@ -97,7 +97,7 @@ export default function DevisDetailPage() {
       </div>
 
       {/* MODE VUE : AFFICHAGE DE TOUS LES DÉTAILS */}
-      <div className="bg-white rounded-[2rem] border border-clay/10 p-8 shadow-sm">
+      <div className="bg-surface rounded-[2rem] border border-clay/10 p-8 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
             <p className="text-[10px] font-black text-moss uppercase tracking-widest mb-1">Client</p>

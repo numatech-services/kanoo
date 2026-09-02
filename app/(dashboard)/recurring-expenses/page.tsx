@@ -139,7 +139,7 @@ export default function RecurringExpensesPage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-clay/20 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-clay/20 shadow-sm overflow-hidden">
         <DataTable columns={columns} data={items} loading={loading} keyExtractor={e => e._id} emptyMessage="Aucune dépense planifiée" />
       </div>
       

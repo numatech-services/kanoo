@@ -15,7 +15,7 @@ export default function FiscalitePage() {
       </div>
       <div className="grid md:grid-cols-2 gap-4">
         {modules.map(m => (
-          <Link key={m.href} href={m.href} className="bg-white rounded-xl border border-clay/20 p-5 hover:border-cedar/40 hover:shadow-sm transition-all group">
+          <Link key={m.href} href={m.href} className="bg-surface rounded-xl border border-clay/20 p-5 hover:border-cedar/40 hover:shadow-sm transition-all group">
             <div className="flex items-start justify-between mb-3">
               <span className="text-3xl">{m.icon}</span>
               <span className="text-xs bg-clay/20 text-moss px-2 py-0.5 rounded-full">{m.badge}</span>

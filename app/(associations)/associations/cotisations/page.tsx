@@ -15,7 +15,7 @@ export default function CotisationsPage() {
     {key:"memberId",label:"Adhérent",render:(v)=>typeof v==="object"&&v?`${(v as {firstName:string;lastName:string}).firstName} ${(v as {firstName:string;lastName:string}).lastName}`:"—"},
     {key:"year",label:"Année",className:"text-moss"},
     {key:"amount",label:"Montant (XOF)",className:"text-right font-mono",render:(v)=>Number(v).toLocaleString("fr-FR")},
-    {key:"paidAt",label:"Date paiement",render:(v)=>v?new Date(String(v)).toLocaleDateString("fr-FR"):<span className="text-amber-600 font-medium">Non payée</span>},
+    {key:"paidAt",label:"Date paiement",render:(v)=>v?new Date(String(v)).toLocaleDateString("fr-FR"):<span className="text-warn font-medium">Non payée</span>},
     {key:"receiptNumber",label:"N° reçu",className:"font-mono text-xs text-cedar"},
   ];
   return (
@@ -28,8 +28,8 @@ export default function CotisationsPage() {
         </div>
       </div>
       <div className="grid grid-cols-3 gap-4">
-        {[{l:"Total",v:total,c:"text-ink"},{l:"Payées",v:paid,c:"text-green-700"},{l:"En attente",v:total-paid,c:"text-amber-700"}].map(k=>(
-          <div key={k.l} className="bg-white rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">{k.l}</p><p className={`text-2xl font-bold mt-1 ${k.c}`}>{k.v}</p></div>
+        {[{l:"Total",v:total,c:"text-ink"},{l:"Payées",v:paid,c:"text-pos"},{l:"En attente",v:total-paid,c:"text-warn"}].map(k=>(
+          <div key={k.l} className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">{k.l}</p><p className={`text-2xl font-bold mt-1 ${k.c}`}>{k.v}</p></div>
         ))}
       </div>
       <DataTable columns={columns} data={items} loading={loading} keyExtractor={c=>c._id} emptyMessage="Aucune cotisation pour cette année"/>

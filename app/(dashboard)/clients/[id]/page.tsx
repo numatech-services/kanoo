@@ -29,7 +29,7 @@ export default function ClientDetailPage() {
     const d = await res.json(); if (res.ok) { setClient(d.data); setEditOpen(false); }
   }
 
-  if (!client) return <div className="p-6"><div className="h-48 bg-white rounded-xl animate-pulse border border-clay/20" /></div>;
+  if (!client) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-clay/20" /></div>;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -41,7 +41,7 @@ export default function ClientDetailPage() {
         </div>
       </div>
       <div className="grid md:grid-cols-2 gap-5">
-        <div className="bg-white rounded-xl border border-clay/20 p-5">
+        <div className="bg-surface rounded-xl border border-clay/20 p-5">
           <h2 className="font-semibold text-ink mb-4">Informations</h2>
           {([["NIF",client.nif||"—"],["Email",client.email||"—"],["Téléphone",client.phone||"—"],["Adresse",client.address||"—"],["Statut",""]] as [string,string][]).map(([k,v])=>(
             <div key={k} className="flex justify-between py-2 border-b border-clay/10 last:border-0 text-sm">
@@ -50,7 +50,7 @@ export default function ClientDetailPage() {
             </div>
           ))}
         </div>
-        <div className="bg-white rounded-xl border border-clay/20 p-5">
+        <div className="bg-surface rounded-xl border border-clay/20 p-5">
           <h2 className="font-semibold text-ink mb-4">Conditions commerciales</h2>
           {([["Solde actuel",`${client.currentBalance.toLocaleString("fr-FR")} XOF`],["Limite de crédit",`${client.creditLimit.toLocaleString("fr-FR")} XOF`],["Délai de paiement",`${client.paymentTermDays} jours`]] as [string,string][]).map(([k,v])=>(
             <div key={k} className="flex justify-between py-2 border-b border-clay/10 last:border-0 text-sm"><span className="text-moss">{k}</span><span className="font-mono font-medium text-ink">{v}</span></div>
@@ -58,10 +58,10 @@ export default function ClientDetailPage() {
         </div>
       </div>
       {invoices.length > 0 && (
-        <div className="bg-white rounded-xl border border-clay/20 overflow-hidden">
+        <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
           <div className="flex justify-between items-center px-5 py-4 border-b border-clay/10"><h2 className="font-semibold text-ink">Factures récentes</h2><a href={`/invoices?clientId=${id}`} className="text-xs text-cedar hover:underline">Voir tout</a></div>
-          <table className="w-full text-sm">
-            <thead><tr className="bg-sand/50">{["N° Facture","Date","Montant TTC","Statut"].map(h=><th key={h} className="px-4 py-2 text-left text-xs font-semibold text-moss uppercase">{h}</th>)}</tr></thead>
+          <table className="table-dense">
+            <thead><tr className="bg-sand/50">{["N° Facture","Date","Montant TTC","Statut"].map(h=><th key={h} >{h}</th>)}</tr></thead>
             <tbody>{invoices.map(inv=><tr key={inv._id} className="border-t border-clay/10 hover:bg-sand/30 cursor-pointer" onClick={()=>router.push(`/invoices/${inv._id}`)}>
               <td className="px-4 py-3 font-mono text-cedar">{inv.number}</td>
               <td className="px-4 py-3 text-moss">{new Date(inv.issueDate).toLocaleDateString("fr-FR")}</td>

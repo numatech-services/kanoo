@@ -57,18 +57,18 @@ export default function SubscriptionPage() {
       </div>
 
       {status === "success" && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-          <span className="text-green-600 text-xl">✅</span>
+        <div className="bg-pos-50 border border-pos/25 rounded-xl p-4 flex items-center gap-3">
+          <span className="text-pos text-xl">✅</span>
           <div>
-            <p className="font-semibold text-green-800">Paiement confirmé !</p>
-            <p className="text-sm text-green-600">Votre abonnement a été activé. Un email de confirmation vous a été envoyé.</p>
+            <p className="font-semibold text-pos">Paiement confirmé !</p>
+            <p className="text-sm text-pos">Votre abonnement a été activé. Un email de confirmation vous a été envoyé.</p>
           </div>
         </div>
       )}
 
       {status === "cancelled" && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <p className="text-amber-800 text-sm">Paiement annulé. Votre compte reste actif en mode essai.</p>
+        <div className="bg-warn-50 border border-warn/25 rounded-xl p-4">
+          <p className="text-warn text-sm">Paiement annulé. Votre compte reste actif en mode essai.</p>
         </div>
       )}
 
@@ -77,10 +77,10 @@ export default function SubscriptionPage() {
         <span className={`text-sm ${period==="monthly"?"font-semibold text-ink":"text-moss"}`}>Mensuel</span>
         <button onClick={() => setPeriod(p => p==="monthly"?"yearly":"monthly")}
           className={`relative w-12 h-6 rounded-full transition-colors ${period==="yearly"?"bg-cedar":"bg-clay/30"}`}>
-          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${period==="yearly"?"translate-x-7":"translate-x-1"}`}/>
+          <span className={`absolute top-1 w-4 h-4 bg-surface rounded-full shadow transition-transform ${period==="yearly"?"translate-x-7":"translate-x-1"}`}/>
         </button>
         <span className={`text-sm ${period==="yearly"?"font-semibold text-ink":"text-moss"}`}>
-          Annuel <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full ml-1">-17%</span>
+          Annuel <span className="text-xs bg-pos-50 text-pos px-1.5 py-0.5 rounded-full ml-1">-17%</span>
         </span>
       </div>
 
@@ -89,7 +89,7 @@ export default function SubscriptionPage() {
           const price = period === "yearly" ? plan.priceYearly : plan.price;
           const isActive = currentPlan === plan.id;
           return (
-            <div key={plan.id} className={`bg-white rounded-xl border p-5 flex flex-col transition-all ${plan.popular?"border-cedar shadow-sm":"border-clay/20"}`}>
+            <div key={plan.id} className={`bg-surface rounded-xl border p-5 flex flex-col transition-all ${plan.popular?"border-cedar shadow-sm":"border-clay/20"}`}>
               {plan.popular && (
                 <div className="-mt-5 -mx-5 mb-3 bg-cedar text-white text-xs font-semibold text-center py-1.5 rounded-t-xl">
                   Recommandé
@@ -101,12 +101,12 @@ export default function SubscriptionPage() {
                 <span className="text-xs font-normal text-moss"> XOF/{period==="yearly"?"an":"mois"}</span>
               </p>
               {period === "yearly" && (
-                <p className="text-xs text-green-600 mt-0.5">= {Math.round(plan.priceYearly/12/1000)}k XOF/mois</p>
+                <p className="text-xs text-pos mt-0.5">= {Math.round(plan.priceYearly/12/1000)}k XOF/mois</p>
               )}
               <ul className="mt-4 space-y-1.5 flex-1">
                 {plan.features.map(f => (
                   <li key={f} className="text-xs text-moss flex items-start gap-1.5">
-                    <span className="text-green-600 flex-shrink-0 mt-0.5">✓</span>{f}
+                    <span className="text-pos flex-shrink-0 mt-0.5">✓</span>{f}
                   </li>
                 ))}
               </ul>
@@ -114,7 +114,7 @@ export default function SubscriptionPage() {
                 onClick={() => handleSubscribe(plan.id)}
                 disabled={!!loading || isActive}
                 className={`mt-5 w-full py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-60 ${
-                  isActive ? "bg-green-100 text-green-700 cursor-default"
+                  isActive ? "bg-pos-50 text-pos cursor-default"
                   : plan.popular ? "bg-cedar text-white hover:bg-ink"
                   : "border border-clay/30 text-moss hover:bg-sand"
                 }`}

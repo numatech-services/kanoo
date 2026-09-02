@@ -13,12 +13,12 @@ interface Stats { totalPipelineValue?: number; weightedValue?: number; count?: n
 type Pipeline = Record<string, Opp[]>;
 
 const STAGES: Array<{ key: string; label: string; color: string; bg: string }> = [
-  { key:"prospect",    label:"Prospect",      color:"text-gray-700",   bg:"bg-gray-100"   },
-  { key:"qualified",   label:"Qualifié",      color:"text-blue-700",   bg:"bg-blue-100"   },
-  { key:"proposal",    label:"Devis envoyé",  color:"text-purple-700", bg:"bg-purple-100" },
-  { key:"negotiation", label:"Négociation",   color:"text-amber-700",  bg:"bg-amber-100"  },
-  { key:"won",         label:"Gagné",         color:"text-green-700",  bg:"bg-green-100"  },
-  { key:"lost",        label:"Perdu",         color:"text-red-600",    bg:"bg-red-100"    },
+  { key:"prospect",    label:"Prospect",      color:"text-ink2",   bg:"bg-surface2"   },
+  { key:"qualified",   label:"Qualifié",      color:"text-info",   bg:"bg-info-50"   },
+  { key:"proposal",    label:"Devis envoyé",  color:"text-section", bg:"bg-section-soft" },
+  { key:"negotiation", label:"Négociation",   color:"text-warn",  bg:"bg-warn-50"  },
+  { key:"won",         label:"Gagné",         color:"text-pos",  bg:"bg-pos-50"  },
+  { key:"lost",        label:"Perdu",         color:"text-neg",    bg:"bg-neg-50"    },
 ];
 
 export default function CRMPage() {
@@ -85,15 +85,15 @@ export default function CRMPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-clay/20 p-4">
+        <div className="bg-surface rounded-xl border border-clay/20 p-4">
           <p className="text-xs text-moss">Valeur totale pipeline</p>
           <p className="text-xl font-bold font-mono text-ink mt-1">{((stats.totalPipelineValue||0)/1_000_000).toFixed(1)}M XOF</p>
         </div>
-        <div className="bg-white rounded-xl border border-clay/20 p-4">
+        <div className="bg-surface rounded-xl border border-clay/20 p-4">
           <p className="text-xs text-moss">Valeur pondérée (probabilités)</p>
-          <p className="text-xl font-bold font-mono text-green-700 mt-1">{((stats.weightedValue||0)/1_000_000).toFixed(1)}M XOF</p>
+          <p className="text-xl font-bold font-mono text-pos mt-1">{((stats.weightedValue||0)/1_000_000).toFixed(1)}M XOF</p>
         </div>
-        <div className="bg-white rounded-xl border border-clay/20 p-4">
+        <div className="bg-surface rounded-xl border border-clay/20 p-4">
           <p className="text-xs text-moss">Opportunités actives</p>
           <p className="text-xl font-bold text-ink mt-1">{stats.count || 0}</p>
         </div>
@@ -101,7 +101,7 @@ export default function CRMPage() {
 
       {/* Kanban */}
       {loading ? (
-        <div className="grid grid-cols-6 gap-3">{STAGES.map(s => <div key={s.key} className="h-96 bg-white rounded-xl animate-pulse border border-clay/20"/>)}</div>
+        <div className="grid grid-cols-6 gap-3">{STAGES.map(s => <div key={s.key} className="h-96 bg-surface rounded-xl animate-pulse border border-clay/20"/>)}</div>
       ) : (
         <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
           {STAGES.map(stage => {
@@ -126,7 +126,7 @@ export default function CRMPage() {
                       draggable
                       onDragStart={() => setDragging(opp._id)}
                       onDragEnd={() => setDragging(null)}
-                      className={`bg-white rounded-lg border border-clay/20 p-3 cursor-grab active:cursor-grabbing hover:border-cedar/40 transition-colors ${dragging === opp._id ? "opacity-50" : ""}`}
+                      className={`bg-surface rounded-lg border border-clay/20 p-3 cursor-grab active:cursor-grabbing hover:border-cedar/40 transition-colors ${dragging === opp._id ? "opacity-50" : ""}`}
                     >
                       <p className="font-medium text-ink text-xs leading-tight">{opp.title}</p>
                       <p className="text-xs text-moss mt-0.5 truncate">{opp.clientId?.name || opp.companyName || "—"}</p>
@@ -140,7 +140,7 @@ export default function CRMPage() {
                         <span className="text-xs text-moss">{opp.probability}%</span>
                       </div>
                       {opp.nextFollowUpDate && (
-                        <p className={`text-xs mt-1.5 ${isOverdue(opp.nextFollowUpDate) ? "text-red-600 font-medium" : "text-moss"}`}>
+                        <p className={`text-xs mt-1.5 ${isOverdue(opp.nextFollowUpDate) ? "text-neg font-medium" : "text-moss"}`}>
                           {isOverdue(opp.nextFollowUpDate) ? "⏰ " : ""}Relance : {new Date(opp.nextFollowUpDate).toLocaleDateString("fr-FR")}
                         </p>
                       )}

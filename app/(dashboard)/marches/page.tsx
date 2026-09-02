@@ -92,7 +92,7 @@ export default function MarchesPage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-clay/10 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-clay/10 shadow-sm overflow-hidden">
         <DataTable 
           columns={columns} 
           data={tenders} 
