@@ -57,6 +57,52 @@
   }
 }
 
+
+/* =========================================================================
+   Accents de section — chaque domaine porte sa teinte.
+   Trois variables seulement : la couleur pleine, sa version douce (fonds de
+   pastille, aires de graphique) et le contraste du texte posé dessus. Tout le
+   reste — pastilles d'icônes, courbes, item actif de la barre latérale — s'y
+   raccroche, si bien qu'ajouter une section revient à ajouter un bloc ici.
+   ========================================================================= */
+:root {
+  --s-accent: 194 98 14;      /* défaut : ambre d'harmattan */
+  --s-soft:   246 231 211;
+  --s-on:     255 255 255;
+}
+
+[data-section="accueil"]     { --s-accent: 194  98  14; --s-soft: 246 231 211; }
+[data-section="ventes"]      { --s-accent:  55  81 189; --s-soft: 226 231 248; }
+[data-section="achats"]      { --s-accent:  13 116 128; --s-soft: 216 238 240; }
+[data-section="abonnements"] { --s-accent: 124  58 173; --s-soft: 238 228 248; }
+[data-section="contrats"]    { --s-accent: 158  75 128; --s-soft: 247 228 240; }
+[data-section="finance"]     { --s-accent:  28  93  76; --s-soft: 222 238 232; }
+[data-section="rh"]          { --s-accent: 176  74  60; --s-soft: 250 229 224; }
+[data-section="gouvernance"] { --s-accent:  74  86 142; --s-soft: 228 232 245; }
+[data-section="membres"]     { --s-accent:  22 111 154; --s-soft: 220 237 247; }
+[data-section="budget"]      { --s-accent: 141  92  20; --s-soft: 248 235 213; }
+[data-section="parametres"]  { --s-accent:  82  86  95; --s-soft: 232 234 237; }
+[data-section="plateforme"]  { --s-accent:  36  40  52; --s-soft: 228 230 236; }
+
+@media (prefers-color-scheme: dark) {
+  /* En sombre, la teinte est éclaircie pour rester lisible sur fond foncé, et
+     la version douce devient un voile sombre plutôt qu'un pastel. */
+  :root { --s-accent: 214 121  31; --s-soft: 46 34 20; }
+
+  [data-section="accueil"]     { --s-accent: 214 121  31; --s-soft: 46 34 20; }
+  [data-section="ventes"]      { --s-accent: 132 158 246; --s-soft: 24 29 48; }
+  [data-section="achats"]      { --s-accent:  91 197 208; --s-soft: 16 36 39; }
+  [data-section="abonnements"] { --s-accent: 190 143 235; --s-soft: 33 24 45; }
+  [data-section="contrats"]    { --s-accent: 226 148 194; --s-soft: 44 26 38; }
+  [data-section="finance"]     { --s-accent:  79 183 154; --s-soft: 18 34 29; }
+  [data-section="rh"]          { --s-accent: 233 143 128; --s-soft: 45 26 22; }
+  [data-section="gouvernance"] { --s-accent: 152 165 224; --s-soft: 25 28 44; }
+  [data-section="membres"]     { --s-accent: 100 183 224; --s-soft: 16 31 41; }
+  [data-section="budget"]      { --s-accent: 223 173  74; --s-soft: 42 33 15; }
+  [data-section="parametres"]  { --s-accent: 176 181 191; --s-soft: 32 34 38; }
+  [data-section="plateforme"]  { --s-accent: 196 202 216; --s-soft: 30 32 38; }
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;

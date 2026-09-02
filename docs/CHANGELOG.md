@@ -1,5 +1,83 @@
 # Kanoo — Changelog
 
+## V1.2.0 — Septembre 2026
+
+### Design par section, gestion des abonnements revendus, socle de facture certifiée
+
+**Design — une teinte par domaine**
+
+- Chaque grande section porte sa couleur : ventes en indigo, achats en sarcelle,
+  abonnements en violet, finance en vert acacia, RH en terre cuite… La barre
+  latérale, les pastilles d'icônes, les courbes et l'item actif suivent la même
+  variable. Dans un ERP où les écrans se ressemblent, la couleur dit où l'on est
+  avant même de lire le titre.
+- Trois variables CSS par section (`--s-accent`, `--s-soft`, `--s-on`), posées
+  par un attribut `data-section` calculé depuis la route. Ajouter une section
+  revient à ajouter un bloc de couleurs — aucun écran n'a rien à déclarer.
+  Thème clair et thème sombre traités ensemble.
+- Nouvelles primitives de graphiques, en SVG et sans bibliothèque : courbes
+  lissées avec aire (`AreaChart`), barres juxtaposées ou empilées (`BarChart`),
+  micro-courbes (`Sparkline`), anneau de répartition (`DonutChart`). Le lissage
+  passe exactement par chaque point mesuré — une interpolation qui invente des
+  sommets donnerait à lire un mouvement qui n'existe pas.
+- Cartes d'indicateurs (`KpiCard`) avec pastille colorée, variation et
+  micro-courbe. La variation n'apparaît que si elle est calculable : un « 0 % »
+  par défaut se lirait comme une stabilité mesurée.
+- Sélecteurs segmentés (`SegmentedControl`) rendus en groupe de boutons radio,
+  navigables au clavier.
+- Tableau de bord et flux de trésorerie repris sur ces composants. Les émojis
+  des cartes cèdent la place à des icônes, et le graphique de trésorerie offre
+  deux lectures : flux bruts ou solde net.
+
+**Abonnements souscrits et revendus**
+
+Nouveau domaine pour les organisations qui achètent des contrats d'abonnement à
+des éditeurs et les revendent à des clients finaux.
+
+- **Contrats souscrits** : fournisseur, produit, période, quantité de licences,
+  devise d'origine avec taux de change et contre-valeur figée, retenue à la
+  source, TVA supportée, frais bancaires, reconduction tacite et préavis.
+- **Reventes** : rattachées au contrat amont qu'elles consomment. Le serveur
+  **refuse** une revente qui dépasse les licences restantes ou qui court
+  au-delà de la couverture — vendre ce qu'on n'a pas est un engagement qu'on ne
+  peut pas tenir, et une alerte après coup arrive trop tard.
+- **Rapprochement** : licences acquises contre licences placées, coût de revient
+  contre revenu, marge et taux, coût unitaire contre prix de revente moyen.
+- **Alertes** : échéance de contrat, échéance de **préavis** — distincte, car
+  sur une reconduction tacite c'est elle qui engage —, sur-vente, revente
+  débordant la couverture, revente non facturée, capacité dormante.
+- **Charges fiscales** : TVA collectée et déductible, solde à reverser ou crédit
+  reportable, retenues opérées et subies, IS estimé sur la marge. L'estimation
+  est signalée comme telle : l'impôt réel porte sur le résultat de l'entreprise
+  entière, avec minimum forfaitaire.
+- **Étalement mensuel** au prorata des jours : un abonnement annuel n'est pas une
+  charge de janvier.
+- Job planifié quotidien, segmenté par organisation.
+- 36 tests sur le moteur de rapprochement.
+
+**Facture certifiée — SECeF**
+
+Socle d'intégration au Système Électronique Certifié de Facturation de la DGI.
+
+- **Mode portail, opérationnel immédiatement** : la facture est émise sur
+  e-SECeF, et les codes obtenus sont reportés puis archivés dans Kanoo, qui
+  mesure la couverture réelle des factures émises.
+- **Mode e-MCF, délibérément incomplet** : les spécifications de l'API ne sont
+  pas publiées — elles sont remises pendant la procédure d'agrément. Tout ce qui
+  ne dépend pas de la DGI est en place ; il reste une fonction à écrire, isolée.
+  Un test verrouille cette honnêteté : tant qu'il passe, personne ne peut croire
+  la certification automatique disponible.
+- Garde-fous réglementaires : une facture certifiée ne se recertifie pas, ne se
+  supprime pas (avoir de type FA), un brouillon ne se certifie pas, unicité du
+  code par organisation, journal d'audit sur chaque tentative.
+- Écran de paramètres avec prérequis, couverture mesurée et identité de
+  facturation. Marche à suivre vers l'agrément dans `docs/SECEF.md`.
+- 18 tests.
+
+**Vérification**
+
+238 tests au vert, 0 erreur de type, 0 erreur de lint, build de production réussi.
+
 ## V1.1.1 — Septembre 2026
 
 ### Résorption de la dette de lint — et les pannes qu'elle cachait

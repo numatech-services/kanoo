@@ -21,6 +21,9 @@ import { EmployeeModel } from "../models/Employee";
 import { RecurringExpenseModel } from "../models/RecurringExpense";
 import { TenantModel } from "../models/Tenant";
 import { CRMOpportunityModel } from "../models/CRMOpportunity";
+import { SubscriptionPurchaseModel } from "../models/SubscriptionPurchase";
+import { SubscriptionSaleModel } from "../models/SubscriptionSale";
+import { buildAlerts, type PurchaseLike, type SaleLike } from "../lib/subscriptions";
 import { resetYearlySequences } from "../lib/numbering";
 
 config({ path: ".env.local" });
@@ -200,6 +203,52 @@ cron.schedule("0 9 * * *", job("Relances CRM", async () => {
   return `${due.length} relance(s) notifiée(s)`;
 }), TZ);
 
+// ─── 09:30 — Échéances et écarts du portefeuille d'abonnements ───────────────
+cron.schedule("30 9 * * *", job("Abonnements", async () => {
+  // Les alertes sont recalculées par le même moteur que l'écran : une seule
+  // définition de « contrat à renouveler » ou de « licences sur-vendues ».
+  const [purchases, sales] = await Promise.all([
+    SubscriptionPurchaseModel.find({ status: { $ne: "cancelled" } })
+      .lean<Array<PurchaseLike & { tenantId: Id }>>(),
+    SubscriptionSaleModel.find({ status: { $nin: ["cancelled", "draft"] } })
+      .lean<Array<SaleLike & { tenantId: Id }>>(),
+  ]);
+
+  // Un tenant ne doit jamais recevoir l'alerte d'un autre : on segmente avant
+  // de calculer, plutôt que de filtrer après.
+  const tenants = new Set<string>([
+    ...purchases.map(p => String(p.tenantId)),
+    ...sales.map(s => String(s.tenantId)),
+  ]);
+
+  let sent = 0;
+  for (const tenantId of tenants) {
+    const scopedPurchases = purchases.filter(p => String(p.tenantId) === tenantId);
+    const scopedSales = sales.filter(s => String(s.tenantId) === tenantId);
+
+    // Seules les alertes qui appellent une décision partent en notification ;
+    // les informatives restent consultables sur l'écran.
+    const actionable = buildAlerts(scopedPurchases, scopedSales)
+      .filter(a => a.level !== "info");
+    if (actionable.length === 0) continue;
+
+    const tenantObjectId = scopedPurchases[0]?.tenantId ?? scopedSales[0]?.tenantId;
+    const admins = await getAdmins(tenantObjectId, ["pme_admin", "pme_manager", "pme_accountant"]);
+
+    for (const admin of admins) {
+      for (const alert of actionable.slice(0, 10)) {
+        await notify(
+          tenantObjectId, admin._id, "subscription_alert",
+          alert.level === "critical" ? "Abonnement — action requise" : "Abonnement — échéance proche",
+          alert.message, "abonnements"
+        );
+        sent++;
+      }
+    }
+  }
+  return `${sent} notification(s) pour ${tenants.size} organisation(s)`;
+}), TZ);
+
 // ─── 1er du mois, 01:00 — Rappels TVA et purge des jetons expirés ────────────
 cron.schedule("0 1 1 * *", job("Rappels TVA et purge", async () => {
   const now = new Date();
@@ -258,5 +307,6 @@ console.log("   07:30 — Contrats expirant bientôt");
 console.log("   08:00 — Fins de contrat employé");
 console.log("   08:30 — Dépenses récurrentes échues");
 console.log("   09:00 — Relances CRM");
+console.log("   09:30 — Échéances des abonnements");
 console.log("   1er du mois 01:00 — Rappels TVA et purge des jetons");
 console.log("   1er janvier 00:01 — Remise à zéro de la numérotation");

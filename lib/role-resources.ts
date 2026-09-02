@@ -22,6 +22,7 @@ const PME_ADMIN: ResourcePermissions = {
   payments: ["create", "read", "update", "delete"],
   publicTenders: ["create", "read", "update", "delete"],
   contracts: ["create", "read", "update", "delete"],
+  subscriptions: ["create", "read", "update", "delete"],
   projects: ["create", "read", "update", "delete"],
   employees: ["create", "read", "update", "delete"],
   payslips: ["create", "read", "update", "delete"],
@@ -47,6 +48,7 @@ const PME_MANAGER: ResourcePermissions = {
   payments: ["create", "read"],
   publicTenders: ["create", "read", "update"],
   contracts: ["create", "read", "update"],
+  subscriptions: ["create", "read", "update"],
   projects: ["create", "read", "update"],
   employees: ["read"],
   treasuryAccounts: ["read"],
@@ -61,6 +63,7 @@ const PME_MANAGER: ResourcePermissions = {
 const PME_ACCOUNTANT: ResourcePermissions = {
   clients: ["read"],
   suppliers: ["read"],
+  subscriptions: ["read"],
   invoices: ["read", "update"],
   payments: ["create", "read", "update"],
   treasuryAccounts: ["create", "read", "update", "delete"],
@@ -76,6 +79,7 @@ const PME_ACCOUNTANT: ResourcePermissions = {
 
 const PME_SALES: ResourcePermissions = {
   clients: ["create", "read", "update"],
+  subscriptions: ["create", "read", "update"],
   products: ["read"],
   devis: ["create", "read", "update", "delete"],
   invoices: ["create", "read", "update"],
@@ -87,6 +91,7 @@ const PME_SALES: ResourcePermissions = {
 
 const PME_PURCHASES: ResourcePermissions = {
   suppliers: ["create", "read", "update"],
+  subscriptions: ["create", "read", "update"],
   products: ["read", "update"],
   commandes: ["create", "read", "update", "delete"],
   publicTenders: ["create", "read", "update"],
@@ -126,6 +131,7 @@ const PME_APPROVER: ResourcePermissions = {
 
 const PME_VIEWER: ResourcePermissions = {
   clients: ["read"],
+  subscriptions: ["read"],
   suppliers: ["read"],
   products: ["read"],
   devis: ["read"],

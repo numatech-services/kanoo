@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
+import { SectionScope } from "@/components/layout/SectionScope";
 
 // CONFIGURATION DES VIEWPORTS (Pour supprimer les warnings ⚠ dans tes logs)
 export const viewport = {
@@ -10,6 +11,7 @@ export const viewport = {
 
 export default function SaasLayout({ children }: { children: React.ReactNode }) {
   return (
+    <SectionScope>
     <div className="flex h-screen bg-sand overflow-hidden">
       {/* Barre latérale fixe */}
       <Sidebar profile="superadmin" />
@@ -27,5 +29,6 @@ export default function SaasLayout({ children }: { children: React.ReactNode }) 
         </main>
       </div>
     </div>
+    </SectionScope>
   );
 }

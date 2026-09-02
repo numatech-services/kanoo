@@ -39,6 +39,27 @@ const InvoiceSchema = new Schema<IInvoice>(
     notes: String,
     termsAndConditions: String,
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+
+    /**
+     * Certification SECeF (Niger). Renseignée à l'émission par le MCF, ou
+     * reportée depuis le portail e-SECeF. Une facture certifiée ne se modifie
+     * plus : le code engage la responsabilité de l'assujetti et doit être
+     * conservé dix ans.
+     */
+    secef: {
+      code: String,
+      qrPayload: String,
+      certifiedAt: Date,
+      counters: String,
+      signature: String,
+      mcfId: String,
+      /** Pilote ayant produit la certification (« portal », « emcf »…). */
+      driver: String,
+      /** Type DGI : FV pour une vente, FA pour un avoir. */
+      invoiceType: { type: String, enum: ["FV", "FA"] },
+      /** Code de la facture d'origine, pour un avoir. */
+      referencedCode: String,
+    },
   },
   { timestamps: true }
 );
@@ -47,5 +68,8 @@ InvoiceSchema.index({ tenantId: 1, number: 1 }, { unique: true });
 InvoiceSchema.index({ tenantId: 1, status: 1 });
 InvoiceSchema.index({ tenantId: 1, clientId: 1 });
 InvoiceSchema.index({ tenantId: 1, dueDate: 1 });
+// Le code SECeF est unique par organisation : deux factures ne peuvent pas
+// porter la même certification. `sparse` laisse coexister les non certifiées.
+InvoiceSchema.index({ tenantId: 1, "secef.code": 1 }, { unique: true, sparse: true });
 
 export const InvoiceModel = models.Invoice || model<IInvoice>("Invoice", InvoiceSchema);

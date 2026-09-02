@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { AreaChart } from "@/components/ui/charts/AreaChart";
+import { BarChart } from "@/components/ui/charts/BarChart";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { fullXof } from "@/components/ui/charts/geometry";
 
 interface MonthData {
   mois: string;
@@ -9,64 +13,91 @@ interface MonthData {
   solde: number;
 }
 
+type Range = "6" | "12";
+type View = "flux" | "solde";
+
+/**
+ * Flux de trésorerie.
+ *
+ * Deux lectures d'une même série : les mouvements bruts en aires superposées,
+ * ou le solde net en barres — une barre sous zéro se repère au premier coup
+ * d'œil, là où deux courbes qui se croisent demandent un effort.
+ */
 export function CashflowChart() {
   const [data, setData] = useState<MonthData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [range, setRange] = useState<Range>("6");
+  const [view, setView] = useState<View>("flux");
 
-  useEffect(() => {
-    fetch("/api/reports/cashflow?months=6", { credentials: "include" })
-      .then((r) => r.json())
-      .then((d) => setData(d.data?.months || []))
-      .catch(() => setData([]))
+  const load = useCallback(() => {
+    setLoading(true);
+    fetch(`/api/reports/cashflow?months=${range}`, { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { setData(d.data?.months || []); setError(false); })
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, []);
+  }, [range]);
 
-  const maxVal = Math.max(...data.map((d) => Math.max(d.encaissements, d.decaissements)), 1);
+  useEffect(() => { load(); }, [load]);
+
+  const labels = data.map(d => d.mois);
+  const net = data.reduce((sum, d) => sum + (d.solde ?? 0), 0);
 
   return (
-    <div className="bg-white rounded-xl border border-clay/20 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="font-semibold text-ink">Flux de trésorerie (6 mois)</h2>
-        <div className="flex items-center gap-4 text-xs text-moss">
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-sm bg-green-400 inline-block" />
-            Encaissements
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-sm bg-red-300 inline-block" />
-            Décaissements
-          </span>
+    <div className="bg-surface rounded-xl border border-line p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+          <h2 className="font-semibold text-ink">Trésorerie</h2>
+          {!loading && !error && data.length > 0 && (
+            <p className="text-xs text-ink2 mt-0.5">
+              Solde net sur la période&nbsp;:{" "}
+              <span className={`num font-semibold ${net >= 0 ? "text-pos" : "text-neg"}`}>
+                {fullXof(net)}
+              </span>
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <SegmentedControl
+            ariaLabel="Vue"
+            segments={[{ value: "flux", label: "Flux" }, { value: "solde", label: "Solde" }]}
+            value={view} onChange={v => setView(v as View)} size="sm"
+          />
+          <SegmentedControl
+            ariaLabel="Période"
+            segments={[{ value: "6", label: "6 mois" }, { value: "12", label: "12 mois" }]}
+            value={range} onChange={v => setRange(v as Range)} size="sm"
+          />
         </div>
       </div>
 
-      {loading ? (
-        <div className="h-40 flex items-center justify-center text-moss text-sm">
-          Chargement…
-        </div>
-      ) : data.length === 0 ? (
-        <div className="h-40 flex items-center justify-center text-moss text-sm">
-          Aucune donnée disponible
-        </div>
-      ) : (
-        <div className="flex items-end gap-3 h-40">
-          {data.map((d) => (
-            <div key={d.mois} className="flex-1 flex flex-col items-center gap-1">
-              <div className="flex items-end gap-0.5 w-full" style={{ height: "120px" }}>
-                <div
-                  className="flex-1 bg-green-400 rounded-t transition-all"
-                  style={{ height: `${(d.encaissements / maxVal) * 100}%`, minHeight: "2px" }}
-                  title={`Encaissements: ${d.encaissements.toLocaleString("fr")} XOF`}
-                />
-                <div
-                  className="flex-1 bg-red-300 rounded-t transition-all"
-                  style={{ height: `${(d.decaissements / maxVal) * 100}%`, minHeight: "2px" }}
-                  title={`Décaissements: ${d.decaissements.toLocaleString("fr")} XOF`}
-                />
-              </div>
-              <span className="text-xs text-moss">{d.mois}</span>
-            </div>
-          ))}
-        </div>
+      {loading && <div className="h-[260px] bg-surface2 rounded-lg animate-pulse" />}
+
+      {!loading && error && (
+        <p className="h-[260px] flex items-center justify-center text-sm text-ink3">
+          Données de trésorerie indisponibles.
+        </p>
+      )}
+
+      {!loading && !error && (
+        view === "flux" ? (
+          <AreaChart
+            labels={labels}
+            height={260}
+            series={[
+              { label: "Encaissements", values: data.map(d => d.encaissements), color: "rgb(var(--c-pos))" },
+              { label: "Décaissements", values: data.map(d => d.decaissements), color: "rgb(var(--c-neg))" },
+            ]}
+          />
+        ) : (
+          <BarChart
+            labels={labels}
+            height={260}
+            series={[{ label: "Solde", values: data.map(d => d.solde) }]}
+          />
+        )
       )}
     </div>
   );

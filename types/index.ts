@@ -29,6 +29,8 @@ export interface ITenant {
   activationTokenExpiry?: Date;
   branding?: { primaryColor?: string; secondaryColor?: string };
   preferredLanguage?: "fr" | "en";
+  /** Identité de facturation certifiée (SECeF Niger). */
+  secef?: { isf?: string; mcfId?: string; certifiedSince?: Date };
   documentPrefixes?: DocumentPrefixes;
   documentSequences?: DocumentSequences;
   numberingConfig?: NumberingConfig;
@@ -233,6 +235,18 @@ export interface IInvoice {
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
+  /** Certification SECeF — voir lib/secef. */
+  secef?: {
+    code?: string;
+    qrPayload?: string;
+    certifiedAt?: Date;
+    counters?: string;
+    signature?: string;
+    mcfId?: string;
+    driver?: string;
+    invoiceType?: "FV" | "FA";
+    referencedCode?: string;
+  };
 }
 
 export interface IDevis {

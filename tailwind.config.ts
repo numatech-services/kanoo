@@ -40,6 +40,10 @@ const config: Config = {
         neg: { DEFAULT: c("--c-neg"), 50: c("--c-neg050") },
         warn: { DEFAULT: c("--c-warn"), 50: c("--c-warn050") },
         info: { DEFAULT: c("--c-info"), 50: c("--c-info050") },
+        // ── Accent de la section courante (voir lib/sections.ts) ──
+        // `bg-section`, `text-section`, `border-section`, `bg-section-soft`…
+        // suivent l'attribut data-section posé par la coque.
+        section: { DEFAULT: c("--s-accent"), soft: c("--s-soft"), on: c("--s-on") },
       },
       fontFamily: {
         sans: ["Hanken Grotesk", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Arial", "sans-serif"],

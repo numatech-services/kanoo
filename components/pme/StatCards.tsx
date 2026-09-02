@@ -4,9 +4,23 @@ import { getServerAuth } from "@/lib/server-auth";
 import { InvoiceModel } from "@/models/Invoice";
 import { PaymentModel } from "@/models/Payment";
 import { EmployeeModel } from "@/models/Employee";
-import Link from "next/link";
+import { KpiCard } from "@/components/ui/KpiCard";
+import { fullXof } from "@/components/ui/charts/geometry";
+import { TrendingUp, AlertTriangle, CreditCard, Users } from "lucide-react";
 
-async function getStats() {
+interface Stats {
+  caTotal: number;
+  overdue: number;
+  encaisseMonth: number;
+  encaissePrevMonth: number;
+  employees: number;
+  /** Encaissements des six derniers mois, du plus ancien au plus récent. */
+  paymentTrend: number[];
+  /** Facturation mensuelle de l'exercice, pour la micro-courbe du CA. */
+  invoiceTrend: number[];
+}
+
+async function getStats(): Promise<Stats | null> {
   try {
     const auth = await getServerAuth();
     if (!auth) return null;
@@ -17,32 +31,65 @@ async function getStats() {
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const startOfTrend = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
-    const [invoicesStats, overdueCount, paymentsThisMonth, activeEmployees] = await Promise.all([
+    const [invoicesStats, overdueCount, paymentsThisMonth, paymentsPrevMonth,
+           activeEmployees, paymentsByMonth, invoicesByMonth] = await Promise.all([
       InvoiceModel.aggregate([
         { $match: { ...tf, issueDate: { $gte: startOfYear }, status: { $ne: "cancelled" } } },
-        { $group: { _id: null, total: { $sum: "$totalTTC" }, paid: { $sum: "$paidAmount" }, count: { $sum: 1 } } },
+        { $group: { _id: null, total: { $sum: "$totalTTC" } } },
       ]),
       InvoiceModel.countDocuments({
-        ...tf,
-        status: { $in: ["sent", "partial"] },
-        dueDate: { $lt: now },
+        ...tf, status: { $in: ["sent", "partial"] }, dueDate: { $lt: now },
       }),
       PaymentModel.aggregate([
         { $match: { ...tf, date: { $gte: startOfMonth } } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
+      // Le mois précédent sert de base de comparaison : sans lui, la carte
+      // afficherait une variation inventée plutôt qu'aucune variation.
+      PaymentModel.aggregate([
+        { $match: { ...tf, date: { $gte: startOfPrevMonth, $lt: startOfMonth } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]),
       EmployeeModel.countDocuments({ ...tf, isActive: true }),
+      PaymentModel.aggregate([
+        { $match: { ...tf, date: { $gte: startOfTrend } } },
+        { $group: { _id: { y: { $year: "$date" }, m: { $month: "$date" } }, total: { $sum: "$amount" } } },
+        { $sort: { "_id.y": 1, "_id.m": 1 } },
+      ]),
+      InvoiceModel.aggregate([
+        { $match: { ...tf, issueDate: { $gte: startOfYear }, status: { $ne: "cancelled" } } },
+        { $group: { _id: { m: { $month: "$issueDate" } }, total: { $sum: "$totalTTC" } } },
+        { $sort: { "_id.m": 1 } },
+      ]),
     ]);
 
-    const s = invoicesStats[0] || { total: 0, paid: 0, count: 0 };
-    const encaisse = paymentsThisMonth[0]?.total || 0;
+    // Les mois sans mouvement doivent valoir zéro et non disparaître : une
+    // courbe qui saute un mois creux décrit une tendance qui n'existe pas.
+    const trend: number[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const found = (paymentsByMonth as Array<{ _id: { y: number; m: number }; total: number }>)
+        .find(x => x._id.y === d.getFullYear() && x._id.m === d.getMonth() + 1);
+      trend.push(found?.total ?? 0);
+    }
+
+    const invoiceTrend = Array.from({ length: now.getMonth() + 1 }, (_, i) => {
+      const found = (invoicesByMonth as Array<{ _id: { m: number }; total: number }>)
+        .find(x => x._id.m === i + 1);
+      return found?.total ?? 0;
+    });
 
     return {
-      caTotal: s.total,
+      caTotal: invoicesStats[0]?.total || 0,
       overdue: overdueCount,
-      encaisseMonth: encaisse,
+      encaisseMonth: paymentsThisMonth[0]?.total || 0,
+      encaissePrevMonth: paymentsPrevMonth[0]?.total || 0,
       employees: activeEmployees,
+      paymentTrend: trend,
+      invoiceTrend,
     };
   } catch {
     return null;
@@ -52,52 +99,57 @@ async function getStats() {
 export async function StatCards() {
   const stats = await getStats();
 
-  const fmt = (n: number) => n.toLocaleString("fr-FR") + " XOF";
+  if (!stats) {
+    return (
+      <div className="p-4 bg-warn-50 border border-warn/25 rounded-xl text-sm text-warn">
+        Indicateurs indisponibles. Aucun chiffre n&apos;est affiché plutôt qu&apos;une valeur par défaut.
+      </div>
+    );
+  }
 
-  const cards = [
-    {
-      label: "CA (année en cours)",
-      value: stats ? fmt(stats.caTotal) : "—",
-      icon: "📈",
-      color: "bg-green-50 text-green-700",
-      href: "/invoices",
-    },
-    {
-      label: "Impayés en retard",
-      value: stats ? String(stats.overdue) : "—",
-      icon: "⚠️",
-      color: "bg-red-50 text-red-700",
-      href: "/invoices?overdue=true",
-    },
-    {
-      label: "Encaissé ce mois",
-      value: stats ? fmt(stats.encaisseMonth) : "—",
-      icon: "💳",
-      color: "bg-blue-50 text-blue-700",
-      href: "/payments",
-    },
-    {
-      label: "Employés actifs",
-      value: stats ? String(stats.employees) : "—",
-      icon: "👥",
-      color: "bg-purple-50 text-purple-700",
-      href: "/employees",
-    },
-  ];
+  // La variation n'est calculée que si le mois précédent a un montant : une
+  // division par zéro produirait un « +100 % » qui ne veut rien dire.
+  const delta = stats.encaissePrevMonth > 0
+    ? ((stats.encaisseMonth - stats.encaissePrevMonth) / stats.encaissePrevMonth) * 100
+    : undefined;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      {cards.map((card) => (
-        <Link key={card.label} href={card.href} className="bg-white rounded-xl border border-clay/20 p-5 hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs text-moss font-medium uppercase tracking-wide">{card.label}</p>
-              <p className="text-2xl font-bold text-ink mt-1">{card.value}</p>
-            </div>
-            <span className={`text-2xl p-2 rounded-lg ${card.color}`}>{card.icon}</span>
-          </div>
-        </Link>
-      ))}
+      <KpiCard
+        label="Chiffre d'affaires — exercice"
+        value={fullXof(stats.caTotal)}
+        icon={<TrendingUp size={17} />}
+        trend={stats.invoiceTrend}
+        href="/invoices"
+        hint="Factures émises depuis le 1er janvier"
+      />
+      <KpiCard
+        label="Impayés en retard"
+        value={String(stats.overdue)}
+        icon={<AlertTriangle size={17} />}
+        tone={stats.overdue > 0 ? "neg" : "pos"}
+        href="/invoices?overdue=true"
+        hint={stats.overdue > 0 ? "Échéance dépassée" : "Aucun retard"}
+      />
+      <KpiCard
+        label="Encaissé ce mois"
+        value={fullXof(stats.encaisseMonth)}
+        icon={<CreditCard size={17} />}
+        tone="info"
+        delta={delta}
+        deltaLabel="vs mois précédent"
+        trend={stats.paymentTrend}
+        href="/payments"
+        hint="Pas d'encaissement le mois dernier"
+      />
+      <KpiCard
+        label="Collaborateurs actifs"
+        value={String(stats.employees)}
+        icon={<Users size={17} />}
+        tone="section"
+        href="/employees"
+        hint="Contrats en cours"
+      />
     </div>
   );
 }

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar } from "lucide-react";
+import { sectionForPath, type SectionKey } from "@/lib/sections";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck } from "lucide-react";
 
 type ProfileType = "pme" | "association" | "administration" | "superadmin";
 
@@ -13,7 +14,17 @@ interface NavItem {
   badge?: string; 
 }
 
-interface NavGroup { section: string; items: NavItem[]; }
+interface NavGroup {
+  section: string;
+  items: NavItem[];
+  /**
+   * Teinte du groupe. Elle est posée sur le bloc lui-même, si bien que chaque
+   * famille d'écrans se reconnaît dans la barre latérale avant même d'être
+   * ouverte — et que l'item actif reprend exactement la couleur que prendra la
+   * page une fois chargée.
+   */
+  tone?: SectionKey;
+}
 
 const PME_NAV: NavGroup[] = [
   { section: "Accueil", items: [
@@ -34,6 +45,11 @@ const PME_NAV: NavGroup[] = [
     { label: "Commandes", href: "/commandes", icon: <Package size={18} /> },
     { label: "Stock", href: "/stock", icon: <Warehouse size={18} /> },
     { label: "Marchés", href: "/marches", icon: <Scroll size={18} /> },
+  ]},
+  { section: "Abonnements", items: [
+    { label: "Portefeuille", href: "/abonnements", icon: <Repeat size={18} /> },
+    { label: "Contrats souscrits", href: "/abonnements/achats", icon: <Layers size={18} /> },
+    { label: "Reventes", href: "/abonnements/reventes", icon: <Link2 size={18} /> },
   ]},
   { section: "Contrats & Projets", items: [
     { label: "Contrats", href: "/contracts", icon: <PenTool size={18} /> },
@@ -61,6 +77,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
     { label: "Confidentialité", href: "/settings/confidentialite", icon: <FileText size={18} /> },
     { label: "Numérotation", href: "/settings/numbering", icon: <Hash size={18} /> },
+    { label: "Facture certifiée", href: "/settings/facture-certifiee", icon: <ShieldCheck size={18} /> },
     { label: "Abonnement", href: "/subscription", icon: <Diamond size={18} /> },
     { label: "Support", href: "/support", icon: <Ticket size={18} /> },
     { label: "Journal d'audit", href: "/audit", icon: <History size={18} /> },
@@ -131,40 +148,52 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   const nav = NAV_MAP[profile] || PME_NAV;
 
   return (
-    <aside className="w-64 bg-cedar text-white flex flex-col h-full overflow-hidden flex-shrink-0">
+    <aside className="w-64 bg-[#171310] dark:bg-[#0f0c09] text-white flex flex-col h-full overflow-hidden flex-shrink-0">
       <div className="px-6 py-6 border-b border-white/10">
         <span className="text-xl font-black tracking-tight uppercase">Kanoo</span>
         <p className="text-[10px] font-bold text-white/40 mt-1 uppercase tracking-widest">{profile}</p>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-6 px-3 custom-scrollbar">
-        {nav.map((group) => (
-          <div key={group.section} className="mb-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-3">
-              {group.section}
-            </p>
-            {group.items.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-              return (
-                <Link key={item.href} href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 mb-1 ${
-                    active 
-                    ? "bg-white text-cedar shadow-lg font-bold" 
-                    : "text-white/60 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <span className={`flex items-center justify-center ${active ? "text-cedar" : "text-white/40"}`}>{item.icon}</span>
-                  <span className="flex-1">{item.label}</span>
-                  {item.badge && (
-                    <span className="bg-amber-500 text-white text-[10px] font-bold rounded-full px-2 py-0.5">
-                      {item.badge}
+        {nav.map((group) => {
+          // À défaut de teinte déclarée, on prend celle du premier item : les
+          // deux tables resteront cohérentes sans double saisie.
+          const tone = group.tone ?? sectionForPath(group.items[0]?.href ?? "/");
+          return (
+            <div key={group.section} className="mb-6" data-section={tone}>
+              <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/35 px-3 mb-3">
+                <span className="h-1.5 w-1.5 rounded-full bg-section shrink-0" aria-hidden />
+                {group.section}
+              </p>
+              {group.items.map((item) => {
+                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                return (
+                  <Link key={item.href} href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 mb-1 ${
+                      active
+                      ? "bg-white/95 text-ink shadow-lg font-bold"
+                      : "text-white/60 hover:bg-white/5 hover:text-white"
+                    }`}
+                  >
+                    {active && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r bg-section" aria-hidden />
+                    )}
+                    <span className={`flex items-center justify-center ${active ? "text-section" : "text-white/40"}`}>
+                      {item.icon}
                     </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+                    <span className="flex-1">{item.label}</span>
+                    {item.badge && (
+                      <span className="bg-section text-white text-[10px] font-bold rounded-full px-2 py-0.5">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        })}
       </nav>
 
       <div className="px-4 py-4 border-t border-white/10">

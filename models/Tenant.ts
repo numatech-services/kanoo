@@ -53,6 +53,16 @@ const TenantSchema = new Schema<ITenant>(
     },
     // Préférence de langue — Q6
     preferredLanguage: { type: String, enum: ["fr", "en"], default: "fr" },
+
+    /** Identité de facturation certifiée (SECeF Niger). */
+    secef: {
+      /** Identifiant du Système de Facturation, délivré à l'agrément. */
+      isf: String,
+      /** MCF rattaché : boîtier, unité de facturation ou compte e-MCF. */
+      mcfId: String,
+      /** Date d'obtention du certificat de conformité. */
+      certifiedSince: Date,
+    },
   },
   { timestamps: true }
 );
