@@ -103,6 +103,77 @@
   [data-section="plateforme"]  { --s-accent: 196 202 216; --s-soft: 30 32 38; }
 }
 
+
+/* =========================================================================
+   Mouvement — structurel, jamais décoratif.
+   Trois durées seulement. Au-delà de 200 ms, une micro-interaction cesse
+   d'être ressentie comme instantanée ; en deçà de 90 ms, elle n'est pas
+   perçue du tout. Les courbes sont des ressorts amortis : une valeur qui
+   arrive en glissant dit d'où elle vient, ce qu'une apparition brutale ne dit
+   pas.
+   ========================================================================= */
+:root {
+  --t-instant: 120ms;   /* survol, pression, bascule d'état */
+  --t-quick:   190ms;   /* apparition d'un élément, changement d'onglet */
+  --t-settle:  520ms;   /* tracé d'une courbe, comptage d'un montant */
+
+  --e-out:    cubic-bezier(.16, 1, .3, 1);      /* décélération franche */
+  --e-spring: cubic-bezier(.34, 1.56, .64, 1);  /* léger dépassement */
+}
+
+@keyframes k-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes k-draw {
+  from { stroke-dashoffset: var(--dash, 1200); }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes k-grow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+@keyframes k-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Entrée échelonnée : les cartes arrivent l'une après l'autre, ce qui donne à
+   lire l'ordre de lecture attendu. Le décalage reste sous 240 ms au total. */
+.rise { animation: k-rise var(--t-quick) var(--e-out) both; }
+.rise-1 { animation-delay: 40ms; }
+.rise-2 { animation-delay: 80ms; }
+.rise-3 { animation-delay: 120ms; }
+.rise-4 { animation-delay: 160ms; }
+
+/* Tracé progressif d'une courbe : le regard suit la progression temporelle. */
+.draw {
+  stroke-dasharray: var(--dash, 1200);
+  animation: k-draw var(--t-settle) var(--e-out) both;
+}
+.grow { transform-origin: bottom; animation: k-grow var(--t-settle) var(--e-out) both; }
+.fade { animation: k-fade var(--t-quick) ease both; }
+
+/* Élévation au survol — la profondeur signale ce qui est actionnable. */
+.lift { transition: transform var(--t-instant) var(--e-out), box-shadow var(--t-instant) var(--e-out), border-color var(--t-instant) ease; }
+.lift:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -12px rgba(23,19,14,.28); }
+
+/**
+ * Le mouvement est une préférence, pas une opinion. Quand le système demande
+ * moins d'animation, tout s'arrête net — y compris les tracés progressifs, qui
+ * sinon laisseraient un graphique à moitié dessiné.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  .draw { stroke-dasharray: none; stroke-dashoffset: 0; }
+  .lift:hover { transform: none; }
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;

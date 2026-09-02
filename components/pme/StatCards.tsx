@@ -117,7 +117,8 @@ export async function StatCards() {
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       <KpiCard
         label="Chiffre d'affaires — exercice"
-        value={fullXof(stats.caTotal)}
+        value={stats.caTotal}
+        format={fullXof}
         icon={<TrendingUp size={17} />}
         trend={stats.invoiceTrend}
         href="/invoices"
@@ -125,7 +126,7 @@ export async function StatCards() {
       />
       <KpiCard
         label="Impayés en retard"
-        value={String(stats.overdue)}
+        value={stats.overdue}
         icon={<AlertTriangle size={17} />}
         tone={stats.overdue > 0 ? "neg" : "pos"}
         href="/invoices?overdue=true"
@@ -133,7 +134,8 @@ export async function StatCards() {
       />
       <KpiCard
         label="Encaissé ce mois"
-        value={fullXof(stats.encaisseMonth)}
+        value={stats.encaisseMonth}
+        format={fullXof}
         icon={<CreditCard size={17} />}
         tone="info"
         delta={delta}
@@ -144,7 +146,7 @@ export async function StatCards() {
       />
       <KpiCard
         label="Collaborateurs actifs"
-        value={String(stats.employees)}
+        value={stats.employees}
         icon={<Users size={17} />}
         tone="section"
         href="/employees"

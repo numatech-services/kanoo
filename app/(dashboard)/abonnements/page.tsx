@@ -162,14 +162,16 @@ export default function AbonnementsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard
           label="Chiffre d'affaires abonnements"
-          value={fullXof(totals.revenue)}
+          value={totals.revenue}
+          format={fullXof}
           icon={<TrendingUp size={17} />}
           trend={months.map(m => m.revenue)}
           hint={`Étalé sur ${year}`}
         />
         <KpiCard
           label="Coût des contrats"
-          value={fullXof(totals.cost)}
+          value={totals.cost}
+          format={fullXof}
           icon={<Wallet size={17} />}
           tone="warn"
           trend={months.map(m => m.cost)}
@@ -177,7 +179,8 @@ export default function AbonnementsPage() {
         />
         <KpiCard
           label="Marge brute"
-          value={fullXof(totals.margin)}
+          value={totals.margin}
+          format={fullXof}
           icon={<Layers size={17} />}
           tone={totals.margin >= 0 ? "pos" : "neg"}
           trend={marginByMonth}
@@ -185,7 +188,7 @@ export default function AbonnementsPage() {
         />
         <KpiCard
           label="Alertes à traiter"
-          value={String(alerts.length)}
+          value={alerts.length}
           icon={<AlertTriangle size={17} />}
           tone={criticalCount > 0 ? "neg" : alerts.length > 0 ? "warn" : "pos"}
           hint={criticalCount > 0 ? `dont ${criticalCount} critique(s)` : "Aucune urgence"}
@@ -218,7 +221,7 @@ export default function AbonnementsPage() {
 
       {/* ── Graphiques ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <section className="bg-surface rounded-xl border border-line p-5 lg:col-span-2">
+        <section className="bg-surface rounded-xl border border-line p-5 lg:col-span-2 rise rise-2">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="font-semibold text-ink">
@@ -258,7 +261,7 @@ export default function AbonnementsPage() {
           )}
         </section>
 
-        <section className="bg-surface rounded-xl border border-line p-5">
+        <section className="bg-surface rounded-xl border border-line p-5 rise rise-3">
           <h2 className="font-semibold text-ink mb-1">Marge par contrat</h2>
           <p className="text-xs text-ink2 mb-4">Contrats dégageant une marge positive</p>
           <DonutChart
@@ -274,7 +277,7 @@ export default function AbonnementsPage() {
       </div>
 
       {/* ── Rapprochement ─────────────────────────────────────────────── */}
-      <section className="bg-surface rounded-xl border border-line overflow-hidden">
+      <section className="bg-surface rounded-xl border border-line overflow-hidden rise rise-4">
         <div className="p-5 pb-3">
           <h2 className="font-semibold text-ink">Rapprochement achat / revente</h2>
           <p className="text-xs text-ink2 mt-0.5">
@@ -305,7 +308,7 @@ export default function AbonnementsPage() {
                 </tr>
               )}
               {reconciliations.map(r => (
-                <tr key={r.purchaseId} className="border-b border-line last:border-0 hover:bg-surface2/40">
+                <tr key={r.purchaseId} className="border-b border-line last:border-0 hover:bg-surface2/60 transition-colors">
                   <td className="px-4 py-3">
                     <p className="font-medium text-ink">{r.productName}</p>
                     <p className="font-mono text-[11px] text-ink3">{r.purchaseRef}</p>

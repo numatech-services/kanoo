@@ -96,10 +96,17 @@ export function AreaChart({
           return (
             <g key={s.label}>
               {shouldFill && (
-                <path d={areaPath(points, PAD.top + innerH)} fill={`url(#${gradientId}-${i})`} />
+                <path d={areaPath(points, PAD.top + innerH)} fill={`url(#${gradientId}-${i})`}
+                  className="fade" style={{ animationDelay: `${180 + i * 90}ms` }} />
               )}
+              {/* Le tracé se dessine de gauche à droite : le regard suit la
+                  progression temporelle au lieu de découvrir la courbe d'un
+                  bloc. `--dash` surestime volontairement la longueur du chemin
+                  — un dasharray trop court laisserait un trou visible. */}
               <path d={smoothPath(points)} fill="none" stroke={color} strokeWidth="2"
-                strokeLinecap="round" strokeLinejoin="round" />
+                strokeLinecap="round" strokeLinejoin="round"
+                className="draw"
+                style={{ ["--dash" as string]: W * 2, animationDelay: `${i * 90}ms` }} />
               {hover !== null && points[hover] && (
                 <circle cx={points[hover].x} cy={points[hover].y} r="4"
                   fill="rgb(var(--c-surface))" stroke={color} strokeWidth="2" />

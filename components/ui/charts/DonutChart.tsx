@@ -73,7 +73,12 @@ export function DonutChart({
                   strokeDashoffset={-offset}
                   onMouseEnter={() => setHover(i)}
                   onMouseLeave={() => setHover(null)}
-                  style={{ transition: "stroke-width 120ms" }} />
+                  className="draw"
+                  style={{
+                    transition: "stroke-width var(--t-instant) var(--e-out)",
+                    ["--dash" as string]: circumference,
+                    animationDelay: `${i * 70}ms`,
+                  }} />
               );
               offset += dash;
               return el;

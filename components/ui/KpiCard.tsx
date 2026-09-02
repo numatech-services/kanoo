@@ -3,11 +3,18 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Sparkline } from "./charts/Sparkline";
+import { useCountUp } from "@/lib/use-count-up";
 
 export interface KpiCardProps {
   label: string;
-  /** Valeur déjà formatée. Le composant ne décide jamais d'une unité. */
-  value: string;
+  /**
+   * Valeur affichée. Une chaîne est posée telle quelle ; un nombre accompagné
+   * de `format` est compté progressivement de son ancienne valeur à la
+   * nouvelle. Le composant ne décide jamais d'une unité — le formatage reste
+   * à l'appelant.
+   */
+  value: string | number;
+  format?: (n: number) => string;
   icon?: ReactNode;
   /**
    * Variation par rapport à la période précédente, en points de pourcentage.
@@ -43,10 +50,18 @@ const TONE: Record<NonNullable<KpiCardProps["tone"]>, { chip: string; spark: str
  * pour remplir la carte.
  */
 export function KpiCard({
-  label, value, icon, delta, deltaLabel = "vs période précédente",
+  label, value, format, icon, delta, deltaLabel = "vs période précédente",
   goodDirection = "up", trend, href, tone = "section", hint,
 }: KpiCardProps) {
   const t = TONE[tone];
+
+  // Le comptage n'est branché que sur une valeur numérique : animer une chaîne
+  // n'aurait aucun sens, et le hook doit être appelé inconditionnellement.
+  const numeric = typeof value === "number" ? value : 0;
+  const counted = useCountUp(numeric);
+  const display = typeof value === "number"
+    ? (format ? format(counted) : Math.round(counted).toLocaleString("fr-FR"))
+    : value;
 
   const hasDelta = typeof delta === "number" && Number.isFinite(delta);
   const rising = hasDelta && delta > 0;
@@ -62,7 +77,7 @@ export function KpiCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs text-ink2 truncate">{label}</p>
-          <p className="text-2xl font-bold text-ink num mt-1 leading-tight">{value}</p>
+          <p className="text-2xl font-bold text-ink num mt-1 leading-tight tabular-nums">{display}</p>
         </div>
         {icon && (
           <span className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${t.chip}`}>
@@ -92,10 +107,10 @@ export function KpiCard({
     </>
   );
 
-  const shell = "bg-surface rounded-xl border border-line p-4 shadow-sm transition-colors";
+  const shell = "bg-surface rounded-xl border border-line p-4 shadow-sm rise";
 
   return href ? (
-    <Link href={href} className={`${shell} block hover:border-section focus-visible:border-section`}>
+    <Link href={href} className={`${shell} lift block hover:border-section focus-visible:border-section`}>
       {body}
     </Link>
   ) : (

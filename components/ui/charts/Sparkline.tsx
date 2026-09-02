@@ -54,7 +54,8 @@ export function Sparkline({
       </defs>
       {filled && <path d={areaPath(points, height - pad)} fill={`url(#${gradientId})`} />}
       <path d={smoothPath(points)} fill="none" stroke={color} strokeWidth="1.75"
-        strokeLinecap="round" strokeLinejoin="round" />
+        strokeLinecap="round" strokeLinejoin="round"
+        className="draw" style={{ ["--dash" as string]: width * 2 }} />
       {showEndpoint && (
         <circle cx={last.x} cy={last.y} r="2.5" fill={color} />
       )}

@@ -115,6 +115,13 @@ export function BarChart({
                   <rect key={s.label} x={x + (stacked ? 0 : 1)} y={y}
                     width={stacked ? barW : Math.max(1, barW - 2)} height={h}
                     rx={radius} fill={color}
+                    className="grow"
+                    // Chaque barre part avec un léger retard sur la précédente :
+                    // la série se lit dans l'ordre plutôt que d'apparaître d'un bloc.
+                    style={{
+                      transformOrigin: `center ${value >= 0 ? zero : zero}px`,
+                      animationDelay: `${i * 32 + j * 60}ms`,
+                    }}
                     opacity={hover === null || hover === i ? 1 : 0.45} />
                 );
               })}
