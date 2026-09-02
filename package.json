@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
+    "test": "jest __tests__/unit",
     "test:ci": "jest --ci --coverage --passWithNoTests",
     "scheduler": "ts-node scripts/scheduler.ts",
     "seed:demo": "npx tsx scripts/seed-demo.ts",
@@ -21,7 +21,8 @@
     "test:unit": "jest __tests__/unit --coverage",
     "test:integration": "jest __tests__/integration --runInBand",
     "test:e2e": "playwright test __tests__/e2e",
-    "test:load": "k6 run __tests__/load/k6-config.js"
+    "test:load": "k6 run __tests__/load/k6-config.js",
+    "lint:strict": "next lint --max-warnings=0"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -48,10 +49,13 @@
     "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.14.10",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^8.0.1",
     "@types/pdfkit": "^0.17.6",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
     "autoprefixer": "^10.4.20",
     "dotenv": "^16.4.5",
     "eslint": "^8.57.0",
@@ -69,15 +73,21 @@
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1"
     },
-    "setupFilesAfterEach": [
-      "<rootDir>/__tests__/setup.ts"
-    ],
     "testTimeout": 30000,
     "collectCoverageFrom": [
       "lib/**/*.ts",
       "app/api/**/*.ts",
       "!lib/db.ts",
       "!**/*.d.ts"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/__tests__/setup.ts"
+    ],
+    "testPathIgnorePatterns": [
+      "<rootDir>/node_modules/",
+      "<rootDir>/__tests__/setup.ts",
+      "<rootDir>/__tests__/e2e/",
+      "<rootDir>/mobile/"
     ]
   }
 }

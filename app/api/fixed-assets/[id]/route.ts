@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, notFound, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { FixedAssetModel } from "@/models/FixedAsset";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { logAudit } from "@/lib/audit";
@@ -46,7 +46,7 @@ export const PATCH = withAuth("fixedAssets", "update", async (req: NextRequest, 
     return ok({ message: `Dotation ${entry.annuity.toLocaleString("fr-FR")} XOF passée en comptabilité`, entry: acEntry });
   }
 
-  const updated = await FixedAssetModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, body, { new: true });
+  const updated = await FixedAssetModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, sanitizeBody(body, ["code", "depreciationSchedule"]), { new: true });
   if (!updated) return notFound();
   return ok(updated);
 });

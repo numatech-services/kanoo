@@ -15,9 +15,10 @@ export const GET = withAuth("events", "update", async (_req: NextRequest, auth: 
     eventId: params.id,
     ...tenantFilter(auth),
     status: { $nin: ["cancelled", "refunded"] },
-  }).select("firstName lastName ticketCode status").lean();
+  }).select("firstName lastName ticketCode status")
+    .lean<Array<{ _id: unknown; firstName: string; lastName: string; ticketCode: string; status: string }>>();
 
-  const tickets = (list as Array<{ _id: unknown; firstName: string; lastName: string; ticketCode: string; status: string }>).map((a) => ({
+  const tickets = list.map((a) => ({
     id: String(a._id),
     code: a.ticketCode,
     name: `${a.firstName} ${a.lastName}`,

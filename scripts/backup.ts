@@ -21,11 +21,17 @@ config({ path: ".env" });
 const execAsync = promisify(exec);
 
 const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+  console.error("MONGODB_URI absent — sauvegarde impossible.");
+  process.exit(1);
+}
+/** URI garantie définie après le contrôle ci-dessus. */
+const uri: string = MONGODB_URI;
 const BACKUP_PATH = process.env.BACKUP_PATH || join(process.cwd(), "backups");
 const RETENTION_DAYS = parseInt(process.env.BACKUP_RETENTION_DAYS || "30");
 const APP_NAME = "kanoo";
 
-if (!MONGODB_URI) {
+if (!uri) {
   console.error("❌ MONGODB_URI non défini");
   process.exit(1);
 }
@@ -41,7 +47,7 @@ async function runBackup(): Promise<void> {
   const archivePath = `${backupDir}.gz`;
 
   console.log(`\n🔄 Début du backup — ${now.toLocaleString("fr-FR", { timeZone: "Africa/Niamey" })} (Niamey)`);
-  console.log(`   URI    : ${MONGODB_URI.replace(/\/\/[^@]+@/, "//***@")}`);
+  console.log(`   URI    : ${uri.replace(/\/\/[^@]+@/, "//***@")}`);
   console.log(`   Dest.  : ${archivePath}`);
 
   // Créer le dossier de backup
@@ -49,7 +55,7 @@ async function runBackup(): Promise<void> {
 
   try {
     // mongodump avec compression gzip
-    const cmd = `mongodump --uri="${MONGODB_URI}" --out="${backupDir}" --gzip`;
+    const cmd = `mongodump --uri="${uri}" --out="${backupDir}" --gzip`;
     const { stdout, stderr } = await execAsync(cmd);
     if (stderr && !stderr.includes("writing")) {
       console.warn("⚠️  mongodump warnings:", stderr.slice(0, 200));
@@ -71,7 +77,7 @@ async function runBackup(): Promise<void> {
       await execAsync(`mkdir -p "${backupDir}"`);
       const collections = ["tenants", "users", "clients", "invoices", "devis", "employees", "payslips", "accountingentries"];
       for (const col of collections) {
-        await execAsync(`mongoexport --uri="${MONGODB_URI}" --collection="${col}" --out="${backupDir}/${col}.json" --quiet`).catch(() => {});
+        await execAsync(`mongoexport --uri="${uri}" --collection="${col}" --out="${backupDir}/${col}.json" --quiet`).catch(() => {});
       }
       await execAsync(`tar -czf "${archivePath}" -C "${BACKUP_PATH}" "${APP_NAME}-${timestamp}" && rm -rf "${backupDir}"`);
       console.log(`✅ Backup fallback créé : ${archivePath}`);

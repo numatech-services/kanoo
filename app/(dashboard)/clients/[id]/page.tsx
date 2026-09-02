@@ -1,11 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ClientForm } from "@/components/pme/ClientForm";
+import { ClientForm, type ClientFormData } from "@/components/pme/ClientForm";
 import { Modal } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
-interface Client { _id:string; code:string; name:string; type:string; nif?:string; phone?:string; email?:string; address?:string; currentBalance:number; creditLimit:number; paymentTermDays:number; isActive:boolean; notes?:string; }
+// La forme du client dérive de celle du formulaire : la page redéclarait
+// `type: string` là où le formulaire attend "individual" | "company", et les
+// deux définitions divergeaient en silence.
+type Client = ClientFormData & { _id: string; currentBalance: number };
 interface Invoice { _id:string; number:string; totalTTC:number; paidAmount:number; status:string; issueDate:string; dueDate:string; }
 
 export default function ClientDetailPage() {
@@ -20,7 +23,7 @@ export default function ClientDetailPage() {
     fetch(`/api/invoices?clientId=${id}&limit=10`,{credentials:"include"}).then(r=>r.json()).then(d=>setInvoices(d.data?.items||[]));
   },[id]);
 
-  async function handleSave(data: Record<string, unknown>) {
+  async function handleSave(data: ClientFormData) {
     const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
     const res = await fetch(`/api/clients/${id}`, { method:"PATCH", headers:{"Content-Type":"application/json","x-csrf-token":csrfToken}, credentials:"include", body: JSON.stringify(data) });
     const d = await res.json(); if (res.ok) { setClient(d.data); setEditOpen(false); }

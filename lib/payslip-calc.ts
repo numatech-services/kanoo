@@ -6,7 +6,6 @@
 import {
   CNSS_SALARIE, CNSS_PATRONAL,
   calculerIR, verifierSMIG, calculerPrimeAnciennete,
-  SMIG_MENSUEL,
 } from "./niger-fiscal";
 
 export interface ManualDeduction {
@@ -29,6 +28,13 @@ export interface PayslipInput {
 
   // Déductions/primes manuelles
   manualItems?: ManualDeduction[];
+
+  /**
+   * Fin de la période de paie. Sert à apprécier l'ancienneté : sans elle, le
+   * calcul se faisait à la date du jour, et rééditer un bulletin ancien en
+   * changeait le montant.
+   */
+  periodEnd?: Date;
 }
 
 export interface PayslipResult {
@@ -101,7 +107,7 @@ export function calculerBulletinDePaie(input: PayslipInput): PayslipResult {
 
   // 2. Prime d'ancienneté
   const seniority = input.includeSeniority
-    ? calculerPrimeAnciennete(input.grossSalary, input.startDate)
+    ? calculerPrimeAnciennete(input.grossSalary, input.startDate, input.periodEnd)
     : { annees: 0, mois: 0, taux: 0, montant: 0 };
 
   // 3. Items manuels (primes, avances, etc.)

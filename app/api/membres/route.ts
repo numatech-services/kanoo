@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
 import { MemberModel } from "@/models/Member";
 import { logAudit } from "@/lib/audit";
+import { generateAccessCode, hashAccessCode } from "@/lib/portal-auth";
 import { TokenPayload } from "@/lib/auth";
 
 export const GET = withAuth("membres", "read", async (req: NextRequest, auth: TokenPayload) => {
@@ -34,10 +35,20 @@ export const POST = withAuth("membres", "create", async (req: NextRequest, auth:
   await connectDB();
   const existing = await MemberModel.findOne({ tenantId: auth.tenantId, code: body.code });
   if (existing) return conflict(`Code '${body.code}' déjà utilisé`);
-  // Générer un code d'accès portail automatiquement
-  const accessCode = String(Math.floor(100000 + Math.random() * 900000));
+  // Code d'accès portail : tiré cryptographiquement et stocké haché. Il n'est
+  // affiché qu'ici, dans la réponse de création — ensuite il est irrécupérable
+  // et doit être régénéré via /api/membres/:id/access-code.
+  const accessCode = generateAccessCode();
+  const accessCodeHash = await hashAccessCode(accessCode);
 
-  const member = await MemberModel.create({ ...body, accessCode, accessCodeGeneratedAt: new Date(), tenantId: auth.tenantId });
+  const member = await MemberModel.create({
+    ...sanitizeBody(body),
+    accessCodeHash,
+    accessCodeGeneratedAt: new Date(),
+    tenantId: auth.tenantId,
+  });
   await logAudit(auth, "CREATE", "membres", { resourceId: member._id.toString(), after: { code: body.code, name: `${body.firstName} ${body.lastName}` } });
-  return created(member);
+
+  const payload = member.toJSON();
+  return created({ ...payload, accessCode });
 });

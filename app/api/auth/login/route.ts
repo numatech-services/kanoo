@@ -1,36 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { comparePassword, signTwoFactorChallenge } from "@/lib/auth";
-import { setSessionCookies } from "@/lib/session";
+import { buildSessionPayload, setSessionCookies } from "@/lib/session";
 import { badRequest, serverError, unauthorized } from "@/lib/api-helpers";
+import { rateLimit, resetRateLimit, clientIp } from "@/lib/rate-limit";
 import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
 import { logAudit } from "@/lib/audit";
 
-// Rate limiting simple en mémoire
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-const MAX_ATTEMPTS = 10;
-const WINDOW_MS = 60_000;
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = loginAttempts.get(ip);
-  if (!entry || now > entry.resetAt) {
-    loginAttempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= MAX_ATTEMPTS) return false;
-  entry.count++;
-  return true;
-}
+// Deux limites complémentaires : par adresse (bruteforce distribué sur un
+// compte) et par compte (bruteforce distribué sur plusieurs adresses). Un
+// bureau derrière une seule IP publique n'est pas bloqué par la première tant
+// que ses utilisateurs se connectent correctement.
+const IP_MAX = 20;
+const IP_WINDOW_MS = 60_000;
+const ACCOUNT_MAX = 5;
+const ACCOUNT_WINDOW_MS = 15 * 60_000;
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const ip = clientIp(req);
 
-  if (!checkRateLimit(ip)) {
+  const byIp = rateLimit("login:ip", ip, IP_MAX, IP_WINDOW_MS);
+  if (!byIp.allowed) {
     return NextResponse.json(
-      { error: "Trop de tentatives. Réessayez dans 60 secondes." },
-      { status: 429 }
+      { success: false, error: `Trop de tentatives. Réessayez dans ${byIp.retryAfter} secondes.` },
+      { status: 429, headers: { "Retry-After": String(byIp.retryAfter) } }
     );
   }
 
@@ -42,16 +36,31 @@ export async function POST(req: NextRequest) {
       return badRequest("Email et mot de passe requis");
     }
 
+    const normalizedEmail = String(email).toLowerCase().trim();
+
+    const byAccount = rateLimit("login:account", normalizedEmail, ACCOUNT_MAX, ACCOUNT_WINDOW_MS);
+    if (!byAccount.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Compte temporairement verrouillé après plusieurs échecs. Réessayez dans ${Math.ceil(byAccount.retryAfter / 60)} minutes.`,
+        },
+        { status: 429, headers: { "Retry-After": String(byAccount.retryAfter) } }
+      );
+    }
+
     await connectDB();
 
-    const user = await UserModel.findOne({ email: email.toLowerCase().trim(), isActive: true });
+    const user = await UserModel.findOne({ email: normalizedEmail, isActive: true });
     if (!user) return unauthorized("Identifiants incorrects");
 
     const valid = await comparePassword(password, user.passwordHash);
     if (!valid) {
-      // Audit simplifié pour le fail
       await logAudit(
-        { userId: user._id.toString(), tenantId: user.tenantId.toString(), email: user.email, role: user.role, tenantType: "pme", subscriptionStatus: "active", planModules: [] },
+        {
+          userId: user._id.toString(), tenantId: user.tenantId.toString(), email: user.email,
+          role: user.role, tenantType: "pme", subscriptionStatus: "active", planModules: [],
+        },
         "LOGIN_FAILED", "auth", { ip }
       );
       return unauthorized("Identifiants incorrects");
@@ -63,23 +72,15 @@ export async function POST(req: NextRequest) {
     // Vérification abonnement (sauf superadmin)
     if (user.role !== "superadmin") {
       if (tenant.subscriptionStatus === "suspended" || tenant.subscriptionStatus === "cancelled") {
-        return NextResponse.json({ error: "Abonnement inactif. Contactez le support." }, { status: 402 });
+        return NextResponse.json(
+          { success: false, error: "Abonnement inactif. Contactez le support." },
+          { status: 402 }
+        );
       }
     }
 
-    user.lastLoginAt = new Date();
-    await user.save();
-
-    const tokenPayload = {
-      userId: user._id.toString(),
-      tenantId: user.tenantId.toString(),
-      tenantType: tenant.type,
-      role: user.role,
-      email: user.email,
-      subscriptionStatus: tenant.subscriptionStatus,
-      planModules: tenant.planModules,
-      allowedResources: user.allowedResources,
-    };
+    // Mot de passe validé : le compte n'est plus suspect, on rend son quota.
+    resetRateLimit("login:account", normalizedEmail);
 
     // 2FA activé : ne pas ouvrir la session — exiger d'abord le code TOTP.
     if (user.twoFactorEnabled) {
@@ -94,6 +95,11 @@ export async function POST(req: NextRequest) {
       });
       return res2;
     }
+
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const tokenPayload = buildSessionPayload(user, tenant);
 
     await logAudit(tokenPayload, "LOGIN", "auth", { ip });
 

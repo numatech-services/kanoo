@@ -5,7 +5,8 @@ import { DevisModel } from "@/models/Devis";
 import { InvoiceModel } from "@/models/Invoice";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
-import { calculerDTS, genererNumeroFacture } from "@/lib/niger-fiscal";
+import { calculerDTS } from "@/lib/niger-fiscal";
+import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -23,16 +24,17 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
   }
   if (devis.convertedToInvoiceId) return conflict("Ce devis a déjà été converti en facture");
 
-  const year = new Date().getFullYear();
-  const lastInv = await InvoiceModel.findOne({ tenantId: auth.tenantId }).sort({ createdAt: -1 }).select("number").lean();
-  const lastSeq = lastInv?.number ? parseInt(lastInv.number.split("-").at(-1) || "0") : 0;
-  const number = genererNumeroFacture(year, lastSeq + 1);
-
+  // La numérotation passait par « dernière facture créée + 1 », lu hors
+  // transaction : deux conversions simultanées tiraient le même numéro (et
+  // butaient sur l'index unique), et le préfixe personnalisé du tenant était
+  // ignoré au profit du format « FAC- » codé en dur.
   const totalDTS = calculerDTS(devis.totalTTC);
+  const issueDate = new Date();
   const dueDate = new Date();
   dueDate.setDate(dueDate.getDate() + (body.paymentTermDays || 30));
 
   const result = await withTransaction(async (session) => {
+    const number = await nextDocumentNumber(auth.tenantId, "invoice", { issueDate, session });
     const [invoice] = await InvoiceModel.create([{
       tenantId: auth.tenantId,
       number,
@@ -45,7 +47,7 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
       totalTTC: devis.totalTTC + totalDTS,
       paidAmount: 0,
       status: "draft",
-      issueDate: new Date(),
+      issueDate,
       dueDate,
       notes: `Convertie depuis devis ${devis.number}${invoiceType === "proforma" ? " (Proforma)" : ""}`,
       isProforma: invoiceType === "proforma",
@@ -82,7 +84,7 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
   return ok({
     invoice: result,
     message: invoiceType === "proforma"
-      ? `Facture proforma ${number} créée depuis le devis ${devis.number}`
-      : `Facture définitive ${number} créée depuis le devis ${devis.number}`,
+      ? `Facture proforma ${result.number} créée depuis le devis ${devis.number}`
+      : `Facture définitive ${result.number} créée depuis le devis ${devis.number}`,
   });
 });

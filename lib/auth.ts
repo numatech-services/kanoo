@@ -11,14 +11,32 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "8h";
  * pas faire échouer le build). Refuse tout secret absent ou trop court en
  * production. En développement, un secret de repli explicite est toléré.
  */
+/**
+ * Préfixe des valeurs d'exemple. Le contrôle porte sur le **préfixe** et non sur
+ * une égalité exacte : la sentinelle codée ici et celle de `.env.example` ont
+ * divergé une fois (MIN vs MINIMUM), et le garde-fou laissait alors passer la
+ * valeur publiée dans le dépôt. Toute valeur commençant par ce motif est
+ * refusée, quelle que soit sa suite.
+ */
+export const PLACEHOLDER_SECRET_PREFIX = "CHANGE_ME";
+
+/**
+ * Un secret est utilisable s'il est assez long et n'est pas une valeur
+ * d'exemple. Booléen simple et non prédicat de type : un prédicat réduirait la
+ * branche négative à `never` chez les appelants qui ont déjà écarté `undefined`.
+ */
+export function isUsableSecret(value: string | undefined): boolean {
+  return !!value && value.length >= 32 && !value.startsWith(PLACEHOLDER_SECRET_PREFIX);
+}
+
 function getJwtSecret(): string {
   const s = process.env.JWT_SECRET;
-  if (s && s.length >= 32 && s !== "CHANGE_ME_IN_PRODUCTION_MIN_32_CHARS") return s;
+  if (s && isUsableSecret(s)) return s;
   if (process.env.NODE_ENV !== "production") {
     return "dev-only-insecure-secret-0000000000000000000000000000";
   }
   throw new Error(
-    "JWT_SECRET manquant ou invalide : au moins 32 caractères requis. Authentification refusée."
+    "JWT_SECRET manquant, trop court (< 32 caractères) ou laissé à sa valeur d'exemple. Authentification refusée."
   );
 }
 

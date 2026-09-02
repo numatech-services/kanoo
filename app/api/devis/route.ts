@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, created, badRequest, notFound, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withTransaction } from "@/lib/db";
+import { withAuth, ok, created, badRequest, notFound, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
 import { DevisModel } from "@/models/Devis";
 import { InvoiceModel } from "@/models/Invoice";
-import { calculerTVA, calculerDTS } from "@/lib/niger-fiscal";
+import { calculerTVA, calculerDTS, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -24,16 +25,26 @@ export const POST = withAuth("devis", "create", async (req: NextRequest, auth: T
   const body = await req.json();
   const err = requireFields(body, ["clientId", "lines", "issueDate", "validUntil"]);
   if (err) return badRequest(err);
+  // Totaux : somme des lignes arrondies, pour que le pied corresponde à
+  // l'addition des lignes imprimées.
   let totalHT = 0, totalTVA = 0;
   const lines = body.lines.map((l: { description: string; quantity: number; unitPrice: number; tvaRate?: number; discount?: number }) => {
-    const ht = l.quantity * l.unitPrice * (1 - (l.discount || 0) / 100);
-    const tva = calculerTVA(ht, l.tvaRate ?? 0.19);
-    totalHT += ht; totalTVA += tva;
-    return { ...l, totalHT: Math.round(ht), totalTVA: Math.round(tva), totalTTC: Math.round(ht + tva) };
+    const lineHT = Math.round(l.quantity * l.unitPrice * (1 - (l.discount || 0) / 100));
+    const lineTVA = calculerTVA(lineHT, l.tvaRate ?? TVA_TAUX_STANDARD);
+    totalHT += lineHT; totalTVA += lineTVA;
+    return { ...l, totalHT: lineHT, totalTVA: lineTVA, totalTTC: lineHT + lineTVA };
   });
-  const year = new Date(body.issueDate).getFullYear();
-  const number = await nextDocumentNumber(auth.tenantId, "quote");
-  const devis = await DevisModel.create({ ...body, lines, number, totalHT: Math.round(totalHT), totalTVA: Math.round(totalTVA), totalTTC: Math.round(totalHT + totalTVA), tenantId: auth.tenantId, createdBy: auth.userId });
-  await logAudit(auth, "CREATE", "devis", { resourceId: devis._id.toString(), after: { number } });
+
+  const devis = await withTransaction(async (session) => {
+    const number = await nextDocumentNumber(auth.tenantId, "quote", { issueDate: body.issueDate, session });
+    const [doc] = await DevisModel.create([{
+      ...sanitizeBody(body, ["number", "status", "totalHT", "totalTVA", "totalTTC"]),
+      lines, number, totalHT, totalTVA, totalTTC: totalHT + totalTVA,
+      tenantId: auth.tenantId, createdBy: auth.userId,
+    }], { session });
+    return doc;
+  });
+
+  await logAudit(auth, "CREATE", "devis", { resourceId: devis._id.toString(), after: { number: devis.number } });
   return created(devis);
 });

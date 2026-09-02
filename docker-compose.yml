@@ -1,19 +1,64 @@
-version: '3.8'
+# Pile de développement local.
+#
+# Deux corrections par rapport à la version précédente :
+#
+#  1. MongoDB n'est plus publié sur toutes les interfaces. Le port était exposé
+#     en 27017 sans authentification : sur un VPS, cela revient à ouvrir la base
+#     à Internet. Il est désormais lié à la boucle locale et protégé par un
+#     compte, dont les valeurs viennent de .env.
+#  2. Le fichier ne décrivait aucun service applicatif alors qu'un Dockerfile
+#     existe : la pile ne se lançait pas seule.
+#
+# Ne jamais réutiliser ce fichier tel quel en production. Le déploiement réel
+# passe par deploy/ (nginx + PM2) ; voir docs/deployment si vous basculez sur
+# Docker.
 
 services:
   kanoo-db:
     image: mongo:6.0
     container_name: kanoo-db
+    restart: unless-stopped
     ports:
-      - "27017:27017"
+      # Boucle locale uniquement : accessible depuis la machine de
+      # développement, injoignable depuis le réseau.
+      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-kanoo}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?définir MONGO_ROOT_PASSWORD dans .env}
     volumes:
       - mongodb_data:/data/db
+    # Replica set d'un seul nœud : requis pour les transactions multi-documents
+    # (facture + écriture comptable créées ensemble).
     command: ["--replSet", "rs0", "--bind_ip_all"]
     healthcheck:
-      test: mongosh --quiet --eval "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}) }"
+      test: >
+        mongosh --quiet
+        -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD"
+        --authenticationDatabase admin
+        --eval "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}) }"
       interval: 10s
       timeout: 10s
       retries: 5
+      start_period: 20s
+
+  kanoo-app:
+    build: .
+    container_name: kanoo-app
+    restart: unless-stopped
+    depends_on:
+      kanoo-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-kanoo}:${MONGO_ROOT_PASSWORD}@kanoo-db:27017/kanoo?authSource=admin&replicaSet=rs0
+      # Les secrets viennent de .env : ils ne sont jamais écrits ici.
+      JWT_SECRET: ${JWT_SECRET:?définir JWT_SECRET dans .env}
+      PORTAL_JWT_SECRET: ${PORTAL_JWT_SECRET:-}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-}
+      TICKET_SECRET: ${TICKET_SECRET:-}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
 
 volumes:
   mongodb_data:

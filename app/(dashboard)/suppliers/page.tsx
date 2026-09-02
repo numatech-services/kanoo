@@ -30,7 +30,7 @@ export default function SuppliersPage() {
     { key: "name", label: "Fournisseur", sortable: true },
     { key: "nif", label: "NIF", className: "text-xs text-moss" },
     { key: "phone", label: "Téléphone" },
-    { key: "paymentTermDays", label: "Délai paiement", render: (v) => <span className="text-moss">{v} j</span> },
+    { key: "paymentTermDays", label: "Délai paiement", render: (v) => <span className="text-moss">{String(v ?? "—")} j</span> },
     { key: "isActive", label: "Statut", render: (v) => <StatusBadge status={v ? "active" : "inactive"} /> },
   ];
 

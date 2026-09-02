@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, conflict, getPagination, paginatedResponse, requireFields } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, conflict, getPagination, paginatedResponse, requireFields, forbidden } from "@/lib/api-helpers";
 import { TenantModel } from "@/models/Tenant";
 import { generateSecureToken, hashPassword } from "@/lib/auth";
 import { UserModel } from "@/models/User";
@@ -9,7 +9,7 @@ import { TokenPayload } from "@/lib/auth";
 // Superadmin only — vérifié aussi dans middleware
 export const GET = withAuth("companies", "read", async (req: NextRequest, auth: TokenPayload) => {
   if (auth.role !== "superadmin") {
-    return new Response(JSON.stringify({ error: "Superadmin uniquement" }), { status: 403 });
+    return forbidden("Superadmin uniquement");
   }
 
   await connectDB();
@@ -41,12 +41,16 @@ export const GET = withAuth("companies", "read", async (req: NextRequest, auth: 
     { $match: { tenantId: { $in: tenantIds } } },
     { $group: { _id: "$tenantId", count: { $sum: 1 } } },
   ]);
-  const countMap = new Map(userCounts.map((u) => [u._id.toString(), u.count]));
+  const countMap = new Map(
+    (userCounts as Array<{ _id: { toString(): string }; count: number }>)
+      .map((u) => [u._id.toString(), u.count])
+  );
 
-  const enriched = tenants.map((t) => ({
-    ...t,
-    userCount: countMap.get(t._id.toString()) || 0,
-  }));
+  const enriched = (tenants as Array<{ _id: { toString(): string } } & Record<string, unknown>>)
+    .map((t) => ({
+      ...t,
+      userCount: countMap.get(t._id.toString()) || 0,
+    }));
 
   return paginatedResponse(enriched, total, pagination);
 });
@@ -54,7 +58,7 @@ export const GET = withAuth("companies", "read", async (req: NextRequest, auth: 
 // POST — Créer un nouveau tenant depuis superadmin
 export const POST = withAuth("companies", "create", async (req: NextRequest, auth: TokenPayload) => {
   if (auth.role !== "superadmin") {
-    return new Response(JSON.stringify({ error: "Superadmin uniquement" }), { status: 403 });
+    return forbidden("Superadmin uniquement");
   }
 
   const body = await req.json();

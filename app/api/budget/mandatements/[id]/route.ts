@@ -77,7 +77,7 @@ export const PATCH = withAuth("budgetChapters", "read", async (req: NextRequest,
     // Audit Log
     await logAudit(auth, "UPDATE", "engagements", {
       resourceId: id,
-      message: `Passage au statut ${newStatus.toUpperCase()}`,
+      metadata: { message: `Passage au statut ${newStatus.toUpperCase()}` },
       after: { status: newStatus }
     });
 

@@ -2,13 +2,13 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import {
   withAuth, ok, created, badRequest, notFound, paginatedResponse,
-  getPagination, tenantFilter, requireFields
+  getPagination, tenantFilter, requireFields, sanitizeBody
 } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { ClientModel } from "@/models/Client";
 import { logAudit } from "@/lib/audit";
-import { calculerTVA, calculerDTS } from "@/lib/niger-fiscal";
+import { calculerTVA, calculerDTS, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { withTransaction } from "@/lib/db";
 import { TokenPayload } from "@/lib/auth";
@@ -60,7 +60,11 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
   const client = await ClientModel.findOne({ _id: body.clientId, tenantId: auth.tenantId });
   if (!client) return notFound("Client introuvable");
 
-  // Calcul des totaux ligne par ligne
+  // ── Calcul des totaux ────────────────────────────────────────────────────
+  // Chaque ligne est arrondie au franc, et le total est la SOMME DES LIGNES
+  // ARRONDIES — pas l'arrondi de la somme. Autrement le pied de facture ne
+  // correspond pas à l'addition des lignes imprimées juste au-dessus, ce qui
+  // est indéfendable sur un document fiscal.
   let totalHT = 0;
   let totalTVA = 0;
   const lines = body.lines.map((line: {
@@ -71,27 +75,38 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
     discount?: number;
     productId?: string;
   }) => {
-    const ht = line.quantity * line.unitPrice * (1 - (line.discount || 0) / 100);
-    const tva = calculerTVA(ht, line.tvaRate ?? 0.19);
-    totalHT += ht;
-    totalTVA += tva;
-    return { ...line, totalHT: Math.round(ht), totalTVA: Math.round(tva), totalTTC: Math.round(ht + tva) };
+    const lineHT = Math.round(line.quantity * line.unitPrice * (1 - (line.discount || 0) / 100));
+    const lineTVA = calculerTVA(lineHT, line.tvaRate ?? TVA_TAUX_STANDARD);
+    totalHT += lineHT;
+    totalTVA += lineTVA;
+    return { ...line, totalHT: lineHT, totalTVA: lineTVA, totalTTC: lineHT + lineTVA };
   });
 
   const totalDTS = calculerDTS(totalHT + totalTVA);
-  const totalTTC = Math.round(totalHT + totalTVA + totalDTS);
-
-  // Numérotation séquentielle
-  const number = await nextDocumentNumber(auth.tenantId, "invoice");
+  const totalTTC = totalHT + totalTVA + totalDTS;
 
   const result = await withTransaction(async (session) => {
+    // La séquence est consommée DANS la transaction : si la création échoue
+    // ensuite, l'incrément est annulé avec elle et la numérotation reste
+    // continue. Elle était tirée avant, et tout échec laissait un trou.
+    const number = await nextDocumentNumber(auth.tenantId, "invoice", {
+      issueDate: body.issueDate,
+      session,
+    });
+
     // 1. Créer la facture
     const [invoice] = await InvoiceModel.create(
-      [{ ...body, lines, number, totalHT: Math.round(totalHT), totalTVA: Math.round(totalTVA), totalDTS, totalTTC, paidAmount: 0, tenantId: auth.tenantId, createdBy: auth.userId, status: "draft" }],
+      [{
+        ...sanitizeBody(body, ["number", "status", "paidAmount", "totalHT", "totalTVA", "totalDTS", "totalTTC"]),
+        lines, number, totalHT, totalTVA, totalDTS, totalTTC,
+        paidAmount: 0, tenantId: auth.tenantId, createdBy: auth.userId, status: "draft",
+      }],
       { session }
     );
 
-    // 2. Écriture comptable automatique (VT — journal Ventes)
+    // 2. Écriture comptable automatique (VT — journal Ventes).
+    // L'équilibre est garanti par construction : le débit est la somme des
+    // trois crédits, tous entiers.
     await AccountingEntryModel.create(
       [{
         tenantId: auth.tenantId,
@@ -101,8 +116,8 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
         label: `Facture client ${client.name} — ${number}`,
         lines: [
           { accountCode: "411000", accountLabel: "Clients", debit: totalTTC, credit: 0, thirdPartyId: client._id },
-          { accountCode: "706000", accountLabel: "Prestations de services", debit: 0, credit: Math.round(totalHT) },
-          ...(totalTVA > 0 ? [{ accountCode: "443000", accountLabel: "TVA collectée", debit: 0, credit: Math.round(totalTVA) }] : []),
+          { accountCode: "706000", accountLabel: "Prestations de services", debit: 0, credit: totalHT },
+          ...(totalTVA > 0 ? [{ accountCode: "443000", accountLabel: "TVA collectée", debit: 0, credit: totalTVA }] : []),
           ...(totalDTS > 0 ? [{ accountCode: "447000", accountLabel: "Droits de timbre", debit: 0, credit: totalDTS }] : []),
         ],
         linkedDocType: "invoice",
@@ -117,7 +132,7 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
 
   await logAudit(auth, "CREATE", "invoices", {
     resourceId: result._id.toString(),
-    after: { number, totalTTC, clientId: body.clientId },
+    after: { number: result.number, totalTTC: result.totalTTC, clientId: body.clientId },
   });
 
   return created(result);

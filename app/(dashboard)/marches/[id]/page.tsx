@@ -101,12 +101,12 @@ export default function MarcheDetailPage() {
       </div>
 
       {/* Modal d'édition */}
-      <Modal isOpen={editOpen} onClose={() => setEditOpen(false)} title="Modifier le marché">
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Modifier le marché">
         <div className="p-6 bg-white">
-          <MarcheForm 
-            initialData={item} 
-            onSave={handleSave} 
-            onCancel={() => setEditOpen(false)} 
+          <MarcheForm
+            initial={item}
+            onSave={handleSave}
+            onCancel={() => setEditOpen(false)}
           />
         </div>
       </Modal>

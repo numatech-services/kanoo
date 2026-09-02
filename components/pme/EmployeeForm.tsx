@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 
-interface EmployeeFormData {
+export interface EmployeeFormData {
   code: string; firstName: string; lastName: string; position: string; department: string;
   employeeType: string; contractNature: string;
   grossSalary: number; indemnity: number; indemnityPeriod: string;

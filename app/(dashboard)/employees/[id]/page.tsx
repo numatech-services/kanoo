@@ -28,7 +28,7 @@ export default function EmployeeDetailPage() {
         <div>
           <a href="/employees" className="text-xs text-moss hover:text-ink">← Employés</a>
           <h1 className="text-2xl font-bold text-ink mt-1">{String(item.name || item.title || item.reference || item.number || item.object || id)}</h1>
-          {item.code && <p className="text-moss text-sm">{String(item.code)}</p>}
+          {item.code ? <p className="text-moss text-sm">{String(item.code)}</p> : null}
         </div>
         <button onClick={()=>setEditOpen(true)} className="mt-2 px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">Modifier</button>
       </div>

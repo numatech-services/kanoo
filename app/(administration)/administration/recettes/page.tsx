@@ -99,7 +99,11 @@ export default function RecettesPage() {
     { 
       key: "budgetChapterId", 
       label: "Chapitre", 
-      render: (v) => <span className="text-xs">{v?.code ? `${v.code} - ${v.label}` : 'N/A'}</span> 
+      render: (v) => {
+        // Champ peuplé par populate() : forme connue, mais `unknown` côté colonne.
+        const chapter = v as { code?: string; label?: string } | null;
+        return <span className="text-xs">{chapter?.code ? `${chapter.code} - ${chapter.label}` : "N/A"}</span>;
+      } 
     },
     { 
       key: "amount", 

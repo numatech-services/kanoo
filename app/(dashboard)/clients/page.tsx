@@ -77,7 +77,7 @@ export default function ClientsPage() {
     {
       key: "paymentTermDays",
       label: "Délai paiement",
-      render: (v) => <span className="text-moss">{v} j</span>,
+      render: (v) => <span className="text-moss">{String(v ?? "—")} j</span>,
     },
     {
       key: "isActive",

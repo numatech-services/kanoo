@@ -4,8 +4,9 @@ export type AuditAction =
   | "CREATE" | "UPDATE" | "DELETE" | "READ"
   | "LOGIN" | "LOGOUT" | "LOGIN_FAILED"
   | "EXPORT" | "IMPORT"
-  | "APPROVE" | "REJECT"
-  | "PAYMENT" | "INVOICE_SENT" | "INVOICE_PAID";
+  | "APPROVE" | "REJECT" | "SIGN"
+  | "PAYMENT" | "INVOICE_SENT" | "INVOICE_PAID"
+  | "REFUND" | "CHECKIN";
 
 export interface AuditEntry {
   tenantId: string;

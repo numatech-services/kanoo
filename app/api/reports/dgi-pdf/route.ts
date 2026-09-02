@@ -135,7 +135,11 @@ export async function GET(req: NextRequest) {
         });
       } else if (type === "grandlivre") {
         const d = reportData as { comptes: Array<{ code: string; label: string; debit: number; credit: number }>; nbEcritures: number };
-        doc.fontSize(9).font("Helvetica").text(`${d.nbEcritures} écritures · ${d.comptes.length} comptes mouvementés`, { color: "#666" });
+        // `color` n'est pas une option de texte PDFKit : la couleur se pose avec
+        // fillColor, sans quoi l'appel ne correspond à aucune surcharge.
+        doc.fontSize(9).font("Helvetica").fillColor("#666")
+          .text(`${d.nbEcritures} écritures · ${d.comptes.length} comptes mouvementés`);
+        doc.fillColor("#333");
         doc.moveDown(0.5);
         // En-tête tableau
         const cols = [60, 160, 360, 450, pageW + 50 - 8];

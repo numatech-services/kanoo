@@ -28,7 +28,7 @@ export const GET = withAuth("fiscalDeclarations", "read", async (req: NextReques
 
   const declaration = await FiscalDeclarationModel.findOne({
     ...tenantFilter(auth), type: "cnss", "period.annee": annee, "period.trimestre": trimestre,
-  }).lean();
+  }).lean<{ status?: string } | null>();
 
   return ok({
     periode: { trimestre, annee },

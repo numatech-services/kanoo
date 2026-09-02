@@ -3,8 +3,10 @@
  * Gère les préfixes personnalisés par tenant avec réinitialisation annuelle
  */
 
+import type { ClientSession } from "mongoose";
 import { connectDB } from "./db";
 import { TenantModel } from "@/models/Tenant";
+import type { NumberingConfig as TenantNumberingConfig } from "@/types";
 
 type DocType = "invoice" | "quote" | "order" | "delivery" | "contract";
 
@@ -43,23 +45,44 @@ const PREFIX_FIELD: Record<DocType, string> = {
 };
 
 /**
- * Génère le prochain numéro de document pour un tenant donné (atomic increment)
+ * Génère le prochain numéro de document pour un tenant donné.
+ *
+ * Deux points importants pour la conformité DGI :
+ *
+ *  1. **La séquence doit être consommée dans la même transaction que le
+ *     document.** Sinon un échec après l'incrément laisse un trou, et une
+ *     séquence de facturation à trous est un motif de redressement. D'où le
+ *     paramètre `session`, que l'appelant doit transmettre.
+ *  2. **L'année vient de la date d'émission, pas de l'horloge.** Une facture de
+ *     décembre saisie en janvier portait le millésime suivant — et, combinée à
+ *     la remise à zéro annuelle, se retrouvait en collision avec la nouvelle
+ *     série.
+ *
  * @param tenantId   ID du tenant
  * @param docType    Type de document
- * @returns          Numéro formaté, ex: "NML-2025-00042"
+ * @param options    `issueDate` (défaut : maintenant) et `session` de transaction
  */
-export async function nextDocumentNumber(tenantId: string, docType: DocType): Promise<string> {
+export async function nextDocumentNumber(
+  tenantId: string,
+  docType: DocType,
+  options: { issueDate?: Date | string; session?: ClientSession } = {}
+): Promise<string> {
   await connectDB();
 
   const seqField = `numberingConfig.${SEQUENCE_FIELD[docType]}`;
-  const year = new Date().getFullYear();
+  const issued = options.issueDate ? new Date(options.issueDate) : new Date();
+  const year = Number.isNaN(issued.getTime()) ? new Date().getFullYear() : issued.getFullYear();
 
-  // Incrément atomique MongoDB
-  const tenant = await TenantModel.findByIdAndUpdate(
+  // Incrément atomique MongoDB, dans la transaction de l'appelant s'il y en a une.
+  const query = TenantModel.findByIdAndUpdate(
     tenantId,
     { $inc: { [seqField]: 1 } },
     { new: true, upsert: false }
-  ).select("numberingConfig").lean();
+  ).select("numberingConfig");
+
+  if (options.session) query.session(options.session);
+
+  const tenant = await query.lean<{ numberingConfig?: TenantNumberingConfig } | null>();
 
   if (!tenant) throw new Error(`Tenant introuvable: ${tenantId}`);
 
@@ -85,8 +108,12 @@ function defaultPrefix(docType: DocType): string {
 }
 
 /**
- * Réinitialise les séquences au 1er janvier (si resetYearly=true)
- * Appelé par le scheduler le 1er janvier à 00:01
+ * Réinitialise les séquences au 1er janvier (si resetYearly=true).
+ * Appelé par le scheduler le 1er janvier à 00:01.
+ *
+ * `sequenceYear` est écrit en même temps : sans l'année dans le numéro
+ * (`yearInNumber: false`), remettre le compteur à zéro produirait des doublons
+ * d'une année sur l'autre. Ce champ permet au moins de les diagnostiquer.
  */
 export async function resetYearlySequences(): Promise<number> {
   await connectDB();
@@ -99,6 +126,7 @@ export async function resetYearlySequences(): Promise<number> {
         "numberingConfig.orderSequence":    0,
         "numberingConfig.deliverySequence": 0,
         "numberingConfig.contractSequence": 0,
+        "numberingConfig.sequenceYear":     new Date().getFullYear(),
       },
     }
   );
@@ -108,9 +136,14 @@ export async function resetYearlySequences(): Promise<number> {
 /**
  * Prévisualise le prochain numéro sans l'incrémenter (pour affichage)
  */
-export async function previewNextNumber(tenantId: string, docType: DocType): Promise<string> {
+export async function previewNextNumber(
+  tenantId: string,
+  docType: DocType,
+  issueDate?: Date | string
+): Promise<string> {
   await connectDB();
-  const tenant = await TenantModel.findById(tenantId).select("numberingConfig").lean();
+  const tenant = await TenantModel.findById(tenantId).select("numberingConfig")
+    .lean<{ numberingConfig?: TenantNumberingConfig } | null>();
   if (!tenant) return defaultPreview(docType);
 
   const cfg = (tenant.numberingConfig as NumberingConfig) || {};
@@ -119,7 +152,8 @@ export async function previewNextNumber(tenantId: string, docType: DocType): Pro
   const digits    = cfg.digitCount ?? 5;
   const useYear   = cfg.yearInNumber ?? true;
   const startAt   = docType === "invoice" ? (cfg.invoiceStartAt ?? 1) : 1;
-  const year      = new Date().getFullYear();
+  const issued    = issueDate ? new Date(issueDate) : new Date();
+  const year      = Number.isNaN(issued.getTime()) ? new Date().getFullYear() : issued.getFullYear();
 
   const seq = (cfg[SEQUENCE_FIELD[docType] as keyof NumberingConfig] as number ?? 0) + startAt;
   const seqStr = String(seq).padStart(digits, "0");

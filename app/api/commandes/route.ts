@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withTransaction } from "@/lib/db";
+import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
 import { CommandeModel } from "@/models/Commande";
-import { calculerTVA } from "@/lib/niger-fiscal";
+import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -25,15 +26,22 @@ export const POST = withAuth("commandes", "create", async (req: NextRequest, aut
   if (err) return badRequest(err);
   let totalHT = 0, totalTVA = 0;
   const lines = body.lines.map((l: { description: string; quantity: number; unitPrice: number; tvaRate?: number }) => {
-    const ht = l.quantity * l.unitPrice;
-    const tva = calculerTVA(ht, l.tvaRate ?? 0.19);
-    totalHT += ht; totalTVA += tva;
-    return { ...l, totalHT: Math.round(ht), totalTVA: Math.round(tva), totalTTC: Math.round(ht + tva) };
+    const lineHT = Math.round(l.quantity * l.unitPrice);
+    const lineTVA = calculerTVA(lineHT, l.tvaRate ?? TVA_TAUX_STANDARD);
+    totalHT += lineHT; totalTVA += lineTVA;
+    return { ...l, totalHT: lineHT, totalTVA: lineTVA, totalTTC: lineHT + lineTVA };
   });
-  const year = new Date(body.orderDate).getFullYear();
-  const count = await CommandeModel.countDocuments({ tenantId: auth.tenantId });
-  const number = await nextDocumentNumber(auth.tenantId, "order");
-  const commande = await CommandeModel.create({ ...body, lines, number, totalHT: Math.round(totalHT), totalTVA: Math.round(totalTVA), totalTTC: Math.round(totalHT + totalTVA), tenantId: auth.tenantId, status: "draft", createdBy: auth.userId });
-  await logAudit(auth, "CREATE", "commandes", { resourceId: commande._id.toString(), after: { number } });
+
+  const commande = await withTransaction(async (session) => {
+    const number = await nextDocumentNumber(auth.tenantId, "order", { issueDate: body.orderDate, session });
+    const [doc] = await CommandeModel.create([{
+      ...sanitizeBody(body, ["number", "status", "totalHT", "totalTVA", "totalTTC"]),
+      lines, number, totalHT, totalTVA, totalTTC: totalHT + totalTVA,
+      tenantId: auth.tenantId, status: "draft", createdBy: auth.userId,
+    }], { session });
+    return doc;
+  });
+
+  await logAudit(auth, "CREATE", "commandes", { resourceId: commande._id.toString(), after: { number: commande.number } });
   return created(commande);
 });

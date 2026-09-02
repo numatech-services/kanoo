@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
 
 declare global {
+  // `var` est la seule forme acceptée pour augmenter globalThis : `let` et
+  // `const` ne s'y attachent pas. La règle no-var ne s'applique donc pas ici.
+  // eslint-disable-next-line no-var
   var _mongooseConn: typeof mongoose | null;
+  // eslint-disable-next-line no-var
   var _mongoosePromise: Promise<typeof mongoose> | null;
 }
 
@@ -51,14 +55,23 @@ export async function disconnectDB(): Promise<void> {
   }
 }
 
-/** Helper: run an operation inside a Mongo transaction if replica set is available */
+/**
+ * Exécute une opération dans une transaction Mongo.
+ *
+ * En mode `MONGO_NO_TRANSACTIONS=true` (développement sans replica set), la
+ * session vaut `undefined` — et non un objet vide : passer `{}` à
+ * `Query.session()` ou à `Model.create(..., { session })` fait échouer le
+ * pilote. Les appelants doivent donc traiter la session comme optionnelle,
+ * ce que le type impose désormais.
+ *
+ * ⚠ Sans transaction, les écritures liées (facture + écriture comptable) ne
+ * sont plus atomiques. À réserver au développement.
+ */
 export async function withTransaction<T>(
-  fn: (session: mongoose.ClientSession) => Promise<T>
+  fn: (session?: mongoose.ClientSession) => Promise<T>
 ): Promise<T> {
   if (process.env.MONGO_NO_TRANSACTIONS === "true") {
-    // Simulated session (no real transaction) — dev / single-node mode
-    const fakeSession = {} as mongoose.ClientSession;
-    return fn(fakeSession);
+    return fn(undefined);
   }
 
   await connectDB();

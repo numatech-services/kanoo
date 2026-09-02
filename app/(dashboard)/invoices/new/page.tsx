@@ -1,9 +1,9 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { InvoiceForm } from "@/components/pme/InvoiceForm";
+import { InvoiceForm, type InvoiceFormData } from "@/components/pme/InvoiceForm";
 export default function NewInvoicePage() {
   const router = useRouter();
-  async function handleSave(data: Record<string, unknown>) {
+  async function handleSave(data: InvoiceFormData) {
     const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
     const res = await fetch("/api/invoices", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, credentials: "include", body: JSON.stringify(data) });
     const d = await res.json();

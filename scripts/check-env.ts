@@ -16,11 +16,7 @@ const OPTIONAL: Array<{ key: string; default: string; warning?: string }> = [
   { key: "EMAIL_PROVIDER", default: "console" },
   { key: "LOG_LEVEL", default: "info" },
   { key: "MONGO_NO_TRANSACTIONS", default: "false" },
-  {
-    key: "JWT_SECRET",
-    default: "",
-    warning: "JWT_SECRET trop court (< 32 caractères) — NON SÉCURISÉ pour la production",
-  },
+  { key: "PORTAL_JWT_SECRET", default: "dérivé de JWT_SECRET" },
 ];
 
 let hasErrors = false;
@@ -39,15 +35,35 @@ for (const key of REQUIRED) {
   }
 }
 
-// JWT_SECRET longueur
-const jwtSecret = process.env.JWT_SECRET || "";
-if (jwtSecret && jwtSecret.length < 32) {
-  console.warn(`⚠️  JWT_SECRET trop court (${jwtSecret.length} chars, minimum 32)`);
-  hasWarnings = true;
-}
-if (jwtSecret === "CHANGE_ME_IN_PRODUCTION_MIN_32_CHARS") {
-  console.warn("⚠️  JWT_SECRET utilise la valeur par défaut — À CHANGER EN PRODUCTION");
-  hasWarnings = true;
+// Secrets : longueur minimale et refus des valeurs d'exemple.
+// Le contrôle porte sur le préfixe, comme dans lib/auth.ts — une comparaison
+// d'égalité exacte avait laissé passer la valeur de .env.example.
+const PLACEHOLDER_SECRET_PREFIX = "CHANGE_ME";
+const isProduction = process.env.NODE_ENV === "production";
+
+const SECRETS: Array<{ key: string; required: boolean }> = [
+  { key: "JWT_SECRET", required: true },
+  { key: "PORTAL_JWT_SECRET", required: false },
+  { key: "TICKET_SECRET", required: false },
+  { key: "FIELD_ENCRYPTION_KEY", required: false },
+];
+
+for (const { key, required } of SECRETS) {
+  const value = process.env[key] || "";
+  if (!value) {
+    if (required) { console.error(`❌ ${key} manquant`); hasErrors = true; }
+    continue;
+  }
+  if (value.length < 32) {
+    const msg = `${key} trop court (${value.length} caractères, minimum 32)`;
+    if (isProduction) { console.error(`❌ ${msg}`); hasErrors = true; }
+    else { console.warn(`⚠️  ${msg}`); hasWarnings = true; }
+  }
+  if (value.startsWith(PLACEHOLDER_SECRET_PREFIX)) {
+    const msg = `${key} est resté à sa valeur d'exemple — la remplacer (openssl rand -hex 32)`;
+    if (isProduction) { console.error(`❌ ${msg}`); hasErrors = true; }
+    else { console.warn(`⚠️  ${msg}`); hasWarnings = true; }
+  }
 }
 
 // Variables optionnelles

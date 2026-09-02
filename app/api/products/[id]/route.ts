@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, notFound, noContent, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { ProductModel } from "@/models/Product";
 import { TokenPayload } from "@/lib/auth";
 export const GET = withAuth("products", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
@@ -8,7 +8,7 @@ export const GET = withAuth("products", "read", async (_req: NextRequest, auth: 
 });
 export const PATCH = withAuth("products", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   const body = await req.json();
-  const p = await ProductModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, body, { new: true });
+  const p = await ProductModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, sanitizeBody(body, ["code", "stockQty"]), { new: true });
   if (!p) return notFound(); return ok(p);
 });
 export const DELETE = withAuth("products", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
+import { clearSessionCookies } from "@/lib/session";
 
 export async function POST() {
   const response = NextResponse.json({ success: true, message: "Déconnexion réussie" });
-  response.cookies.delete("auth_token");
-  response.cookies.delete("csrf_token");
+  clearSessionCookies(response);
   return response;
 }

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { connectDB } from "./db";
 import { getTokenFromRequest, verifyToken, TokenPayload } from "./auth";
 import { canPerformAction } from "./role-resources";
+import { verifyCsrf, CSRF_MESSAGES } from "./csrf";
+import { UserModel } from "@/models/User";
+import { TenantModel } from "@/models/Tenant";
+import { IdempotencyRecordModel } from "@/models/IdempotencyRecord";
 import { UserRole } from "@/types";
 
 export function ok<T>(data: T, status = 200) {
@@ -28,23 +33,56 @@ export function notFound(message = "Ressource introuvable") {
 export function conflict(message: string) {
   return NextResponse.json({ success: false, error: message }, { status: 409 });
 }
+export function paymentRequired(message: string) {
+  return NextResponse.json({ success: false, error: message }, { status: 402 });
+}
+
+/**
+ * Réponse 500. Le détail est journalisé côté serveur et remplacé par un
+ * identifiant côté client : un message Mongo brut expose les noms de
+ * collections, les contraintes et parfois des chemins de fichiers.
+ */
 export function serverError(error: unknown) {
-  const message = error instanceof Error ? error.message : "Erreur interne";
-  console.error("[API Error]", error);
-  return NextResponse.json({ success: false, error: message }, { status: 500 });
+  const ref = crypto.randomBytes(6).toString("hex");
+  console.error(`[API Error ${ref}]`, error);
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Une erreur interne est survenue. Communiquez cette référence au support.",
+      reference: ref,
+    },
+    { status: 500 }
+  );
 }
 
 export interface PaginationParams { page: number; limit: number; skip: number; }
 
 export function getPagination(req: NextRequest): PaginationParams {
   const url = new URL(req.url);
-  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
-  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "20")));
+  const rawPage = parseInt(url.searchParams.get("page") || "1", 10);
+  const rawLimit = parseInt(url.searchParams.get("limit") || "20", 10);
+  const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1;
+  const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 20;
   return { page, limit, skip: (page - 1) * limit };
 }
 
-export function paginatedResponse<T>(data: T[], total: number, { page, limit }: PaginationParams) {
-  return ok({ items: data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+/**
+ * `extra` porte les agrégats calculés par la route (totaux, cumuls). Plusieurs
+ * routes en passaient déjà un quatrième argument que la signature ignorait :
+ * les totaux étaient calculés puis jetés en silence, et l'écran affichait des
+ * cases vides.
+ */
+export function paginatedResponse<T>(
+  data: T[],
+  total: number,
+  { page, limit }: PaginationParams,
+  extra?: Record<string, unknown>
+) {
+  return ok({
+    items: data,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    ...extra,
+  });
 }
 
 export function getAuthContext(req: NextRequest): TokenPayload | null {
@@ -61,9 +99,95 @@ export async function resolveParams(ctx: RouteContext): Promise<Record<string, s
   return ctx.params instanceof Promise ? await ctx.params : ctx.params;
 }
 
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/** Résultat de la revalidation du porteur du jeton contre la base. */
+type SecurityCheck =
+  | { ok: true; auth: TokenPayload }
+  | { ok: false; response: NextResponse };
+
 /**
- * withAuth — wrapper universel pour toutes les routes API.
- * Authentification + RBAC + connexion DB + propagation params.
+ * Revalide le jeton contre l'état courant de la base.
+ *
+ * Principe : **le jeton prouve l'identité, la base décide des droits.** Le rôle,
+ * les ressources autorisées et l'état de l'abonnement sont relus à chaque
+ * requête plutôt que lus dans la charge utile du JWT — sans quoi rétrograder un
+ * utilisateur ou suspendre une organisation resterait sans effet jusqu'à
+ * l'expiration du jeton, et le rafraîchissement automatique reconduirait
+ * indéfiniment les anciens droits.
+ *
+ * Coût : deux lectures indexées par requête, sur la connexion déjà ouverte.
+ * C'est le prix d'une révocation qui révoque vraiment.
+ */
+async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
+  const user = await UserModel.findById(auth.userId)
+    .select("sessionVersion isActive role allowedResources tenantId")
+    .lean<{
+      sessionVersion?: number;
+      isActive?: boolean;
+      role?: UserRole;
+      allowedResources?: string[];
+      tenantId?: { toString(): string };
+    } | null>();
+
+  if (!user) return { ok: false, response: unauthorized("Compte introuvable") };
+  if (!user.isActive) return { ok: false, response: unauthorized("Compte désactivé") };
+
+  // Révocation : toute session émise avant le dernier incrément est refusée.
+  // Un jeton sans sessionVersion date d'avant cette protection — il est refusé
+  // aussi, ce qui force une reconnexion propre.
+  const current = user.sessionVersion ?? 1;
+  if ((auth.sessionVersion ?? 0) < current) {
+    return { ok: false, response: unauthorized("Session révoquée. Reconnectez-vous.") };
+  }
+
+  // Le tenant du jeton doit rester celui de l'utilisateur en base.
+  if (user.tenantId && user.tenantId.toString() !== auth.tenantId) {
+    return { ok: false, response: unauthorized("Session incohérente. Reconnectez-vous.") };
+  }
+
+  const role = user.role ?? auth.role;
+
+  if (role !== "superadmin") {
+    const tenant = await TenantModel.findById(auth.tenantId)
+      .select("subscriptionStatus type planModules")
+      .lean<{ subscriptionStatus?: string; type?: string; planModules?: string[] } | null>();
+
+    if (!tenant) return { ok: false, response: unauthorized("Organisation introuvable") };
+
+    if (tenant.subscriptionStatus === "suspended" || tenant.subscriptionStatus === "cancelled") {
+      return {
+        ok: false,
+        response: paymentRequired("Abonnement inactif. Contactez le support."),
+      };
+    }
+
+    return {
+      ok: true,
+      auth: {
+        ...auth,
+        role,
+        allowedResources: user.allowedResources,
+        subscriptionStatus: (tenant.subscriptionStatus as TokenPayload["subscriptionStatus"]) ?? auth.subscriptionStatus,
+        planModules: tenant.planModules ?? auth.planModules,
+        tenantType: (tenant.type as TokenPayload["tenantType"]) ?? auth.tenantType,
+      },
+    };
+  }
+
+  return { ok: true, auth: { ...auth, role, allowedResources: user.allowedResources } };
+}
+
+/** Empreinte d'une requête, pour détecter la réutilisation d'une clé d'idempotence. */
+function fingerprint(method: string, url: string, body: string): string {
+  return crypto.createHash("sha256").update(`${method} ${url} ${body}`).digest("hex");
+}
+
+/**
+ * withAuth — enveloppe unique de toutes les routes API.
+ *
+ * Enchaîne : authentification → CSRF → revalidation en base → RBAC →
+ * idempotence → connexion DB → délégation au gestionnaire.
  */
 export function withAuth(
   resource: string,
@@ -71,17 +195,90 @@ export function withAuth(
   handler: (req: NextRequest, auth: TokenPayload, params: Record<string, string>) => Promise<NextResponse>
 ) {
   return async (req: NextRequest, ctx: RouteContext = { params: {} }): Promise<NextResponse> => {
-    const auth = getAuthContext(req);
-    if (!auth) return unauthorized();
+    const tokenAuth = getAuthContext(req);
+    if (!tokenAuth) return unauthorized();
 
-    if (!canPerformAction(auth.role as UserRole, resource, action)) {
-      return forbidden(`Action '${action}' sur '${resource}' non autorisée pour le rôle '${auth.role}'`);
-    }
+    // CSRF avant tout travail : inutile d'ouvrir une connexion pour refuser.
+    const verdict = verifyCsrf(req);
+    if (verdict !== "ok") return forbidden(CSRF_MESSAGES[verdict]);
 
     try {
       await connectDB();
+
+      const check = await revalidate(tokenAuth);
+      if (!check.ok) return check.response;
+      const auth = check.auth;
+
+      if (!canPerformAction(auth.role as UserRole, resource, action, auth.allowedResources)) {
+        return forbidden(`Action '${action}' sur '${resource}' non autorisée pour le rôle '${auth.role}'`);
+      }
+
       const params = await resolveParams(ctx);
-      return await handler(req, auth, params);
+
+      // ── Idempotence ───────────────────────────────────────────────────────
+      // Facultative : une requête sans clé se comporte comme avant. Le rejeu
+      // hors-ligne, lui, en fournit systématiquement une.
+      const key = req.headers.get("idempotency-key");
+      if (!key || !MUTATING_METHODS.has(req.method)) {
+        return await handler(req, auth, params);
+      }
+
+      const rawBody = await req.clone().text().catch(() => "");
+      const print = fingerprint(req.method, new URL(req.url).pathname, rawBody);
+
+      const existing = await IdempotencyRecordModel.findOne({
+        tenantId: auth.tenantId, userId: auth.userId, key,
+      }).lean<{ fingerprint: string; state: string; status?: number; body?: unknown } | null>();
+
+      if (existing) {
+        if (existing.fingerprint !== print) {
+          return conflict("Cette clé d'idempotence a déjà servi pour une requête différente.");
+        }
+        if (existing.state === "in_flight") {
+          // La première tentative court encore. Rejouer maintenant créerait le
+          // doublon qu'on cherche à éviter : le client doit réessayer.
+          return NextResponse.json(
+            { success: false, error: "Requête identique en cours de traitement." },
+            { status: 409, headers: { "Retry-After": "2" } }
+          );
+        }
+        return NextResponse.json(existing.body, { status: existing.status ?? 200 });
+      }
+
+      try {
+        await IdempotencyRecordModel.create({
+          tenantId: auth.tenantId, userId: auth.userId, key, fingerprint: print, state: "in_flight",
+        });
+      } catch {
+        // Course entre deux rejeux : l'index unique a tranché, l'autre gagne.
+        return NextResponse.json(
+          { success: false, error: "Requête identique en cours de traitement." },
+          { status: 409, headers: { "Retry-After": "2" } }
+        );
+      }
+
+      let response: NextResponse;
+      try {
+        response = await handler(req, auth, params);
+      } catch (err) {
+        // L'échec ne doit pas être mémorisé : le client doit pouvoir réessayer.
+        await IdempotencyRecordModel.deleteOne({ tenantId: auth.tenantId, userId: auth.userId, key });
+        throw err;
+      }
+
+      // Seuls les succès sont mémorisés. Une validation refusée doit pouvoir
+      // être rejouée après correction, avec la même clé.
+      if (response.status >= 200 && response.status < 300) {
+        const payload = await response.clone().json().catch(() => null);
+        await IdempotencyRecordModel.updateOne(
+          { tenantId: auth.tenantId, userId: auth.userId, key },
+          { $set: { state: "done", status: response.status, body: payload } }
+        );
+      } else {
+        await IdempotencyRecordModel.deleteOne({ tenantId: auth.tenantId, userId: auth.userId, key });
+      }
+
+      return response;
     } catch (err) {
       return serverError(err);
     }
@@ -100,4 +297,32 @@ export function requireFields(body: Record<string, unknown>, fields: string[]): 
     }
   }
   return null;
+}
+
+/**
+ * Champs qu'aucune requête cliente ne peut écrire, quelle que soit la route.
+ * `tenantId` en tête : le laisser passer permettrait de déplacer un
+ * enregistrement vers une autre organisation, en contournant le filtre de
+ * lecture qui, lui, est bien en place.
+ */
+const NEVER_WRITABLE = [
+  "_id", "__v", "tenantId", "createdBy", "createdAt", "updatedAt",
+];
+
+/**
+ * Retire d'un corps de requête les champs jamais modifiables, plus ceux que la
+ * route juge dérivés. À appeler avant tout `findOneAndUpdate(filtre, body)`.
+ */
+export function sanitizeBody(
+  body: Record<string, unknown>,
+  alsoStrip: string[] = []
+): Record<string, unknown> {
+  const clean = { ...body };
+  for (const field of [...NEVER_WRITABLE, ...alsoStrip]) delete clean[field];
+  // Un opérateur Mongo dans le corps ($set, $inc, $where…) contournerait le
+  // filtrage ci-dessus.
+  for (const field of Object.keys(clean)) {
+    if (field.startsWith("$")) delete clean[field];
+  }
+  return clean;
 }

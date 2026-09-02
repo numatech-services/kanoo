@@ -1,15 +1,68 @@
 import { NextResponse } from "next/server";
 import { signToken, generateCsrfToken, TokenPayload } from "./auth";
+import { CSRF_COOKIE } from "./csrf";
+
+/** Durée de vie de la session, alignée sur JWT_EXPIRES_IN (8 h par défaut). */
+const SESSION_MAX_AGE_S = 60 * 60 * 8;
+
+/**
+ * Construit la charge utile d'une session à partir de l'utilisateur et de son
+ * organisation.
+ *
+ * Point unique : la connexion classique et la vérification 2FA passaient par
+ * deux constructions parallèles, et `sessionVersion` n'avait été ajouté que
+ * dans l'une — ce qui neutralisait silencieusement la révocation de session.
+ */
+export function buildSessionPayload(
+  user: {
+    _id: { toString(): string };
+    tenantId: { toString(): string };
+    role: string;
+    email: string;
+    allowedResources?: string[];
+    sessionVersion?: number;
+  },
+  tenant: { type: string; subscriptionStatus: string; planModules: string[] }
+): Omit<TokenPayload, "iat" | "exp"> {
+  return {
+    userId: user._id.toString(),
+    tenantId: user.tenantId.toString(),
+    tenantType: tenant.type as TokenPayload["tenantType"],
+    role: user.role as TokenPayload["role"],
+    email: user.email,
+    subscriptionStatus: tenant.subscriptionStatus as TokenPayload["subscriptionStatus"],
+    planModules: tenant.planModules,
+    allowedResources: user.allowedResources,
+    sessionVersion: user.sessionVersion ?? 1,
+  };
+}
 
 /**
  * Pose les cookies de session (auth_token + csrf_token) sur une réponse.
- * Utilisé par la connexion classique et par la vérification 2FA, pour une
- * émission de session identique et unique.
+ *
+ * `auth_token` est httpOnly : le script n'y touche jamais. `csrf_token` est
+ * volontairement lisible — c'est le principe de la double soumission, le client
+ * doit pouvoir le recopier dans l'en-tête `x-csrf-token`.
  */
-export function setSessionCookies(response: NextResponse, tokenPayload: Omit<TokenPayload, "iat" | "exp">): void {
+export function setSessionCookies(
+  response: NextResponse,
+  tokenPayload: Omit<TokenPayload, "iat" | "exp">
+): void {
   const token = signToken(tokenPayload);
   const csrfToken = generateCsrfToken();
   const isProd = process.env.NODE_ENV === "production";
-  response.cookies.set("auth_token", token, { httpOnly: true, secure: isProd, sameSite: "lax", maxAge: 60 * 60 * 8, path: "/" });
-  response.cookies.set("csrf_token", csrfToken, { httpOnly: false, secure: isProd, sameSite: "lax", maxAge: 60 * 60 * 8, path: "/" });
+
+  response.cookies.set("auth_token", token, {
+    httpOnly: true, secure: isProd, sameSite: "lax", maxAge: SESSION_MAX_AGE_S, path: "/",
+  });
+  response.cookies.set(CSRF_COOKIE, csrfToken, {
+    httpOnly: false, secure: isProd, sameSite: "lax", maxAge: SESSION_MAX_AGE_S, path: "/",
+  });
+}
+
+/** Efface les cookies de session. */
+export function clearSessionCookies(response: NextResponse): void {
+  for (const name of ["auth_token", CSRF_COOKIE, "twofa_token", "portail_token"]) {
+    response.cookies.set(name, "", { httpOnly: true, path: "/", maxAge: 0 });
+  }
 }

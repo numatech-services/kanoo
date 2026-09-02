@@ -19,7 +19,7 @@ const PROVIDER = process.env.WHATSAPP_PROVIDER || "console";
 
 /** Normalise un numéro en E.164 sans « + » (indicatif Niger 227 par défaut). */
 export function normalizePhone(phone: string): string {
-  let p = (phone || "").replace(/[^\d+]/g, "");
+  const p = (phone || "").replace(/[^\d+]/g, "");
   if (p.startsWith("+")) return p.slice(1);
   if (p.startsWith("00")) return p.slice(2);
   if (p.length === 8) return "227" + p; // numéro local nigérien

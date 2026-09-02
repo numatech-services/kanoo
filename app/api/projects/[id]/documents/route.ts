@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import crypto from "crypto";
-import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, badRequest, tenantFilter, serverError } from "@/lib/api-helpers";
 import { ProjectModel } from "@/models/Project";
 import { DocumentModel } from "@/models/Document";
 import { TokenPayload } from "@/lib/auth";
@@ -78,16 +78,15 @@ export const POST = withAuth("projects", "update", async (req: NextRequest, auth
     );
 
     // 5. Audit
-    await logAudit(auth, "UPDATE", "projects", { 
-      resourceId: id, 
-      action: "add_document", 
-      documentId: newDoc._id 
+    await logAudit(auth, "UPDATE", "projects", {
+      resourceId: id,
+      metadata: { action: "add_document", documentId: String(newDoc._id) },
     });
 
     return ok(newDoc);
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erreur Upload:", error);
-    return new Response(JSON.stringify({ error: "Erreur lors de la sauvegarde du fichier" }), { status: 500 });
+    return serverError(error);
   }
 });

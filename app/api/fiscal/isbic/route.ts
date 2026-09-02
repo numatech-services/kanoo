@@ -37,7 +37,7 @@ export const GET = withAuth("fiscalDeclarations", "read", async (req: NextReques
 
   const declaration = await FiscalDeclarationModel.findOne({
     ...tenantFilter(auth), type: "isbic", "period.annee": annee,
-  }).lean();
+  }).lean<{ status?: string } | null>();
 
   return ok({
     annee, secteur, resultatComptable, resultatFiscal,

@@ -7,8 +7,7 @@ import {
   getPagination, 
   paginatedResponse, 
   tenantFilter, 
-  requireFields 
-} from "@/lib/api-helpers";
+  requireFields, serverError } from "@/lib/api-helpers";
 
 // Import de tous les modèles impliqués dans le populate
 import { BureauMemberModel } from "@/models/BureauMember";
@@ -52,9 +51,9 @@ export const GET = withAuth("bureau", "read", async (req: NextRequest, auth: Tok
     }));
 
     return paginatedResponse(items, total, pagination);
-  } catch (error) {
-    console.error("Erreur API Bureau GET:", error);
-    return Response.json({ error: "Erreur lors de la récupération des membres" }, { status: 500 });
+  } catch (err) {
+    console.error("Erreur API Bureau GET:", err);
+    return serverError(err);
   }
 });
 
@@ -83,8 +82,8 @@ export const POST = withAuth("bureau", "create", async (req: NextRequest, auth: 
     });
 
     return created(member);
-  } catch (error: any) {
-    console.error("Erreur API Bureau POST:", error);
-    return Response.json({ error: error.message || "Erreur de création" }, { status: 500 });
+  } catch (err) {
+    console.error("Erreur API Bureau POST:", err);
+    return serverError(err);
   }
 });

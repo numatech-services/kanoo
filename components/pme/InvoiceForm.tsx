@@ -18,7 +18,7 @@ interface InvoiceLine {
   totalTTC: number;
 }
 
-interface InvoiceFormData {
+export interface InvoiceFormData {
   clientId: string;
   issueDate: string;
   dueDate: string;

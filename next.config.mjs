@@ -10,11 +10,15 @@ const nextConfig = {
     cpus: 1,
   },
 
+  // Les deux garde-fous sont rétablis : ils masquaient 116 erreurs de type et
+  // l'absence totale de configuration ESLint. Une régression de type doit
+  // casser le build, pas atteindre la production.
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
+    dirs: ["app", "components", "lib", "models", "scripts"],
   },
 
   images: {
@@ -36,14 +40,18 @@ const nextConfig = {
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "X-Frame-Options", value: "DENY" },
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-      // CSP en Report-Only d'abord : n'impacte pas le rendu, permet d'observer
-      // les violations avant de passer en application stricte.
+      // CSP en Report-Only : n'impacte pas le rendu, permet d'observer les
+      // violations avant de passer en application stricte.
+      // ⚠ Sans `report-uri`/`report-to`, aucune violation n'est collectée — la
+      // directive est alors inerte. Renseigner CSP_REPORT_URI pour l'activer,
+      // puis basculer sur `Content-Security-Policy` une fois le rapport vide.
       {
         key: "Content-Security-Policy-Report-Only",
         value:
           "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; " +
           "script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; " +
-          "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "frame-ancestors 'none'; base-uri 'self'; form-action 'self'" +
+          (process.env.CSP_REPORT_URI ? `; report-uri ${process.env.CSP_REPORT_URI}` : ""),
       },
     ];
     return [

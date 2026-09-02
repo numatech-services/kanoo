@@ -18,9 +18,10 @@ export const GET = withAuth("events", "read", async (req: NextRequest, auth: Tok
 
   const attendees = await AttendeeModel.find(filter).sort({ createdAt: -1 }).lean();
 
-  const all = await AttendeeModel.find({ eventId: params.id, ...tenantFilter(auth) }).select("status amount").lean();
+  const all = await AttendeeModel.find({ eventId: params.id, ...tenantFilter(auth) })
+    .select("status amount").lean<Array<{ status: string; amount?: number }>>();
   const stats = { total: all.length, present: 0, registered: 0, cancelled: 0, refunded: 0, revenue: 0 };
-  for (const a of all as Array<{ status: string; amount?: number }>) {
+  for (const a of all) {
     if (a.status === "present") stats.present++;
     else if (a.status === "cancelled") stats.cancelled++;
     else if (a.status === "refunded") stats.refunded++;
@@ -122,6 +123,9 @@ export const POST = withAuth("events", "read", async (req: NextRequest, auth: To
     if (attendee.phone) { try { whatsappSent = (await sendTicketWhatsApp(attendee.phone, info)).sent; } catch { /* non bloquant */ } }
   }
 
-  await logAudit(auth, "CREATE", "events", { resourceId: String(ev._id), attendeeId: attendee._id.toString() });
+  await logAudit(auth, "CREATE", "events", {
+    resourceId: String(ev._id),
+    metadata: { attendeeId: attendee._id.toString() },
+  });
   return created({ attendee, qrPayload: buildQrPayload(attendee._id.toString(), ticketCode), emailSent, whatsappSent });
 });

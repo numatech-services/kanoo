@@ -21,6 +21,9 @@ export const POST = withAuth("events", "update", async (req: NextRequest, auth: 
   attendee.refundReason = typeof body.reason === "string" ? body.reason.slice(0, 300) : undefined;
   await attendee.save();
 
-  await logAudit(auth, "UPDATE", "events", { resourceId: String(params.id), attendeeId: attendee._id.toString(), action: "refund" });
+  await logAudit(auth, "REFUND", "events", {
+    resourceId: String(params.id),
+    metadata: { attendeeId: attendee._id.toString() },
+  });
   return ok({ refundedAt: attendee.refundedAt, amount: attendee.amount });
 });

@@ -5,7 +5,10 @@ import { EngagementModel } from "@/models/Engagement";
 // Importe ton modèle Mandat si tu en as un, sinon on utilise Engagement
 import { TokenPayload } from "@/lib/auth";
 
-export const POST = withAuth("budgetChapters", "update", async (req: NextRequest, { params }: any, auth: TokenPayload) => {
+// La signature était inversée : `auth` recevait les params et le filtre de
+// tenant partait avec un tenantId indéfini — la requête ne remontait alors
+// jamais aucun engagement.
+export const POST = withAuth("budgetChapters", "update", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const { engagementId, dateMandatement, observations } = await req.json();
 

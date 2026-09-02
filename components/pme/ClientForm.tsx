@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-interface ClientFormData {
+export interface ClientFormData {
   code: string;
   name: string;
   type: "individual" | "company";

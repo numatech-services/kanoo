@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import crypto from "crypto";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, notFound, tenantFilter } from "@/lib/api-helpers";
 import { MemberModel } from "@/models/Member";
@@ -7,11 +6,7 @@ import { sendEmail } from "@/lib/email";
 import { sendSMS } from "@/lib/sms";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
-
-/** Génère un code à 6 chiffres de façon cryptographique (non prévisible). */
-function generateAccessCode(): string {
-  return String(crypto.randomInt(100000, 1000000));
-}
+import { generateAccessCode, hashAccessCode } from "@/lib/portal-auth";
 
 /**
  * POST /api/membres/:id/access-code
@@ -24,7 +19,9 @@ export const POST = withAuth("membres", "update", async (req: NextRequest, auth:
   if (!member) return notFound();
 
   const code = generateAccessCode();
-  member.accessCode = code;
+  member.accessCodeHash = await hashAccessCode(code);
+  // Efface un éventuel code en clair hérité : régénérer doit invalider l'ancien.
+  member.set("accessCode", undefined);
   member.accessCodeGeneratedAt = new Date();
   await member.save();
 
@@ -96,12 +93,19 @@ export const POST = withAuth("membres", "update", async (req: NextRequest, auth:
 export const GET = withAuth("membres", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const member = await MemberModel.findOne({ _id: params.id, ...tenantFilter(auth) })
-    .select("accessCode accessCodeGeneratedAt accessCodeSentAt firstName lastName").lean();
+    .select("+accessCodeHash accessCodeGeneratedAt accessCodeSentAt firstName lastName")
+    .lean<{
+      accessCodeHash?: string;
+      accessCodeGeneratedAt?: Date;
+      accessCodeSentAt?: Date;
+    } | null>();
   if (!member) return notFound();
 
+  // On indique qu'un code existe, jamais sa valeur : elle n'est plus
+  // récupérable après émission, par construction.
   return ok({
-    hasCode: !!(member as {accessCode?: string}).accessCode,
-    generatedAt: (member as {accessCodeGeneratedAt?: Date}).accessCodeGeneratedAt || null,
-    sentAt: (member as {accessCodeSentAt?: Date}).accessCodeSentAt || null,
+    hasCode: !!member.accessCodeHash,
+    generatedAt: member.accessCodeGeneratedAt || null,
+    sentAt: member.accessCodeSentAt || null,
   });
 });

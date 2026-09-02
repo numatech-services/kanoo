@@ -28,8 +28,68 @@ export interface ITenant {
   activationToken?: string;
   activationTokenExpiry?: Date;
   branding?: { primaryColor?: string; secondaryColor?: string };
+  preferredLanguage?: "fr" | "en";
+  documentPrefixes?: DocumentPrefixes;
+  documentSequences?: DocumentSequences;
+  numberingConfig?: NumberingConfig;
+  paymentAttempts?: PaymentAttempt[];
+  subscriptionActivatedAt?: Date;
+  subscriptionNextBilling?: Date;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Préfixes de numérotation par type de document. */
+export interface DocumentPrefixes {
+  invoice?: string;
+  devis?: string;
+  commande?: string;
+  delivery?: string;
+  marche?: string;
+  contract?: string;
+}
+
+/** Séquences de départ, utilisées lors d'une migration depuis un logiciel existant. */
+export interface DocumentSequences {
+  invoice?: number;
+  devis?: number;
+  commande?: number;
+  delivery?: number;
+}
+
+/**
+ * Configuration de numérotation d'un tenant. Les champs `*Sequence` sont
+ * incrémentés atomiquement par `nextDocumentNumber` ; ne jamais les écrire
+ * depuis une route.
+ */
+export interface NumberingConfig {
+  invoicePrefix?: string;
+  quotePrefix?: string;
+  orderPrefix?: string;
+  deliveryPrefix?: string;
+  contractPrefix?: string;
+  separator?: string;
+  digitCount?: number;
+  yearInNumber?: boolean;
+  resetYearly?: boolean;
+  invoiceSequence?: number;
+  quoteSequence?: number;
+  orderSequence?: number;
+  deliverySequence?: number;
+  contractSequence?: number;
+  invoiceStartAt?: number;
+  /** Année couverte par les séquences courantes — sert au remise à zéro annuelle. */
+  sequenceYear?: number;
+}
+
+/** Tentative de paiement d'abonnement, adossée au webhook PayDunya. */
+export interface PaymentAttempt {
+  orderId: string;
+  amount?: number;
+  plan?: string;
+  status?: "pending" | "completed" | "failed";
+  createdAt?: Date;
+  completedAt?: Date;
 }
 
 // ─── User / Roles ─────────────────────────────────────────────────────────────
@@ -63,6 +123,10 @@ export interface IUser {
   phone?: string;
   avatar?: string;
   isActive: boolean;
+  /** Incrémenté pour révoquer toutes les sessions ouvertes de l'utilisateur. */
+  sessionVersion: number;
+  lastActivityAt?: Date;
+  revokedAt?: Date;
   lastLoginAt?: Date;
   passwordResetToken?: string;
   passwordResetExpiry?: Date;
@@ -110,6 +174,9 @@ export interface ISupplier {
   bankName?: string;
   bankAccount?: string;
   isActive: boolean;
+  /** Code d'accès au portail fournisseur, haché (bcrypt). */
+  accessCodeHash?: string;
+  accessCodeGeneratedAt?: Date;
   createdAt: Date;
 }
 
@@ -263,11 +330,20 @@ export interface IPayslip {
   employeeId: Types.ObjectId;
   month: number;
   year: number;
+  /** Salaire de base contractuel. */
   grossSalary: number;
+  /** Base + ancienneté + primes — c'est l'assiette des cotisations. */
+  grossTotal: number;
+  seniorityRate: number;
+  seniorityAmount: number;
   cnssEmployee: number;
   cnssEmployer: number;
+  /** Impôt sur le revenu retenu à la source (barème mensuel CGI art. 84). */
+  incomeTax: number;
   otherDeductions: number;
   netSalary: number;
+  /** Coût total employeur : brut total + part patronale. */
+  employerCost: number;
   isPaid: boolean;
   paidAt?: Date;
   createdAt: Date;
@@ -317,6 +393,12 @@ export interface IMember {
   joinDate: Date;
   status: MemberStatus;
   portalPassword?: string;
+  /** Code d'accès au portail, haché (bcrypt). Jamais stocké en clair. */
+  accessCodeHash?: string;
+  /** @deprecated Code en clair d'avant le hachage — migré à la première connexion. */
+  accessCode?: string;
+  accessCodeGeneratedAt?: Date;
+  accessCodeSentAt?: Date;
   createdAt: Date;
 }
 

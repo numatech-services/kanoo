@@ -5,7 +5,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
-import { EmployeeForm } from "@/components/pme/EmployeeForm";
+import { EmployeeForm, type EmployeeFormData } from "@/components/pme/EmployeeForm";
 
 interface Employee {
   _id:string; code:string; firstName:string; lastName:string; position:string; department?:string;
@@ -38,7 +38,7 @@ export default function EmployeesPage() {
   },[page,search,employeeType]);
   useEffect(()=>{setMounted(true);load();},[load]);
 
-  async function handleSave(data: Record<string, unknown>) {
+  async function handleSave(data: EmployeeFormData) {
     const url = editing ? `/api/employees/${editing._id}` : "/api/employees";
     const csrfRes=await fetch("/api/auth/csrf"); const {csrfToken}=await csrfRes.json();
     const res=await fetch(url,{method:editing?"PATCH":"POST",headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},credentials:"include",body:JSON.stringify(data)});

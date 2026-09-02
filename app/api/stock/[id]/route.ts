@@ -38,7 +38,7 @@ export const PATCH = withAuth("commandes", "update", async (req: NextRequest, au
       for (const line of updatedCmd.lines) {
         // On ne traite que les lignes qui ont un productId lié au catalogue
         if (line.productId) {
-          const product = await ProductModel.findById(line.productId).session(session);
+          const product = await ProductModel.findById(line.productId).session(session ?? null);
           
           if (product) {
             const qtyBefore = product.stockQty;

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, notFound, noContent, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { DocumentModel } from "@/models/Document";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -10,7 +10,7 @@ export const GET = withAuth("documents", "read", async (_req: NextRequest, auth:
 });
 export const PATCH = withAuth("documents", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   const body = await req.json();
-  const item = await DocumentModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, body, { new: true });
+  const item = await DocumentModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, sanitizeBody(body), { new: true });
   if (!item) return notFound();
   await logAudit(auth, "UPDATE", "documents", { resourceId: params.id });
   return ok(item);

@@ -49,11 +49,15 @@ export const POST = withAuth("fixedAssets", "create", async (req: NextRequest, a
   const acquisitionYear = new Date(body.acquisitionDate).getFullYear();
 
   // Calculer le plan d'amortissement
+  // Le prorata court à compter de la mise en service ; à défaut, de la date
+  // d'acquisition. Une annuité pleine la première année surévaluait la dotation.
+  const serviceDate = new Date(body.serviceDate || body.acquisitionDate);
   const schedule = calculerAmortissementLineaire(
     body.acquisitionCost,
     body.residualValue || 0,
     usefulLife,
-    acquisitionYear
+    acquisitionYear,
+    serviceDate
   );
 
   const asset = await FixedAssetModel.create({

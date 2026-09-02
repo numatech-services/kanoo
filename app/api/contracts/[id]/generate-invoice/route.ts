@@ -5,7 +5,8 @@ import { ContractModel } from "@/models/Contract";
 import { InvoiceModel } from "@/models/Invoice";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
-import { calculerTVA, calculerDTS, genererNumeroFacture } from "@/lib/niger-fiscal";
+import { calculerTVA, calculerDTS, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
+import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -17,32 +18,33 @@ export const POST = withAuth("contracts", "update", async (_req: NextRequest, au
   if (contract.amount <= 0) return badRequest("Le montant du contrat doit être supérieur à 0");
 
   const totalHT = contract.amount;
-  const totalTVA = calculerTVA(totalHT, 0.19);
+  const totalTVA = calculerTVA(totalHT, TVA_TAUX_STANDARD);
   const totalDTS = calculerDTS(totalHT + totalTVA);
   const totalTTC = totalHT + totalTVA + totalDTS;
 
-  const year = new Date().getFullYear();
-  const lastInv = await InvoiceModel.findOne({ tenantId: auth.tenantId }).sort({ createdAt: -1 }).select("number").lean();
-  const lastSeq = lastInv?.number ? parseInt(lastInv.number.split("-").at(-1) || "0") : 0;
-  const number = genererNumeroFacture(year, lastSeq + 1);
-
+  // Même correction que pour la conversion d'un devis : la numérotation vient
+  // du compteur du tenant, tiré dans la transaction, et non d'un « dernier
+  // numéro + 1 » qui ignorait le préfixe personnalisé et se dupliquait en cas
+  // d'appels simultanés.
+  const issueDate = new Date();
   const dueDate = new Date();
   dueDate.setDate(dueDate.getDate() + 30);
 
   const result = await withTransaction(async (session) => {
+    const number = await nextDocumentNumber(auth.tenantId, "invoice", { issueDate, session });
     const [invoice] = await InvoiceModel.create([{
       tenantId: auth.tenantId,
       number,
       clientId: contract.clientId,
       lines: [{
         description: `${contract.title} — ${contract.reference}`,
-        quantity: 1, unitPrice: totalHT, tvaRate: 0.19, discount: 0,
+        quantity: 1, unitPrice: totalHT, tvaRate: TVA_TAUX_STANDARD, discount: 0,
         totalHT, totalTVA, totalTTC: totalHT + totalTVA,
       }],
       totalHT, totalTVA, totalDTS, totalTTC,
       paidAmount: 0,
       status: "draft",
-      issueDate: new Date(),
+      issueDate,
       dueDate,
       notes: `Généré automatiquement depuis contrat ${contract.reference}`,
       createdBy: auth.userId,
@@ -80,5 +82,5 @@ export const POST = withAuth("contracts", "update", async (_req: NextRequest, au
     metadata: { fromContract: contract.reference },
   });
 
-  return ok({ invoice: result, message: `Facture ${number} générée depuis le contrat ${contract.reference}` });
+  return ok({ invoice: result, message: `Facture ${result.number} générée depuis le contrat ${contract.reference}` });
 });

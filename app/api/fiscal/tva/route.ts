@@ -49,7 +49,7 @@ export const GET = withAuth("fiscalDeclarations", "read", async (req: NextReques
     type: "tva",
     "period.annee": annee,
     "period.mois": mois,
-  }).lean();
+  }).lean<{ status?: string } | null>();
 
   return ok({
     periode: { mois, annee },

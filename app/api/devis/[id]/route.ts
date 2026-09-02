@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, badRequest, notFound, conflict, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, badRequest, notFound, conflict, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { DevisModel } from "@/models/Devis";
 import { InvoiceModel } from "@/models/Invoice";
 import { calculerTVA, calculerDTS, genererNumeroFacture } from "@/lib/niger-fiscal";
@@ -12,7 +12,7 @@ export const GET = withAuth("devis", "read", async (_req: NextRequest, auth: Tok
 });
 export const PATCH = withAuth("devis", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   const body = await req.json();
-  const d = await DevisModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, body, { new: true });
+  const d = await DevisModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, sanitizeBody(body, ["number", "status", "totalHT", "totalTVA", "totalTTC", "convertedToInvoiceId"]), { new: true });
   if (!d) return notFound(); return ok(d);
 });
 

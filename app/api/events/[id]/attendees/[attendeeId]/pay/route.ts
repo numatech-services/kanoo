@@ -50,6 +50,9 @@ export const POST = withAuth("events", "read", async (_req: NextRequest, auth: T
   at.paydunyaToken = r.token;
   await at.save();
 
-  await logAudit(auth, "UPDATE", "events", { resourceId: String(params.id), attendeeId: at._id.toString(), action: "payment_initiated" });
+  await logAudit(auth, "UPDATE", "events", {
+    resourceId: String(params.id),
+    metadata: { attendeeId: at._id.toString(), action: "payment_initiated" },
+  });
   return ok({ paymentUrl: r.paymentUrl, orderId });
 });

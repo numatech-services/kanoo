@@ -14,7 +14,7 @@ export default function DonsPage() {
   const columns: Column<Don>[] = [
     {key:"donorName",label:"Donateur",render:(v,r)=>v?String(v):<span className="text-moss italic">Anonyme ({r.donorType})</span>},
     {key:"amount",label:"Montant",className:"text-right font-mono font-bold",render:(v,r)=>`${Number(v).toLocaleString("fr-FR")} ${r.currency}`},
-    {key:"campaign",label:"Campagne",render:(v)=>v||<span className="text-moss">—</span>},
+    {key:"campaign",label:"Campagne",render:(v)=>v ? String(v) : <span className="text-moss">—</span>},
     {key:"date",label:"Date",render:(v)=>new Date(String(v)).toLocaleDateString("fr-FR")},
     {key:"receiptNumber",label:"N° reçu",className:"font-mono text-xs text-cedar"},
   ];

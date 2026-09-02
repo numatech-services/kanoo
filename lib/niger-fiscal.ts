@@ -1,3 +1,5 @@
+import { buildLinearSchedule } from "./depreciation";
+
 /**
  * Règles fiscales Niger — conformes au Code Général des Impôts (CGI Niger)
  * et au Code des Marchés Publics (CMP Niger 2017)
@@ -209,11 +211,15 @@ export const BAREME_IR_MENSUEL: Array<{ min: number; max: number; taux: number; 
  */
 export function calculerIR(salaireNetImposable: number): number {
   if (salaireNetImposable <= 0) return 0;
-  const tranche = BAREME_IR_MENSUEL.find(
-    t => salaireNetImposable >= t.min && salaireNetImposable <= t.max
-  );
+  // Les bornes du barème sont disjointes (35 000 puis 35 001) : une base non
+  // entière tombant entre deux tranches ne trouvait aucune correspondance et
+  // l'impôt ressortait à zéro. On sélectionne sur la borne basse seule, la
+  // dernière tranche satisfaite l'emportant — le barème étant ordonné.
+  const tranche = [...BAREME_IR_MENSUEL]
+    .reverse()
+    .find(t => salaireNetImposable >= t.min);
   if (!tranche || tranche.taux === 0) return 0;
-  return Math.round(salaireNetImposable * tranche.taux - tranche.abattement);
+  return Math.max(0, Math.round(salaireNetImposable * tranche.taux - tranche.abattement));
 }
 
 // ─── SMIG Niger ───────────────────────────────────────────────────────────────
@@ -249,7 +255,20 @@ export function calculerTauxAnciennete(annees: number): number {
   return Math.min(0.10 + (annees - 5) * 0.01, 0.15);
 }
 
-export function calculerPrimeAnciennete(salaireBrut: number, dateEntree: Date): {
+/**
+ * Prime d'ancienneté à une date donnée.
+ *
+ * @param asOf Date d'appréciation — **la fin de la période de paie**, pas le
+ *   jour de calcul. Elle était lue dans `new Date()` : régénérer le bulletin de
+ *   janvier au mois de décembre donnait alors un montant différent de celui
+ *   qui avait été payé, et un bulletin réédité pour un contrôle ne
+ *   correspondait plus à l'original.
+ */
+export function calculerPrimeAnciennete(
+  salaireBrut: number,
+  dateEntree: Date,
+  asOf: Date = new Date()
+): {
   annees: number;
   mois: number;
   taux: number;
@@ -257,10 +276,9 @@ export function calculerPrimeAnciennete(salaireBrut: number, dateEntree: Date): 
 } {
   // Calcul calendaire exact (des mois de 30,44 j comptaient 5 ans pile comme
   // 4 ans → prime sous-évaluée à chaque date anniversaire).
-  const now = new Date();
-  let annees = now.getFullYear() - dateEntree.getFullYear();
-  let mois = now.getMonth() - dateEntree.getMonth();
-  if (now.getDate() < dateEntree.getDate()) mois -= 1;
+  let annees = asOf.getFullYear() - dateEntree.getFullYear();
+  let mois = asOf.getMonth() - dateEntree.getMonth();
+  if (asOf.getDate() < dateEntree.getDate()) mois -= 1;
   if (mois < 0) { annees -= 1; mois += 12; }
   if (annees < 0) { annees = 0; mois = 0; }
   const taux = calculerTauxAnciennete(annees);
@@ -401,32 +419,25 @@ export interface AmortissementEntry {
 }
 
 /**
- * Calcule le plan d'amortissement linéaire complet
+ * Plan d'amortissement linéaire, **prorata temporis**.
+ *
+ * Délègue à `lib/depreciation.ts`, qui porte l'implémentation unique. Ce
+ * module en hébergeait une seconde copie, divergente : le calcul est le même,
+ * seul le format de retour diffère (l'échéancier nu plutôt que le plan complet).
+ *
+ * @param serviceDate Date de mise en service. À défaut, annuité pleine dès
+ *   l'année d'acquisition.
  */
 export function calculerAmortissementLineaire(
   acquisitionCost: number,
   residualValue: number = 0,
   usefulLifeYears: number,
-  acquisitionYear: number
+  acquisitionYear: number,
+  serviceDate?: Date
 ): AmortissementEntry[] {
-  const base = acquisitionCost - residualValue;
-  const annuity = Math.round(base / usefulLifeYears);
-  const plan: AmortissementEntry[] = [];
-  let cumulative = 0;
-
-  for (let i = 0; i < usefulLifeYears; i++) {
-    const isLast = i === usefulLifeYears - 1;
-    // La dernière annuité absorbe les arrondis
-    const yearAnnuity = isLast ? base - cumulative : annuity;
-    cumulative += yearAnnuity;
-    plan.push({
-      year: acquisitionYear + i,
-      annuity: yearAnnuity,
-      cumulative,
-      netValue: Math.max(0, acquisitionCost - cumulative),
-    });
-  }
-  return plan;
+  return buildLinearSchedule(
+    acquisitionCost, residualValue, usefulLifeYears, acquisitionYear, serviceDate
+  );
 }
 
 /**

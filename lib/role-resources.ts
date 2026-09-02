@@ -20,7 +20,7 @@ const PME_ADMIN: ResourcePermissions = {
   livraisons: ["create", "read", "update", "delete"],
   commandes: ["create", "read", "update", "delete"],
   payments: ["create", "read", "update", "delete"],
-  publicTenders: ["create", "read", "update", "delete"], // Remplace 'marches' par 'publicTenders'
+  publicTenders: ["create", "read", "update", "delete"],
   contracts: ["create", "read", "update", "delete"],
   projects: ["create", "read", "update", "delete"],
   employees: ["create", "read", "update", "delete"],
@@ -45,7 +45,7 @@ const PME_MANAGER: ResourcePermissions = {
   invoices: ["create", "read", "update"],
   commandes: ["create", "read", "update"],
   payments: ["create", "read"],
-  marches: ["create", "read", "update"],
+  publicTenders: ["create", "read", "update"],
   contracts: ["create", "read", "update"],
   projects: ["create", "read", "update"],
   employees: ["read"],
@@ -89,7 +89,7 @@ const PME_PURCHASES: ResourcePermissions = {
   suppliers: ["create", "read", "update"],
   products: ["read", "update"],
   commandes: ["create", "read", "update", "delete"],
-  marches: ["create", "read", "update"],
+  publicTenders: ["create", "read", "update"],
   documents: ["create", "read"],
   notifications: ["read", "update"],
   supportTickets: ["create", "read"],
@@ -108,7 +108,7 @@ const PME_PROJECT_MANAGER: ResourcePermissions = {
   clients: ["read"],
   projects: ["create", "read", "update", "delete"],
   contracts: ["create", "read", "update"],
-  marches: ["create", "read", "update"],
+  publicTenders: ["create", "read", "update"],
   documents: ["create", "read"],
   approbations: ["read"],
   notifications: ["read", "update"],
@@ -118,7 +118,7 @@ const PME_PROJECT_MANAGER: ResourcePermissions = {
 const PME_APPROVER: ResourcePermissions = {
   invoices: ["read"],
   commandes: ["read"],
-  marches: ["read"],
+  publicTenders: ["read"],
   contracts: ["read"],
   approbations: ["read", "update"],
   notifications: ["read", "update"],
@@ -132,7 +132,7 @@ const PME_VIEWER: ResourcePermissions = {
   invoices: ["read"],
   commandes: ["read"],
   payments: ["read"],
-  marches: ["read"],
+  publicTenders: ["read"],
   contracts: ["read"],
   projects: ["read"],
   employees: ["read"],
@@ -317,6 +317,8 @@ const ROLE_PERMISSIONS: Record<UserRole, ResourcePermissions> = {
   admin_procurement_officer: ADMIN_PROCUREMENT_OFFICER,
   admin_procurement_commission: ADMIN_PROCUREMENT_COMMISSION,
   admin_viewer: ADMIN_VIEWER,
+  // Transversal
+  chef_projet_transversal: CHEF_PROJET_TRANSVERSAL,
   // Plateforme
   superadmin: SUPERADMIN,
 };
@@ -344,8 +346,21 @@ for (const [role, actions] of Object.entries(EVENTS_BY_ROLE)) {
 }
 
 /**
+ * `allowedResources` **restreint**, il n'accorde jamais.
+ *
+ * Ce champ est modifiable par un administrateur de tenant ; s'il pouvait
+ * accorder une ressource absente du rôle, il deviendrait un moyen d'élévation
+ * de privilèges (un pme_admin s'octroyant les droits superadmin). La règle est
+ * donc l'intersection : le rôle borne le maximum, la liste réduit à l'intérieur
+ * de cette borne.
+ */
+function withinAllowList(resource: string, allowedResources?: string[]): boolean {
+  if (!allowedResources || allowedResources.length === 0) return true;
+  return allowedResources.includes(resource) || allowedResources.includes("*");
+}
+
+/**
  * Vérifie si un rôle peut accéder à une ressource.
- * allowedResources surcharge individuelle (permissions additionnelles ou restreintes).
  */
 export function canAccessResource(
   role: UserRole,
@@ -353,11 +368,7 @@ export function canAccessResource(
   allowedResources?: string[]
 ): boolean {
   if (role === "superadmin") return true;
-
-  // Surcharge individuelle
-  if (allowedResources) {
-    return allowedResources.includes(resource) || allowedResources.includes("*");
-  }
+  if (!withinAllowList(resource, allowedResources)) return false;
 
   const permissions = ROLE_PERMISSIONS[role];
   if (!permissions) return false;
@@ -368,13 +379,18 @@ export function canAccessResource(
 
 /**
  * Vérifie si un rôle peut effectuer une action CRUD sur une ressource.
+ *
+ * `allowedResources` est pris en compte ici aussi : les deux fonctions doivent
+ * répondre la même chose, sans quoi l'interface affiche ce que l'API refuse.
  */
 export function canPerformAction(
   role: UserRole,
   resource: string,
-  action: Action
+  action: Action,
+  allowedResources?: string[]
 ): boolean {
   if (role === "superadmin") return true;
+  if (!withinAllowList(resource, allowedResources)) return false;
 
   const permissions = ROLE_PERMISSIONS[role];
   if (!permissions) return false;
@@ -385,23 +401,17 @@ export function canPerformAction(
 }
 
 /**
- * Retourne les ressources accessibles par un rôle.
+ * Retourne les ressources accessibles par un rôle, éventuellement réduites par
+ * la liste individuelle.
  */
-export function getAccessibleResources(role: UserRole): string[] {
+export function getAccessibleResources(role: UserRole, allowedResources?: string[]): string[] {
   if (role === "superadmin") return ["*"];
   const permissions = ROLE_PERMISSIONS[role];
   if (!permissions) return [];
-  return Object.keys(permissions);
+  return Object.keys(permissions).filter(r => withinAllowList(r, allowedResources));
 }
 
-// Fusionnez le rôle transversal dans l'objet principal des permissions
-const ALL_PERMISSIONS: Record<string, ResourcePermissions> = {
-  ...ROLE_PERMISSIONS,
-  chef_projet_transversal: CHEF_PROJET_TRANSVERSAL,
-};
-
-export { 
+export {
   ROLE_PERMISSIONS,
   CHEF_PROJET_TRANSVERSAL,
-  ALL_PERMISSIONS 
 };

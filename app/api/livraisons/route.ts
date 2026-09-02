@@ -1,7 +1,7 @@
 import { nextDocumentNumber } from "@/lib/numbering";
 import { NextRequest } from "next/server";
-import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { connectDB, withTransaction } from "@/lib/db";
+import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody, notFound } from "@/lib/api-helpers";
 import { DeliveryNoteModel } from "@/models/DeliveryNote";
 import { InvoiceModel } from "@/models/Invoice";
 import { logAudit } from "@/lib/audit";
@@ -41,28 +41,27 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
     return badRequest("Un bon de livraison ne peut être créé que pour une facture émise, partiellement payée ou soldée");
   }
 
-  const count = await DeliveryNoteModel.countDocuments({ tenantId: auth.tenantId });
-  const year = new Date().getFullYear();
-  const number = await nextDocumentNumber(auth.tenantId, "delivery");
-
-  const delivery = await DeliveryNoteModel.create({
-    ...body,
-    tenantId: auth.tenantId,
-    number,
-    clientId: body.clientId || invoice.clientId,
-    status: "issued",
-    createdBy: auth.userId,
+  const delivery = await withTransaction(async (session) => {
+    const number = await nextDocumentNumber(auth.tenantId, "delivery", {
+      issueDate: body.deliveryDate, session,
+    });
+    const [doc] = await DeliveryNoteModel.create([{
+      ...sanitizeBody(body, ["number", "status"]),
+      tenantId: auth.tenantId,
+      number,
+      clientId: body.clientId || invoice.clientId,
+      status: "issued",
+      createdBy: auth.userId,
+    }], { session });
+    return doc;
   });
 
   await logAudit(auth, "CREATE", "livraisons", {
     resourceId: delivery._id.toString(),
-    after: { number, invoiceId: body.invoiceId },
+    after: { number: delivery.number, invoiceId: body.invoiceId },
   });
 
   return created(delivery);
 });
 
-function notFound(msg?: string) {
-  const { NextResponse } = require("next/server");
-  return NextResponse.json({ success: false, error: msg || "Introuvable" }, { status: 404 });
-}
+

@@ -202,14 +202,25 @@ async function handleOfflineMutation(request) {
 
 const DB_NAME = "kanoo-offline";
 const STORE_NAME = "sync-queue";
+// Les écritures définitivement refusées par le serveur atterrissent ici plutôt
+// que d'être supprimées : une facture rejetée doit rester visible et reprenable.
+const FAILED_STORE = "sync-failed";
+const DB_VERSION = 2;
+
+// Au-delà, on cesse de réessayer : le serveur refuse pour une raison qui ne
+// disparaîtra pas toute seule.
+const MAX_ATTEMPTS = 5;
 
 function openDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (e) => {
       const db = e.target.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains(FAILED_STORE)) {
+        db.createObjectStore(FAILED_STORE, { keyPath: "id", autoIncrement: true });
       }
     };
     req.onsuccess = (e) => resolve(e.target.result);
@@ -217,14 +228,35 @@ function openDB() {
   });
 }
 
+/**
+ * Clé d'idempotence : identifie l'INTENTION de l'utilisateur, pas la tentative.
+ * Elle est générée une seule fois, à la mise en file, et rejouée à l'identique
+ * — c'est ce qui permet au serveur de reconnaître un rejeu et de renvoyer la
+ * réponse d'origine au lieu de créer un second document.
+ */
+function newIdempotencyKey() {
+  if (self.crypto && self.crypto.randomUUID) return self.crypto.randomUUID();
+  const bytes = self.crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 async function queueMutation(request) {
   const db = await openDB();
   const body = await request.clone().text().catch(() => null);
+  const headers = Object.fromEntries(request.headers.entries());
+
+  // Les en-têtes d'authentification ne sont pas conservés : le jeton aurait
+  // expiré au moment du rejeu. Le cookie de session, lui, part tout seul.
+  delete headers["authorization"];
+  delete headers["cookie"];
+
   const entry = {
     url: request.url,
     method: request.method,
-    headers: Object.fromEntries(request.headers.entries()),
+    headers,
     body,
+    idempotencyKey: newIdempotencyKey(),
+    attempts: 0,
     timestamp: Date.now(),
   };
   return new Promise((resolve, reject) => {
@@ -232,6 +264,41 @@ async function queueMutation(request) {
     tx.objectStore(STORE_NAME).add(entry);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+/** Réécrit une entrée en place (compteur de tentatives, dernière erreur). */
+async function updateQueued(item) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    tx.objectStore(STORE_NAME).put(item);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/** Déplace une entrée vers le magasin des échecs, sans jamais la perdre. */
+async function moveToFailed(item, reason) {
+  const db = await openDB();
+  const { id, ...rest } = item;
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(FAILED_STORE, "readwrite");
+    tx.objectStore(FAILED_STORE).add({ ...rest, reason, failedAt: Date.now() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  await deleteQueued(id);
+}
+
+/** Écritures en échec définitif, à présenter à l'utilisateur. */
+async function getFailed() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(FAILED_STORE, "readonly");
+    const req = tx.objectStore(FAILED_STORE).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
   });
 }
 
@@ -268,8 +335,16 @@ self.addEventListener("sync", (event) => {
 // Fallback si Background Sync API non supportée : écouter "online"
 self.addEventListener("message", (event) => {
   if (event.data?.type === "REPLAY_QUEUE") {
-    replayQueue().then(() => {
-      event.source?.postMessage({ type: "SYNC_COMPLETE" });
+    // Une seule exécution, dont on garde la promesse : la lancer deux fois
+    // rejouerait chaque écriture en double.
+    const run = replayQueue().then((result) => {
+      event.source?.postMessage({ type: "SYNC_COMPLETE", ...result });
+    });
+    event.waitUntil?.(run);
+  }
+  if (event.data?.type === "GET_FAILED") {
+    getFailed().then((items) => {
+      event.source?.postMessage({ type: "FAILED_ITEMS", items });
     });
   }
   if (event.data?.type === "SKIP_WAITING") {
@@ -277,41 +352,97 @@ self.addEventListener("message", (event) => {
   }
 });
 
+/**
+ * Rejoue la file à la reconnexion.
+ *
+ * Une seule règle gouverne la suppression : **seul un 2xx efface une écriture**.
+ * L'ancienne condition (`status < 500`) supprimait aussi les 400, 401, 403 et
+ * 409 en les comptant comme des succès — une facture saisie hors ligne et
+ * rejouée après expiration du jeton (401) disparaissait en silence, avec une
+ * notification de synchronisation réussie.
+ *
+ * Les autres cas :
+ *  - 401/403 : la session a expiré pendant la coupure. On garde l'écriture et
+ *    on demande à l'application de rafraîchir la session, sans consommer de
+ *    tentative — l'utilisateur n'y est pour rien.
+ *  - 408/429/5xx : incident passager, on réessaiera au prochain déclenchement.
+ *  - autres 4xx : refus définitif (validation). L'écriture part dans le
+ *    magasin des échecs pour être présentée et corrigée.
+ */
 async function replayQueue() {
   const queue = await getAllQueued();
-  if (!queue.length) return;
+  if (!queue.length) return { replayed: 0, pending: 0, failed: 0, needsAuth: false };
 
   let replayed = 0;
+  let pending = 0;
   let failed = 0;
+  let needsAuth = false;
 
   for (const item of queue) {
+    let response;
     try {
-      const response = await fetch(item.url, {
+      response = await fetch(item.url, {
         method: item.method,
-        headers: { ...item.headers, "x-offline-sync": "true" },
+        headers: {
+          ...item.headers,
+          "x-offline-sync": "true",
+          // Rejouée à l'identique à chaque tentative : c'est ce qui rend le
+          // rejeu sûr même si le serveur avait déjà traité la requête.
+          "Idempotency-Key": item.idempotencyKey,
+        },
         body: item.method !== "GET" && item.method !== "HEAD" ? item.body : undefined,
+        credentials: "include",
       });
-      if (response.ok || response.status < 500) {
-        await deleteQueued(item.id);
-        replayed++;
-      } else {
-        failed++;
-      }
     } catch {
-      failed++;
+      // Toujours hors ligne : on ne consomme pas de tentative.
+      pending++;
+      continue;
     }
+
+    if (response.status >= 200 && response.status < 300) {
+      await deleteQueued(item.id);
+      replayed++;
+      continue;
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      needsAuth = true;
+      pending++;
+      continue;
+    }
+
+    if (response.status === 408 || response.status === 429 || response.status >= 500) {
+      item.attempts = (item.attempts || 0) + 1;
+      item.lastStatus = response.status;
+      if (item.attempts >= MAX_ATTEMPTS) {
+        await moveToFailed(item, `Le serveur a répondu ${response.status} après ${item.attempts} tentatives.`);
+        failed++;
+      } else {
+        await updateQueued(item);
+        pending++;
+      }
+      continue;
+    }
+
+    // 4xx restants : le serveur a compris et refuse. Réessayer n'y changera
+    // rien, mais l'écriture ne doit pas disparaître pour autant.
+    let detail = "";
+    try {
+      const payload = await response.clone().json();
+      detail = payload?.error || "";
+    } catch { /* corps non JSON */ }
+    await moveToFailed(item, detail || `Refusée par le serveur (${response.status}).`);
+    failed++;
   }
+
+  const result = { replayed, pending, failed, needsAuth, total: queue.length };
 
   // Notifier les clients ouverts
   const clients = await self.clients.matchAll();
   for (const client of clients) {
-    client.postMessage({
-      type: "SYNC_RESULT",
-      replayed,
-      failed,
-      total: queue.length,
-    });
+    client.postMessage({ type: "SYNC_RESULT", ...result });
   }
+  return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

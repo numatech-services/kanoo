@@ -52,15 +52,17 @@ UserSchema.index({ tenantId: 1, email: 1 }, { unique: true });
 UserSchema.index({ email: 1 });
 
 // Ne jamais retourner le hash en sérialisation JSON
+// Champs jamais sérialisés vers le client, quelle que soit la route.
+const SENSITIVE_FIELDS = [
+  "passwordHash", "passwordResetToken", "passwordResetExpiry",
+  "twoFactorSecret", "twoFactorPending", "twoFactorBackupCodes",
+] as const;
+
 UserSchema.set("toJSON", {
   transform: (_doc, ret) => {
-    delete ret.passwordHash;
-    delete ret.passwordResetToken;
-    delete ret.passwordResetExpiry;
-    delete ret.twoFactorSecret;
-    delete ret.twoFactorPending;
-    delete ret.twoFactorBackupCodes;
-    return ret;
+    const plain = ret as unknown as Record<string, unknown>;
+    for (const field of SENSITIVE_FIELDS) delete plain[field];
+    return plain;
   },
 });
 

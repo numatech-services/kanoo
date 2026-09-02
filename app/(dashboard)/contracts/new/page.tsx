@@ -1,9 +1,9 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { ContractForm } from "@/components/pme/ContractForm";
+import { ContractForm, type ContractFormData } from "@/components/pme/ContractForm";
 export default function NewContractPage() {
   const router = useRouter();
-  async function handleSave(data: Record<string, unknown>) {
+  async function handleSave(data: ContractFormData) {
     const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
     const res = await fetch("/api/contracts", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, credentials: "include", body: JSON.stringify(data) });
     const d = await res.json(); if (!res.ok) throw new Error(d.error);

@@ -19,6 +19,9 @@ export async function POST(req: NextRequest) {
   user.deletionRequestedAt = new Date();
   await user.save();
 
-  await logAudit(auth, "UPDATE", "users", { resourceId: auth.userId, action: "gdpr_deletion_requested" });
+  await logAudit(auth, "UPDATE", "users", {
+    resourceId: auth.userId,
+    metadata: { action: "gdpr_deletion_requested" },
+  });
   return ok({ requestedAt: user.deletionRequestedAt });
 }

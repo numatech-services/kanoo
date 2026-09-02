@@ -7,7 +7,8 @@ import Link from "next/link";
 
 export default function NewEngagementPage() {
   const router = useRouter();
-  const [chapters, setChapters] = useState([]);
+  type Chapter = { _id: string; code?: string; label?: string } & Record<string, unknown>;
+  const [chapters, setChapters] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(false);
 
   // État du formulaire

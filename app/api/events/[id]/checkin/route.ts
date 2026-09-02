@@ -57,7 +57,10 @@ export const POST = withAuth("events", "update", async (req: NextRequest, auth: 
   attendee.checkedInBy = new Types.ObjectId(auth.userId);
   await attendee.save();
 
-  await logAudit(auth, "UPDATE", "events", { resourceId: String(params.id), attendeeId: attendee._id.toString(), action: "checkin" });
+  await logAudit(auth, "CHECKIN", "events", {
+    resourceId: String(params.id),
+    metadata: { attendeeId: attendee._id.toString() },
+  });
   return ok({
     valid: true,
     attendee: {

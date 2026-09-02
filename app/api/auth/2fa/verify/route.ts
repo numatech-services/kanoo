@@ -6,14 +6,30 @@ import { TenantModel } from "@/models/Tenant";
 import { verifyTwoFactorChallenge, comparePassword } from "@/lib/auth";
 import { verifyTotp } from "@/lib/totp";
 import { decryptField } from "@/lib/crypto-field";
-import { setSessionCookies } from "@/lib/session";
+import { buildSessionPayload, setSessionCookies } from "@/lib/session";
+import { rateLimit, resetRateLimit, clientIp } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
+
+// Un code TOTP fait six chiffres et le défi vit cinq minutes : sans plafond,
+// la fenêtre suffit largement à parcourir l'espace. Dix essais par défi.
+const MAX_ATTEMPTS = 10;
+const WINDOW_MS = 5 * 60_000;
 
 // Étape 2 de la connexion : valide le code TOTP (ou un code de secours) puis ouvre la session.
 export async function POST(req: NextRequest) {
   const challenge = req.cookies.get("twofa_token")?.value;
   const parsed = challenge ? verifyTwoFactorChallenge(challenge) : null;
   if (!parsed) return unauthorized("Session 2FA expirée. Reconnectez-vous.");
+
+  // Le quota est porté par l'utilisateur visé, pas par l'adresse : le défi
+  // désigne déjà un compte précis.
+  const attempt = rateLimit("2fa:verify", parsed.uid, MAX_ATTEMPTS, WINDOW_MS);
+  if (!attempt.allowed) {
+    return NextResponse.json(
+      { success: false, error: "Trop de codes erronés. Reconnectez-vous." },
+      { status: 429, headers: { "Retry-After": String(attempt.retryAfter) } }
+    );
+  }
 
   const { token } = await req.json();
   const code = String(token || "").trim();
@@ -36,26 +52,39 @@ export async function POST(req: NextRequest) {
       }
     }
   }
-  if (!valid) return badRequest("Code incorrect");
+  if (!valid) {
+    await logAudit(
+      {
+        userId: user._id.toString(), tenantId: user.tenantId.toString(), email: user.email,
+        role: user.role, tenantType: "pme", subscriptionStatus: "active", planModules: [],
+      },
+      "LOGIN_FAILED", "auth", { ip: clientIp(req), metadata: { step: "2fa" } }
+    );
+    return badRequest("Code incorrect");
+  }
 
   const tenant = await TenantModel.findById(user.tenantId);
   if (!tenant) return unauthorized("Organisation introuvable");
 
+  // Même contrôle d'abonnement que la connexion classique : sans lui, un compte
+  // protégé par 2FA ouvrait une session là où un compte ordinaire était refusé.
+  if (user.role !== "superadmin") {
+    if (tenant.subscriptionStatus === "suspended" || tenant.subscriptionStatus === "cancelled") {
+      return NextResponse.json(
+        { success: false, error: "Abonnement inactif. Contactez le support." },
+        { status: 402 }
+      );
+    }
+  }
+
+  resetRateLimit("2fa:verify", parsed.uid);
+
   user.lastLoginAt = new Date();
   await user.save();
 
-  const tokenPayload = {
-    userId: user._id.toString(),
-    tenantId: user.tenantId.toString(),
-    tenantType: tenant.type,
-    role: user.role,
-    email: user.email,
-    subscriptionStatus: tenant.subscriptionStatus,
-    planModules: tenant.planModules,
-    allowedResources: user.allowedResources,
-  };
+  const tokenPayload = buildSessionPayload(user, tenant);
 
-  await logAudit(tokenPayload, "LOGIN", "auth", { method: "2fa" });
+  await logAudit(tokenPayload, "LOGIN", "auth", { ip: clientIp(req), metadata: { method: "2fa" } });
 
   const response = NextResponse.json({
     success: true,

@@ -9,13 +9,12 @@ export async function GET(req: NextRequest) {
   if (!auth) return unauthorized();
   await connectDB();
 
-  const user = await UserModel.findById(auth.userId).lean();
-  if (!user) return unauthorized();
-  const u = user as Record<string, unknown> & {
+  const u = await UserModel.findById(auth.userId).lean<{
     _id: unknown; email: string; firstName?: string; lastName?: string; phone?: string; role?: string;
     isActive?: boolean; createdAt?: Date; lastLoginAt?: Date; twoFactorEnabled?: boolean;
     consents?: unknown; deletionRequestedAt?: Date;
-  };
+  } | null>();
+  if (!u) return unauthorized();
 
   const data = {
     exportedAt: new Date().toISOString(),

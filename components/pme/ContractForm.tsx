@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 
-interface ContractFormData {
+export interface ContractFormData {
   title: string; type: string; amount: number; paymentMode: string;
   isRecurring: boolean; billingFrequency: string; autoGenerateInvoice: boolean;
   startDate: string; endDate: string; signedDate: string;

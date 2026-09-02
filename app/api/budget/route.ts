@@ -12,22 +12,33 @@ export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, a
   const year = parseInt(url.searchParams.get("year") || String(new Date().getFullYear()));
   const flat = url.searchParams.get("flat") === "true";
 
+  type Chapter = {
+    _id: { toString(): string };
+    parentId?: { toString(): string } | null;
+    allocatedAmount: number;
+    engagedAmount: number;
+    paidAmount: number;
+    children?: Chapter[];
+  } & Record<string, unknown>;
+
   const chapters = await BudgetChapterModel.find({
     ...tenantFilter(auth),
     year,
-  }).sort({ code: 1 }).lean();
+  }).sort({ code: 1 }).lean<Chapter[]>();
 
   if (flat) return ok(chapters);
 
   // Construire l'arbre hiérarchique
-  const map = new Map(chapters.map((c) => [c._id.toString(), { ...c, children: [] as typeof chapters }]));
-  const roots: typeof chapters = [];
+  const map = new Map<string, Chapter>(
+    chapters.map((c) => [c._id.toString(), { ...c, children: [] as Chapter[] }])
+  );
+  const roots: Chapter[] = [];
   for (const chapter of map.values()) {
     if (chapter.parentId) {
       const parent = map.get(chapter.parentId.toString());
-      if (parent) (parent.children as unknown[]).push(chapter);
+      if (parent) parent.children!.push(chapter);
     } else {
-      roots.push(chapter as unknown as typeof chapters[0]);
+      roots.push(chapter);
     }
   }
 

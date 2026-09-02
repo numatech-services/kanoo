@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, notFound, noContent, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { RecurringExpenseModel } from "@/models/RecurringExpense";
 import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
@@ -20,7 +20,7 @@ export const GET = withAuth("recurringCharges", "read", async (_req: NextRequest
 export const PATCH = withAuth("recurringCharges", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const body = await req.json();
-  const e = await RecurringExpenseModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, body, { new: true });
+  const e = await RecurringExpenseModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, sanitizeBody(body), { new: true });
   if (!e) return notFound();
   await logAudit(auth, "UPDATE", "recurringExpenses", { resourceId: params.id });
   return ok(e);
