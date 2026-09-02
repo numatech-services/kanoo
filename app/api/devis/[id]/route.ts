@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { withAuth, ok, badRequest, notFound, conflict, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { DevisModel } from "@/models/Devis";
 import { InvoiceModel } from "@/models/Invoice";
-import { calculerTVA, calculerDTS, genererNumeroFacture } from "@/lib/niger-fiscal";
+import { calculerDTS, genererNumeroFacture } from "@/lib/niger-fiscal";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 

@@ -2,17 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { 
-  LayoutDashboard, Bell, MessageSquare, Users, FileText, 
-  Receipt, Truck, CreditCard, Factory, Package, Warehouse, 
-  Scroll, PenTool, Rocket, Folder, FolderTree, CheckCircle2, 
-  Landmark, BookOpen, RefreshCw, BarChart3, Scissors, 
-  UserCircle, FileType, Settings, Hash, Diamond, Ticket, 
-  Search, LogOut, Building2, Gavel, Megaphone, Heart, 
-  PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert,
-  FolderTree as FolderTreeIcon, ClipboardList, Briefcase, 
-  TrendingUp, Layers, User, FileSpreadsheet, Key, History, Calendar
-} from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar } from "lucide-react";
 
 type ProfileType = "pme" | "association" | "administration" | "superadmin";
 

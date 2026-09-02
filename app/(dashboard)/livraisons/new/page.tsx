@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Package, Calendar, ArrowLeft, Save } from "lucide-react";
+import { Search, Package, ArrowLeft, Save } from "lucide-react";
 
 export default function NewDeliveryPage() {
   const router = useRouter();
@@ -101,8 +101,12 @@ export default function NewDeliveryPage() {
                   placeholder="Ex: FAC-2024-001"
                   className="w-full pl-10 pr-4 py-2 bg-sand/20 border border-clay/20 rounded-xl outline-none focus:ring-2 focus:ring-cedar/20"
                   onBlur={(e) => searchInvoice(e.target.value)}
+                  disabled={searching}
                 />
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-moss" />
+                <Search className={`absolute left-3 top-2.5 w-4 h-4 text-moss ${searching ? "animate-pulse" : ""}`} />
+                {searching && (
+                  <span className="absolute right-3 top-2.5 text-xs text-moss">Recherche…</span>
+                )}
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, conflict, getPagination, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { EmployeeModel } from "@/models/Employee";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";

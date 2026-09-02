@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, notFound, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, sanitizeBody } from "@/lib/api-helpers";
 import { TenantModel } from "@/models/Tenant";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";

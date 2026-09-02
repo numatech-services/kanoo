@@ -1,14 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
 export default function ContractDetailPage() {
   const params = useParams();
   const id = params?.id as string; // Récupération synchrone correcte pour 14.1
-  const router = useRouter();
   
   const [mounted, setMounted] = useState(false);
   const [contract, setContract] = useState<any>(null);

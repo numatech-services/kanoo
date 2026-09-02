@@ -4,7 +4,8 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { useRouter } from "next/navigation";
-import { PackagePlus, AlertTriangle, TrendingUp, Boxes } from "lucide-react";
+import { PackagePlus, AlertTriangle } from "lucide-react";
+import { errorMessage } from "@/lib/errors";
 
 interface StockItem { 
   _id: string; 
@@ -85,8 +86,8 @@ export default function StockPage() {
       } else {
         alert("❌ ERREUR API : " + (data.error || "Inconnu"));
       }
-    } catch (err: any) {
-      alert("🔥 ERREUR RÉSEAU : " + err.message);
+    } catch (err) {
+      alert("🔥 ERREUR RÉSEAU : " + errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -164,10 +165,25 @@ export default function StockPage() {
           <p className="text-[10px] font-bold text-moss uppercase">Valeur de l'inventaire</p>
           <p className="text-2xl font-bold font-mono text-ink mt-2">{Math.round(totalValue).toLocaleString("fr-FR")} <small className="text-xs font-normal opacity-50">XOF</small></p>
         </div>
-        <div className={`rounded-2xl border p-5 shadow-sm ${alertCount > 0 ? "bg-red-50 border-red-100" : "bg-white border-clay/10"}`}>
+        {/* Le filtre `alertOnly` était bien envoyé à l'API mais aucun contrôle
+            ne pouvait l'activer : il valait faux pour toujours. La carte le
+            pilote désormais. */}
+        <button
+          type="button"
+          onClick={() => { setAlertOnly(v => !v); setPage(1); }}
+          aria-pressed={alertOnly}
+          className={`text-left rounded-2xl border p-5 shadow-sm transition-colors ${
+            alertOnly ? "bg-red-100 border-red-300 ring-2 ring-red-200"
+                      : alertCount > 0 ? "bg-red-50 border-red-100 hover:bg-red-100"
+                                       : "bg-white border-clay/10 hover:bg-sand/40"
+          }`}
+        >
           <p className="text-[10px] font-bold text-moss uppercase">Ruptures / Alertes</p>
           <p className={`text-2xl font-bold mt-2 ${alertCount > 0 ? "text-red-600" : "text-green-700"}`}>{alertCount}</p>
-        </div>
+          <p className="text-[10px] text-moss mt-1">
+            {alertOnly ? "Filtre actif — cliquez pour tout afficher" : "Cliquez pour ne voir que les alertes"}
+          </p>
+        </button>
         <div className="bg-white rounded-2xl border border-clay/10 p-5 shadow-sm">
           <p className="text-[10px] font-bold text-moss uppercase">Total Références</p>
           <p className="text-2xl font-bold mt-2 text-ink">{total}</p>

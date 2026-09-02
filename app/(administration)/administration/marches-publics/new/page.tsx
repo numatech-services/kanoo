@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { MarcheForm } from "@/components/pme/MarcheForm";
-import { toast } from "react-hot-toast"; // Si tu l'as, sinon utilise alert
+import { errorMessage } from "@/lib/errors";
 
 export default function NewMarchePublicPage() {
   const router = useRouter();
@@ -27,8 +27,8 @@ export default function NewMarchePublicPage() {
 
       router.push("/administration/marches-publics");
       router.refresh(); // Important pour voir le nouveau marché dans la liste
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      alert(errorMessage(err));
     }
   }
 

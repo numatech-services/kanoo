@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
+import { errorMessage } from "@/lib/errors";
 
 interface Line { accountCode: string; accountLabel: string; debit: number; credit: number; }
 interface AccountingEntryFormProps { onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
@@ -46,8 +47,8 @@ export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormPro
       setError("");
       try {
         await onSave({journalCode, entryDate, reference, label, lines});
-      } catch (err: any) {
-        setError(err.message || "Erreur serveur");
+      } catch (err) {
+        setError(errorMessage(err) || "Erreur serveur");
       } finally {
         setSaving(false);
       }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
-import { generateApiKey, hashApiKey } from "@/lib/api-key";
+import { generateApiKey } from "@/lib/api-key";
 import { Schema, model, models } from "mongoose";
 
 const ApiKeySchema = new Schema({

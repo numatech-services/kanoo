@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { 
   ArrowLeft, Printer, CheckCircle, XCircle, 
@@ -18,16 +18,13 @@ export default function EngagementDetailsPage() {
   const [updating, setUpdating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const fetchEngagement = async () => {
+  const fetchEngagement = useCallback(async () => {
     if (!id) return;
     try {
       setLoading(true);
       const res = await fetch(`/api/budget/engagements/${id}`);
       const result = await res.json();
       
-      // DEBUG : Pour voir ce que l'API renvoie réellement
-      console.log("Données reçues de l'API :", result);
-
       if (!res.ok) {
         setErrorMsg(result.message || "Impossible de charger l'engagement");
       } else {
@@ -40,11 +37,11 @@ export default function EngagementDetailsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchEngagement();
-  }, [id]);
+  }, [fetchEngagement]);
 
   const handleStatusUpdate = async (newStatus: 'approuve' | 'rejete') => {
     if (!confirm(`Confirmez-vous le passage au statut : ${newStatus}?`)) return;

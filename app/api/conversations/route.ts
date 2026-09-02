@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, requireFields } from "@/lib/api-helpers";
 import { ConversationModel } from "@/models/Conversation";
-import { UserModel } from "@/models/User";
 import { TokenPayload } from "@/lib/auth";
 
 export const GET = withAuth("messages", "read", async (req: NextRequest, auth: TokenPayload) => {

@@ -31,7 +31,6 @@ async function run() {
   const { UserModel } = await import("../models/User");
   const { ClientModel } = await import("../models/Client");
   const { SupplierModel } = await import("../models/Supplier");
-  const { InvoiceModel } = await import("../models/Invoice");
   const { EmployeeModel } = await import("../models/Employee");
   const { MemberModel } = await import("../models/Member");
   const { BudgetChapterModel } = await import("../models/BudgetChapter");
@@ -57,7 +56,7 @@ async function run() {
   });
 
   // Utilisateurs PME
-  const pmeUsers = await UserModel.insertMany([
+  const _pmeUsers = await UserModel.insertMany([
     { tenantId: pmeTenant._id, email: "admin@demo.ne", passwordHash, firstName: "Moussa", lastName: "Diallo", role: "pme_admin", isActive: true },
     { tenantId: pmeTenant._id, email: "comptable@demo.ne", passwordHash, firstName: "Aminata", lastName: "Koné", role: "pme_accountant", isActive: true },
     { tenantId: pmeTenant._id, email: "chef@demo.ne", passwordHash, firstName: "Ibrahim", lastName: "Maïga", role: "pme_project_manager", isActive: true },

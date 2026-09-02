@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -21,11 +21,11 @@ export default function LivraisonDetailPage() {
   const [signerName,setSignerName]=useState("");
   const [showSignForm,setShowSignForm]=useState(false);
 
-  async function load() {
-    const res=await fetch(`/api/livraisons/${id}`,{credentials:"include"});
-    const d=await res.json(); setDelivery(d.data); setLoading(false);
-  }
-  useEffect(()=>{setMounted(true);load();},[id]);
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/livraisons/${id}`, { credentials: "include" });
+    const d = await res.json(); setDelivery(d.data); setLoading(false);
+  }, [id]);
+  useEffect(() => { setMounted(true); load(); }, [load]);
 
   async function handleSign(e: React.FormEvent) {
     e.preventDefault(); setSigning(true);

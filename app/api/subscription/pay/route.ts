@@ -3,7 +3,6 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, serverError } from "@/lib/api-helpers";
 import { TenantModel } from "@/models/Tenant";
 import { createPaydunyaInvoice, buildSubscriptionItems } from "@/lib/paydunya";
-import { sendEmail, templatePaymentConfirmation } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 

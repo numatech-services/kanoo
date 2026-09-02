@@ -4,7 +4,7 @@ import { getAuthContext, tenantFilter } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
 import { TenantModel } from "@/models/Tenant";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
-import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
+import { TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 
 /**
  * GET /api/reports/dgi-pdf?type=tva|cnss|bilan|grandlivre&mois=MM&annee=YYYY
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
           ["Nombre de factures émises", String(d.nbFactures)],
         ];
 
-        rows.forEach(([label, val, bold], i) => {
+        rows.forEach(([label, val, bold]) => {
           const rowY = doc.y;
           const isLast = bold;
           if (isLast) doc.rect(50, rowY - 2, pageW, 20).fill("#F3F1EA").fillColor("#F3F1EA");

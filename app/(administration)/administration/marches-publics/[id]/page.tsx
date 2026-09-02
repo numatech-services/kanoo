@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
+import { errorMessage } from "@/lib/errors";
 
 interface Tender {
   _id: string;
@@ -52,8 +53,8 @@ export default function TenderDetailPage() {
       setTender(updated.data || updated);
       toast.success("Marché mis à jour avec succès");
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      toast.error(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -69,8 +70,8 @@ export default function TenderDetailPage() {
       
       toast.success("Marché supprimé");
       router.push("/administration/marches-publics");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      toast.error(errorMessage(err));
     }
   }
 

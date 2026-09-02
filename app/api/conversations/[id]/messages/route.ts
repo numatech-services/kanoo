@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, notFound } from "@/lib/api-helpers";
 import { MessageModel } from "@/models/Message";
 import { ConversationModel } from "@/models/Conversation";
 import { TokenPayload } from "@/lib/auth";

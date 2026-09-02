@@ -25,10 +25,9 @@ interface MessageComposerProps {
   conversationId?: string;
   compact?: boolean;
   /** Filtre le type de conversation selon le profil connecté */
-  profileFilter?: "pme" | "association" | "administration";
 }
 
-export function MessageComposer({ currentUserId, conversationId: initConvId, compact = false, profileFilter = "pme" }: MessageComposerProps) {
+export function MessageComposer({ currentUserId, conversationId: initConvId, compact = false }: MessageComposerProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(initConvId || null);
   const [messages, setMessages] = useState<Message[]>([]);

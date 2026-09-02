@@ -11,6 +11,7 @@ import {
 import { PublicTenderModel } from "@/models/PublicTender";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { errorMessage } from "@/lib/errors";
 
 // --- GET: Récupérer un marché par son ID ---
 export const GET = withAuth("publicTenders", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
@@ -60,9 +61,9 @@ export const PATCH = withAuth("publicTenders", "update", async (req: NextRequest
     });
 
     return ok(updatedItem);
-  } catch (error: any) {
-    console.error("💥 [PATCH /api/marches/[id]] Erreur:", error.message);
-    return badRequest(error.message);
+  } catch (error) {
+    console.error("💥 [PATCH /api/marches/[id]] Erreur:", errorMessage(error));
+    return badRequest(errorMessage(error));
   }
 });
 

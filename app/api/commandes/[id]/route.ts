@@ -1,10 +1,9 @@
-import { NextRequest } from "next/server";
 import { withAuth, ok, notFound, tenantFilter, badRequest } from "@/lib/api-helpers";
 import { CommandeModel } from "@/models/Commande";
 import { ProductModel } from "@/models/Product";
 import { StockMovementModel } from "@/models/StockMovement";
 import { connectDB } from "@/lib/db";
-import { calculerTVA } from "@/lib/niger-fiscal";
+import { errorMessage } from "@/lib/errors";
 
 export const GET = withAuth("commandes", "read", async (_req, auth, params) => {
   await connectDB();
@@ -72,8 +71,8 @@ export const PATCH = withAuth("commandes", "update", async (req, auth, params) =
     }
 
     return ok(updatedCmd);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erreur API :", error);
-    return badRequest(error.message);
+    return badRequest(errorMessage(error));
   }
 });

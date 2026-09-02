@@ -1,19 +1,11 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { 
-  withAuth, 
-  ok, 
-  created, 
-  badRequest, 
-  getPagination, 
-  paginatedResponse, 
-  tenantFilter, 
-  requireFields 
-} from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { PublicTenderModel } from "@/models/PublicTender";
-import { determineProcedureMarche, LIBELLES_PROCEDURES } from "@/lib/niger-fiscal";
+import { determineProcedureMarche, LIBELLES_PROCEDURES, type ProcedureMarche } from "@/lib/niger-fiscal";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { errorMessage, errorName } from "@/lib/errors";
 
 /**
  * Note : La ressource "publicTenders" doit correspondre à tes permissions.
@@ -42,13 +34,21 @@ export const GET = withAuth("publicTenders", "read", async (req: NextRequest, au
     ]);
 
     return paginatedResponse(items, total, pagination);
-  } catch (error: any) {
-    console.error("💥 [GET /api/marches] Erreur:", error.message);
+  } catch (error) {
+    console.error("💥 [GET /api/marches] Erreur:", errorMessage(error));
     return badRequest("Impossible de charger les marchés.");
   }
 });
 
 // --- POST /api/marches : Créer un nouveau marché ---
+/** Libellé d'une procédure, ou la valeur brute si elle n'est pas reconnue. */
+function procedureLabel(value: unknown): string {
+  const key = String(value);
+  return key in LIBELLES_PROCEDURES
+    ? LIBELLES_PROCEDURES[key as ProcedureMarche]
+    : key;
+}
+
 export const POST = withAuth("publicTenders", "update", async (req: NextRequest, auth: TokenPayload) => {
   console.log("🚀 [POST /api/marches] Création d'un nouveau marché...");
   
@@ -103,17 +103,19 @@ export const POST = withAuth("publicTenders", "update", async (req: NextRequest,
 
     return created({
       ...tender.toObject(),
-      procedureLabel: (LIBELLES_PROCEDURES as any)[procedure] || procedure,
+      // `procedure` peut venir du corps de la requête : on ne l'indexe qu'après
+      // avoir vérifié qu'il fait bien partie des procédures connues.
+      procedureLabel: procedureLabel(procedure),
     });
 
-  } catch (error: any) {
-    console.error("💥 [POST /api/marches] Erreur Fatale:", error.message);
+  } catch (error) {
+    console.error("💥 [POST /api/marches] Erreur Fatale:", errorMessage(error));
     
     // Si l'ID est mal formé (CastError), on renvoie un message clair
-    if (error.name === "CastError") {
+    if (errorName(error) === "CastError") {
       return badRequest("Un ID de référence (chapitre, entité) est invalide.");
     }
     
-    return badRequest(`Erreur : ${error.message}`);
+    return badRequest(`Erreur : ${errorMessage(error)}`);
   }
 });

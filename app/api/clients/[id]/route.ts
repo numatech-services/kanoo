@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
-import { connectDB } from "@/lib/db";
-import { withAuth, ok, notFound, noContent, tenantFilter, RouteContext } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, noContent, tenantFilter } from "@/lib/api-helpers";
 import { ClientModel } from "@/models/Client";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";

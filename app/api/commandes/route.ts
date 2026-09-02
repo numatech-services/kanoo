@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { withTransaction } from "@/lib/db";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
 import { CommandeModel } from "@/models/Commande";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { nextDocumentNumber } from "@/lib/numbering";

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomBytes } from "crypto";
 import { connectDB } from "@/lib/db";
 import { 
   withAuth, 
@@ -51,7 +52,9 @@ export const POST = withAuth("budgetChapters", "create", async (req: NextRequest
   // 3. Création de l'engagement
   const engagement = await EngagementModel.create({
     tenantId: auth.tenantId,
-    reference: `ENG-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+    // 9 000 valeurs possibles suffisaient à produire des doublons sur un
+    // exercice chargé ; la référence d'un engagement doit rester unique.
+    reference: `ENG-${new Date().getFullYear()}-${randomBytes(4).toString("hex").toUpperCase()}`,
     chapterId: body.chapterId,
     chapterCode: chapter.code,
     description: body.objet,

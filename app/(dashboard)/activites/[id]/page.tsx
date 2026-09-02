@@ -36,7 +36,12 @@ function TicketQR({ payload }: { payload: string }) {
     QRCode.toDataURL(payload, { margin: 1, width: 240, color: { dark: "#17130E", light: "#FFFFFF" } })
       .then(setUrl).catch(() => {});
   }, [payload]);
-  return url ? <img src={url} alt="QR code du billet" width={200} height={200} className="rounded-md border border-line" /> : <div className="w-[200px] h-[200px] bg-surface2 rounded-md animate-pulse" />;
+  return url ? (
+    // QR encodé en data: URI, produit dans le navigateur : next/image ne peut ni
+    // l'optimiser ni le mettre en cache.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={url} alt="QR code du billet" width={200} height={200} className="rounded-md border border-line" />
+  ) : <div className="w-[200px] h-[200px] bg-surface2 rounded-md animate-pulse" />;
 }
 
 export default function ActiviteDetailPage() {

@@ -1,5 +1,69 @@
 # Kanoo — Changelog
 
+## V1.1.1 — Septembre 2026
+
+### Résorption de la dette de lint — et les pannes qu'elle cachait
+
+Les 220 avertissements laissés par la V1.1.0 ont été traités : il en reste 47,
+tous du même type (`any` sur sept fiches détail qui affichent des documents
+d'entité). Le tri a mis au jour des fonctionnalités mortes qu'aucun test ne
+couvrait.
+
+**Pannes découvertes derrière les avertissements**
+
+- **`/api/contracts/[id]` répondait 404 sur ses trois méthodes.** Le
+  gestionnaire lisait `context.params.id` alors que `withAuth` passe les
+  paramètres déjà résolus en troisième argument. Le typage `context: any`
+  masquait l'erreur.
+- **La messagerie n'a jamais fonctionné.** La route utilisait `auth.id` et
+  `auth.name`, qui n'existent pas sur le jeton ; `senderId` étant obligatoire,
+  chaque envoi levait une erreur de validation. Au passage : la lecture ne
+  vérifiait pas que l'appelant participe à la conversation, et l'aperçu du
+  dernier message n'était jamais mis à jour.
+- **Le détail d'un projet restait bloqué sur son squelette.** `loading`
+  n'était jamais remis à `false`.
+- **Le bouton « Modifier » des fiches fournisseur et collaborateur était
+  inerte** : il ouvrait une modale qui n'était rendue nulle part.
+- **Les boutons « Activer » et « Suspendre » de l'écran Facturation n'avaient
+  aucun gestionnaire.** Ils sont branchés sur la route superadmin ; la liste
+  n'est plus filtrée sur les seules périodes d'essai, ce qui faisait afficher
+  zéro aux compteurs « Actifs » et « Suspendus ».
+- **Le bandeau hors-ligne annonçait « N actions synchronisées »** à partir du
+  compteur d'actions **en attente**. Il distingue désormais quatre états, dont
+  la session expirée et les échecs définitifs — le pendant visuel du rejeu
+  corrigé en V1.1.0.
+- **Le cache hors-ligne n'expirait jamais** : la péremption était calculée puis
+  jetée.
+- **`DataTable` utilisait `Math.random()` comme clé de repli**, ce qui
+  démontait et remontait la table à chaque rendu.
+- **Le filtre « alertes seules » du stock ne pouvait pas être activé** : aucun
+  contrôle ne le pilotait.
+- **Les totaux budget / dépensé / exécution des projets ONG étaient calculés
+  puis jetés.**
+- Références de quittance et d'engagement tirées de `Math.random` : remplacées
+  par `crypto`.
+- Index MongoDB dupliqué sur `Tenant.slug`.
+
+**Qualité**
+
+- 23 `catch (…: any)` remplacés par un `unknown` correct et un utilitaire
+  `errorMessage` / `errorName` — l'ancien code plantait le gestionnaire
+  d'erreur lui-même quand la valeur lancée n'était pas une `Error`.
+- 90 imports inutilisés retirés, quatre hooks `useEffect` stabilisés par
+  `useCallback`, traces de débogage retirées des routes.
+- Nouveau fichier de tests structurels sur les routes : signature des
+  gestionnaires, typage de `auth`, recopie du corps de requête, fuite de
+  message d'erreur, références aléatoires. Ce sont ces règles qui auraient
+  attrapé les deux routes mortes ci-dessus.
+- 184 tests au vert (contre 171), 0 erreur de type, 0 erreur de lint.
+
+**Reste**
+
+47 avertissements `any`, concentrés sur sept fiches détail qui rendent des
+documents d'entité de forme variable. Les typer suppose de déclarer la forme
+réelle de chaque entité — un travail utile, mais distinct de celui-ci. Ils
+restent visibles via `npm run lint:strict`.
+
 ## V1.1.0 — Septembre 2026
 
 ### Durcissement — suite à l'audit du commit b151dfa

@@ -1,35 +1,141 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
-interface BillingRow { _id:string; name:string; plan:string; subscriptionStatus:string; trialEndsAt?:string; subscriptionEndsAt?:string; }
+
+interface BillingRow {
+  _id: string;
+  name: string;
+  plan: string;
+  subscriptionStatus: string;
+  trialEndsAt?: string;
+  subscriptionEndsAt?: string;
+}
+
+const STATUS_STYLE: Record<string, string> = {
+  active: "bg-green-100 text-green-700",
+  trial: "bg-amber-100 text-amber-700",
+  suspended: "bg-red-100 text-red-600",
+  cancelled: "bg-red-100 text-red-600",
+};
+
 export default function BillingPage() {
   const [tenants, setTenants] = useState<BillingRow[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    fetch("/api/superadmin/tenants?limit=50&status=trial", {credentials:"include"}).then(r=>r.json()).then(d=>setTenants(d.data?.items||[])).finally(()=>setLoading(false));
-  },[]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    // La liste était filtrée sur `status=trial` alors que l'écran affiche les
+    // compteurs « Actifs » et « Suspendus » : ils valaient donc toujours zéro.
+    fetch("/api/superadmin/tenants?limit=50", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => setTenants(d.data?.items || []))
+      .catch(() => setError("Chargement impossible."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  /**
+   * Les boutons « Activer » et « Suspendre » n'avaient aucun gestionnaire : ils
+   * étaient purement décoratifs. Ils appellent maintenant la route superadmin.
+   */
+  async function setStatus(id: string, subscriptionStatus: "active" | "suspended") {
+    setBusyId(id);
+    setError(null);
+    try {
+      const csrfRes = await fetch("/api/auth/csrf");
+      const { csrfToken } = await csrfRes.json();
+      const res = await fetch(`/api/superadmin/tenants/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+        credentials: "include",
+        body: JSON.stringify({ subscriptionStatus }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Mise à jour refusée.");
+      setTenants(prev => prev.map(t => (t._id === id ? { ...t, subscriptionStatus } : t)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Mise à jour impossible.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const columns: Column<BillingRow>[] = [
-    { key:"name", label:"Organisation" },
-    { key:"plan", label:"Plan", className:"text-xs text-cedar font-mono" },
-    { key:"subscriptionStatus", label:"Statut", render:(v)=><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${v==="active"?"bg-green-100 text-green-700":v==="trial"?"bg-amber-100 text-amber-700":"bg-red-100 text-red-600"}`}>{String(v)}</span> },
-    { key:"trialEndsAt", label:"Fin essai", render:(v)=>v?new Date(String(v)).toLocaleDateString("fr-FR"):"—" },
-    { key:"subscriptionEndsAt", label:"Fin abonnement", render:(v)=>v?new Date(String(v)).toLocaleDateString("fr-FR"):"—" },
-    { key:"_id", label:"Actions", render:(_v,row)=>(
-      <div className="flex gap-1">
-        <button className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">Activer</button>
-        <button className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">Suspendre</button>
-      </div>
-    )},
+    { key: "name", label: "Organisation" },
+    { key: "plan", label: "Plan", className: "text-xs text-cedar font-mono" },
+    {
+      key: "subscriptionStatus", label: "Statut",
+      render: (v) => (
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[String(v)] || "bg-gray-100 text-gray-600"}`}>
+          {String(v)}
+        </span>
+      ),
+    },
+    {
+      key: "trialEndsAt", label: "Fin essai",
+      render: (v) => (v ? new Date(String(v)).toLocaleDateString("fr-FR") : "—"),
+    },
+    {
+      key: "subscriptionEndsAt", label: "Fin abonnement",
+      render: (v) => (v ? new Date(String(v)).toLocaleDateString("fr-FR") : "—"),
+    },
+    {
+      key: "_id", label: "Actions",
+      render: (_v, row) => {
+        const busy = busyId === row._id;
+        return (
+          <div className="flex gap-1">
+            <button
+              onClick={() => setStatus(row._id, "active")}
+              disabled={busy || row.subscriptionStatus === "active"}
+              className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Activer
+            </button>
+            <button
+              onClick={() => setStatus(row._id, "suspended")}
+              disabled={busy || row.subscriptionStatus === "suspended"}
+              className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Suspendre
+            </button>
+          </div>
+        );
+      },
+    },
   ];
+
+  const count = (status: string) => tenants.filter(t => t.subscriptionStatus === status).length;
+  const cards = [
+    { label: "Périodes d'essai", value: count("trial"), color: "text-amber-700" },
+    { label: "Actifs", value: count("active"), color: "text-green-700" },
+    { label: "Suspendus", value: count("suspended"), color: "text-red-700" },
+  ];
+
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold text-ink">Facturation & Abonnements</h1>
-      <div className="grid grid-cols-3 gap-4">
-        {[{l:"Périodes d'essai",v:tenants.filter(t=>t.subscriptionStatus==="trial").length,c:"bg-amber-50 text-amber-700"},{l:"Actifs",v:tenants.filter(t=>t.subscriptionStatus==="active").length,c:"bg-green-50 text-green-700"},{l:"Suspendus",v:tenants.filter(t=>t.subscriptionStatus==="suspended").length,c:"bg-red-50 text-red-700"}].map(k=>(
-          <div key={k.l} className="bg-white rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">{k.l}</p><p className={`text-3xl font-bold mt-1 ${k.c.split(" ")[1]}`}>{k.v}</p></div>
+      <h1 className="text-2xl font-bold text-ink">Facturation &amp; Abonnements</h1>
+
+      {error && (
+        <p className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          {error}
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {cards.map(c => (
+          <div key={c.label} className="bg-white rounded-xl border border-clay/20 p-4">
+            <p className="text-xs text-moss">{c.label}</p>
+            <p className={`text-3xl font-bold mt-1 tabular-nums ${c.color}`}>{c.value}</p>
+          </div>
         ))}
       </div>
-      <DataTable columns={columns} data={tenants} loading={loading} keyExtractor={t=>t._id} emptyMessage="Aucun tenant" />
+
+      <DataTable columns={columns} data={tenants} loading={loading}
+        keyExtractor={t => t._id} emptyMessage="Aucune organisation" />
     </div>
   );
 }

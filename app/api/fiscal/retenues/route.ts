@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, getPagination, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { calculerRetenueDetaillee, RETENUES_DETAILLEES } from "@/lib/niger-fiscal";
 import { logAudit } from "@/lib/audit";

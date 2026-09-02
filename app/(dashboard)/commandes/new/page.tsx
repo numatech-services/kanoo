@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { CommandeForm } from "@/components/pme/CommandeForm";
+import { errorMessage } from "@/lib/errors";
 
 export default function NewCommandePage() {
   const router = useRouter();
@@ -36,9 +37,9 @@ export default function NewCommandePage() {
       console.log("✅ [BC New] Commande créée avec succès, redirection...");
       router.push(`/commandes/${d.data._id}`);
       
-    } catch (err: any) {
-      console.error("🔥 [BC New] Erreur critique:", err.message);
-      alert(`Erreur: ${err.message}`);
+    } catch (err) {
+      console.error("🔥 [BC New] Erreur critique:", errorMessage(err));
+      alert(`Erreur: ${errorMessage(err)}`);
     }
   }
 

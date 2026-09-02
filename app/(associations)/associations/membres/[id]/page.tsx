@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 
 interface Member {
@@ -17,7 +17,6 @@ const STATUS_FR: Record<string,string> = { active:"Actif", inactive:"Inactif", s
 
 export default function MembreDetailPage() {
   const { id } = useParams();
-  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [member, setMember] = useState<Member|null>(null);
   const [codeStatus, setCodeStatus] = useState<CodeStatus|null>(null);

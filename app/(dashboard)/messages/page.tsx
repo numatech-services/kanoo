@@ -55,10 +55,7 @@ export default function MessagesPage() {
       )}
 
       {user && (
-        <MessageComposer
-          currentUserId={user._id}
-          profileFilter={profile}
-        />
+        <MessageComposer currentUserId={user._id} />
       )}
     </div>
   );

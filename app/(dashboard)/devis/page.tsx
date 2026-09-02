@@ -80,6 +80,8 @@ export default function DevisPage() {
           : `Le devis ${convertDialog?.number} sera converti en facture définitive. Une écriture comptable (journal Ventes) sera automatiquement générée.`
         }
         confirmLabel={convertDialog?.type==="proforma"?"Créer la proforma":"Créer la facture"}
+        busy={converting}
+        busyLabel="Conversion…"
         onConfirm={handleConvert}
         onCancel={()=>setConvertDialog(null)}
       />

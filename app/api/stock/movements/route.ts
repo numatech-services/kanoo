@@ -5,8 +5,7 @@ import {
   created, 
   badRequest, 
   tenantFilter, 
-  requireFields 
-} from "@/lib/api-helpers";
+  requireFields, serverError } from "@/lib/api-helpers";
 import { StockMovementModel } from "@/models/StockMovement";
 import { ProductModel } from "@/models/Product";
 import { logAudit } from "@/lib/audit";
@@ -62,10 +61,10 @@ export const POST = withAuth("products", "update", async (req: NextRequest, auth
       after: { stockQty: finalQty, type: body.type }
     });
 
-    return created({ success: true, newQty: finalQty });
+    return created({ movementId: movement._id, newQty: finalQty, previousQty: initialQty });
 
-  } catch (error: any) {
-    console.error("🔥 Erreur API Stock:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    // Le message interne partait au client : chemins, contraintes Mongo.
+    return serverError(error);
   }
 });

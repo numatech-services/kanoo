@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { EngagementModel } from "@/models/Engagement";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { errorMessage } from "@/lib/errors";
 
 // --- RÉCUPÉRATION (GET) ---
 export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, auth: TokenPayload) => {
@@ -84,8 +85,8 @@ export const PATCH = withAuth("budgetChapters", "read", async (req: NextRequest,
     console.log(`✅ Statut mis à jour: ${newStatus}`);
     return ok({ data: engagement });
 
-  } catch (error: any) {
-    console.error("💥 Erreur PATCH:", error.message);
-    return badRequest(error.message);
+  } catch (error) {
+    console.error("💥 Erreur PATCH:", errorMessage(error));
+    return badRequest(errorMessage(error));
   }
 });

@@ -1,9 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import {
-  withAuth, ok, created, badRequest, notFound, paginatedResponse,
-  getPagination, tenantFilter, requireFields, sanitizeBody
-} from "@/lib/api-helpers";
+import { withAuth, created, badRequest, notFound, paginatedResponse, getPagination, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { ClientModel } from "@/models/Client";

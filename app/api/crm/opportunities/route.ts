@@ -4,7 +4,6 @@ import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, te
 import { CRMOpportunityModel } from "@/models/CRMOpportunity";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
-import { nextDocumentNumber } from "@/lib/numbering";
 
 export const GET = withAuth("clients", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();

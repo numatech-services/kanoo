@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { ProductModel } from "@/models/Product";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";

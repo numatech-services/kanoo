@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
+import { EmployeeForm, type EmployeeFormData } from "@/components/pme/EmployeeForm";
 
 export default function EmployeeDetailPage() {
   const { id } = useParams();
-  const router = useRouter();
   const [item, setItem] = useState<Record<string, unknown>|null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
@@ -14,10 +14,20 @@ export default function EmployeeDetailPage() {
     fetch(`/api/employees/${id}`,{credentials:"include"}).then(r=>r.json()).then(d=>setItem(d.data));
   },[id]);
 
-  async function handleSave(body: Record<string, unknown>) {
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
-    const res = await fetch(`/api/employees/${id}`, { method:"PATCH", headers:{"Content-Type":"application/json","x-csrf-token":csrfToken}, credentials:"include", body:JSON.stringify(body) });
-    const d = await res.json(); if (res.ok) { setItem(d.data); setEditOpen(false); }
+  async function handleSave(body: EmployeeFormData) {
+    const csrfRes = await fetch("/api/auth/csrf");
+    const { csrfToken } = await csrfRes.json();
+    const res = await fetch(`/api/employees/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    const d = await res.json();
+    // L'échec était avalé : la modale restait ouverte sans rien dire.
+    if (!res.ok) throw new Error(d.error || "Enregistrement impossible.");
+    setItem(d.data);
+    setEditOpen(false);
   }
 
   if (!item) return <div className="p-6"><div className="h-48 bg-white rounded-xl animate-pulse border border-clay/20" /></div>;
@@ -46,6 +56,14 @@ export default function EmployeeDetailPage() {
           })}
         </div>
       </div>
+
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Modifier le collaborateur" size="lg">
+        <EmployeeForm
+          initial={item as unknown as Partial<EmployeeFormData>}
+          onSave={handleSave}
+          onCancel={() => setEditOpen(false)}
+        />
+      </Modal>
     </div>
   );
 }

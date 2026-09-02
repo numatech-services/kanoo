@@ -1,9 +1,11 @@
 "use client";
 import { useState } from "react";
-import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
+import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
 interface ProjectFormProps { initial?: Record<string, unknown>; onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; defaultType?: string; }
 export function ProjectForm({ initial, onSave, onCancel, defaultType = "internal" }: ProjectFormProps) {
-  const [form, setForm] = useState({ code: String(initial?.code||""), name: String(initial?.name||""), budget: Number(initial?.budget||0), startDate: String(initial?.startDate||"").slice(0,10), endDate: String(initial?.endDate||"").slice(0,10), description: String(initial?.description||"") });
+  // `defaultType` était accepté en propriété puis jamais transmis : le type de
+  // projet demandé par l'écran appelant ne partait pas avec le formulaire.
+  const [form, setForm] = useState({ code: String(initial?.code||""), name: String(initial?.name||""), budget: Number(initial?.budget||0), startDate: String(initial?.startDate||"").slice(0,10), endDate: String(initial?.endDate||"").slice(0,10), description: String(initial?.description||""), projectType: String(initial?.projectType||defaultType) });
   const [saving, setSaving] = useState(false);
   const u = (f: string, v: unknown) => setForm(p => ({ ...p, [f]: v }));
   return (

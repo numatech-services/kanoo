@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, tenantFilter } from "@/lib/api-helpers";
 import { EngagementModel } from "@/models/Engagement";
+import { errorMessage } from "@/lib/errors";
+import { TokenPayload } from "@/lib/auth";
 
 // --- RÉCUPÉRATION (GET) ---
-export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, auth: any) => {
+export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, auth: TokenPayload) => {
   try {
     await connectDB();
     const segments = req.nextUrl.pathname.split('/');
@@ -20,14 +22,14 @@ export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, a
     }
 
     return NextResponse.json({ data: engagement });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 });
 
 // --- MISE À JOUR (PATCH) ---
 // Note: J'ai mis "read" temporairement pour éviter ton erreur 403
-export const PATCH = withAuth("budgetChapters", "read", async (req: NextRequest, auth: any) => {
+export const PATCH = withAuth("budgetChapters", "read", async (req: NextRequest, auth: TokenPayload) => {
   console.log("--- 🚀 EXÉCUTION DU PATCH ---");
   try {
     await connectDB();
@@ -67,8 +69,8 @@ export const PATCH = withAuth("budgetChapters", "read", async (req: NextRequest,
     console.log("✅ Statut mis à jour avec succès :", newStatus);
     return NextResponse.json({ data: updated });
 
-  } catch (error: any) {
-    console.error("💥 Erreur PATCH:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    console.error("💥 Erreur PATCH:", errorMessage(error));
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 });

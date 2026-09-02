@@ -52,8 +52,12 @@ export default function ProjetsONGPage() {
   if (!mounted) return null;
 
   // --- CALCULS GLOBAUX ---
+  // Ils portent sur les projets chargés (50 au plus, filtre courant compris),
+  // pas sur l'ensemble du portefeuille : l'intitulé le dit.
   const totalBudget = projects.reduce((s, p) => s + (p.budget || 0), 0);
   const totalSpent = projects.reduce((s, p) => s + (p.spentAmount || 0), 0);
+  const execRate = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
+  const xof = (n: number) => `${n.toLocaleString("fr-FR")} XOF`;
   
   return (
     <div className="space-y-5">
@@ -65,6 +69,26 @@ export default function ProjetsONGPage() {
         <button onClick={() => router.push("/associations/projets/new")} className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink">
           + Nouveau projet
         </button>
+      </div>
+
+      {/* Ces trois totaux étaient calculés puis jetés : la page ne les affichait
+          nulle part. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl border border-clay/20 p-4">
+          <p className="text-xs text-moss">Budget cumulé{statusFilter ? " (filtré)" : ""}</p>
+          <p className="text-xl font-bold text-ink mt-1 tabular-nums">{xof(totalBudget)}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-clay/20 p-4">
+          <p className="text-xs text-moss">Dépensé</p>
+          <p className="text-xl font-bold text-ink mt-1 tabular-nums">{xof(totalSpent)}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-clay/20 p-4">
+          <p className="text-xs text-moss">Taux d&apos;exécution</p>
+          <p className={`text-xl font-bold mt-1 tabular-nums ${execRate > 100 ? "text-red-600" : "text-ink"}`}>
+            {execRate}&nbsp;%
+          </p>
+          {execRate > 100 && <p className="text-xs text-red-600 mt-1">Dépassement du budget alloué</p>}
+        </div>
       </div>
 
       {/* Filtres */}

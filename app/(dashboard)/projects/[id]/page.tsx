@@ -25,8 +25,12 @@ useEffect(() => {
       } else {
         setErrorInfo(d.message || "Ressource introuvable");
       }
-    } catch (err) {
+    } catch {
       setErrorInfo("Erreur réseau");
+    } finally {
+      // `loading` restait à true indéfiniment : la page ne dépassait jamais son
+      // squelette de chargement, quel que soit le résultat de la requête.
+      setLoading(false);
     }
   }
   if (id) load();
@@ -37,7 +41,7 @@ useEffect(() => {
     return (
       <div className="p-6">
         <div className="h-48 bg-white rounded-xl animate-pulse border border-clay/20" />
-        <p className="mt-4 text-xs text-moss">Vérification des logs en cours...</p>
+        <p className="mt-4 text-xs text-moss">Chargement du projet…</p>
       </div>
     );
   }

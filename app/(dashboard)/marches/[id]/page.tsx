@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { MarcheForm } from "@/components/pme/MarcheForm";
+import { errorMessage } from "@/lib/errors";
 
 export default function MarcheDetailPage() {
   const params = useParams(); // Récupération sécurisée des paramètres
@@ -27,7 +28,7 @@ export default function MarcheDetailPage() {
           setItem(d.data || d);
         }
       })
-      .catch(err => setError(err.message));
+      .catch(err => setError(errorMessage(err)));
   }, [id]);
 
   // 2. Sauvegarde des modifications (PATCH)
@@ -53,7 +54,7 @@ export default function MarcheDetailPage() {
       } else {
         alert(d.error);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
     }
   }

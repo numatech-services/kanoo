@@ -1,34 +1,30 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useParams } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { Modal } from "@/components/ui/Modal";
 import { CommandeForm } from "@/components/pme/CommandeForm";
 import Link from "next/link";
 import { Printer, Edit3, ArrowLeft } from "lucide-react";
 
 export default function CommandeDetailPage() {
   const { id } = useParams();
-  const router = useRouter();
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      console.log("📡 [Détail BC] Chargement des données pour l'ID:", id);
       const r = await fetch(`/api/commandes/${id}`, { credentials: "include" });
       const d = await r.json();
-      console.log("✅ [Détail BC] Données reçues:", d.data);
       setItem(d.data);
     } catch (err) {
       console.error("❌ [Détail BC] Erreur lors du fetch:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  useEffect(() => { loadData(); }, [id]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   async function handleUpdate(body: Record<string, unknown>) {
     console.log("📤 [Détail BC] Tentative de mise à jour avec:", body);
@@ -62,14 +58,10 @@ export default function CommandeDetailPage() {
     }
   }
 
-const [isPrinting, setIsPrinting] = useState(false);
- const handlePrint = () => {
-    setIsPrinting(true);
-    // On attend un court instant pour laisser l'interface se stabiliser si nécessaire
-    setTimeout(() => {
-      window.print();
-      setIsPrinting(false);
-    }, 100);
+  const handlePrint = () => {
+    // L'indicateur `isPrinting` n'était affiché nulle part : le délai suffit à
+    // laisser l'interface se stabiliser avant l'impression.
+    setTimeout(() => window.print(), 100);
   };
 
   // Log à chaque changement d'état de la modal

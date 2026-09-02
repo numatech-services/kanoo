@@ -1,9 +1,8 @@
 import { NextRequest } from "next/server";
 import { withTransaction } from "@/lib/db";
-import { withAuth, ok, created, badRequest, notFound, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
 import { DevisModel } from "@/models/Devis";
-import { InvoiceModel } from "@/models/Invoice";
-import { calculerTVA, calculerDTS, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
+import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";

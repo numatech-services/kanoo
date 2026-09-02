@@ -117,7 +117,11 @@ export default function SecuritePage() {
         {step === "setup" && (
           <div className="mt-6 pt-6 border-t border-line grid sm:grid-cols-[auto_1fr] gap-6 items-start">
             <div className="text-center">
-              {qr ? <img src={qr} alt="QR code 2FA" width={180} height={180} className="rounded-md border border-line" /> : <div className="w-[180px] h-[180px] bg-surface2 rounded-md animate-pulse" />}
+              {qr ? (
+                // QR d'appairage TOTP en data: URI : rien à optimiser côté serveur.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={qr} alt="QR code 2FA" width={180} height={180} className="rounded-md border border-line" />
+              ) : <div className="w-[180px] h-[180px] bg-surface2 rounded-md animate-pulse" />}
               <p className="text-[11px] text-ink3 mt-2">ou saisir la clé :</p>
               <p className="font-mono text-xs break-all text-ink2 max-w-[180px]">{secret}</p>
             </div>

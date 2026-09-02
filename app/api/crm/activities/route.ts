@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, created, badRequest, requireFields, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, requireFields } from "@/lib/api-helpers";
 import { CRMActivityModel } from "@/models/CRMActivity";
 import { CRMDealModel } from "@/models/CRMDeal";
 import { TokenPayload } from "@/lib/auth";

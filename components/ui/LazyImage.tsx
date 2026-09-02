@@ -54,8 +54,12 @@ export function LazyImage({
         }} />
       )}
 
-      {/* Image réelle — chargée seulement quand dans le viewport */}
+      {/* Image réelle — chargée seulement quand dans le viewport.
+          Ce composant EST la stratégie de chargement différé du projet, bâtie
+          sur IntersectionObserver : passer par next/image reviendrait à
+          empiler deux mécanismes concurrents. */}
       {inView && !error && (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
           alt={alt}
@@ -77,15 +81,21 @@ export function LazyImage({
         />
       )}
 
-      {/* Fallback si erreur */}
+      {/* Repli si erreur : l'image `fallback` était acceptée en propriété puis
+          jamais rendue — seul le texte alternatif apparaissait. */}
       {error && (
         <div style={{
-          position: "absolute", inset: 0, display: "flex",
-          alignItems: "center", justifyContent: "center",
+          position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: "4px",
           background: "var(--color-background-secondary)",
           color: "var(--color-text-secondary)", fontSize: "12px",
         }}>
-          {alt || "Image"}
+          {fallback && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fallback} alt="" aria-hidden width={32} height={32}
+              style={{ opacity: 0.5 }} />
+          )}
+          <span>{alt || "Image"}</span>
         </div>
       )}
 
@@ -121,6 +131,9 @@ export function Avatar({
   }
 
   return (
+    // Avatar : source arbitraire (téléversement du tenant), sans hôte déclaré
+    // dans remotePatterns — next/image la refuserait.
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src} alt={name}
       className={className}

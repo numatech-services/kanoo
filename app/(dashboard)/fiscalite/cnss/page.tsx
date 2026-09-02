@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 export default function CNSSPage() {
   const now = new Date();
   const currentQ = Math.ceil((now.getMonth()+1)/3);

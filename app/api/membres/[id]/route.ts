@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { connectDB } from "@/lib/db";
 import { withAuth, ok, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { MemberModel } from "@/models/Member";
 import { logAudit } from "@/lib/audit";

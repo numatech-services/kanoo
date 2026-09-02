@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
@@ -18,7 +18,7 @@ export default function PayslipDetailPage() {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/payslips/${id}`, { credentials: "include" });
       const d = await res.json();
@@ -28,12 +28,12 @@ export default function PayslipDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     setMounted(true);
     if (id) load();
-  }, [id]);
+  }, [id, load]);
 
   async function handlePay() {
     if (!confirm("Marquer ce bulletin comme payé ? Cela enregistrera une sortie de trésorerie.")) return;

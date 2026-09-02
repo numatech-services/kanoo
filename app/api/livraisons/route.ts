@@ -1,7 +1,7 @@
 import { nextDocumentNumber } from "@/lib/numbering";
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody, notFound } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody, notFound } from "@/lib/api-helpers";
 import { DeliveryNoteModel } from "@/models/DeliveryNote";
 import { InvoiceModel } from "@/models/Invoice";
 import { logAudit } from "@/lib/audit";

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { AccountingEntryForm } from "@/components/pme/AccountingEntryForm";
 import { useState } from "react";
+import { errorMessage } from "@/lib/errors";
 
 export default function NewAccountingEntryPage() {
   const router = useRouter();
@@ -36,9 +37,9 @@ export default function NewAccountingEntryPage() {
 
       router.push("/accounting");
       router.refresh();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erreur de sauvegarde:", err);
-      setError(err.message);
+      setError(errorMessage(err));
     }
   }
 

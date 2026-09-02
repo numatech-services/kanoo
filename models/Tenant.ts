@@ -1,11 +1,14 @@
-import mongoose, { Schema, model, models } from "mongoose";
+import { Schema, model, models } from "mongoose";
 import { ITenant } from "@/types";
 
 const TenantSchema = new Schema<ITenant>(
   {
     type: { type: String, enum: ["pme", "association", "administration"], required: true },
     name: { type: String, required: true, trim: true },
-    slug: { type: String, required: true, unique: true, lowercase: true },
+    // L'unicité est déclarée une seule fois, par TenantSchema.index() plus bas.
+    // La cumuler avec `unique: true` crée un index en double, que Mongoose
+    // signalait à chaque démarrage.
+    slug: { type: String, required: true, lowercase: true },
     nif: { type: String, trim: true },
     rccm: { type: String, trim: true },
     address: String,

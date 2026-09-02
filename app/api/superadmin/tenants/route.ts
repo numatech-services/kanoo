@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, conflict, getPagination, paginatedResponse, requireFields, forbidden } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, conflict, getPagination, paginatedResponse, requireFields, forbidden } from "@/lib/api-helpers";
 import { TenantModel } from "@/models/Tenant";
 import { generateSecureToken, hashPassword } from "@/lib/auth";
 import { UserModel } from "@/models/User";

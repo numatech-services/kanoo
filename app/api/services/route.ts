@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, tenantFilter } from "@/lib/api-helpers";
 import { ProductModel } from "@/models/Product";
+import { errorMessage } from "@/lib/errors";
+import { TokenPayload } from "@/lib/auth";
 
-export const GET = withAuth("services", "read", async (req: NextRequest, auth: any) => {
+export const GET = withAuth("services", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   // On récupère uniquement les services (isService: true)
   const services = await ProductModel.find({ 
@@ -14,7 +16,7 @@ export const GET = withAuth("services", "read", async (req: NextRequest, auth: a
   return ok(services);
 });
 
-export const POST = withAuth("services", "create", async (req: NextRequest, auth: any) => {
+export const POST = withAuth("services", "create", async (req: NextRequest, auth: TokenPayload) => {
   try {
     await connectDB();
     const body = await req.json();
@@ -26,7 +28,7 @@ export const POST = withAuth("services", "create", async (req: NextRequest, auth
     });
     
     return NextResponse.json({ data: service }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (error) {
+    return NextResponse.json({ error: errorMessage(error) }, { status: 400 });
   }
 });

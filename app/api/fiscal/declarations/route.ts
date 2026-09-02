@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
 import { FiscalDeclarationModel } from "@/models/FiscalDeclaration";
 import { TokenPayload } from "@/lib/auth";
 

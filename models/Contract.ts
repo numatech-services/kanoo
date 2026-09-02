@@ -1,4 +1,4 @@
-import { Schema, model, models, Types } from "mongoose";
+import { Schema, model, models } from "mongoose";
 
 export type ContractType = "client" | "supplier" | "employment" | "freelance" | "other";
 export type ContractStatus = "draft" | "active" | "suspended" | "expired" | "cancelled" | "renewed";

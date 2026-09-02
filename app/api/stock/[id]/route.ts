@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, notFound, tenantFilter, badRequest } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, tenantFilter } from "@/lib/api-helpers";
 import { CommandeModel } from "@/models/Commande";
 import { ProductModel } from "@/models/Product";
 import { StockMovementModel } from "@/models/StockMovement";

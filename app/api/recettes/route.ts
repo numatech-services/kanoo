@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { PublicRevenueModel } from "@/models/PublicRevenue";
-import { logAudit } from "@/lib/audit";
+import { errorMessage } from "@/lib/errors";
+import { TokenPayload } from "@/lib/auth";
+import { randomBytes } from "crypto";
 
-export const GET = withAuth("publicRevenues", "read", async (req: NextRequest, auth: any) => {
+export const GET = withAuth("publicRevenues", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const revenues = await PublicRevenueModel.find(tenantFilter(auth))
     .populate("budgetChapterId", "code label")
@@ -12,7 +14,7 @@ export const GET = withAuth("publicRevenues", "read", async (req: NextRequest, a
     .lean();
   return ok(revenues);
 });
-export const POST = withAuth("publicRevenues", "create", async (req: NextRequest, auth: any) => {
+export const POST = withAuth("publicRevenues", "create", async (req: NextRequest, auth: TokenPayload) => {
   try {
     await connectDB();
     const body = await req.json();
@@ -28,16 +30,19 @@ export const POST = withAuth("publicRevenues", "create", async (req: NextRequest
     const revenue = await PublicRevenueModel.create({
       ...body,
       tenantId: auth.tenantId,
-      collectedBy: auth.id || auth.userId, 
+      collectedBy: auth.userId,
       status: "collected", 
       date: new Date(),
       // Génération d'une référence unique si non fournie
-      reference: body.reference || `Q-${new Date().getFullYear()}-${Math.random().toString(36).toUpperCase().substr(2, 6)}`
+      // Référence de quittance : tirée cryptographiquement plutôt que par
+      // Math.random, dont l'espace et la prévisibilité conviennent mal à un
+      // document fiscal. L'index unique reste le garde-fou en cas de collision.
+      reference: body.reference || `Q-${new Date().getFullYear()}-${randomBytes(4).toString("hex").toUpperCase()}`
     });
 
     return NextResponse.json({ data: revenue }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erreur insertion MongoDB:", error);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: errorMessage(error) }, { status: 400 });
   }
 });

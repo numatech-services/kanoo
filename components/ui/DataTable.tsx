@@ -25,8 +25,21 @@ export function DataTable<T>({
   loading = false,
   emptyMessage = "Aucun résultat",
   onRowClick,
-  keyExtractor = (row: any) => row?._id || row?.id || Math.random().toString(36).substr(2, 9),
+  keyExtractor,
 }: DataTableProps<T>) {
+  /**
+   * Clé de ligne. Le repli était `Math.random()` : React recevait une clé
+   * différente à chaque rendu, démontait puis remontait toute la table, et
+   * faisait perdre le focus et la position de défilement. L'index de ligne est
+   * un repli stable — imparfait en cas de réordonnancement, mais honnête.
+   */
+  const rowKey = (row: T, index: number): string => {
+    if (keyExtractor) return keyExtractor(row);
+    const record = row as unknown as Record<string, unknown>;
+    const id = record?._id ?? record?.id;
+    return id != null ? String(id) : `row-${index}`;
+  };
+
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -96,7 +109,7 @@ export function DataTable<T>({
             ) : (
               sorted.map((row, index) => (
                 <tr
-                  key={keyExtractor(row) || index}
+                  key={rowKey(row, index)}
                   className={`border-b border-clay/10 last:border-0 ${
                     onRowClick ? "cursor-pointer hover:bg-sand/40 transition-colors" : ""
                   }`}

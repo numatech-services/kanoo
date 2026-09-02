@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { Schema, model, models } from "mongoose";
 import { TokenPayload } from "@/lib/auth";
 const RCSchema = new Schema({ tenantId: { type: Schema.Types.ObjectId, required: true, index: true }, label: { type: String, required: true }, amount: { type: Number, required: true }, frequency: { type: String, enum: ["monthly","quarterly","yearly"], default: "monthly" }, nextDueDate: Date, accountCode: String, supplierId: Schema.Types.ObjectId, isActive: { type: Boolean, default: true } }, { timestamps: true });

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, badRequest, serverError } from "@/lib/api-helpers";
+import { withAuth, ok, serverError } from "@/lib/api-helpers";
 import { TenantModel } from "@/models/Tenant";
 import { TokenPayload } from "@/lib/auth";
 

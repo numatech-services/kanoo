@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { errorMessage } from "@/lib/errors";
 
 interface PublicTenderManagerProps {
   tender: any;
@@ -11,7 +12,7 @@ interface PublicTenderManagerProps {
 export function PublicTenderManager({ tender: initialTender }: PublicTenderManagerProps) {
   const router = useRouter();
   const [tender, setTender] = useState(initialTender);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [isAttributing, setIsAttributing] = useState(false);
   const [winnerData, setWinnerData] = useState({ winnerId: "", winnerAmount: 0 });
 
@@ -31,8 +32,8 @@ export function PublicTenderManager({ tender: initialTender }: PublicTenderManag
       setTender(data || tender);
       toast.success(`Statut mis à jour : ${newStatus}`);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      toast.error(errorMessage(err));
     } finally {
       setLoading(false);
     }

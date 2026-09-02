@@ -25,12 +25,26 @@ function getEdgeKey(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-export async function verifyTokenEdge(token: string) {
+/**
+ * Charge utile telle que le middleware Edge en a besoin. Volontairement
+ * réduite : le middleware ne décide que de la redirection, l'autorisation fine
+ * étant refaite côté route à partir de la base.
+ */
+export interface EdgeTokenPayload {
+  userId?: string;
+  tenantId?: string;
+  role?: string;
+  tenantType?: string;
+  sessionVersion?: number;
+}
+
+export async function verifyTokenEdge(token: string): Promise<EdgeTokenPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getEdgeKey(), { algorithms: ["HS256"] });
-    return payload as any; // Retourne les données du user (role, tenantId, etc.)
-  } catch (error) {
-    console.error("Erreur de vérification Edge (auth-edge)", error);
+    return payload as EdgeTokenPayload;
+  } catch {
+    // Un jeton expiré est le cas nominal : ne pas polluer les journaux à
+    // chaque navigation d'un visiteur non connecté.
     return null;
   }
 }

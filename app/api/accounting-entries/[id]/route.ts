@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, tenantFilter } from "@/lib/api-helpers";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TokenPayload } from "@/lib/auth";
 

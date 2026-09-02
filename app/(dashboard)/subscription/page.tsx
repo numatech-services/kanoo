@@ -19,9 +19,10 @@ export default function SubscriptionPage() {
   const searchParams = useSearchParams();
   const [period, setPeriod] = useState<"monthly"|"yearly">("monthly");
   const [loading, setLoading] = useState<string|null>(null);
-  const [status, setStatus] = useState<""|"success"|"cancelled">(
-    (searchParams.get("status") as "success"|"cancelled") || ""
-  );
+  // Statut de retour du prestataire de paiement. Il vient de l'URL et ne change
+  // jamais : une simple constante dérivée suffit, l'état React n'était jamais
+  // mis à jour.
+  const status = (searchParams.get("status") as "success" | "cancelled") || "";
   const [currentPlan, setCurrentPlan] = useState<string>("");
 
   useEffect(() => {

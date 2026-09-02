@@ -56,7 +56,7 @@ async function runBackup(): Promise<void> {
   try {
     // mongodump avec compression gzip
     const cmd = `mongodump --uri="${uri}" --out="${backupDir}" --gzip`;
-    const { stdout, stderr } = await execAsync(cmd);
+    const { stderr } = await execAsync(cmd);
     if (stderr && !stderr.includes("writing")) {
       console.warn("⚠️  mongodump warnings:", stderr.slice(0, 200));
     }

@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
+import { SupplierForm, type SupplierFormData } from "@/components/pme/SupplierForm";
 
 export default function SupplierDetailPage() {
   const { id } = useParams();
-  const router = useRouter();
   const [item, setItem] = useState<Record<string, unknown>|null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
@@ -14,10 +14,20 @@ export default function SupplierDetailPage() {
     fetch(`/api/suppliers/${id}`,{credentials:"include"}).then(r=>r.json()).then(d=>setItem(d.data));
   },[id]);
 
-  async function handleSave(body: Record<string, unknown>) {
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
-    const res = await fetch(`/api/suppliers/${id}`, { method:"PATCH", headers:{"Content-Type":"application/json","x-csrf-token":csrfToken}, credentials:"include", body:JSON.stringify(body) });
-    const d = await res.json(); if (res.ok) { setItem(d.data); setEditOpen(false); }
+  async function handleSave(body: SupplierFormData) {
+    const csrfRes = await fetch("/api/auth/csrf");
+    const { csrfToken } = await csrfRes.json();
+    const res = await fetch(`/api/suppliers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    const d = await res.json();
+    // L'échec était avalé : la modale restait ouverte sans rien dire.
+    if (!res.ok) throw new Error(d.error || "Enregistrement impossible.");
+    setItem(d.data);
+    setEditOpen(false);
   }
 
   if (!item) return <div className="p-6"><div className="h-48 bg-white rounded-xl animate-pulse border border-clay/20" /></div>;
@@ -46,6 +56,14 @@ export default function SupplierDetailPage() {
           })}
         </div>
       </div>
+
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Modifier le fournisseur" size="lg">
+        <SupplierForm
+          initial={item as unknown as Partial<SupplierFormData>}
+          onSave={handleSave}
+          onCancel={() => setEditOpen(false)}
+        />
+      </Modal>
     </div>
   );
 }

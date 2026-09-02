@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { getAuthContext, tenantFilter } from "@/lib/api-helpers";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
-import { InvoiceModel } from "@/models/Invoice";
-import { PaymentModel } from "@/models/Payment";
-import { EmployeeModel } from "@/models/Employee";
-import { PayslipModel } from "@/models/Payslip";
 
 /**
  * GET /api/exports/generic?format=cegid|ebp|divalto|fec&annee=YYYY&mois=MM

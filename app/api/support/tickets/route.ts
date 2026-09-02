@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { Schema, model, models } from "mongoose";
 import { TokenPayload } from "@/lib/auth";
 const TicketSchema = new Schema({ tenantId: Schema.Types.ObjectId, userId: { type: Schema.Types.ObjectId, required: true }, subject: { type: String, required: true }, message: { type: String, required: true }, priority: { type: String, enum: ["low","medium","high","critical"], default: "medium" }, status: { type: String, enum: ["open","in_progress","resolved","closed"], default: "open" }, responses: [{ userId: Schema.Types.ObjectId, message: String, createdAt: { type: Date, default: Date.now } }] }, { timestamps: true });

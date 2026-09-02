@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { MarcheForm } from "@/components/pme/MarcheForm";
 import { useState } from "react";
+import { errorMessage } from "@/lib/errors";
 
 export default function NewMarchePage() {
   const router = useRouter();
@@ -39,9 +40,9 @@ export default function NewMarchePage() {
       router.push(`/marches/${newId}`);
       router.refresh(); // Force le rafraîchissement des données
 
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erreur création marché:", err);
-      alert(err.message); // Pour que l'utilisateur sache pourquoi ça n'avance pas
+      alert(errorMessage(err)); // Pour que l'utilisateur sache pourquoi ça n'avance pas
     } finally {
       setIsSubmitting(false);
     }

@@ -5,11 +5,14 @@ import { ContractModel } from "@/models/Contract";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
-// On utilise context: any pour accéder à params de manière sécurisée en 14.1
-export const GET = withAuth("contracts", "read", async (_req: NextRequest, auth: TokenPayload, context: any) => {
+// `withAuth` passe les paramètres de route en TROISIÈME argument, déjà résolus.
+// Le code lisait `context.params.id` sur ce qui est en réalité l'objet des
+// paramètres : `id` valait toujours undefined et les trois méthodes de cette
+// route répondaient 404 quelle que soit la requête.
+export const GET = withAuth("contracts", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   
-  const id = context?.params?.id;
+  const id = params.id;
   if (!id) return notFound();
 
   const contract = await ContractModel.findOne({ _id: id, ...tenantFilter(auth) })
@@ -23,10 +26,10 @@ export const GET = withAuth("contracts", "read", async (_req: NextRequest, auth:
   return ok(contract);
 });
 
-export const PATCH = withAuth("contracts", "update", async (req: NextRequest, auth: TokenPayload, context: any) => {
+export const PATCH = withAuth("contracts", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   
-  const id = context?.params?.id;
+  const id = params.id;
   if (!id) return notFound();
 
   const body = await req.json();
@@ -42,10 +45,10 @@ export const PATCH = withAuth("contracts", "update", async (req: NextRequest, au
   return ok(contract);
 });
 
-export const DELETE = withAuth("contracts", "delete", async (_req: NextRequest, auth: TokenPayload, context: any) => {
+export const DELETE = withAuth("contracts", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   
-  const id = context?.params?.id;
+  const id = params.id;
   if (!id) return notFound();
 
   const contract = await ContractModel.findOneAndUpdate(

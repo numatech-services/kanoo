@@ -18,7 +18,7 @@ export async function offlineFetch(
     cacheKey?: string;
     ttl?: number; // secondes
   }
-): Promise<{ data: unknown; fromCache: boolean; offline: boolean }> {
+): Promise<{ data: unknown; fromCache: boolean; offline: boolean; stale?: boolean }> {
   const cacheKey = opts?.cacheKey || url;
   const ttl = (opts?.ttl || 300) * 1000; // défaut 5 minutes
 
@@ -42,8 +42,12 @@ export async function offlineFetch(
       const cached = sessionStorage.getItem(`cache:${cacheKey}`);
       if (cached) {
         const { data, ts } = JSON.parse(cached);
-        const isStale = Date.now() - ts > ttl;
-        return { data, fromCache: true, offline: true };
+        // La péremption était calculée puis jetée : le cache ne périmait
+        // jamais, et un écran hors ligne pouvait afficher des données de la
+        // veille sans le dire. On sert toujours l'entrée — mieux vaut une
+        // donnée datée que rien — mais l'appelant sait désormais qu'elle l'est.
+        const stale = Date.now() - ts > ttl;
+        return { data, fromCache: true, offline: true, stale };
       }
     }
 

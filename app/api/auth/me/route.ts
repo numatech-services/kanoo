@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest) {
     data: { user: updatedUser } 
   });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erreur Update User: - route.ts:55", error);
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour du profil" }, 

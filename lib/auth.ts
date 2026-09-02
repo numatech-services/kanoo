@@ -81,17 +81,30 @@ export function getTokenFromRequest(req: NextRequest): string | null {
 /** * Correction pour bcryptjs : 
  * Utilisation de l'accès sécurisé au module pour éviter "bcrypt.hash is not a function"
  */
+/**
+ * bcryptjs expose son API tantôt en export par défaut, tantôt à la racine du
+ * module selon le mode d'interopérabilité CommonJS/ESM du bundler. Le cast est
+ * ici assumé et circonscrit à cette résolution.
+ */
+type BcryptApi = {
+  hash(data: string, rounds: number): Promise<string>;
+  compare(data: string, encrypted: string): Promise<boolean>;
+};
+
+function bcryptApi(): BcryptApi {
+  const mod = bcrypt as unknown as { default?: BcryptApi };
+  return (mod.default ?? bcrypt) as BcryptApi;
+}
+
 export async function hashPassword(password: string): Promise<string> {
-  const b = (bcrypt as any).default || bcrypt;
-  return b.hash(password, 12);
+  return bcryptApi().hash(password, 12);
 }
 
 export async function comparePassword(
   plain: string,
   hashed: string
 ): Promise<boolean> {
-  const b = (bcrypt as any).default || bcrypt;
-  return b.compare(plain, hashed);
+  return bcryptApi().compare(plain, hashed);
 }
 
 export function generateSecureToken(length = 48): string {

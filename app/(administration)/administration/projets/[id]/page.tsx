@@ -1,8 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { MessageComposer } from "@/components/shared/MessageComposer";
@@ -27,7 +26,6 @@ const STATUS_FR: Record<string,string> = { planning:"Planification", active:"En 
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
-  const router = useRouter();
   const [project, setProject] = useState<Project|null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"tasks"|"milestones"|"docs"|"team"|"messages">("tasks");
