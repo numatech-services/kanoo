@@ -1,5 +1,56 @@
 # Kanoo — Changelog
 
+## V1.3.0 — Septembre 2026
+
+### Factures d'avoir, densité, palette de commandes
+
+**Factures d'avoir**
+
+Une facture émise ne se supprime pas — a fortiori une facture certifiée SECeF,
+dont le code engage l'assujetti. L'avoir est la seule correction admise.
+
+- Avoir **total** ou **partiel** (sélection de lignes et de quantités), porté
+  par le modèle Invoice avec un discriminant `documentType` : mêmes chemins de
+  code pour la numérotation, le PDF, la certification et l'écriture comptable.
+  Deux implémentations parallèles finissent toujours par diverger sur un
+  arrondi.
+- Série de numérotation dédiée (`AV-2026-00001`) : mêler avoirs et factures
+  rendrait illisible une séquence que la DGI attend continue.
+- **Écriture d'extourne** exactement inverse de l'écriture de vente, dont
+  l'équilibre est vérifié avant enregistrement. La déclaration de TVA lit les
+  écritures en crédit moins débit : la TVA collectée est donc réduite
+  automatiquement, sans traitement particulier.
+- Motif **obligatoire** : un avoir sans motif est inopposable.
+- Contrôles : pas d'avoir sur un avoir, pas d'avoir sur un brouillon (qui se
+  modifie directement), jamais plus que le montant encore créditable, jamais
+  deux fois la même ligne, et le droit de timbre — forfait par document — n'est
+  jamais fractionné sur un avoir partiel.
+- Verrou de concurrence : deux avoirs émis simultanément sur la même facture ne
+  peuvent pas dépasser ensemble le montant créditable.
+- **Toutes les sommes de chiffre d'affaires ont été reprises** pour retrancher
+  les avoirs au lieu de les ajouter, et les décomptes d'impayés pour les
+  exclure. Deux tests structurels refusent désormais toute nouvelle agrégation
+  qui l'oublierait.
+- Sur la fiche facture, « Annuler » cède la place à « Émettre un avoir » dès
+  que la facture est émise. Les deux actions ne coexistent jamais.
+- 22 tests.
+
+**Design — densité et grille**
+
+- Table dense unique (`.table-dense`) : la ligne passe de 52 à 40 pixels. Sur
+  un écran de 900 px, cela fait sept lignes de plus sans rien retirer.
+- Grille imposée (`--r-sm/md/lg`, `--gutter`, `.surface-card`, `.page-head`) :
+  126 écrans construits à des moments différents ressemblent à six produits ;
+  une grille unique est ce qui en refait un.
+- **Palette de commandes (⌘K / Ctrl+K)** : 45 destinations, recherche
+  insensible aux accents, classement par pertinence, navigation aux flèches.
+  Le bouton de recherche de la barre supérieure existait déjà mais ne
+  déclenchait rien — aucun composant n'écoutait le raccourci.
+
+**Vérification**
+
+262 tests au vert, 0 erreur de type, 0 erreur de lint, build de production réussi.
+
 ## V1.2.0 — Septembre 2026
 
 ### Design par section, gestion des abonnements revendus, socle de facture certifiée

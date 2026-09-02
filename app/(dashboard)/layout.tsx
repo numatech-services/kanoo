@@ -3,6 +3,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { SupportButton } from "@/components/shared/SupportButton";
 import { SectionScope } from "@/components/layout/SectionScope";
+import { CommandPalette } from "@/components/shared/CommandPalette";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -15,6 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
         </main>
       </div>
+      <CommandPalette />
       <OfflineBanner />
       <SupportButton />
     </div>

@@ -28,14 +28,23 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
 
   const filter = { ...tenantFilter(auth) };
 
-  // ── CA mensuel (factures émises) ──────────────────────────────────────────
+  // ── CA mensuel, NET des avoirs ────────────────────────────────────────────
+  // Un avoir est stocké avec des montants positifs dans la même collection :
+  // sans ce signe, il gonflerait le chiffre d'affaires au lieu de le réduire.
   const invoicesByMonth = await InvoiceModel.aggregate([
     { $match: { ...filter, issueDate: { $gte: startDate }, status: { $ne: "cancelled" } } },
+    { $addFields: {
+      sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] },
+    }},
+    { $addFields: {
+      signedHT:  { $multiply: ["$totalHT", "$sign"] },
+      signedTTC: { $multiply: ["$totalTTC", "$sign"] },
+    }},
     { $group: {
       _id: { year: { $year: "$issueDate" }, month: { $month: "$issueDate" } },
-      totalHT: { $sum: "$totalHT" },
-      totalTTC: { $sum: "$totalTTC" },
-      count: { $sum: 1 },
+      totalHT: { $sum: "$signedHT" },
+      totalTTC: { $sum: "$signedTTC" },
+      count: { $sum: { $cond: [{ $eq: ["$documentType", "credit_note"] }, 0, 1] } },
     }},
   ]);
 
@@ -80,7 +89,9 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   const [totalCA, totalEncaisse, clientActifs, facInRetard] = await Promise.all([
     InvoiceModel.aggregate([
       { $match: { ...filter, issueDate: { $gte: startDate }, status: { $ne: "cancelled" } } },
-      { $group: { _id: null, sum: { $sum: "$totalTTC" } } }
+      { $addFields: { sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] } } },
+      { $addFields: { signedTTC: { $multiply: ["$totalTTC", "$sign"] } } },
+      { $group: { _id: null, sum: { $sum: "$signedTTC" } } }
     ]).then(r => r[0]?.sum || 0),
 
     PaymentModel.aggregate([
@@ -90,13 +101,23 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
 
     ClientModel.countDocuments({ ...filter, isActive: true }),
 
-    InvoiceModel.countDocuments({ ...filter, status: { $in: ["sent", "partial"] }, dueDate: { $lt: now } }),
+    // Un avoir n'est jamais « en retard de paiement » : il n'attend aucun règlement.
+    InvoiceModel.countDocuments({
+      ...filter, documentType: { $ne: "credit_note" },
+      status: { $in: ["sent", "partial"] }, dueDate: { $lt: now },
+    }),
   ]);
 
   // ── Top clients (par CA sur la période) ──────────────────────────────────
   const topClients = await InvoiceModel.aggregate([
     { $match: { ...filter, issueDate: { $gte: startDate }, status: { $ne: "cancelled" } } },
-    { $group: { _id: "$clientId", total: { $sum: "$totalTTC" }, count: { $sum: 1 } } },
+      { $addFields: { sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] } } },
+      { $addFields: { signedTTC: { $multiply: ["$totalTTC", "$sign"] } } },
+    { $group: {
+      _id: "$clientId",
+      total: { $sum: "$signedTTC" },
+      count: { $sum: { $cond: [{ $eq: ["$documentType", "credit_note"] }, 0, 1] } },
+    } },
     { $sort: { total: -1 } },
     { $limit: 5 },
     { $lookup: { from: "clients", localField: "_id", foreignField: "_id", as: "client" } },

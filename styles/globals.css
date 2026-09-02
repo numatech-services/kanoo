@@ -174,6 +174,67 @@
   .lift:hover { transform: none; }
 }
 
+
+/* =========================================================================
+   Grille et densité.
+
+   Kanoo compte 126 écrans construits à des moments différents : c'est ce qui
+   les fait ressembler à six produits plutôt qu'à un. La règle imposée ici est
+   celle de Ramp — tuiles arrondies constantes, gouttières uniformes, la taille
+   comme seule hiérarchie — et la densité celle de Linear : elle vient de la
+   typographie et non du décor.
+
+   Un tableau de facturation passe de 52 px à 40 px par ligne. Sur un écran de
+   900 px, cela fait sept lignes de plus sans rien retirer : pour quelqu'un qui
+   saisit toute la journée, c'est un rapprochement de moins par page.
+   ========================================================================= */
+:root {
+  --r-sm: .5rem;    /* pastilles, pilules */
+  --r-md: .75rem;   /* champs, boutons */
+  --r-lg: .875rem;  /* cartes */
+  --gutter: 1rem;   /* gouttière unique entre blocs de même niveau */
+}
+
+@layer components {
+  /* Table dense — une seule définition pour les 40 tableaux du produit. */
+  .table-dense { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  .table-dense thead th {
+    text-align: left;
+    font-size: .62rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: .5rem .75rem;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    @apply text-ink3 bg-surface2 border-b border-line;
+  }
+  .table-dense tbody td {
+    padding: .45rem .75rem;   /* ligne de 40 px au lieu de 52 */
+    @apply border-b border-line;
+  }
+  .table-dense tbody tr:last-child td { border-bottom: 0; }
+  .table-dense tbody tr { transition: background-color var(--t-instant) ease; }
+  .table-dense tbody tr:hover { @apply bg-surface2/60; }
+
+  /* Enveloppe standard d'une section : même rayon, même bordure, partout. */
+  .surface-card {
+    border-radius: var(--r-lg);
+    @apply bg-surface border border-line;
+  }
+
+  /* Barre d'en-tête d'écran — titre, sous-titre, actions alignées à droite. */
+  .page-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--gutter);
+  }
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;

@@ -8,7 +8,7 @@ import { connectDB } from "./db";
 import { TenantModel } from "@/models/Tenant";
 import type { NumberingConfig as TenantNumberingConfig } from "@/types";
 
-type DocType = "invoice" | "quote" | "order" | "delivery" | "contract";
+type DocType = "invoice" | "quote" | "order" | "delivery" | "contract" | "credit_note";
 
 interface NumberingConfig {
   invoicePrefix:   string;
@@ -16,6 +16,7 @@ interface NumberingConfig {
   orderPrefix:     string;
   deliveryPrefix:  string;
   contractPrefix:  string;
+  creditNotePrefix: string;
   separator:       string;
   digitCount:      number;
   yearInNumber:    boolean;
@@ -25,6 +26,7 @@ interface NumberingConfig {
   orderSequence:    number;
   deliverySequence: number;
   contractSequence: number;
+  creditNoteSequence: number;
   invoiceStartAt:   number;
 }
 
@@ -34,6 +36,9 @@ const SEQUENCE_FIELD: Record<DocType, string> = {
   order:    "orderSequence",
   delivery: "deliverySequence",
   contract: "contractSequence",
+  // Série distincte : mêler avoirs et factures dans la même suite rendrait
+  // illisible une séquence que la DGI attend continue.
+  credit_note: "creditNoteSequence",
 };
 
 const PREFIX_FIELD: Record<DocType, string> = {
@@ -42,6 +47,7 @@ const PREFIX_FIELD: Record<DocType, string> = {
   order:    "orderPrefix",
   delivery: "deliveryPrefix",
   contract: "contractPrefix",
+  credit_note: "creditNotePrefix",
 };
 
 /**
@@ -103,6 +109,7 @@ export async function nextDocumentNumber(
 function defaultPrefix(docType: DocType): string {
   const defaults: Record<DocType, string> = {
     invoice: "FAC", quote: "DEV", order: "BC", delivery: "BL", contract: "CTR",
+    credit_note: "AV",
   };
   return defaults[docType];
 }
@@ -126,6 +133,7 @@ export async function resetYearlySequences(): Promise<number> {
         "numberingConfig.orderSequence":    0,
         "numberingConfig.deliverySequence": 0,
         "numberingConfig.contractSequence": 0,
+        "numberingConfig.creditNoteSequence": 0,
         "numberingConfig.sequenceYear":     new Date().getFullYear(),
       },
     }

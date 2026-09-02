@@ -3,13 +3,18 @@ import { useState, useEffect } from "react";
 import Link from "next/link"; // Ajout de Link pour la navigation
 import { NotificationsBell } from "@/components/shared/NotificationsBell";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
+import { Search } from "lucide-react";
 
 export function TopBar() {
   const [user, setUser] = useState<{ firstName: string; lastName: string; role: string } | null>(null);
   const [mounted, setMounted] = useState(false);
+  // Le libellé du raccourci dépend de la plateforme, et n'est connu qu'après
+  // montage : l'afficher côté serveur produirait une divergence d'hydratation.
+  const [shortcut, setShortcut] = useState("Ctrl K");
 
   useEffect(() => {
     setMounted(true);
+    if (navigator.platform?.toUpperCase().includes("MAC")) setShortcut("⌘ K");
     fetch("/api/auth/me", { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setUser(d.data?.user || null))
@@ -17,18 +22,22 @@ export function TopBar() {
   }, []);
 
   return (
-    <header className="h-14 bg-white border-b border-clay/30 flex items-center justify-between px-6 flex-shrink-0">
-      {/* Barre de recherche */}
+    <header className="h-14 bg-surface border-b border-line flex items-center justify-between px-6 flex-shrink-0">
+      {/* Ouvre la palette de commandes. Ce bouton existait déjà mais ne
+          déclenchait rien : aucun composant n'écoutait le raccourci. */}
       <div className="flex-1">
         <button
+          type="button"
           onClick={() => {
-            const e = new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true });
-            document.dispatchEvent(e);
+            window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
           }}
-          className="w-full max-w-md px-4 py-2 text-sm bg-sand rounded-lg border border-clay/30 text-left text-moss hover:border-cedar/50 transition-colors flex items-center justify-between"
+          className="w-full max-w-md px-3 h-9 text-sm bg-surface2 rounded-lg border border-line text-left text-ink3 hover:border-section transition-colors flex items-center gap-2"
         >
-          <span>🔍 Rechercher…</span>
-          <kbd className="text-xs bg-white px-1.5 py-0.5 rounded border border-clay/30">Ctrl K</kbd>
+          <Search size={14} className="shrink-0" />
+          <span className="flex-1">Aller à…</span>
+          <kbd className="text-[10px] font-mono bg-surface px-1.5 py-0.5 rounded border border-line shrink-0">
+            {shortcut}
+          </kbd>
         </button>
       </div>
 

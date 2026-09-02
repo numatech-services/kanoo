@@ -286,20 +286,18 @@ export default function AbonnementsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[52rem]">
+          <table className="table-dense min-w-[52rem]">
             <thead>
-              <tr className="border-y border-line bg-surface2/50">
+              <tr>
                 {["Contrat", "Fournisseur", "Placement", "Coût", "Revenu", "Marge", "Échéance"].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-ink3 whitespace-nowrap">
-                    {h}
-                  </th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {reconciliations.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-ink3">
+                  <td colSpan={7} className="py-10 text-center text-ink3">
                     Aucun contrat souscrit.{" "}
                     <Link href="/abonnements/achats" className="text-section font-medium underline">
                       En créer un
@@ -308,13 +306,13 @@ export default function AbonnementsPage() {
                 </tr>
               )}
               {reconciliations.map(r => (
-                <tr key={r.purchaseId} className="border-b border-line last:border-0 hover:bg-surface2/60 transition-colors">
-                  <td className="px-4 py-3">
+                <tr key={r.purchaseId}>
+                  <td>
                     <p className="font-medium text-ink">{r.productName}</p>
                     <p className="font-mono text-[11px] text-ink3">{r.purchaseRef}</p>
                   </td>
-                  <td className="px-4 py-3 text-ink2">{r.supplier || "—"}</td>
-                  <td className="px-4 py-3">
+                  <td className="text-ink2">{r.supplier || "—"}</td>
+                  <td>
                     <div className="flex items-center gap-2">
                       <div className="h-1.5 w-20 rounded-full bg-line overflow-hidden shrink-0">
                         <div
@@ -327,15 +325,15 @@ export default function AbonnementsPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 num text-ink2">{compactXof(r.cost)}</td>
-                  <td className="px-4 py-3 num text-ink2">{compactXof(r.revenue)}</td>
-                  <td className="px-4 py-3">
+                  <td className="num text-ink2">{compactXof(r.cost)}</td>
+                  <td className="num text-ink2">{compactXof(r.revenue)}</td>
+                  <td>
                     <span className={`num font-semibold ${r.margin >= 0 ? "text-pos" : "text-neg"}`}>
                       {compactXof(r.margin)}
                     </span>
                     <span className="text-[11px] text-ink3 ml-1 num">({r.marginRate} %)</span>
                   </td>
-                  <td className="px-4 py-3 text-ink2 whitespace-nowrap">
+                  <td className="text-ink2 whitespace-nowrap">
                     {new Date(r.endDate).toLocaleDateString("fr-FR")}
                   </td>
                 </tr>

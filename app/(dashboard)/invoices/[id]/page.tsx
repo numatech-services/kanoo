@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { CreditNoteDialog } from "@/components/pme/CreditNoteDialog";
 import { Modal } from "@/components/ui/Modal";
 import { PaymentForm } from "@/components/pme/PaymentForm";
 
@@ -31,6 +32,10 @@ interface Invoice {
   issueDate: string; 
   dueDate: string; 
   notes?: string; 
+  documentType?: "invoice" | "credit_note";
+  originalInvoiceId?: string;
+  creditReason?: string;
+  creditedAmount?: number;
 }
 
 
@@ -38,6 +43,7 @@ interface Invoice {
 export default function InvoiceDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const [creditOpen, setCreditOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -135,9 +141,25 @@ export default function InvoiceDetailPage() {
   if (!invoice) return <div className="p-6 text-moss">Facture introuvable</div>;
 
   const remaining = Math.max(0, invoice.totalTTC - invoice.paidAmount);
+  const credited = invoice.creditedAmount || 0;
+  const isCreditNote = invoice.documentType === "credit_note";
 
   return (
     <div className="space-y-5 max-w-4xl">
+      {isCreditNote && (
+        <p className="px-4 py-3 rounded-xl bg-neg-50 border border-neg/25 text-sm text-neg">
+          <strong>Facture d&apos;avoir.</strong> Ce document se retranche du chiffre
+          d&apos;affaires.
+          {invoice.creditReason && <> Motif&nbsp;: {invoice.creditReason}.</>}
+        </p>
+      )}
+      {!isCreditNote && credited > 0 && (
+        <p className="px-4 py-3 rounded-xl bg-warn-50 border border-warn/25 text-sm text-warn">
+          <strong className="num">{credited.toLocaleString("fr-FR")} XOF</strong> déjà
+          couverts par un ou plusieurs avoirs
+          {credited >= invoice.totalTTC ? " — cette facture est intégralement créditée." : "."}
+        </p>
+      )}
       <div className="flex items-start justify-between">
         <div>
           <button onClick={() => router.push("/invoices")} className="text-xs text-moss hover:text-ink">
@@ -172,9 +194,19 @@ export default function InvoiceDetailPage() {
               Paiement
             </button>
           )}
-          {["draft", "sent"].includes(invoice.status) && (
-            <button onClick={cancelInvoice} className="px-4 py-2 border border-red-300 text-red-600 rounded-xl text-sm hover:bg-red-50">
-              Annuler
+          {/* Un brouillon s'annule ; une facture émise ne s'annule plus, elle
+              se corrige par un avoir. Les deux actions ne coexistent jamais. */}
+          {invoice.status === "draft" && (
+            <button onClick={cancelInvoice} className="px-4 py-2 border border-neg/40 text-neg rounded-xl text-sm hover:bg-neg-50">
+              Annuler le brouillon
+            </button>
+          )}
+          {invoice.documentType !== "credit_note"
+            && ["sent", "partial", "paid", "overdue"].includes(invoice.status)
+            && (invoice.creditedAmount || 0) < invoice.totalTTC && (
+            <button onClick={() => setCreditOpen(true)}
+              className="px-4 py-2 border border-neg/40 text-neg rounded-xl text-sm font-medium hover:bg-neg-50">
+              Émettre un avoir
             </button>
           )}
         </div>
@@ -371,6 +403,16 @@ export default function InvoiceDetailPage() {
           )}
         </div>
       </div>
+      <CreditNoteDialog
+        open={creditOpen}
+        onClose={() => setCreditOpen(false)}
+        invoiceId={String(id)}
+        invoiceNumber={invoice.number}
+        totalTTC={invoice.totalTTC}
+        creditedAmount={credited}
+        lines={invoice.lines}
+        onIssued={load}
+      />
     </div>
   );
 }

@@ -27,14 +27,18 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
     accountingBalance,
   ] = await Promise.all([
     // CA par statut sur l'année
+    // Les avoirs sont exclus de la ventilation par statut : ils ne sont ni
+    // « à encaisser » ni « payés », et les mêler ici doublerait leur effet
+    // puisqu'ils réduisent déjà le CA par ailleurs.
     InvoiceModel.aggregate([
-      { $match: { ...tf, issueDate: { $gte: startOfYear, $lte: endOfYear } } },
+      { $match: { ...tf, documentType: { $ne: "credit_note" }, issueDate: { $gte: startOfYear, $lte: endOfYear } } },
       { $group: { _id: "$status", count: { $sum: 1 }, totalTTC: { $sum: "$totalTTC" }, paidAmount: { $sum: "$paidAmount" } } },
     ]),
 
     // Impayés en retard
     InvoiceModel.countDocuments({
       ...tf,
+      documentType: { $ne: "credit_note" },
       status: { $in: ["sent", "partial"] },
       dueDate: { $lt: now },
     }),

@@ -88,6 +88,29 @@ describe("Conventions des routes API", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("toute somme de chiffre d'affaires tient compte des avoirs", () => {
+    // Les avoirs vivent dans la collection des factures avec des montants
+    // POSITIFS : une agrégation qui somme totalTTC sans les distinguer les
+    // compte en plus au lieu de les retrancher, et gonfle le CA.
+    // Une somme est conforme si, dans le même fichier, elle s'accompagne soit
+    // d'un filtre documentType, soit d'un signe calculé.
+    const offenders = files
+      .filter(f => /\$sum:\s*"\$totalTTC"/.test(f.src))
+      .filter(f => !/documentType/.test(f.src))
+      .map(f => f.path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("aucun décompte d'impayés ne compte les avoirs", () => {
+    // Un avoir n'attend aucun règlement : le compter comme « en retard »
+    // ferait apparaître une créance qui n'existe pas.
+    const offenders = files
+      .filter(f => /status:\s*\{\s*\$in:\s*\["sent",\s*"partial"\]/.test(f.src))
+      .filter(f => !/documentType/.test(f.src))
+      .map(f => f.path);
+    expect(offenders).toEqual([]);
+  });
+
   it("aucune référence de document n'est tirée de Math.random", () => {
     // Une quittance ou un engagement porte une référence qui doit rester unique
     // et non devinable ; Math.random ne garantit ni l'un ni l'autre.

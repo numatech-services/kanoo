@@ -70,6 +70,7 @@ export interface NumberingConfig {
   orderPrefix?: string;
   deliveryPrefix?: string;
   contractPrefix?: string;
+  creditNotePrefix?: string;
   separator?: string;
   digitCount?: number;
   yearInNumber?: boolean;
@@ -79,6 +80,7 @@ export interface NumberingConfig {
   orderSequence?: number;
   deliverySequence?: number;
   contractSequence?: number;
+  creditNoteSequence?: number;
   invoiceStartAt?: number;
   /** Année couverte par les séquences courantes — sert au remise à zéro annuelle. */
   sequenceYear?: number;
@@ -214,9 +216,17 @@ export interface IInvoiceLine {
   totalTTC: number;
 }
 
+export type InvoiceDocumentType = "invoice" | "credit_note";
+
 export interface IInvoice {
   _id: Types.ObjectId;
   tenantId: Types.ObjectId;
+  /** Facture ou avoir. Toute somme de CA doit filtrer dessus. */
+  documentType: InvoiceDocumentType;
+  originalInvoiceId?: Types.ObjectId;
+  creditReason?: string;
+  /** TTC déjà couvert par des avoirs, sur une facture d'origine. */
+  creditedAmount: number;
   number: string;
   clientId: Types.ObjectId;
   quoteId?: Types.ObjectId;

@@ -150,44 +150,42 @@ export default function AchatsAbonnementsPage() {
 
       <div className="bg-surface rounded-xl border border-line overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[54rem]">
+          <table className="table-dense min-w-[54rem]">
             <thead>
-              <tr className="border-b border-line bg-surface2/50">
+              <tr>
                 {["Référence", "Produit", "Fournisseur", "Période", "Quantité", "Coût (XOF)", "Statut"].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-ink3 whitespace-nowrap">
-                    {h}
-                  </th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-ink3">Chargement…</td></tr>
+                <tr><td colSpan={7} className="py-10 text-center text-ink3">Chargement…</td></tr>
               )}
               {!loading && items.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-ink3">Aucun contrat souscrit</td></tr>
+                <tr><td colSpan={7} className="py-10 text-center text-ink3">Aucun contrat souscrit</td></tr>
               )}
               {items.map(item => {
                 const supplier = typeof item.supplierId === "object" ? item.supplierId?.name : "—";
                 return (
-                  <tr key={item._id} className="border-b border-line last:border-0 hover:bg-surface2/40">
-                    <td className="px-4 py-3 font-mono text-xs text-section">{item.reference}</td>
-                    <td className="px-4 py-3">
+                  <tr key={item._id}>
+                    <td className="font-mono text-xs text-section">{item.reference}</td>
+                    <td>
                       <p className="text-ink font-medium">{item.productName}</p>
                       {item.vendorContractRef && (
                         <p className="text-[11px] text-ink3 font-mono">{item.vendorContractRef}</p>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-ink2">{supplier}</td>
-                    <td className="px-4 py-3 text-ink2 whitespace-nowrap text-xs">
+                    <td className="text-ink2">{supplier}</td>
+                    <td className="text-ink2 whitespace-nowrap text-xs">
                       {new Date(item.startDate).toLocaleDateString("fr-FR")} →{" "}
                       {new Date(item.endDate).toLocaleDateString("fr-FR")}
                       {item.autoRenew && <span className="ml-1 text-[10px] text-warn">tacite</span>}
                     </td>
-                    <td className="px-4 py-3 num text-ink2">
+                    <td className="num text-ink2">
                       {item.quantity} {item.unitLabel || "licence"}(s)
                     </td>
-                    <td className="px-4 py-3">
+                    <td>
                       <p className="num text-ink font-medium">{fullXof(item.costAmount)}</p>
                       {item.currency !== "XOF" && (
                         <p className="text-[11px] text-ink3 num">
@@ -195,7 +193,7 @@ export default function AchatsAbonnementsPage() {
                         </p>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td>
                       <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUS_STYLE[item.status] || "bg-line text-ink2"}`}>
                         {STATUS_LABEL[item.status] || item.status}
                       </span>

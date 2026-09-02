@@ -289,6 +289,27 @@ export function tenantFilter(auth: TokenPayload): { tenantId: string } {
   return { tenantId: auth.tenantId };
 }
 
+/**
+ * Portée « factures de vente », à l'exclusion des avoirs.
+ *
+ * Les avoirs vivent dans la même collection que les factures — même
+ * numérotation, même PDF, même certification. Le revers de ce choix est
+ * qu'**une somme de chiffre d'affaires qui ne filtre pas sur `documentType`
+ * compte les avoirs en positif**, et gonfle donc le CA au lieu de le réduire.
+ *
+ * Toute agrégation de produits passe par cet helper. Un test structurel
+ * (`__tests__/unit/route-contracts.test.ts`) refuse toute nouvelle somme de
+ * `totalTTC` qui l'oublierait.
+ */
+export function salesScope(auth: TokenPayload): Record<string, unknown> {
+  return { tenantId: auth.tenantId, documentType: { $ne: "credit_note" } };
+}
+
+/** Portée « avoirs » seuls, à retrancher du chiffre d'affaires. */
+export function creditNoteScope(auth: TokenPayload): Record<string, unknown> {
+  return { tenantId: auth.tenantId, documentType: "credit_note" };
+}
+
 export function requireFields(body: Record<string, unknown>, fields: string[]): string | null {
   for (const field of fields) {
     const value = body[field];

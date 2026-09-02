@@ -156,37 +156,35 @@ export default function ReventesPage() {
 
       <div className="bg-surface rounded-xl border border-line overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[56rem]">
+          <table className="table-dense min-w-[56rem]">
             <thead>
-              <tr className="border-b border-line bg-surface2/50">
+              <tr>
                 {["Référence", "Client", "Produit", "Contrat amont", "Période", "Montant HT", "Statut"].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-ink3 whitespace-nowrap">
-                    {h}
-                  </th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-ink3">Chargement…</td></tr>
+                <tr><td colSpan={7} className="py-10 text-center text-ink3">Chargement…</td></tr>
               )}
               {!loading && items.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-ink3">Aucune revente</td></tr>
+                <tr><td colSpan={7} className="py-10 text-center text-ink3">Aucune revente</td></tr>
               )}
               {items.map(item => {
                 const client = typeof item.clientId === "object" ? item.clientId?.name : "—";
                 const purchase = typeof item.purchaseId === "object" ? item.purchaseId : null;
                 return (
-                  <tr key={item._id} className="border-b border-line last:border-0 hover:bg-surface2/40">
-                    <td className="px-4 py-3">
+                  <tr key={item._id}>
+                    <td>
                       <p className="font-mono text-xs text-section">{item.reference}</p>
                       {!item.invoiceId && item.status === "active" && (
                         <span className="text-[10px] text-warn">non facturée</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-ink font-medium">{client}</td>
-                    <td className="px-4 py-3 text-ink2">{item.productName}</td>
-                    <td className="px-4 py-3">
+                    <td className="text-ink font-medium">{client}</td>
+                    <td className="text-ink2">{item.productName}</td>
+                    <td>
                       {purchase ? (
                         <span className="inline-flex items-center gap-1 font-mono text-[11px] text-ink2">
                           <Link2 size={11} /> {purchase.reference}
@@ -197,17 +195,17 @@ export default function ReventesPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-ink2 whitespace-nowrap text-xs">
+                    <td className="text-ink2 whitespace-nowrap text-xs">
                       {new Date(item.startDate).toLocaleDateString("fr-FR")} →{" "}
                       {new Date(item.endDate).toLocaleDateString("fr-FR")}
                     </td>
-                    <td className="px-4 py-3">
+                    <td>
                       <p className="num text-ink font-medium">{fullXof(item.totalHT)}</p>
                       <p className="text-[11px] text-ink3 num">
                         {item.quantity} × {item.unitPrice.toLocaleString("fr-FR")}
                       </p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td>
                       <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUS_STYLE[item.status] || "bg-line text-ink2"}`}>
                         {STATUS_LABEL[item.status] || item.status}
                       </span>

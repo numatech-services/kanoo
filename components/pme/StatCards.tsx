@@ -36,12 +36,16 @@ async function getStats(): Promise<Stats | null> {
 
     const [invoicesStats, overdueCount, paymentsThisMonth, paymentsPrevMonth,
            activeEmployees, paymentsByMonth, invoicesByMonth] = await Promise.all([
+      // CA net des avoirs : un avoir vit dans la même collection avec des
+      // montants positifs, il faut donc lui donner son signe.
       InvoiceModel.aggregate([
         { $match: { ...tf, issueDate: { $gte: startOfYear }, status: { $ne: "cancelled" } } },
-        { $group: { _id: null, total: { $sum: "$totalTTC" } } },
+        { $addFields: { sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] } } },
+        { $group: { _id: null, total: { $sum: { $multiply: ["$totalTTC", "$sign"] } } } },
       ]),
       InvoiceModel.countDocuments({
-        ...tf, status: { $in: ["sent", "partial"] }, dueDate: { $lt: now },
+        ...tf, documentType: { $ne: "credit_note" },
+        status: { $in: ["sent", "partial"] }, dueDate: { $lt: now },
       }),
       PaymentModel.aggregate([
         { $match: { ...tf, date: { $gte: startOfMonth } } },
@@ -61,7 +65,11 @@ async function getStats(): Promise<Stats | null> {
       ]),
       InvoiceModel.aggregate([
         { $match: { ...tf, issueDate: { $gte: startOfYear }, status: { $ne: "cancelled" } } },
-        { $group: { _id: { m: { $month: "$issueDate" } }, total: { $sum: "$totalTTC" } } },
+        { $addFields: { sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] } } },
+        { $group: {
+          _id: { m: { $month: "$issueDate" } },
+          total: { $sum: { $multiply: ["$totalTTC", "$sign"] } },
+        } },
         { $sort: { "_id.m": 1 } },
       ]),
     ]);

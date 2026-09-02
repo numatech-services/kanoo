@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { SectionScope } from "@/components/layout/SectionScope";
+import { CommandPalette } from "@/components/shared/CommandPalette";
 
 // CONFIGURATION DES VIEWPORTS (Pour supprimer les warnings ⚠ dans tes logs)
 export const viewport = {
@@ -28,6 +29,7 @@ export default function SaasLayout({ children }: { children: React.ReactNode }) 
           </div>
         </main>
       </div>
+      <CommandPalette />
     </div>
     </SectionScope>
   );
