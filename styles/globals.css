@@ -1,0 +1,277 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================================
+   Design tokens « Harmattan » — canaux RGB pilotés par variables CSS.
+   Thème clair par défaut, thème sombre automatique (prefers-color-scheme).
+   Toute couleur Tailwind basée sur ces tokens suit le mode sombre du système.
+   ========================================================================= */
+:root {
+  --c-ink: 23 19 14;         /* encre chaude */
+  --c-bg: 251 247 239;       /* papier clair (variante B) */
+  --c-surface: 255 255 255;
+  --c-surface2: 241 234 221;
+  --c-line: 234 225 208;
+  --c-line2: 216 202 176;
+  --c-ink2: 90 82 69;        /* texte secondaire lisible */
+  --c-ink3: 132 121 102;
+  --c-accent: 194 98 14;     /* soleil d'harmattan (ambre) */
+  --c-accent600: 168 82 10;
+  --c-accent700: 138 67 8;
+  --c-accent050: 246 231 211;
+  --c-accent100: 237 211 175;
+  --c-pos: 28 93 76;         /* vert acacia */
+  --c-pos050: 226 237 232;
+  --c-neg: 178 59 46;
+  --c-neg050: 246 226 221;
+  --c-warn: 154 104 0;
+  --c-warn050: 250 243 227;
+  --c-info: 36 95 166;
+  --c-info050: 234 241 249;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-ink: 243 236 224;
+    --c-bg: 22 18 13;
+    --c-surface: 30 25 19;
+    --c-surface2: 41 34 26;
+    --c-line: 52 43 32;
+    --c-line2: 71 59 44;
+    --c-ink2: 185 174 156;
+    --c-ink3: 139 128 105;
+    --c-accent: 214 121 31;
+    --c-accent600: 194 98 14;
+    --c-accent700: 233 164 92;
+    --c-accent050: 46 34 20;
+    --c-accent100: 61 45 27;
+    --c-pos: 79 183 154;
+    --c-pos050: 22 36 31;
+    --c-neg: 224 106 92;
+    --c-neg050: 42 23 20;
+    --c-warn: 217 163 42;
+    --c-warn050: 42 34 16;
+    --c-info: 106 160 224;
+    --c-info050: 20 28 41;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply text-ink bg-bg;
+    font-family: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  /* Titres en Fraunces (éditorial) via les classes utilitaires du design system. */
+  .font-display { font-family: "Fraunces", Georgia, serif; }
+
+  /* Montants monétaires alignés : ajouter la classe .num sur tout chiffre. */
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+  /* Focus visible — ne jamais supprimer (accessibilité). */
+  :focus-visible { outline: 2px solid theme('colors.accent.DEFAULT'); outline-offset: 2px; }
+
+  /* Scrollbar personnalisée */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-line2 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink3;
+  }
+}
+
+@layer components {
+  /* Boutons — mêmes noms, rendu fintech v2 */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-accent text-white rounded-md
+           text-sm font-semibold hover:bg-accent-600 transition-colors
+           disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-surface text-ink border border-line2
+           rounded-md text-sm font-semibold hover:bg-surface2 transition-colors;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-neg text-white rounded-md
+           text-sm font-semibold hover:brightness-95 transition-colors;
+  }
+
+  .card {
+    @apply bg-surface rounded-lg border border-line shadow-sm p-5;
+  }
+
+  .input {
+    @apply w-full h-10 px-3 bg-surface border border-line2 rounded-md text-sm text-ink
+           placeholder:text-ink3 transition-colors
+           focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-50;
+  }
+  .label {
+    @apply block text-xs font-medium text-ink mb-1.5;
+  }
+
+  .page-title {
+    @apply font-display text-2xl font-semibold text-ink tracking-tight;
+  }
+  .section-title {
+    @apply font-display text-base font-semibold text-ink;
+  }
+
+  /* Badges de statut — évitent les couleurs Tailwind par défaut */
+  .badge { @apply inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full; }
+  .badge-paid  { @apply bg-pos-50 text-accent-700; }
+  .badge-late  { @apply bg-neg-50 text-neg; }
+  .badge-sent  { @apply bg-info-50 text-info; }
+  .badge-draft { @apply bg-surface2 text-ink2; }
+  .badge-warn  { @apply bg-warn-50 text-warn; }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+}
+
+/* ─── CSS Print — Impression sans PDF ─────────────────────────────────────── */
+/* Optimisé pour impression terrain Niger (A4, imprimantes basiques) */
+
+@media print {
+  /* Masquer les éléments non imprimables */
+  .no-print,
+  nav, aside, header,
+  [class*="Sidebar"],
+  [class*="TopBar"],
+  [class*="SupportButton"],
+  [class*="OfflineBanner"],
+  [class*="NotificationsBell"],
+  [class*="SearchCommand"],
+  button:not(.print-show),
+  .animate-pulse { display: none !important; }
+
+  /* Reset fond et couleurs */
+  *, *::before, *::after {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  body {
+    font-family: 'Times New Roman', serif;
+    font-size: 11pt;
+    line-height: 1.4;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Zone d'impression principale */
+  main, .print-area {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 8mm !important;
+  }
+
+  /* En-tête document imprimé */
+  .print-header {
+    display: flex !important;
+    justify-content: space-between;
+    border-bottom: 2px solid black;
+    padding-bottom: 8pt;
+    margin-bottom: 12pt;
+  }
+
+  .print-header .company-name {
+    font-size: 16pt;
+    font-weight: bold;
+  }
+
+  /* Tableaux — toujours visibles en entier */
+  table { border-collapse: collapse !important; width: 100% !important; }
+  th, td {
+    border: 0.5pt solid #666 !important;
+    padding: 4pt 6pt !important;
+    font-size: 9pt !important;
+    background: white !important;
+    color: black !important;
+  }
+  thead tr { background: #f0f0f0 !important; }
+  thead th { font-weight: bold !important; }
+
+  /* Éviter les coupures de page dans les tableaux */
+  tr { page-break-inside: avoid; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+
+  /* Bordures visibles */
+  .border, [class*="border-"] {
+    border-color: #999 !important;
+  }
+
+  /* Saut de page */
+  .page-break-before { page-break-before: always !important; }
+  .page-break-after  { page-break-after: always !important; }
+  .page-break-avoid  { page-break-inside: avoid !important; }
+
+  /* Pied de page automatique */
+  @page {
+    size: A4 portrait;
+    margin: 15mm 12mm 20mm;
+  }
+
+  @page :first {
+    margin-top: 10mm;
+  }
+
+  /* Numéros de page via CSS (navigateurs modernes) */
+  .print-page-number::after {
+    content: "Page " counter(page) " / " counter(pages);
+    font-size: 8pt;
+    color: #666;
+  }
+
+  /* Masquer les badges colorés, remplacer par texte */
+  [class*="badge"], [class*="Badge"], [class*="StatusBadge"] {
+    border: 1pt solid black !important;
+    border-radius: 0 !important;
+    padding: 1pt 3pt !important;
+    font-size: 8pt !important;
+  }
+
+  /* Liens — afficher l'URL */
+  a[href]::after {
+    content: none; /* Ne pas afficher les URLs sur les docs internes */
+  }
+
+  /* Montants financiers — police monospace */
+  .font-mono, [class*="font-mono"] {
+    font-family: 'Courier New', monospace !important;
+    font-size: 10pt !important;
+  }
+}
+
+/* ─── Classes utilitaires d'impression ────────────────────────────────────── */
+.print-only { display: none !important; }
+@media print { .print-only { display: block !important; } }
+@media print { .screen-only { display: none !important; } }

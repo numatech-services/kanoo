@@ -1,0 +1,4 @@
+import { Schema, model, models } from "mongoose";
+const FiscalDeclarationSchema = new Schema({ tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true }, type: { type: String, enum: ["tva","cnss","bic","is","dts","retenue","acompte"], required: true }, period: { mois: Number, trimestre: Number, annee: { type: Number, required: true } }, amounts: { base: Number, taux: Number, montant: Number, deductible: Number, net: Number }, status: { type: String, enum: ["draft","submitted","paid","late"], default: "draft" }, submittedAt: Date, paidAt: Date, reference: String, notes: String, createdBy: { type: Schema.Types.ObjectId, ref: "User" } }, { timestamps: true });
+FiscalDeclarationSchema.index({ tenantId: 1, type: 1, "period.annee": 1 });
+export const FiscalDeclarationModel = models.FiscalDeclaration || model("FiscalDeclaration", FiscalDeclarationSchema);

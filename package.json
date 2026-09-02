@@ -1,0 +1,83 @@
+{
+  "name": "kanoo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "db:setup": "npx tsx scripts/seed-demo.ts && npx tsx scripts/seed-test.ts",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:ci": "jest --ci --coverage --passWithNoTests",
+    "scheduler": "ts-node scripts/scheduler.ts",
+    "seed:demo": "npx tsx scripts/seed-demo.ts",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "backup": "ts-node scripts/backup.ts",
+    "backup:predeploy": "ts-node scripts/backup.ts --pre-deploy",
+    "seed:test": "ts-node scripts/seed-test.ts",
+    "check:env": "ts-node scripts/check-env.ts",
+    "test:unit": "jest __tests__/unit --coverage",
+    "test:integration": "jest __tests__/integration --runInBand",
+    "test:e2e": "playwright test __tests__/e2e",
+    "test:load": "k6 run __tests__/load/k6-config.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie": "^0.6.0",
+    "critters": "^0.0.23",
+    "html5-qrcode": "^2.3.8",
+    "iconv-lite": "^0.7.2",
+    "jose": "^6.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^1.7.0",
+    "mongoose": "^8.7.2",
+    "next": "14.1.0",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^8.0.3",
+    "pdfkit": "^0.15.0",
+    "qrcode": "^1.5.4",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-hot-toast": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie": "^0.6.0",
+    "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.14.10",
+    "@types/pdfkit": "^0.17.6",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.20",
+    "dotenv": "^16.4.5",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.1.0",
+    "jest": "^29.7.0",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.10",
+    "ts-jest": "^29.4.12",
+    "tsx": "^4.23.13",
+    "typescript": "^5.5.4"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1"
+    },
+    "setupFilesAfterEach": [
+      "<rootDir>/__tests__/setup.ts"
+    ],
+    "testTimeout": 30000,
+    "collectCoverageFrom": [
+      "lib/**/*.ts",
+      "app/api/**/*.ts",
+      "!lib/db.ts",
+      "!**/*.d.ts"
+    ]
+  }
+}

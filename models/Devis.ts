@@ -1,0 +1,6 @@
+import { Schema, model, models } from "mongoose";
+import { IDevis } from "@/types";
+const LineSchema = new Schema({ productId: Schema.Types.ObjectId, description: { type: String, required: true }, quantity: { type: Number, required: true }, unitPrice: Number, tvaRate: { type: Number, default: 0.19 }, discount: { type: Number, default: 0 }, totalHT: Number, totalTVA: Number, totalTTC: Number }, { _id: false });
+const DevisSchema = new Schema<IDevis>({ tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true }, number: { type: String, required: true }, clientId: { type: Schema.Types.ObjectId, ref: "Client", required: true }, lines: [LineSchema], totalHT: Number, totalTVA: Number, totalTTC: Number, status: { type: String, enum: ["draft","sent","accepted","rejected","expired"], default: "draft" }, issueDate: { type: Date, required: true }, validUntil: { type: Date, required: true }, notes: String, convertedToInvoiceId: Schema.Types.ObjectId, createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true } }, { timestamps: true });
+DevisSchema.index({ tenantId: 1, number: 1 }, { unique: true });
+export const DevisModel = models.Devis || model<IDevis>("Devis", DevisSchema);

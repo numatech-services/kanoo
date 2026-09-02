@@ -1,0 +1,4 @@
+import { Schema, model, models } from "mongoose";
+const ApprobationSchema = new Schema({ tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true }, resource: { type: String, required: true }, resourceId: { type: Schema.Types.ObjectId, required: true }, requestedBy: { type: Schema.Types.ObjectId, ref: "User" }, approvers: [{ userId: Schema.Types.ObjectId, level: Number, status: { type: String, enum: ["pending","approved","rejected"], default: "pending" }, comment: String, decidedAt: Date }], currentLevel: { type: Number, default: 1 }, status: { type: String, enum: ["pending","approved","rejected","cancelled"], default: "pending" }, amount: Number, notes: String, createdAt: { type: Date, default: Date.now } }, { timestamps: true });
+ApprobationSchema.index({ tenantId: 1, status: 1 });
+export const ApprobationModel = models.Approbation || model("Approbation", ApprobationSchema);

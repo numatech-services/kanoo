@@ -1,0 +1,138 @@
+{
+  "common": {
+    "save": "Save", "cancel": "Cancel", "delete": "Delete",
+    "edit": "Edit", "create": "Create", "close": "Close",
+    "confirm": "Confirm", "back": "Back", "next": "Next",
+    "loading": "Loading…", "saving": "Saving…",
+    "search": "Search…", "filter": "Filter", "export": "Export",
+    "print": "Print", "download": "Download", "upload": "Upload",
+    "yes": "Yes", "no": "No", "all": "All", "none": "None",
+    "required": "required", "optional": "optional",
+    "total": "Total", "subtotal": "Subtotal", "actions": "Actions",
+    "details": "Details", "status": "Status", "date": "Date",
+    "amount": "Amount", "currency": "XOF", "noResults": "No results",
+    "noData": "No data", "seeAll": "See all →",
+    "newItem": "New", "of": "of", "page": "Page", "perPage": "per page",
+    "previous": "Previous", "description": "Description"
+  },
+  "nav": {
+    "dashboard": "Dashboard", "clients": "Clients", "invoices": "Invoices",
+    "devis": "Quotes", "commandes": "Purchase Orders", "suppliers": "Suppliers",
+    "employees": "Staff", "payslips": "Payslips",
+    "accounting": "Accounting", "treasury": "Treasury", "fiscalite": "Tax",
+    "marches": "Contracts", "contracts": "Contracts", "projects": "Projects",
+    "livraisons": "Delivery Notes", "stock": "Inventory",
+    "recurringExpenses": "Recurring Expenses", "documents": "Documents",
+    "approbations": "Approvals", "notifications": "Notifications",
+    "support": "Support", "subscription": "Subscription",
+    "users": "Users", "audit": "Audit Log",
+    "onboarding": "Getting Started", "settings": "Settings", "logout": "Sign Out",
+    "sales": "Sales", "purchases": "Purchases & Inventory",
+    "contractsProjects": "Contracts & Projects", "finance": "Finance",
+    "hr": "HR", "params": "Settings"
+  },
+  "status": {
+    "draft": "Draft", "sent": "Sent", "accepted": "Accepted",
+    "rejected": "Rejected", "paid": "Paid", "partial": "Partial",
+    "overdue": "Overdue", "cancelled": "Cancelled", "active": "Active",
+    "inactive": "Inactive", "suspended": "Suspended", "trial": "Trial",
+    "expired": "Expired", "delivered": "Delivered", "pending": "Pending",
+    "approved": "Approved", "refused": "Refused", "invoiced": "Invoiced",
+    "received": "Received", "open": "Open", "closed": "Closed",
+    "planning": "Planning", "completed": "Completed", "onHold": "On Hold"
+  },
+  "dashboard": {
+    "title": "Dashboard", "subtitle": "Fiscal Year {year}",
+    "revenue": "Revenue", "invoicesPending": "Pending Invoices",
+    "overdueInvoices": "Overdue > 30d", "cashflow": "Net Cash",
+    "cashflowChart": "Cash Flow ({period})",
+    "recentInvoices": "Recent Invoices", "alerts": "Alerts",
+    "viewAll": "See all →", "newInvoice": "+ New Invoice",
+    "comparedToLastYear": "{percent}% vs {year}"
+  },
+  "invoice": {
+    "title": "Invoices", "new": "New Invoice", "singular": "Invoice",
+    "number": "Invoice No.", "client": "Client", "issueDate": "Issue Date",
+    "dueDate": "Due Date", "totalHT": "Net Total", "totalTVA": "VAT",
+    "totalTTC": "Gross Total", "paidAmount": "Amount Paid",
+    "remainingAmount": "Balance Due", "notes": "Notes",
+    "lines": "Line Items", "addLine": "+ Add Line",
+    "description": "Description", "quantity": "Qty", "unitPrice": "Unit Price",
+    "discount": "Disc. %", "tvaRate": "VAT %", "send": "Issue Invoice",
+    "cancel": "Cancel Invoice", "generatePdf": "Download PDF",
+    "recordPayment": "Record Payment", "proforma": "Proforma Invoice",
+    "empty": "No invoices"
+  },
+  "devis": {
+    "title": "Quotes", "new": "New Quote", "singular": "Quote",
+    "validUntil": "Valid Until", "convertToInvoice": "→ Invoice",
+    "convertToProforma": "→ Proforma", "converted": "Converted ✓"
+  },
+  "client": {
+    "title": "Clients", "new": "New Client", "singular": "Client",
+    "company": "Company", "individual": "Individual",
+    "nif": "Tax ID", "rccm": "Company Reg.", "balance": "Balance",
+    "creditLimit": "Credit Limit", "paymentTermDays": "Payment Terms",
+    "days": "{n} days"
+  },
+  "employee": {
+    "title": "Staff", "new": "New Staff Member",
+    "employee": "Employee", "intern": "Intern", "freelance": "Freelancer",
+    "grossSalary": "Gross Salary", "indemnity": "Allowance",
+    "netSalary": "Net Salary", "cnssEmployee": "CNSS Employee (3.6%)",
+    "cnssEmployer": "CNSS Employer (16.4%)", "ir": "Income Tax",
+    "startDate": "Start Date", "endDate": "End Date",
+    "contractEndDate": "Contract End",
+    "smigAlert": "⚠ Below minimum wage ({smig} XOF/month)",
+    "smigOk": "✓ Above minimum wage", "seniority": "Seniority",
+    "seniorityBonus": "Seniority Bonus"
+  },
+  "fiscal": {
+    "title": "Tax & Fiscal", "tva": "VAT Return", "cnss": "CNSS Quarterly",
+    "isbic": "Corporate Tax (Annual)", "retenues": "Withholding Tax",
+    "tvaCollectee": "Output VAT (sales)", "tvaDeductible": "Input VAT (purchases)",
+    "tvaNette": "Net VAT", "aVerser": "Amount Due to Tax Authority",
+    "creditReporte": "VAT Credit to Carry Forward", "deadline": "Filing Deadline",
+    "submitted": "✅ Declaration Submitted", "notSubmitted": "⬜ Not Submitted",
+    "submit": "Submit Declaration",
+    "isbicMin": "Minimum Flat Tax", "isbicDue": "Corporate Tax Due {year}",
+    "installments": "Provisional Installments {year}"
+  },
+  "settings": {
+    "title": "Settings", "company": "My Organization",
+    "numbering": "Document Numbering", "users": "Users & Roles",
+    "subscription": "Subscription", "language": "Language",
+    "security": "Security", "branding": "Branding",
+    "numberingTitle": "Document Numbering",
+    "numberingHint": "Format: PREFIX-YYYY-NNNNN",
+    "prefixLabel": "Prefix", "preview": "Preview",
+    "resetDefaults": "Reset to Defaults",
+    "saveNumbering": "Save Numbering",
+    "changeLanguage": "Change Language",
+    "migrationSection": "Migration from existing software",
+    "sequenceStart": "Starting sequence number"
+  },
+  "errors": {
+    "required": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "passwordTooShort": "Password too short (minimum 8 characters)",
+    "networkError": "Network error — check your connection",
+    "unauthorized": "Session expired — please sign in again",
+    "forbidden": "Access denied", "notFound": "Resource not found",
+    "serverError": "Server error — please try again",
+    "smigViolation": "Salary below Niger minimum wage ({smig} XOF/month)",
+    "insufficientStock": "Insufficient stock. Available: {qty} {unit}",
+    "insufficientBalance": "Insufficient balance ({balance} XOF). Required: {required} XOF",
+    "prefixTooShort": "Prefix must be 2 to 6 characters",
+    "prefixInvalidChars": "Allowed characters: letters, numbers and hyphens"
+  },
+  "auth": {
+    "login": "Sign In", "logout": "Sign Out",
+    "email": "Email", "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "signIn": "Sign In", "signingIn": "Signing in…",
+    "invalidCredentials": "Invalid email or password",
+    "welcome": "Welcome to Kanoo"
+  },
+  "language": { "fr": "Français", "en": "English", "selectLanguage": "Language" }
+}

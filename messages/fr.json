@@ -1,0 +1,138 @@
+{
+  "common": {
+    "save": "Enregistrer", "cancel": "Annuler", "delete": "Supprimer",
+    "edit": "Modifier", "create": "Créer", "close": "Fermer",
+    "confirm": "Confirmer", "back": "Retour", "next": "Suivant",
+    "loading": "Chargement…", "saving": "Enregistrement…",
+    "search": "Rechercher…", "filter": "Filtrer", "export": "Exporter",
+    "print": "Imprimer", "download": "Télécharger", "upload": "Importer",
+    "yes": "Oui", "no": "Non", "all": "Tous", "none": "Aucun",
+    "required": "obligatoire", "optional": "optionnel",
+    "total": "Total", "subtotal": "Sous-total", "actions": "Actions",
+    "details": "Détails", "status": "Statut", "date": "Date",
+    "amount": "Montant", "currency": "XOF", "noResults": "Aucun résultat",
+    "noData": "Aucune donnée", "seeAll": "Voir tout →",
+    "newItem": "Nouveau", "of": "sur", "page": "Page", "perPage": "par page",
+    "previous": "Précédent", "description": "Description"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord", "clients": "Clients", "invoices": "Factures",
+    "devis": "Devis", "commandes": "Bons de commande", "suppliers": "Fournisseurs",
+    "employees": "Collaborateurs", "payslips": "Bulletins de paie",
+    "accounting": "Comptabilité", "treasury": "Trésorerie", "fiscalite": "Fiscalité",
+    "marches": "Marchés", "contracts": "Contrats", "projects": "Projets",
+    "livraisons": "Bons de livraison", "stock": "Stock",
+    "recurringExpenses": "Dépenses récurrentes", "documents": "Documents",
+    "approbations": "Approbations", "notifications": "Notifications",
+    "support": "Support", "subscription": "Abonnement",
+    "users": "Utilisateurs", "audit": "Journal d'audit",
+    "onboarding": "Démarrage", "settings": "Paramètres", "logout": "Déconnexion",
+    "sales": "Ventes", "purchases": "Achats & Stock",
+    "contractsProjects": "Contrats & Projets", "finance": "Finance",
+    "hr": "RH", "params": "Paramètres"
+  },
+  "status": {
+    "draft": "Brouillon", "sent": "Émise", "accepted": "Accepté",
+    "rejected": "Refusé", "paid": "Soldée", "partial": "Partielle",
+    "overdue": "En retard", "cancelled": "Annulée", "active": "Actif",
+    "inactive": "Inactif", "suspended": "Suspendu", "trial": "Essai",
+    "expired": "Expiré", "delivered": "Livré", "pending": "En attente",
+    "approved": "Approuvé", "refused": "Refusé", "invoiced": "Facturé",
+    "received": "Reçu", "open": "Ouvert", "closed": "Clôturé",
+    "planning": "Planification", "completed": "Terminé", "onHold": "En pause"
+  },
+  "dashboard": {
+    "title": "Tableau de bord", "subtitle": "Exercice {year}",
+    "revenue": "Chiffre d'affaires", "invoicesPending": "Factures en attente",
+    "overdueInvoices": "Impayés > 30j", "cashflow": "Trésorerie nette",
+    "cashflowChart": "Flux de trésorerie ({period})",
+    "recentInvoices": "Factures récentes", "alerts": "Alertes",
+    "viewAll": "Voir tout →", "newInvoice": "+ Nouvelle facture",
+    "comparedToLastYear": "{percent}% vs {year}"
+  },
+  "invoice": {
+    "title": "Factures", "new": "Nouvelle facture", "singular": "Facture",
+    "number": "N° Facture", "client": "Client", "issueDate": "Date d'émission",
+    "dueDate": "Date d'échéance", "totalHT": "Total HT", "totalTVA": "TVA",
+    "totalTTC": "Total TTC", "paidAmount": "Montant encaissé",
+    "remainingAmount": "Reste dû", "notes": "Notes",
+    "lines": "Lignes de facturation", "addLine": "+ Ajouter une ligne",
+    "description": "Description", "quantity": "Quantité", "unitPrice": "P.U. HT",
+    "discount": "Rem. %", "tvaRate": "TVA %", "send": "Émettre la facture",
+    "cancel": "Annuler la facture", "generatePdf": "Télécharger PDF",
+    "recordPayment": "Enregistrer un paiement", "proforma": "Facture Proforma",
+    "empty": "Aucune facture"
+  },
+  "devis": {
+    "title": "Devis", "new": "Nouveau devis", "singular": "Devis",
+    "validUntil": "Valide jusqu'au", "convertToInvoice": "→ Facture",
+    "convertToProforma": "→ Proforma", "converted": "Converti ✓"
+  },
+  "client": {
+    "title": "Clients", "new": "Nouveau client", "singular": "Client",
+    "company": "Entreprise", "individual": "Particulier",
+    "nif": "NIF", "rccm": "RCCM", "balance": "Solde",
+    "creditLimit": "Limite de crédit", "paymentTermDays": "Délai de paiement",
+    "days": "{n} jours"
+  },
+  "employee": {
+    "title": "Collaborateurs", "new": "Nouveau collaborateur",
+    "employee": "Employé", "intern": "Stagiaire", "freelance": "Freelance",
+    "grossSalary": "Salaire brut", "indemnity": "Indemnité",
+    "netSalary": "Salaire net", "cnssEmployee": "CNSS salarié (3,6%)",
+    "cnssEmployer": "CNSS patronal (16,4%)", "ir": "IR (impôt revenu)",
+    "startDate": "Date d'entrée", "endDate": "Date de fin",
+    "contractEndDate": "Fin de contrat",
+    "smigAlert": "⚠ Inférieur au SMIG ({smig} XOF/mois)",
+    "smigOk": "✓ Conforme SMIG", "seniority": "Ancienneté",
+    "seniorityBonus": "Prime d'ancienneté"
+  },
+  "fiscal": {
+    "title": "Fiscalité", "tva": "Déclaration TVA", "cnss": "CNSS trimestriel",
+    "isbic": "IS/BIC annuel", "retenues": "Retenues à la source",
+    "tvaCollectee": "TVA collectée (ventes)", "tvaDeductible": "TVA déductible (achats)",
+    "tvaNette": "TVA nette", "aVerser": "Montant à verser à la DGI",
+    "creditReporte": "Crédit de TVA à reporter", "deadline": "Date limite de dépôt",
+    "submitted": "✅ Déclaration soumise", "notSubmitted": "⬜ Non soumise",
+    "submit": "Soumettre la déclaration",
+    "isbicMin": "Minimum forfaitaire", "isbicDue": "IS/BIC dû {year}",
+    "installments": "Acomptes provisionnels {year}"
+  },
+  "settings": {
+    "title": "Paramètres", "company": "Mon organisation",
+    "numbering": "Numérotation", "users": "Utilisateurs & Rôles",
+    "subscription": "Abonnement", "language": "Langue",
+    "security": "Sécurité", "branding": "Apparence",
+    "numberingTitle": "Numérotation des documents",
+    "numberingHint": "Format : PRÉFIXE-AAAA-NNNNN",
+    "prefixLabel": "Préfixe", "preview": "Aperçu",
+    "resetDefaults": "Rétablir les valeurs par défaut",
+    "saveNumbering": "Enregistrer la numérotation",
+    "changeLanguage": "Changer la langue",
+    "migrationSection": "Migration depuis un logiciel existant",
+    "sequenceStart": "Numéro de départ"
+  },
+  "errors": {
+    "required": "Ce champ est obligatoire",
+    "invalidEmail": "Email invalide",
+    "passwordTooShort": "Mot de passe trop court (minimum 8 caractères)",
+    "networkError": "Erreur réseau — vérifiez votre connexion",
+    "unauthorized": "Session expirée — veuillez vous reconnecter",
+    "forbidden": "Accès refusé", "notFound": "Ressource introuvable",
+    "serverError": "Erreur serveur — réessayez dans quelques instants",
+    "smigViolation": "Salaire inférieur au SMIG Niger ({smig} XOF/mois)",
+    "insufficientStock": "Stock insuffisant. Disponible : {qty} {unit}",
+    "insufficientBalance": "Solde insuffisant ({balance} XOF). Requis : {required} XOF",
+    "prefixTooShort": "Le préfixe doit comporter 2 à 6 caractères",
+    "prefixInvalidChars": "Caractères autorisés : lettres, chiffres et tiret"
+  },
+  "auth": {
+    "login": "Connexion", "logout": "Déconnexion",
+    "email": "Email", "password": "Mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
+    "signIn": "Se connecter", "signingIn": "Connexion…",
+    "invalidCredentials": "Email ou mot de passe incorrect",
+    "welcome": "Bienvenue sur Kanoo"
+  },
+  "language": { "fr": "Français", "en": "English", "selectLanguage": "Langue" }
+}
