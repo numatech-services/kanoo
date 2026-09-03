@@ -162,7 +162,7 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   }, [pathname]);
 
   return (
-    <aside className="w-64 bg-[#171310] dark:bg-[#0f0c09] text-white flex flex-col h-full overflow-hidden flex-shrink-0">
+    <aside className="w-64 bg-chrome text-white flex flex-col h-full overflow-hidden flex-shrink-0">
       <div className="px-6 py-6 border-b border-white/10">
         <span className="text-xl font-black tracking-tight uppercase">Kanoo</span>
         <p className="text-[10px] font-bold text-white/40 mt-1 uppercase tracking-widest">{profile}</p>

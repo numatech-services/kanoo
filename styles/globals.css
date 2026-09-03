@@ -8,6 +8,7 @@
    Toute couleur Tailwind basée sur ces tokens suit le mode sombre du système.
    ========================================================================= */
 :root {
+  --c-chrome: 23 19 14;    /* fond de la barre latérale */
   --c-ink: 23 19 14;         /* encre chaude */
   --c-bg: 251 247 239;       /* papier clair (variante B) */
   --c-surface: 255 255 255;
@@ -351,6 +352,211 @@
   --r-lg: .875rem;  /* cartes */
   --gutter: 1rem;   /* gouttière unique entre blocs de même niveau */
 }
+
+/* =========================================================================
+   TROIS ESPACES, TROIS IDENTITÉS.
+
+   Kanoo sert trois métiers qui n'ont ni le même tempo, ni le même rapport à
+   l'autorité, ni les mêmes gestes. Leur donner la même peau, c'était demander
+   à un chef d'entreprise, à un trésorier d'association et à un ordonnateur
+   public de reconnaître leur outil dans la même image.
+
+   L'attribut `data-space` porté par la coque redéfinit quatre familles de
+   variables — couleur, forme, mouvement, densité. Aucun écran n'a rien à
+   déclarer : tout ce qui passe par les tokens suit.
+
+   ── Entreprise · « Harmattan » ────────────────────────────────────────────
+   Le commerce, le chantier, la course au règlement. Ambre de soleil sur papier
+   chaud, angles francs, ressort court. Dense : on traite du volume.
+
+   ── Communauté · « Baobab » ───────────────────────────────────────────────
+   L'assemblée, la cotisation, le don. Vert d'acacia et terre cuite sur papier
+   crème, formes très arrondies, décélération douce sans rebond — on ne
+   bouscule pas une assemblée. Aérée : moins de lignes, plus de souffle.
+
+   ── Public · « Ténéré » ───────────────────────────────────────────────────
+   L'acte, le mandat, l'engagement budgétaire. Ardoise et indigo sur papier
+   froid, angles nets, mouvement réduit au strict nécessaire — un acte
+   administratif ne s'anime pas. Très dense, tabulaire : c'est un registre.
+   ========================================================================= */
+
+/* ── Entreprise ─────────────────────────────────────────────────────────── */
+[data-space="pme"] {
+  /* Chrome : le fond de la barre latérale. Un brun chaud sous une palette
+     froide institutionnelle jurerait — il suit donc l'espace. */
+  --c-chrome: 23 19 14;
+  --c-bg: 251 247 239;
+  --c-surface2: 243 236 224;
+  --c-line: 234 225 208;
+  --c-line2: 216 202 176;
+  --c-ink: 23 19 14;
+  --c-ink2: 90 82 69;
+
+  --r-sm: .5rem; --r-md: .625rem; --r-lg: .875rem;
+  --gutter: 1rem;
+  --row-y: .45rem;
+
+  --t-instant: 120ms; --t-quick: 190ms; --t-settle: 520ms;
+  --e-out: cubic-bezier(.16, 1, .3, 1);
+  --e-spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* ── Communauté ─────────────────────────────────────────────────────────── */
+[data-space="association"] {
+  --c-chrome: 16 40 32;       /* vert profond, presque noir */
+  --c-bg: 250 246 238;
+  --c-surface2: 240 235 224;
+  --c-line: 228 221 208;
+  --c-line2: 205 195 178;
+  --c-ink: 26 30 26;          /* encre légèrement verte, pas noire */
+  --c-ink2: 82 92 82;
+  --c-ink3: 128 138 126;
+  --c-accent: 28 106 82;      /* acacia */
+  --c-accent600: 22 88 68;
+  --c-accent700: 17 70 54;
+  --c-accent050: 224 238 232;
+  --c-accent100: 200 226 216;
+
+  /* Formes généreuses : le collectif n'a pas d'angle. */
+  --r-sm: .75rem; --r-md: 1rem; --r-lg: 1.375rem;
+  --gutter: 1.25rem;
+  --row-y: .625rem;
+
+  /* Décélération franche, jamais de rebond. */
+  --t-instant: 150ms; --t-quick: 240ms; --t-settle: 640ms;
+  --e-out: cubic-bezier(.22, 1, .36, 1);
+  --e-spring: cubic-bezier(.22, 1, .36, 1);
+}
+
+/* ── Public ─────────────────────────────────────────────────────────────── */
+[data-space="administration"] {
+  --c-chrome: 15 22 38;       /* bleu de nuit institutionnel */
+  --c-bg: 246 247 250;        /* papier froid */
+  --c-surface2: 237 240 245;
+  --c-line: 223 228 236;
+  --c-line2: 198 206 219;
+  --c-ink: 17 22 33;
+  --c-ink2: 79 88 105;
+  --c-ink3: 122 132 150;
+  --c-accent: 38 62 128;      /* indigo d'encre officielle */
+  --c-accent600: 30 50 105;
+  --c-accent700: 23 39 84;
+  --c-accent050: 229 234 245;
+  --c-accent100: 205 214 235;
+
+  /* Angles nets : la rigueur du registre. */
+  --r-sm: .25rem; --r-md: .3125rem; --r-lg: .4375rem;
+  --gutter: .875rem;
+  --row-y: .375rem;
+
+  /* Mouvement réduit : un acte ne s'anime pas. */
+  --t-instant: 90ms; --t-quick: 130ms; --t-settle: 260ms;
+  --e-out: cubic-bezier(.4, 0, .2, 1);
+  --e-spring: cubic-bezier(.4, 0, .2, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-space="pme"] {
+    --c-chrome: 15 12 9;
+    --c-bg: 22 18 13; --c-surface2: 41 34 26;
+    --c-line: 52 43 32; --c-line2: 71 59 44;
+    --c-ink: 243 236 224; --c-ink2: 185 174 156;
+  }
+  [data-space="association"] {
+    --c-chrome: 10 24 19;
+    --c-bg: 17 22 19; --c-surface2: 31 39 34;
+    --c-line: 43 53 46; --c-line2: 60 74 64;
+    --c-ink: 231 238 232; --c-ink2: 168 184 172; --c-ink3: 124 140 128;
+    --c-accent: 82 186 148; --c-accent600: 62 164 128; --c-accent700: 130 208 178;
+    --c-accent050: 18 36 29; --c-accent100: 24 50 40;
+  }
+  [data-space="administration"] {
+    --c-chrome: 9 14 26;
+    --c-bg: 14 17 24; --c-surface2: 26 31 42;
+    --c-line: 37 44 58; --c-line2: 54 64 84;
+    --c-ink: 228 233 243; --c-ink2: 158 170 192; --c-ink3: 118 130 152;
+    --c-accent: 124 155 232; --c-accent600: 100 133 216; --c-accent700: 160 184 244;
+    --c-accent050: 20 27 44; --c-accent100: 27 37 59;
+  }
+}
+
+/* ── Accents de section, déclinés par espace ──────────────────────────────
+   Chaque espace garde sa famille chromatique jusque dans ses onglets. Le
+   public, en particulier, reste proche du monochrome : un ministère n'a pas
+   sept couleurs, il a des services. */
+
+[data-space="association"] [data-section="accueil"]     { --s-accent:  28 106  82; --s-soft: 224 238 232; }
+[data-space="association"] [data-section="membres"]     { --s-accent:  17 122 116; --s-soft: 219 240 238; }
+[data-space="association"] [data-section="finance"]     { --s-accent:  46  96  60; --s-soft: 226 238 229; }
+[data-space="association"] [data-section="gouvernance"] { --s-accent: 121  85  40; --s-soft: 243 233 219; }
+[data-space="association"] [data-section="contrats"]    { --s-accent: 154  78  52; --s-soft: 247 230 222; }
+[data-space="association"] [data-section="ventes"]      { --s-accent:  26 100 132; --s-soft: 220 236 244; }
+[data-space="association"] [data-section="rh"]          { --s-accent: 148  70  92; --s-soft: 247 228 235; }
+[data-space="association"] [data-section="parametres"]  { --s-accent:  84  92  86; --s-soft: 232 236 233; }
+
+[data-space="administration"] [data-section="accueil"]     { --s-accent:  38  62 128; --s-soft: 229 234 245; }
+[data-space="administration"] [data-section="budget"]      { --s-accent:  22  78 118; --s-soft: 222 236 245; }
+[data-space="administration"] [data-section="gouvernance"] { --s-accent:  62  66 112; --s-soft: 232 233 244; }
+[data-space="administration"] [data-section="achats"]      { --s-accent:  20  86  98; --s-soft: 220 238 241; }
+[data-space="administration"] [data-section="finance"]     { --s-accent:  34  82  74; --s-soft: 224 238 235; }
+[data-space="administration"] [data-section="rh"]          { --s-accent: 106  62  92; --s-soft: 242 229 239; }
+[data-space="administration"] [data-section="contrats"]    { --s-accent:  86  70 124; --s-soft: 235 231 245; }
+[data-space="administration"] [data-section="parametres"]  { --s-accent:  74  82  96; --s-soft: 231 234 238; }
+
+@media (prefers-color-scheme: dark) {
+  [data-space="association"] [data-section="accueil"]     { --s-accent:  82 186 148; --s-soft: 18 36 29; }
+  [data-space="association"] [data-section="membres"]     { --s-accent:  84 196 190; --s-soft: 16 38 37; }
+  [data-space="association"] [data-section="finance"]     { --s-accent: 112 186 132; --s-soft: 20 34 24; }
+  [data-space="association"] [data-section="gouvernance"] { --s-accent: 214 168 100; --s-soft: 40 32 18; }
+  [data-space="association"] [data-section="contrats"]    { --s-accent: 226 148 118; --s-soft: 42 27 21; }
+  [data-space="association"] [data-section="ventes"]      { --s-accent: 106 180 220; --s-soft: 15 30 39; }
+  [data-space="association"] [data-section="rh"]          { --s-accent: 226 146 172; --s-soft: 42 25 32; }
+  [data-space="association"] [data-section="parametres"]  { --s-accent: 172 182 176; --s-soft: 30 35 32; }
+
+  [data-space="administration"] [data-section="accueil"]     { --s-accent: 124 155 232; --s-soft: 20 27 44; }
+  [data-space="administration"] [data-section="budget"]      { --s-accent:  98 170 224; --s-soft: 16 29 41; }
+  [data-space="administration"] [data-section="gouvernance"] { --s-accent: 146 150 224; --s-soft: 25 26 44; }
+  [data-space="administration"] [data-section="achats"]      { --s-accent:  92 184 196; --s-soft: 15 33 36; }
+  [data-space="administration"] [data-section="finance"]     { --s-accent: 104 190 172; --s-soft: 17 33 30; }
+  [data-space="administration"] [data-section="rh"]          { --s-accent: 200 146 190; --s-soft: 38 25 35; }
+  [data-space="administration"] [data-section="contrats"]    { --s-accent: 172 156 228; --s-soft: 30 27 44; }
+  [data-space="administration"] [data-section="parametres"]  { --s-accent: 166 176 192; --s-soft: 29 32 38; }
+}
+
+/* ── Formes propres à chaque espace ───────────────────────────────────────
+   Ce que les variables ne portent pas : l'épaisseur des filets, la présence
+   d'une ombre, la façon dont un tableau se lit. */
+@layer components {
+  /* Communauté : cartes portées par une ombre douce plutôt que par un trait.
+     Le trait cloisonne, l'ombre pose. */
+  [data-space="association"] .surface-card {
+    box-shadow: 0 2px 10px -4px rgb(var(--c-ink) / .09);
+    border-color: rgb(var(--c-line) / .8);
+  }
+  [data-space="association"] .table-dense tbody td { padding-top: var(--row-y); padding-bottom: var(--row-y); }
+  [data-space="association"] .table-dense { font-size: .875rem; }
+
+  /* Public : pas d'ombre, un filet net. Un registre se tient par ses règles.
+     Les lignes alternent, comme sur un état imprimé. */
+  [data-space="administration"] .surface-card { box-shadow: none; }
+  [data-space="administration"] .table-dense { font-size: .8125rem; }
+  [data-space="administration"] .table-dense tbody td {
+    padding-top: var(--row-y); padding-bottom: var(--row-y);
+  }
+  [data-space="administration"] .table-dense tbody tr:nth-child(even) {
+    background: rgb(var(--c-surface2) / .5);
+  }
+  [data-space="administration"] .table-dense thead th {
+    border-bottom-width: 2px;
+    border-color: rgb(var(--c-line2));
+  }
+  /* Le bandeau d'impact devient un cartouche : fond sobre, filet marqué. */
+  [data-space="administration"] .band { border-radius: var(--r-lg); }
+  [data-space="administration"] .pill { border-radius: var(--r-sm); }
+  [data-space="administration"] .fchip { border-radius: var(--r-sm); }
+  [data-space="administration"] .avatar { border-radius: var(--r-sm); }
+}
+
 
 @layer components {
   /* Table dense — une seule définition pour les 40 tableaux du produit. */

@@ -28,6 +28,7 @@ const config: Config = {
         bg: c("--c-bg"),
         surface: c("--c-surface"),
         surface2: c("--c-surface2"),
+        chrome: c("--c-chrome"),
         ink2: c("--c-ink2"),
         ink3: c("--c-ink3"),
         line: c("--c-line"),

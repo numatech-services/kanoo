@@ -409,3 +409,58 @@ describe("Cohérence du vocabulaire de couleur", () => {
     expect(primaries.length).toBeGreaterThan(50);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Trois espaces, trois identités.
+//
+// L'identité tient entièrement dans des variables : si un bloc `[data-space]`
+// venait à passer AVANT une redéclaration `:root` des mêmes variables, il
+// serait écrasé silencieusement — même spécificité, l'ordre décide. Rien ne
+// planterait ; l'espace perdrait simplement sa forme et son tempo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Identité des trois espaces", () => {
+  const css = readFileSync(join(ROOT, "styles/globals.css"), "utf-8");
+  const SPACES = ["pme", "association", "administration"];
+
+  it("déclare les trois espaces", () => {
+    for (const space of SPACES) {
+      expect(css).toContain(`[data-space="${space}"]`);
+    }
+  });
+
+  it("donne à chacun sa forme, son tempo et sa densité", () => {
+    for (const space of SPACES) {
+      const start = css.indexOf(`[data-space="${space}"] {`);
+      expect(start).toBeGreaterThan(-1);
+      const block = css.slice(start, css.indexOf("}", start));
+      for (const token of ["--r-lg", "--t-quick", "--e-out", "--gutter", "--c-chrome"]) {
+        expect(block).toContain(token);
+      }
+    }
+  });
+
+  it("place les espaces après toute redéclaration :root des mêmes variables", () => {
+    // À spécificité égale, c'est l'ordre du fichier qui tranche.
+    const lastRootRadius = css.lastIndexOf("  --r-lg:");
+    const firstSpace = css.indexOf('[data-space="pme"]');
+    expect(firstSpace).toBeGreaterThan(lastRootRadius);
+  });
+
+  it("fait déclarer son espace à chacune des trois coques", () => {
+    const layouts: Array<[string, string]> = [
+      ["app/(dashboard)/layout.tsx", "pme"],
+      ["app/(associations)/layout.tsx", "association"],
+      ["app/(administration)/layout.tsx", "administration"],
+    ];
+    for (const [path, space] of layouts) {
+      expect(readFileSync(join(ROOT, path), "utf-8")).toContain(`space="${space}"`);
+    }
+  });
+
+  it("n'écrit plus le fond de la barre latérale en dur", () => {
+    const sidebar = readFileSync(join(ROOT, "components/layout/Sidebar.tsx"), "utf-8");
+    expect(sidebar).toContain("bg-chrome");
+    expect(sidebar).not.toMatch(/bg-\[#[0-9a-fA-F]{6}\]/);
+  });
+});

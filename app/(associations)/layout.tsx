@@ -7,7 +7,7 @@ import { CommandPalette } from "@/components/shared/CommandPalette";
 
 export default function AssociationsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SectionScope>
+    <SectionScope space="association">
     <div className="flex h-screen overflow-hidden bg-surface2">
       <SidebarWrapper />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
