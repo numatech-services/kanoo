@@ -243,3 +243,54 @@ describe("Lecture des erreurs capturées", () => {
     expect(errorName(null)).toBeNull();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Le solde de trésorerie est calculé, jamais stocké.
+//
+// `TreasuryAccount.balance` était un nombre saisi à la création qu'aucune route
+// ne mettait à jour : l'écran affichait un solde figé pendant des mois. La
+// correction ne tient que si personne ne réintroduit une écriture dessus —
+// c'est très exactement le réflexe qu'on a en voulant « corriger le solde ».
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Trésorerie — le solde ne s'écrit pas", () => {
+  const treasuryWrites = files.filter(f =>
+    /TreasuryAccountModel\s*\.\s*(updateOne|updateMany|findOneAndUpdate|findByIdAndUpdate|bulkWrite)/.test(f.src)
+    || /TreasuryAccountModel[\s\S]{0,200}\$inc[\s\S]{0,60}balance/.test(f.src)
+  );
+
+  it("aucune route ne met à jour un compte de trésorerie par incrément de solde", () => {
+    const offenders = treasuryWrites.filter(f => /balance/.test(f.src));
+    expect(offenders.map(f => f.path)).toEqual([]);
+  });
+
+  it("la liste des comptes recalcule le solde à partir des mouvements", () => {
+    const listRoute = files.find(f => f.path === "app/api/treasury-accounts/route.ts");
+    expect(listRoute).toBeDefined();
+    expect(listRoute!.src).toMatch(/TreasuryMovementModel\.aggregate/);
+    expect(listRoute!.src).toMatch(/openingBalance/);
+  });
+
+  it("un règlement imputé à un compte crée un mouvement dans la même transaction", () => {
+    const payments = files.find(f => f.path === "app/api/payments/route.ts");
+    expect(payments).toBeDefined();
+    expect(payments!.src).toMatch(/TreasuryMovementModel\.create/);
+    // `session` prouve que le mouvement participe à la transaction du paiement :
+    // un règlement enregistré sans son mouvement produirait un écart permanent.
+    expect(payments!.src).toMatch(/TreasuryMovementModel\.create[\s\S]{0,800}session/);
+  });
+
+  it("l'appariement refuse deux montants différents", () => {
+    const match = files.find(f => f.path.endsWith("treasury-accounts/[id]/match/route.ts"));
+    expect(match).toBeDefined();
+    expect(match!.src).toMatch(/movement\.amount\s*!==\s*line\.amount/);
+  });
+
+  it("l'import de relevé s'appuie sur une empreinte d'unicité, pas sur un SELECT préalable", () => {
+    const importRoute = files.find(f => f.path.endsWith("treasury-accounts/[id]/import/route.ts"));
+    expect(importRoute).toBeDefined();
+    expect(importRoute!.src).toMatch(/lineFingerprint/);
+    expect(importRoute!.src).toMatch(/ordered:\s*false/);
+    expect(importRoute!.src).not.toMatch(/BankStatementLineModel\.findOne/);
+  });
+});

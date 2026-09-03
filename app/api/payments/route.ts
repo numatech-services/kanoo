@@ -4,6 +4,7 @@ import { withAuth, created, badRequest, notFound, getPagination, paginatedRespon
 import { PaymentModel } from "@/models/Payment";
 import { InvoiceModel } from "@/models/Invoice";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
+import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { withTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -92,6 +93,27 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
       }],
       { session }
     );
+
+    // 4. Mouvement de trésorerie — c'est lui qui fait le solde.
+    // Sans compte désigné, aucun mouvement n'est créé : mieux vaut un solde
+    // incomplet et signalé qu'un solde imputé au hasard sur un compte.
+    if (body.treasuryAccountId) {
+      await TreasuryMovementModel.create(
+        [{
+          tenantId: auth.tenantId,
+          accountId: body.treasuryAccountId,
+          date: new Date(body.date),
+          amount: amount,
+          label: `Règlement facture ${invoice.number}`,
+          reference: body.reference,
+          source: "payment",
+          linkedDocType: "payment",
+          linkedDocId: payment._id,
+          createdBy: auth.userId,
+        }],
+        { session }
+      );
+    }
 
     return payment;
   });

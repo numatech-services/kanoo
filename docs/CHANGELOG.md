@@ -1,5 +1,59 @@
 # Kanoo — Changelog
 
+## V1.5.0 — Septembre 2026
+
+### Rapprochement bancaire, et un solde de trésorerie qui existe vraiment
+
+**Le défaut d'origine.** `TreasuryAccount.balance` était un nombre saisi à la
+création du compte. Deux routes le décrémentaient — le versement d'un bulletin
+de paie et l'exécution d'une charge récurrente. **Aucune ne l'augmentait**, pas
+même l'encaissement d'une facture. Le solde affiché baissait donc à chaque
+salaire versé et ne remontait jamais. Les deux écritures se faisaient en outre
+par `findByIdAndUpdate` sans filtre de tenant : un identifiant de compte
+appartenant à une autre institution était accepté sans broncher.
+
+**Le solde n'est plus stocké, il est calculé.** Solde d'ouverture déclaré à une
+date connue, plus la somme des mouvements. Un test structurel refuse désormais
+toute réintroduction d'une écriture sur `balance` — c'est le réflexe qu'on a en
+voulant « corriger un solde », et c'est ce qui a créé le problème.
+
+**Ce qui alimente le solde**
+
+- `TreasuryMovement` : tout encaissement ou décaissement, signé, rattaché au
+  document qui l'a produit. Créé **dans la transaction** du règlement, de la
+  paie ou de la dépense : un document écrit sans son mouvement produirait un
+  écart permanent que plus rien ne saurait expliquer.
+- Le formulaire de règlement demande le compte encaissé. Un seul compte
+  configuré : il est pré-rempli. Plusieurs : rien n'est choisi à votre place —
+  un encaissement imputé au mauvais compte se paie au rapprochement du mois
+  suivant. Ne rien désigner reste possible, avec l'avertissement explicite que
+  le règlement n'apparaîtra sur aucun solde.
+
+**Le rapprochement**
+
+- Import d'un relevé CSV, **colonnes désignées par vous**, jamais devinées :
+  deux banques n'exportent pas le même fichier, et une détection qui se trompe
+  de colonne importe des montants faux sans le dire. Les lignes inexploitables
+  vous sont rendues avec leur numéro et le motif — une ligne perdue en silence
+  devient un écart inexpliqué trois semaines plus tard.
+- Réimporter un relevé déjà chargé ne duplique rien : chaque ligne porte une
+  empreinte sous index d'unicité. Un fichier qui recouvre partiellement le
+  précédent n'ajoute que ce qui manque.
+- Propositions d'appariement sur montant identique et date proche (±5 jours),
+  avec les indices qui les motivent. **Le montant est éliminatoire**, y compris
+  sur un appariement manuel : deux opérations de montants différents ne sont pas
+  la même, et laisser passer ferait disparaître un écart réel de l'écran.
+  Chaque proposition reste à valider ; rien ne se rapproche tout seul.
+- Écarter une ligne exige un motif. Sans motif, l'écart reste inexpliqué.
+- L'écran montre les deux colonnes qui comptent : ce qui est enregistré chez
+  vous et que la banque n'a pas encore passé, et ce que la banque a passé et que
+  rien n'explique chez vous. L'écart entre les deux soldes est l'information
+  utile — il est affiché, pas masqué.
+
+**Un compte sans relevé importé le dit.** Le solde affiché est alors le solde
+d'ouverture et ne prouve rien ; l'écran l'annonce plutôt que de laisser croire
+à une concordance.
+
 ## V1.4.0 — Septembre 2026
 
 ### Unification des modules transverses

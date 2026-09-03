@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
 import { PayslipModel } from "@/models/Payslip";
-import { TreasuryAccountModel } from "@/models/TreasuryAccount";
+import { accountBalance, recordMovement } from "@/lib/treasury";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -26,12 +26,27 @@ export const POST = withAuth("payslips", "update", async (req: NextRequest, auth
     await payslip.save({ session });
 
     if (accountId) {
-      // Décrémenter le compte de trésorerie
-      const account = await TreasuryAccountModel.findById(accountId);
-      if (account && account.balance < payslip.netSalary) {
+      // Le solde est calculé, pas stocké : on le dérive des mouvements plutôt
+      // que de lire un champ figé, et le versement s'inscrit comme mouvement.
+      // `findById` seul lisait le compte d'un autre tenant sans le voir.
+      const account = await accountBalance(auth.tenantId, String(accountId), session);
+      if (!account) throw new Error("Compte de trésorerie introuvable");
+      if (account.balance < payslip.netSalary) {
         throw new Error(`Solde insuffisant (${account.balance.toLocaleString("fr-FR")} XOF). Net à payer : ${payslip.netSalary.toLocaleString("fr-FR")} XOF`);
       }
-      await TreasuryAccountModel.findByIdAndUpdate(accountId, { $inc: { balance: -payslip.netSalary } }, { session });
+
+      const empForLabel = payslip.employeeId as { firstName?: string; lastName?: string };
+      await recordMovement({
+        tenantId: auth.tenantId,
+        accountId: String(accountId),
+        date: new Date(),
+        amount: -payslip.netSalary,
+        label: `Salaire ${empForLabel.firstName ?? ""} ${empForLabel.lastName ?? ""} — ${payslip.month}/${payslip.year}`.trim(),
+        source: "payroll",
+        linkedDocType: "payslip",
+        linkedDocId: payslip._id,
+        createdBy: auth.userId,
+      }, session);
 
       const emp = payslip.employeeId as { firstName?: string; lastName?: string; code?: string };
       await AccountingEntryModel.create([{

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { RecurringExpenseModel } from "@/models/RecurringExpense";
-import { TreasuryAccountModel } from "@/models/TreasuryAccount";
+import { recordMovement } from "@/lib/treasury";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -11,7 +11,7 @@ import { TokenPayload } from "@/lib/auth";
 export const GET = withAuth("recurringCharges", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const e = await RecurringExpenseModel.findOne({ _id: params.id, ...tenantFilter(auth) })
-    .populate("treasuryAccountId", "label type balance")
+    .populate("treasuryAccountId", "label type")
     .populate("supplierId", "name code").lean();
   if (!e) return notFound();
   return ok(e);
@@ -41,12 +41,20 @@ export const POST = withAuth("recurringCharges", "update", async (req: NextReque
   const accountId = body.treasuryAccountId || expense.treasuryAccountId;
 
   await withTransaction(async (session) => {
-    // Décrémenter le compte de trésorerie
-    await TreasuryAccountModel.findByIdAndUpdate(
-      accountId,
-      { $inc: { balance: -expense.amount } },
-      { session }
-    );
+    // Le décaissement s'inscrit comme mouvement : c'est lui qui fait le solde.
+    // L'ancien `$inc` sur `balance` écrivait un champ que rien d'autre ne
+    // maintenait, et par `findByIdAndUpdate` sans filtre de tenant.
+    await recordMovement({
+      tenantId: auth.tenantId,
+      accountId: String(accountId),
+      date: new Date(),
+      amount: -expense.amount,
+      label: expense.label || "Dépense récurrente",
+      source: "expense",
+      linkedDocType: "expense",
+      linkedDocId: expense._id,
+      createdBy: auth.userId,
+    }, session);
 
     // Écriture comptable
  // Dans ton fichier POST /api/recurring-expenses/:id/execute

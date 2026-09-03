@@ -288,6 +288,8 @@ export interface IPayment {
   notes?: string;
   createdBy: Types.ObjectId;
   createdAt: Date;
+  /** Compte de trésorerie encaissé. */
+  treasuryAccountId?: Types.ObjectId;
 }
 
 export interface ICommande {
