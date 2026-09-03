@@ -121,6 +121,55 @@ describe("Conventions des routes API", () => {
   });
 });
 
+describe("Modules transverses", () => {
+  const screens = execSync(
+    "find app -name 'page.tsx' -not -path '*/node_modules/*'",
+    { cwd: ROOT, encoding: "utf-8" }
+  ).trim().split("\n").filter(Boolean);
+
+  /** Un écran qui ne fait que rediriger n'est pas une implémentation. */
+  function isRedirect(path: string): boolean {
+    return /redirect\(/.test(readFileSync(join(ROOT, path), "utf-8"));
+  }
+
+  it("un seul écran par module transverse", () => {
+    // Les portails externes sont hors périmètre : ils s'adressent à des
+    // adhérents et des fournisseurs qui n'ont pas de compte applicatif, avec
+    // leur propre authentification et un sous-ensemble de données. Ce n'est
+    // pas une duplication, c'est un autre produit.
+    const internal = screens.filter(p => !p.includes("(portail)"));
+    // Projets, documents et personnel partagent un modèle et une route API.
+    // Les dupliquer par profil coûtait 1 239 lignes en triple et trois
+    // endroits où corriger le même défaut. Le vocabulaire vit désormais dans
+    // lib/vocabulary.ts et l'écran est unique.
+    const modules: Array<[string, RegExp]> = [
+      ["projets", /projets?\/page\.tsx$/],
+      ["documents", /documents\/page\.tsx$/],
+      ["personnel", /(personnel|employees)\/page\.tsx$/],
+    ];
+
+    for (const [name, pattern] of modules) {
+      const implementations = internal
+        .filter(p => pattern.test(p))
+        .filter(p => !isRedirect(p));
+      expect({ module: name, implementations }).toEqual({ module: name, implementations: [implementations[0]] });
+    }
+  });
+
+  it("les anciennes routes redirigent au lieu de disparaître", () => {
+    // Des notifications déjà envoyées et des favoris pointent encore dessus.
+    const legacy = [
+      "app/(associations)/associations/projets/page.tsx",
+      "app/(administration)/administration/projets/page.tsx",
+      "app/(administration)/administration/personnel/page.tsx",
+      "app/(associations)/associations/documents/page.tsx",
+    ];
+    for (const path of legacy) {
+      expect(isRedirect(path)).toBe(true);
+    }
+  });
+});
+
 describe("Cohérence du thème", () => {
   const PALETTE = "red|rose|green|emerald|amber|orange|yellow|blue|indigo|sky|gray|slate|zinc|neutral|purple|violet";
 

@@ -1,5 +1,56 @@
 # Kanoo — Changelog
 
+## V1.4.0 — Septembre 2026
+
+### Unification des modules transverses
+
+Kanoo servait trois profils par trois arborescences séparées. Le choix se
+défend pour les écrans propres à chaque métier — un chapitre budgétaire n'a de
+sens que dans le public. Il ne se défendait plus pour les modules identiques.
+
+**Projets : neuf écrans deviennent un**
+
+Les trois implémentations appelaient **la même route API**, écrivaient dans
+**le même modèle**, et ne différaient que par un littéral (`projectType:
+"ong"` ou `"public"`). Coût : 1 239 lignes à maintenir en triple, et trois
+endroits où corriger le même défaut — ce qui veut dire deux endroits oubliés.
+
+- Le vocabulaire vit désormais dans `lib/vocabulary.ts` : « bailleur » pour une
+  ONG, « maître d'ouvrage » pour une administration, « client » pour une PME.
+  Le profil est lu **côté serveur** depuis le jeton : pas d'appel réseau
+  supplémentaire, pas de clignotement du vocabulaire au chargement.
+- La seule vraie différence de comportement — la source des personnes
+  assignables — est paramétrée : une association affecte des membres du bureau,
+  une entreprise des collaborateurs.
+- **Les PME y gagnent des fonctions.** Leur fiche projet faisait 105 lignes
+  sans tâches, sans documents, sans messagerie ; celle des associations en
+  faisait 454 avec tout cela, pour exactement les mêmes données. L'unification
+  se fait vers le haut.
+
+**Documents et personnel**
+
+`/administration/personnel` et `/associations/documents` tapaient déjà les
+routes `/api/employees` et `/api/documents`. Ils redirigent vers les écrans
+uniques ; les libellés propres à chaque profil sont conservés dans la
+navigation.
+
+**Redirections plutôt que suppressions**
+
+Les anciennes routes sont maintenues en redirection, identifiant compris : des
+notifications déjà envoyées et des favoris pointent encore dessus.
+
+**Garde-fou**
+
+Deux tests structurels refusent une nouvelle duplication et vérifient que les
+anciennes routes redirigent toujours. Les portails externes — adhérent,
+fournisseur — sont hors périmètre : autre authentification, autre public, autre
+sous-ensemble de données.
+
+**Bilan**
+
+−1 349 lignes, +172. 266 tests au vert, 0 erreur de type, 0 erreur de lint,
+build de production réussi.
+
 ## V1.3.1 — Septembre 2026
 
 ### Propagation du système de design aux 126 écrans

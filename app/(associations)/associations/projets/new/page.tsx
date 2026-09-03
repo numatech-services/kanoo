@@ -1,74 +1,14 @@
-"use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { ProjectForm } from "@/components/pme/ProjectForm";
+import { redirect } from "next/navigation";
 
-export default function NewProjetAssoPage() {
-  const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  async function handleSave(data: Record<string, unknown>) {
-    try {
-      setError("");
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
-      
-      const res = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify({ ...data, projectType: "ong" }),
-      });
-      
-      const d = await res.json();
-      if (!res.ok) {
-        setError(d.error || "Une erreur est survenue");
-        return;
-      }
-      
-      router.push(`/associations/projets/${d.data._id}`);
-      router.refresh();
-    } catch (err) {
-      console.error("Error:", err);
-      setError("Une erreur inattendue s'est produite");
-    }
-  }
-
-  return (
-    <>
-      {!mounted ? null : (
-        <div className="space-y-5 max-w-2xl">
-          <div>
-            <Link href="/associations/projets" className="text-xs text-moss hover:text-ink">
-              ← Projets / ONG
-            </Link>
-            <h1 className="text-2xl font-bold text-ink mt-1">Nouveau projet</h1>
-            <p className="text-sm text-moss mt-0.5">
-              Créez un projet ONG, bailleurs de fonds ou projet associatif.
-            </p>
-          </div>
-
-          {error && (
-            <div className="bg-neg-50 border border-neg/25 rounded-lg p-4 text-sm text-neg">
-              {error}
-            </div>
-          )}
-
-          <div className="bg-surface rounded-2xl border border-clay/20 p-6">
-            <ProjectForm
-              onSave={handleSave}
-              onCancel={() => router.push("/associations/projets")}
-              defaultType="ong"
-            />
-          </div>
-        </div>
-      )}
-    </>
-  );
+/**
+ * Module unifié : cet écran dupliquait une implémentation identique à
+ * un littéral près. Il redirige vers l'écran unique, dont le
+ * vocabulaire s'adapte au profil du tenant (voir lib/vocabulary.ts).
+ *
+ * La redirection est conservée plutôt que la page supprimée : les liens
+ * envoyés par notification et les favoris des utilisateurs pointent
+ * encore ici.
+ */
+export default function Page() {
+  redirect("/projects/new");
 }

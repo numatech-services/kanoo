@@ -93,6 +93,8 @@ const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
   ["/associations/membres", "membres"],
   ["/associations/cotisations", "membres"],
   ["/associations/dons", "membres"],
+  // Ces deux préfixes ne servent plus qu'aux redirections : les écrans ont été
+  // unifiés sous /projects et /documents (voir lib/vocabulary.ts).
   ["/associations/projets", "contrats"],
   ["/associations/documents", "contrats"],
   ["/associations/dashboard", "accueil"],

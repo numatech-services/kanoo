@@ -100,7 +100,7 @@ const ASSO_NAV: NavGroup[] = [
     { label: "Dons", href: "/associations/dons", icon: <Heart size={18} /> },
   ]},
   { section: "Projets", items: [
-    { label: "Projets / ONG", href: "/associations/projets", icon: <Folder size={18} /> },
+    { label: "Projets / ONG", href: "/projects", icon: <Folder size={18} /> },
   ]},
 ];
 
@@ -119,7 +119,7 @@ const ADMIN_NAV: NavGroup[] = [
     { label: "Appels d'offres", href: "/administration/marches-publics", icon: <Gavel size={18} /> },
   ]},
   { section: "Personnel", items: [
-    { label: "Gestion du personnel", href: "/administration/personnel", icon: <UserCircle size={18} /> },
+    { label: "Gestion du personnel", href: "/employees", icon: <UserCircle size={18} /> },
   ]},
   { section: "Recettes", items: [
     { label: "Recettes publiques", href: "/administration/recettes", icon: <Banknote size={18} /> },

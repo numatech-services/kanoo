@@ -1,10 +1,14 @@
-"use client";
-import Link from "next/link";
-export default function AssoDocumentsPage() {
-  return (
-    <div className="space-y-5">
-      <h1 className="text-2xl font-bold text-ink">Documents associatifs</h1>
-      <p className="text-moss text-sm">Statuts, PV d'AG, conventions, rapports d'activité. Partagez ce module avec <Link href="/documents" className="text-cedar hover:underline">la GED centrale</Link>.</p>
-    </div>
-  );
+import { redirect } from "next/navigation";
+
+/**
+ * Module unifié : cet écran dupliquait une implémentation identique à
+ * un littéral près. Il redirige vers l'écran unique, dont le
+ * vocabulaire s'adapte au profil du tenant (voir lib/vocabulary.ts).
+ *
+ * La redirection est conservée plutôt que la page supprimée : les liens
+ * envoyés par notification et les favoris des utilisateurs pointent
+ * encore ici.
+ */
+export default function Page() {
+  redirect("/documents");
 }

@@ -87,7 +87,7 @@ export default function AssoDashboardPage() {
       icon: Folder, 
       color: "text-warn",
       bg: "bg-warn-50",
-      link: "/associations/projets"
+      link: "/projects"
     },
   ];
 
