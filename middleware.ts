@@ -9,7 +9,7 @@ const PUBLIC_EXACT_PATHS = [
   // Récupération de compte : par construction, l'utilisateur n'a pas de session.
   "/mot-de-passe-oublie", "/reinitialiser",
 ];
-const PUBLIC_PREFIX_PATHS = ["/_next", "/favicon.ico", "/api/auth", "/api/public", "/api/demo-requests", "/manifest.json", "/sw.js", "/offline", "/robots.txt", "/sitemap.xml"];
+const PUBLIC_PREFIX_PATHS = ["/_next", "/favicon.ico", "/api/auth", "/api/public", "/api/demo-requests", "/api/cron", "/manifest.json", "/sw.js", "/offline", "/robots.txt", "/sitemap.xml"];
 
 // ─── Sécurité ────────────────────────────────────────────────────────────────
 function withSecurityHeaders(res: NextResponse): NextResponse {

@@ -362,10 +362,12 @@ describe("Relances — ce qui ne doit jamais partir tout seul", () => {
   });
 
   it("fait tourner le job de nuit sur le même moteur que l'écran", () => {
-    const scheduler = stripNonCode(readFileSync(join(ROOT, "scripts/scheduler.ts"), "utf-8"));
-    expect(scheduler).toMatch(/planForTenant/);
+    // Les tâches planifiées vivent dans lib/cron-jobs.ts (partagé entre le
+    // scheduler VPS et l'endpoint /api/cron) ; c'est là que se lit l'invariant.
+    const jobs = stripNonCode(readFileSync(join(ROOT, "lib/cron-jobs.ts"), "utf-8"));
+    expect(jobs).toMatch(/planForTenant/);
     // Le cron n'envoie jamais une étape à validation.
-    expect(scheduler).toMatch(/action\.needsApproval/);
+    expect(jobs).toMatch(/action\.needsApproval/);
   });
 });
 
