@@ -36,7 +36,6 @@ export async function middleware(req: NextRequest) {
   const token = req.cookies.get("auth_token")?.value;
 
   if (!token) {
-    console.log("⚠️ [Middleware] AUCUN TOKEN détecté pour : - middleware.ts:35", pathname);
     if (pathname.startsWith("/api")) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
@@ -58,8 +57,6 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
 
-    console.log(`✅ [Middleware] Accès accordé : ${auth.role} > ${pathname} - middleware.ts:51`);
-
     // 4. Logique de redirection selon les rôles
     if (auth.role === "superadmin") {
       return withSecurityHeaders(NextResponse.next());
@@ -73,7 +70,7 @@ export async function middleware(req: NextRequest) {
     return withSecurityHeaders(NextResponse.next());
 
   } catch (err) {
-    console.log("❌ [Middleware] Erreur critique : - middleware.ts:66", err);
+    console.error("[Middleware] Erreur de vérification du jeton", err);
     // Même règle dans le filet : une API reçoit 401, pas une redirection HTML.
     if (pathname.startsWith("/api")) {
       return withSecurityHeaders(NextResponse.json({ error: "Session invalide" }, { status: 401 }));
