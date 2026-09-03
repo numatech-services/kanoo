@@ -8,6 +8,8 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { fullXof } from "@/components/ui/charts/geometry";
 import { RETENUES_DETAILLEES } from "@/lib/niger-fiscal";
+import { Paperclip } from "lucide-react";
+import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 
 interface Purchase {
   _id: string;
@@ -55,6 +57,7 @@ export default function AchatsAbonnementsPage() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [open, setOpen] = useState(false);
+  const [docsFor, setDocsFor] = useState<Purchase | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,17 +156,17 @@ export default function AchatsAbonnementsPage() {
           <table className="table-dense min-w-[54rem]">
             <thead>
               <tr>
-                {["Référence", "Produit", "Fournisseur", "Période", "Quantité", "Coût (XOF)", "Statut"].map(h => (
-                  <th key={h}>{h}</th>
+                {["Référence", "Produit", "Fournisseur", "Période", "Quantité", "Coût (XOF)", "Statut", ""].map((h, i) => (
+                  <th key={h || i}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={7} className="py-10 text-center text-ink3">Chargement…</td></tr>
+                <tr><td colSpan={8} className="py-10 text-center text-ink3">Chargement…</td></tr>
               )}
               {!loading && items.length === 0 && (
-                <tr><td colSpan={7} className="py-10 text-center text-ink3">Aucun contrat souscrit</td></tr>
+                <tr><td colSpan={8} className="py-10 text-center text-ink3">Aucun contrat souscrit</td></tr>
               )}
               {items.map(item => {
                 const supplier = typeof item.supplierId === "object" ? item.supplierId?.name : "—";
@@ -198,6 +201,14 @@ export default function AchatsAbonnementsPage() {
                         {STATUS_LABEL[item.status] || item.status}
                       </span>
                     </td>
+                    <td>
+                      {/* Le contrat fournisseur, sa facture, ses conditions
+                          tarifaires : sans eux, on renégocie de mémoire. */}
+                      <button onClick={() => setDocsFor(item)} title="Documents du contrat"
+                        className="p-1.5 rounded-lg text-ink3 hover:text-section hover:bg-section-soft">
+                        <Paperclip size={14} />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -205,6 +216,20 @@ export default function AchatsAbonnementsPage() {
           </table>
         </div>
       </div>
+
+      <Modal open={Boolean(docsFor)} onClose={() => setDocsFor(null)}
+        title={docsFor ? `Documents — ${docsFor.productName}` : "Documents"} size="lg">
+        {docsFor && (
+          <AttachmentPanel
+            host="subscriptions"
+            hostId={docsFor._id}
+            title="Contrat fournisseur et pièces"
+            hint="Contrat signé, conditions tarifaires, factures du fournisseur."
+            categories={["contrat", "avenant", "facture", "courrier", "autre"]}
+            defaultCategory="contrat"
+          />
+        )}
+      </Modal>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Nouveau contrat souscrit" size="xl">
         <form onSubmit={handleSubmit} className="space-y-4">

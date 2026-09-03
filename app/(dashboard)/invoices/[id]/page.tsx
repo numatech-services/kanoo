@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { CreditNoteDialog } from "@/components/pme/CreditNoteDialog";
 import { Modal } from "@/components/ui/Modal";
 import { PaymentForm } from "@/components/pme/PaymentForm";
+import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 
 interface InvoiceLine { 
   description: string; 
@@ -479,6 +480,20 @@ export default function InvoiceDetailPage() {
           )}
         </div>
       </div>
+      {/* Bon de commande du client, procès-verbal de réception, justificatif
+          de virement : les pièces qui rendent la facture défendable en cas de
+          contestation, rangées avec elle plutôt que dans une boîte mail. */}
+      <div className="print:hidden">
+        <AttachmentPanel
+          host="invoices"
+          hostId={String(id)}
+          title="Pièces du dossier"
+          hint="Bon de commande, PV de réception, preuve de règlement."
+          categories={["facture", "justificatif", "courrier", "autre"]}
+          defaultCategory="justificatif"
+        />
+      </div>
+
       <CreditNoteDialog
         open={creditOpen}
         onClose={() => setCreditOpen(false)}

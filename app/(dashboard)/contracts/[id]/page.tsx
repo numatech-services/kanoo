@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 
 export default function ContractDetailPage() {
   const params = useParams();
@@ -69,6 +70,18 @@ export default function ContractDetailPage() {
           <div className="font-medium">{contract.clientId?.name || "N/A"}</div>
         </div>
       </div>
+
+      {/* Le contrat signé, ses avenants, les courriers échangés. Un contrat
+          dont le PDF vit dans une boîte mail n'est pas opposable le jour où
+          l'on en a besoin. */}
+      <AttachmentPanel
+        host="contracts"
+        hostId={String(id)}
+        title="Documents du contrat"
+        hint="Contrat signé, avenants, courriers. PDF, Word, Excel ou image."
+        categories={["contrat", "avenant", "courrier", "autre"]}
+        defaultCategory="contrat"
+      />
     </div>
   );
 }

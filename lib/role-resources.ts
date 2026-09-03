@@ -1,6 +1,12 @@
 import { UserRole } from "@/types";
 
-type Action = "create" | "read" | "update" | "delete";
+/**
+ * `approve` est une autorité distincte, pas un cas particulier de `update` :
+ * un responsable qui n'a pas à corriger une note de frais doit pouvoir la
+ * valider, et un comptable qui la corrige n'a pas forcément à l'approuver.
+ * Les ressources qui ne la déclarent pas ne l'accordent à personne.
+ */
+type Action = "create" | "read" | "update" | "delete" | "approve";
 
 interface ResourcePermissions {
   [resource: string]: Action[];
@@ -9,6 +15,7 @@ interface ResourcePermissions {
 // ─── PME Roles ───────────────────────────────────────────────────────────────
 
 const PME_ADMIN: ResourcePermissions = {
+  expenses: ["create", "read", "update", "delete", "approve"],
   users: ["create", "read", "update", "delete"],
   companies: ["create", "read", "update", "delete"],
   clients: ["create", "read", "update", "delete"],
@@ -39,6 +46,7 @@ const PME_ADMIN: ResourcePermissions = {
 };
 
 const PME_MANAGER: ResourcePermissions = {
+  expenses: ["create", "read", "update", "approve"],
   clients: ["create", "read", "update"],
   suppliers: ["create", "read", "update"],
   products: ["create", "read", "update"],
@@ -61,6 +69,7 @@ const PME_MANAGER: ResourcePermissions = {
 };
 
 const PME_ACCOUNTANT: ResourcePermissions = {
+  expenses: ["create", "read", "update", "approve"],
   clients: ["read"],
   suppliers: ["read"],
   subscriptions: ["read"],
@@ -78,6 +87,7 @@ const PME_ACCOUNTANT: ResourcePermissions = {
 };
 
 const PME_SALES: ResourcePermissions = {
+  expenses: ["create", "read"],
   clients: ["create", "read", "update"],
   subscriptions: ["create", "read", "update"],
   products: ["read"],
@@ -90,6 +100,7 @@ const PME_SALES: ResourcePermissions = {
 };
 
 const PME_PURCHASES: ResourcePermissions = {
+  expenses: ["create", "read"],
   suppliers: ["create", "read", "update"],
   subscriptions: ["create", "read", "update"],
   products: ["read", "update"],
@@ -101,6 +112,7 @@ const PME_PURCHASES: ResourcePermissions = {
 };
 
 const PME_HR: ResourcePermissions = {
+  expenses: ["create", "read"],
   employees: ["create", "read", "update", "delete"],
   payslips: ["create", "read", "update", "delete"],
   fiscalDeclarations: ["read"],
@@ -110,6 +122,7 @@ const PME_HR: ResourcePermissions = {
 };
 
 const PME_PROJECT_MANAGER: ResourcePermissions = {
+  expenses: ["create", "read"],
   clients: ["read"],
   projects: ["create", "read", "update", "delete"],
   contracts: ["create", "read", "update"],
@@ -121,6 +134,7 @@ const PME_PROJECT_MANAGER: ResourcePermissions = {
 };
 
 const PME_APPROVER: ResourcePermissions = {
+  expenses: ["read", "approve"],
   invoices: ["read"],
   commandes: ["read"],
   publicTenders: ["read"],
@@ -130,6 +144,7 @@ const PME_APPROVER: ResourcePermissions = {
 };
 
 const PME_VIEWER: ResourcePermissions = {
+  expenses: ["read"],
   clients: ["read"],
   subscriptions: ["read"],
   suppliers: ["read"],
@@ -151,6 +166,7 @@ const PME_VIEWER: ResourcePermissions = {
 // ─── Associations Roles ───────────────────────────────────────────────────────
 
 const ASSO_PRESIDENT: ResourcePermissions = {
+  expenses: ["create", "read", "update", "delete", "approve"],
   users: ["create", "read", "update", "delete"],
   companies: ["read", "update"],
   membres: ["create", "read", "update", "delete"],
@@ -168,6 +184,7 @@ const ASSO_PRESIDENT: ResourcePermissions = {
 };
 
 const ASSO_TREASURER: ResourcePermissions = {
+  expenses: ["create", "read", "update", "approve"],
   membres: ["read"],
   cotisations: ["create", "read", "update", "delete"],
   dons: ["create", "read", "update", "delete"],
@@ -180,6 +197,7 @@ const ASSO_TREASURER: ResourcePermissions = {
 };
 
 const ASSO_SECRETARY: ResourcePermissions = {
+  expenses: ["create", "read"],
   membres: ["create", "read", "update", "delete"],
   bureau: ["create", "read", "update", "delete"],
   cotisations: ["read"],
@@ -191,6 +209,7 @@ const ASSO_SECRETARY: ResourcePermissions = {
 };
 
 const ASSO_PROJECT_MANAGER: ResourcePermissions = {
+  expenses: ["create", "read"],
   projects: ["create", "read", "update", "delete"],
   documents: ["create", "read"],
   notifications: ["read", "update"],
@@ -207,6 +226,7 @@ const ASSO_MEMBER_PORTAL: ResourcePermissions = {
 // ─── Administration Roles ─────────────────────────────────────────────────────
 
 const ADMIN_ORDONNATEUR: ResourcePermissions = {
+  expenses: ["create", "read", "update", "delete", "approve"],
   users: ["read"],
   employees: ["create", "read", "update", "delete"],
   budgetChapters: ["create", "read", "update", "delete"],

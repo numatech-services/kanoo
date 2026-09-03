@@ -464,3 +464,57 @@ describe("Identité des trois espaces", () => {
     expect(sidebar).not.toMatch(/bg-\[#[0-9a-fA-F]{6}\]/);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pièces jointes — les octets ne sortent que par une porte gardée.
+//
+// L'implémentation d'origine écrivait dans `public/uploads/`, que Next sert en
+// statique sans autorisation : un bulletin de paie, un contrat, un
+// justificatif devenaient lisibles par quiconque connaissait l'URL — et une
+// URL fuit par un courriel transféré ou un en-tête Referer.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Pièces jointes — stockage et accès", () => {
+  it("n'écrit plus rien sous public/", () => {
+    const offenders = files.filter(f => /public["'\s,\]]*[,\s]*["']uploads/.test(f.src));
+    expect(offenders.map(f => f.path)).toEqual([]);
+  });
+
+  it("ne versionne aucun fichier téléversé", () => {
+    const tracked = execSync("git ls-files public/uploads var/uploads", { cwd: ROOT, encoding: "utf-8" }).trim();
+    expect(tracked).toBe("");
+  });
+
+  it("dérive le droit d'accès du document porteur", () => {
+    const list = files.find(f => f.path === "app/api/attachments/route.ts");
+    const one = files.find(f => f.path === "app/api/attachments/[id]/route.ts");
+    expect(list).toBeDefined();
+    expect(one).toBeDefined();
+    // Lire la pièce d'un contrat suppose de pouvoir lire les contrats : sans
+    // ce contrôle, un droit « pièces jointes » générique ouvrirait tout.
+    expect(list!.src).toMatch(/canPerformAction\(auth\.role as UserRole, host, "read"\)/);
+    expect(one!.src).toMatch(/canPerformAction\(auth\.role as UserRole, doc\.host, "read"\)/);
+  });
+
+  it("force le téléchargement plutôt que l'affichage dans l'origine", () => {
+    const one = files.find(f => f.path === "app/api/attachments/[id]/route.ts")!;
+    // Un document affiché dans l'origine de l'application emprunterait la
+    // session de son lecteur ; `nosniff` empêche de deviner un type plus
+    // permissif que celui déclaré.
+    expect(one.src).toMatch(/Content-Disposition/);
+    expect(one.src).toMatch(/X-Content-Type-Options/);
+  });
+
+  it("ne laisse jamais sortir la clé de stockage", () => {
+    const list = files.find(f => f.path === "app/api/attachments/route.ts")!;
+    expect(list.src).toMatch(/select\("-storageKey"\)/);
+  });
+
+  it("vérifie la signature du contenu, pas seulement l'extension", () => {
+    const storage = readFileSync(join(ROOT, "lib/storage.ts"), "utf-8");
+    expect(storage).toMatch(/magic/);
+    // Un SVG est un document exécutable : servi depuis l'origine, il vaut une
+    // faille XSS stockée.
+    expect(storage).toMatch(/"\.svg"/);
+  });
+});

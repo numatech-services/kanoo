@@ -30,3 +30,8 @@ coverage/
 
 # Misc
 *.tsbuildinfo
+
+# Fichiers téléversés — hors de public/, servis uniquement par
+# /api/attachments/:id après contrôle du droit. Jamais versionnés.
+/var/uploads/
+/public/uploads/

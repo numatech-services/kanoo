@@ -1,92 +1,69 @@
 import { NextRequest } from "next/server";
-import crypto from "crypto";
-import { withAuth, ok, notFound, badRequest, tenantFilter, serverError } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { ProjectModel } from "@/models/Project";
-import { DocumentModel } from "@/models/Document";
-import { TokenPayload } from "@/lib/auth";
+import { AttachmentModel } from "@/models/Attachment";
+import { validate, store, STORAGE_MESSAGES } from "@/lib/storage";
 import { logAudit } from "@/lib/audit";
+import { TokenPayload } from "@/lib/auth";
 
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+export const dynamic = "force-dynamic";
 
-// Extensions autorisées (liste blanche) + taille maximale.
-const ALLOWED_EXT = new Set([".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".txt"]);
-const MAX_SIZE = 10 * 1024 * 1024; // 10 Mo
+/**
+ * Documents d'un projet.
+ *
+ * Cette route écrivait dans `public/uploads/`, que Next sert en statique sans
+ * la moindre autorisation : le document d'un projet devenait lisible par
+ * quiconque connaissait l'URL, y compris hors de l'organisation. Elle passe
+ * désormais par le stockage protégé — les octets ne sortent que par
+ * `/api/attachments/:id`, après vérification du droit.
+ *
+ * Elle est conservée plutôt que supprimée : l'écran projet l'appelle, et une
+ * route qui disparaît casse un client hors ligne qui rejoue sa file d'attente.
+ */
+export const GET = withAuth("projects", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
+  const items = await AttachmentModel.find({
+    ...tenantFilter(auth), host: "projects", hostId: params.id,
+  }).select("-storageKey").sort({ createdAt: -1 }).lean();
+  return ok({ items });
+});
 
 export const POST = withAuth("projects", "update", async (req: NextRequest, auth: TokenPayload, params) => {
-  const { id } = params;
+  const form = await req.formData().catch(() => null);
+  if (!form) return badRequest("Requête multipart attendue.");
 
-  try {
-    // 1. Récupération des données du formulaire
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
-    const name = formData.get("name") as string;
-    const type = formData.get("type") as string;
+  const file = form.get("file");
+  if (!(file instanceof File)) return badRequest("Fichier manquant");
 
-    if (!file) return badRequest("Fichier manquant");
+  // L'appartenance du projet se vérifie AVANT toute écriture sur disque.
+  const project = await ProjectModel.findOne({ _id: params.id, ...tenantFilter(auth) }).select("_id");
+  if (!project) return notFound();
 
-    // 1.b Validations serveur : extension (liste blanche) + taille bornée.
-    const ext = path.extname(path.basename(file.name)).toLowerCase();
-    if (!ALLOWED_EXT.has(ext)) return badRequest("Type de fichier non autorisé");
-    if (file.size > MAX_SIZE) return badRequest("Fichier trop volumineux (max 10 Mo)");
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const check = validate(file.name, file.type, buffer);
+  if (!check.ok) return badRequest(STORAGE_MESSAGES[check.error]);
 
-    // 1.c Vérifier l'appartenance du projet AVANT toute écriture sur disque.
-    const projectItem = await ProjectModel.findOne({ _id: id, ...tenantFilter(auth) });
-    if (!projectItem) return notFound();
+  const stored = await store(auth.tenantId, file.name, check.mime, buffer);
 
-    // 2. SAUVEGARDE PHYSIQUE DU FICHIER (Local)
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+  const attachment = await AttachmentModel.create({
+    tenantId: auth.tenantId,
+    host: "projects",
+    hostId: params.id,
+    category: String(form.get("type") || "autre") === "contrat" ? "contrat" : "autre",
+    label: String(form.get("name") || "").trim() || undefined,
+    filename: stored.filename,
+    mime: stored.mime,
+    size: stored.size,
+    sha256: stored.sha256,
+    storageKey: stored.storageKey,
+    uploadedBy: auth.userId,
+  });
 
-    // Nom régénéré : neutralise toute traversée de chemin (../) issue de file.name.
-    const fileName = `${crypto.randomUUID()}${ext}`;
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    const filePath = path.join(uploadDir, fileName);
+  await logAudit(auth, "CREATE", "documents", {
+    resourceId: String(attachment._id),
+    metadata: { host: "projects", hostId: String(params.id), size: stored.size },
+  });
 
-    await mkdir(uploadDir, { recursive: true });
-    await writeFile(filePath, buffer);
-
-    const fileUrl = `/uploads/${fileName}`;
-
-    // 3. Création de l'entrée dans la collection Documents (MongoDB)
-    const newDoc = await DocumentModel.create({
-      tenantId: auth.tenantId,
-      name: name || file.name,
-      type: type || "autre",
-      size: file.size,
-      url: fileUrl,
-      linkedTo: "Project",
-      linkedId: id,
-      uploadedBy: auth.userId,
-    });
-
-    // 4. Mise à jour du Projet (le projet a déjà été vérifié ci-dessus)
-    await ProjectModel.updateOne(
-      { _id: id, ...tenantFilter(auth) },
-      {
-        $push: {
-          documents: {
-            _id: newDoc._id,
-            name: newDoc.name,
-            url: newDoc.url,
-            type: newDoc.type,
-            uploadedAt: new Date(),
-            uploadedBy: auth.userId,
-          },
-        },
-      }
-    );
-
-    // 5. Audit
-    await logAudit(auth, "UPDATE", "projects", {
-      resourceId: id,
-      metadata: { action: "add_document", documentId: String(newDoc._id) },
-    });
-
-    return ok(newDoc);
-
-  } catch (error) {
-    console.error("Erreur Upload:", error);
-    return serverError(error);
-  }
+  const safe = attachment.toObject();
+  delete safe.storageKey;
+  return ok(safe);
 });
