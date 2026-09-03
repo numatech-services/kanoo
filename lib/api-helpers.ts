@@ -51,6 +51,18 @@ export function serverError(error: unknown) {
   if (errorName(error) === "CastError") {
     return notFound("Ressource introuvable (identifiant invalide).");
   }
+  // Une ValidationError Mongoose vient d'un corps de requête invalide (un type
+  // qui ne cadre pas, un champ requis absent), pas d'une panne du serveur : elle
+  // se rend en 400, avec la liste des champs fautifs, plutôt qu'en 500 avec une
+  // référence d'incident pour ce qui est une faute de saisie de l'appelant.
+  if (errorName(error) === "ValidationError") {
+    const fields = Object.keys((error as { errors?: Record<string, unknown> }).errors ?? {});
+    return badRequest(
+      fields.length > 0
+        ? `Champs invalides : ${fields.join(", ")}.`
+        : "Données invalides."
+    );
+  }
 
   const ref = crypto.randomBytes(6).toString("hex");
   console.error(`[API Error ${ref}]`, error);
