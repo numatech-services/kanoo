@@ -294,3 +294,77 @@ describe("Trésorerie — le solde ne s'écrit pas", () => {
     expect(importRoute!.src).not.toMatch(/BankStatementLineModel\.findOne/);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Relances — les garde-fous qui protègent la relation client.
+//
+// Ce module est le seul du produit qui écrit à des tiers. Une régression ici ne
+// se voit pas dans les logs : elle se voit dans les réponses des clients, trois
+// semaines plus tard.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Relances — ce qui ne doit jamais partir tout seul", () => {
+  const settingsRoute = files.find(f => f.path === "app/api/relances/parametres/route.ts");
+  const runRoute = files.find(f => f.path === "app/api/relances/executer/route.ts");
+  const manualRoute = files.find(f => f.path.endsWith("invoices/[id]/relance/route.ts"));
+
+  it("expose les trois routes du module", () => {
+    expect(settingsRoute).toBeDefined();
+    expect(runRoute).toBeDefined();
+    expect(manualRoute).toBeDefined();
+  });
+
+  it("force la validation humaine sur une mise en demeure, quoi que dise l'appelant", () => {
+    // Le formulaire peut proposer la case ; l'API ne doit pas laisser un appel
+    // direct installer un courrier juridique expédié par un cron.
+    expect(settingsRoute!.src).toMatch(/tone === "formal_notice" \? true/);
+  });
+
+  it("n'exécute une étape à validation que si elle est nommément approuvée", () => {
+    expect(runRoute!.src).toMatch(/needsApproval && !approved\.has/);
+  });
+
+  it("refuse d'exécuter quand le module est désactivé", () => {
+    expect(runRoute!.src).toMatch(/settings\.enabled/);
+  });
+
+  it("journalise avant d'envoyer — c'est l'index d'unicité qui empêche le doublon", () => {
+    const sender = stripNonCode(
+      readFileSync(join(ROOT, "lib/dunning-send.ts"), "utf-8")
+    );
+    const logAt = sender.indexOf("DunningLogModel.create");
+    const sendAt = sender.indexOf("sendEmail(");
+    expect(logAt).toBeGreaterThan(-1);
+    expect(sendAt).toBeGreaterThan(-1);
+    expect(logAt).toBeLessThan(sendAt);
+    // Un doublon n'est pas une erreur : c'est le garde-fou qui joue.
+    expect(sender).toMatch(/code === 11000/);
+  });
+
+  it("scelle l'unicité (organisation, facture, étape) dans le modèle", () => {
+    const model = readFileSync(join(ROOT, "models/DunningLog.ts"), "utf-8");
+    expect(model).toMatch(/tenantId: 1, invoiceId: 1, stepIndex: 1 \}, \{ unique: true \}/);
+  });
+
+  it("laisse les relances désactivées par défaut", () => {
+    const model = readFileSync(join(ROOT, "models/DunningSettings.ts"), "utf-8");
+    expect(model).toMatch(/enabled: \{ type: Boolean, default: false \}/);
+  });
+
+  it("refuse de relancer un avoir, un brouillon ou une facture soldée, même à la main", () => {
+    for (const pattern of [/documentType === "credit_note"/, /status === "draft"/, /outstanding <= 0/]) {
+      expect(manualRoute!.src).toMatch(pattern);
+    }
+  });
+
+  it("réserve les index négatifs aux envois manuels, pour ne pas consommer le barème", () => {
+    expect(manualRoute!.src).toMatch(/stepIndex: -\(manualCount \+ 1\)/);
+  });
+
+  it("fait tourner le job de nuit sur le même moteur que l'écran", () => {
+    const scheduler = stripNonCode(readFileSync(join(ROOT, "scripts/scheduler.ts"), "utf-8"));
+    expect(scheduler).toMatch(/planForTenant/);
+    // Le cron n'envoie jamais une étape à validation.
+    expect(scheduler).toMatch(/action\.needsApproval/);
+  });
+});

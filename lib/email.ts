@@ -17,6 +17,11 @@ export interface EmailAttachment {
 
 export interface EmailPayload {
   to: string | string[];
+  /**
+   * Copie invisible. Sert aux relances : l'équipe garde la trace du courrier
+   * parti sans que le client voie une adresse interne en copie.
+   */
+  bcc?: string | string[];
   subject: string;
   html: string;
   text?: string;
@@ -45,6 +50,10 @@ async function sendViaBrevo(payload: EmailPayload): Promise<void> {
     textContent: payload.text,
   };
   if (payload.replyTo) Object.assign(body, { replyTo: { email: payload.replyTo } });
+  if (payload.bcc) {
+    const bccList = Array.isArray(payload.bcc) ? payload.bcc : [payload.bcc];
+    Object.assign(body, { bcc: bccList.map(email => ({ email })) });
+  }
   if (payload.attachments?.length) {
     Object.assign(body, {
       attachment: payload.attachments.map((a) => ({ name: a.filename, content: a.content.toString("base64") })),
@@ -86,6 +95,9 @@ async function sendViaSMTP(payload: EmailPayload): Promise<void> {
   await transporter.sendMail({
     from: payload.from || FROM_DEFAULT,
     to: Array.isArray(payload.to) ? payload.to.join(", ") : payload.to,
+    ...(payload.bcc
+      ? { bcc: Array.isArray(payload.bcc) ? payload.bcc.join(", ") : payload.bcc }
+      : {}),
     subject: payload.subject,
     html: payload.html,
     text: payload.text,
@@ -108,6 +120,7 @@ export async function sendEmail(payload: EmailPayload): Promise<{ sent: boolean;
     console.log(`\n[Email CONSOLE] ──────────────────────────────`);
     console.log(`  TO      : ${to || "(vide)"}`);
     console.log(`  SUBJECT : ${payload.subject}`);
+    if (payload.bcc) console.log(`  BCC     : ${Array.isArray(payload.bcc) ? payload.bcc.join(", ") : payload.bcc}`);
     if (payload.text) console.log(`  TEXT    : ${payload.text.slice(0, 150)}`);
     if (payload.attachments?.length) console.log(`  PJ      : ${payload.attachments.map((a) => a.filename).join(", ")}`);
     console.log(`──────────────────────────────────────────────\n`);

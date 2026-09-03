@@ -72,6 +72,15 @@ const InvoiceSchema = new Schema<IInvoice>(
       },
     },
     paidAmount: { type: Number, default: 0 },
+
+    /**
+     * Litige ouvert par le client. Suspend les relances automatiques : relancer
+     * une facture contestée transforme un désaccord sur une ligne en conflit
+     * sur la relation.
+     */
+    disputedAt: Date,
+    disputeReason: String,
+
     notes: String,
     termsAndConditions: String,
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },

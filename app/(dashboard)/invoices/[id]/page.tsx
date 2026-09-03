@@ -32,6 +32,9 @@ interface Invoice {
   issueDate: string; 
   dueDate: string; 
   notes?: string; 
+  /** Litige ouvert : suspend les relances automatiques. */
+  disputedAt?: string;
+  disputeReason?: string;
   documentType?: "invoice" | "credit_note";
   originalInvoiceId?: string;
   creditReason?: string;
@@ -47,6 +50,8 @@ export default function InvoiceDetailPage() {
   const [mounted, setMounted] = useState(false);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [dunningBusy, setDunningBusy] = useState(false);
+  const [dunningNote, setDunningNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   
@@ -121,6 +126,46 @@ export default function InvoiceDetailPage() {
     if (res.ok) { setPaymentOpen(false); load(); }
   }
 
+  async function relancer() {
+    setDunningBusy(true);
+    setDunningNote(null);
+    const csrfRes = await fetch("/api/auth/csrf");
+    const { csrfToken } = await csrfRes.json();
+    const res = await fetch(`/api/invoices/${id}/relance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+      credentials: "include",
+      body: JSON.stringify({ tone: "reminder", channels: ["email"] }),
+    });
+    const d = await res.json();
+    // Un échec d'envoi doit se lire : une relance qu'on croit partie et qui
+    // n'est jamais arrivée est pire que pas de relance du tout.
+    setDunningNote({ ok: res.ok, text: res.ok ? d.data.message : (d.error || "Envoi impossible") });
+    setDunningBusy(false);
+  }
+
+  async function toggleLitige() {
+    const open = !invoice?.disputedAt;
+    const reason = open
+      ? window.prompt("Que conteste le client ?\nSans motif, personne ne saura de quoi il s'agissait dans trois mois.")
+      : null;
+    if (open && !reason?.trim()) return;
+
+    setDunningBusy(true);
+    const csrfRes = await fetch("/api/auth/csrf");
+    const { csrfToken } = await csrfRes.json();
+    const res = await fetch(`/api/invoices/${id}/litige`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+      credentials: "include",
+      body: JSON.stringify({ open, reason }),
+    });
+    const d = await res.json();
+    setDunningNote({ ok: res.ok, text: res.ok ? d.data.message : (d.error || "Action impossible") });
+    setDunningBusy(false);
+    if (res.ok) load();
+  }
+
   async function sendInvoice() {
     if (!confirm("Marquer cette facture comme émise ?")) return;
     const csrfRes = await fetch("/api/auth/csrf");
@@ -160,6 +205,21 @@ export default function InvoiceDetailPage() {
           {credited >= invoice.totalTTC ? " — cette facture est intégralement créditée." : "."}
         </p>
       )}
+      {invoice.disputedAt && (
+        <p className="px-4 py-3 rounded-xl bg-warn-50 border border-warn/25 text-sm text-warn">
+          <strong>Litige ouvert</strong> depuis le{" "}
+          {new Date(invoice.disputedAt).toLocaleDateString("fr-FR")}. Les relances
+          automatiques sont suspendues sur cette facture.
+          {invoice.disputeReason && <> Motif&nbsp;: {invoice.disputeReason}.</>}
+        </p>
+      )}
+      {dunningNote && (
+        <p className={`px-4 py-3 rounded-xl text-sm border ${
+          dunningNote.ok ? "bg-pos-50 border-pos/25 text-pos" : "bg-neg-50 border-neg/25 text-neg"
+        }`}>
+          {dunningNote.text}
+        </p>
+      )}
       <div className="flex items-start justify-between">
         <div>
           <button onClick={() => router.push("/invoices")} className="text-xs text-moss hover:text-ink">
@@ -193,6 +253,22 @@ export default function InvoiceDetailPage() {
             <button onClick={() => setPaymentOpen(true)} className="px-4 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95">
               Paiement
             </button>
+          )}
+          {!isCreditNote && ["sent", "partial", "overdue"].includes(invoice.status) && remaining > 0 && (
+            <>
+              <button onClick={relancer} disabled={dunningBusy}
+                className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand disabled:opacity-50">
+                {dunningBusy ? "Envoi…" : "Relancer"}
+              </button>
+              <button onClick={toggleLitige} disabled={dunningBusy}
+                className={`px-4 py-2 rounded-xl text-sm disabled:opacity-50 ${
+                  invoice.disputedAt
+                    ? "bg-warn text-white hover:brightness-95"
+                    : "border border-clay/30 text-moss hover:bg-sand"
+                }`}>
+                {invoice.disputedAt ? "Clore le litige" : "Litige"}
+              </button>
+            </>
           )}
           {/* Un brouillon s'annule ; une facture émise ne s'annule plus, elle
               se corrige par un avoir. Les deux actions ne coexistent jamais. */}

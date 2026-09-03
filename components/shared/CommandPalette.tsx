@@ -31,6 +31,7 @@ const COMMANDS: Command[] = [
   { label: "Factures", href: "/invoices", section: "ventes", keywords: "avoir facturation" },
   { label: "Nouvelle facture", href: "/invoices/new", section: "ventes", keywords: "créer facturer" },
   { label: "Factures impayées", href: "/invoices?overdue=true", section: "ventes", keywords: "retard relance échue" },
+  { label: "Relances", href: "/relances", section: "ventes", keywords: "recouvrement impayés mise en demeure barème dso" },
   { label: "Bons de livraison", href: "/livraisons", section: "ventes", keywords: "BL expédition" },
   { label: "Paiements", href: "/payments", section: "ventes", keywords: "encaissement règlement" },
   { label: "CRM", href: "/crm", section: "ventes", keywords: "pipeline opportunité prospect" },

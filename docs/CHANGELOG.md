@@ -1,5 +1,70 @@
 # Kanoo — Changelog
 
+## V1.6.0 — Septembre 2026
+
+### Relances clients : la chaîne qui manquait
+
+`templateInvoiceReminder` et `smsFactureRelance` existaient depuis l'origine.
+**Rien ne les appelait.** Le traitement de 06 h 30 notifiait les administrateurs
+qu'une facture était échue ; le client, lui, n'était jamais relancé. Kanoo
+constatait l'impayé sans rien faire pour le réduire.
+
+**Un barème, pas un envoi en masse**
+
+Cinq étapes par défaut, dont la première part **avant** l'échéance : c'est la
+seule qui évite le retard au lieu de le constater, et la seule dont l'effet se
+mesure sur le délai d'encaissement. Le ton monte ensuite sans jamais accuser —
+un retard est le plus souvent administratif, et le message qui suppose la
+mauvaise foi se retourne contre l'émetteur quand la facture dormait dans une
+bannette.
+
+**Ce qui ne part jamais tout seul**
+
+- **La mise en demeure.** Elle engage juridiquement. Le barème peut la rendre
+  due ; elle reste sur l'écran jusqu'à ce qu'un humain coche la ligne. Le job de
+  nuit la saute, l'API refuse de la désactiver, un test le verrouille.
+- **Rien, tant que l'organisation ne s'est pas prononcée.** `enabled` vaut
+  `false` par défaut : la mise à jour n'écrit à personne.
+- **Une facture en litige.** Réclamer ce que le client conteste transforme un
+  désaccord sur une ligne en conflit sur la relation. Le litige s'ouvre depuis
+  la facture, avec motif obligatoire.
+
+**Le piège du premier jour, et sa correction**
+
+Activer les relances sur un portefeuille déjà ancien est le moment où ce genre
+de module fait le plus de dégâts : avec une logique de « première étape non
+envoyée », un client qui traîne depuis six mois reçoit le rappel de courtoisie,
+puis la relance à J+3, puis celle de J+10 — un message tous les cinq jours pour
+une facture unique. Le moteur retient **l'étape la plus avancée parmi celles
+échues** et clôt les précédentes comme dépassées. Une facture, un message.
+
+**Pas de doublon, même en cas de rejeu**
+
+La trace est écrite **avant** l'envoi, sous un index d'unicité
+(organisation, facture, étape). Un cron dupliqué sur deux machines, un serveur
+relancé, une exécution manuelle lancée pendant l'automatique : la seconde
+écriture est rejetée par la base. Le prix est assumé et symétrique — un envoi
+en échec laisse une trace `failed` et ne repart pas seul, parce qu'une adresse
+qui rejette doit être vue, pas retentée en boucle.
+
+**L'écran dit aussi ce qui ne part pas**
+
+L'aperçu appelle le même moteur que le job de nuit — pas de promesse à l'écran
+démentie au réveil. Il montre les relances prêtes, celles en attente de
+validation, et **la liste des factures écartées avec leur motif** : sous le
+seuil, sans coordonnées, déjà relancée, en litige. Une campagne silencieusement
+partielle qu'on croit complète est pire qu'une campagne annulée.
+
+**Mesures ajoutées** : balance âgée par tranche d'ancienneté, et délai moyen de
+règlement pondéré par les montants — dix petites factures payées comptant ne
+compensent pas une grosse à quatre-vingt-dix jours, ce que dit pourtant une
+moyenne simple. Sans donnée exploitable, l'indicateur affiche « — » plutôt que
+« 0 jour », qui se lirait comme un paiement comptant généralisé.
+
+**Au passage** : `EmailPayload` accepte enfin une copie invisible, câblée aux
+deux fournisseurs (Brevo et SMTP), pour que l'équipe garde la trace des
+courriers partis sans exposer une adresse interne au client.
+
 ## V1.5.0 — Septembre 2026
 
 ### Rapprochement bancaire, et un solde de trésorerie qui existe vraiment

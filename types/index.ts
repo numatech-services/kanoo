@@ -240,6 +240,9 @@ export interface IInvoice {
   issueDate: Date;
   dueDate: Date;
   paidAmount: number;
+  /** Litige ouvert : suspend les relances automatiques. */
+  disputedAt?: Date;
+  disputeReason?: string;
   notes?: string;
   termsAndConditions?: string;
   createdBy: Types.ObjectId;

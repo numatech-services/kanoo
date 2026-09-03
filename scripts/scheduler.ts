@@ -25,6 +25,8 @@ import { SubscriptionPurchaseModel } from "../models/SubscriptionPurchase";
 import { SubscriptionSaleModel } from "../models/SubscriptionSale";
 import { buildAlerts, type PurchaseLike, type SaleLike } from "../lib/subscriptions";
 import { resetYearlySequences } from "../lib/numbering";
+import { planForTenant } from "../lib/dunning-context";
+import { executeAction } from "../lib/dunning-send";
 
 config({ path: ".env.local" });
 config({ path: ".env" });
@@ -249,6 +251,56 @@ cron.schedule("30 9 * * *", job("Abonnements", async () => {
   return `${sent} notification(s) pour ${tenants.size} organisation(s)`;
 }), TZ);
 
+// ─── 10:00 — Relances clients ────────────────────────────────────────────────
+//
+// Le seul job qui écrit à des tiers. Il exécute exactement le plan que l'écran
+// d'aperçu affiche — même moteur, mêmes garde-fous — et n'envoie jamais une
+// étape marquée « validation requise » : une mise en demeure ne part pas d'un
+// cron. Elle reste visible sur l'écran, en attente d'une décision humaine.
+cron.schedule("0 10 * * *", job("Relances clients", async () => {
+  const tenants = await TenantModel.find({ subscriptionStatus: { $in: ["active", "trial"] } })
+    .select("_id name").lean<Array<{ _id: Id; name: string }>>();
+
+  let sent = 0, failed = 0, held = 0, active = 0;
+
+  for (const tenant of tenants) {
+    const { plan, context, settings } = await planForTenant(String(tenant._id));
+    if (!settings.enabled || plan.actions.length === 0) continue;
+    active++;
+
+    const invoiceById = new Map(context.invoices.map(i => [String(i._id), i]));
+
+    for (const action of plan.actions) {
+      if (action.needsApproval) { held++; continue; }
+
+      const client = context.clients.get(action.clientId);
+      const invoice = invoiceById.get(action.invoiceId);
+      if (!client || !invoice?.dueDate) continue;
+
+      const result = await executeAction(
+        action,
+        { email: client.email, phone: client.phone },
+        {
+          tenantId: String(tenant._id),
+          tenantName: context.tenantName,
+          settings,
+          automatic: true,
+          bccEmail: settings.bccEmail,
+        },
+        new Date(invoice.dueDate)
+      );
+
+      if (result.outcome === "sent" || result.outcome === "partial") sent++;
+      else if (result.outcome === "failed") {
+        failed++;
+        console.error(`[Scheduler] Relance ${result.invoiceNumber} en échec : ${result.errors.join(" ; ")}`);
+      }
+    }
+  }
+
+  return `${sent} relance(s) pour ${active} organisation(s), ${held} en attente de validation, ${failed} en échec`;
+}), TZ);
+
 // ─── 1er du mois, 01:00 — Rappels TVA et purge des jetons expirés ────────────
 cron.schedule("0 1 1 * *", job("Rappels TVA et purge", async () => {
   const now = new Date();
@@ -308,5 +360,6 @@ console.log("   08:00 — Fins de contrat employé");
 console.log("   08:30 — Dépenses récurrentes échues");
 console.log("   09:00 — Relances CRM");
 console.log("   09:30 — Échéances des abonnements");
+console.log("   10:00 — Relances clients (si activées)");
 console.log("   1er du mois 01:00 — Rappels TVA et purge des jetons");
 console.log("   1er janvier 00:01 — Remise à zéro de la numérotation");
