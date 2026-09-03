@@ -1,5 +1,97 @@
 # Kanoo — Changelog
 
+## V1.7.0 — Septembre 2026
+
+### Trois espaces, trois identités
+
+Kanoo sert trois métiers qui n'ont ni le même tempo, ni le même rapport à
+l'autorité, ni les mêmes gestes.
+
+| | Couleur | Formes | Mouvement | Densité |
+|---|---|---|---|---|
+| **Entreprise · Harmattan** | Ambre sur papier chaud | Angles francs | Ressort court | Compacte |
+| **Communauté · Baobab** | Acacia sur papier crème | Très arrondies | Décélération douce, aucun rebond | Aérée |
+| **Public · Ténéré** | Indigo sur papier froid | Angles nets, aucune ombre | Réduit au nécessaire | Tabulaire |
+
+L'identité tient dans quatre familles de variables redéfinies par `data-space`
+sur la coque. **Aucun des cent trente écrans n'a une ligne à changer.** Les
+accents de section se déclinent dans la famille de leur espace : un onglet
+« Finance » n'a pas la même teinte chez une association que dans une
+administration.
+
+Le site vitrine s'en sert : les cartes de profil portent `data-space` et se
+rendent donc dans l'identité réelle de leur espace, à partir des mêmes tokens
+que l'application. Le visiteur ne lit pas que le produit s'adapte à son métier,
+il le voit.
+
+### Pièces jointes — la porte était grande ouverte
+
+Le téléversement écrivait dans `public/uploads/`, que Next sert en statique
+**sans passer par la moindre autorisation**. Un bulletin de paie, un contrat, un
+justificatif devenaient lisibles par quiconque connaissait l'URL, y compris hors
+de l'organisation. Le nom en UUID rendait la devinette difficile ; il ne
+remplaçait pas un contrôle d'accès, et une URL fuit par un courriel transféré ou
+un en-tête `Referer`.
+
+Deux documents clients réels étaient de surcroît **versionnés** sous
+`public/uploads/` depuis le commit `b151dfa`, donc déjà sur `origin/main`. Ils
+sortent du suivi ; leur purge de l'historique reste à décider.
+
+Le nouveau socle : stockage hors de `public/`, adressé par empreinte SHA-256 —
+le même justificatif joint deux fois ne pèse qu'une. Validation en trois temps :
+extension interdite (un SVG est un document exécutable), type inconnu, puis
+concordance des octets de tête — un `.pdf` qui commence par `<script` n'est pas
+un PDF. Le droit d'accès est celui du **document porteur** : lire la pièce d'un
+contrat exige le droit de lire les contrats. Sortie unique par
+`/api/attachments/:id`, en téléchargement forcé.
+
+Un panneau réutilisable est branché sur les contrats, les contrats d'abonnement
+fournisseur, les factures et les projets.
+
+### Notes de frais et capture des justificatifs
+
+Le geste réel : on photographie le reçu au comptoir. `capture="environment"`
+ouvre l'appareil photo arrière directement — réclamer un fichier trois jours plus
+tard, c'est réclamer un reçu déjà perdu.
+
+**Bloquant** : une dépense sans justificatif quand sa nature l'exige, une TVA
+récupérée sans facture, un objet manquant, une devise sans taux.
+**Signalé seulement** : un dépassement de plafond, une dépense ancienne. Bloquer
+un dépassement pousserait le salarié à reclasser sa dépense dans une autre
+nature — on perdrait la dépense réelle *et* le contrôle.
+
+La TVA non récupérable **reste dans la charge**. La sortir sans la déduire ferait
+disparaître du résultat une dépense réellement supportée : c'est l'erreur
+classique sur les frais de restauration.
+
+Aucun barème kilométrique par défaut. Le Niger n'en publie pas ; en inventer un
+ferait passer un chiffre arbitraire pour une référence opposable.
+
+Personne n'approuve sa propre note, y compris un administrateur. Une note
+approuvée ne redevient pas brouillon : elle a produit une écriture, l'annuler
+suppose une contre-passation.
+
+### Relevé de compte client
+
+`Client.currentBalance` reproduisait le défaut du solde de trésorerie : mis à
+zéro à la création, protégé en écriture, incrémenté par aucune route. La colonne
+« Solde actuel » affichait donc **zéro pour tout le monde**, y compris pour un
+client devant plusieurs millions.
+
+Le relevé donne la suite des mouvements qui mènent au solde, avec un solde
+courant après chacun — un solde sans son chemin ne se conteste pas, il se subit.
+Trois pièges évités : le solde d'ouverture porte sur tout l'antérieur ; les
+avoirs se retranchent ; à date égale, la facture précède le règlement qui
+l'éteint, faute de quoi un paiement comptant affiche un solde négatif
+transitoire. L'ancienneté se lit pièce par pièce. Le PDF passe par le même
+moteur que l'écran.
+
+### Vitrine
+
+Trois témoignages nominatifs — noms, fonctions, organisations, chiffres —
+étaient inventés. Ils cèdent la place à ce qui se vérifie. L'emplacement reste
+ouvert pour de vrais clients, cités avec leur accord.
+
 ## V1.6.0 — Septembre 2026
 
 ### Relances clients : la chaîne qui manquait
