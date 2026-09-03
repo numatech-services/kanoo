@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, created, badRequest, conflict, paginatedResponse, getPagination, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { ClientModel } from "@/models/Client";
+import { InvoiceModel } from "@/models/Invoice";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -29,11 +30,40 @@ export const GET = withAuth("clients", "read", async (req: NextRequest, auth: To
       .sort({ name: 1 })
       .skip(pagination.skip)
       .limit(pagination.limit)
-      .lean(),
+      .lean<Array<{ _id: unknown; currentBalance?: number }>>(),
     ClientModel.countDocuments(filter),
   ]);
 
-  return paginatedResponse(items, total, pagination);
+  // Le solde est **calculé**, pas stocké.
+  //
+  // `currentBalance` était mis à zéro à la création, protégé en écriture, et
+  // incrémenté par aucune route : la colonne « Solde » affichait zéro pour
+  // tout le monde, y compris pour un client devant plusieurs millions.
+  //
+  // Restant dû = TTC − règlements − avoirs. Omettre les avoirs gonflerait la
+  // créance d'un montant déjà crédité au client.
+  const ids = items.map(c => c._id);
+  const balances = await InvoiceModel.aggregate<{ _id: unknown; due: number }>([
+    { $match: {
+      ...tenantFilter(auth),
+      clientId: { $in: ids },
+      documentType: { $ne: "credit_note" },
+      status: { $in: ["sent", "partial", "overdue"] },
+    } },
+    { $group: {
+      _id: "$clientId",
+      due: { $sum: { $subtract: [
+        "$totalTTC",
+        { $add: ["$paidAmount", { $ifNull: ["$creditedAmount", 0] }] },
+      ] } },
+    } },
+  ]);
+  const dueBy = new Map(balances.map(b => [String(b._id), Math.max(0, b.due)]));
+
+  return paginatedResponse(
+    items.map(c => ({ ...c, currentBalance: dueBy.get(String(c._id)) ?? 0 })),
+    total, pagination
+  );
 });
 
 // POST /api/clients — Créer un client

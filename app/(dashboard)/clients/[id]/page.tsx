@@ -37,6 +37,9 @@ export default function ClientDetailPage() {
         <div><a href="/clients" className="text-xs text-ink2 hover:text-ink">← Clients</a><h1 className="text-2xl font-bold text-ink mt-1">{client.name}</h1><p className="text-ink2 text-sm">{client.code} · {client.type === "company" ? "Entreprise" : "Particulier"}</p></div>
         <div className="flex gap-2 mt-2">
           <button onClick={()=>setEditOpen(true)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Modifier</button>
+          {/* Le document qu'on envoie quand le client dit « je ne sais plus
+              ce que je vous dois ». */}
+          <a href={`/clients/${id}/releve`} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Relevé</a>
           <a href={`/invoices/new?clientId=${id}`} className="px-4 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95">+ Facture</a>
         </div>
       </div>

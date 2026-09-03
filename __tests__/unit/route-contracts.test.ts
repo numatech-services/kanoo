@@ -518,3 +518,50 @@ describe("Pièces jointes — stockage et accès", () => {
     expect(storage).toMatch(/"\.svg"/);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Les soldes se calculent, ils ne se stockent pas.
+//
+// Deux champs portaient la même erreur : `TreasuryAccount.balance`, corrigé
+// précédemment, et `Client.currentBalance` — mis à zéro à la création,
+// explicitement protégé en écriture, et incrémenté par aucune route. La
+// colonne « Solde » affichait donc zéro pour tout le monde, y compris pour un
+// client devant plusieurs millions.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Solde client — calculé, jamais stocké", () => {
+  const list = files.find(f => f.path === "app/api/clients/route.ts");
+  const detail = files.find(f => f.path === "app/api/clients/[id]/route.ts");
+
+  it("dérive le solde des factures ouvertes, en liste comme en détail", () => {
+    for (const route of [list, detail]) {
+      expect(route).toBeDefined();
+      expect(route!.src).toMatch(/InvoiceModel\.aggregate/);
+      // Les avoirs se retranchent : les omettre gonflerait la créance d'un
+      // montant déjà crédité au client.
+      expect(route!.src).toMatch(/creditedAmount/);
+    }
+  });
+
+  it("ne réaffecte jamais le champ stocké depuis le corps de requête", () => {
+    expect(detail!.src).toMatch(/"currentBalance"/);
+  });
+
+  it("expose un relevé qui part du solde d'ouverture", () => {
+    const releve = files.find(f => f.path.endsWith("clients/[id]/releve/route.ts"));
+    expect(releve).toBeDefined();
+    // Un relevé d'octobre qui commence à zéro nie ce que le client devait
+    // déjà en septembre.
+    expect(releve!.src).toMatch(/openingBalance/);
+    expect(releve!.src).toMatch(/buildStatement/);
+  });
+
+  it("fait produire le PDF par le même moteur que l'écran", () => {
+    const pdf = files.find(f => f.path.endsWith("clients/[id]/releve/pdf/route.ts"));
+    expect(pdf).toBeDefined();
+    // Un PDF qui recalculerait de son côté finirait par afficher un autre
+    // solde que l'écran — et c'est le client qui le découvrirait.
+    expect(pdf!.src).toMatch(/buildStatement/);
+    expect(pdf!.src).toMatch(/withOpenItems/);
+  });
+});
