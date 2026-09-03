@@ -47,6 +47,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Fournisseurs", href: "/suppliers", icon: <Factory size={18} /> },
     { label: "Commandes", href: "/commandes", icon: <Package size={18} /> },
     { label: "Stock", href: "/stock", icon: <Warehouse size={18} /> },
+    { label: "Inventaires", href: "/inventaires", icon: <ClipboardCheck size={18} /> },
     { label: "Marchés", href: "/marches", icon: <Scroll size={18} /> },
   ]},
   { section: "Abonnements", items: [
