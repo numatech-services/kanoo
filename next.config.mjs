@@ -40,15 +40,24 @@ const nextConfig = {
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "X-Frame-Options", value: "DENY" },
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-      // CSP en Report-Only : n'impacte pas le rendu, permet d'observer les
-      // violations avant de passer en application stricte.
-      // ⚠ Sans `report-uri`/`report-to`, aucune violation n'est collectée — la
-      // directive est alors inerte. Renseigner CSP_REPORT_URI pour l'activer,
-      // puis basculer sur `Content-Security-Policy` une fois le rapport vide.
+      // CSP désormais APPLIQUÉE (et non plus Report-Only). Elle restait inerte :
+      // Report-Only sans report-uri n'observe rien et ne protège rien. Deux
+      // ajustements l'ont rendue applicable sans casser le rendu :
+      //   • style-src et font-src autorisent Google Fonts (fonts.googleapis.com
+      //     et fonts.gstatic.com) — la police Fraunces en dépend ; sans ça,
+      //     l'application stricte serait retombée sur les polices système.
+      //   • frame-ancestors 'none' double le X-Frame-Options: DENY contre le
+      //     clickjacking, et form-action 'self' empêche l'exfiltration d'un
+      //     formulaire vers un domaine tiers.
+      // 'unsafe-inline'/'unsafe-eval' restent tolérés (Next.js hydrate par
+      // scripts inline) : la CSP protège ici surtout du chargement de
+      // ressources et du cadrage tiers, l'échappement JSX couvrant le XSS.
       {
-        key: "Content-Security-Policy-Report-Only",
+        key: "Content-Security-Policy",
         value:
-          "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; " +
+          "default-src 'self'; img-src 'self' data: blob:; " +
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+          "font-src 'self' https://fonts.gstatic.com data:; " +
           "script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; " +
           "frame-ancestors 'none'; base-uri 'self'; form-action 'self'" +
           (process.env.CSP_REPORT_URI ? `; report-uri ${process.env.CSP_REPORT_URI}` : ""),
