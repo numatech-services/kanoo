@@ -34,6 +34,15 @@ export interface ITenant {
   documentPrefixes?: DocumentPrefixes;
   documentSequences?: DocumentSequences;
   numberingConfig?: NumberingConfig;
+  /** Règles de frais — voir lib/expenses.ts. */
+  expensePolicy?: {
+    caps?: Record<string, number>;
+    /** Aucun défaut : le Niger ne publie pas de barème kilométrique. */
+    mileageRate?: number;
+    receiptThreshold?: number;
+    maxAgeDays?: number;
+    vatRate?: number;
+  };
   paymentAttempts?: PaymentAttempt[];
   subscriptionActivatedAt?: Date;
   subscriptionNextBilling?: Date;

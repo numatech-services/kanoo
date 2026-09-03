@@ -71,6 +71,23 @@ const TenantSchema = new Schema<ITenant>(
 // Chaque tenant peut personnaliser ses préfixes de numérotation
 // et optionnellement spécifier le prochain numéro de séquence (utile pour migration)
 TenantSchema.add({
+  /**
+   * Règles de frais de l'organisation.
+   *
+   * `mileageRate` n'a pas de valeur par défaut : le Niger ne publie pas de
+   * barème kilométrique officiel, et en inventer un ferait passer un chiffre
+   * arbitraire pour une référence opposable. Tant qu'il n'est pas fixé, la
+   * saisie au kilomètre est refusée.
+   */
+  expensePolicy: {
+    /** Plafonds par nature. Un dépassement est signalé, jamais bloqué. */
+    caps: { type: Map, of: Number, default: undefined },
+    mileageRate: Number,
+    receiptThreshold: { type: Number, default: 5000 },
+    maxAgeDays: { type: Number, default: 90 },
+    vatRate: { type: Number, default: 0.19 },
+  },
+
   numberingConfig: {
     invoicePrefix:   { type: String, default: "FAC" },   // Ex: "NML" → NML-2025-00001
     quotePrefix:     { type: String, default: "DEV" },

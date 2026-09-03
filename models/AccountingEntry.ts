@@ -28,7 +28,7 @@ const AccountingEntrySchema = new Schema<IAccountingEntry>(
     letterRef: String,
     linkedDocType: {
       type: String,
-      enum: ["invoice", "payment", "supplier_invoice", "payslip"],
+      enum: ["invoice", "payment", "supplier_invoice", "payslip", "expense", "credit_note"],
     },
     linkedDocId: Schema.Types.ObjectId,
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },

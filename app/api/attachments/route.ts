@@ -61,6 +61,7 @@ export const POST = withAuth("documents", "create", async (req: NextRequest, aut
   const hostId = String(form.get("hostId") || "");
   const category = String(form.get("category") || "autre");
   const label = String(form.get("label") || "").trim();
+  const lineId = String(form.get("lineId") || "").trim();
 
   if (!(file instanceof File)) return badRequest("Aucun fichier reçu.");
   if (!HOSTS.has(host) || !hostId) return badRequest("Document porteur non reconnu.");
@@ -81,6 +82,7 @@ export const POST = withAuth("documents", "create", async (req: NextRequest, aut
   // plutôt que d'empiler des doublons qu'il faudra trier plus tard.
   const existing = await AttachmentModel.findOne({
     ...tenantFilter(auth), host, hostId, sha256: stored.sha256,
+    ...(lineId ? { lineId } : {}),
   }).select("_id filename").lean<{ _id: unknown; filename: string } | null>();
   if (existing) {
     return ok({
@@ -93,6 +95,7 @@ export const POST = withAuth("documents", "create", async (req: NextRequest, aut
   const attachment = await AttachmentModel.create({
     tenantId: auth.tenantId,
     host, hostId, category,
+    lineId: lineId || undefined,
     label: label || undefined,
     filename: stored.filename,
     mime: stored.mime,

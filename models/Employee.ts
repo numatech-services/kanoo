@@ -3,6 +3,17 @@ import { Schema, model, models } from "mongoose";
 const EmployeeSchema = new Schema({
   tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
   code: { type: String, required: true },
+
+  /**
+   * Compte de connexion rattaché à cette fiche.
+   *
+   * Sans ce lien, l'application ne sait pas quelle fiche salarié correspond à
+   * la personne connectée : « mes notes de frais » ne peut pas être filtré, et
+   * un remboursement ne sait pas à qui il est dû. Facultatif — tous les
+   * salariés n'ont pas de compte —, unique par organisation quand il est posé.
+   */
+  userId: { type: Schema.Types.ObjectId, ref: "User" },
+
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
   email: String,
@@ -42,6 +53,7 @@ const EmployeeSchema = new Schema({
   notes: String,
 }, { timestamps: true });
 
+EmployeeSchema.index({ tenantId: 1, userId: 1 }, { unique: true, sparse: true });
 EmployeeSchema.index({ tenantId: 1, code: 1 }, { unique: true });
 EmployeeSchema.index({ tenantId: 1, isActive: 1 });
 EmployeeSchema.index({ tenantId: 1, contractEndDate: 1 });

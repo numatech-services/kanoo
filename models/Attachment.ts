@@ -36,6 +36,15 @@ const AttachmentSchema = new Schema(
     },
     label: String,
 
+    /**
+     * Ligne du document porteur, quand il en a plusieurs.
+     *
+     * Une note de frais porte un justificatif *par dépense* : sans ce champ, le
+     * contrôle « pas de remboursement sans pièce » ne saurait pas laquelle des
+     * douze lignes est couverte.
+     */
+    lineId: Schema.Types.ObjectId,
+
     uploadedBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }

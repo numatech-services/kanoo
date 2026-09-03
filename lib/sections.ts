@@ -78,6 +78,7 @@ const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
 
   // Finance
   ["/treasury", "finance"],
+  ["/notes-de-frais", "finance"],
   ["/accounting", "finance"],
   ["/recurring-expenses", "finance"],
   ["/fiscalite", "finance"],
