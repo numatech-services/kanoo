@@ -1,5 +1,7 @@
 "use client";
 
+import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+
 import { useState } from "react";
 
 export interface Column<T> {
@@ -91,8 +93,15 @@ export function DataTable<T>({
                 >
                   <span className="flex items-center gap-1">
                     {col.label}
-                    {col.sortable && sortKey === String(col.key) && (
-                      <span>{sortDir === "asc" ? "↑" : "↓"}</span>
+                    {/* Le chevron reste visible, en gris, sur toute colonne
+                        triable : sans lui, rien n'indique qu'un en-tête est
+                        cliquable avant d'avoir cliqué. */}
+                    {col.sortable && (
+                      sortKey === String(col.key)
+                        ? (sortDir === "asc"
+                            ? <ChevronUp size={13} className="text-section shrink-0" />
+                            : <ChevronDown size={13} className="text-section shrink-0" />)
+                        : <ChevronsUpDown size={12} className="text-ink3/50 shrink-0" />
                     )}
                   </span>
                 </th>
@@ -103,8 +112,8 @@ export function DataTable<T>({
             {/* sorted est maintenant garanti d'être un tableau (safeData) */}
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="text-center text-ink2 py-12">
-                  {emptyMessage}
+                <td colSpan={columns.length} className="text-center py-14">
+                  <p className="text-sm text-ink2">{emptyMessage}</p>
                 </td>
               </tr>
             ) : (

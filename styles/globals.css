@@ -470,7 +470,7 @@
 
   /* Badges de statut — évitent les couleurs Tailwind par défaut */
   .badge { @apply inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full; }
-  .badge-paid  { @apply bg-pos-50 text-accent-700; }
+  .badge-paid  { @apply bg-pos-50 text-pos; }
   .badge-late  { @apply bg-neg-50 text-neg; }
   .badge-sent  { @apply bg-info-50 text-info; }
   .badge-draft { @apply bg-surface2 text-ink2; }

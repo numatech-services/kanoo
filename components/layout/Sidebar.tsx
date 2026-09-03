@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing } from "lucide-react";
 
@@ -148,6 +149,18 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   const pathname = usePathname();
   const nav = NAV_MAP[profile] || PME_NAV;
 
+  // Les compteurs sont un supplément : leur absence n'empêche jamais la
+  // navigation de s'afficher, et un échec de lecture reste silencieux.
+  const [counters, setCounters] = useState<Record<string, number>>({});
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/nav-counters", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { if (alive && d.success) setCounters(d.data || {}); })
+      .catch(() => { /* la navigation se passe très bien de ses pastilles */ });
+    return () => { alive = false; };
+  }, [pathname]);
+
   return (
     <aside className="w-64 bg-[#171310] dark:bg-[#0f0c09] text-white flex flex-col h-full overflow-hidden flex-shrink-0">
       <div className="px-6 py-6 border-b border-white/10">
@@ -184,9 +197,11 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
                       {item.icon}
                     </span>
                     <span className="flex-1">{item.label}</span>
-                    {item.badge && (
-                      <span className="bg-section text-white text-[10px] font-bold rounded-full px-2 py-0.5">
-                        {item.badge}
+                    {(counters[item.href] ?? item.badge) && (
+                      <span className={`num text-[10px] font-bold rounded-full px-1.5 min-w-[1.25rem] text-center ${
+                        active ? "bg-section text-white" : "bg-white/15 text-white"
+                      }`}>
+                        {counters[item.href] ?? item.badge}
                       </span>
                     )}
                   </Link>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { FilterChips } from "@/components/ui/Primitives";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
@@ -218,27 +219,20 @@ export default function InvoicesPage() {
         </Link>
       </div>
 
-      {/* Filters */}
+      {/* Filtres — des chips plutôt qu'un menu déroulant : les états
+          disponibles se voient sans avoir à ouvrir quoi que ce soit, et le
+          filtre actif reste visible pendant qu'on lit la liste. */}
       <div className="flex flex-wrap items-center gap-3">
-        <select
-          value={status}
-          onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-          className="px-3 py-2 bg-surface border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30 text-ink"
-        >
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-
-        <label className="flex items-center gap-2 text-sm text-ink cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={overdueOnly}
-            onChange={(e) => { setOverdueOnly(e.target.checked); setPage(1); }}
-            className="accent-section"
-          />
-          Impayées en retard uniquement
-        </label>
+        <FilterChips
+          options={STATUS_OPTIONS.filter(o => o.value).map(o => ({ key: o.value, label: o.label }))}
+          value={status || null}
+          onChange={(key) => { setStatus(key || ""); setPage(1); }}
+        />
+        <span className="h-5 w-px bg-line2 hidden sm:block" aria-hidden />
+        <button type="button" aria-pressed={overdueOnly} className="fchip"
+          onClick={() => { setOverdueOnly(!overdueOnly); setPage(1); }}>
+          En retard uniquement
+        </button>
       </div>
 
       {/* Table */}
