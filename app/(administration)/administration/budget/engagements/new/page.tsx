@@ -60,16 +60,16 @@ export default function NewEngagementPage() {
     }
   };
 
-  const inputCls = "w-full bg-sand/20 border border-clay/10 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:border-cedar focus:bg-surface transition-all placeholder:text-moss/30";
-  const labelCls = "text-[10px] font-black uppercase tracking-[0.2em] text-moss mb-2 block ml-1";
+  const inputCls = "w-full bg-surface2/20 border border-line rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:border-section focus:bg-surface transition-all placeholder:text-ink2/30";
+  const labelCls = "text-[10px] font-black uppercase tracking-[0.2em] text-ink2 mb-2 block ml-1";
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-700">
       
       {/* Navigation & Titre */}
       <div className="flex items-center justify-between">
-        <Link href="/administration/budget/engagements" className="flex items-center gap-2 text-moss hover:text-ink transition-colors group">
-          <div className="p-2 rounded-full group-hover:bg-sand transition-colors">
+        <Link href="/administration/budget/engagements" className="flex items-center gap-2 text-ink2 hover:text-ink transition-colors group">
+          <div className="p-2 rounded-full group-hover:bg-surface2 transition-colors">
             <ArrowLeft size={18} />
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest">Retour</span>
@@ -77,12 +77,12 @@ export default function NewEngagementPage() {
         <h1 className="text-xl font-black text-ink uppercase tracking-tighter">Nouvel Engagement Budgétaire</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-surface rounded-[2.5rem] border border-clay/10 p-10 shadow-sm space-y-10">
+      <form onSubmit={handleSubmit} className="bg-surface rounded-[2.5rem] border border-line p-10 shadow-sm space-y-10">
         
         {/* Section 1 : Imputation Budgétaire */}
         <section className="space-y-6">
-          <div className="flex items-center gap-3 pb-2 border-b border-clay/5">
-             <div className="w-8 h-8 rounded-lg bg-cedar/10 flex items-center justify-center text-cedar">
+          <div className="flex items-center gap-3 pb-2 border-b border-line">
+             <div className="w-8 h-8 rounded-lg bg-section/10 flex items-center justify-center text-section">
                 <FileText size={16} />
              </div>
              <h2 className="text-xs font-black uppercase tracking-widest text-ink">Imputation & Objet</h2>
@@ -121,7 +121,7 @@ export default function NewEngagementPage() {
 
         {/* Section 2 : Bénéficiaire & Montant */}
         <section className="space-y-6">
-          <div className="flex items-center gap-3 pb-2 border-b border-clay/5">
+          <div className="flex items-center gap-3 pb-2 border-b border-line">
              <div className="w-8 h-8 rounded-lg bg-warn/10 flex items-center justify-center text-warn">
                 <User size={16} />
              </div>
@@ -151,7 +151,7 @@ export default function NewEngagementPage() {
                   value={formData.montant}
                   onChange={e => setFormData({...formData, montant: e.target.value})}
                 />
-                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-moss/40">XOF</span>
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-ink2/40">XOF</span>
               </div>
             </div>
           </div>
@@ -173,13 +173,13 @@ export default function NewEngagementPage() {
           <button 
             type="button"
             onClick={() => router.back()}
-            className="px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-moss hover:bg-sand transition-all"
+            className="px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-ink2 hover:bg-surface2 transition-all"
           >
             Annuler
           </button>
           <button 
             disabled={loading || !formData.chapterId}
-            className="bg-ink text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cedar transition-all shadow-xl shadow-ink/10 flex items-center gap-3 disabled:opacity-50"
+            className="bg-ink text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-section transition-all shadow-xl shadow-ink/10 flex items-center gap-3 disabled:opacity-50"
           >
             {loading ? "Traitement..." : <><Save size={16} /> Enregistrer l'engagement</>}
           </button>

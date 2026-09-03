@@ -96,9 +96,9 @@ export default function StockPage() {
   if (!mounted) return null;
 
   const columns: Column<StockItem>[] = [
-    { key: "code", label: "Code", className: "font-mono text-[10px] text-moss uppercase w-24" },
+    { key: "code", label: "Code", className: "font-mono text-[10px] text-ink2 uppercase w-24" },
     { key: "label", label: "Produit / Article", className: "font-medium text-ink" },
-    { key: "unit", label: "Unité", className: "text-moss text-xs" },
+    { key: "unit", label: "Unité", className: "text-ink2 text-xs" },
     { 
       key: "stockQty", 
       label: "En Stock", 
@@ -109,11 +109,11 @@ export default function StockPage() {
         </span>
       ) 
     },
-    { key: "stockMinAlert", label: "Alerte", className: "text-right font-mono text-moss text-xs", render: (v) => String(v) },
+    { key: "stockMinAlert", label: "Alerte", className: "text-right font-mono text-ink2 text-xs", render: (v) => String(v) },
     { 
       key: "stockValue", 
       label: "Valeur (XOF)", 
-      className: "text-right font-mono text-cedar font-semibold", 
+      className: "text-right font-mono text-section font-semibold", 
       render: (v) => Math.round(Number(v)).toLocaleString("fr-FR") 
     },
     { 
@@ -137,7 +137,7 @@ export default function StockPage() {
             setMvtModal(String(v));
             setMvtForm({ type: "entry", quantity: 1, reason: "", unitCost: r.unitPrice });
           }} 
-          className="px-3 py-1 text-xs bg-ink text-white rounded-lg hover:bg-cedar transition-colors shadow-sm"
+          className="px-3 py-1 text-xs bg-ink text-white rounded-lg hover:bg-section transition-colors shadow-sm"
         >
           Mouvement
         </button>
@@ -145,24 +145,24 @@ export default function StockPage() {
     },
   ];
 
-  const inp = "w-full px-3 py-2 bg-sand/20 border border-clay/20 rounded-xl text-sm focus:ring-2 focus:ring-cedar/30 outline-none transition-all";
-  const lbl = "block text-[10px] font-bold text-moss uppercase mb-1 tracking-widest";
+  const inp = "w-full px-3 py-2 bg-surface2/20 border border-line rounded-xl text-sm focus:ring-2 focus:ring-section/30 outline-none transition-all";
+  const lbl = "block text-[10px] font-bold text-ink2 uppercase mb-1 tracking-widest";
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Gestion du stock</h1>
-          <p className="text-sm text-moss italic">{total} référence{total > 1 ? "s" : ""} au catalogue</p>
+          <p className="text-sm text-ink2 italic">{total} référence{total > 1 ? "s" : ""} au catalogue</p>
         </div>
-        <button onClick={() => router.push('/stock/new')} className="flex items-center gap-2 px-4 py-2 bg-cedar text-white rounded-xl text-sm font-bold hover:bg-ink transition-all shadow-md">
+        <button onClick={() => router.push('/stock/new')} className="flex items-center gap-2 px-4 py-2 bg-section text-white rounded-xl text-sm font-bold hover:brightness-95 transition-all shadow-md">
           <PackagePlus size={18} /> Nouveau Produit
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-surface rounded-2xl border border-clay/10 p-5 shadow-sm">
-          <p className="text-[10px] font-bold text-moss uppercase">Valeur de l'inventaire</p>
+        <div className="bg-surface rounded-2xl border border-line p-5 shadow-sm">
+          <p className="text-[10px] font-bold text-ink2 uppercase">Valeur de l'inventaire</p>
           <p className="text-2xl font-bold font-mono text-ink mt-2">{Math.round(totalValue).toLocaleString("fr-FR")} <small className="text-xs font-normal opacity-50">XOF</small></p>
         </div>
         {/* Le filtre `alertOnly` était bien envoyé à l'API mais aucun contrôle
@@ -175,22 +175,22 @@ export default function StockPage() {
           className={`text-left rounded-2xl border p-5 shadow-sm transition-colors ${
             alertOnly ? "bg-neg-50 border-neg/25 ring-2 ring-red-200"
                       : alertCount > 0 ? "bg-neg-50 border-neg/25 hover:bg-neg-50"
-                                       : "bg-surface border-clay/10 hover:bg-sand/40"
+                                       : "bg-surface border-line hover:bg-surface2/40"
           }`}
         >
-          <p className="text-[10px] font-bold text-moss uppercase">Ruptures / Alertes</p>
+          <p className="text-[10px] font-bold text-ink2 uppercase">Ruptures / Alertes</p>
           <p className={`text-2xl font-bold mt-2 ${alertCount > 0 ? "text-neg" : "text-pos"}`}>{alertCount}</p>
-          <p className="text-[10px] text-moss mt-1">
+          <p className="text-[10px] text-ink2 mt-1">
             {alertOnly ? "Filtre actif — cliquez pour tout afficher" : "Cliquez pour ne voir que les alertes"}
           </p>
         </button>
-        <div className="bg-surface rounded-2xl border border-clay/10 p-5 shadow-sm">
-          <p className="text-[10px] font-bold text-moss uppercase">Total Références</p>
+        <div className="bg-surface rounded-2xl border border-line p-5 shadow-sm">
+          <p className="text-[10px] font-bold text-ink2 uppercase">Total Références</p>
           <p className="text-2xl font-bold mt-2 text-ink">{total}</p>
         </div>
       </div>
 
-      <div className="bg-surface rounded-2xl border border-clay/10 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-line shadow-sm overflow-hidden">
         <DataTable columns={columns} data={items} loading={loading} keyExtractor={s => s._id} />
       </div>
 
@@ -219,13 +219,13 @@ export default function StockPage() {
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <button onClick={() => setMvtModal(null)} className="px-4 py-2 text-sm text-moss">Annuler</button>
+            <button onClick={() => setMvtModal(null)} className="px-4 py-2 text-sm text-ink2">Annuler</button>
             <button 
               onClick={() => {
                 console.log("Clic détecté !");
                 handleMovement();
               }} 
-              className="px-6 py-2 bg-cedar text-white rounded-xl text-sm font-bold hover:bg-ink shadow-lg active:scale-95"
+              className="px-6 py-2 bg-section text-white rounded-xl text-sm font-bold hover:brightness-95 shadow-lg active:scale-95"
             >
               {saving ? "Enregistrement..." : "CONFIRMER MAINTENANT"}
             </button>

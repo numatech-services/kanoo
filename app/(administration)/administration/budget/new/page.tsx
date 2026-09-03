@@ -11,8 +11,8 @@ export default function NewBudgetChapterPage() {
   }
   return (
     <div className="max-w-lg space-y-5">
-      <div><a href="/administration/budget" className="text-xs text-moss hover:text-ink">← Budget</a><h1 className="text-2xl font-bold text-ink mt-1">Nouveau chapitre budgétaire</h1></div>
-      <div className="bg-surface rounded-2xl border border-clay/20 p-6"><BudgetChapterForm onSave={handleSave} onCancel={()=>router.push("/administration/budget")} /></div>
+      <div><a href="/administration/budget" className="text-xs text-ink2 hover:text-ink">← Budget</a><h1 className="text-2xl font-bold text-ink mt-1">Nouveau chapitre budgétaire</h1></div>
+      <div className="bg-surface rounded-2xl border border-line p-6"><BudgetChapterForm onSave={handleSave} onCancel={()=>router.push("/administration/budget")} /></div>
     </div>
   );
 }

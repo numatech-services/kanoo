@@ -81,11 +81,11 @@ export default function MembresPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Adhérents</h1>
-          <p className="text-sm text-moss mt-0.5">{total} adhérent{total > 1 ? "s" : ""}</p>
+          <p className="text-sm text-ink2 mt-0.5">{total} adhérent{total > 1 ? "s" : ""}</p>
         </div>
         <button
           onClick={() => { setEditing(null); setModalOpen(true); }}
-          className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink transition-colors"
+          className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors"
         >
           + Nouvel adhérent
         </button>
@@ -96,7 +96,7 @@ export default function MembresPage() {
         placeholder="Rechercher par nom, code…"
         value={searchInput}
         onChange={(e) => setSearchInput(e.target.value)}
-        className="w-full max-w-sm px-4 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30"
+        className="w-full max-w-sm px-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30"
       />
 
       <DataTable
@@ -154,8 +154,8 @@ function MemberForm({ initial, onSave, onCancel }: {
     status: initial?.status || "active",
   });
   const [saving, setSaving] = useState(false);
-  const inp = "w-full px-3 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30";
-  const lbl = "block text-xs font-medium text-moss mb-1";
+  const inp = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
+  const lbl = "block text-xs font-medium text-ink2 mb-1";
 
   return (
     <form onSubmit={async (e) => { e.preventDefault(); setSaving(true); await onSave(form); setSaving(false); }} className="space-y-4">
@@ -190,9 +190,9 @@ function MemberForm({ initial, onSave, onCancel }: {
           </select>
         </div>
       </div>
-      <div className="flex justify-end gap-3 pt-2 border-t border-clay/20">
-        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm border border-clay/30 rounded-lg text-moss hover:bg-sand">Annuler</button>
-        <button type="submit" disabled={saving} className="px-5 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink disabled:opacity-60">
+      <div className="flex justify-end gap-3 pt-2 border-t border-line">
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm border border-line rounded-lg text-ink2 hover:bg-surface2">Annuler</button>
+        <button type="submit" disabled={saving} className="px-5 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 disabled:opacity-60">
           {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
       </div>

@@ -17,9 +17,9 @@ export function MarcheForm({ initial, onSave, onCancel }: MarcheFormProps) {
       {procedure && <div className="p-3 bg-warn-50 border border-warn/25 rounded-xl text-xs text-warn font-medium">⚖️ {LIBELLES_PROCEDURES[procedure]}</div>}
       <FormField label="Date limite de dépôt des offres"><input type="date" className={inputCls} value={form.bidsDeadline} onChange={e=>u("bidsDeadline",e.target.value)} /></FormField>
       <FormField label="Notes"><textarea className={textareaCls} rows={2} value={form.notes} onChange={e=>u("notes",e.target.value)} /></FormField>
-      <div className="flex justify-end gap-3 pt-3 border-t border-clay/20">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink disabled:opacity-60">{saving?"…":"Créer le marché"}</button>
+      <div className="flex justify-end gap-3 pt-3 border-t border-line">
+        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
+        <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"…":"Créer le marché"}</button>
       </div>
     </form>
   );

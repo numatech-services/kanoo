@@ -80,43 +80,43 @@ export default function NewDeliveryPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-10">
-      <button onClick={() => router.back()} className="flex items-center text-moss hover:text-ink text-sm transition-colors">
+      <button onClick={() => router.back()} className="flex items-center text-ink2 hover:text-ink text-sm transition-colors">
         <ArrowLeft className="w-4 h-4 mr-1" /> Retour
       </button>
 
-      <div className="bg-surface rounded-2xl border border-clay/20 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-clay/10 bg-sand/5">
+      <div className="bg-surface rounded-2xl border border-line shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-line bg-surface2/5">
           <h1 className="text-xl font-bold text-ink">Nouveau Bon de Livraison</h1>
-          <p className="text-sm text-moss">Créez un BL à partir d'une facture existante</p>
+          <p className="text-sm text-ink2">Créez un BL à partir d'une facture existante</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-8">
           {/* Section Facture */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-moss">Rechercher Facture (N°)</label>
+              <label className="text-xs font-bold uppercase text-ink2">Rechercher Facture (N°)</label>
               <div className="relative">
                 <input 
                   type="text" 
                   placeholder="Ex: FAC-2024-001"
-                  className="w-full pl-10 pr-4 py-2 bg-sand/20 border border-clay/20 rounded-xl outline-none focus:ring-2 focus:ring-cedar/20"
+                  className="w-full pl-10 pr-4 py-2 bg-surface2/20 border border-line rounded-xl outline-none focus:ring-2 focus:ring-section/20"
                   onBlur={(e) => searchInvoice(e.target.value)}
                   disabled={searching}
                 />
-                <Search className={`absolute left-3 top-2.5 w-4 h-4 text-moss ${searching ? "animate-pulse" : ""}`} />
+                <Search className={`absolute left-3 top-2.5 w-4 h-4 text-ink2 ${searching ? "animate-pulse" : ""}`} />
                 {searching && (
-                  <span className="absolute right-3 top-2.5 text-xs text-moss">Recherche…</span>
+                  <span className="absolute right-3 top-2.5 text-xs text-ink2">Recherche…</span>
                 )}
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-moss">Date de livraison</label>
+              <label className="text-xs font-bold uppercase text-ink2">Date de livraison</label>
               <input 
                 type="date" 
                 value={form.deliveryDate}
                 onChange={e => setForm({...form, deliveryDate: e.target.value})}
-                className="w-full px-4 py-2 bg-sand/20 border border-clay/20 rounded-xl outline-none"
+                className="w-full px-4 py-2 bg-surface2/20 border border-line rounded-xl outline-none"
               />
             </div>
           </div>
@@ -135,25 +135,25 @@ export default function NewDeliveryPage() {
             <h3 className="text-sm font-bold text-ink flex items-center gap-2">
               <Package className="w-4 h-4" /> Articles à livrer
             </h3>
-            <div className="border border-clay/10 rounded-xl overflow-hidden">
+            <div className="border border-line rounded-xl overflow-hidden">
               <table className="table-dense">
-                <thead className="bg-sand/30 text-moss text-[10px] uppercase font-bold">
+                <thead className="bg-surface2/30 text-ink2 text-[10px] uppercase font-bold">
                   <tr>
                     <th className="px-4 py-2">Description</th>
                     <th className="px-4 py-2 w-24">Volume</th>
                     <th className="px-4 py-2 w-24">Unité</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-clay/10">
+                <tbody className="divide-y divide-line">
                   {form.lines.length > 0 ? form.lines.map((line, idx) => (
                     <tr key={idx}>
                       <td className="px-4 py-3">{line.description}</td>
                       <td className="px-4 py-3 font-mono">{line.quantity}</td>
-                      <td className="px-4 py-3 text-moss">{line.unit}</td>
+                      <td className="px-4 py-3 text-ink2">{line.unit}</td>
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={3} className="px-4 py-8 text-center text-moss italic">
+                      <td colSpan={3} className="px-4 py-8 text-center text-ink2 italic">
                         Sélectionnez une facture pour charger les articles
                       </td>
                     </tr>
@@ -167,7 +167,7 @@ export default function NewDeliveryPage() {
             <button
               type="submit"
               disabled={loading || !form.invoiceId}
-              className="flex items-center gap-2 px-8 py-3 bg-cedar text-white rounded-xl font-bold hover:bg-ink disabled:opacity-50 transition-all shadow-lg"
+              className="flex items-center gap-2 px-8 py-3 bg-section text-white rounded-xl font-bold hover:brightness-95 disabled:opacity-50 transition-all shadow-lg"
             >
               <Save className="w-4 h-4" />
               {loading ? "Création..." : "Générer le Bon de Livraison"}

@@ -368,3 +368,44 @@ describe("Relances — ce qui ne doit jamais partir tout seul", () => {
     expect(scheduler).toMatch(/action\.needsApproval/);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Un seul vocabulaire de couleur.
+//
+// `cedar` pointait sur l'accent global : cent quarante-deux boutons primaires
+// gardaient la même teinte quelle que soit la section, et la couleur par onglet
+// — la première demande de la refonte — ne se voyait nulle part.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Cohérence du vocabulaire de couleur", () => {
+  const LEGACY = /\b(?:bg|text|border|ring|from|to|divide|accent|shadow|hover:bg|hover:text)-(?:cedar|moss|clay|sand)\b/;
+
+  function uiFiles(): string[] {
+    return execSync("find app components -name '*.tsx'", { cwd: ROOT, encoding: "utf-8" })
+      .trim().split("\n").filter(Boolean);
+  }
+
+  it("n'emploie plus les alias historiques", () => {
+    const offenders = uiFiles().filter(path =>
+      LEGACY.test(readFileSync(join(ROOT, path), "utf-8"))
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("ne les expose plus dans le thème, pour qu'ils ne reviennent pas", () => {
+    const config = readFileSync(join(ROOT, "tailwind.config.ts"), "utf-8");
+    for (const alias of ["sand:", "clay:", "cedar:", "moss:"]) {
+      expect(config).not.toContain(alias);
+    }
+  });
+
+  it("fait suivre la teinte de section aux boutons primaires", () => {
+    // Un bouton plein qui ne prend ni l'accent de section ni une couleur
+    // sémantique est un bouton dont la couleur ne dit rien.
+    const primaries = uiFiles().filter(path => {
+      const src = readFileSync(join(ROOT, path), "utf-8");
+      return /bg-section\b/.test(src);
+    });
+    expect(primaries.length).toBeGreaterThan(50);
+  });
+});

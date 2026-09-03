@@ -27,13 +27,13 @@ export default function OfflinePage() {
   }
 
   return (
-    <div className="min-h-screen bg-sand flex items-center justify-center px-6">
+    <div className="min-h-screen bg-surface2 flex items-center justify-center px-6">
       <div className="text-center max-w-sm">
         <p className="text-7xl mb-6">📡</p>
         <h1 className="text-2xl font-bold text-ink">
           {online ? "Connexion rétablie" : "Vous êtes hors-ligne"}
         </h1>
-        <p className="text-moss mt-3 leading-relaxed">
+        <p className="text-ink2 mt-3 leading-relaxed">
           {online
             ? "Vous pouvez reprendre votre travail. Les modifications seront synchronisées."
             : "Pas d'inquiétude — vos actions sont sauvegardées localement et seront envoyées au serveur dès le retour de la connexion."
@@ -47,16 +47,16 @@ export default function OfflinePage() {
         <div className="flex flex-col gap-3 mt-8">
           {online && (
             <button onClick={handleSync}
-              className="px-6 py-3 bg-cedar text-white rounded-xl font-medium hover:bg-ink transition-colors">
+              className="px-6 py-3 bg-section text-white rounded-xl font-medium hover:brightness-95 transition-colors">
               Synchroniser maintenant
             </button>
           )}
           <button onClick={() => router.back()}
-            className="px-6 py-3 border border-clay/30 text-moss rounded-xl hover:bg-surface transition-colors">
+            className="px-6 py-3 border border-line text-ink2 rounded-xl hover:bg-surface transition-colors">
             ← Retour
           </button>
         </div>
-        <p className="text-xs text-moss/60 mt-8">Kanoo fonctionne même sans internet</p>
+        <p className="text-xs text-ink2/60 mt-8">Kanoo fonctionne même sans internet</p>
       </div>
     </div>
   );

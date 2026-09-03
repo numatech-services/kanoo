@@ -105,13 +105,13 @@ export function SupplierForm({ initial, onSave, onCancel }: SupplierFormProps) {
         </FormField>
       </div>
 
-      <div className="flex justify-end gap-3 pt-2 border-t border-clay/20">
+      <div className="flex justify-end gap-3 pt-2 border-t border-line">
         <button type="button" onClick={onCancel}
-          className="px-4 py-2 text-sm border border-clay/30 rounded-lg text-moss hover:bg-sand">
+          className="px-4 py-2 text-sm border border-line rounded-lg text-ink2 hover:bg-surface2">
           Annuler
         </button>
         <button type="submit" disabled={saving}
-          className="px-5 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink disabled:opacity-60">
+          className="px-5 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 disabled:opacity-60">
           {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
       </div>

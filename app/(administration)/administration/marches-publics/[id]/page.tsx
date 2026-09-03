@@ -95,7 +95,7 @@ export default function TenderDetailPage() {
       {/* HEADER : Retour, Titre et Actions */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <Link href="/administration/marches-publics" className="text-xs text-moss hover:text-ink transition-colors">
+          <Link href="/administration/marches-publics" className="text-xs text-ink2 hover:text-ink transition-colors">
             ← Retour aux marchés publics
           </Link>
           <div className="flex items-center gap-3 mt-1">
@@ -115,7 +115,7 @@ export default function TenderDetailPage() {
             <button 
               onClick={() => updateTender({ status: 'published' })}
               disabled={loading}
-              className="flex-1 md:flex-none bg-moss text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-ink transition-all disabled:opacity-50"
+              className="flex-1 md:flex-none bg-section text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:brightness-95 transition-all disabled:opacity-50"
             >
               Publier l'appel d'offres
             </button>
@@ -132,8 +132,8 @@ export default function TenderDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* COLONNE GAUCHE : Détails Techniques */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-surface rounded-2xl border border-clay/20 p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-ink mb-4 border-b border-clay/10 pb-2">Détails techniques</h2>
+          <div className="bg-surface rounded-2xl border border-line p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-ink mb-4 border-b border-line pb-2">Détails techniques</h2>
             <div className="space-y-4">
               {[
                 ["Objet du marché", tender.object],
@@ -142,8 +142,8 @@ export default function TenderDetailPage() {
                 ["Date de création", new Date(tender.createdAt).toLocaleDateString("fr-FR")],
                 ["Date limite de dépôt", tender.bidsDeadline ? new Date(tender.bidsDeadline).toLocaleDateString("fr-FR") : "Non définie"]
               ].map(([label, value]) => (
-                <div key={label} className="flex flex-col sm:flex-row sm:justify-between gap-1 border-b border-clay/5 pb-2 last:border-0">
-                  <span className="text-clay text-sm">{label}</span>
+                <div key={label} className="flex flex-col sm:flex-row sm:justify-between gap-1 border-b border-line pb-2 last:border-0">
+                  <span className="text-ink3 text-sm">{label}</span>
                   <span className="text-ink font-semibold">{value}</span>
                 </div>
               ))}
@@ -153,49 +153,49 @@ export default function TenderDetailPage() {
 
         {/* COLONNE DROITE : Workflow / Attribution */}
         <div className="space-y-6">
-          <div className="bg-sand/20 rounded-2xl border border-clay/20 p-6 shadow-sm">
+          <div className="bg-surface2/20 rounded-2xl border border-line p-6 shadow-sm">
             <h2 className="text-lg font-bold text-ink mb-4">Suivi & Attribution</h2>
             
             {tender.status === 'attributed' ? (
               <div className="bg-pos-50 p-4 rounded-xl border border-pos/25 space-y-2">
                 <p className="text-[10px] font-bold text-pos uppercase tracking-wider">Marché Attribué</p>
                 <div>
-                  <p className="text-xs text-clay">Titulaire du marché :</p>
+                  <p className="text-xs text-ink3">Titulaire du marché :</p>
                   <p className="font-bold text-ink">{tender.winnerId}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-clay">Montant final :</p>
+                  <p className="text-xs text-ink3">Montant final :</p>
                   <p className="font-bold text-ink text-lg">{tender.winnerAmount?.toLocaleString("fr-FR")} XOF</p>
                 </div>
               </div>
             ) : isAttributing ? (
-              <div className="bg-surface p-4 rounded-xl border border-moss/30 shadow-inner space-y-4">
-                <h3 className="text-sm font-bold text-moss">Saisie de l'adjudicataire</h3>
+              <div className="bg-surface p-4 rounded-xl border border-line shadow-inner space-y-4">
+                <h3 className="text-sm font-bold text-ink2">Saisie de l'adjudicataire</h3>
                 <div>
-                  <label className="text-[10px] font-bold text-clay uppercase">Nom de l'entreprise</label>
+                  <label className="text-[10px] font-bold text-ink3 uppercase">Nom de l'entreprise</label>
                   <input 
                     type="text" 
-                    className="w-full mt-1 p-2 bg-clay/5 border-none rounded-lg text-sm focus:ring-2 focus:ring-moss"
+                    className="w-full mt-1 p-2 bg-surface2 border-none rounded-lg text-sm focus:ring-2 focus:ring-section"
                     placeholder="Ex: Niger Telecom"
                     onChange={(e) => setWinnerData({ ...winnerData, winnerId: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-clay uppercase">Montant final (XOF)</label>
+                  <label className="text-[10px] font-bold text-ink3 uppercase">Montant final (XOF)</label>
                   <input 
                     type="number" 
-                    className="w-full mt-1 p-2 bg-clay/5 border-none rounded-lg text-sm focus:ring-2 focus:ring-moss"
+                    className="w-full mt-1 p-2 bg-surface2 border-none rounded-lg text-sm focus:ring-2 focus:ring-section"
                     onChange={(e) => setWinnerData({ ...winnerData, winnerAmount: Number(e.target.value) })}
                   />
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={confirmAttribution} className="flex-1 bg-moss text-white py-2 rounded-lg text-xs font-bold">Confirmer</button>
-                  <button onClick={() => setIsAttributing(false)} className="flex-1 bg-clay/10 text-clay py-2 rounded-lg text-xs">Annuler</button>
+                  <button onClick={confirmAttribution} className="flex-1 bg-section text-white py-2 rounded-lg text-xs font-bold">Confirmer</button>
+                  <button onClick={() => setIsAttributing(false)} className="flex-1 bg-surface2 text-ink3 py-2 rounded-lg text-xs">Annuler</button>
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-xs text-clay italic">
+                <p className="text-xs text-ink3 italic">
                   Statut actuel : <span className="font-bold text-ink">{tender.status}</span>. 
                   Une fois les plis ouverts et analysés, procédez à l'attribution.
                 </p>
@@ -205,7 +205,7 @@ export default function TenderDetailPage() {
                   className={`w-full py-3 rounded-xl font-bold text-sm shadow-sm transition-all ${
                     tender.status === 'planning' 
                     ? 'bg-surface2 text-ink3 cursor-not-allowed' 
-                    : 'bg-ink text-white hover:bg-moss'
+                    : 'bg-ink text-white hover:bg-section'
                   }`}
                 >
                   {tender.status === 'planning' ? "Publication requise" : "Attribuer le marché"}

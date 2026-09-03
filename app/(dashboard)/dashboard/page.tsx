@@ -4,6 +4,7 @@ import { RecentInvoices } from "@/components/pme/RecentInvoices";
 import { RecentDeliveries } from "@/components/pme/RecentDeliveries";
 import { CashflowChart } from "@/components/pme/CashflowChart";
 import { AlertsPanel } from "@/components/shared/AlertsPanel";
+import { DashboardHero } from "@/components/pme/DashboardHero";
 import { UpcomingEvents } from "@/components/shared/UpcomingEvents";
 
 export const metadata = { title: "Tableau de bord" };
@@ -11,12 +12,9 @@ export const metadata = { title: "Tableau de bord" };
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-ink">Tableau de bord</h1>
-        <p className="text-sm text-ink2 mt-0.5">
-          {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-        </p>
-      </div>
+      <Suspense fallback={<div className="h-44 bg-surface rounded-2xl border border-line animate-pulse" />}>
+        <DashboardHero />
+      </Suspense>
 
       {/* KPI Cards */}
       <Suspense fallback={<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">{[...Array(4)].map((_,i)=><div key={i} className="h-28 bg-surface rounded-xl border border-line animate-pulse"/>)}</div>}>

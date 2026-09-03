@@ -37,18 +37,18 @@ export async function RecentInvoices() {
   const invoices = await getRecentInvoices();
 
   return (
-    <div className="bg-surface rounded-xl border border-clay/20">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-clay/10">
+    <div className="bg-surface rounded-xl border border-line">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-line">
         <h2 className="font-semibold text-ink">Factures récentes</h2>
-        <Link href="/invoices" className="text-sm text-cedar hover:underline">Voir tout →</Link>
+        <Link href="/invoices" className="text-sm text-section hover:underline">Voir tout →</Link>
       </div>
 
       {invoices.length === 0 ? (
-        <div className="px-6 py-10 text-sm text-moss text-center">
+        <div className="px-6 py-10 text-sm text-ink2 text-center">
           Aucune facture pour le moment
         </div>
       ) : (
-        <div className="divide-y divide-clay/10">
+        <div className="divide-y divide-line">
           {invoices.map((inv: any) => {
             const overdue = !["paid","cancelled"].includes(inv.status) && new Date(inv.dueDate) < new Date();
             const displayStatus = overdue ? "overdue" : inv.status;
@@ -57,13 +57,13 @@ export async function RecentInvoices() {
               <Link
                 key={String(inv._id)}
                 href={`/invoices/${inv._id}`}
-                className="flex items-center gap-4 px-6 py-3 hover:bg-sand/40 transition-colors"
+                className="flex items-center gap-4 px-6 py-3 hover:bg-surface2/40 transition-colors"
               >
-                <span className="font-mono text-sm text-cedar font-semibold w-28 shrink-0">{inv.number}</span>
+                <span className="font-mono text-sm text-section font-semibold w-28 shrink-0">{inv.number}</span>
                 <span className="flex-1 text-sm text-ink truncate">
                   {inv.clientId && typeof inv.clientId === "object" ? (inv.clientId as any).name : "—"}
                 </span>
-                <span className={`text-xs font-mono shrink-0 ${overdue ? "text-neg font-semibold" : "text-moss"}`}>
+                <span className={`text-xs font-mono shrink-0 ${overdue ? "text-neg font-semibold" : "text-ink2"}`}>
                   {new Date(inv.dueDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
                 </span>
                 <span className="font-mono text-sm font-semibold shrink-0 w-36 text-right">

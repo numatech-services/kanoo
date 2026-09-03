@@ -121,7 +121,7 @@ export default function RecurringExpensesPage() {
 
   const columns: Column<Expense>[] = [
     { key: "label", label: "Libellé" },
-    { key: "category", label: "Catégorie", render: (v) => <span className="text-xs bg-clay/10 text-moss px-2 py-0.5 rounded border border-clay/20 capitalize">{String(v)}</span> },
+    { key: "category", label: "Catégorie", render: (v) => <span className="text-xs bg-surface2 text-ink2 px-2 py-0.5 rounded border border-line capitalize">{String(v)}</span> },
     { key: "amount", label: "Montant (XOF)", className: "text-right font-mono font-bold", render: (v) => Number(v).toLocaleString("fr-FR") },
     { key: "frequency", label: "Fréquence", render: (v) => FREQUENCIES.find(f => f[0] === v)?.[1] || String(v) },
     { key: "nextDueDate", label: "Échéance", render: (v) => new Date(String(v)).toLocaleDateString("fr-FR") },
@@ -132,14 +132,14 @@ export default function RecurringExpensesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-ink uppercase tracking-tighter">Dépenses récurrentes</h1>
-          <p className="text-sm text-moss">Total estimé : <strong className="text-cedar">{monthlyTotal.toLocaleString("fr-FR")} XOF/mois</strong></p>
+          <p className="text-sm text-ink2">Total estimé : <strong className="text-section">{monthlyTotal.toLocaleString("fr-FR")} XOF/mois</strong></p>
         </div>
-        <button onClick={() => setModalOpen(true)} className="px-5 py-2.5 bg-cedar text-white rounded-xl text-sm font-bold shadow-md hover:bg-ink transition-all">
+        <button onClick={() => setModalOpen(true)} className="px-5 py-2.5 bg-section text-white rounded-xl text-sm font-bold shadow-md hover:brightness-95 transition-all">
           + Nouvelle dépense
         </button>
       </div>
 
-      <div className="bg-surface rounded-2xl border border-clay/20 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-line shadow-sm overflow-hidden">
         <DataTable columns={columns} data={items} loading={loading} keyExtractor={e => e._id} emptyMessage="Aucune dépense planifiée" />
       </div>
       
@@ -189,8 +189,8 @@ export default function RecurringExpensesPage() {
           </div>
 
           <div className="flex justify-end gap-3 pt-6 border-t">
-            <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm font-bold text-moss">Annuler</button>
-            <button type="submit" disabled={saving} className="px-8 py-2.5 bg-cedar text-white rounded-xl text-sm font-bold disabled:opacity-50">
+            <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm font-bold text-ink2">Annuler</button>
+            <button type="submit" disabled={saving} className="px-8 py-2.5 bg-section text-white rounded-xl text-sm font-bold disabled:opacity-50">
               {saving ? "Enregistrement..." : "Créer l'échéance"}
             </button>
           </div>

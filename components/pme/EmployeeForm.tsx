@@ -68,11 +68,11 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
 
       {/* Type */}
       <fieldset className="space-y-3">
-        <legend className="text-sm font-semibold text-ink border-b border-clay/20 pb-2 w-full">Type de collaborateur</legend>
+        <legend className="text-sm font-semibold text-ink border-b border-line pb-2 w-full">Type de collaborateur</legend>
         <div className="grid grid-cols-3 gap-3">
           {TYPE_OPTIONS.map(([v,l]) => (
-            <label key={v} className={`flex items-center gap-2 p-3 border-2 rounded-xl cursor-pointer transition-all ${form.employeeType===v?"border-cedar bg-cedar/5":"border-clay/20 hover:border-cedar/30"}`}>
-              <input type="radio" name="employeeType" value={v} checked={form.employeeType===v} onChange={()=>u("employeeType",v)} className="accent-cedar"/>
+            <label key={v} className={`flex items-center gap-2 p-3 border-2 rounded-xl cursor-pointer transition-all ${form.employeeType===v?"border-section bg-section/5":"border-line hover:border-section/30"}`}>
+              <input type="radio" name="employeeType" value={v} checked={form.employeeType===v} onChange={()=>u("employeeType",v)} className="accent-section"/>
               <span className="text-sm font-medium">{l}</span>
             </label>
           ))}
@@ -86,7 +86,7 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
 
       {/* Identité */}
       <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold text-ink border-b border-clay/20 pb-2 w-full">Identité</legend>
+        <legend className="text-sm font-semibold text-ink border-b border-line pb-2 w-full">Identité</legend>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Code" required><input className={inputCls} value={form.code} onChange={e=>u("code",e.target.value)} placeholder="EMP-001" required/></FormField>
           <FormField label="Département"><input className={inputCls} value={form.department} onChange={e=>u("department",e.target.value)}/></FormField>
@@ -100,7 +100,7 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
 
       {/* Rémunération */}
       <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold text-ink border-b border-clay/20 pb-2 w-full">
+        <legend className="text-sm font-semibold text-ink border-b border-line pb-2 w-full">
           Rémunération {isEmployee?"(salarié)":isIntern?"(stagiaire)":"(freelance)"}
         </legend>
         {isEmployee ? (
@@ -109,8 +109,8 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
               <input type="number" className={inputCls} value={form.grossSalary} onChange={e=>u("grossSalary",Number(e.target.value))} min={0} required/>
             </FormField>
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={form.includeCnss} onChange={e=>u("includeCnss",e.target.checked)} className="accent-cedar"/><span>Inclure CNSS (3,6% + 16,4%)</span></label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={form.includeIr} onChange={e=>u("includeIr",e.target.checked)} className="accent-cedar"/><span>Inclure IR (impôt revenu)</span></label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={form.includeCnss} onChange={e=>u("includeCnss",e.target.checked)} className="accent-section"/><span>Inclure CNSS (3,6% + 16,4%)</span></label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={form.includeIr} onChange={e=>u("includeIr",e.target.checked)} className="accent-section"/><span>Inclure IR (impôt revenu)</span></label>
             </div>
           </div>
         ) : (
@@ -145,7 +145,7 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
 
       {/* Dates */}
       <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold text-ink border-b border-clay/20 pb-2 w-full">Dates</legend>
+        <legend className="text-sm font-semibold text-ink border-b border-line pb-2 w-full">Dates</legend>
         <div className="grid grid-cols-3 gap-4">
           <FormField label="Date d'entrée" required><input type="date" className={inputCls} value={form.startDate} onChange={e=>u("startDate",e.target.value)} required/></FormField>
           <FormField label="Date de fin prévue" hint="CDI = laisser vide"><input type="date" className={inputCls} value={form.endDate} onChange={e=>u("endDate",e.target.value)}/></FormField>
@@ -155,7 +155,7 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
 
       {/* Coordonnées */}
       <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold text-ink border-b border-clay/20 pb-2 w-full">Coordonnées officielles</legend>
+        <legend className="text-sm font-semibold text-ink border-b border-line pb-2 w-full">Coordonnées officielles</legend>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="N° CNSS"><input className={inputCls} value={form.cnssNumber} onChange={e=>u("cnssNumber",e.target.value)}/></FormField>
           <FormField label="NIF"><input className={inputCls} value={form.nif} onChange={e=>u("nif",e.target.value)}/></FormField>
@@ -173,13 +173,13 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
       <FormField label="Notes"><textarea className={textareaCls} rows={2} value={form.notes} onChange={e=>u("notes",e.target.value)}/></FormField>
 
       <label className="flex items-center gap-3 cursor-pointer">
-        <input type="checkbox" checked={form.isActive} onChange={e=>u("isActive",e.target.checked)} className="w-4 h-4 accent-cedar"/>
+        <input type="checkbox" checked={form.isActive} onChange={e=>u("isActive",e.target.checked)} className="w-4 h-4 accent-section"/>
         <span className="text-sm text-ink">Collaborateur actif</span>
       </label>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-clay/20">
-        <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2.5 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink disabled:opacity-60">
+      <div className="flex justify-end gap-3 pt-4 border-t border-line">
+        <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
+        <button type="submit" disabled={saving} className="px-6 py-2.5 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">
           {saving?"Enregistrement…":"Enregistrer"}
         </button>
       </div>

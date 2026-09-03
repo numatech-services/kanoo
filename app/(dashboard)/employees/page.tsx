@@ -60,7 +60,7 @@ export default function EmployeesPage() {
     {key:"code",label:"Code",className:"font-mono text-xs w-20"},
     {key:"lastName",label:"Nom complet",sortable:true,render:(_v,r)=><Link href={`/employees/${r._id}`} className="hover:underline font-medium">{r.firstName} {r.lastName}</Link>},
     {key:"employeeType",label:"Type",render:(v)=><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[String(v)]||""}`}>{TYPE_LABELS[String(v)]||String(v)}</span>},
-    {key:"contractNature",label:"Contrat",render:(v)=><span className="text-xs text-moss">{CONTRACT_LABELS[String(v)]||String(v)}</span>},
+    {key:"contractNature",label:"Contrat",render:(v)=><span className="text-xs text-ink2">{CONTRACT_LABELS[String(v)]||String(v)}</span>},
     {key:"position",label:"Poste",sortable:true},
     {key:"grossSalary",label:"Rémunération (XOF)",className:"text-right font-mono",render:(v,r)=>{
       const amount = r.employeeType==="employee" ? r.grossSalary : r.indemnity;
@@ -68,9 +68,9 @@ export default function EmployeesPage() {
       return amount>0?`${amount.toLocaleString("fr-FR")} / ${label}`:"—";
     }},
     {key:"contractEndDate",label:"Fin de contrat",render:(v)=>{
-      if(!v) return <span className="text-moss text-xs">CDI / Sans fin</span>;
+      if(!v) return <span className="text-ink2 text-xs">CDI / Sans fin</span>;
       const expiring = isExpiringSoon(String(v));
-      return <span className={`text-sm ${expiring?"text-warn font-semibold":"text-moss"}`}>{new Date(String(v)).toLocaleDateString("fr-FR")}{expiring?" ⚠":""}</span>;
+      return <span className={`text-sm ${expiring?"text-warn font-semibold":"text-ink2"}`}>{new Date(String(v)).toLocaleDateString("fr-FR")}{expiring?" ⚠":""}</span>;
     }},
     {key:"isActive",label:"",render:(v)=><StatusBadge status={v?"active":"inactive"}/>},
   ];
@@ -82,9 +82,9 @@ export default function EmployeesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Ressources humaines</h1>
-          <p className="text-sm text-moss mt-0.5">{total} collaborateur{total>1?"s":""}</p>
+          <p className="text-sm text-ink2 mt-0.5">{total} collaborateur{total>1?"s":""}</p>
         </div>
-        <button onClick={()=>{setEditing(null);setModalOpen(true);}} className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink">+ Nouveau collaborateur</button>
+        <button onClick={()=>{setEditing(null);setModalOpen(true);}} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouveau collaborateur</button>
       </div>
 
       {alertCount > 0 && (
@@ -95,8 +95,8 @@ export default function EmployeesPage() {
       )}
 
       <div className="flex gap-3 flex-wrap">
-        <input type="text" placeholder="Rechercher…" value={searchInput} onChange={e=>setSearchInput(e.target.value)} className="px-3 py-2 border border-clay/30 rounded-lg text-sm w-48 focus:outline-none focus:ring-2 focus:ring-cedar/30"/>
-        <select value={employeeType} onChange={e=>{setEmployeeType(e.target.value);setPage(1);}} className="px-3 py-2 border border-clay/30 rounded-lg text-sm">
+        <input type="text" placeholder="Rechercher…" value={searchInput} onChange={e=>setSearchInput(e.target.value)} className="px-3 py-2 border border-line rounded-lg text-sm w-48 focus:outline-none focus:ring-2 focus:ring-section/30"/>
+        <select value={employeeType} onChange={e=>{setEmployeeType(e.target.value);setPage(1);}} className="px-3 py-2 border border-line rounded-lg text-sm">
           <option value="">Tous les types</option>
           <option value="employee">Employés</option>
           <option value="intern">Stagiaires</option>

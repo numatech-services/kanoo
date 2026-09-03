@@ -137,14 +137,14 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
       </div>
 
       <div className="space-y-2">
-        <div className="flex justify-between items-center border-b border-clay/10 pb-2">
+        <div className="flex justify-between items-center border-b border-line pb-2">
           <p className="text-sm font-bold text-ink uppercase tracking-wider">Lignes de commande</p>
           <button type="button" onClick={()=>setLines(p=>[...p,calcLine({description:"",quantity:1,unitPrice:0})])} 
-                  className="px-3 py-1 bg-cedar/10 text-cedar rounded-lg text-xs font-bold hover:bg-cedar hover:text-white transition-all">+ Ajouter</button>
+                  className="px-3 py-1 bg-section/10 text-section rounded-lg text-xs font-bold hover:bg-section hover:text-white transition-all">+ Ajouter</button>
         </div>
 
         {lines.map((l,i)=>(
-          <div key={i} className="grid grid-cols-12 gap-2 bg-sand/30 p-3 rounded-xl items-center border border-clay/5">
+          <div key={i} className="grid grid-cols-12 gap-2 bg-surface2/30 p-3 rounded-xl items-center border border-line">
             {/* SÉLECTEUR DE PRODUIT AU LIEU DU TEXTE */}
             <div className="col-span-5">
               <select 
@@ -168,7 +168,7 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
             </div>
             
             <button type="button" onClick={()=>lines.length>1&&setLines(p=>p.filter((_,j)=>j!==i))} 
-                    className="text-moss hover:text-neg font-bold text-center">×</button>
+                    className="text-ink2 hover:text-neg font-bold text-center">×</button>
           </div>
         ))}
       </div>
@@ -176,22 +176,22 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
       {/* Reste du formulaire (Notes et Totaux) inchangé mais gardé pour la cohérence */}
       <div className="flex justify-between items-start gap-6">
         <div className="flex-1">
-          <label className="text-[10px] font-bold text-moss uppercase mb-1 block">Notes / Observations</label>
+          <label className="text-[10px] font-bold text-ink2 uppercase mb-1 block">Notes / Observations</label>
           <textarea className={inputCls+" resize-none"} rows={2} value={notes} onChange={e=>setNotes(e.target.value)} />
         </div>
         <div className="w-72 space-y-1 text-sm bg-ink text-white rounded-2xl p-5 shadow-xl border border-white/5">
            <div className="flex justify-between opacity-60 text-xs"><span>Total HT</span><span>{totalHT.toLocaleString("fr-FR")} XOF</span></div>
            <div className="flex justify-between opacity-60 text-xs"><span>TVA (19%)</span><span>{totalTVA.toLocaleString("fr-FR")} XOF</span></div>
            <div className="flex justify-between font-bold border-t border-white/10 pt-3 mt-2 text-xl">
-             <span className="text-sand">TOTAL TTC</span>
+             <span className="text-white">TOTAL TTC</span>
              <span className="text-white">{totalTTC.toLocaleString("fr-FR")}</span>
            </div>
         </div>
       </div>
 
       <div className="flex justify-end gap-3 pt-5">
-        <button type="button" onClick={onCancel} className="px-6 py-2.5 text-sm font-bold text-moss hover:bg-sand rounded-xl">Annuler</button>
-        <button type="submit" disabled={saving} className="px-10 py-2.5 bg-cedar text-white rounded-xl text-sm font-bold hover:bg-ink disabled:opacity-50 shadow-xl transition-transform active:scale-95">
+        <button type="button" onClick={onCancel} className="px-6 py-2.5 text-sm font-bold text-ink2 hover:bg-surface2 rounded-xl">Annuler</button>
+        <button type="submit" disabled={saving} className="px-10 py-2.5 bg-section text-white rounded-xl text-sm font-bold hover:brightness-95 disabled:opacity-50 shadow-xl transition-transform active:scale-95">
           {saving ? "Envoi..." : "Enregistrer la commande"}
         </button>
       </div>

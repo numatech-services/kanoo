@@ -51,20 +51,20 @@ export default function NewProductPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <button 
         onClick={() => router.back()}
-        className="flex items-center gap-2 text-sm text-moss hover:text-ink transition-colors"
+        className="flex items-center gap-2 text-sm text-ink2 hover:text-ink transition-colors"
       >
         <ArrowLeft size={16} /> Retour au stock
       </button>
 
-      <div className="bg-surface rounded-3xl border border-clay/10 shadow-sm overflow-hidden">
-        <div className="bg-sand/30 p-6 border-b border-clay/10">
+      <div className="bg-surface rounded-3xl border border-line shadow-sm overflow-hidden">
+        <div className="bg-surface2/30 p-6 border-b border-line">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-surface rounded-2xl shadow-sm text-cedar">
+            <div className="p-3 bg-surface rounded-2xl shadow-sm text-section">
               <Package size={24} />
             </div>
             <div>
               <h1 className="text-xl font-bold text-ink">Nouveau produit</h1>
-              <p className="text-xs text-moss">Enregistrez une nouvelle référence dans votre catalogue</p>
+              <p className="text-xs text-ink2">Enregistrez une nouvelle référence dans votre catalogue</p>
             </div>
           </div>
         </div>
@@ -106,7 +106,7 @@ export default function NewProductPage() {
             />
           </FormField>
 
-          <div className="grid grid-cols-2 gap-6 pt-4 border-t border-clay/5">
+          <div className="grid grid-cols-2 gap-6 pt-4 border-t border-line">
             <FormField label="Prix d'achat unitaire (estimé)">
               <div className="relative">
                 <input 
@@ -116,7 +116,7 @@ export default function NewProductPage() {
                   onChange={e => setForm(p => ({ ...p, unitPrice: Number(e.target.value) }))}
                   min={0}
                 />
-                <span className="absolute right-3 top-2.5 text-xs text-moss font-bold">XOF</span>
+                <span className="absolute right-3 top-2.5 text-xs text-ink2 font-bold">XOF</span>
               </div>
             </FormField>
 
@@ -136,14 +136,14 @@ export default function NewProductPage() {
             <button 
               type="button"
               onClick={() => router.back()}
-              className="px-6 py-2.5 text-sm font-bold text-moss hover:bg-sand rounded-xl transition-all"
+              className="px-6 py-2.5 text-sm font-bold text-ink2 hover:bg-surface2 rounded-xl transition-all"
             >
               Annuler
             </button>
             <button 
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-8 py-2.5 bg-cedar text-white rounded-xl text-sm font-bold hover:bg-ink disabled:opacity-50 shadow-lg transition-all"
+              className="flex items-center gap-2 px-8 py-2.5 bg-section text-white rounded-xl text-sm font-bold hover:brightness-95 disabled:opacity-50 shadow-lg transition-all"
             >
               <Save size={18} />
               {saving ? "Création..." : "Créer le produit"}

@@ -56,7 +56,7 @@ export default function ServicesPage() {
       label: "TVA", 
       render: (v) => `${(Number(v) * 100).toFixed(0)}%` 
     },
-    { key: "unit", label: "Unité", className: "italic text-moss" },
+    { key: "unit", label: "Unité", className: "italic text-ink2" },
     { 
       key: "isActive", 
       label: "Statut",
@@ -104,8 +104,8 @@ async function handleSubmit(e: React.FormEvent) {
   }
 }
 
-  const inputClass = "w-full px-3 py-2 border border-clay/30 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20";
-  const labelClass = "block text-[10px] font-bold text-moss uppercase mb-1";
+  const inputClass = "w-full px-3 py-2 border border-line rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20";
+  const labelClass = "block text-[10px] font-bold text-ink2 uppercase mb-1";
 
   return (
     <div className="space-y-5">
@@ -122,7 +122,7 @@ async function handleSubmit(e: React.FormEvent) {
         </button>
       </div>
 
-      <div className="bg-surface rounded-2xl border border-clay/10 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-line shadow-sm overflow-hidden">
         <DataTable 
           columns={columns} 
           data={services} 
@@ -164,7 +164,7 @@ async function handleSubmit(e: React.FormEvent) {
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-4">
-            <button type="button" onClick={() => setModalOpen(false)} className="text-sm font-medium text-moss">Annuler</button>
+            <button type="button" onClick={() => setModalOpen(false)} className="text-sm font-medium text-ink2">Annuler</button>
             <button 
               type="submit" disabled={saving}
               className="px-6 py-2 bg-pos text-white rounded-xl text-sm font-bold disabled:opacity-50"

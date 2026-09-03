@@ -13,7 +13,7 @@ export default function SupportPage() {
     { key:"priority", label:"Priorité", render:(v)=><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PRIO[String(v)]||""}`}>{String(v)}</span> },
     { key:"status", label:"Statut", render:(v)=><span className={`text-xs px-2 py-0.5 rounded-full ${v==="open"?"bg-pos-50 text-pos":v==="resolved"?"bg-surface2 text-ink3":"bg-warn-50 text-warn"}`}>{String(v)}</span> },
     { key:"createdAt", label:"Date", render:(v)=>new Date(String(v)).toLocaleDateString("fr-FR") },
-    { key:"_id", label:"", render:()=><button className="px-2 py-1 bg-cedar text-white text-xs rounded">Traiter</button> },
+    { key:"_id", label:"", render:()=><button className="px-2 py-1 bg-section text-white text-xs rounded">Traiter</button> },
   ];
   if (!mounted) return null;
   return (

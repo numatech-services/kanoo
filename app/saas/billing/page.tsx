@@ -65,7 +65,7 @@ export default function BillingPage() {
 
   const columns: Column<BillingRow>[] = [
     { key: "name", label: "Organisation" },
-    { key: "plan", label: "Plan", className: "text-xs text-cedar font-mono" },
+    { key: "plan", label: "Plan", className: "text-xs text-section font-mono" },
     {
       key: "subscriptionStatus", label: "Statut",
       render: (v) => (
@@ -127,8 +127,8 @@ export default function BillingPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {cards.map(c => (
-          <div key={c.label} className="bg-surface rounded-xl border border-clay/20 p-4">
-            <p className="text-xs text-moss">{c.label}</p>
+          <div key={c.label} className="bg-surface rounded-xl border border-line p-4">
+            <p className="text-xs text-ink2">{c.label}</p>
             <p className={`text-3xl font-bold mt-1 tabular-nums ${c.color}`}>{c.value}</p>
           </div>
         ))}

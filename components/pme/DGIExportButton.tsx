@@ -46,7 +46,7 @@ export function DGIExportButton({ type, annee, mois, label, className = "" }: DG
     <button
       onClick={handleExport}
       disabled={loading}
-      className={`flex items-center gap-2 px-4 py-2 border border-clay/30 rounded-lg text-sm text-moss hover:bg-sand hover:border-cedar/40 transition-colors disabled:opacity-60 ${className}`}
+      className={`flex items-center gap-2 px-4 py-2 border border-line rounded-lg text-sm text-ink2 hover:bg-surface2 hover:border-section/40 transition-colors disabled:opacity-60 ${className}`}
     >
       {loading ? (
         <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">

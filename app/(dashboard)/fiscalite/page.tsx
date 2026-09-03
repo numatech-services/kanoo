@@ -11,17 +11,17 @@ export default function FiscalitePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-ink">Fiscalité Niger</h1>
-        <p className="text-sm text-moss mt-1">DGI Niger · CGI · CNSS · Code des Marchés Publics 2017</p>
+        <p className="text-sm text-ink2 mt-1">DGI Niger · CGI · CNSS · Code des Marchés Publics 2017</p>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
         {modules.map(m => (
-          <Link key={m.href} href={m.href} className="bg-surface rounded-xl border border-clay/20 p-5 hover:border-cedar/40 hover:shadow-sm transition-all group">
+          <Link key={m.href} href={m.href} className="bg-surface rounded-xl border border-line p-5 hover:border-section/40 hover:shadow-sm transition-all group">
             <div className="flex items-start justify-between mb-3">
               <span className="text-3xl">{m.icon}</span>
-              <span className="text-xs bg-clay/20 text-moss px-2 py-0.5 rounded-full">{m.badge}</span>
+              <span className="text-xs bg-surface2 text-ink2 px-2 py-0.5 rounded-full">{m.badge}</span>
             </div>
-            <p className="font-semibold text-ink group-hover:text-cedar transition-colors">{m.title}</p>
-            <p className="text-xs text-moss mt-1.5 leading-relaxed">{m.desc}</p>
+            <p className="font-semibold text-ink group-hover:text-section transition-colors">{m.title}</p>
+            <p className="text-xs text-ink2 mt-1.5 leading-relaxed">{m.desc}</p>
           </Link>
         ))}
       </div>

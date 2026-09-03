@@ -33,9 +33,9 @@ export function CommitmentForm({ onSave, onCancel }: CommitmentFormProps) {
         <FormField label="Date" required><input type="date" className={inputCls} value={form.date} onChange={e=>u("date",e.target.value)} required /></FormField>
       </div>
       <FormField label="Notes"><textarea className={textareaCls} rows={2} value={form.notes} onChange={e=>u("notes",e.target.value)} /></FormField>
-      <div className="flex justify-end gap-3 pt-3 border-t border-clay/20">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">Annuler</button>
-        <button type="submit" disabled={saving || (available !== null && available < form.amount)} className="px-6 py-2 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink disabled:opacity-60">{saving?"…":"Créer l'engagement"}</button>
+      <div className="flex justify-end gap-3 pt-3 border-t border-line">
+        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
+        <button type="submit" disabled={saving || (available !== null && available < form.amount)} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"…":"Créer l'engagement"}</button>
       </div>
     </form>
   );

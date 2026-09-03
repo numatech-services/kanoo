@@ -29,9 +29,9 @@ export default function SuppliersPage() {
   const columns: Column<Supplier>[] = [
     { key: "code", label: "Code", className: "font-mono text-xs w-24", sortable: true },
     { key: "name", label: "Fournisseur", sortable: true },
-    { key: "nif", label: "NIF", className: "text-xs text-moss" },
+    { key: "nif", label: "NIF", className: "text-xs text-ink2" },
     { key: "phone", label: "Téléphone" },
-    { key: "paymentTermDays", label: "Délai paiement", render: (v) => <span className="text-moss">{String(v ?? "—")} j</span> },
+    { key: "paymentTermDays", label: "Délai paiement", render: (v) => <span className="text-ink2">{String(v ?? "—")} j</span> },
     { key: "isActive", label: "Statut", render: (v) => <StatusBadge status={v ? "active" : "inactive"} /> },
   ];
 
@@ -48,10 +48,10 @@ export default function SuppliersPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Fournisseurs</h1><p className="text-sm text-moss mt-0.5">{total} fournisseur{total > 1 ? "s" : ""}</p></div>
-        <button onClick={() => { setEditing(null); setModalOpen(true); }} className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink transition-colors">+ Nouveau fournisseur</button>
+        <div><h1 className="text-2xl font-bold text-ink">Fournisseurs</h1><p className="text-sm text-ink2 mt-0.5">{total} fournisseur{total > 1 ? "s" : ""}</p></div>
+        <button onClick={() => { setEditing(null); setModalOpen(true); }} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors">+ Nouveau fournisseur</button>
       </div>
-      <input type="text" placeholder="Rechercher…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} className="w-full max-w-sm px-4 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30" />
+      <input type="text" placeholder="Rechercher…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} className="w-full max-w-sm px-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30" />
       <DataTable columns={columns} data={suppliers} loading={loading} keyExtractor={(s) => s._id} emptyMessage="Aucun fournisseur" onRowClick={(s) => { setEditing(s); setModalOpen(true); }} />
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
       <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }} title={editing ? `Modifier — ${editing.name}` : "Nouveau fournisseur"} size="lg">

@@ -34,7 +34,7 @@ const columns: Column<Commande>[] = [
     {
       key: "number",
       label: "N° BC",
-      className: "font-mono font-semibold text-cedar",
+      className: "font-mono font-semibold text-section",
       sortable: true,
       // On rend le numéro cliquable
       render: (v, record) => (
@@ -79,19 +79,19 @@ const columns: Column<Commande>[] = [
       <div className="flex items-center justify-between">
         <div>
             <h1 className="text-2xl font-bold text-ink">Bons de commande</h1>
-            <p className="text-sm text-moss mt-0.5">{total} commande{total>1?"s":""}</p>
+            <p className="text-sm text-ink2 mt-0.5">{total} commande{total>1?"s":""}</p>
         </div>
         {/* CHANGEMENT ICI : Utilisation de Link au lieu de button */}
         <Link 
   href="/commandes/new" 
   onClick={() => console.log("Lien cliqué !")}
-  className="relative z-50 px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink transition-colors"
+  className="relative z-50 px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors"
 >
   + Nouveau BC
 </Link>
       </div>
 
-      <select value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}} className="px-3 py-2 border border-clay/30 rounded-lg text-sm">
+      <select value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}} className="px-3 py-2 border border-line rounded-lg text-sm">
         <option value="">Tous les statuts</option>
         {["draft","confirmed","partially_received","received","cancelled","invoiced"].map(s=><option key={s} value={s}>{s.replace(/_/g," ")}</option>)}
       </select>

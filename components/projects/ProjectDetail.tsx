@@ -247,12 +247,12 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
           </div>
         </div>
 
-        <div className="bg-section/5 p-5 rounded-xl border border-cedar/10 flex flex-col justify-center items-center">
+        <div className="bg-section/5 p-5 rounded-xl border border-section/10 flex flex-col justify-center items-center">
             <p className="text-[10px] font-black text-section uppercase mb-1">Dépensé / Total</p>
             <p className="text-lg font-black text-ink">
                 {project.spentAmount.toLocaleString()} <span className="text-[10px] opacity-40">/ {project.budget.toLocaleString()} XOF</span>
             </p>
-            <button onClick={() => setBudgetModal(true)} className="mt-2 text-[10px] font-bold text-section hover:scale-105 transition-transform flex items-center gap-1 bg-surface px-3 py-1 rounded-full shadow-sm border border-cedar/10">
+            <button onClick={() => setBudgetModal(true)} className="mt-2 text-[10px] font-bold text-section hover:scale-105 transition-transform flex items-center gap-1 bg-surface px-3 py-1 rounded-full shadow-sm border border-section/10">
                <Plus size={10} /> AJOUTER UNE DÉPENSE
             </button>
         </div>
@@ -285,7 +285,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
               <h2 className="text-xl font-black text-ink">LISTE DES TÂCHES</h2>
               <button onClick={() => setTaskModal(true)} className="bg-section text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest">+ Ajouter</button>
             </div>
-            <div className="divide-y divide-clay/5">
+            <div className="divide-y divide-line">
               {project.tasks.map(task => (
                 <div key={task._id} className="py-4 flex justify-between items-center group">
                   <div className="flex items-center gap-3">
@@ -345,7 +345,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
               </div>
               <div className="grid gap-3">
                 {project.documents.map(doc => (
-                  <div key={doc._id} className="flex items-center justify-between p-4 bg-surface2/10 rounded-2xl border border-clay/5 hover:bg-surface2/20 transition-colors">
+                  <div key={doc._id} className="flex items-center justify-between p-4 bg-surface2/10 rounded-2xl border border-line hover:bg-surface2/20 transition-colors">
                     <div className="flex items-center gap-3">
                       <span className="text-xl">📄</span>
                       <div>
@@ -380,7 +380,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
              className={`px-12 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all shadow-xl ${
                currentExecRate === 100 
                ? "bg-pos text-white hover:brightness-95 hover:-translate-y-1 active:translate-y-0" 
-               : "bg-clay/10 text-ink2 cursor-not-allowed opacity-50"
+               : "bg-surface2 text-ink2 cursor-not-allowed opacity-50"
              }`}
            >
              {currentExecRate < 100 ? `Finaliser les tâches (${tasksDone}/${tasksTotal})` : "Clôturer le Projet"}

@@ -22,34 +22,34 @@ export default function SuperadminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold text-ink">Plateforme Kanoo</h1><p className="text-sm text-moss mt-0.5">Vue superadmin — toutes les organisations</p></div>
+      <div><h1 className="text-2xl font-bold text-ink">Plateforme Kanoo</h1><p className="text-sm text-ink2 mt-0.5">Vue superadmin — toutes les organisations</p></div>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {loading ? [...Array(4)].map((_,i)=><div key={i} className="h-24 bg-surface rounded-xl border border-clay/20 animate-pulse"/>) :
+        {loading ? [...Array(4)].map((_,i)=><div key={i} className="h-24 bg-surface rounded-xl border border-line animate-pulse"/>) :
           kpis.map(k => (
-            <div key={k.label} className="bg-surface rounded-xl border border-clay/20 p-5">
-              <div className="flex items-start justify-between"><div><p className="text-xs text-moss font-medium uppercase tracking-wide">{k.label}</p><p className="text-3xl font-bold text-ink mt-1">{k.value}</p></div><span className={`text-2xl p-2 rounded-lg ${k.color}`}>{k.icon}</span></div>
+            <div key={k.label} className="bg-surface rounded-xl border border-line p-5">
+              <div className="flex items-start justify-between"><div><p className="text-xs text-ink2 font-medium uppercase tracking-wide">{k.label}</p><p className="text-3xl font-bold text-ink mt-1">{k.value}</p></div><span className={`text-2xl p-2 rounded-lg ${k.color}`}>{k.icon}</span></div>
             </div>
           ))
         }
       </div>
       {stats?.byType && (
-        <div className="bg-surface rounded-xl border border-clay/20 p-5">
+        <div className="bg-surface rounded-xl border border-line p-5">
           <h2 className="font-semibold text-ink mb-4">Répartition par profil</h2>
           <div className="flex gap-6">
             {stats.byType.map(t => (
-              <div key={t._id} className="text-center"><p className="text-3xl font-bold text-ink">{t.count}</p><p className="text-sm text-moss capitalize mt-1">{t._id}</p></div>
+              <div key={t._id} className="text-center"><p className="text-3xl font-bold text-ink">{t.count}</p><p className="text-sm text-ink2 capitalize mt-1">{t._id}</p></div>
             ))}
           </div>
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Link href="/saas/tenants" className="bg-surface rounded-xl border border-clay/20 p-5 hover:shadow-soft transition-shadow">
+        <Link href="/saas/tenants" className="bg-surface rounded-xl border border-line p-5 hover:shadow-soft transition-shadow">
           <h3 className="font-semibold text-ink mb-1">🏢 Gérer les organisations</h3>
-          <p className="text-sm text-moss">Voir, créer, suspendre des tenants</p>
+          <p className="text-sm text-ink2">Voir, créer, suspendre des tenants</p>
         </Link>
-        <Link href="/saas/security" className="bg-surface rounded-xl border border-clay/20 p-5 hover:shadow-soft transition-shadow">
+        <Link href="/saas/security" className="bg-surface rounded-xl border border-line p-5 hover:shadow-soft transition-shadow">
           <h3 className="font-semibold text-ink mb-1">🔐 Sécurité & Accès</h3>
-          <p className="text-sm text-moss">Matrice d'accès API, logs de sécurité</p>
+          <p className="text-sm text-ink2">Matrice d'accès API, logs de sécurité</p>
         </Link>
       </div>
     </div>

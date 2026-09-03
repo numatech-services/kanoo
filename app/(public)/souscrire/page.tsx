@@ -13,7 +13,7 @@ function SouscrireForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const inp = "w-full px-4 py-2.5 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30";
+  const inp = "w-full px-4 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
   const lbl = "block text-sm font-medium text-ink mb-1";
 
   async function handleSubmit(e: React.FormEvent) {
@@ -31,8 +31,8 @@ function SouscrireForm() {
     <div className="text-center py-8 space-y-4">
       <span className="text-5xl">🎉</span>
       <h2 className="text-2xl font-bold text-ink">Inscription réussie !</h2>
-      <p className="text-moss">Vérifiez votre email pour activer votre compte. Votre essai gratuit de 30 jours commence dès l'activation.</p>
-      <Link href="/login" className="inline-block px-6 py-3 bg-cedar text-white rounded-xl font-medium hover:bg-ink transition-colors">Aller à la connexion</Link>
+      <p className="text-ink2">Vérifiez votre email pour activer votre compte. Votre essai gratuit de 30 jours commence dès l'activation.</p>
+      <Link href="/login" className="inline-block px-6 py-3 bg-section text-white rounded-xl font-medium hover:brightness-95 transition-colors">Aller à la connexion</Link>
     </div>
   );
 
@@ -47,13 +47,13 @@ function SouscrireForm() {
           <div><label className={lbl}>Profil *</label>
             <div className="grid grid-cols-3 gap-3 mt-1">
               {[{v:"pme",l:"PME",i:"🏢"},{v:"association",l:"Association",i:"🤝"},{v:"administration",l:"Administration",i:"🏛️"}].map(opt=>(
-                <button key={opt.v} type="button" onClick={()=>setForm(p=>({...p,type:opt.v}))} className={`py-3 rounded-xl border-2 text-sm font-medium transition-all ${form.type===opt.v?"border-cedar bg-cedar/5 text-cedar":"border-clay/20 text-moss hover:border-cedar/30"}`}>{opt.i}<br/>{opt.l}</button>
+                <button key={opt.v} type="button" onClick={()=>setForm(p=>({...p,type:opt.v}))} className={`py-3 rounded-xl border-2 text-sm font-medium transition-all ${form.type===opt.v?"border-section bg-section/5 text-section":"border-line text-ink2 hover:border-section/30"}`}>{opt.i}<br/>{opt.l}</button>
               ))}
             </div>
           </div>
           <div><label className={lbl}>Email de l'organisation *</label><input type="email" className={inp} value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} required /></div>
           <div><label className={lbl}>Téléphone</label><input className={inp} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))} placeholder="+227 XX XX XX XX" /></div>
-          <button type="submit" className="w-full py-3 bg-cedar text-white rounded-xl font-medium hover:bg-ink transition-colors">Continuer →</button>
+          <button type="submit" className="w-full py-3 bg-section text-white rounded-xl font-medium hover:brightness-95 transition-colors">Continuer →</button>
         </>
       )}
 
@@ -68,8 +68,8 @@ function SouscrireForm() {
           <div><label className={lbl}>Mot de passe *</label><input type="password" className={inp} value={form.adminPassword} onChange={e=>setForm(p=>({...p,adminPassword:e.target.value}))} placeholder="Minimum 8 caractères" required minLength={8} /></div>
           <div className="bg-pos-50 border border-pos/25 rounded-xl p-3 text-xs text-pos">✅ 30 jours d'essai gratuit — Aucune carte bancaire requise</div>
           <div className="flex gap-3">
-            <button type="button" onClick={()=>setStep(1)} className="px-4 py-3 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">← Retour</button>
-            <button type="submit" disabled={loading} className="flex-1 py-3 bg-cedar text-white rounded-xl font-medium hover:bg-ink transition-colors disabled:opacity-60">{loading?"Création…":"Créer mon compte gratuit"}</button>
+            <button type="button" onClick={()=>setStep(1)} className="px-4 py-3 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">← Retour</button>
+            <button type="submit" disabled={loading} className="flex-1 py-3 bg-section text-white rounded-xl font-medium hover:brightness-95 transition-colors disabled:opacity-60">{loading?"Création…":"Créer mon compte gratuit"}</button>
           </div>
         </>
       )}
@@ -79,19 +79,19 @@ function SouscrireForm() {
 
 export default function SouscrirePage() {
   return (
-    <div className="min-h-screen bg-sand flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-surface2 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="text-2xl font-bold text-ink">Kanoo</Link>
-          <p className="text-moss mt-2">Commencez votre essai gratuit de 30 jours</p>
+          <p className="text-ink2 mt-2">Commencez votre essai gratuit de 30 jours</p>
         </div>
         <div className="bg-surface rounded-2xl shadow-soft p-8">
-          <Suspense fallback={<div className="h-64 animate-pulse bg-sand rounded-xl" />}>
+          <Suspense fallback={<div className="h-64 animate-pulse bg-surface2 rounded-xl" />}>
             <SouscrireForm />
           </Suspense>
         </div>
-        <p className="text-center text-sm text-moss mt-4">
-          Déjà un compte ? <Link href="/login" className="text-cedar hover:underline">Se connecter</Link>
+        <p className="text-center text-sm text-ink2 mt-4">
+          Déjà un compte ? <Link href="/login" className="text-section hover:underline">Se connecter</Link>
         </p>
       </div>
     </div>

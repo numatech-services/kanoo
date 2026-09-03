@@ -56,45 +56,45 @@ export default function BureauPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Bureau de l'association</h1>
-          <p className="text-sm text-moss">{members.filter(m => m.isActive).length} membres actifs</p>
+          <p className="text-sm text-ink2">{members.filter(m => m.isActive).length} membres actifs</p>
         </div>
-        <button onClick={() => window.location.href = "/associations/bureau/new"} className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink">+ Ajouter un membre</button>
+        <button onClick={() => window.location.href = "/associations/bureau/new"} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Ajouter un membre</button>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">{[...Array(6)].map((_,i) => <div key={i} className="h-32 bg-surface rounded-xl animate-pulse border border-clay/20"/>)}</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">{[...Array(6)].map((_,i) => <div key={i} className="h-32 bg-surface rounded-xl animate-pulse border border-line"/>)}</div>
       ) : members.length === 0 ? (
-        <div className="bg-surface rounded-xl border border-clay/20 p-12 text-center"><p className="text-4xl mb-3">&#127963;</p><p className="text-moss">Aucun membre du bureau enregistré</p></div>
+        <div className="bg-surface rounded-xl border border-line p-12 text-center"><p className="text-4xl mb-3">&#127963;</p><p className="text-ink2">Aucun membre du bureau enregistré</p></div>
       ) : (
         <div className="space-y-6">
           {Object.entries(grouped).map(([role, roleMembers]) => (
             <div key={role}>
-              <p className="text-xs font-semibold uppercase tracking-widest text-moss mb-3">{ROLES.find(r => r[0] === role)?.[1] || role}</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-ink2 mb-3">{ROLES.find(r => r[0] === role)?.[1] || role}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {roleMembers.map(m => (
-                  <div key={m._id} className="bg-surface rounded-xl border border-clay/20 p-5">
+                  <div key={m._id} className="bg-surface rounded-xl border border-line p-5">
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="w-10 h-10 bg-cedar text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0">
+                      <div className="w-10 h-10 bg-section text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0">
                         {m.firstName[0]}{m.lastName[0]}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-ink">{m.firstName} {m.lastName}</p>
-                        <p className="text-xs text-moss">{ROLES.find(r => r[0] === m.role)?.[1] || m.customRoleLabel}</p>
+                        <p className="text-xs text-ink2">{ROLES.find(r => r[0] === m.role)?.[1] || m.customRoleLabel}</p>
                       </div>
                       {m.isActive
                         ? <span className="text-xs bg-pos-50 text-pos px-2 py-0.5 rounded-full">Actif</span>
                         : <span className="text-xs bg-surface2 text-ink3 px-2 py-0.5 rounded-full">Inactif</span>
                       }
                     </div>
-                    {m.email && <p className="text-xs text-moss mb-1">✉ {m.email}</p>}
-                    {m.phone && <p className="text-xs text-moss mb-2">📞 {m.phone}</p>}
-                    <p className="text-xs text-moss border-t border-clay/10 pt-2">
+                    {m.email && <p className="text-xs text-ink2 mb-1">✉ {m.email}</p>}
+                    {m.phone && <p className="text-xs text-ink2 mb-2">📞 {m.phone}</p>}
+                    <p className="text-xs text-ink2 border-t border-line pt-2">
                       Mandat depuis le {new Date(m.mandateStart).toLocaleDateString("fr-FR")}
                       {m.mandateEnd && ` → ${new Date(m.mandateEnd).toLocaleDateString("fr-FR")}`}
                     </p>
                     {m.projectIds.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-clay/10">
-                        <p className="text-xs font-medium text-moss mb-1">Projets :</p>
+                      <div className="mt-2 pt-2 border-t border-line">
+                        <p className="text-xs font-medium text-ink2 mb-1">Projets :</p>
                         {m.projectIds.map(p => (
                           <div key={p._id} className="flex items-center justify-between text-xs mb-1">
                             <span className="text-ink truncate">{p.code} — {p.name}</span>

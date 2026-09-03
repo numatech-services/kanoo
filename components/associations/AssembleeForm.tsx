@@ -18,9 +18,9 @@ export function AssembleeForm({ onSave, onCancel }: AssembleeFormProps) {
       <FormField label="Lieu" required><input className={inputCls} value={form.location} onChange={e=>u("location",e.target.value)} placeholder="Salle, adresse…" required /></FormField>
       <FormField label="Quorum requis (nb membres)"><input type="number" className={inputCls} value={form.quorumRequired} onChange={e=>u("quorumRequired",Number(e.target.value))} min={0} /></FormField>
       <FormField label="Notes préparatoires"><textarea className={textareaCls} rows={2} value={form.notes} onChange={e=>u("notes",e.target.value)} /></FormField>
-      <div className="flex justify-end gap-3 pt-3 border-t border-clay/20">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink disabled:opacity-60">{saving?"…":"Créer l'assemblée"}</button>
+      <div className="flex justify-end gap-3 pt-3 border-t border-line">
+        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
+        <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"…":"Créer l'assemblée"}</button>
       </div>
     </form>
   );

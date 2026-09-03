@@ -55,10 +55,10 @@ export function PublicTenderManager({ tender: initialTender }: PublicTenderManag
   return (
     <div className="space-y-6">
       {/* 1. Header & Statut Principal */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface p-6 rounded-2xl border border-clay/20 shadow-sm gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface p-6 rounded-2xl border border-line shadow-sm gap-4">
         <div>
           <h1 className="text-2xl font-bold text-ink">{tender.reference}</h1>
-          <p className="text-sm text-clay">{tender.object}</p>
+          <p className="text-sm text-ink3">{tender.object}</p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -71,7 +71,7 @@ export function PublicTenderManager({ tender: initialTender }: PublicTenderManag
           {tender.status === 'planning' && (
             <button 
               onClick={() => updateStatus('published')}
-              className="bg-moss text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-ink transition"
+              className="bg-section text-white px-4 py-2 rounded-xl text-sm font-bold hover:brightness-95 transition"
             >
               Publier l'appel d'offres
             </button>
@@ -81,30 +81,30 @@ export function PublicTenderManager({ tender: initialTender }: PublicTenderManag
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 2. Détails Techniques (Gauche) */}
-        <div className="lg:col-span-2 bg-surface p-6 rounded-2xl border border-clay/20">
+        <div className="lg:col-span-2 bg-surface p-6 rounded-2xl border border-line">
           <h3 className="font-bold text-ink mb-4 border-b pb-2">Informations Générales</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
             <div>
-              <p className="text-clay">Montant estimé</p>
+              <p className="text-ink3">Montant estimé</p>
               <p className="font-bold text-lg">{tender.estimatedAmount?.toLocaleString()} XOF</p>
             </div>
             <div>
-              <p className="text-clay">Procédure</p>
-              <p className="font-bold uppercase text-moss">{tender.procedure?.replace(/_/g, ' ')}</p>
+              <p className="text-ink3">Procédure</p>
+              <p className="font-bold uppercase text-ink2">{tender.procedure?.replace(/_/g, ' ')}</p>
             </div>
             <div>
-              <p className="text-clay">Date de création</p>
+              <p className="text-ink3">Date de création</p>
               <p className="font-medium">{new Date(tender.createdAt).toLocaleDateString('fr-FR')}</p>
             </div>
             <div>
-              <p className="text-clay">ID Technique</p>
-              <p className="text-[10px] font-mono text-clay/50">{tender._id}</p>
+              <p className="text-ink3">ID Technique</p>
+              <p className="text-[10px] font-mono text-ink3/50">{tender._id}</p>
             </div>
           </div>
         </div>
 
         {/* 3. Section Attribution (Droite) */}
-        <div className="bg-sand/20 p-6 rounded-2xl border border-clay/20">
+        <div className="bg-surface2/20 p-6 rounded-2xl border border-line">
           <h3 className="font-bold text-ink mb-4">Adjudication</h3>
           
           {tender.status === 'attributed' ? (
@@ -119,26 +119,26 @@ export function PublicTenderManager({ tender: initialTender }: PublicTenderManag
               </div>
             </div>
           ) : isAttributing ? (
-            <div className="space-y-4 bg-surface p-4 rounded-xl shadow-inner border border-moss/20">
+            <div className="space-y-4 bg-surface p-4 rounded-xl shadow-inner border border-line">
               <div>
-                <label className="text-[10px] font-bold text-clay uppercase">Nom de l'entreprise</label>
+                <label className="text-[10px] font-bold text-ink3 uppercase">Nom de l'entreprise</label>
                 <input 
                   type="text" 
-                  className="w-full mt-1 p-2 bg-clay/5 border-none rounded-lg text-sm"
+                  className="w-full mt-1 p-2 bg-surface2 border-none rounded-lg text-sm"
                   onChange={(e) => setWinnerData({...winnerData, winnerId: e.target.value})}
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-clay uppercase">Montant d'attribution</label>
+                <label className="text-[10px] font-bold text-ink3 uppercase">Montant d'attribution</label>
                 <input 
                   type="number" 
-                  className="w-full mt-1 p-2 bg-clay/5 border-none rounded-lg text-sm"
+                  className="w-full mt-1 p-2 bg-surface2 border-none rounded-lg text-sm"
                   onChange={(e) => setWinnerData({...winnerData, winnerAmount: Number(e.target.value)})}
                 />
               </div>
               <div className="flex gap-2">
-                <button onClick={handleAttribution} className="flex-1 bg-moss text-white py-2 rounded-lg text-xs font-bold">Confirmer</button>
-                <button onClick={() => setIsAttributing(false)} className="flex-1 bg-clay/10 text-clay py-2 rounded-lg text-xs">Annuler</button>
+                <button onClick={handleAttribution} className="flex-1 bg-section text-white py-2 rounded-lg text-xs font-bold">Confirmer</button>
+                <button onClick={() => setIsAttributing(false)} className="flex-1 bg-surface2 text-ink3 py-2 rounded-lg text-xs">Annuler</button>
               </div>
             </div>
           ) : (
@@ -148,7 +148,7 @@ export function PublicTenderManager({ tender: initialTender }: PublicTenderManag
               className={`w-full py-3 rounded-xl font-bold text-sm shadow-sm transition-all ${
                 tender.status === 'planning' 
                 ? 'bg-surface2 text-ink3 cursor-not-allowed' 
-                : 'bg-ink text-white hover:bg-moss'
+                : 'bg-ink text-white hover:bg-section'
               }`}
             >
               {tender.status === 'planning' ? "Publication requise" : "Attribuer le marché"}

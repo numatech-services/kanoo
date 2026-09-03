@@ -44,7 +44,7 @@ export default function NewDonPage() {
       {!mounted ? null : (
         <div className="max-w-lg space-y-5">
           <div>
-            <a href="/associations/dons" className="text-xs text-moss hover:text-ink">← Dons</a>
+            <a href="/associations/dons" className="text-xs text-ink2 hover:text-ink">← Dons</a>
             <h1 className="text-2xl font-bold text-ink mt-1">Enregistrer un don</h1>
           </div>
           {error && (
@@ -52,7 +52,7 @@ export default function NewDonPage() {
               {error}
             </div>
           )}
-          <div className="bg-surface rounded-2xl border border-clay/20 p-6">
+          <div className="bg-surface rounded-2xl border border-line p-6">
             <DonForm onSave={handleSave} onCancel={() => router.push("/associations/dons")} />
           </div>
         </div>

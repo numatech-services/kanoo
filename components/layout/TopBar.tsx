@@ -49,16 +49,16 @@ export function TopBar() {
         {mounted && user && (
           <Link 
             href="/associations/profil" 
-            className="flex items-center gap-2 hover:bg-sand p-1.5 rounded-xl transition-colors group"
+            className="flex items-center gap-2 hover:bg-surface2 p-1.5 rounded-xl transition-colors group"
           >
-            <div className="w-8 h-8 bg-cedar text-white rounded-full flex items-center justify-center text-sm font-semibold group-hover:ring-2 group-hover:ring-cedar/30 transition-all">
+            <div className="w-8 h-8 bg-section text-white rounded-full flex items-center justify-center text-sm font-semibold group-hover:ring-2 group-hover:ring-section/30 transition-all">
               {user.firstName?.[0]}{user.lastName?.[0]}
             </div>
             <div className="hidden sm:block text-right">
-              <p className="text-sm font-medium text-ink leading-none group-hover:text-cedar transition-colors">
+              <p className="text-sm font-medium text-ink leading-none group-hover:text-section transition-colors">
                 {user.firstName} {user.lastName}
               </p>
-              <p className="text-xs text-moss capitalize mt-0.5">
+              <p className="text-xs text-ink2 capitalize mt-0.5">
                 {user.role.replace(/_/g, " ")}
               </p>
             </div>

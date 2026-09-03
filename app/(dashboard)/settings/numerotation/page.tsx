@@ -92,7 +92,7 @@ export default function NumerotationPage() {
   if (loading) {
     return (
       <div className="space-y-4 max-w-2xl">
-        {[1, 2, 3].map(i => <div key={i} className="h-20 bg-surface rounded-xl animate-pulse border border-clay/20" />)}
+        {[1, 2, 3].map(i => <div key={i} className="h-20 bg-surface rounded-xl animate-pulse border border-line" />)}
       </div>
     );
   }
@@ -100,27 +100,27 @@ export default function NumerotationPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <div className="flex items-center gap-2 text-xs text-moss mb-2">
+        <div className="flex items-center gap-2 text-xs text-ink2 mb-2">
           <a href="/dashboard" className="hover:text-ink">Paramètres</a>
           <span>→</span>
           <span className="text-ink">Numérotation</span>
         </div>
         <h1 className="text-2xl font-bold text-ink">Numérotation des documents</h1>
-        <p className="text-sm text-moss mt-1">
+        <p className="text-sm text-ink2 mt-1">
           Personnalisez le préfixe de chaque type de document.
-          Format : <code className="bg-sand px-1.5 py-0.5 rounded font-mono text-xs">PRÉFIXE-AAAA-NNNNN</code>
+          Format : <code className="bg-surface2 px-1.5 py-0.5 rounded font-mono text-xs">PRÉFIXE-AAAA-NNNNN</code>
         </p>
       </div>
 
       {/* Préfixes */}
-      <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
-        <div className="px-5 py-4 border-b border-clay/10 flex justify-between items-center">
+      <div className="bg-surface rounded-xl border border-line overflow-hidden">
+        <div className="px-5 py-4 border-b border-line flex justify-between items-center">
           <h2 className="font-semibold text-ink">Préfixes des documents</h2>
-          <button onClick={handleReset} className="text-xs text-moss hover:text-ink hover:underline">
+          <button onClick={handleReset} className="text-xs text-ink2 hover:text-ink hover:underline">
             Rétablir les valeurs par défaut
           </button>
         </div>
-        <div className="divide-y divide-clay/10">
+        <div className="divide-y divide-line">
           {DOCUMENT_TYPES.map(({ key, label, icon }) => {
             const modified = isModified(key);
             const preview = previewNumber(key);
@@ -133,37 +133,37 @@ export default function NumerotationPage() {
                 <span className="text-xl w-8 text-center flex-shrink-0">{icon}</span>
                 <div className="w-32 flex-shrink-0">
                   <p className="text-sm font-medium text-ink">{label}</p>
-                  <p className="text-xs text-moss mt-0.5">
+                  <p className="text-xs text-ink2 mt-0.5">
                     Défaut : <code className="font-mono">{numbering?.defaults[key]}</code>
                   </p>
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <input
-                      className={`w-24 px-3 py-2 border rounded-lg text-sm font-mono uppercase text-center focus:outline-none focus:ring-2 focus:ring-cedar/30 ${
+                      className={`w-24 px-3 py-2 border rounded-lg text-sm font-mono uppercase text-center focus:outline-none focus:ring-2 focus:ring-section/30 ${
                         !validation
                           ? "border-neg/25 bg-neg-50"
                           : modified
-                          ? "border-cedar/50 bg-cedar/5"
-                          : "border-clay/30"
+                          ? "border-section/50 bg-section/5"
+                          : "border-line"
                       }`}
                       value={prefixes[key] || ""}
                       onChange={e => setPrefixes(prev => ({ ...prev, [key]: e.target.value.toUpperCase().slice(0, 6) }))}
                       placeholder={numbering?.defaults[key] || ""}
                       maxLength={6}
                     />
-                    <span className="text-moss text-sm">-</span>
-                    <span className="text-moss text-sm font-mono">{new Date().getFullYear()}</span>
-                    <span className="text-moss text-sm">-</span>
-                    <span className="text-moss text-sm font-mono">00001</span>
+                    <span className="text-ink2 text-sm">-</span>
+                    <span className="text-ink2 text-sm font-mono">{new Date().getFullYear()}</span>
+                    <span className="text-ink2 text-sm">-</span>
+                    <span className="text-ink2 text-sm font-mono">00001</span>
                   </div>
                   {!validation && (
                     <p className="text-xs text-neg mt-1">2 à 6 caractères (lettres, chiffres, tiret)</p>
                   )}
                 </div>
                 <div className="text-right min-w-0">
-                  <p className="text-xs text-moss">Aperçu</p>
-                  <code className={`text-sm font-mono font-semibold ${modified ? "text-cedar" : "text-moss"}`}>
+                  <p className="text-xs text-ink2">Aperçu</p>
+                  <code className={`text-sm font-mono font-semibold ${modified ? "text-section" : "text-ink2"}`}>
                     {preview}
                   </code>
                 </div>
@@ -174,20 +174,20 @@ export default function NumerotationPage() {
       </div>
 
       {/* Migration — numéro de départ */}
-      <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-line overflow-hidden">
         <button
           onClick={() => setShowMigration(!showMigration)}
-          className="w-full px-5 py-4 flex justify-between items-center text-left hover:bg-sand/50 transition-colors"
+          className="w-full px-5 py-4 flex justify-between items-center text-left hover:bg-surface2/50 transition-colors"
         >
           <div>
             <p className="font-semibold text-ink text-sm">Migration depuis un logiciel existant</p>
-            <p className="text-xs text-moss mt-0.5">Définissez le numéro de séquence de départ pour continuer votre numérotation actuelle</p>
+            <p className="text-xs text-ink2 mt-0.5">Définissez le numéro de séquence de départ pour continuer votre numérotation actuelle</p>
           </div>
-          <span className="text-moss text-lg">{showMigration ? "−" : "+"}</span>
+          <span className="text-ink2 text-lg">{showMigration ? "−" : "+"}</span>
         </button>
 
         {showMigration && (
-          <div className="px-5 pb-5 pt-2 border-t border-clay/10">
+          <div className="px-5 pb-5 pt-2 border-t border-line">
             <div className="bg-warn-50 border border-warn/25 rounded-xl p-3 text-xs text-warn mb-4">
               ⚠️ <strong>Important :</strong> Si vos dernières factures se terminent à FAC-2025-00247, saisissez <strong>247</strong> comme numéro de départ pour que la prochaine facture soit FAC-2025-00248.
             </div>
@@ -211,13 +211,13 @@ export default function NumerotationPage() {
 
       {/* Actions */}
       <div className="flex justify-end gap-3">
-        <button onClick={handleReset} className="px-5 py-2.5 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand transition-colors">
+        <button onClick={handleReset} className="px-5 py-2.5 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 transition-colors">
           Annuler les modifications
         </button>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2.5 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink transition-colors disabled:opacity-60"
+          className="px-6 py-2.5 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 transition-colors disabled:opacity-60"
         >
           {saving ? "Enregistrement…" : "Enregistrer la numérotation"}
         </button>

@@ -49,11 +49,11 @@ export default function RetenuesPage() {
 
   const columns: Column<Retenue>[] = [
     { key:"beneficiaire", label:"Bénéficiaire" },
-    { key:"type", label:"Nature", render:(v)=><span className="text-xs text-moss">{TYPE_LABELS[String(v)]||String(v)}</span> },
+    { key:"type", label:"Nature", render:(v)=><span className="text-xs text-ink2">{TYPE_LABELS[String(v)]||String(v)}</span> },
     { key:"montantBrut", label:"Brut (XOF)", className:"text-right font-mono", render:(v)=>Number(v).toLocaleString("fr-FR") },
-    { key:"montantRetenue", label:"Retenue (XOF)", className:"text-right font-mono font-bold text-cedar", render:(v)=>Number(v).toLocaleString("fr-FR") },
+    { key:"montantRetenue", label:"Retenue (XOF)", className:"text-right font-mono font-bold text-section", render:(v)=>Number(v).toLocaleString("fr-FR") },
     { key:"montantNet", label:"Net versé (XOF)", className:"text-right font-mono", render:(v)=>Number(v).toLocaleString("fr-FR") },
-    { key:"article", label:"Base légale", className:"text-xs text-moss" },
+    { key:"article", label:"Base légale", className:"text-xs text-ink2" },
     { key:"date", label:"Date", render:(v)=>new Date(String(v)).toLocaleDateString("fr-FR") },
     { key:"isPaid", label:"Versé DGI", render:(v)=>v ? <span className="text-xs bg-pos-50 text-pos px-2 py-0.5 rounded-full">Versé</span> : <span className="text-xs bg-neg-50 text-neg px-2 py-0.5 rounded-full">En attente</span> },
   ];
@@ -61,22 +61,22 @@ export default function RetenuesPage() {
   return (
     <div className="space-y-5">
       <div>
-        <div className="flex items-center gap-2 text-xs text-moss mb-2">
+        <div className="flex items-center gap-2 text-xs text-ink2 mb-2">
           <a href="/fiscalite" className="hover:text-ink">Fiscalité</a><span>→</span><span>Retenues à la source</span>
         </div>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-ink">Retenues à la source</h1>
-            <p className="text-sm text-moss">CGI Niger — Marchés, prestations, loyers, dividendes…</p>
+            <p className="text-sm text-ink2">CGI Niger — Marchés, prestations, loyers, dividendes…</p>
           </div>
-          <button onClick={()=>setModalOpen(true)} className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink">+ Enregistrer une retenue</button>
+          <button onClick={()=>setModalOpen(true)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Enregistrer une retenue</button>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Total retenues {new Date().getFullYear()}</p><p className="text-xl font-bold font-mono text-cedar mt-1">{totalRetenues.toLocaleString("fr-FR")} XOF</p></div>
-        <div className={`rounded-xl border p-4 ${nonVersees>0?"bg-neg-50 border-neg/25":"bg-surface border-clay/20"}`}><p className="text-xs text-moss">Non versées à DGI</p><p className={`text-xl font-bold font-mono mt-1 ${nonVersees>0?"text-neg":"text-pos"}`}>{nonVersees.toLocaleString("fr-FR")} XOF</p></div>
-        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Nombre de retenues</p><p className="text-xl font-bold mt-1">{total}</p></div>
+        <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Total retenues {new Date().getFullYear()}</p><p className="text-xl font-bold font-mono text-section mt-1">{totalRetenues.toLocaleString("fr-FR")} XOF</p></div>
+        <div className={`rounded-xl border p-4 ${nonVersees>0?"bg-neg-50 border-neg/25":"bg-surface border-line"}`}><p className="text-xs text-ink2">Non versées à DGI</p><p className={`text-xl font-bold font-mono mt-1 ${nonVersees>0?"text-neg":"text-pos"}`}>{nonVersees.toLocaleString("fr-FR")} XOF</p></div>
+        <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Nombre de retenues</p><p className="text-xl font-bold mt-1">{total}</p></div>
       </div>
 
       <DataTable columns={columns} data={retenues} loading={loading} keyExtractor={r=>r._id} emptyMessage="Aucune retenue à la source enregistrée"/>
@@ -88,7 +88,7 @@ export default function RetenuesPage() {
               {types.map(t=><option key={t.key} value={t.key}>{t.description} — {Math.round(t.taux*100)}%</option>)}
             </select>
           </FormField>
-          {selectedType && <div className="p-3 bg-sand rounded-xl text-xs text-moss">⚖️ Base légale : <strong>{selectedType.article}</strong> · Taux : <strong>{Math.round(selectedType.taux*100)}%</strong></div>}
+          {selectedType && <div className="p-3 bg-surface2 rounded-xl text-xs text-ink2">⚖️ Base légale : <strong>{selectedType.article}</strong> · Taux : <strong>{Math.round(selectedType.taux*100)}%</strong></div>}
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Bénéficiaire (nom/raison sociale)" required>
               <input className={inputCls} value={form.beneficiaire} onChange={e=>u("beneficiaire",e.target.value)} required/>
@@ -104,15 +104,15 @@ export default function RetenuesPage() {
             <div className="bg-warn-50 border border-warn/25 rounded-xl p-3 grid grid-cols-3 text-xs text-center">
               <div><p className="font-bold text-warn">{simulatedRetenue.toLocaleString("fr-FR")} XOF</p><p className="text-warn mt-0.5">Retenue à verser à DGI</p></div>
               <div><p className="font-bold text-pos">{simulatedNet.toLocaleString("fr-FR")} XOF</p><p className="text-pos mt-0.5">Net à verser au bénéficiaire</p></div>
-              <div><p className="font-bold text-ink">{form.montantBrut.toLocaleString("fr-FR")} XOF</p><p className="text-moss mt-0.5">Montant brut total</p></div>
+              <div><p className="font-bold text-ink">{form.montantBrut.toLocaleString("fr-FR")} XOF</p><p className="text-ink2 mt-0.5">Montant brut total</p></div>
             </div>
           )}
           <FormField label="Référence (facture, marché…)">
             <input className={inputCls} value={form.reference} onChange={e=>u("reference",e.target.value)}/>
           </FormField>
-          <div className="flex justify-end gap-3 pt-3 border-t border-clay/20">
-            <button type="button" onClick={()=>setModalOpen(false)} className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">Annuler</button>
-            <button type="submit" disabled={saving} className="px-6 py-2 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink disabled:opacity-60">{saving?"Enregistrement…":"Enregistrer + Écriture comptable"}</button>
+          <div className="flex justify-end gap-3 pt-3 border-t border-line">
+            <button type="button" onClick={()=>setModalOpen(false)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
+            <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"Enregistrement…":"Enregistrer + Écriture comptable"}</button>
           </div>
         </form>
       </Modal>

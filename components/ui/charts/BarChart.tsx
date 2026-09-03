@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { linearScale, niceTicks, compactXof, fullXof } from "./geometry";
+import { linearScale, niceTicks, compactXof, fullXof, barPath } from "./geometry";
 
 export interface BarSerie {
   label: string;
@@ -63,7 +63,12 @@ export function BarChart({
   const slot = innerW / labels.length;
   const groupW = slot * 0.62;
   const barW = stacked ? groupW : groupW / series.length;
-  const radius = Math.min(6, barW / 2);
+  // Arrondi franc : c'est la signature visuelle de la charte. Plafonné à la
+  // demi-largeur pour ne pas transformer une barre courte en pastille.
+  const radius = Math.min(10, barW / 2);
+  // Les segments empilés sont séparés d'un cheveu : la décomposition se lit
+  // sans avoir à distinguer deux teintes voisines.
+  const GAP = stacked ? 2 : 0;
 
   return (
     <div className="relative">
@@ -90,7 +95,7 @@ export function BarChart({
             <g key={label}
               onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
               <rect x={PAD.left + i * slot} y={PAD.top} width={slot} height={innerH}
-                fill={hover === i ? "rgb(var(--s-soft))" : "transparent"} opacity="0.5" />
+                rx="8" fill={hover === i ? "rgb(var(--s-soft))" : "transparent"} opacity="0.55" />
 
               {series.map((s, j) => {
                 const value = s.values[i] || 0;
@@ -111,15 +116,21 @@ export function BarChart({
                 }
 
                 if (h < 0.5) return null;
+                const drawH = Math.max(1, h - GAP);
+                const drawY = value >= 0 ? y : y + GAP;
                 return (
-                  <rect key={s.label} x={x + (stacked ? 0 : 1)} y={y}
-                    width={stacked ? barW : Math.max(1, barW - 2)} height={h}
-                    rx={radius} fill={color}
+                  <path key={s.label}
+                    d={barPath(
+                      x + (stacked ? 0 : 1), drawY,
+                      stacked ? barW : Math.max(1, barW - 2), drawH,
+                      radius, value >= 0
+                    )}
+                    fill={color}
                     className="grow"
                     // Chaque barre part avec un léger retard sur la précédente :
                     // la série se lit dans l'ordre plutôt que d'apparaître d'un bloc.
                     style={{
-                      transformOrigin: `center ${value >= 0 ? zero : zero}px`,
+                      transformOrigin: `center ${zero}px`,
                       animationDelay: `${i * 32 + j * 60}ms`,
                     }}
                     opacity={hover === null || hover === i ? 1 : 0.45} />

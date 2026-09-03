@@ -165,12 +165,12 @@ export default function AnalyticsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Tableau de bord analytique</h1>
-          <p className="text-sm text-moss mt-0.5">Analyse de performance sur {months} mois</p>
+          <p className="text-sm text-ink2 mt-0.5">Analyse de performance sur {months} mois</p>
         </div>
         <div className="flex gap-2">
           {[3, 6, 12, 24].map(m => (
             <button key={m} onClick={() => setMonths(m)}
-              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${months === m ? "bg-cedar text-white" : "border border-clay/30 text-moss hover:bg-sand"}`}>
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${months === m ? "bg-section text-white" : "border border-line text-ink2 hover:bg-surface2"}`}>
               {m} mois
             </button>
           ))}
@@ -179,55 +179,55 @@ export default function AnalyticsPage() {
 
       {loading ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-5 gap-4">{[...Array(5)].map((_, i) => <div key={i} className="h-24 bg-surface rounded-xl animate-pulse border border-clay/20" />)}</div>
-          <div className="h-64 bg-surface rounded-xl animate-pulse border border-clay/20" />
+          <div className="grid grid-cols-5 gap-4">{[...Array(5)].map((_, i) => <div key={i} className="h-24 bg-surface rounded-xl animate-pulse border border-line" />)}</div>
+          <div className="h-64 bg-surface rounded-xl animate-pulse border border-line" />
         </div>
       ) : data && kpi ? (
         <>
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="bg-surface rounded-xl border border-clay/20 p-4">
-              <p className="text-xs text-moss uppercase tracking-wide">CA {months} mois</p>
+            <div className="bg-surface rounded-xl border border-line p-4">
+              <p className="text-xs text-ink2 uppercase tracking-wide">CA {months} mois</p>
               <p className="text-xl font-bold text-ink mt-1 font-mono">{(kpi.totalCA / 1_000_000).toFixed(1)}M</p>
               <p className={`text-xs mt-1 font-medium ${kpi.caVsMoisPrecedent >= 0 ? "text-pos" : "text-neg"}`}>
                 {kpi.caVsMoisPrecedent >= 0 ? "+" : ""}{kpi.caVsMoisPrecedent}% vs M-1
               </p>
             </div>
-            <div className="bg-surface rounded-xl border border-clay/20 p-4">
-              <p className="text-xs text-moss uppercase tracking-wide">Encaissé</p>
+            <div className="bg-surface rounded-xl border border-line p-4">
+              <p className="text-xs text-ink2 uppercase tracking-wide">Encaissé</p>
               <p className="text-xl font-bold text-pos mt-1 font-mono">{(kpi.totalEncaisse / 1_000_000).toFixed(1)}M</p>
-              <p className="text-xs text-moss mt-1">XOF reçus</p>
+              <p className="text-xs text-ink2 mt-1">XOF reçus</p>
             </div>
-            <div className={`rounded-xl border p-4 ${kpi.tauxRecouvrement >= 80 ? "bg-surface border-clay/20" : "bg-warn-50 border-warn/25"}`}>
-              <p className="text-xs text-moss uppercase tracking-wide">Taux recouvrement</p>
+            <div className={`rounded-xl border p-4 ${kpi.tauxRecouvrement >= 80 ? "bg-surface border-line" : "bg-warn-50 border-warn/25"}`}>
+              <p className="text-xs text-ink2 uppercase tracking-wide">Taux recouvrement</p>
               <p className={`text-xl font-bold mt-1 font-mono ${kpi.tauxRecouvrement >= 80 ? "text-pos" : kpi.tauxRecouvrement >= 60 ? "text-warn" : "text-neg"}`}>
                 {kpi.tauxRecouvrement}%
               </p>
-              <div className="mt-1.5 h-1.5 bg-sand rounded-full">
+              <div className="mt-1.5 h-1.5 bg-surface2 rounded-full">
                 <div className={`h-1.5 rounded-full ${kpi.tauxRecouvrement >= 80 ? "bg-pos" : kpi.tauxRecouvrement >= 60 ? "bg-warn" : "bg-neg"}`}
                   style={{ width: `${kpi.tauxRecouvrement}%` }} />
               </div>
             </div>
-            <div className="bg-surface rounded-xl border border-clay/20 p-4">
-              <p className="text-xs text-moss uppercase tracking-wide">Clients actifs</p>
+            <div className="bg-surface rounded-xl border border-line p-4">
+              <p className="text-xs text-ink2 uppercase tracking-wide">Clients actifs</p>
               <p className="text-xl font-bold text-ink mt-1">{kpi.clientActifs}</p>
-              <p className="text-xs text-moss mt-1">dans votre base</p>
+              <p className="text-xs text-ink2 mt-1">dans votre base</p>
             </div>
-            <div className={`rounded-xl border p-4 ${kpi.facInRetard > 0 ? "bg-neg-50 border-neg/25" : "bg-surface border-clay/20"}`}>
-              <p className="text-xs text-moss uppercase tracking-wide">Factures en retard</p>
+            <div className={`rounded-xl border p-4 ${kpi.facInRetard > 0 ? "bg-neg-50 border-neg/25" : "bg-surface border-line"}`}>
+              <p className="text-xs text-ink2 uppercase tracking-wide">Factures en retard</p>
               <p className={`text-xl font-bold mt-1 ${kpi.facInRetard > 0 ? "text-neg" : "text-pos"}`}>{kpi.facInRetard}</p>
-              <p className="text-xs text-moss mt-1">{kpi.facInRetard === 0 ? "Aucun retard ✅" : "à relancer"}</p>
+              <p className="text-xs text-ink2 mt-1">{kpi.facInRetard === 0 ? "Aucun retard ✅" : "à relancer"}</p>
             </div>
           </div>
 
           {/* Graphique principal */}
-          <div className="bg-surface rounded-xl border border-clay/20 p-5">
+          <div className="bg-surface rounded-xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-ink">Évolution {months} mois</h2>
               <div className="flex gap-2 flex-wrap">
                 {data.series && Object.entries(data.series).map(([key, s]) => (
                   <button key={key} onClick={() => toggleMetric(key)}
-                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors ${activeMetrics.includes(key) ? "border-transparent text-white" : "border-clay/30 text-moss"}`}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors ${activeMetrics.includes(key) ? "border-transparent text-white" : "border-line text-ink2"}`}
                     style={activeMetrics.includes(key) ? { background: s.color } : {}}>
                     <span className="w-2 h-2 rounded-full" style={{ background: activeMetrics.includes(key) ? "white" : s.color }} />
                     {s.label}
@@ -238,7 +238,7 @@ export default function AnalyticsPage() {
             {activeSeries.length > 0 ? (
               <LineChart series={activeSeries} labels={labels} />
             ) : (
-              <div className="h-44 flex items-center justify-center text-moss text-sm">
+              <div className="h-44 flex items-center justify-center text-ink2 text-sm">
                 Sélectionnez au moins une métrique
               </div>
             )}
@@ -246,15 +246,15 @@ export default function AnalyticsPage() {
 
           {/* CA mensuel en barres + top clients */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div className="bg-surface rounded-xl border border-clay/20 p-5">
+            <div className="bg-surface rounded-xl border border-line p-5">
               <h2 className="font-semibold text-ink mb-3">CA mensuel (k XOF)</h2>
               <BarChart data={data.series.ca.data} labels={labels} color="#2F3E46" />
             </div>
 
-            <div className="bg-surface rounded-xl border border-clay/20 p-5">
+            <div className="bg-surface rounded-xl border border-line p-5">
               <h2 className="font-semibold text-ink mb-3">Top 5 clients — {months} mois</h2>
               {data.topClients.length === 0 ? (
-                <p className="text-moss text-sm text-center py-8">Aucune donnée</p>
+                <p className="text-ink2 text-sm text-center py-8">Aucune donnée</p>
               ) : (
                 <div className="space-y-3">
                   {data.topClients.map((c, i) => {
@@ -263,15 +263,15 @@ export default function AnalyticsPage() {
                       <div key={c.name}>
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-ink font-medium truncate flex items-center gap-2">
-                            <span className="text-xs text-moss w-4 text-center">{i + 1}</span>
+                            <span className="text-xs text-ink2 w-4 text-center">{i + 1}</span>
                             {c.name}
                           </span>
-                          <span className="font-mono text-moss flex-shrink-0 ml-2">
+                          <span className="font-mono text-ink2 flex-shrink-0 ml-2">
                             {(c.total / 1_000_000).toFixed(1)}M · {c.count} fac.
                           </span>
                         </div>
-                        <div className="h-2 bg-sand rounded-full">
-                          <div className="h-2 bg-cedar rounded-full" style={{ width: `${(c.total / maxTotal) * 100}%` }} />
+                        <div className="h-2 bg-surface2 rounded-full">
+                          <div className="h-2 bg-section rounded-full" style={{ width: `${(c.total / maxTotal) * 100}%` }} />
                         </div>
                       </div>
                     );
@@ -282,7 +282,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Marge brute */}
-          <div className="bg-surface rounded-xl border border-clay/20 p-5">
+          <div className="bg-surface rounded-xl border border-line p-5">
             <h2 className="font-semibold text-ink mb-3">Marge brute mensuelle (k XOF)</h2>
             <div className="flex items-end gap-1" style={{ height: "80px" }}>
               {data.series.margeBrute.data.map((v, i) => {
@@ -297,7 +297,7 @@ export default function AnalyticsPage() {
                 );
               })}
             </div>
-            <div className="flex justify-between text-xs text-moss mt-1">
+            <div className="flex justify-between text-xs text-ink2 mt-1">
               <span>{labels[0]}</span>
               <span>{labels[Math.floor(labels.length / 2)]}</span>
               <span>{labels[labels.length - 1]}</span>
@@ -305,9 +305,9 @@ export default function AnalyticsPage() {
           </div>
         </>
       ) : (
-        <div className="bg-surface rounded-xl border border-clay/20 p-12 text-center">
+        <div className="bg-surface rounded-xl border border-line p-12 text-center">
           <p className="text-3xl mb-3">📊</p>
-          <p className="text-moss">Aucune donnée disponible pour cette période.</p>
+          <p className="text-ink2">Aucune donnée disponible pour cette période.</p>
         </div>
       )}
     </div>

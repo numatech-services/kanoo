@@ -37,40 +37,40 @@ export default function ApprobationsPage() {
   if (!mounted) return null;
 
   const columns: Column<Approbation>[] = [
-    { key: "resource", label: "Ressource", render: (v) => <span className="text-sm font-medium text-cedar capitalize">{String(v)}</span> },
+    { key: "resource", label: "Ressource", render: (v) => <span className="text-sm font-medium text-section capitalize">{String(v)}</span> },
     { key: "requestedBy", label: "Demandeur", render: (v) => typeof v === "object" && v ? `${(v as {firstName:string;lastName:string}).firstName} ${(v as {firstName:string;lastName:string}).lastName}` : "—" },
     { key: "amount", label: "Montant (XOF)", className: "text-right font-mono", render: (v) => v ? Number(v).toLocaleString("fr-FR") : "—" },
-    { key: "currentLevel", label: "Niveau", render: (v) => <span className="text-xs bg-cedar/10 text-cedar px-2 py-0.5 rounded font-mono">N{String(v)}</span> },
+    { key: "currentLevel", label: "Niveau", render: (v) => <span className="text-xs bg-section/10 text-section px-2 py-0.5 rounded font-mono">N{String(v)}</span> },
     { key: "status", label: "Statut", render: (v) => <StatusBadge status={String(v)} /> },
     { key: "createdAt", label: "Date", render: (v) => new Date(String(v)).toLocaleDateString("fr-FR") },
     { key: "_id", label: "Action", render: (v, row) => row.status === "pending" ? (
-      <button onClick={e => { e.stopPropagation(); setDecideModal({ id: String(v), resource: row.resource }); }} className="px-3 py-1 bg-cedar text-white text-xs rounded hover:bg-ink">Décider</button>
+      <button onClick={e => { e.stopPropagation(); setDecideModal({ id: String(v), resource: row.resource }); }} className="px-3 py-1 bg-section text-white text-xs rounded hover:brightness-95">Décider</button>
     ) : null },
   ];
 
-  const inp = "w-full px-3 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30";
-  const lbl = "block text-xs font-medium text-moss mb-1";
+  const inp = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
+  const lbl = "block text-xs font-medium text-ink2 mb-1";
 
   return (
     <div className="space-y-5">
-      <div><h1 className="text-2xl font-bold text-ink">Approbations</h1><p className="text-sm text-moss mt-0.5">{total} demande{total > 1 ? "s" : ""}</p></div>
+      <div><h1 className="text-2xl font-bold text-ink">Approbations</h1><p className="text-sm text-ink2 mt-0.5">{total} demande{total > 1 ? "s" : ""}</p></div>
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={mineOnly} onChange={e => { setMineOnly(e.target.checked); setPage(1); }} className="accent-cedar" />Mes validations en attente</label>
-        <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }} className="px-3 py-2 border border-clay/30 rounded-lg text-sm"><option value="">Tous</option><option value="pending">En attente</option><option value="approved">Approuvées</option><option value="rejected">Refusées</option></select>
+        <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={mineOnly} onChange={e => { setMineOnly(e.target.checked); setPage(1); }} className="accent-section" />Mes validations en attente</label>
+        <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }} className="px-3 py-2 border border-line rounded-lg text-sm"><option value="">Tous</option><option value="pending">En attente</option><option value="approved">Approuvées</option><option value="rejected">Refusées</option></select>
       </div>
       <DataTable columns={columns} data={items} loading={loading} keyExtractor={(a) => a._id} emptyMessage="Aucune approbation" />
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
       <Modal open={!!decideModal} onClose={() => setDecideModal(null)} title="Décision d'approbation" size="sm">
         <div className="space-y-4">
-          <p className="text-sm text-moss">Ressource : <strong className="text-ink">{decideModal?.resource}</strong></p>
+          <p className="text-sm text-ink2">Ressource : <strong className="text-ink">{decideModal?.resource}</strong></p>
           <div className="flex gap-3">
             {(["approved","rejected"] as const).map(d => (
-              <button key={d} onClick={() => setDecision(d)} className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all ${decision===d ? (d==="approved"?"border-pos/25 bg-pos-50 text-pos":"border-neg/25 bg-neg-50 text-neg") : "border-clay/30 text-moss"}`}>{d==="approved"?"✅ Approuver":"❌ Refuser"}</button>
+              <button key={d} onClick={() => setDecision(d)} className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all ${decision===d ? (d==="approved"?"border-pos/25 bg-pos-50 text-pos":"border-neg/25 bg-neg-50 text-neg") : "border-line text-ink2"}`}>{d==="approved"?"✅ Approuver":"❌ Refuser"}</button>
             ))}
           </div>
           <div><label className={lbl}>Commentaire {decision==="rejected"?"(obligatoire)":""}</label><textarea className={inp} rows={3} value={comment} onChange={e=>setComment(e.target.value)} placeholder="Motif de la décision…" /></div>
           <div className="flex justify-end gap-3">
-            <button onClick={() => setDecideModal(null)} className="px-4 py-2 text-sm border border-clay/30 rounded-lg text-moss hover:bg-sand">Annuler</button>
+            <button onClick={() => setDecideModal(null)} className="px-4 py-2 text-sm border border-line rounded-lg text-ink2 hover:bg-surface2">Annuler</button>
             <button onClick={handleDecide} disabled={deciding || (decision==="rejected" && !comment.trim())} className={`px-5 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-60 ${decision==="approved"?"bg-pos hover:brightness-95":"bg-neg hover:brightness-95"}`}>{deciding?"Traitement…":"Confirmer"}</button>
           </div>
         </div>

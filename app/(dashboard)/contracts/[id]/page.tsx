@@ -44,8 +44,8 @@ export default function ContractDetailPage() {
   if (!contract) {
     return (
       <div className="p-6">
-        <p className="text-moss">Contrat introuvable ou erreur de chargement.</p>
-        <Link href="/contracts" className="text-cedar underline mt-2 block">Retour à la liste</Link>
+        <p className="text-ink2">Contrat introuvable ou erreur de chargement.</p>
+        <Link href="/contracts" className="text-section underline mt-2 block">Retour à la liste</Link>
       </div>
     );
   }
@@ -55,7 +55,7 @@ export default function ContractDetailPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-ink">{contract.title}</h1>
-          <p className="font-mono text-sm text-moss">{contract.reference}</p>
+          <p className="font-mono text-sm text-ink2">{contract.reference}</p>
         </div>
         <StatusBadge status={contract.status} />
       </div>
@@ -63,9 +63,9 @@ export default function ContractDetailPage() {
       <div className="bg-surface rounded-xl border p-6 shadow-sm">
         <h2 className="font-semibold mb-4">Informations Générales</h2>
         <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="text-moss">Montant:</div>
+          <div className="text-ink2">Montant:</div>
           <div className="font-medium">{contract.amount?.toLocaleString()} XOF</div>
-          <div className="text-moss">Client:</div>
+          <div className="text-ink2">Client:</div>
           <div className="font-medium">{contract.clientId?.name || "N/A"}</div>
         </div>
       </div>

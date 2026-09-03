@@ -60,11 +60,11 @@ export function Modal({ open, onClose, title, children, size = "md" }: ModalProp
         className={`relative w-full ${SIZE_CLASSES[size]} bg-surface rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-8 py-5 border-b border-clay/10 bg-sand/10">
+        <div className="flex items-center justify-between px-8 py-5 border-b border-line bg-surface2/10">
           <h2 className="text-xl font-black text-ink italic uppercase tracking-tight">{title}</h2>
           <button
             onClick={onClose}
-            className="text-moss hover:text-cedar transition-all w-10 h-10 flex items-center justify-center rounded-full hover:bg-sand font-bold"
+            className="text-ink2 hover:text-section transition-all w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface2 font-bold"
           >
             ✕
           </button>

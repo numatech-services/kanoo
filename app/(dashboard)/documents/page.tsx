@@ -31,19 +31,19 @@ export default function DocumentsPage() {
 
   const columns: Column<Doc>[] = [
     { key: "name", label: "Nom du fichier" },
-    { key: "type", label: "Type", className: "text-xs text-moss uppercase" },
+    { key: "type", label: "Type", className: "text-xs text-ink2 uppercase" },
     { key: "size", label: "Taille", render: (v) => formatSize(Number(v)) },
-    { key: "linkedTo", label: "Lié à", render: (v) => v ? <span className="text-xs bg-clay/20 px-2 py-0.5 rounded">{String(v)}</span> : "—" },
+    { key: "linkedTo", label: "Lié à", render: (v) => v ? <span className="text-xs bg-surface2 px-2 py-0.5 rounded">{String(v)}</span> : "—" },
     { key: "createdAt", label: "Ajouté le", render: (v) => new Date(String(v)).toLocaleDateString("fr-FR") },
-    { key: "url", label: "Télécharger", render: (v) => <a href={String(v)} target="_blank" rel="noopener noreferrer" className="text-cedar text-sm hover:underline" onClick={e=>e.stopPropagation()}>⬇ Télécharger</a> },
+    { key: "url", label: "Télécharger", render: (v) => <a href={String(v)} target="_blank" rel="noopener noreferrer" className="text-section text-sm hover:underline" onClick={e=>e.stopPropagation()}>⬇ Télécharger</a> },
   ];
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Documents</h1><p className="text-sm text-moss mt-0.5">{total} document{total > 1 ? "s" : ""}</p></div>
+        <div><h1 className="text-2xl font-bold text-ink">Documents</h1><p className="text-sm text-ink2 mt-0.5">{total} document{total > 1 ? "s" : ""}</p></div>
       </div>
-      <select value={linkedTo} onChange={e => { setLinkedTo(e.target.value); setPage(1); }} className="px-3 py-2 border border-clay/30 rounded-lg text-sm">
+      <select value={linkedTo} onChange={e => { setLinkedTo(e.target.value); setPage(1); }} className="px-3 py-2 border border-line rounded-lg text-sm">
         <option value="">Tous les documents</option>
         {["invoices","contracts","marches","employees","approbations"].map(t=><option key={t} value={t}>{t}</option>)}
       </select>

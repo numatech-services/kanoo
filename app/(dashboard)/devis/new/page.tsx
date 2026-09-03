@@ -11,8 +11,8 @@ export default function NewDevisPage() {
   }
   return (
     <div className="max-w-4xl space-y-5">
-      <div><a href="/devis" className="text-xs text-moss hover:text-ink">← Devis</a><h1 className="text-2xl font-bold text-ink mt-1">Nouveau devis</h1></div>
-      <div className="bg-surface rounded-2xl border border-clay/20 p-6"><DevisForm onSave={handleSave} onCancel={() => router.push("/devis")} /></div>
+      <div><a href="/devis" className="text-xs text-ink2 hover:text-ink">← Devis</a><h1 className="text-2xl font-bold text-ink mt-1">Nouveau devis</h1></div>
+      <div className="bg-surface rounded-2xl border border-line p-6"><DevisForm onSave={handleSave} onCancel={() => router.push("/devis")} /></div>
     </div>
   );
 }

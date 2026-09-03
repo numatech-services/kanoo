@@ -27,28 +27,28 @@ export function Pagination({ page, totalPages, total, limit, onPage }: Paginatio
 
   return (
     <div className="flex items-center justify-between mt-4">
-      <p className="text-sm text-moss">
+      <p className="text-sm text-ink2">
         {from}–{to} sur {total} résultats
       </p>
       <div className="flex items-center gap-1">
         <button
           disabled={page === 1}
           onClick={() => onPage(page - 1)}
-          className="px-3 py-1.5 rounded-lg text-sm border border-clay/20 hover:bg-sand disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-3 py-1.5 rounded-lg text-sm border border-line hover:bg-surface2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           ← Préc.
         </button>
         {pages.map((p, i) =>
           p === "…" ? (
-            <span key={`ellipsis-${i}`} className="px-2 text-moss">…</span>
+            <span key={`ellipsis-${i}`} className="px-2 text-ink2">…</span>
           ) : (
             <button
               key={p}
               onClick={() => onPage(p as number)}
               className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
                 p === page
-                  ? "bg-cedar text-white"
-                  : "border border-clay/20 hover:bg-sand text-ink"
+                  ? "bg-section text-white"
+                  : "border border-line hover:bg-surface2 text-ink"
               }`}
             >
               {p}
@@ -58,7 +58,7 @@ export function Pagination({ page, totalPages, total, limit, onPage }: Paginatio
         <button
           disabled={page === totalPages}
           onClick={() => onPage(page + 1)}
-          className="px-3 py-1.5 rounded-lg text-sm border border-clay/20 hover:bg-sand disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-3 py-1.5 rounded-lg text-sm border border-line hover:bg-surface2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Suiv. →
         </button>

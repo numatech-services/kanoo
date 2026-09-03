@@ -44,7 +44,7 @@ export default function NewCotisationPage() {
       {!mounted ? null : (
         <div className="max-w-lg space-y-5">
           <div>
-            <a href="/associations/cotisations" className="text-xs text-moss hover:text-ink">← Cotisations</a>
+            <a href="/associations/cotisations" className="text-xs text-ink2 hover:text-ink">← Cotisations</a>
             <h1 className="text-2xl font-bold text-ink mt-1">Enregistrer un paiement</h1>
           </div>
           {error && (
@@ -52,7 +52,7 @@ export default function NewCotisationPage() {
               {error}
             </div>
           )}
-          <div className="bg-surface rounded-2xl border border-clay/20 p-6">
+          <div className="bg-surface rounded-2xl border border-line p-6">
             <CotisationForm onSave={handleSave} onCancel={() => router.push("/associations/cotisations")} />
           </div>
         </div>

@@ -33,8 +33,8 @@ export default function MessagesPage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-8 w-48 bg-sand animate-pulse rounded-lg" />
-        <div className="h-[600px] bg-sand animate-pulse rounded-xl" />
+        <div className="h-8 w-48 bg-surface2 animate-pulse rounded-lg" />
+        <div className="h-[600px] bg-surface2 animate-pulse rounded-xl" />
       </div>
     );
   }
@@ -43,12 +43,12 @@ export default function MessagesPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-ink">{labels.title}</h1>
-        <p className="text-sm text-moss mt-0.5">{labels.subtitle}</p>
+        <p className="text-sm text-ink2 mt-0.5">{labels.subtitle}</p>
       </div>
 
       {/* Onglets contextuels selon le profil */}
       {profile === "association" && (
-        <div className="flex gap-2 text-xs text-moss bg-warn-50 border border-warn/25 rounded-xl px-4 py-2.5">
+        <div className="flex gap-2 text-xs text-ink2 bg-warn-50 border border-warn/25 rounded-xl px-4 py-2.5">
           <span>💡</span>
           <span>Les conversations sont partagées avec les membres du bureau et les adhérents ayant un compte.</span>
         </div>

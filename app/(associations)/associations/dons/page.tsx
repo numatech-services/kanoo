@@ -12,17 +12,17 @@ export default function DonsPage() {
   if (!mounted) return null;
   const totalXOF=items.filter(d=>d.currency==="XOF").reduce((s,d)=>s+d.amount,0);
   const columns: Column<Don>[] = [
-    {key:"donorName",label:"Donateur",render:(v,r)=>v?String(v):<span className="text-moss italic">Anonyme ({r.donorType})</span>},
+    {key:"donorName",label:"Donateur",render:(v,r)=>v?String(v):<span className="text-ink2 italic">Anonyme ({r.donorType})</span>},
     {key:"amount",label:"Montant",className:"text-right font-mono font-bold",render:(v,r)=>`${Number(v).toLocaleString("fr-FR")} ${r.currency}`},
-    {key:"campaign",label:"Campagne",render:(v)=>v ? String(v) : <span className="text-moss">—</span>},
+    {key:"campaign",label:"Campagne",render:(v)=>v ? String(v) : <span className="text-ink2">—</span>},
     {key:"date",label:"Date",render:(v)=>new Date(String(v)).toLocaleDateString("fr-FR")},
-    {key:"receiptNumber",label:"N° reçu",className:"font-mono text-xs text-cedar"},
+    {key:"receiptNumber",label:"N° reçu",className:"font-mono text-xs text-section"},
   ];
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Dons</h1><p className="text-sm text-moss">{total} don{total>1?"s":" reçu"} · Total XOF : {totalXOF.toLocaleString("fr-FR")}</p></div>
-        <button onClick={() => window.location.href = "/associations/dons/new"} className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink">+ Enregistrer un don</button>
+        <div><h1 className="text-2xl font-bold text-ink">Dons</h1><p className="text-sm text-ink2">{total} don{total>1?"s":" reçu"} · Total XOF : {totalXOF.toLocaleString("fr-FR")}</p></div>
+        <button onClick={() => window.location.href = "/associations/dons/new"} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Enregistrer un don</button>
       </div>
       <DataTable columns={columns} data={items} loading={loading} keyExtractor={d=>d._id} emptyMessage="Aucun don enregistré"/>
       <Pagination page={page} totalPages={Math.ceil(total/LIMIT)} total={total} limit={LIMIT} onPage={setPage}/>

@@ -78,32 +78,32 @@ export default function FixedAssetsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Immobilisations</h1>
-          <p className="text-sm text-moss">Plan d'amortissement OHADA · Méthode linéaire et dégressive</p>
+          <p className="text-sm text-ink2">Plan d'amortissement OHADA · Méthode linéaire et dégressive</p>
         </div>
-        <button onClick={() => setModalOpen(true)} className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink">+ Nouvelle immobilisation</button>
+        <button onClick={() => setModalOpen(true)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouvelle immobilisation</button>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Valeur d'acquisition</p><p className="text-xl font-bold font-mono text-ink mt-1">{((stats.totalAcquisitionCost||0)/1_000_000).toFixed(1)}M XOF</p></div>
-        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Valeur nette comptable</p><p className="text-xl font-bold font-mono text-pos mt-1">{((stats.totalNetValue||0)/1_000_000).toFixed(1)}M XOF</p></div>
-        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Amortissements cumulés</p><p className="text-xl font-bold font-mono text-warn mt-1">{(totalDepreciation/1_000_000).toFixed(1)}M XOF</p><div className="mt-2 h-1.5 bg-sand rounded-full"><div className="h-1.5 bg-warn rounded-full" style={{width:`${depRate}%`}}/></div></div>
-        <div className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">Immobilisations actives</p><p className="text-xl font-bold text-ink mt-1">{stats.count || 0}</p></div>
+        <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Valeur d'acquisition</p><p className="text-xl font-bold font-mono text-ink mt-1">{((stats.totalAcquisitionCost||0)/1_000_000).toFixed(1)}M XOF</p></div>
+        <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Valeur nette comptable</p><p className="text-xl font-bold font-mono text-pos mt-1">{((stats.totalNetValue||0)/1_000_000).toFixed(1)}M XOF</p></div>
+        <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Amortissements cumulés</p><p className="text-xl font-bold font-mono text-warn mt-1">{(totalDepreciation/1_000_000).toFixed(1)}M XOF</p><div className="mt-2 h-1.5 bg-surface2 rounded-full"><div className="h-1.5 bg-warn rounded-full" style={{width:`${depRate}%`}}/></div></div>
+        <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Immobilisations actives</p><p className="text-xl font-bold text-ink mt-1">{stats.count || 0}</p></div>
       </div>
 
-      {loading ? <div className="h-48 bg-surface rounded-xl animate-pulse border border-clay/20"/> : (
-        <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
-          <div className="px-5 py-3 border-b border-clay/10 flex justify-between items-center">
+      {loading ? <div className="h-48 bg-surface rounded-xl animate-pulse border border-line"/> : (
+        <div className="bg-surface rounded-xl border border-line overflow-hidden">
+          <div className="px-5 py-3 border-b border-line flex justify-between items-center">
             <p className="font-semibold text-ink text-sm">Liste des immobilisations</p>
           </div>
           <table className="w-full border-collapse text-sm" style={{tableLayout:"fixed"}}>
-            <thead><tr className="bg-sand text-left"><th className="px-4 py-2 text-xs text-moss font-medium uppercase w-24">Code</th><th className="px-3 py-2 text-xs text-moss font-medium uppercase">Désignation</th><th className="px-3 py-2 text-xs text-moss font-medium uppercase w-24">Catégorie</th><th className="px-3 py-2 text-xs text-moss font-medium uppercase text-right w-32">V. acq. (XOF)</th><th className="px-3 py-2 text-xs text-moss font-medium uppercase text-right w-28">VNC</th><th className="px-3 py-2 text-xs text-moss font-medium uppercase w-20">Statut</th></tr></thead>
+            <thead><tr className="bg-surface2 text-left"><th className="px-4 py-2 text-xs text-ink2 font-medium uppercase w-24">Code</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase">Désignation</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase w-24">Catégorie</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase text-right w-32">V. acq. (XOF)</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase text-right w-28">VNC</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase w-20">Statut</th></tr></thead>
             <tbody>
-              {assets.length === 0 && <tr><td colSpan={6} className="text-center text-moss py-10">Aucune immobilisation enregistrée</td></tr>}
+              {assets.length === 0 && <tr><td colSpan={6} className="text-center text-ink2 py-10">Aucune immobilisation enregistrée</td></tr>}
               {assets.map(a => (
-                <tr key={a._id} className="border-t border-clay/10 hover:bg-sand/50 cursor-pointer" onClick={() => setDetailId(detailId === a._id ? null : a._id)}>
-                  <td className="px-4 py-3 font-mono text-xs text-cedar">{a.code}</td>
+                <tr key={a._id} className="border-t border-line hover:bg-surface2/50 cursor-pointer" onClick={() => setDetailId(detailId === a._id ? null : a._id)}>
+                  <td className="px-4 py-3 font-mono text-xs text-section">{a.code}</td>
                   <td className="px-3 py-3 font-medium text-ink truncate">{a.name}</td>
-                  <td className="px-3 py-3 text-xs text-moss">{CAT_LABELS[a.category]||a.category}</td>
+                  <td className="px-3 py-3 text-xs text-ink2">{CAT_LABELS[a.category]||a.category}</td>
                   <td className="px-3 py-3 text-right font-mono">{a.acquisitionCost.toLocaleString("fr-FR")}</td>
                   <td className="px-3 py-3 text-right font-mono font-medium">{(a.currentNetValue||a.acquisitionCost).toLocaleString("fr-FR")}</td>
                   <td className="px-3 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${a.status==="active"?"bg-pos-50 text-pos":a.status==="fully_depreciated"?"bg-surface2 text-ink3":"bg-neg-50 text-neg"}`}>{a.status==="active"?"Actif":a.status==="fully_depreciated"?"Amorti":"Cédé"}</span></td>
@@ -116,16 +116,16 @@ export default function FixedAssetsPage() {
 
       {/* Plan d'amortissement inline */}
       {selectedAsset && (
-        <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
-          <div className="px-5 py-3 border-b border-clay/10 bg-sand">
+        <div className="bg-surface rounded-xl border border-line overflow-hidden">
+          <div className="px-5 py-3 border-b border-line bg-surface2">
             <p className="font-semibold text-ink text-sm">{selectedAsset.name} — Plan d'amortissement ({selectedAsset.depreciationMethod === "linear" ? "Linéaire" : "Dégressif"})</p>
-            <p className="text-xs text-moss">{selectedAsset.acquisitionCost.toLocaleString("fr-FR")} XOF · {selectedAsset.usefulLifeYears} ans</p>
+            <p className="text-xs text-ink2">{selectedAsset.acquisitionCost.toLocaleString("fr-FR")} XOF · {selectedAsset.usefulLifeYears} ans</p>
           </div>
           <table className="w-full border-collapse text-sm">
-            <thead><tr className="bg-sand/50"><th className="px-4 py-2 text-xs text-moss font-medium text-left">Année</th><th className="px-4 py-2 text-xs text-moss font-medium text-right">Dotation</th><th className="px-4 py-2 text-xs text-moss font-medium text-right">Cumul</th><th className="px-4 py-2 text-xs text-moss font-medium text-right">VNC</th><th className="px-4 py-2 text-xs text-moss font-medium text-center w-36">Action</th></tr></thead>
+            <thead><tr className="bg-surface2/50"><th className="px-4 py-2 text-xs text-ink2 font-medium text-left">Année</th><th className="px-4 py-2 text-xs text-ink2 font-medium text-right">Dotation</th><th className="px-4 py-2 text-xs text-ink2 font-medium text-right">Cumul</th><th className="px-4 py-2 text-xs text-ink2 font-medium text-right">VNC</th><th className="px-4 py-2 text-xs text-ink2 font-medium text-center w-36">Action</th></tr></thead>
             <tbody>
               {selectedAsset.depreciationSchedule.map(entry => (
-                <tr key={entry.year} className={`border-t border-clay/10 ${entry.year === currentYear ? "bg-info-50/40" : ""}`}>
+                <tr key={entry.year} className={`border-t border-line ${entry.year === currentYear ? "bg-info-50/40" : ""}`}>
                   <td className="px-4 py-2.5 font-medium">{entry.year}{entry.year === currentYear && <span className="ml-2 text-xs bg-info-50 text-info px-1.5 py-0.5 rounded">En cours</span>}</td>
                   <td className="px-4 py-2.5 text-right font-mono">{entry.annuity.toLocaleString("fr-FR")}</td>
                   <td className="px-4 py-2.5 text-right font-mono text-warn">{entry.cumulative.toLocaleString("fr-FR")}</td>
@@ -135,10 +135,10 @@ export default function FixedAssetsPage() {
                       ? <span className="text-xs text-pos">✅ Comptabilisé</span>
                       : entry.year <= currentYear
                       ? <button onClick={() => handlePostDepreciation(selectedAsset._id, entry.year)} disabled={postingYear === entry.year}
-                          className="text-xs bg-cedar text-white px-3 py-1 rounded-lg hover:bg-ink disabled:opacity-60">
+                          className="text-xs bg-section text-white px-3 py-1 rounded-lg hover:brightness-95 disabled:opacity-60">
                           {postingYear === entry.year ? "…" : "Passer l'écriture"}
                         </button>
-                      : <span className="text-xs text-moss">Non échu</span>
+                      : <span className="text-xs text-ink2">Non échu</span>
                     }
                   </td>
                 </tr>
@@ -175,7 +175,7 @@ export default function FixedAssetsPage() {
             </select>
           </FormField>
           {form.depreciationMethod !== "none" && form.usefulLifeYears > 0 && form.acquisitionCost > 0 && (
-            <div className="p-3 bg-sand rounded-xl text-xs text-moss">
+            <div className="p-3 bg-surface2 rounded-xl text-xs text-ink2">
               Dotation annuelle estimée : <strong className="text-ink font-mono">{Math.round((form.acquisitionCost - form.residualValue) / form.usefulLifeYears).toLocaleString("fr-FR")} XOF/an</strong>
               {" "}· Taux : <strong>{(100 / form.usefulLifeYears).toFixed(1)}%</strong>
             </div>
@@ -184,9 +184,9 @@ export default function FixedAssetsPage() {
             <FormField label="Fournisseur"><input className={inputCls} value={form.supplier} onChange={e=>u("supplier",e.target.value)}/></FormField>
             <FormField label="Localisation"><input className={inputCls} value={form.location} onChange={e=>u("location",e.target.value)}/></FormField>
           </div>
-          <div className="flex justify-end gap-3 pt-3 border-t border-clay/20">
-            <button type="button" onClick={()=>setModalOpen(false)} className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">Annuler</button>
-            <button type="submit" disabled={saving} className="px-6 py-2 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink disabled:opacity-60">{saving?"Création…":"Créer + plan d'amortissement"}</button>
+          <div className="flex justify-end gap-3 pt-3 border-t border-line">
+            <button type="button" onClick={()=>setModalOpen(false)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
+            <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"Création…":"Créer + plan d'amortissement"}</button>
           </div>
         </form>
       </Modal>

@@ -182,8 +182,8 @@ export default function InvoiceDetailPage() {
     load();
   }
 
-  if (loading) return <div className="p-6"><div className="h-64 bg-surface rounded-xl animate-pulse border border-clay/20" /></div>;
-  if (!invoice) return <div className="p-6 text-moss">Facture introuvable</div>;
+  if (loading) return <div className="p-6"><div className="h-64 bg-surface rounded-xl animate-pulse border border-line" /></div>;
+  if (!invoice) return <div className="p-6 text-ink2">Facture introuvable</div>;
 
   const remaining = Math.max(0, invoice.totalTTC - invoice.paidAmount);
   const credited = invoice.creditedAmount || 0;
@@ -222,7 +222,7 @@ export default function InvoiceDetailPage() {
       )}
       <div className="flex items-start justify-between">
         <div>
-          <button onClick={() => router.push("/invoices")} className="text-xs text-moss hover:text-ink">
+          <button onClick={() => router.push("/invoices")} className="text-xs text-ink2 hover:text-ink">
             Retour aux factures
           </button>
           <h1 className="text-2xl font-bold text-ink mt-1">{invoice.number}</h1>
@@ -230,7 +230,7 @@ export default function InvoiceDetailPage() {
         <div className="flex gap-2 mt-2 flex-wrap">
           <button
             onClick={() => router.push(`/invoices/${id}/edit`)}
-            className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand"
+            className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2"
           >
             Modifier
           </button>
@@ -239,7 +239,7 @@ export default function InvoiceDetailPage() {
           <button
             onClick={handlePrintDirect}
             disabled={isPrinting}
-            className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand transition-colors disabled:opacity-50"
+            className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 transition-colors disabled:opacity-50"
           >
             {isPrinting ? "Préparation..." : "Imprimer"}
           </button>
@@ -257,14 +257,14 @@ export default function InvoiceDetailPage() {
           {!isCreditNote && ["sent", "partial", "overdue"].includes(invoice.status) && remaining > 0 && (
             <>
               <button onClick={relancer} disabled={dunningBusy}
-                className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand disabled:opacity-50">
+                className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 disabled:opacity-50">
                 {dunningBusy ? "Envoi…" : "Relancer"}
               </button>
               <button onClick={toggleLitige} disabled={dunningBusy}
                 className={`px-4 py-2 rounded-xl text-sm disabled:opacity-50 ${
                   invoice.disputedAt
                     ? "bg-warn text-white hover:brightness-95"
-                    : "border border-clay/30 text-moss hover:bg-sand"
+                    : "border border-line text-ink2 hover:bg-surface2"
                 }`}>
                 {invoice.disputedAt ? "Clore le litige" : "Litige"}
               </button>
@@ -288,73 +288,73 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
-      <div className="bg-surface rounded-xl border border-clay/20 p-4 flex flex-wrap gap-6">
-        <div><p className="text-xs text-moss">Statut</p><div className="mt-1"><StatusBadge status={invoice.status}/></div></div>
-        <div><p className="text-xs text-moss">Émission</p><p className="font-medium text-ink mt-1 text-sm">{new Date(invoice.issueDate).toLocaleDateString("fr-FR")}</p></div>
-        <div><p className="text-xs text-moss">Échéance</p>
+      <div className="bg-surface rounded-xl border border-line p-4 flex flex-wrap gap-6">
+        <div><p className="text-xs text-ink2">Statut</p><div className="mt-1"><StatusBadge status={invoice.status}/></div></div>
+        <div><p className="text-xs text-ink2">Émission</p><p className="font-medium text-ink mt-1 text-sm">{new Date(invoice.issueDate).toLocaleDateString("fr-FR")}</p></div>
+        <div><p className="text-xs text-ink2">Échéance</p>
           <p className={`font-medium mt-1 text-sm ${invoice.status !== "paid" && new Date(invoice.dueDate) < new Date() ? "text-neg" : "text-ink"}`}>
             {new Date(invoice.dueDate).toLocaleDateString("fr-FR")}
           </p>
         </div>
-        <div><p className="text-xs text-moss">Total TTC</p><p className="font-mono font-bold text-ink mt-1">{invoice.totalTTC.toLocaleString("fr-FR")} XOF</p></div>
-        <div><p className="text-xs text-moss">Encaissé</p><p className="font-mono font-bold text-pos mt-1">{invoice.paidAmount.toLocaleString("fr-FR")} XOF</p></div>
-        {remaining > 0 && <div><p className="text-xs text-moss">Reste dû</p><p className="font-mono font-bold text-neg mt-1">{remaining.toLocaleString("fr-FR")} XOF</p></div>}
+        <div><p className="text-xs text-ink2">Total TTC</p><p className="font-mono font-bold text-ink mt-1">{invoice.totalTTC.toLocaleString("fr-FR")} XOF</p></div>
+        <div><p className="text-xs text-ink2">Encaissé</p><p className="font-mono font-bold text-pos mt-1">{invoice.paidAmount.toLocaleString("fr-FR")} XOF</p></div>
+        {remaining > 0 && <div><p className="text-xs text-ink2">Reste dû</p><p className="font-mono font-bold text-neg mt-1">{remaining.toLocaleString("fr-FR")} XOF</p></div>}
       </div>
 
       {invoice.clientId && (
-        <div className="bg-surface rounded-xl border border-clay/20 p-4">
-          <p className="text-xs text-moss font-semibold uppercase tracking-wide mb-2">Client</p>
+        <div className="bg-surface rounded-xl border border-line p-4">
+          <p className="text-xs text-ink2 font-semibold uppercase tracking-wide mb-2">Client</p>
           <p className="font-semibold text-ink">{invoice.clientId.name}</p>
-          {invoice.clientId.nif && <p className="text-xs text-moss mt-0.5">NIF : {invoice.clientId.nif}</p>}
-          {invoice.clientId.address && <p className="text-xs text-moss mt-0.5">{invoice.clientId.address}</p>}
+          {invoice.clientId.nif && <p className="text-xs text-ink2 mt-0.5">NIF : {invoice.clientId.nif}</p>}
+          {invoice.clientId.address && <p className="text-xs text-ink2 mt-0.5">{invoice.clientId.address}</p>}
         </div>
       )}
 
-      <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-line overflow-hidden">
         <table className="table-dense">
           <thead>
-            <tr className="bg-sand/50">
+            <tr className="bg-surface2/50">
               {["Description", "Volume", "P.U. HT", "TVA", "Total TTC"].map((h, index) => (
-                <th key={h} className={`px-4 py-2 text-xs font-semibold text-moss uppercase ${index === 1 || index === 3 ? "text-center" : index === 2 || index === 4 ? "text-right" : "text-left"}`}>{h}</th>
+                <th key={h} className={`px-4 py-2 text-xs font-semibold text-ink2 uppercase ${index === 1 || index === 3 ? "text-center" : index === 2 || index === 4 ? "text-right" : "text-left"}`}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {invoice.lines.map((line, i) => (
-              <tr key={i} className="border-t border-clay/10">
+              <tr key={i} className="border-t border-line">
                 <td className="px-4 py-3">{line.description}</td>
-                <td className="px-4 py-3 text-moss text-center">{line.quantity}</td>
-                <td className="px-4 py-3 font-mono text-moss text-right">{line.unitPrice.toLocaleString("fr-FR")}</td>
-                <td className="px-4 py-3 text-moss text-center">{Math.round(line.tvaRate * 100)}%</td>
+                <td className="px-4 py-3 text-ink2 text-center">{line.quantity}</td>
+                <td className="px-4 py-3 font-mono text-ink2 text-right">{line.unitPrice.toLocaleString("fr-FR")}</td>
+                <td className="px-4 py-3 text-ink2 text-center">{Math.round(line.tvaRate * 100)}%</td>
                 <td className="px-4 py-3 font-mono font-semibold text-right">{line.totalTTC.toLocaleString("fr-FR")}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        <div className="border-t border-clay/20 p-4 flex justify-end">
+        <div className="border-t border-line p-4 flex justify-end">
           <div className="w-56 space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-moss">Sous-total HT</span>
+              <span className="text-ink2">Sous-total HT</span>
               <span className="font-mono">{invoice.totalHT.toLocaleString("fr-FR")} XOF</span>
             </div>
             {invoice.totalTVA > 0 && (
               <div className="flex justify-between">
-                <span className="text-moss">TVA</span>
+                <span className="text-ink2">TVA</span>
                 <span className="font-mono">{invoice.totalTVA.toLocaleString("fr-FR")} XOF</span>
               </div>
             )}
-            <div className="flex justify-between font-bold border-t border-clay/20 pt-2 text-base">
+            <div className="flex justify-between font-bold border-t border-line pt-2 text-base">
               <span>Total TTC</span>
-              <span className="font-mono text-cedar">{invoice.totalTTC.toLocaleString("fr-FR")} XOF</span>
+              <span className="font-mono text-section">{invoice.totalTTC.toLocaleString("fr-FR")} XOF</span>
             </div>
           </div>
         </div>
       </div>
 
       {invoice.notes && (
-        <div className="bg-surface rounded-xl border border-clay/20 p-4">
-          <p className="text-xs text-moss font-semibold uppercase tracking-wide mb-2">Notes</p>
+        <div className="bg-surface rounded-xl border border-line p-4">
+          <p className="text-xs text-ink2 font-semibold uppercase tracking-wide mb-2">Notes</p>
           <p className="text-sm text-ink whitespace-pre-wrap">{invoice.notes}</p>
         </div>
       )}

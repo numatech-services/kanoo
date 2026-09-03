@@ -72,13 +72,13 @@ export default function UsersPage() {
     { 
       key: "email", 
       label: "Email", 
-      className: "text-moss text-sm" 
+      className: "text-ink2 text-sm" 
     },
     { 
       key: "role", 
       label: "Rôle", 
       render: (v) => (
-        <span className="text-xs bg-cedar/10 text-cedar px-2 py-0.5 rounded font-medium">
+        <span className="text-xs bg-section/10 text-section px-2 py-0.5 rounded font-medium">
           {String(v).replace(/_/g," ")}
         </span>
       ) 
@@ -86,7 +86,7 @@ export default function UsersPage() {
     { 
       key: "lastLoginAt", 
       label: "Dernière connexion", 
-      render: (v) => v ? new Date(String(v)).toLocaleDateString("fr-FR") : <span className="text-moss">Jamais</span> 
+      render: (v) => v ? new Date(String(v)).toLocaleDateString("fr-FR") : <span className="text-ink2">Jamais</span> 
     },
     { 
       key: "isActive", 
@@ -112,11 +112,11 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Utilisateurs</h1>
-          <p className="text-sm text-moss mt-0.5">
+          <p className="text-sm text-ink2 mt-0.5">
             {total} utilisateur{total > 1 ? "s" : ""} enregistré{total > 1 ? "s" : ""}
           </p>
         </div>
-        <button className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink transition-colors">
+        <button className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors">
           + Inviter un utilisateur
         </button>
       </div>

@@ -115,8 +115,8 @@ export default function RecettesPage() {
     { key: "status", label: "Statut", render: (v) => <StatusBadge status={String(v)} /> },
   ];
 
-  const inputClass = "w-full px-3 py-2 border border-clay/30 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none";
-  const labelClass = "block text-[10px] font-bold text-moss uppercase mb-1";
+  const inputClass = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none";
+  const labelClass = "block text-[10px] font-bold text-ink2 uppercase mb-1";
 
   return (
     <div className="space-y-5">
@@ -124,7 +124,7 @@ export default function RecettesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink tracking-tight">Recettes & Taxes</h1>
-          <p className="text-sm text-moss mt-0.5 font-medium italic text-pos tracking-wide">
+          <p className="text-sm text-ink2 mt-0.5 font-medium italic text-pos tracking-wide">
             Trésorerie Public — Gestion des encaissements
           </p>
         </div>
@@ -138,7 +138,7 @@ export default function RecettesPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-surface p-5 rounded-2xl border border-clay/10 shadow-sm">
+        <div className="bg-surface p-5 rounded-2xl border border-line shadow-sm">
           <p className={labelClass}>Total Collecté</p>
           <p className="text-3xl font-black text-pos">
             {totalCollecte.toLocaleString("fr-FR")} <span className="text-xs">XOF</span>
@@ -146,7 +146,7 @@ export default function RecettesPage() {
         </div>
       </div>
 {/* Tableau de données */}
-<div className="bg-surface rounded-2xl border border-clay/10 shadow-sm overflow-hidden">
+<div className="bg-surface rounded-2xl border border-line shadow-sm overflow-hidden">
   <DataTable 
     columns={columns} 
     data={Array.isArray(revenues) ? revenues : []} 
@@ -218,8 +218,8 @@ export default function RecettesPage() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-clay/10 mt-6">
-            <button type="button" onClick={() => setModalOpen(false)} className="text-sm font-medium text-moss hover:underline">
+          <div className="flex justify-end gap-3 pt-4 border-t border-line mt-6">
+            <button type="button" onClick={() => setModalOpen(false)} className="text-sm font-medium text-ink2 hover:underline">
               Annuler
             </button>
             <button 

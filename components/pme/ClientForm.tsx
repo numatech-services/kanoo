@@ -60,8 +60,8 @@ export function ClientForm({ initial, onSave, onCancel }: ClientFormProps) {
     }
   }
 
-  const inputCls = "w-full px-3 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30";
-  const labelCls = "block text-xs font-medium text-moss mb-1";
+  const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
+  const labelCls = "block text-xs font-medium text-ink2 mb-1";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -73,7 +73,7 @@ export function ClientForm({ initial, onSave, onCancel }: ClientFormProps) {
 
       {/* Identité */}
       <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold text-ink border-b border-clay/20 pb-2 w-full">
+        <legend className="text-sm font-semibold text-ink border-b border-line pb-2 w-full">
           Identité
         </legend>
         <div className="grid grid-cols-2 gap-4">
@@ -107,7 +107,7 @@ export function ClientForm({ initial, onSave, onCancel }: ClientFormProps) {
 
       {/* Contact */}
       <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold text-ink border-b border-clay/20 pb-2 w-full">
+        <legend className="text-sm font-semibold text-ink border-b border-line pb-2 w-full">
           Contact
         </legend>
         <div className="grid grid-cols-2 gap-4">
@@ -128,7 +128,7 @@ export function ClientForm({ initial, onSave, onCancel }: ClientFormProps) {
 
       {/* Conditions commerciales */}
       <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold text-ink border-b border-clay/20 pb-2 w-full">
+        <legend className="text-sm font-semibold text-ink border-b border-line pb-2 w-full">
           Conditions commerciales
         </legend>
         <div className="grid grid-cols-2 gap-4">
@@ -155,18 +155,18 @@ export function ClientForm({ initial, onSave, onCancel }: ClientFormProps) {
             id="isActive"
             checked={form.isActive}
             onChange={(e) => update("isActive", e.target.checked)}
-            className="w-4 h-4 accent-cedar"
+            className="w-4 h-4 accent-section"
           />
           <label htmlFor="isActive" className="text-sm text-ink">Client actif</label>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-3 pt-2 border-t border-clay/20">
-        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm border border-clay/30 rounded-lg text-moss hover:bg-sand transition-colors">
+      <div className="flex justify-end gap-3 pt-2 border-t border-line">
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm border border-line rounded-lg text-ink2 hover:bg-surface2 transition-colors">
           Annuler
         </button>
-        <button type="submit" disabled={saving} className="px-5 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink transition-colors disabled:opacity-60">
+        <button type="submit" disabled={saving} className="px-5 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors disabled:opacity-60">
           {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
       </div>

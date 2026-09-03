@@ -64,7 +64,7 @@ export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormPro
       <FormField label="Libellé" required><input className={inputCls} value={label} onChange={e=>setLabel(e.target.value)} required /></FormField>
       
       <div>
-        <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-moss px-2 pb-1">
+        <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-ink2 px-2 pb-1">
           <span className="col-span-3">N° compte *</span>
           <span className="col-span-4">Libellé compte *</span>
           <span className="col-span-2 text-right">Débit</span>
@@ -90,27 +90,27 @@ export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormPro
             />
             <input type="number" className={inputCls+" col-span-2 text-right"} value={l.debit} onChange={e=>updateLine(i,"debit",parseFloat(e.target.value)||0)} min={0} step="0.01" />
             <input type="number" className={inputCls+" col-span-2 text-right"} value={l.credit} onChange={e=>updateLine(i,"credit",parseFloat(e.target.value)||0)} min={0} step="0.01" />
-            <button type="button" onClick={()=>lines.length>2&&setLines(p=>p.filter((_,j)=>j!==i))} className="text-moss hover:text-neg text-xl">×</button>
+            <button type="button" onClick={()=>lines.length>2&&setLines(p=>p.filter((_,j)=>j!==i))} className="text-ink2 hover:text-neg text-xl">×</button>
           </div>
         ))}
 
-        <button type="button" onClick={()=>setLines(p=>[...p,{accountCode:"",accountLabel:"",debit:0,credit:0}])} className="text-xs font-bold text-cedar hover:underline mt-1">+ Ajouter une ligne</button>
+        <button type="button" onClick={()=>setLines(p=>[...p,{accountCode:"",accountLabel:"",debit:0,credit:0}])} className="text-xs font-bold text-section hover:underline mt-1">+ Ajouter une ligne</button>
         
-        <div className="flex justify-end gap-8 mt-4 p-3 bg-sand/30 rounded-xl border border-clay/10 text-sm font-mono">
-          <span className={totalDebit>0?"text-ink font-bold":"text-moss"}>Total Débits : {totalDebit.toLocaleString("fr-FR", {minimumFractionDigits: 2})}</span>
-          <span className={totalCredit>0?"text-ink font-bold":"text-moss"}>Total Crédits : {totalCredit.toLocaleString("fr-FR", {minimumFractionDigits: 2})}</span>
+        <div className="flex justify-end gap-8 mt-4 p-3 bg-surface2/30 rounded-xl border border-line text-sm font-mono">
+          <span className={totalDebit>0?"text-ink font-bold":"text-ink2"}>Total Débits : {totalDebit.toLocaleString("fr-FR", {minimumFractionDigits: 2})}</span>
+          <span className={totalCredit>0?"text-ink font-bold":"text-ink2"}>Total Crédits : {totalCredit.toLocaleString("fr-FR", {minimumFractionDigits: 2})}</span>
           <span className={balanced && allLinesFilled ?"text-pos font-bold":"text-neg font-bold"}>
             {balanced && allLinesFilled ? "✅ Prêt à saisir" : !allLinesFilled ? "❌ Infos manquantes" : "❌ Déséquilibrée"}
           </span>
         </div>
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-clay/20">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand transition-colors">Annuler</button>
+      <div className="flex justify-end gap-3 pt-4 border-t border-line">
+        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 transition-colors">Annuler</button>
         <button 
           type="submit" 
           disabled={saving || !balanced || !allLinesFilled} 
-          className="px-6 py-2 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
         >
           {saving ? "Enregistrement..." : "Saisir l'écriture"}
         </button>

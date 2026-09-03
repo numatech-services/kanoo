@@ -128,6 +128,7 @@ export async function StatCards() {
         value={stats.caTotal}
         format={fullXof}
         icon={<TrendingUp size={17} />}
+        tone="revenue"
         trend={stats.invoiceTrend}
         href="/invoices"
         hint="Factures émises depuis le 1er janvier"
@@ -145,7 +146,7 @@ export async function StatCards() {
         value={stats.encaisseMonth}
         format={fullXof}
         icon={<CreditCard size={17} />}
-        tone="info"
+        tone="margin"
         delta={delta}
         deltaLabel="vs mois précédent"
         trend={stats.paymentTrend}
@@ -156,7 +157,7 @@ export async function StatCards() {
         label="Collaborateurs actifs"
         value={stats.employees}
         icon={<Users size={17} />}
-        tone="section"
+        tone="parties"
         href="/employees"
         hint="Contrats en cours"
       />

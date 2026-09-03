@@ -50,34 +50,34 @@ export default function TenantsPage() {
     render: (v, item) => (
       <Link 
         href={`/saas/tenants/${item._id}`} 
-        className="font-medium text-cedar hover:underline"
+        className="font-medium text-section hover:underline"
       >
         {String(v)}
       </Link>
     )
-  },    { key: "type", label: "Profil", render: (v) => <span className="text-xs capitalize bg-clay/20 px-2 py-0.5 rounded">{String(v)}</span> },
-    { key: "plan", label: "Plan", className: "text-xs text-moss" },
+  },    { key: "type", label: "Profil", render: (v) => <span className="text-xs capitalize bg-surface2 px-2 py-0.5 rounded">{String(v)}</span> },
+    { key: "plan", label: "Plan", className: "text-xs text-ink2" },
     { key: "subscriptionStatus", label: "Statut", render: (v) => <StatusBadge status={String(v)} /> },
     { key: "email", label: "Email" },
     { key: "userCount", label: "Utilisateurs", className: "text-center" },
     { key: "createdAt", label: "Création", render: (v) => new Date(String(v)).toLocaleDateString("fr-FR") },
   ];
 
-  const inp = "w-full px-3 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30";
-  const lbl = "block text-xs font-medium text-moss mb-1";
+  const inp = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
+  const lbl = "block text-xs font-medium text-ink2 mb-1";
 
   if (!mounted) return null;
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Organisations</h1><p className="text-sm text-moss mt-0.5">{total} tenant{total > 1 ? "s" : ""}</p></div>
-        <button onClick={() => setCreateModal(true)} className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink transition-colors">+ Créer une organisation</button>
+        <div><h1 className="text-2xl font-bold text-ink">Organisations</h1><p className="text-sm text-ink2 mt-0.5">{total} tenant{total > 1 ? "s" : ""}</p></div>
+        <button onClick={() => setCreateModal(true)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors">+ Créer une organisation</button>
       </div>
       <div className="flex flex-wrap gap-3">
-        <input placeholder="Rechercher…" value={searchInput} onChange={e=>setSearchInput(e.target.value)} className="px-3 py-2 border border-clay/30 rounded-lg text-sm w-48" />
-        <select value={type} onChange={e=>{setType(e.target.value);setPage(1);}} className="px-3 py-2 border border-clay/30 rounded-lg text-sm"><option value="">Tous les profils</option><option value="pme">PME</option><option value="association">Association</option><option value="administration">Administration</option></select>
-        <select value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}} className="px-3 py-2 border border-clay/30 rounded-lg text-sm"><option value="">Tous les statuts</option><option value="trial">Essai</option><option value="active">Actif</option><option value="suspended">Suspendu</option><option value="cancelled">Annulé</option></select>
+        <input placeholder="Rechercher…" value={searchInput} onChange={e=>setSearchInput(e.target.value)} className="px-3 py-2 border border-line rounded-lg text-sm w-48" />
+        <select value={type} onChange={e=>{setType(e.target.value);setPage(1);}} className="px-3 py-2 border border-line rounded-lg text-sm"><option value="">Tous les profils</option><option value="pme">PME</option><option value="association">Association</option><option value="administration">Administration</option></select>
+        <select value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}} className="px-3 py-2 border border-line rounded-lg text-sm"><option value="">Tous les statuts</option><option value="trial">Essai</option><option value="active">Actif</option><option value="suspended">Suspendu</option><option value="cancelled">Annulé</option></select>
       </div>
       <DataTable columns={columns} data={tenants} loading={loading} keyExtractor={(t) => t._id} emptyMessage="Aucune organisation" />
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
@@ -91,16 +91,16 @@ export default function TenantsPage() {
             <div><label className={lbl}>Email organisation</label><input type="email" className={inp} value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} /></div>
             <div><label className={lbl}>Plan</label><select className={inp} value={form.plan} onChange={e=>setForm(p=>({...p,plan:e.target.value}))}><option value="starter">Starter</option><option value="pro">Pro</option><option value="asso_basic">Asso Basic</option><option value="asso_pro">Asso Pro</option><option value="admin">Admin</option></select></div>
           </div>
-          <p className="text-xs font-semibold text-moss uppercase tracking-wide pt-2 border-t border-clay/20">Compte administrateur</p>
+          <p className="text-xs font-semibold text-ink2 uppercase tracking-wide pt-2 border-t border-line">Compte administrateur</p>
           <div className="grid grid-cols-2 gap-4">
             <div><label className={lbl}>Prénom admin *</label><input className={inp} value={form.adminFirstName} onChange={e=>setForm(p=>({...p,adminFirstName:e.target.value}))} required /></div>
             <div><label className={lbl}>Nom admin *</label><input className={inp} value={form.adminLastName} onChange={e=>setForm(p=>({...p,adminLastName:e.target.value}))} required /></div>
           </div>
           <div><label className={lbl}>Email admin *</label><input type="email" className={inp} value={form.adminEmail} onChange={e=>setForm(p=>({...p,adminEmail:e.target.value}))} required /></div>
           <div><label className={lbl}>Mot de passe admin *</label><input type="password" className={inp} value={form.adminPassword} onChange={e=>setForm(p=>({...p,adminPassword:e.target.value}))} required /></div>
-          <div className="flex justify-end gap-3 pt-2 border-t border-clay/20">
-            <button type="button" onClick={() => setCreateModal(false)} className="px-4 py-2 text-sm border border-clay/30 rounded-lg text-moss hover:bg-sand">Annuler</button>
-            <button type="submit" disabled={saving} className="px-5 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink disabled:opacity-60">{saving?"Création…":"Créer"}</button>
+          <div className="flex justify-end gap-3 pt-2 border-t border-line">
+            <button type="button" onClick={() => setCreateModal(false)} className="px-4 py-2 text-sm border border-line rounded-lg text-ink2 hover:bg-surface2">Annuler</button>
+            <button type="submit" disabled={saving} className="px-5 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"Création…":"Créer"}</button>
           </div>
         </form>
       </Modal>

@@ -14,18 +14,18 @@ export default function NotificationsPage() {
   return (
     <div className="space-y-5 max-w-2xl">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Notifications</h1><p className="text-sm text-moss mt-0.5">{unread} non lue{unread>1?"s":""}</p></div>
-        {unread > 0 && <button onClick={markAllRead} className="px-4 py-2 border border-clay/30 rounded-lg text-sm text-moss hover:bg-sand">Tout marquer comme lu</button>}
+        <div><h1 className="text-2xl font-bold text-ink">Notifications</h1><p className="text-sm text-ink2 mt-0.5">{unread} non lue{unread>1?"s":""}</p></div>
+        {unread > 0 && <button onClick={markAllRead} className="px-4 py-2 border border-line rounded-lg text-sm text-ink2 hover:bg-surface2">Tout marquer comme lu</button>}
       </div>
-      {loading ? [...Array(5)].map((_,i)=><div key={i} className="h-16 bg-surface rounded-xl border border-clay/20 animate-pulse"/>) :
-        notifs.length === 0 ? <div className="text-center py-16"><span className="text-4xl">🔔</span><p className="text-moss mt-3">Aucune notification</p></div> :
+      {loading ? [...Array(5)].map((_,i)=><div key={i} className="h-16 bg-surface rounded-xl border border-line animate-pulse"/>) :
+        notifs.length === 0 ? <div className="text-center py-16"><span className="text-4xl">🔔</span><p className="text-ink2 mt-3">Aucune notification</p></div> :
         notifs.map(n => (
-          <div key={n._id} className={`bg-surface rounded-xl border p-4 flex items-start gap-4 ${n.read?"border-clay/20":"border-cedar/30 bg-cedar/5"}`}>
-            <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${n.read?"bg-line":"bg-cedar"}`} />
+          <div key={n._id} className={`bg-surface rounded-xl border p-4 flex items-start gap-4 ${n.read?"border-line":"border-section/30 bg-section/5"}`}>
+            <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${n.read?"bg-line":"bg-section"}`} />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-ink">{n.title}</p>
-              <p className="text-xs text-moss mt-0.5">{n.message}</p>
-              <p className="text-xs text-moss/60 mt-1">{new Date(n.createdAt).toLocaleString("fr-FR")}</p>
+              <p className="text-xs text-ink2 mt-0.5">{n.message}</p>
+              <p className="text-xs text-ink2/60 mt-1">{new Date(n.createdAt).toLocaleString("fr-FR")}</p>
             </div>
           </div>
         ))

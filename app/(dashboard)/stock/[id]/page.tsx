@@ -23,42 +23,42 @@ export default function StockDetailPage() {
   },[id]);
 
   if(loading) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse"/></div>;
-  if(!product) return <div className="p-6 text-moss">Produit introuvable</div>;
+  if(!product) return <div className="p-6 text-ink2">Produit introuvable</div>;
 
   const isAlert = product.stockQty <= product.stockMinAlert;
 
   return (
     <div className="space-y-5 max-w-3xl">
-      <div><Link href="/stock" className="text-xs text-moss hover:text-ink">← Stock</Link><h1 className="text-2xl font-bold text-ink mt-1">{product.label}</h1><p className="text-moss text-sm font-mono">{product.code}</p></div>
+      <div><Link href="/stock" className="text-xs text-ink2 hover:text-ink">← Stock</Link><h1 className="text-2xl font-bold text-ink mt-1">{product.label}</h1><p className="text-ink2 text-sm font-mono">{product.code}</p></div>
 
       <div className="grid grid-cols-2 gap-5">
-        <div className={`rounded-xl border p-5 ${isAlert?"bg-neg-50 border-neg/25":"bg-surface border-clay/20"}`}>
-          <p className="text-xs text-moss uppercase font-semibold mb-1">Quantité en stock</p>
+        <div className={`rounded-xl border p-5 ${isAlert?"bg-neg-50 border-neg/25":"bg-surface border-line"}`}>
+          <p className="text-xs text-ink2 uppercase font-semibold mb-1">Quantité en stock</p>
           <p className={`text-4xl font-bold font-mono ${isAlert?"text-neg":"text-pos"}`}>{product.stockQty}</p>
-          <p className="text-sm text-moss mt-1">{product.unit} — Seuil alerte : {product.stockMinAlert}</p>
+          <p className="text-sm text-ink2 mt-1">{product.unit} — Seuil alerte : {product.stockMinAlert}</p>
           {isAlert && <p className="text-xs text-neg font-semibold mt-2">⚠ Stock sous le seuil minimum</p>}
         </div>
-        <div className="bg-surface rounded-xl border border-clay/20 p-5 space-y-2 text-sm">
+        <div className="bg-surface rounded-xl border border-line p-5 space-y-2 text-sm">
           {[["Prix unitaire",`${product.unitPrice.toLocaleString("fr-FR")} XOF`],["TVA",`${Math.round(product.tvaRate*100)}%`],["Valeur stock",`${(product.stockQty*product.unitPrice).toLocaleString("fr-FR")} XOF`],["Type",product.isService?"Service":"Produit physique"],["Code comptable",product.accountCode||"—"]].map(([k,v])=>(
-            <div key={String(k)} className="flex justify-between py-1 border-b border-clay/10 last:border-0"><span className="text-moss">{k}</span><span className="font-medium">{v}</span></div>
+            <div key={String(k)} className="flex justify-between py-1 border-b border-line last:border-0"><span className="text-ink2">{k}</span><span className="font-medium">{v}</span></div>
           ))}
         </div>
       </div>
 
-      <div className="bg-surface rounded-xl border border-clay/20 overflow-hidden">
-        <h2 className="font-semibold text-ink px-5 py-4 border-b border-clay/10">Historique des mouvements</h2>
-        {movements.length===0 ? <p className="text-moss text-center py-8 text-sm">Aucun mouvement enregistré</p> : (
+      <div className="bg-surface rounded-xl border border-line overflow-hidden">
+        <h2 className="font-semibold text-ink px-5 py-4 border-b border-line">Historique des mouvements</h2>
+        {movements.length===0 ? <p className="text-ink2 text-center py-8 text-sm">Aucun mouvement enregistré</p> : (
           <table className="table-dense">
-            <thead><tr className="bg-sand/50">{["Date","Type","Quantité","Avant","Après","Motif"].map(h=><th key={h} >{h}</th>)}</tr></thead>
+            <thead><tr className="bg-surface2/50">{["Date","Type","Quantité","Avant","Après","Motif"].map(h=><th key={h} >{h}</th>)}</tr></thead>
             <tbody>
               {movements.map(m=>(
-                <tr key={m._id} className="border-t border-clay/10">
-                  <td className="px-4 py-2.5 text-moss text-xs">{new Date(m.createdAt).toLocaleDateString("fr-FR")}</td>
+                <tr key={m._id} className="border-t border-line">
+                  <td className="px-4 py-2.5 text-ink2 text-xs">{new Date(m.createdAt).toLocaleDateString("fr-FR")}</td>
                   <td className="px-4 py-2.5"><span className={`text-xs font-medium ${TYPE_COLORS[m.type]||""}`}>{TYPE_LABELS[m.type]||m.type}</span></td>
                   <td className={`px-4 py-2.5 font-mono font-bold ${m.quantity>0?"text-pos":"text-neg"}`}>{m.quantity>0?"+":""}{m.quantity}</td>
-                  <td className="px-4 py-2.5 font-mono text-moss">{m.quantityBefore}</td>
+                  <td className="px-4 py-2.5 font-mono text-ink2">{m.quantityBefore}</td>
                   <td className="px-4 py-2.5 font-mono font-semibold">{m.quantityAfter}</td>
-                  <td className="px-4 py-2.5 text-moss text-xs">{m.reason}{m.linkedDocNumber&&<span className="ml-1 text-cedar">#{m.linkedDocNumber}</span>}</td>
+                  <td className="px-4 py-2.5 text-ink2 text-xs">{m.reason}{m.linkedDocNumber&&<span className="ml-1 text-section">#{m.linkedDocNumber}</span>}</td>
                 </tr>
               ))}
             </tbody>

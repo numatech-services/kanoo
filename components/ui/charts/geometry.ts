@@ -108,3 +108,27 @@ export function compactXof(value: number): string {
 export function fullXof(value: number): string {
   return `${Math.round(value).toLocaleString("fr-FR")} XOF`;
 }
+
+/**
+ * Barre à sommet arrondi.
+ *
+ * Un `rect` avec `rx` arrondit les quatre coins : une barre posée sur l'axe
+ * semble alors flotter au-dessus de lui. Seul le sommet doit être arrondi —
+ * c'est le détail qui sépare un graphique dessiné d'un graphique par défaut.
+ *
+ * `up` inverse l'arrondi pour les valeurs négatives, qui pendent sous le zéro.
+ */
+export function barPath(
+  x: number, y: number, w: number, h: number, r: number, up = true
+): string {
+  // Une barre plus courte que son rayon produirait une bosse au lieu d'une
+  // barre : on plafonne l'arrondi à la demi-hauteur.
+  const rr = Math.max(0, Math.min(r, w / 2, h));
+  if (rr === 0) return `M${x} ${y}h${w}v${h}h${-w}Z`;
+
+  return up
+    ? `M${x} ${y + h}V${y + rr}A${rr} ${rr} 0 0 1 ${x + rr} ${y}`
+      + `H${x + w - rr}A${rr} ${rr} 0 0 1 ${x + w} ${y + rr}V${y + h}Z`
+    : `M${x} ${y}V${y + h - rr}A${rr} ${rr} 0 0 0 ${x + rr} ${y + h}`
+      + `H${x + w - rr}A${rr} ${rr} 0 0 0 ${x + w} ${y + h - rr}V${y}Z`;
+}

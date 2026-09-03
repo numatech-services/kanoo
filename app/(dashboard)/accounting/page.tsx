@@ -66,14 +66,14 @@ export default function AccountingPage() {
     { 
       key: "entryDate", 
       label: "Date", 
-      render: (v) => <span className="text-sm text-moss">{new Date(String(v)).toLocaleDateString("fr-FR")}</span> 
+      render: (v) => <span className="text-sm text-ink2">{new Date(String(v)).toLocaleDateString("fr-FR")}</span> 
     },
     { 
       key: "journalCode", 
       label: "Journal", 
-      render: (v) => <span className="font-mono text-xs bg-clay/20 px-2 py-0.5 rounded font-semibold">{String(v)}</span> 
+      render: (v) => <span className="font-mono text-xs bg-surface2 px-2 py-0.5 rounded font-semibold">{String(v)}</span> 
     },
-    { key: "reference", label: "Référence", className: "font-mono text-xs text-cedar" },
+    { key: "reference", label: "Référence", className: "font-mono text-xs text-section" },
     { key: "label", label: "Libellé" },
     { 
       key: "lines", 
@@ -104,26 +104,26 @@ export default function AccountingPage() {
     },
   ];
 
-  const inp = "px-3 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30";
+  const inp = "px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Comptabilité</h1>
-          <p className="text-sm text-moss mt-0.5">{total} écriture{total > 1 ? "s" : ""}</p>
+          <p className="text-sm text-ink2 mt-0.5">{total} écriture{total > 1 ? "s" : ""}</p>
         </div>
         <div className="flex gap-2">
           <Link 
             href="/accounting/lettrage" 
-            className="px-4 py-2 border border-cedar text-cedar rounded-lg text-sm hover:bg-cedar hover:text-white transition-colors"
+            className="px-4 py-2 border border-section text-section rounded-lg text-sm hover:bg-section hover:text-white transition-colors"
           >
             Lettrage
           </Link>
           <button 
             type="button"
             onClick={() => router.push("/accounting/new")} 
-            className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink transition-colors"
+            className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors"
           >
             + Saisie manuelle
           </button>

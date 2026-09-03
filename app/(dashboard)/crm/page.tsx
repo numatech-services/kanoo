@@ -78,30 +78,30 @@ export default function CRMPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Pipeline commercial</h1>
-          <p className="text-sm text-moss">CRM · Suivez vos opportunités de la prospection à la signature</p>
+          <p className="text-sm text-ink2">CRM · Suivez vos opportunités de la prospection à la signature</p>
         </div>
-        <button onClick={() => setModalOpen(true)} className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink">+ Nouvelle opportunité</button>
+        <button onClick={() => setModalOpen(true)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouvelle opportunité</button>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-surface rounded-xl border border-clay/20 p-4">
-          <p className="text-xs text-moss">Valeur totale pipeline</p>
+        <div className="bg-surface rounded-xl border border-line p-4">
+          <p className="text-xs text-ink2">Valeur totale pipeline</p>
           <p className="text-xl font-bold font-mono text-ink mt-1">{((stats.totalPipelineValue||0)/1_000_000).toFixed(1)}M XOF</p>
         </div>
-        <div className="bg-surface rounded-xl border border-clay/20 p-4">
-          <p className="text-xs text-moss">Valeur pondérée (probabilités)</p>
+        <div className="bg-surface rounded-xl border border-line p-4">
+          <p className="text-xs text-ink2">Valeur pondérée (probabilités)</p>
           <p className="text-xl font-bold font-mono text-pos mt-1">{((stats.weightedValue||0)/1_000_000).toFixed(1)}M XOF</p>
         </div>
-        <div className="bg-surface rounded-xl border border-clay/20 p-4">
-          <p className="text-xs text-moss">Opportunités actives</p>
+        <div className="bg-surface rounded-xl border border-line p-4">
+          <p className="text-xs text-ink2">Opportunités actives</p>
           <p className="text-xl font-bold text-ink mt-1">{stats.count || 0}</p>
         </div>
       </div>
 
       {/* Kanban */}
       {loading ? (
-        <div className="grid grid-cols-6 gap-3">{STAGES.map(s => <div key={s.key} className="h-96 bg-surface rounded-xl animate-pulse border border-clay/20"/>)}</div>
+        <div className="grid grid-cols-6 gap-3">{STAGES.map(s => <div key={s.key} className="h-96 bg-surface rounded-xl animate-pulse border border-line"/>)}</div>
       ) : (
         <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
           {STAGES.map(stage => {
@@ -109,16 +109,16 @@ export default function CRMPage() {
             const stageValue = opps.reduce((s, o) => s + o.estimatedAmount, 0);
             return (
               <div key={stage.key}
-                className="bg-sand rounded-xl border border-clay/20 min-h-[400px]"
+                className="bg-surface2 rounded-xl border border-line min-h-[400px]"
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => { e.preventDefault(); if (dragging) moveStage(dragging, stage.key); setDragging(null); }}
               >
-                <div className="px-3 py-3 border-b border-clay/20">
+                <div className="px-3 py-3 border-b border-line">
                   <div className="flex items-center justify-between mb-1">
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${stage.bg} ${stage.color}`}>{stage.label}</span>
-                    <span className="text-xs text-moss font-medium">{opps.length}</span>
+                    <span className="text-xs text-ink2 font-medium">{opps.length}</span>
                   </div>
-                  {stageValue > 0 && <p className="text-xs font-mono text-moss">{(stageValue/1_000_000).toFixed(1)}M XOF</p>}
+                  {stageValue > 0 && <p className="text-xs font-mono text-ink2">{(stageValue/1_000_000).toFixed(1)}M XOF</p>}
                 </div>
                 <div className="p-2 flex flex-col gap-2">
                   {opps.map(opp => (
@@ -126,21 +126,21 @@ export default function CRMPage() {
                       draggable
                       onDragStart={() => setDragging(opp._id)}
                       onDragEnd={() => setDragging(null)}
-                      className={`bg-surface rounded-lg border border-clay/20 p-3 cursor-grab active:cursor-grabbing hover:border-cedar/40 transition-colors ${dragging === opp._id ? "opacity-50" : ""}`}
+                      className={`bg-surface rounded-lg border border-line p-3 cursor-grab active:cursor-grabbing hover:border-section/40 transition-colors ${dragging === opp._id ? "opacity-50" : ""}`}
                     >
                       <p className="font-medium text-ink text-xs leading-tight">{opp.title}</p>
-                      <p className="text-xs text-moss mt-0.5 truncate">{opp.clientId?.name || opp.companyName || "—"}</p>
+                      <p className="text-xs text-ink2 mt-0.5 truncate">{opp.clientId?.name || opp.companyName || "—"}</p>
                       {opp.estimatedAmount > 0 && (
-                        <p className="text-xs font-mono font-medium text-cedar mt-1.5">{opp.estimatedAmount.toLocaleString("fr-FR")} XOF</p>
+                        <p className="text-xs font-mono font-medium text-section mt-1.5">{opp.estimatedAmount.toLocaleString("fr-FR")} XOF</p>
                       )}
                       <div className="flex items-center gap-2 mt-2">
-                        <div className="flex-1 h-1 bg-clay/20 rounded-full">
-                          <div className="h-1 bg-cedar rounded-full" style={{ width: `${opp.probability}%` }}/>
+                        <div className="flex-1 h-1 bg-surface2 rounded-full">
+                          <div className="h-1 bg-section rounded-full" style={{ width: `${opp.probability}%` }}/>
                         </div>
-                        <span className="text-xs text-moss">{opp.probability}%</span>
+                        <span className="text-xs text-ink2">{opp.probability}%</span>
                       </div>
                       {opp.nextFollowUpDate && (
-                        <p className={`text-xs mt-1.5 ${isOverdue(opp.nextFollowUpDate) ? "text-neg font-medium" : "text-moss"}`}>
+                        <p className={`text-xs mt-1.5 ${isOverdue(opp.nextFollowUpDate) ? "text-neg font-medium" : "text-ink2"}`}>
                           {isOverdue(opp.nextFollowUpDate) ? "⏰ " : ""}Relance : {new Date(opp.nextFollowUpDate).toLocaleDateString("fr-FR")}
                         </p>
                       )}
@@ -149,14 +149,14 @@ export default function CRMPage() {
                         value={opp.stage}
                         onChange={e => moveStage(opp._id, e.target.value)}
                         onClick={e => e.stopPropagation()}
-                        className="mt-2 w-full text-xs border border-clay/20 rounded-lg px-1.5 py-1 bg-sand text-moss focus:outline-none"
+                        className="mt-2 w-full text-xs border border-line rounded-lg px-1.5 py-1 bg-surface2 text-ink2 focus:outline-none"
                       >
                         {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
                       </select>
                     </div>
                   ))}
                   {opps.length === 0 && (
-                    <p className="text-xs text-moss text-center py-6 opacity-60">Aucune opportunité</p>
+                    <p className="text-xs text-ink2 text-center py-6 opacity-60">Aucune opportunité</p>
                   )}
                 </div>
               </div>
@@ -205,9 +205,9 @@ export default function CRMPage() {
               <input type="date" className={inputCls} value={form.nextFollowUpDate} onChange={e=>u("nextFollowUpDate",e.target.value)}/>
             </FormField>
           </div>
-          <div className="flex justify-end gap-3 pt-3 border-t border-clay/20">
-            <button type="button" onClick={()=>setModalOpen(false)} className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">Annuler</button>
-            <button type="submit" disabled={saving} className="px-6 py-2 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink disabled:opacity-60">{saving?"Création…":"Ajouter au pipeline"}</button>
+          <div className="flex justify-end gap-3 pt-3 border-t border-line">
+            <button type="button" onClick={()=>setModalOpen(false)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
+            <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"Création…":"Ajouter au pipeline"}</button>
           </div>
         </form>
       </Modal>

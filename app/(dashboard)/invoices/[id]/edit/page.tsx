@@ -49,7 +49,7 @@ export default function EditInvoicePage() {
   if (loading) {
     return (
       <div className="p-6">
-        <div className="h-64 bg-surface rounded-xl animate-pulse border border-clay/20" />
+        <div className="h-64 bg-surface rounded-xl animate-pulse border border-line" />
       </div>
     );
   }
@@ -88,13 +88,13 @@ export default function EditInvoicePage() {
   return (
     <div className="max-w-4xl space-y-5">
       <div>
-        <button onClick={() => router.push(`/invoices/${id}`)} className="text-xs text-moss hover:text-ink">
+        <button onClick={() => router.push(`/invoices/${id}`)} className="text-xs text-ink2 hover:text-ink">
           Retour au détail
         </button>
         <h1 className="text-2xl font-bold text-ink mt-1">Modifier la facture</h1>
       </div>
 
-      <div className="bg-surface rounded-2xl border border-clay/20 p-6">
+      <div className="bg-surface rounded-2xl border border-line p-6">
         <InvoiceForm 
           initial={invoiceData} 
           onSave={handleUpdate} 

@@ -78,7 +78,7 @@ export default function PayslipsPage() {
               e.stopPropagation();
               router.push(`/payslips/${row._id}`);
             }}
-            className="text-cedar font-bold hover:underline text-left"
+            className="text-section font-bold hover:underline text-left"
           >
             {name}
           </button>
@@ -133,11 +133,11 @@ export default function PayslipsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-ink">Bulletins de paie</h1>
-        <button onClick={() => setModalOpen(true)} className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink">
+        <button onClick={() => setModalOpen(true)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">
           + Générer un bulletin
         </button>
       </div>
-      <div className="bg-surface rounded-xl border border-clay/20 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
         <DataTable columns={columns} data={payslips} loading={loading} keyExtractor={(p) => p._id} emptyMessage="Aucun bulletin généré" />
       </div>
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
@@ -145,7 +145,7 @@ export default function PayslipsPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nouveau bulletin" size="md">
         <form onSubmit={handleGenerate} className="space-y-4">
           {genError && <div className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{genError}</div>}
-          <label className="block text-xs font-medium text-moss">Sélectionner l'Employé *</label>
+          <label className="block text-xs font-medium text-ink2">Sélectionner l'Employé *</label>
           <select 
             className="w-full px-3 py-2 border rounded-lg text-sm" 
             value={genForm.employeeId} 
@@ -161,7 +161,7 @@ export default function PayslipsPage() {
             </select>
             <input type="number" className="px-3 py-2 border rounded-lg text-sm" value={genForm.year} onChange={(e) => setGenForm(p=>({...p, year: Number(e.target.value)}))} />
           </div>
-          <button type="submit" disabled={saving} className="w-full py-2 bg-cedar text-white rounded-lg text-sm font-bold">
+          <button type="submit" disabled={saving} className="w-full py-2 bg-section text-white rounded-lg text-sm font-bold">
             {saving ? "Génération..." : "Générer le bulletin"}
           </button>
         </form>

@@ -104,16 +104,16 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-ink">Tableau de bord — Administration</h1>
-        <p className="text-sm text-moss mt-0.5">Exercice {new Date().getFullYear()}</p>
+        <p className="text-sm text-ink2 mt-0.5">Exercice {new Date().getFullYear()}</p>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {kpis.map(c => (
-          <Link key={c.label} href={c.href} className="bg-surface rounded-xl border border-clay/20 p-5 hover:shadow-md transition-shadow">
+          <Link key={c.label} href={c.href} className="bg-surface rounded-xl border border-line p-5 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs text-moss font-medium uppercase tracking-wide">{c.label}</p>
+                <p className="text-xs text-ink2 font-medium uppercase tracking-wide">{c.label}</p>
                 <p className="text-2xl font-bold text-ink mt-1">{c.value}</p>
               </div>
               <span className={`text-2xl p-2 rounded-lg ${c.color}`}>{c.icon}</span>
@@ -123,15 +123,15 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Taux d'exécution budgétaire par chapitre */}
-      <div className="bg-surface rounded-xl border border-clay/20 p-6">
+      <div className="bg-surface rounded-xl border border-line p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-ink">Exécution budgétaire par chapitre</h2>
-          <Link href="/administration/budget" className="text-xs text-cedar hover:underline">Voir tout →</Link>
+          <Link href="/administration/budget" className="text-xs text-section hover:underline">Voir tout →</Link>
         </div>
         {loadingCh ? (
-          <div className="space-y-3">{[...Array(3)].map((_,i) => <div key={i} className="h-8 bg-sand animate-pulse rounded" />)}</div>
+          <div className="space-y-3">{[...Array(3)].map((_,i) => <div key={i} className="h-8 bg-surface2 animate-pulse rounded" />)}</div>
         ) : safeChapters.length === 0 ? (
-          <p className="text-sm text-moss text-center py-6">Aucun chapitre budgétaire</p>
+          <p className="text-sm text-ink2 text-center py-6">Aucun chapitre budgétaire</p>
         ) : (
           <div className="space-y-4">
             {safeChapters.slice(0, 5).map(ch => {
@@ -141,10 +141,10 @@ export default function AdminDashboardPage() {
                 <div key={ch._id}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-ink font-medium truncate max-w-xs">{ch.code} — {ch.label}</span>
-                    <span className="text-moss ml-2 shrink-0">{p}% <span className="text-xs">({fmt(ch.engagedAmount)} / {fmt(ch.allocatedAmount)})</span></span>
+                    <span className="text-ink2 ml-2 shrink-0">{p}% <span className="text-xs">({fmt(ch.engagedAmount)} / {fmt(ch.allocatedAmount)})</span></span>
                   </div>
-                  <div className="h-2 bg-sand rounded-full">
-                    <div className={`h-2 rounded-full transition-all ${p > 90 ? "bg-neg" : p > 70 ? "bg-warn" : "bg-cedar"}`} style={{ width: `${p}%` }} />
+                  <div className="h-2 bg-surface2 rounded-full">
+                    <div className={`h-2 rounded-full transition-all ${p > 90 ? "bg-neg" : p > 70 ? "bg-warn" : "bg-section"}`} style={{ width: `${p}%` }} />
                   </div>
                 </div>
               );
@@ -155,24 +155,24 @@ export default function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Engagements récents */}
-        <div className="bg-surface rounded-xl border border-clay/20">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-clay/10">
+        <div className="bg-surface rounded-xl border border-line">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-line">
             <h2 className="font-semibold text-ink">Engagements récents</h2>
-            <Link href="/administration/budget/engagements" className="text-xs text-cedar hover:underline">Voir tout →</Link>
+            <Link href="/administration/budget/engagements" className="text-xs text-section hover:underline">Voir tout →</Link>
           </div>
           {loadingEn ? (
-            <div className="p-4 space-y-2">{[...Array(4)].map((_,i) => <div key={i} className="h-10 bg-sand animate-pulse rounded" />)}</div>
+            <div className="p-4 space-y-2">{[...Array(4)].map((_,i) => <div key={i} className="h-10 bg-surface2 animate-pulse rounded" />)}</div>
           ) : safeEngagements.length === 0 ? (
-            <p className="text-sm text-moss text-center py-10">Aucun engagement</p>
+            <p className="text-sm text-ink2 text-center py-10">Aucun engagement</p>
           ) : (
-            <div className="divide-y divide-clay/10">
+            <div className="divide-y divide-line">
               {safeEngagements.map(e => {
                 if (!e) return null;
                 return (
                   <div key={e._id} className="flex items-center gap-3 px-5 py-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-ink truncate">{e.description || e.reference}</p>
-                      <p className="text-xs font-mono text-moss">{e.reference}</p>
+                      <p className="text-xs font-mono text-ink2">{e.reference}</p>
                     </div>
                     <span className="font-mono text-sm font-semibold shrink-0">{fmt(e.amount)}</span>
                     <StatusPill status={e.status} />
@@ -184,26 +184,26 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Marchés récents */}
-        <div className="bg-surface rounded-xl border border-clay/20">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-clay/10">
+        <div className="bg-surface rounded-xl border border-line">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-line">
             <h2 className="font-semibold text-ink">Marchés publics</h2>
-            <Link href="/administration/marches-publics" className="text-xs text-cedar hover:underline">Voir tout →</Link>
+            <Link href="/administration/marches-publics" className="text-xs text-section hover:underline">Voir tout →</Link>
           </div>
           {loadingMa ? (
-            <div className="p-4 space-y-2">{[...Array(4)].map((_,i) => <div key={i} className="h-10 bg-sand animate-pulse rounded" />)}</div>
+            <div className="p-4 space-y-2">{[...Array(4)].map((_,i) => <div key={i} className="h-10 bg-surface2 animate-pulse rounded" />)}</div>
           ) : safeMarches.length === 0 ? (
-            <p className="text-sm text-moss text-center py-10">Aucun marché</p>
+            <p className="text-sm text-ink2 text-center py-10">Aucun marché</p>
           ) : (
-            <div className="divide-y divide-clay/10">
+            <div className="divide-y divide-line">
               {safeMarches.map(m => {
                 if (!m) return null;
                 return (
-                  <Link key={m._id} href={`/administration/marches-publics/${m._id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-sand/40 transition-colors">
+                  <Link key={m._id} href={`/administration/marches-publics/${m._id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-surface2/40 transition-colors">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-ink truncate">{m.title}</p>
-                      <p className="text-xs font-mono text-moss">{m.reference}</p>
+                      <p className="text-xs font-mono text-ink2">{m.reference}</p>
                     </div>
-                    <span className="font-mono text-sm text-moss shrink-0">{fmt(m.estimatedAmount)}</span>
+                    <span className="font-mono text-sm text-ink2 shrink-0">{fmt(m.estimatedAmount)}</span>
                     <StatusPill status={m.status} />
                   </Link>
                 );
@@ -214,27 +214,27 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Mandatements récents */}
-      <div className="bg-surface rounded-xl border border-clay/20">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-clay/10">
+      <div className="bg-surface rounded-xl border border-line">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <h2 className="font-semibold text-ink">Mandatements récents</h2>
-          <Link href="/administration/budget/mandatements" className="text-xs text-cedar hover:underline">Voir tout →</Link>
+          <Link href="/administration/budget/mandatements" className="text-xs text-section hover:underline">Voir tout →</Link>
         </div>
         {loadingMn ? (
-          <div className="p-4 space-y-2">{[...Array(3)].map((_,i) => <div key={i} className="h-10 bg-sand animate-pulse rounded" />)}</div>
+          <div className="p-4 space-y-2">{[...Array(3)].map((_,i) => <div key={i} className="h-10 bg-surface2 animate-pulse rounded" />)}</div>
         ) : safeMandatements.length === 0 ? (
-          <p className="text-sm text-moss text-center py-8">Aucun mandatement</p>
+          <p className="text-sm text-ink2 text-center py-8">Aucun mandatement</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="table-dense">
-              <thead><tr className="border-b border-clay/10 bg-sand/50">
+              <thead><tr className="border-b border-line bg-surface2/50">
                 {["Référence","Description","Montant","Statut"].map(h => <th key={h} >{h}</th>)}
               </tr></thead>
               <tbody>
                 {safeMandatements.map(m => {
                   if (!m) return null;
                   return (
-                    <tr key={m._id} className="border-b border-clay/10 last:border-0">
-                      <td className="px-4 py-3 font-mono text-xs text-cedar">{m.reference}</td>
+                    <tr key={m._id} className="border-b border-line last:border-0">
+                      <td className="px-4 py-3 font-mono text-xs text-section">{m.reference}</td>
                       <td className="px-4 py-3 text-ink">{m.description}</td>
                       <td className="px-4 py-3 font-mono font-semibold">{fmt(m.amount)}</td>
                       <td className="px-4 py-3"><StatusPill status={m.status} /></td>

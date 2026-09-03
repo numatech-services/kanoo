@@ -13,23 +13,23 @@ export default function CotisationsPage() {
   const paid=items.filter(i=>i.paidAt).length;
   const columns: Column<Cotisation>[] = [
     {key:"memberId",label:"Adhérent",render:(v)=>typeof v==="object"&&v?`${(v as {firstName:string;lastName:string}).firstName} ${(v as {firstName:string;lastName:string}).lastName}`:"—"},
-    {key:"year",label:"Année",className:"text-moss"},
+    {key:"year",label:"Année",className:"text-ink2"},
     {key:"amount",label:"Montant (XOF)",className:"text-right font-mono",render:(v)=>Number(v).toLocaleString("fr-FR")},
     {key:"paidAt",label:"Date paiement",render:(v)=>v?new Date(String(v)).toLocaleDateString("fr-FR"):<span className="text-warn font-medium">Non payée</span>},
-    {key:"receiptNumber",label:"N° reçu",className:"font-mono text-xs text-cedar"},
+    {key:"receiptNumber",label:"N° reçu",className:"font-mono text-xs text-section"},
   ];
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Cotisations</h1><p className="text-sm text-moss">{paid}/{total} payées pour {year}</p></div>
+        <div><h1 className="text-2xl font-bold text-ink">Cotisations</h1><p className="text-sm text-ink2">{paid}/{total} payées pour {year}</p></div>
         <div className="flex gap-3">
-          <select value={year} onChange={e=>{setYear(Number(e.target.value));setPage(1);}} className="px-3 py-2 border border-clay/30 rounded-lg text-sm">{[year-1,year,year+1].map(y=><option key={y} value={y}>{y}</option>)}</select>
-          <button onClick={() => window.location.href = "/associations/cotisations/new"} className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink">+ Enregistrer paiement</button>
+          <select value={year} onChange={e=>{setYear(Number(e.target.value));setPage(1);}} className="px-3 py-2 border border-line rounded-lg text-sm">{[year-1,year,year+1].map(y=><option key={y} value={y}>{y}</option>)}</select>
+          <button onClick={() => window.location.href = "/associations/cotisations/new"} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Enregistrer paiement</button>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-4">
         {[{l:"Total",v:total,c:"text-ink"},{l:"Payées",v:paid,c:"text-pos"},{l:"En attente",v:total-paid,c:"text-warn"}].map(k=>(
-          <div key={k.l} className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">{k.l}</p><p className={`text-2xl font-bold mt-1 ${k.c}`}>{k.v}</p></div>
+          <div key={k.l} className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">{k.l}</p><p className={`text-2xl font-bold mt-1 ${k.c}`}>{k.v}</p></div>
         ))}
       </div>
       <DataTable columns={columns} data={items} loading={loading} keyExtractor={c=>c._id} emptyMessage="Aucune cotisation pour cette année"/>

@@ -53,7 +53,7 @@ export default function SubscriptionPage() {
     <div className="space-y-6 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold text-ink">Abonnement</h1>
-        <p className="text-sm text-moss mt-0.5">Paiement sécurisé via Orange Money, Airtel Money et carte bancaire</p>
+        <p className="text-sm text-ink2 mt-0.5">Paiement sécurisé via Orange Money, Airtel Money et carte bancaire</p>
       </div>
 
       {status === "success" && (
@@ -74,12 +74,12 @@ export default function SubscriptionPage() {
 
       {/* Toggle mensuel / annuel */}
       <div className="flex items-center gap-3">
-        <span className={`text-sm ${period==="monthly"?"font-semibold text-ink":"text-moss"}`}>Mensuel</span>
+        <span className={`text-sm ${period==="monthly"?"font-semibold text-ink":"text-ink2"}`}>Mensuel</span>
         <button onClick={() => setPeriod(p => p==="monthly"?"yearly":"monthly")}
-          className={`relative w-12 h-6 rounded-full transition-colors ${period==="yearly"?"bg-cedar":"bg-clay/30"}`}>
+          className={`relative w-12 h-6 rounded-full transition-colors ${period==="yearly"?"bg-section":"bg-surface2"}`}>
           <span className={`absolute top-1 w-4 h-4 bg-surface rounded-full shadow transition-transform ${period==="yearly"?"translate-x-7":"translate-x-1"}`}/>
         </button>
-        <span className={`text-sm ${period==="yearly"?"font-semibold text-ink":"text-moss"}`}>
+        <span className={`text-sm ${period==="yearly"?"font-semibold text-ink":"text-ink2"}`}>
           Annuel <span className="text-xs bg-pos-50 text-pos px-1.5 py-0.5 rounded-full ml-1">-17%</span>
         </span>
       </div>
@@ -89,23 +89,23 @@ export default function SubscriptionPage() {
           const price = period === "yearly" ? plan.priceYearly : plan.price;
           const isActive = currentPlan === plan.id;
           return (
-            <div key={plan.id} className={`bg-surface rounded-xl border p-5 flex flex-col transition-all ${plan.popular?"border-cedar shadow-sm":"border-clay/20"}`}>
+            <div key={plan.id} className={`bg-surface rounded-xl border p-5 flex flex-col transition-all ${plan.popular?"border-section shadow-sm":"border-line"}`}>
               {plan.popular && (
-                <div className="-mt-5 -mx-5 mb-3 bg-cedar text-white text-xs font-semibold text-center py-1.5 rounded-t-xl">
+                <div className="-mt-5 -mx-5 mb-3 bg-section text-white text-xs font-semibold text-center py-1.5 rounded-t-xl">
                   Recommandé
                 </div>
               )}
-              <p className="text-xs text-moss uppercase tracking-wide">{plan.label}</p>
+              <p className="text-xs text-ink2 uppercase tracking-wide">{plan.label}</p>
               <p className="text-2xl font-bold text-ink mt-1 font-mono">
                 {price.toLocaleString("fr-FR")}
-                <span className="text-xs font-normal text-moss"> XOF/{period==="yearly"?"an":"mois"}</span>
+                <span className="text-xs font-normal text-ink2"> XOF/{period==="yearly"?"an":"mois"}</span>
               </p>
               {period === "yearly" && (
                 <p className="text-xs text-pos mt-0.5">= {Math.round(plan.priceYearly/12/1000)}k XOF/mois</p>
               )}
               <ul className="mt-4 space-y-1.5 flex-1">
                 {plan.features.map(f => (
-                  <li key={f} className="text-xs text-moss flex items-start gap-1.5">
+                  <li key={f} className="text-xs text-ink2 flex items-start gap-1.5">
                     <span className="text-pos flex-shrink-0 mt-0.5">✓</span>{f}
                   </li>
                 ))}
@@ -115,8 +115,8 @@ export default function SubscriptionPage() {
                 disabled={!!loading || isActive}
                 className={`mt-5 w-full py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-60 ${
                   isActive ? "bg-pos-50 text-pos cursor-default"
-                  : plan.popular ? "bg-cedar text-white hover:bg-ink"
-                  : "border border-clay/30 text-moss hover:bg-sand"
+                  : plan.popular ? "bg-section text-white hover:brightness-95"
+                  : "border border-line text-ink2 hover:bg-surface2"
                 }`}
               >
                 {isActive ? "✅ Plan actuel"
@@ -128,11 +128,11 @@ export default function SubscriptionPage() {
         })}
       </div>
 
-      <div className="bg-sand rounded-xl p-4 flex items-start gap-3">
+      <div className="bg-surface2 rounded-xl p-4 flex items-start gap-3">
         <span className="text-lg flex-shrink-0">🔒</span>
         <div>
           <p className="text-sm font-medium text-ink">Paiement sécurisé par PayDunya</p>
-          <p className="text-xs text-moss mt-0.5">Orange Money Niger · Airtel Money · Moov Money · Carte bancaire Visa/Mastercard. Vos données bancaires ne transitent jamais par Kanoo.</p>
+          <p className="text-xs text-ink2 mt-0.5">Orange Money Niger · Airtel Money · Moov Money · Carte bancaire Visa/Mastercard. Vos données bancaires ne transitent jamais par Kanoo.</p>
         </div>
       </div>
     </div>

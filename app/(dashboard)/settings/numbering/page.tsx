@@ -59,16 +59,16 @@ export default function NumberingPage() {
   }
 
   const u = (k: keyof NumberingConfig, v: unknown) => setConfig(p => ({ ...p, [k]: v }));
-  const inp = "px-3 py-2 border border-clay/30 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-cedar/30 uppercase";
+  const inp = "px-3 py-2 border border-line rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-section/30 uppercase";
 
-  if (loading) return <div className="h-64 bg-surface rounded-xl animate-pulse border border-clay/20" />;
+  if (loading) return <div className="h-64 bg-surface rounded-xl animate-pulse border border-line" />;
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <a href="/settings" className="text-xs text-moss hover:text-ink">← Paramètres</a>
+        <a href="/settings" className="text-xs text-ink2 hover:text-ink">← Paramètres</a>
         <h1 className="text-2xl font-bold text-ink mt-1">Numérotation des documents</h1>
-        <p className="text-sm text-moss mt-1">
+        <p className="text-sm text-ink2 mt-1">
           Personnalisez les préfixes de vos factures, devis et autres documents.
         </p>
       </div>
@@ -76,13 +76,13 @@ export default function NumberingPage() {
       <form onSubmit={handleSave} className="space-y-5">
 
         {/* Préfixes par type */}
-        <div className="bg-surface rounded-xl border border-clay/20 p-5">
+        <div className="bg-surface rounded-xl border border-line p-5">
           <h2 className="font-semibold text-ink mb-4">Préfixes par type de document</h2>
-          <p className="text-xs text-moss mb-4">Max 10 caractères — lettres majuscules, chiffres, <code>-</code> ou <code>/</code></p>
+          <p className="text-xs text-ink2 mb-4">Max 10 caractères — lettres majuscules, chiffres, <code>-</code> ou <code>/</code></p>
           <div className="space-y-3">
             {FIELDS.map(f => (
               <div key={f.key} className="grid grid-cols-3 gap-4 items-center">
-                <label className="text-sm text-moss">{f.label}</label>
+                <label className="text-sm text-ink2">{f.label}</label>
                 <input
                   className={inp}
                   value={(config[f.key] as string) || ""}
@@ -90,7 +90,7 @@ export default function NumberingPage() {
                   placeholder="FAC"
                   maxLength={10}
                 />
-                <span className="font-mono text-xs text-cedar bg-cedar/5 px-2 py-1 rounded-lg">
+                <span className="font-mono text-xs text-section bg-section/5 px-2 py-1 rounded-lg">
                   → {previews[f.previewKey] || "…"}
                 </span>
               </div>
@@ -99,15 +99,15 @@ export default function NumberingPage() {
         </div>
 
         {/* Format */}
-        <div className="bg-surface rounded-xl border border-clay/20 p-5">
+        <div className="bg-surface rounded-xl border border-line p-5">
           <h2 className="font-semibold text-ink mb-4">Format du numéro</h2>
           <div className="space-y-4">
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-moss mb-1">Séparateur</label>
+                <label className="block text-xs font-medium text-ink2 mb-1">Séparateur</label>
                 <select
-                  className="w-full px-3 py-2 border border-clay/30 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-cedar/30"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-section/30"
                   value={config.separator || "-"}
                   onChange={e => u("separator", e.target.value)}
                 >
@@ -119,9 +119,9 @@ export default function NumberingPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-moss mb-1">Nombre de chiffres</label>
+                <label className="block text-xs font-medium text-ink2 mb-1">Nombre de chiffres</label>
                 <select
-                  className="w-full px-3 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30"
                   value={config.digitCount || 5}
                   onChange={e => u("digitCount", Number(e.target.value))}
                 >
@@ -134,13 +134,13 @@ export default function NumberingPage() {
 
             <div className="space-y-2">
               <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" className="accent-cedar w-4 h-4"
+                <input type="checkbox" className="accent-section w-4 h-4"
                   checked={config.yearInNumber !== false}
                   onChange={e => u("yearInNumber", e.target.checked)} />
                 <span className="text-sm text-ink">Inclure l'année dans le numéro (ex: FAC-<strong>2025</strong>-00001)</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" className="accent-cedar w-4 h-4"
+                <input type="checkbox" className="accent-section w-4 h-4"
                   checked={config.resetYearly !== false}
                   onChange={e => u("resetYearly", e.target.checked)} />
                 <span className="text-sm text-ink">Réinitialiser le compteur chaque 1er janvier</span>
@@ -152,30 +152,30 @@ export default function NumberingPage() {
         {/* Migration — numéro de départ */}
         <div className="bg-warn-50 border border-warn/25 rounded-xl p-5">
           <h2 className="font-semibold text-ink mb-2">Migration depuis un ancien logiciel</h2>
-          <p className="text-xs text-moss mb-3">
+          <p className="text-xs text-ink2 mb-3">
             Si vous migrez depuis un autre système, définissez le numéro de départ pour éviter les doublons avec vos factures existantes.
           </p>
           <div className="grid grid-cols-2 gap-4 items-center">
-            <label className="text-sm text-moss">Prochain numéro de facture</label>
+            <label className="text-sm text-ink2">Prochain numéro de facture</label>
             <input
               type="number"
-              className="px-3 py-2 border border-clay/30 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-cedar/30"
+              className="px-3 py-2 border border-line rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-section/30"
               value={config.invoiceStartAt || 1}
               onChange={e => u("invoiceStartAt", Number(e.target.value))}
               min={1}
             />
           </div>
-          <p className="text-xs text-moss mt-2">
+          <p className="text-xs text-ink2 mt-2">
             Exemple : si votre dernière facture était <code className="bg-surface px-1 rounded">FAC-2024-00847</code>, saisissez <strong>848</strong>.
           </p>
         </div>
 
         {/* Prévisualisation live */}
-        <div className="bg-surface rounded-xl border border-clay/20 p-5">
+        <div className="bg-surface rounded-xl border border-line p-5">
           <h2 className="font-semibold text-ink mb-3">Prévisualisation</h2>
           <div className="flex flex-wrap gap-2">
             {FIELDS.map(f => (
-              <span key={f.key} className="font-mono text-sm bg-cedar/5 text-cedar border border-cedar/20 px-3 py-1.5 rounded-lg">
+              <span key={f.key} className="font-mono text-sm bg-section/5 text-section border border-section/20 px-3 py-1.5 rounded-lg">
                 {previews[f.previewKey] || "…"}
               </span>
             ))}
@@ -186,7 +186,7 @@ export default function NumberingPage() {
           <button
             type="submit"
             disabled={saving}
-            className="px-6 py-2.5 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink disabled:opacity-60 transition-colors"
+            className="px-6 py-2.5 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60 transition-colors"
           >
             {saving ? "Enregistrement…" : "Enregistrer la configuration"}
           </button>

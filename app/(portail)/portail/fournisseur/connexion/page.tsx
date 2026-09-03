@@ -13,15 +13,15 @@ export default function ConnexionFournisseurPage() {
     else setError(d.error || "Identifiants incorrects");
     setLoading(false);
   }
-  const inp = "w-full px-4 py-3 border border-clay/30 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30";
+  const inp = "w-full px-4 py-3 border border-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
   return (
     <div className="max-w-sm mx-auto">
-      <div className="text-center mb-8"><p className="text-3xl mb-2">🏭</p><h1 className="text-2xl font-bold text-ink">Espace fournisseur</h1><p className="text-moss text-sm mt-1">Accédez aux appels d'offres et à vos contrats</p></div>
+      <div className="text-center mb-8"><p className="text-3xl mb-2">🏭</p><h1 className="text-2xl font-bold text-ink">Espace fournisseur</h1><p className="text-ink2 text-sm mt-1">Accédez aux appels d'offres et à vos contrats</p></div>
       {error && <div className="p-3 bg-neg-50 border border-neg/25 rounded-xl text-neg text-sm mb-4">{error}</div>}
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div><label className="block text-xs font-medium text-moss mb-1">Email</label><input type="email" className={inp} value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} required/></div>
-        <div><label className="block text-xs font-medium text-moss mb-1">Code d'accès</label><input type="password" className={inp} value={form.accessCode} onChange={e=>setForm(p=>({...p,accessCode:e.target.value}))} required/></div>
-        <button type="submit" disabled={loading} className="w-full py-3 bg-cedar text-white rounded-xl font-medium hover:bg-ink disabled:opacity-60">{loading?"Connexion…":"Se connecter"}</button>
+        <div><label className="block text-xs font-medium text-ink2 mb-1">Email</label><input type="email" className={inp} value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} required/></div>
+        <div><label className="block text-xs font-medium text-ink2 mb-1">Code d'accès</label><input type="password" className={inp} value={form.accessCode} onChange={e=>setForm(p=>({...p,accessCode:e.target.value}))} required/></div>
+        <button type="submit" disabled={loading} className="w-full py-3 bg-section text-white rounded-xl font-medium hover:brightness-95 disabled:opacity-60">{loading?"Connexion…":"Se connecter"}</button>
       </form>
     </div>
   );

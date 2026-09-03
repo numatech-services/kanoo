@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Sparkline } from "./charts/Sparkline";
 import { useCountUp } from "@/lib/use-count-up";
+import { toneVar, toneColor, type ToneRole } from "@/lib/tone";
 
 export interface KpiCardProps {
   label: string;
@@ -30,12 +31,19 @@ export interface KpiCardProps {
   goodDirection?: "up" | "down";
   trend?: number[];
   href?: string;
-  /** Teinte propre. Par défaut, l'accent de la section courante. */
-  tone?: "section" | "pos" | "neg" | "warn" | "info";
+  /**
+   * Teinte propre. Par défaut, l'accent de la section courante.
+   *
+   * Les valeurs sémantiques (`pos`, `neg`…) portent un jugement : à réserver
+   * aux indicateurs qui en appellent un. Les rôles catégoriels
+   * (`revenue`, `volume`…) ne jugent pas, ils distinguent — et gardent la
+   * même teinte d'un écran à l'autre.
+   */
+  tone?: "section" | "pos" | "neg" | "warn" | "info" | ToneRole;
   hint?: string;
 }
 
-const TONE: Record<NonNullable<KpiCardProps["tone"]>, { chip: string; spark: string }> = {
+const TONE: Record<"section" | "pos" | "neg" | "warn" | "info", { chip: string; spark: string }> = {
   section: { chip: "bg-section-soft text-section", spark: "rgb(var(--s-accent))" },
   pos:     { chip: "bg-pos-50 text-pos",           spark: "rgb(var(--c-pos))" },
   neg:     { chip: "bg-neg-50 text-neg",           spark: "rgb(var(--c-neg))" },
@@ -53,7 +61,12 @@ export function KpiCard({
   label, value, format, icon, delta, deltaLabel = "vs période précédente",
   goodDirection = "up", trend, href, tone = "section", hint,
 }: KpiCardProps) {
-  const t = TONE[tone];
+  // Une teinte catégorielle passe par la variable --chip ; une teinte
+  // sémantique garde ses classes utilitaires.
+  const categorical = !(tone in TONE);
+  const t = categorical ? null : TONE[tone as keyof typeof TONE];
+  const chipStyle = categorical ? toneVar(tone as ToneRole) : undefined;
+  const sparkColor = categorical ? toneColor(tone as ToneRole) : t!.spark;
 
   // Le comptage n'est branché que sur une valeur numérique : animer une chaîne
   // n'aurait aucun sens, et le hook doit être appelé inconditionnellement.
@@ -80,7 +93,7 @@ export function KpiCard({
           <p className="text-2xl font-bold text-ink num mt-1 leading-tight tabular-nums">{display}</p>
         </div>
         {icon && (
-          <span className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${t.chip}`}>
+          <span className={`chip ${t ? t.chip : ""}`} style={chipStyle}>
             {icon}
           </span>
         )}
@@ -101,7 +114,7 @@ export function KpiCard({
           )}
         </div>
         {trend && trend.length > 1 && (
-          <Sparkline values={trend} color={t.spark} width={92} height={28} className="shrink-0" />
+          <Sparkline values={trend} color={sparkColor} width={92} height={28} className="shrink-0" />
         )}
       </div>
     </>

@@ -7,7 +7,7 @@ interface ExportBtnProps {
 }
 
 const FORMATS = [
-  { key: "fec",    label: "FEC (DGI Niger)",    icon: "📋", color: "text-cedar border-cedar/30 hover:bg-cedar/5" },
+  { key: "fec",    label: "FEC (DGI Niger)",    icon: "📋", color: "text-section border-section/30 hover:bg-section/5" },
   { key: "sage",   label: "SAGE 100",            icon: "📊", color: "text-info border-info/25 hover:bg-info-50" },
   { key: "ohada",  label: "OHADA Grand Livre",   icon: "📒", color: "text-pos border-pos/25 hover:bg-pos-50" },
   { key: "cegid",  label: "Cegid",               icon: "📁", color: "text-section border-section/25 hover:bg-section-soft" },
@@ -45,7 +45,7 @@ export function ExportComptableButtons({ annee, mois }: ExportBtnProps) {
 
   return (
     <div className="flex flex-wrap gap-2">
-      <p className="w-full text-xs font-medium text-moss mb-1">Exporter la comptabilité :</p>
+      <p className="w-full text-xs font-medium text-ink2 mb-1">Exporter la comptabilité :</p>
       {FORMATS.map(f => (
         <button key={f.key} onClick={() => handleExport(f.key)} disabled={loading === f.key}
           className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-medium transition-colors disabled:opacity-60 ${f.color}`}>

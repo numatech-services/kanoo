@@ -70,8 +70,8 @@ export default function EngagementDetailsPage() {
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center p-20 gap-4">
-      <Loader2 className="animate-spin text-cedar" size={40} />
-      <p className="text-moss font-black uppercase text-[10px] tracking-widest">Chargement du dossier...</p>
+      <Loader2 className="animate-spin text-section" size={40} />
+      <p className="text-ink2 font-black uppercase text-[10px] tracking-widest">Chargement du dossier...</p>
     </div>
   );
 
@@ -84,7 +84,7 @@ export default function EngagementDetailsPage() {
             <p className="text-[10px] opacity-60 font-mono mt-2 break-all">ID: {id}</p>
             <p className="text-[11px] mt-4 font-bold bg-white/50 p-2 rounded-lg">{errorMsg || "Aucune donnée disponible"}</p>
         </div>
-        <Link href="/administration/budget/engagements" className="text-[10px] font-black uppercase tracking-widest text-moss hover:text-ink flex items-center gap-2">
+        <Link href="/administration/budget/engagements" className="text-[10px] font-black uppercase tracking-widest text-ink2 hover:text-ink flex items-center gap-2">
             <ArrowLeft size={14} /> Retour à la liste
         </Link>
     </div>
@@ -94,13 +94,13 @@ export default function EngagementDetailsPage() {
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <Link href="/administration/budget/engagements" className="flex items-center gap-2 text-moss hover:text-ink transition-colors group">
+        <Link href="/administration/budget/engagements" className="flex items-center gap-2 text-ink2 hover:text-ink transition-colors group">
           <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
           <span className="text-[10px] font-black uppercase tracking-widest">Retour à la liste</span>
         </Link>
         
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sand/50 text-ink text-[10px] font-black uppercase border border-clay/10 hover:bg-sand transition-all">
+          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface2/50 text-ink text-[10px] font-black uppercase border border-line hover:bg-surface2 transition-all">
             <Printer size={14} /> Imprimer
           </button>
 
@@ -116,7 +116,7 @@ export default function EngagementDetailsPage() {
               <button 
                 disabled={updating}
                 onClick={() => handleStatusUpdate('approuve')}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-ink text-white text-[10px] font-black uppercase hover:bg-cedar transition-all shadow-lg shadow-ink/10 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-ink text-white text-[10px] font-black uppercase hover:bg-section transition-all shadow-lg shadow-ink/10 disabled:opacity-50"
               >
                 <CheckCircle size={14} /> {updating ? "..." : "Approuver"}
               </button>
@@ -127,7 +127,7 @@ export default function EngagementDetailsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <div className="bg-surface rounded-[2.5rem] border border-clay/10 p-10 shadow-sm relative overflow-hidden">
+          <div className="bg-surface rounded-[2.5rem] border border-line p-10 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8">
                 <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter 
                   ${data.status === 'en_attente' ? 'bg-warn-50 text-warn' : 
@@ -140,27 +140,27 @@ export default function EngagementDetailsPage() {
 
             <div className="space-y-6">
               <div>
-                <p className="text-[10px] font-black text-moss uppercase tracking-[0.2em] mb-1">Référence</p>
+                <p className="text-[10px] font-black text-ink2 uppercase tracking-[0.2em] mb-1">Référence</p>
                 <h2 className="text-3xl font-black text-ink tracking-tighter uppercase">{data.reference || "Non générée"}</h2>
               </div>
 
-              <div className="pt-6 border-t border-clay/5">
-                <p className="text-[10px] font-black text-moss uppercase tracking-[0.2em] mb-4">Objet</p>
+              <div className="pt-6 border-t border-line">
+                <p className="text-[10px] font-black text-ink2 uppercase tracking-[0.2em] mb-4">Objet</p>
                 <p className="text-xl font-bold text-ink leading-tight">{data.description}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-8 pt-6">
                 <div className="flex items-start gap-3">
-                  <div className="p-3 rounded-2xl bg-sand/30 text-moss"><User size={20} /></div>
+                  <div className="p-3 rounded-2xl bg-surface2/30 text-ink2"><User size={20} /></div>
                   <div>
-                    <p className="text-[9px] font-black text-moss/50 uppercase">Bénéficiaire</p>
+                    <p className="text-[9px] font-black text-ink2/50 uppercase">Bénéficiaire</p>
                     <p className="text-sm font-black text-ink uppercase">{data.provider}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="p-3 rounded-2xl bg-sand/30 text-moss"><Tag size={20} /></div>
+                  <div className="p-3 rounded-2xl bg-surface2/30 text-ink2"><Tag size={20} /></div>
                   <div>
-                    <p className="text-[9px] font-black text-moss/50 uppercase">Chapitre</p>
+                    <p className="text-[9px] font-black text-ink2/50 uppercase">Chapitre</p>
                     <p className="text-sm font-black text-ink">{data.chapterCode || "---"}</p>
                   </div>
                 </div>
@@ -168,8 +168,8 @@ export default function EngagementDetailsPage() {
             </div>
           </div>
 
-          <div className="bg-sand/20 rounded-[2rem] border border-clay/5 p-8">
-             <h3 className="text-[10px] font-black text-moss uppercase tracking-widest mb-4">Notes de l'agent</h3>
+          <div className="bg-surface2/20 rounded-[2rem] border border-line p-8">
+             <h3 className="text-[10px] font-black text-ink2 uppercase tracking-widest mb-4">Notes de l'agent</h3>
              <p className="text-sm text-ink/70 leading-relaxed italic">
                 {data.notes || "Aucune note particulière jointe."}
              </p>

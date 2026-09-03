@@ -100,18 +100,18 @@ export function BudgetChapterForm({ onSave, onCancel }: BudgetChapterFormProps) 
 
       {/* Optionnel : Champ ParentId si nécessaire, sinon il restera null par le script ci-dessus */}
 
-      <div className="flex justify-end gap-3 pt-3 border-t border-clay/20">
+      <div className="flex justify-end gap-3 pt-3 border-t border-line">
         <button 
           type="button" 
           onClick={onCancel} 
-          className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand transition-colors"
+          className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 transition-colors"
         >
           Annuler
         </button>
         <button 
           type="submit" 
           disabled={saving} 
-          className="px-6 py-2 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink disabled:opacity-60 transition-all active:scale-95"
+          className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60 transition-all active:scale-95"
         >
           {saving ? "Création..." : "Créer le chapitre"}
         </button>

@@ -61,13 +61,13 @@ export default function MarcheDetailPage() {
 
   // État de chargement ou erreur
   if (error) return <div className="p-6 text-neg font-bold bg-surface rounded-xl border">Erreur : {error}</div>;
-  if (!item) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-clay/20" /></div>;
+  if (!item) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-line" /></div>;
 
   return (
     <div className="space-y-5 max-w-3xl p-4">
       <div className="flex items-start justify-between">
         <div>
-          <button onClick={() => router.push("/marches")} className="text-xs text-moss hover:text-ink">
+          <button onClick={() => router.push("/marches")} className="text-xs text-ink2 hover:text-ink">
             ← Retour aux marchés
           </button>
           <h1 className="text-2xl font-bold text-ink mt-1">
@@ -76,13 +76,13 @@ export default function MarcheDetailPage() {
         </div>
         <button 
           onClick={() => setEditOpen(true)} 
-          className="mt-2 px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand transition-colors"
+          className="mt-2 px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 transition-colors"
         >
           Modifier
         </button>
       </div>
 
-      <div className="bg-surface rounded-xl border border-clay/20 p-5 shadow-sm">
+      <div className="bg-surface rounded-xl border border-line p-5 shadow-sm">
         <div className="space-y-2">
           {Object.entries(item)
             .filter(([k]) => !["_id", "tenantId", "__v", "createdAt", "updatedAt", "lines", "approvers", "decisions", "attendees"].includes(k))
@@ -90,8 +90,8 @@ export default function MarcheDetailPage() {
               if (v === null || v === undefined) return null;
               const display = typeof v === "object" ? JSON.stringify(v) : String(v);
               return (
-                <div key={k} className="flex gap-3 py-2 border-b border-clay/10 last:border-0 text-sm">
-                  <span className="text-moss w-40 flex-shrink-0 capitalize font-medium">{k.replace(/([A-Z])/g, " $1")}</span>
+                <div key={k} className="flex gap-3 py-2 border-b border-line last:border-0 text-sm">
+                  <span className="text-ink2 w-40 flex-shrink-0 capitalize font-medium">{k.replace(/([A-Z])/g, " $1")}</span>
                   <span className="text-ink font-semibold">
                     {k === "status" ? <StatusBadge status={display} /> : display}
                   </span>

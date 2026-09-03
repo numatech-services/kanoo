@@ -11,10 +11,10 @@ export default function ChapterDetailPage() {
   const available = chapter.allocatedAmount - chapter.engagedAmount;
   return (
     <div className="space-y-5">
-      <div><Link href="/administration/budget" className="text-xs text-moss hover:text-ink">← Budget {chapter.year}</Link><h1 className="text-2xl font-bold text-ink mt-1">{chapter.code} — {chapter.label}</h1></div>
+      <div><Link href="/administration/budget" className="text-xs text-ink2 hover:text-ink">← Budget {chapter.year}</Link><h1 className="text-2xl font-bold text-ink mt-1">{chapter.code} — {chapter.label}</h1></div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[{l:"Alloué",v:chapter.allocatedAmount,c:"text-ink"},{l:"Engagé",v:chapter.engagedAmount,c:"text-warn"},{l:"Disponible",v:available,c:available<0?"text-neg":"text-pos"},{l:"Payé",v:chapter.paidAmount,c:"text-moss"}].map(k=>(
-          <div key={k.l} className="bg-surface rounded-xl border border-clay/20 p-4"><p className="text-xs text-moss">{k.l}</p><p className={`text-xl font-bold font-mono mt-1 ${k.c}`}>{k.v.toLocaleString("fr-FR")} XOF</p></div>
+        {[{l:"Alloué",v:chapter.allocatedAmount,c:"text-ink"},{l:"Engagé",v:chapter.engagedAmount,c:"text-warn"},{l:"Disponible",v:available,c:available<0?"text-neg":"text-pos"},{l:"Payé",v:chapter.paidAmount,c:"text-ink2"}].map(k=>(
+          <div key={k.l} className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">{k.l}</p><p className={`text-xl font-bold font-mono mt-1 ${k.c}`}>{k.v.toLocaleString("fr-FR")} XOF</p></div>
         ))}
       </div>
     </div>

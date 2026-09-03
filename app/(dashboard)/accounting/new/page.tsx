@@ -46,7 +46,7 @@ export default function NewAccountingEntryPage() {
   return (
     <div className="max-w-3xl space-y-5">
       <div>
-        <a href="/accounting" className="text-xs text-moss hover:text-ink">← Comptabilité</a>
+        <a href="/accounting" className="text-xs text-ink2 hover:text-ink">← Comptabilité</a>
         <h1 className="text-2xl font-bold text-ink mt-1">Saisie manuelle</h1>
       </div>
 
@@ -56,7 +56,7 @@ export default function NewAccountingEntryPage() {
         </div>
       )}
 
-      <div className="bg-surface rounded-2xl border border-clay/20 p-6">
+      <div className="bg-surface rounded-2xl border border-line p-6">
         <AccountingEntryForm 
           onSave={handleSave} 
           onCancel={() => router.push("/accounting")} 

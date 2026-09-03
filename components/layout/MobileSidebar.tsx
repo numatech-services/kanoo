@@ -28,7 +28,7 @@ export function MobileSidebar({ profile }: MobileSidebarProps) {
       {/* Hamburger button — visible on mobile only */}
       <button
         onClick={() => setOpen(true)}
-        className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg hover:bg-sand transition-colors text-moss"
+        className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg hover:bg-surface2 transition-colors text-ink2"
         aria-label="Ouvrir le menu"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

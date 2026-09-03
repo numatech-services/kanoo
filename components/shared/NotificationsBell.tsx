@@ -19,7 +19,7 @@ export function NotificationsBell() {
   }, []);
 
   return (
-    <Link href="/notifications" className="relative text-moss hover:text-ink transition-colors">
+    <Link href="/notifications" className="relative text-ink2 hover:text-ink transition-colors">
       <span className="text-xl">🔔</span>
       {unread > 0 && (
         <span className="absolute -top-1 -right-1 w-4 h-4 bg-ember text-white text-xs rounded-full flex items-center justify-center font-bold leading-none">

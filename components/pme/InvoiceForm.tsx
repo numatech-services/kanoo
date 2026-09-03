@@ -158,10 +158,10 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-ink">Lignes de facturation</p>
-          <button type="button" onClick={addLine} className="text-xs text-cedar hover:underline">Ajouter une ligne</button>
+          <button type="button" onClick={addLine} className="text-xs text-section hover:underline">Ajouter une ligne</button>
         </div>
-        <div className="bg-sand rounded-xl overflow-hidden border border-clay/20">
-          <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-semibold text-moss uppercase tracking-wide">
+        <div className="bg-surface2 rounded-xl overflow-hidden border border-line">
+          <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-semibold text-ink2 uppercase tracking-wide">
             <span className="col-span-3">Description</span>
             <span className="col-span-2 text-center">Volume</span>
             <span className="col-span-2 text-right">P.U. HT</span>
@@ -171,7 +171,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
             <span className="col-span-1"></span>
           </div>
           {lines.map((line, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2 px-3 py-2 border-t border-clay/10 bg-surface items-center">
+            <div key={i} className="grid grid-cols-12 gap-2 px-3 py-2 border-t border-line bg-surface items-center">
               {/* Description */}
               <div className="col-span-3">
                 <input className={inputCls} value={line.description} onChange={e => updateLine(i, "description", e.target.value)} placeholder="Description du produit/service" required />
@@ -213,7 +213,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
 
               {/* Suppression */}
               <div className="col-span-1 flex items-center justify-center">
-                <button type="button" onClick={() => removeLine(i)} disabled={lines.length === 1} className="text-moss hover:text-neg disabled:opacity-30 text-lg">×</button>
+                <button type="button" onClick={() => removeLine(i)} disabled={lines.length === 1} className="text-ink2 hover:text-neg disabled:opacity-30 text-lg">×</button>
               </div>
             </div>
           ))}
@@ -221,14 +221,14 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
       </div>
 
       <div className="flex justify-end">
-        <div className="w-64 space-y-2 bg-surface rounded-xl border border-clay/20 p-4">
+        <div className="w-64 space-y-2 bg-surface rounded-xl border border-line p-4">
           {[
-            ["Total HT", `${totalHT.toLocaleString("fr-FR")} XOF`, "text-moss"],
-            ["TVA", `${totalTVA.toLocaleString("fr-FR")} XOF`, "text-moss"],
+            ["Total HT", `${totalHT.toLocaleString("fr-FR")} XOF`, "text-ink2"],
+            ["TVA", `${totalTVA.toLocaleString("fr-FR")} XOF`, "text-ink2"],
             ["Total TTC", `${totalTTC.toLocaleString("fr-FR")} XOF`, "text-ink font-bold text-base"],
           ].map(([label, value, cls]) => (
-            <div key={label} className="flex justify-between text-sm border-b border-clay/10 pb-1.5 last:border-0 last:pt-1">
-              <span className="text-moss">{label}</span>
+            <div key={label} className="flex justify-between text-sm border-b border-line pb-1.5 last:border-0 last:pt-1">
+              <span className="text-ink2">{label}</span>
               <span className={`font-mono ${cls}`}>{value}</span>
             </div>
           ))}
@@ -239,9 +239,9 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
         <textarea className={inputCls + " resize-y"} rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Conditions de paiement, mentions spéciales..." />
       </FormField>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-clay/20">
-        <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand transition-colors">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2.5 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink transition-colors disabled:opacity-60">
+      <div className="flex justify-end gap-3 pt-4 border-t border-line">
+        <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 transition-colors">Annuler</button>
+        <button type="submit" disabled={saving} className="px-6 py-2.5 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 transition-colors disabled:opacity-60">
           {saving ? "Enregistrement..." : "Enregistrer la facture"}
         </button>
       </div>

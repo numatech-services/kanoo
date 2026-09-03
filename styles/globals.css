@@ -105,6 +105,163 @@
 
 
 /* =========================================================================
+   Palette catégorielle — six teintes pour distinguer, jamais pour décorer.
+
+   Distincte de l'accent de section : l'accent dit *où l'on est*, ces teintes
+   disent *de quoi on parle*. Une pastille d'indicateur, une série de
+   graphique, une initiale d'avatar prennent leur couleur ici, et la gardent
+   d'un écran à l'autre — c'est ce qui permet de reconnaître « le chiffre
+   d'affaires » à sa teinte avant même d'avoir lu l'étiquette.
+
+   Six suffit. Au-delà, l'œil ne distingue plus et la couleur cesse d'informer.
+   ========================================================================= */
+:root {
+  --k-1: 67  76 200;   /* indigo   — encaissements, chiffre d'affaires */
+  --k-2: 190 44 130;   /* magenta  — volume, nombre de pièces */
+  --k-3: 198 106 12;   /* ambre    — en attente, à traiter */
+  --k-4: 14 130 165;   /* cyan     — clients, tiers */
+  --k-5: 122 62 178;   /* violet   — abonnements, récurrent */
+  --k-6: 24 122 96;    /* émeraude — marge, résultat */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --k-1: 138 152 250;
+    --k-2: 236 130 194;
+    --k-3: 226 165  76;
+    --k-4:  92 190 222;
+    --k-5: 190 146 238;
+    --k-6:  86 197 162;
+  }
+}
+
+/* =========================================================================
+   Primitives d'interface.
+
+   Ces classes existent pour que la même intention produise le même objet d'un
+   écran à l'autre. Une pilule d'état écrite à la main dans douze fichiers
+   finit par avoir douze rayons de bordure.
+   ========================================================================= */
+@layer components {
+
+  /* ── Pastille d'icône ────────────────────────────────────────────────
+     Le carré coloré qui porte l'icône d'un indicateur. La teinte vient de
+     --chip, posée par l'appelant : une pastille sans teinte propre retombe
+     sur l'accent de section. */
+  .chip {
+    @apply grid place-items-center shrink-0 rounded-[10px];
+    width: 2.25rem; height: 2.25rem;
+    color: rgb(var(--chip, var(--s-accent)));
+    background: rgb(var(--chip, var(--s-accent)) / .12);
+  }
+  .chip-lg { width: 2.75rem; height: 2.75rem; border-radius: 12px; }
+  .chip-solid {
+    color: #fff;
+    background: rgb(var(--chip, var(--s-accent)));
+  }
+
+  /* ── Pilule d'état ───────────────────────────────────────────────────
+     Un état se lit à sa forme autant qu'à sa couleur : la pilule reste
+     reconnaissable en niveaux de gris et pour un œil daltonien, ce qu'un
+     simple texte coloré ne fait pas. */
+  .pill {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full
+           text-[11px] font-semibold whitespace-nowrap leading-5;
+  }
+  .pill-pos  { @apply bg-pos-50 text-pos; }
+  .pill-neg  { @apply bg-neg-50 text-neg; }
+  .pill-warn { @apply bg-warn-50 text-warn; }
+  .pill-info { @apply bg-info-50 text-info; }
+  .pill-mute { @apply bg-surface2 text-ink2; }
+  .pill-section { background: rgb(var(--s-soft)); color: rgb(var(--s-accent)); }
+  /* Point de tête : porte l'état quand l'icône serait de trop. */
+  .pill-dot::before {
+    content: ""; width: .375rem; height: .375rem; border-radius: 999px;
+    background: currentColor; flex: none;
+  }
+
+  /* ── Bandeau d'indicateurs ───────────────────────────────────────────
+     Une seule carte traversante plutôt que quatre cartes juxtaposées : les
+     chiffres d'une même respiration se lisent d'un trait, et les séparateurs
+     disent qu'ils appartiennent au même relevé. */
+  .strip {
+    @apply surface-card grid divide-y sm:divide-y-0 sm:divide-x;
+    border-color: rgb(var(--c-line));
+  }
+  .strip > * { @apply p-4 sm:p-5; border-color: rgb(var(--c-line)); }
+
+  /* ── Bandeau d'impact ────────────────────────────────────────────────
+     Fond plein, chiffres blancs, et sous chaque chiffre la phrase qui dit ce
+     qu'il signifie. Un nombre sans sa phrase se retient mal et s'interprète
+     de travers. */
+  .band {
+    @apply rounded-2xl overflow-hidden text-white;
+    background: rgb(var(--s-accent));
+  }
+  .band-inner {
+    @apply grid gap-px;
+    background: rgb(255 255 255 / .14);
+  }
+  .band-inner > * { background: rgb(var(--s-accent)); @apply p-5; }
+
+  /* ── Encart d'explication ────────────────────────────────────────────
+     Posé *dans* la carte concernée, pas en haut de page : une consigne loin
+     de son objet ne se rattache à rien. */
+  .inset {
+    @apply flex items-start gap-2 rounded-lg px-3 py-2 text-xs leading-relaxed;
+  }
+  .inset-warn { @apply bg-warn-50 text-warn; }
+  .inset-info { @apply bg-info-50 text-info; }
+  .inset-pos  { @apply bg-pos-50 text-pos; }
+  .inset-neg  { @apply bg-neg-50 text-neg; }
+
+  /* ── Avatar d'initiales ──────────────────────────────────────────────
+     La teinte dérive du nom, donc la même personne garde la sienne partout.
+     Voir `avatarTone()` dans lib/tone.ts. */
+  .avatar {
+    @apply grid place-items-center rounded-full shrink-0
+           text-[11px] font-bold uppercase tracking-wide;
+    width: 2rem; height: 2rem;
+    color: rgb(var(--chip, var(--s-accent)));
+    background: rgb(var(--chip, var(--s-accent)) / .16);
+  }
+  .avatar-sm { width: 1.5rem; height: 1.5rem; font-size: 9px; }
+  .avatar-lg { width: 2.75rem; height: 2.75rem; font-size: 13px; }
+
+  /* ── Chip de filtre ──────────────────────────────────────────────────
+     Le compteur fait partie du filtre : « En retard » ne dit pas s'il y en a
+     un ou quarante, et c'est pourtant ce qui décide de cliquer. */
+  .fchip {
+    @apply inline-flex items-center gap-2 h-8 px-3 rounded-full text-xs font-medium
+           border border-line2 text-ink2 bg-surface
+           transition-colors hover:bg-surface2;
+  }
+  .fchip[aria-pressed="true"] {
+    @apply text-white border-transparent;
+    background: rgb(var(--c-ink));
+  }
+  .fchip-count {
+    @apply inline-grid place-items-center min-w-[1.125rem] h-[1.125rem] px-1
+           rounded-full text-[10px] font-bold bg-surface2 text-ink2;
+  }
+  .fchip[aria-pressed="true"] .fchip-count {
+    background: rgb(255 255 255 / .22); color: #fff;
+  }
+
+  /* ── Micro-barre de tableau ──────────────────────────────────────────
+     Une proportion se voit avant de se lire. La barre ne remplace pas le
+     chiffre, elle le devance. */
+  .mini-bar {
+    @apply relative h-1.5 rounded-full overflow-hidden bg-surface2 w-16 shrink-0;
+  }
+  .mini-bar > i {
+    @apply absolute inset-y-0 left-0 rounded-full;
+    background: rgb(var(--chip, var(--s-accent)));
+  }
+}
+
+
+/* =========================================================================
    Mouvement — structurel, jamais décoratif.
    Trois durées seulement. Au-delà de 200 ms, une micro-interaction cesse
    d'être ressentie comme instantanée ; en deçà de 90 ms, elle n'est pas

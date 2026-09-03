@@ -13,7 +13,7 @@ export const viewport = {
 export default function SaasLayout({ children }: { children: React.ReactNode }) {
   return (
     <SectionScope>
-    <div className="flex h-screen bg-sand overflow-hidden">
+    <div className="flex h-screen bg-surface2 overflow-hidden">
       {/* Barre latérale fixe */}
       <Sidebar profile="superadmin" />
 

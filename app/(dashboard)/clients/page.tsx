@@ -58,7 +58,7 @@ export default function ClientsPage() {
   const columns: Column<Client>[] = [
     { key: "code", label: "Code", sortable: true, className: "font-mono text-xs w-24" },
     { key: "name", label: "Client", sortable: true },
-    { key: "nif", label: "NIF", className: "text-moss text-xs" },
+    { key: "nif", label: "NIF", className: "text-ink2 text-xs" },
     { key: "phone", label: "Téléphone" },
     {
       key: "currentBalance",
@@ -68,7 +68,7 @@ export default function ClientsPage() {
       render: (v) => {
         const n = Number(v);
         return (
-          <span className={n < 0 ? "text-neg" : n > 0 ? "text-pos" : "text-moss"}>
+          <span className={n < 0 ? "text-neg" : n > 0 ? "text-pos" : "text-ink2"}>
             {n.toLocaleString("fr-FR")}
           </span>
         );
@@ -77,7 +77,7 @@ export default function ClientsPage() {
     {
       key: "paymentTermDays",
       label: "Délai paiement",
-      render: (v) => <span className="text-moss">{String(v ?? "—")} j</span>,
+      render: (v) => <span className="text-ink2">{String(v ?? "—")} j</span>,
     },
     {
       key: "isActive",
@@ -113,11 +113,11 @@ export default function ClientsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Clients</h1>
-          <p className="text-sm text-moss mt-0.5">{total} client{total > 1 ? "s" : ""}</p>
+          <p className="text-sm text-ink2 mt-0.5">{total} client{total > 1 ? "s" : ""}</p>
         </div>
         <button
           onClick={() => { setEditing(null); setModalOpen(true); }}
-          className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink transition-colors"
+          className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors"
         >
           + Nouveau client
         </button>
@@ -129,7 +129,7 @@ export default function ClientsPage() {
         placeholder="Rechercher par nom, code, NIF…"
         value={searchInput}
         onChange={(e) => setSearchInput(e.target.value)}
-        className="w-full max-w-sm px-4 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30"
+        className="w-full max-w-sm px-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30"
       />
 
       {/* Table */}

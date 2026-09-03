@@ -6,9 +6,14 @@ import type { Config } from "tailwindcss";
  * Les couleurs sont pilotées par des variables CSS (canaux RGB) définies dans
  * styles/globals.css, avec un thème clair et un thème sombre automatique
  * (prefers-color-scheme). Résultat : toute classe basée sur ces tokens
- * (bg-surface, text-ink, border-line, bg-cedar…) suit le mode sombre du système
- * sans code supplémentaire. Les tokens historiques (sand/clay/cedar/moss/ember)
- * sont conservés et re-câblés sur les variables pour une migration sans casse.
+ * (bg-surface, text-ink, border-line, bg-section…) suit le mode sombre du
+ * système sans code supplémentaire.
+ *
+ * Les alias historiques (sand/clay/cedar/moss) ont été retirés : `cedar`
+ * pointait sur l'accent **global**, si bien que cent quarante-deux boutons
+ * primaires ignoraient la teinte de la section où ils se trouvaient. Les
+ * supprimer du thème est ce qui empêche leur retour — un test structurel les
+ * refuse également.
  */
 const c = (v: string) => `rgb(var(${v}) / <alpha-value>)`;
 
@@ -18,14 +23,8 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // ── Tokens historiques, re-câblés sur Harmattan ──
-        ink: c("--c-ink"),
-        sand: c("--c-bg"),
-        clay: c("--c-line2"),
-        cedar: c("--c-accent"),
-        moss: c("--c-ink2"),
-        ember: c("--c-neg"),
         // ── Neutres ──
+        ink: c("--c-ink"),
         bg: c("--c-bg"),
         surface: c("--c-surface"),
         surface2: c("--c-surface2"),
@@ -44,6 +43,13 @@ const config: Config = {
         // `bg-section`, `text-section`, `border-section`, `bg-section-soft`…
         // suivent l'attribut data-section posé par la coque.
         section: { DEFAULT: c("--s-accent"), soft: c("--s-soft"), on: c("--s-on") },
+        // ── Palette catégorielle (voir lib/tone.ts) ──
+        // L'accent de section dit *où l'on est* ; ces six teintes disent *de
+        // quoi on parle*, et restent les mêmes d'un écran à l'autre.
+        kat: {
+          1: c("--k-1"), 2: c("--k-2"), 3: c("--k-3"),
+          4: c("--k-4"), 5: c("--k-5"), 6: c("--k-6"),
+        },
       },
       fontFamily: {
         sans: ["Hanken Grotesk", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Arial", "sans-serif"],

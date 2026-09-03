@@ -53,20 +53,20 @@ export default function NewMarchePage() {
       <div>
         <button 
           onClick={() => router.push("/marches")} 
-          className="text-xs text-moss hover:text-ink flex items-center gap-1"
+          className="text-xs text-ink2 hover:text-ink flex items-center gap-1"
         >
           ← Retour aux marchés
         </button>
         <h1 className="text-2xl font-bold text-ink mt-1">Nouveau marché</h1>
       </div>
 
-      <div className={`bg-surface rounded-2xl border border-clay/20 p-6 ${isSubmitting ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-surface rounded-2xl border border-line p-6 ${isSubmitting ? 'opacity-50 pointer-events-none' : ''}`}>
         <MarcheForm 
           onSave={handleSave} 
           onCancel={() => router.push("/marches")} 
         />
         {isSubmitting && (
-          <p className="text-center text-xs text-cedar mt-4 animate-pulse font-medium">
+          <p className="text-center text-xs text-section mt-4 animate-pulse font-medium">
             Création du marché en cours...
           </p>
         )}

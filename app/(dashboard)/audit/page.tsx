@@ -27,19 +27,19 @@ export default function AuditPage() {
   if (!mounted) return null;
 
   const columns: Column<Log>[] = [
-    { key: "createdAt", label: "Date/heure", render: (v) => <span className="text-xs text-moss">{new Date(String(v)).toLocaleString("fr-FR")}</span> },
+    { key: "createdAt", label: "Date/heure", render: (v) => <span className="text-xs text-ink2">{new Date(String(v)).toLocaleString("fr-FR")}</span> },
     { key: "userEmail", label: "Utilisateur", className: "text-sm" },
     { key: "action", label: "Action", render: (v) => { const s = String(v); return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ACTION_COLORS[s]||"bg-surface2 text-ink2"}`}>{s}</span>; } },
-    { key: "resource", label: "Ressource", className: "text-sm text-moss" },
-    { key: "resourceId", label: "ID ressource", className: "font-mono text-xs text-moss" },
-    { key: "ip", label: "IP", className: "font-mono text-xs text-moss" },
+    { key: "resource", label: "Ressource", className: "text-sm text-ink2" },
+    { key: "resourceId", label: "ID ressource", className: "font-mono text-xs text-ink2" },
+    { key: "ip", label: "IP", className: "font-mono text-xs text-ink2" },
   ];
 
-  const inp = "px-3 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30";
+  const inp = "px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
 
   return (
     <div className="space-y-5">
-      <div><h1 className="text-2xl font-bold text-ink">Journal d'audit</h1><p className="text-sm text-moss mt-0.5">{total} entrée{total > 1 ? "s" : ""}</p></div>
+      <div><h1 className="text-2xl font-bold text-ink">Journal d'audit</h1><p className="text-sm text-ink2 mt-0.5">{total} entrée{total > 1 ? "s" : ""}</p></div>
       <div className="flex flex-wrap gap-3">
         <input placeholder="Filtrer par ressource…" value={resource} onChange={e => { setResource(e.target.value); setPage(1); }} className={inp} />
         <input type="date" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }} className={inp} />

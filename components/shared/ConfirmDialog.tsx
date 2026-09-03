@@ -27,17 +27,17 @@ export function ConfirmDialog({
       <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" onClick={busy ? undefined : onCancel} />
       <div className="relative bg-surface rounded-2xl shadow-xl p-6 w-full max-w-sm">
         <h3 className="text-lg font-semibold text-ink">{title}</h3>
-        <p className="text-sm text-moss mt-2">{message}</p>
+        <p className="text-sm text-ink2 mt-2">{message}</p>
         <div className="flex gap-3 mt-6">
           <button onClick={onCancel} disabled={busy}
-            className="flex-1 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand transition-colors disabled:opacity-50">
+            className="flex-1 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 transition-colors disabled:opacity-50">
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
             disabled={busy}
             className={`flex-1 py-2 rounded-xl text-sm font-medium text-white transition-colors disabled:opacity-60 ${
-              danger ? "bg-neg hover:brightness-95" : "bg-cedar hover:bg-ink"
+              danger ? "bg-neg hover:brightness-95" : "bg-section hover:brightness-95"
             }`}
           >
             {busy ? busyLabel : confirmLabel}

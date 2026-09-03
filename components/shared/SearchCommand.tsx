@@ -73,18 +73,18 @@ export function SearchCommand() {
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
       <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
       <div className="relative w-full max-w-xl bg-surface rounded-2xl shadow-xl overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-clay/20">
-          <span className="text-moss">🔍</span>
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-line">
+          <span className="text-ink2">🔍</span>
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKey}
             placeholder="Rechercher clients, factures, employés…"
-            className="flex-1 text-sm text-ink placeholder:text-moss focus:outline-none bg-transparent"
+            className="flex-1 text-sm text-ink placeholder:text-ink2 focus:outline-none bg-transparent"
           />
-          {loading && <span className="text-xs text-moss animate-pulse">Recherche…</span>}
-          <kbd className="text-xs bg-sand px-2 py-0.5 rounded border border-clay/30 text-moss">Esc</kbd>
+          {loading && <span className="text-xs text-ink2 animate-pulse">Recherche…</span>}
+          <kbd className="text-xs bg-surface2 px-2 py-0.5 rounded border border-line text-ink2">Esc</kbd>
         </div>
         {results.length > 0 && (
           <ul className="max-h-80 overflow-y-auto py-2">
@@ -92,26 +92,26 @@ export function SearchCommand() {
               <li key={r.href}>
                 <button
                   onClick={() => { router.push(r.href); setOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${i === selected ? "bg-sand" : "hover:bg-sand/50"}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${i === selected ? "bg-surface2" : "hover:bg-surface2/50"}`}
                 >
                   <span>{TYPE_ICONS[r.type] || "📄"}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-ink truncate">{r.label}</p>
-                    {r.meta && <p className="text-xs text-moss">{r.meta}</p>}
+                    {r.meta && <p className="text-xs text-ink2">{r.meta}</p>}
                   </div>
-                  <span className="text-xs text-moss bg-clay/20 px-1.5 py-0.5 rounded capitalize">{r.type}</span>
+                  <span className="text-xs text-ink2 bg-surface2 px-1.5 py-0.5 rounded capitalize">{r.type}</span>
                 </button>
               </li>
             ))}
           </ul>
         )}
         {query && !loading && results.length === 0 && (
-          <div className="px-4 py-8 text-center text-moss text-sm">Aucun résultat pour "{query}"</div>
+          <div className="px-4 py-8 text-center text-ink2 text-sm">Aucun résultat pour "{query}"</div>
         )}
         {!query && (
           <div className="px-4 py-4 flex flex-wrap gap-2">
             {[["Clients", "/clients"], ["Factures", "/invoices"], ["Employés", "/employees"], ["Fournisseurs", "/suppliers"]].map(([l, h]) => (
-              <button key={h} onClick={() => { router.push(h); setOpen(false); }} className="px-3 py-1.5 bg-sand border border-clay/20 rounded-lg text-xs text-moss hover:border-cedar hover:text-cedar transition-colors">
+              <button key={h} onClick={() => { router.push(h); setOpen(false); }} className="px-3 py-1.5 bg-surface2 border border-line rounded-lg text-xs text-ink2 hover:border-section hover:text-section transition-colors">
                 {l}
               </button>
             ))}

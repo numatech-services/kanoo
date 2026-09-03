@@ -29,12 +29,12 @@ export function CotisationForm({ onSave, onCancel }: CotisationFormProps) {
         </select>
       </FormField>
       <label className="flex items-center gap-3 cursor-pointer">
-        <input type="checkbox" checked={form.paid} onChange={e=>u("paid",e.target.checked)} className="w-4 h-4 accent-cedar" />
+        <input type="checkbox" checked={form.paid} onChange={e=>u("paid",e.target.checked)} className="w-4 h-4 accent-section" />
         <span className="text-sm text-ink">Paiement reçu (génère le reçu)</span>
       </label>
-      <div className="flex justify-end gap-3 pt-3 border-t border-clay/20">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink disabled:opacity-60">{saving?"…":"Enregistrer"}</button>
+      <div className="flex justify-end gap-3 pt-3 border-t border-line">
+        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
+        <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"…":"Enregistrer"}</button>
       </div>
     </form>
   );

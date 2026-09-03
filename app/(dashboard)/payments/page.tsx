@@ -68,7 +68,7 @@ export default function PaymentsPage() {
       // On va chercher le nom dans invoiceId -> clientId -> name
       render: (_, record: any) => {
         const name = record.invoiceId?.clientId?.name;
-        return name ? name : <span className="text-moss">—</span>;
+        return name ? name : <span className="text-ink2">—</span>;
       }
     },
     { 
@@ -94,7 +94,7 @@ export default function PaymentsPage() {
     { 
       key: "reference", 
       label: "Réf / N° Chèque", 
-      render: (v) => v ? String(v) : <span className="text-moss italic text-xs">Aucune</span> 
+      render: (v) => v ? String(v) : <span className="text-ink2 italic text-xs">Aucune</span> 
     },
   ];
 
@@ -103,13 +103,13 @@ export default function PaymentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Historique des Paiements</h1>
-          <p className="text-sm text-moss mt-0.5">
+          <p className="text-sm text-ink2 mt-0.5">
             {total} encaissement{total > 1 ? "s" : ""} enregistré{total > 1 ? "s" : ""}
           </p>
         </div>
       </div>
 
-      <div className="bg-surface rounded-2xl border border-clay/20 overflow-hidden shadow-sm">
+      <div className="bg-surface rounded-2xl border border-line overflow-hidden shadow-sm">
         <DataTable 
           columns={columns} 
           data={items} 

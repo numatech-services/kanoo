@@ -121,14 +121,14 @@ export function SignatureCanvas({
     onSave(dataUrl);
   }
 
-  const inp = "w-full px-3 py-2 border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30";
+  const inp = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
 
   return (
     <div className="space-y-4">
       {/* Nom du signataire */}
       {onSignerNameChange && (
         <div>
-          <label className="block text-xs font-medium text-moss mb-1">Nom du signataire *</label>
+          <label className="block text-xs font-medium text-ink2 mb-1">Nom du signataire *</label>
           <input className={inp} value={signerName} onChange={e => onSignerNameChange(e.target.value)} placeholder="Nom et prénom" required/>
         </div>
       )}
@@ -136,19 +136,19 @@ export function SignatureCanvas({
       {/* Onglets mode */}
       <div className="flex gap-2">
         <button type="button" onClick={() => setMode("draw")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode==="draw" ? "bg-cedar text-white" : "border border-clay/30 text-moss hover:bg-sand"}`}>
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode==="draw" ? "bg-section text-white" : "border border-line text-ink2 hover:bg-surface2"}`}>
           ✍️ Dessiner
         </button>
         <button type="button" onClick={() => setMode("upload")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode==="upload" ? "bg-cedar text-white" : "border border-clay/30 text-moss hover:bg-sand"}`}>
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode==="upload" ? "bg-section text-white" : "border border-line text-ink2 hover:bg-surface2"}`}>
           📁 Importer une image
         </button>
       </div>
 
       {/* Zone de signature */}
-      <div className="border-2 border-clay/30 rounded-xl overflow-hidden bg-surface">
-        <div className="h-6 bg-sand/50 border-b border-clay/20 flex items-center px-3">
-          <span className="text-xs text-moss">{label}</span>
+      <div className="border-2 border-line rounded-xl overflow-hidden bg-surface">
+        <div className="h-6 bg-surface2/50 border-b border-line flex items-center px-3">
+          <span className="text-xs text-ink2">{label}</span>
         </div>
         <canvas
           ref={canvasRef}
@@ -166,7 +166,7 @@ export function SignatureCanvas({
         />
         {isEmpty && mode === "draw" && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <p className="text-moss text-sm">Signez ici…</p>
+            <p className="text-ink2 text-sm">Signez ici…</p>
           </div>
         )}
       </div>
@@ -175,27 +175,27 @@ export function SignatureCanvas({
         <div>
           <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} className="hidden"/>
           <button type="button" onClick={() => fileRef.current?.click()}
-            className="w-full py-3 border-2 border-dashed border-clay/30 rounded-xl text-sm text-moss hover:border-cedar/40 hover:text-cedar transition-colors">
+            className="w-full py-3 border-2 border-dashed border-line rounded-xl text-sm text-ink2 hover:border-section/40 hover:text-section transition-colors">
             📎 Cliquer pour importer une signature (PNG, JPG, SVG)
           </button>
         </div>
       )}
 
       {/* Date automatique */}
-      <p className="text-xs text-moss">
+      <p className="text-xs text-ink2">
         Date : <strong>{new Date().toLocaleDateString("fr-FR")}</strong> à <strong>{new Date().toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" })}</strong>
       </p>
 
       {/* Actions */}
       <div className="flex gap-3 pt-2">
-        <button type="button" onClick={clearCanvas} className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">
+        <button type="button" onClick={clearCanvas} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">
           🗑 Effacer
         </button>
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-clay/30 rounded-xl text-sm text-moss hover:bg-sand">
+        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">
           Annuler
         </button>
         <button type="button" onClick={handleSave} disabled={isEmpty || (!!onSignerNameChange && !signerName.trim())}
-          className="flex-1 py-2 bg-cedar text-white rounded-xl text-sm font-medium hover:bg-ink disabled:opacity-60 transition-colors">
+          className="flex-1 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60 transition-colors">
           ✅ {label}
         </button>
       </div>

@@ -48,22 +48,22 @@ export default function MembreDetailPage() {
   }
 
   if (!mounted) return null;
-  if (loading) return <div className="space-y-4"><div className="h-8 w-48 bg-sand animate-pulse rounded-lg"/><div className="h-64 bg-surface rounded-xl animate-pulse border border-clay/20"/></div>;
-  if (!member) return <div className="text-moss p-6">Adhérent introuvable</div>;
+  if (loading) return <div className="space-y-4"><div className="h-8 w-48 bg-surface2 animate-pulse rounded-lg"/><div className="h-64 bg-surface rounded-xl animate-pulse border border-line"/></div>;
+  if (!member) return <div className="text-ink2 p-6">Adhérent introuvable</div>;
 
   return (
     <div className="space-y-5 max-w-2xl">
       <div>
-        <Link href="/associations/membres" className="text-xs text-moss hover:text-ink">← Adhérents</Link>
+        <Link href="/associations/membres" className="text-xs text-ink2 hover:text-ink">← Adhérents</Link>
         <h1 className="text-2xl font-bold text-ink mt-1">{member.firstName} {member.lastName}</h1>
         <div className="flex items-center gap-2 mt-1">
-          <span className="font-mono text-xs text-moss">{member.code}</span>
+          <span className="font-mono text-xs text-ink2">{member.code}</span>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[member.status]||""}`}>{STATUS_FR[member.status]||member.status}</span>
         </div>
       </div>
 
       {/* Informations */}
-      <div className="bg-surface rounded-xl border border-clay/20 p-5">
+      <div className="bg-surface rounded-xl border border-line p-5">
         <h2 className="font-semibold text-ink text-sm mb-4">Informations</h2>
         <dl className="space-y-2.5 text-sm">
           {[
@@ -72,8 +72,8 @@ export default function MembreDetailPage() {
             ["Email", member.email || "—"],
             ["Téléphone", member.phone || "—"],
           ].map(([label, value]) => (
-            <div key={label} className="flex justify-between py-1.5 border-b border-clay/10 last:border-0">
-              <dt className="text-moss">{label}</dt>
+            <div key={label} className="flex justify-between py-1.5 border-b border-line last:border-0">
+              <dt className="text-ink2">{label}</dt>
               <dd className="font-medium text-ink">{value}</dd>
             </div>
           ))}
@@ -81,10 +81,10 @@ export default function MembreDetailPage() {
       </div>
 
       {/* Code d'accès portail */}
-      <div className="bg-surface rounded-xl border border-clay/20 p-5">
+      <div className="bg-surface rounded-xl border border-line p-5">
         <h2 className="font-semibold text-ink text-sm mb-1">Code d'accès — Portail adhérent</h2>
-        <p className="text-xs text-moss mb-4">
-          Permet à l'adhérent de se connecter sur <code className="bg-sand px-1 rounded">/portail/adherent</code> avec son email et ce code.
+        <p className="text-xs text-ink2 mb-4">
+          Permet à l'adhérent de se connecter sur <code className="bg-surface2 px-1 rounded">/portail/adherent</code> avec son email et ce code.
         </p>
 
         {codeStatus?.hasCode ? (

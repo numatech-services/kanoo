@@ -51,7 +51,7 @@ export default function MarchesPage() {
     { 
       key: "reference", 
       label: "Référence", 
-      className: "font-mono text-cedar font-bold",
+      className: "font-mono text-section font-bold",
       render: (v, r) => (
         <button onClick={() => router.push(`/marches/${r._id}`)} className="hover:underline">
           {String(v)}
@@ -69,7 +69,7 @@ export default function MarchesPage() {
       key: "procedure", 
       label: "Procédure", 
       render: (v) => (
-        <span className="text-[10px] text-moss uppercase font-medium">
+        <span className="text-[10px] text-ink2 uppercase font-medium">
           {(LIBELLES_PROCEDURES as any)[String(v)]?.split("(")[0] || String(v)}
         </span>
       ) 
@@ -82,17 +82,17 @@ export default function MarchesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Marchés fournisseurs</h1>
-          <p className="text-sm text-moss">Niger - Code des Marchés Publics</p>
+          <p className="text-sm text-ink2">Niger - Code des Marchés Publics</p>
         </div>
         <button 
           onClick={() => router.push("/marches/new")}
-          className="px-4 py-2 bg-cedar text-white rounded-xl text-sm font-bold hover:bg-ink transition-all shadow-md"
+          className="px-4 py-2 bg-section text-white rounded-xl text-sm font-bold hover:brightness-95 transition-all shadow-md"
         >
           + Nouveau marché
         </button>
       </div>
 
-      <div className="bg-surface rounded-2xl border border-clay/10 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-line shadow-sm overflow-hidden">
         <DataTable 
           columns={columns} 
           data={tenders} 

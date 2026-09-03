@@ -121,7 +121,7 @@ export default function InvoicesPage() {
       sortable: true,
       className: "font-mono text-sm font-semibold",
       render: (v, row) => (
-        <Link href={`/invoices/${row._id}`} className="text-cedar hover:underline">
+        <Link href={`/invoices/${row._id}`} className="text-section hover:underline">
           {String(v || "—")}
         </Link>
       ),
@@ -137,7 +137,7 @@ export default function InvoicesPage() {
     {
       key: "issueDate",
       label: "Date émission",
-      render: (v) => <span className="text-moss text-sm">{formatDate(String(v))}</span>,
+      render: (v) => <span className="text-ink2 text-sm">{formatDate(String(v))}</span>,
     },
     {
       key: "dueDate",
@@ -145,7 +145,7 @@ export default function InvoicesPage() {
       render: (v, row) => {
         const overdue = row.status !== "paid" && new Date(String(v)) < new Date();
         return (
-          <span className={`text-sm ${overdue ? "text-neg font-medium" : "text-moss"}`}>
+          <span className={`text-sm ${overdue ? "text-neg font-medium" : "text-ink2"}`}>
             {formatDate(String(v))}
           </span>
         );
@@ -176,7 +176,7 @@ export default function InvoicesPage() {
         <div className="flex items-center gap-2">
           <Link
             href={`/invoices/${row._id}`}
-            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-clay/30 rounded-lg text-moss hover:bg-sand hover:text-ink transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-line rounded-lg text-ink2 hover:bg-surface2 hover:text-ink transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-3.5 h-3.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
@@ -188,7 +188,7 @@ export default function InvoicesPage() {
           <button
             onClick={() => handlePrintDirect(row._id)}
             disabled={printingId === row._id}
-            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-clay/30 rounded-lg text-moss hover:bg-sand hover:text-ink transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-line rounded-lg text-ink2 hover:bg-surface2 hover:text-ink transition-colors disabled:opacity-50"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-3.5 h-3.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-14.326 0C3.768 7.44 3 8.376 3 9.456v6.294a2.25 2.25 0 0 0 2.25 2.25h1.091M12 13.5h.008v.008H12V13.5Z" />
@@ -208,11 +208,11 @@ export default function InvoicesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Factures clients</h1>
-          <p className="text-sm text-moss mt-0.5">{total} facture{total > 1 ? "s" : ""}</p>
+          <p className="text-sm text-ink2 mt-0.5">{total} facture{total > 1 ? "s" : ""}</p>
         </div>
         <Link
           href="/invoices/new"
-          className="px-4 py-2 bg-cedar text-white rounded-lg text-sm font-medium hover:bg-ink transition-colors"
+          className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors"
         >
           + Nouvelle facture
         </Link>
@@ -223,7 +223,7 @@ export default function InvoicesPage() {
         <select
           value={status}
           onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-          className="px-3 py-2 bg-surface border border-clay/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cedar/30 text-ink"
+          className="px-3 py-2 bg-surface border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30 text-ink"
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -235,7 +235,7 @@ export default function InvoicesPage() {
             type="checkbox"
             checked={overdueOnly}
             onChange={(e) => { setOverdueOnly(e.target.checked); setPage(1); }}
-            className="accent-cedar"
+            className="accent-section"
           />
           Impayées en retard uniquement
         </label>
