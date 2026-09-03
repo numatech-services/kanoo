@@ -258,6 +258,9 @@ const ADMIN_DAF: ResourcePermissions = {
 };
 
 const ADMIN_PUBLIC_ACCOUNTANT: ResourcePermissions = {
+  // Le comptable public exécute les paiements contre le budget : il doit
+  // pouvoir le consulter, sans le modifier.
+  budgetChapters: ["read"],
   commitmentOrders: ["read", "update"],
   paymentOrders: ["create", "read", "update"],
   publicRevenues: ["create", "read", "update"],

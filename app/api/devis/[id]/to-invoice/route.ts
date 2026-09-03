@@ -68,6 +68,12 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
           { accountCode: "411000", accountLabel: "Clients", debit: invoice.totalTTC, credit: 0, thirdPartyId: devis.clientId },
           { accountCode: "706000", accountLabel: "Prestations", debit: 0, credit: devis.totalHT },
           ...(devis.totalTVA > 0 ? [{ accountCode: "443000", accountLabel: "TVA collectée", debit: 0, credit: devis.totalTVA }] : []),
+          // Le droit de timbre entre dans le TTC porté au débit du client : sans
+          // sa contrepartie au crédit (447), l'écriture était déséquilibrée de
+          // 500 XOF exactement, et la conversion échouait sur le contrôle
+          // d'équilibre. La création directe de facture, elle, portait déjà
+          // cette ligne — la conversion l'avait oubliée.
+          ...(totalDTS > 0 ? [{ accountCode: "447000", accountLabel: "Droits de timbre", debit: 0, credit: totalDTS }] : []),
         ],
         linkedDocType: "invoice", linkedDocId: invoice._id, createdBy: auth.userId,
       }], { session });

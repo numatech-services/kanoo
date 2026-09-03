@@ -58,7 +58,7 @@ function actualsByPrefix(entries: EntryRow[], lines: BudgetLine[]): Map<string, 
   return result;
 }
 
-export const GET = withAuth("accountingEntries", "read", async (req: NextRequest, auth: TokenPayload) => {
+export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, auth: TokenPayload) => {
   const url = new URL(req.url);
   const now = new Date();
   const year = Number(url.searchParams.get("year")) || now.getFullYear();
@@ -103,7 +103,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   });
 });
 
-export const POST = withAuth("accountingEntries", "create", async (req: NextRequest, auth: TokenPayload) => {
+export const POST = withAuth("budgetChapters", "create", async (req: NextRequest, auth: TokenPayload) => {
   const body = await req.json().catch(() => ({}));
   const year = Number(body.year) || new Date().getFullYear();
 

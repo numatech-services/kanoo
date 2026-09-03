@@ -76,14 +76,27 @@ export async function withTransaction<T>(
 
   await connectDB();
   const session = await mongoose.startSession();
-  session.startTransaction();
   try {
-    const result = await fn(session);
-    await session.commitTransaction();
-    return result;
-  } catch (err) {
-    await session.abortTransaction();
-    throw err;
+    // On délègue à `session.withTransaction`, le mécanisme officiel du pilote.
+    //
+    // L'ancienne implémentation commettait puis, dans son `catch`, appelait
+    // `abortTransaction()` — y compris quand l'erreur venait du commit lui-même.
+    // MongoDB refuse d'annuler une transaction déjà commise : l'opération
+    // échouait alors sur « Cannot call abortTransaction after calling
+    // commitTransaction », en masquant la vraie cause. Comme ce helper enveloppe
+    // les paiements, factures, avoirs, mouvements de trésorerie et la paie, le
+    // moindre aléa transitoire au commit faisait perdre l'écriture.
+    //
+    // `session.withTransaction` gère commit et abort de façon cohérente et
+    // réessaie sur les erreurs transitoires (`TransientTransactionError`,
+    // `UnknownTransactionCommitResult`). Le rappel peut donc être rejoué : il
+    // doit rester idempotent — ce qui est le cas, une transaction rejouée
+    // repartant d'un état où rien n'a été validé.
+    let result: T;
+    await session.withTransaction(async () => {
+      result = await fn(session);
+    });
+    return result!;
   } finally {
     session.endSession();
   }
