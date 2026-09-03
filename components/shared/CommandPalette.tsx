@@ -35,6 +35,7 @@ const COMMANDS: Command[] = [
   { label: "Notes de frais", href: "/notes-de-frais", section: "finance", keywords: "frais remboursement justificatif reçu mission déplacement" },
   { label: "Documents administratifs", href: "/documents-administratifs", section: "contrats", keywords: "rccm nif attestation patente agrément assurance bail échéance renouvellement expiration" },
   { label: "Inventaires physiques", href: "/inventaires", section: "achats", keywords: "comptage stock écart régularisation aveugle" },
+  { label: "Budget prévisionnel", href: "/budget-previsionnel", section: "finance", keywords: "prévision écart prorata projection exercice" },
   { label: "Nouvelle note de frais", href: "/notes-de-frais/new", section: "finance", keywords: "créer saisir dépense" },
   { label: "Bons de livraison", href: "/livraisons", section: "ventes", keywords: "BL expédition" },
   { label: "Paiements", href: "/payments", section: "ventes", keywords: "encaissement règlement" },
