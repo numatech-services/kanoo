@@ -11,15 +11,15 @@
 |---|---|
 | Tests exécutés (5 batteries HTTP + statique) | ~120 |
 | Tests unitaires du dépôt | 543 (tous verts) |
-| **Bugs réels corrigés** | **13** |
-| dont bloquants en production | 11 |
+| **Bugs réels corrigés** | **15** |
+| dont bloquants en production | 12 |
 | Faux positifs (hypothèses de test erronées) | 8, écartés après vérification |
 
-Aucun des 13 bugs n'était visible au `build` ni aux 543 tests unitaires : tous
+Aucun des 15 bugs n'était visible au `build` ni aux 543 tests unitaires : tous
 n'apparaissent qu'à l'exécution, avec des données réelles. C'est l'argument
 central de cet audit.
 
-## 8.2 Les 13 corrections, par priorité
+## 8.2 Les 15 corrections, par priorité
 
 ### Priorité 1 — bloquants (le produit ne fonctionne pas sans eux)
 
@@ -63,6 +63,18 @@ central de cet audit.
 13. **CSP inerte** — servie en `Report-Only` sans `report-uri`. Passée en
     application, après avoir autorisé Google Fonts pour ne pas casser la
     typographie. `next.config.mjs`.
+14. **Module budgétaire public entièrement cassé** — trouvé en résorbant la
+    dette. Le commit du budget prévisionnel PME avait détourné `GET/POST
+    /api/budget` (pour servir le modèle `Budget`), alors que **dix écrans
+    d'administration** y lisent des `BudgetChapter` (arbre, `?flat=true`,
+    création). Tout le suivi alloué → engagé → mandaté était donc à zéro — les
+    zéros du tableau de bord admin (Phase 3) venaient de là, pas du seed.
+    Séparé : `/api/budget` sert les chapitres (RBAC `budgetChapters`),
+    `/api/budget-previsionnel` sert le prévisionnel (RBAC `accountingEntries`,
+    la ressource du profil PME). `app/api/budget`, `app/api/budget-previsionnel`.
+15. **Compteur d'impayés incohérent** — le badge de navigation comptait 5
+    (échéance dépassée) et la liste `?overdue=true` n'en montrait que 2 (statut
+    littéral). Définitions alignées. `app/api/invoices`.
 
 ### Priorité 3 — qualité / hygiène (traité)
 
@@ -87,11 +99,11 @@ central de cet audit.
 
 ## 8.4 Dette connue (non bloquante, à planifier)
 
-- 37 `any` en production (typage à resserrer).
-- Modèles `Budget` et `BudgetChapter` coexistants — deux notions de budget à
-  unifier ; le tableau de bord admin lit `Budget`, certains flux `BudgetChapter`.
-- Badge de navigation « impayés » (échéance dépassée) vs filtre `?overdue=true`
-  (statut littéral) : deux définitions à harmoniser.
+- 36 `any` en production (avertissements ESLint, dette de typage assumée :
+  dispersés dans des pages de formulaire, sans gain à les brasser en masse).
+- `Budget` et `BudgetChapter` : NON un doublon — deux domaines distincts
+  (prévisionnel privé vs exécution budgétaire publique), désormais servis par
+  des endpoints séparés. Rien à unifier.
 - 22 vulnérabilités `npm audit` : 1 critique (next 14.1.0, corrigée par
   14.2.x — mineur non cassant), le reste dans l'outillage de développement
   (chaîne eslint), correctif majeur reporté.
@@ -105,7 +117,7 @@ central de cet audit.
 - [x] Sécurité renforcée (CSP appliquée, en-têtes complets)
 - [x] Inscription et récupération de compte fonctionnelles bout en bout
 - [x] Site vitrine complet (9 pages, robots, sitemap)
-- [ ] **Pousser la branche puis fusionner dans `main`** (32 commits en avance)
+- [ ] **Pousser la branche puis fusionner dans `main`** (35 commits en avance)
 - [ ] `npm run indexes` sur la base de production (construit les contraintes
       d'unicité — relances, empreintes de relevé)
 - [ ] Vérifier `.env.local` sur le VPS (MONGODB_URI, JWT_SECRET, fournisseur
