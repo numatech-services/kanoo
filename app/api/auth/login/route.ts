@@ -77,6 +77,15 @@ export async function POST(req: NextRequest) {
           { status: 402 }
         );
       }
+      // Compte inscrit mais adresse jamais prouvée : sans ce refus, le lien
+      // d'activation serait décoratif et n'importe qui pourrait s'inscrire
+      // avec l'adresse d'autrui puis se connecter.
+      if (tenant.subscriptionStatus === "pending_activation") {
+        return NextResponse.json(
+          { success: false, error: "Compte non activé. Cliquez sur le lien reçu par e-mail, ou demandez-en un nouveau depuis la page d'activation." },
+          { status: 403 }
+        );
+      }
     }
 
     // Mot de passe validé : le compte n'est plus suspect, on rend son quota.

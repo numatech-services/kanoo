@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { connectDB } from "./db";
+import { errorName } from "./errors";
 import { getTokenFromRequest, verifyToken, TokenPayload } from "./auth";
 import { canPerformAction } from "./role-resources";
 import { verifyCsrf, CSRF_MESSAGES } from "./csrf";
@@ -43,6 +44,14 @@ export function paymentRequired(message: string) {
  * collections, les contraintes et parfois des chemins de fichiers.
  */
 export function serverError(error: unknown) {
+  // Un identifiant malformé dans l'URL (CastError Mongoose) n'est pas une
+  // panne : c'est une ressource qui ne peut pas exister. Le classer en 500
+  // pollue les journaux d'« erreurs internes » qui n'en sont pas, et rend un
+  // identifiant de référence à l'utilisateur pour une faute de frappe.
+  if (errorName(error) === "CastError") {
+    return notFound("Ressource introuvable (identifiant invalide).");
+  }
+
   const ref = crypto.randomBytes(6).toString("hex");
   console.error(`[API Error ${ref}]`, error);
   return NextResponse.json(
@@ -155,6 +164,9 @@ async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
 
     if (!tenant) return { ok: false, response: unauthorized("Organisation introuvable") };
 
+    if (tenant.subscriptionStatus === "pending_activation") {
+      return { ok: false, response: unauthorized("Compte non activé. Utilisez le lien reçu par e-mail.") };
+    }
     if (tenant.subscriptionStatus === "suspended" || tenant.subscriptionStatus === "cancelled") {
       return {
         ok: false,

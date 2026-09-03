@@ -23,7 +23,7 @@ const TenantSchema = new Schema<ITenant>(
     planModules: { type: [String], default: ["*"] },
     subscriptionStatus: {
       type: String,
-      enum: ["trial", "active", "suspended", "cancelled", "none"],
+      enum: ["pending_activation", "trial", "active", "suspended", "cancelled", "none"],
       default: "trial",
     },
     trialEndsAt: Date,

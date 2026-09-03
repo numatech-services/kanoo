@@ -232,6 +232,9 @@ export function templatePasswordReset(resetLink: string): EmailPayload {
       </p>
       <p style="color:#6B7280;font-size:12px;">Ce lien expire dans 2 heures. Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
     `),
+    // Version texte : les clients en texte seul et le fournisseur console
+    // ne voient QUE ceci — sans elle, le lien ne leur parvenait jamais.
+    text: `Réinitialisation de votre mot de passe Kanoo : ${resetLink} (lien valable 1 heure). Si vous n'êtes pas à l'origine de la demande, ignorez ce message.`,
   };
 }
 

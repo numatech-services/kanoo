@@ -53,7 +53,15 @@ const EmployeeSchema = new Schema({
   notes: String,
 }, { timestamps: true });
 
-EmployeeSchema.index({ tenantId: 1, userId: 1 }, { unique: true, sparse: true });
+// Index PARTIEL, et non `sparse` : sur un index composé, sparse indexe tout
+// document possédant AU MOINS UN des champs — donc chaque employé (tous ont un
+// tenantId), avec userId à null. Dès le deuxième salarié d'une organisation,
+// l'insertion échouait en collision d'unicité. Attrapé par le seed sur base
+// réelle, pas par la relecture.
+EmployeeSchema.index(
+  { tenantId: 1, userId: 1 },
+  { unique: true, partialFilterExpression: { userId: { $exists: true } } }
+);
 EmployeeSchema.index({ tenantId: 1, code: 1 }, { unique: true });
 EmployeeSchema.index({ tenantId: 1, isActive: 1 });
 EmployeeSchema.index({ tenantId: 1, contractEndDate: 1 });

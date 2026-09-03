@@ -19,8 +19,10 @@ function SouscrireForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault(); setError(""); setLoading(true);
     try {
-      const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
-      const res = await fetch("/api/superadmin/tenants", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, body: JSON.stringify(form) });
+      // Route publique dédiée : l'ancienne cible (/api/superadmin/tenants)
+      // exigeait d'être superadmin — un 401 pour tout visiteur, donc aucune
+      // inscription publique possible depuis la mise en ligne.
+      const res = await fetch("/api/public/inscription", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
       const d = await res.json();
       if (!res.ok) { setError(d.error || "Erreur lors de la souscription"); setLoading(false); return; }
       setSuccess(true);

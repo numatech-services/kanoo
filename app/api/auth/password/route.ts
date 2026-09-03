@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { withAuth, ok, badRequest, forbidden } from "@/lib/api-helpers";
 import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
-import { hashPassword, comparePassword, signToken, TokenPayload } from "@/lib/auth";
+import { hashPassword, comparePassword, TokenPayload } from "@/lib/auth";
+import { setSessionCookies } from "@/lib/session";
 import { passwordErrors } from "@/lib/password-policy";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
@@ -82,10 +83,16 @@ export const POST = withAuth("notifications", "read", async (req: NextRequest, a
     metadata: { action: "password_change", outcome: "ok", sessionsRevoked: true },
   });
 
-  // Le jeton courant vient d'être invalidé par l'incrément : on en réémet un
-  // à la nouvelle version, faute de quoi l'utilisateur serait déconnecté par
-  // son propre changement de mot de passe.
-  const token = signToken({
+  // Le jeton courant vient d'être invalidé par l'incrément : la session est
+  // réémise PAR LE MÊME HELPER que le login. Une première version posait ici
+  // un cookie nommé `token` — le mauvais nom : la session réémise était
+  // ignorée et l'utilisateur déconnecté par son propre changement, très
+  // exactement ce que ce bloc existe pour éviter.
+  const response = ok({
+    changed: true,
+    message: "Mot de passe modifié. Vos autres sessions ont été déconnectées.",
+  });
+  setSessionCookies(response, {
     userId: auth.userId,
     tenantId: auth.tenantId,
     tenantType: auth.tenantType,
@@ -95,18 +102,6 @@ export const POST = withAuth("notifications", "read", async (req: NextRequest, a
     planModules: auth.planModules,
     allowedResources: auth.allowedResources,
     sessionVersion: user.sessionVersion,
-  });
-
-  const response = ok({
-    changed: true,
-    message: "Mot de passe modifié. Vos autres sessions ont été déconnectées.",
-  });
-  response.cookies.set("token", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 7 * 24 * 3600,
   });
   return response;
 });

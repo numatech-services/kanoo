@@ -6,6 +6,8 @@ const PUBLIC_EXACT_PATHS = [
   "/", "/login", "/souscrire", "/activer-compte", "/contact",
   // Vitrine publique — accessible sans authentification.
   "/fonctionnalites", "/tarifs", "/demo", "/a-propos", "/confidentialite",
+  // Récupération de compte : par construction, l'utilisateur n'a pas de session.
+  "/mot-de-passe-oublie", "/reinitialiser",
 ];
 const PUBLIC_PREFIX_PATHS = ["/_next", "/favicon.ico", "/api/auth", "/api/public", "/manifest.json", "/sw.js", "/offline"];
 

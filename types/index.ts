@@ -4,7 +4,8 @@ import { Types } from "mongoose";
 
 export type TenantType = "pme" | "association" | "administration";
 
-export type SubscriptionStatus = "trial" | "active" | "suspended" | "cancelled" | "none";
+/** `pending_activation` : inscrit, adresse e-mail pas encore prouvée. */
+export type SubscriptionStatus = "pending_activation" | "trial" | "active" | "suspended" | "cancelled" | "none";
 
 export type PlanCode = "starter" | "pro" | "enterprise" | "asso_basic" | "asso_pro" | "admin";
 

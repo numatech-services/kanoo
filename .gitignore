@@ -35,3 +35,5 @@ coverage/
 # /api/attachments/:id après contrôle du droit. Jamais versionnés.
 /var/uploads/
 /public/uploads/
+audit/
+/audit/
