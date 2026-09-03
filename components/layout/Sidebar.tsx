@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock } from "lucide-react";
 
 type ProfileType = "pme" | "association" | "administration" | "superadmin";
 
@@ -59,6 +59,7 @@ const PME_NAV: NavGroup[] = [
     { label: "CRM Pipeline", href: "/crm", icon: <BarChart3 size={18} /> },
     { label: "Projets", href: "/projects", icon: <Folder size={18} /> },
     { label: "Documents", href: "/documents", icon: <FolderTree size={18} /> },
+    { label: "Documents administratifs", href: "/documents-administratifs", icon: <FileClock size={18} /> },
     { label: "Approbations", href: "/approbations", icon: <CheckCircle2 size={18} /> },
   ]},
   { section: "Finance", items: [

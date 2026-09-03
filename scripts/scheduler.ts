@@ -25,6 +25,8 @@ import { SubscriptionPurchaseModel } from "../models/SubscriptionPurchase";
 import { SubscriptionSaleModel } from "../models/SubscriptionSale";
 import { buildAlerts, type PurchaseLike, type SaleLike } from "../lib/subscriptions";
 import { resetYearlySequences } from "../lib/numbering";
+import { AdminDocumentModel } from "../models/AdminDocument";
+import { buildAlerts as buildDocumentAlerts } from "../lib/admin-documents";
 import { planForTenant } from "../lib/dunning-context";
 import { executeAction } from "../lib/dunning-send";
 
@@ -113,6 +115,49 @@ cron.schedule("0 7 * * *", job("Alertes stock", async () => {
     }
   }
   return `${products.length} alerte(s) envoyée(s)`;
+}), TZ);
+
+// ─── 07:15 — Veille des documents administratifs ─────────────────────────────
+//
+// L'alerte ne part pas à l'expiration mais à la date de lancement : une
+// attestation qui demande trois semaines d'instruction se réclame trois
+// semaines avant, pas la veille. Seul ce qui appelle une action part en
+// notification — l'informatif reste sur l'écran.
+cron.schedule("15 7 * * *", job("Documents administratifs", async () => {
+  const documents = await AdminDocumentModel.find({ archivedAt: { $exists: false } })
+    .lean<Array<{ _id: Id; tenantId: Id; label: string; type: string }>>();
+
+  const byTenant = new Map<string, typeof documents>();
+  for (const doc of documents) {
+    const key = String(doc.tenantId);
+    const list = byTenant.get(key);
+    if (list) list.push(doc);
+    else byTenant.set(key, [doc]);
+  }
+
+  let sent = 0;
+  for (const [, scoped] of byTenant) {
+    const actionable = buildDocumentAlerts(scoped as never).filter(a => a.level !== "info");
+    if (actionable.length === 0) continue;
+
+    const tenantId = scoped[0].tenantId;
+    const admins = await getAdmins(tenantId, [
+      "pme_admin", "pme_manager", "asso_president", "asso_secretary", "admin_ordonnateur",
+    ]);
+
+    for (const admin of admins) {
+      for (const alert of actionable.slice(0, 10)) {
+        await notify(
+          tenantId, admin._id, "admin_document",
+          alert.level === "critical" ? "Document — action requise" : "Document à renouveler",
+          `${alert.label} : ${alert.message}`,
+          "documents-administratifs", alert.documentId as unknown as Id
+        );
+        sent++;
+      }
+    }
+  }
+  return `${sent} notification(s) pour ${byTenant.size} organisation(s)`;
 }), TZ);
 
 // ─── 07:30 — Contrats expirant sous 30 jours ─────────────────────────────────
@@ -355,6 +400,7 @@ console.log("⏰ Scheduler Kanoo démarré (heures locales Niamey, UTC+1)");
 console.log("   06:00 — Contrats récurrents à facturer");
 console.log("   06:30 — Factures en retard");
 console.log("   07:00 — Alertes stock minimum");
+console.log("   07:15 — Documents administratifs à renouveler");
 console.log("   07:30 — Contrats expirant bientôt");
 console.log("   08:00 — Fins de contrat employé");
 console.log("   08:30 — Dépenses récurrentes échues");

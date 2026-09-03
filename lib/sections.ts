@@ -73,6 +73,7 @@ const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
   // Contrats & projets
   ["/contracts", "contrats"],
   ["/projects", "contrats"],
+  ["/documents-administratifs", "contrats"],
   ["/documents", "contrats"],
   ["/approbations", "contrats"],
 
