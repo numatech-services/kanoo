@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { Types } from "mongoose";
 import { connectDB } from "./db";
 import { errorName } from "./errors";
 import { getTokenFromRequest, verifyToken, TokenPayload } from "./auth";
@@ -309,8 +310,21 @@ export function withAuth(
   };
 }
 
-export function tenantFilter(auth: TokenPayload): { tenantId: string } {
-  return { tenantId: auth.tenantId };
+/**
+ * Filtre d'isolation par organisation.
+ *
+ * Renvoie un **ObjectId**, pas une chaîne. C'est capital pour les pipelines
+ * `aggregate` : `find` et `countDocuments` castent tout seuls une chaîne en
+ * ObjectId (Mongoose caste la requête), mais un pipeline d'agrégation part tel
+ * quel vers MongoDB, qui exige une correspondance de type stricte. Avec une
+ * chaîne, tout `$match: { tenantId }` renvoyait **vide** — chaque statistique,
+ * rapport et graphique affichait donc zéro en production, en silence.
+ *
+ * L'ObjectId reste valide pour `find`/`countDocuments`/`updateOne`, si bien
+ * qu'un seul type couvre tous les usages.
+ */
+export function tenantFilter(auth: TokenPayload): { tenantId: Types.ObjectId } {
+  return { tenantId: new Types.ObjectId(auth.tenantId) };
 }
 
 /**

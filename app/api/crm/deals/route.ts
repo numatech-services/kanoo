@@ -30,7 +30,7 @@ export const GET = withAuth("clients", "read", async (req: NextRequest, auth: To
 
   // Statistiques pipeline
   const pipeline = await CRMDealModel.aggregate([
-    { $match: { tenantId: auth.tenantId, stage: { $nin: ["won","lost"] } } },
+    { $match: { ...tenantFilter(auth), stage: { $nin: ["won","lost"] } } },
     { $group: { _id: "$stage", count: { $sum: 1 }, totalAmount: { $sum: "$amount" }, weightedAmount: { $sum: { $multiply: ["$amount", { $divide: ["$probability", 100] }] } } } },
   ]);
 

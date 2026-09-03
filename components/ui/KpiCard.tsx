@@ -5,6 +5,23 @@ import type { ReactNode } from "react";
 import { Sparkline } from "./charts/Sparkline";
 import { useCountUp } from "@/lib/use-count-up";
 import { toneVar, toneColor, type ToneRole } from "@/lib/tone";
+import { fullXof, compactXof } from "./charts/geometry";
+
+/**
+ * Formateurs nommés, résolus côté client.
+ *
+ * Un composant SERVEUR ne peut pas passer de fonction à ce composant client
+ * (React l'interdit, et le tableau de bord plantait pour cette raison exacte).
+ * La clé, elle, traverse la frontière sans peine : le serveur envoie « xof »,
+ * la fonction vit ici.
+ */
+const FORMATTERS = {
+  xof: fullXof,
+  compact: compactXof,
+  number: (n: number) => Math.round(n).toLocaleString("fr-FR"),
+} as const;
+
+export type FormatKey = keyof typeof FORMATTERS;
 
 export interface KpiCardProps {
   label: string;
@@ -13,9 +30,13 @@ export interface KpiCardProps {
    * de `format` est compté progressivement de son ancienne valeur à la
    * nouvelle. Le composant ne décide jamais d'une unité — le formatage reste
    * à l'appelant.
+   *
+   * `format` accepte une **clé** (`"xof"`, `"compact"`, `"number"`) — la seule
+   * forme qu'un composant serveur puisse transmettre — ou une fonction, pour un
+   * appelant client qui a un formatage sur mesure.
    */
   value: string | number;
-  format?: (n: number) => string;
+  format?: FormatKey | ((n: number) => string);
   icon?: ReactNode;
   /**
    * Variation par rapport à la période précédente, en points de pourcentage.
@@ -72,8 +93,11 @@ export function KpiCard({
   // n'aurait aucun sens, et le hook doit être appelé inconditionnellement.
   const numeric = typeof value === "number" ? value : 0;
   const counted = useCountUp(numeric);
+  // La clé est résolue en fonction ici, côté client ; une fonction fournie
+  // directement est utilisée telle quelle.
+  const formatter = typeof format === "string" ? FORMATTERS[format] : format;
   const display = typeof value === "number"
-    ? (format ? format(counted) : Math.round(counted).toLocaleString("fr-FR"))
+    ? (formatter ? formatter(counted) : Math.round(counted).toLocaleString("fr-FR"))
     : value;
 
   const hasDelta = typeof delta === "number" && Number.isFinite(delta);

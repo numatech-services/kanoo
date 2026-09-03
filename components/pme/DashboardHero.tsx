@@ -1,4 +1,5 @@
 // Server Component — lit la base directement.
+import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import { getServerAuth } from "@/lib/server-auth";
 import { InvoiceModel } from "@/models/Invoice";
@@ -35,7 +36,9 @@ async function getHero(): Promise<Hero | null> {
     if (!auth) return null;
     await connectDB();
 
-    const tf = { tenantId: auth.tenantId };
+    // ObjectId, pas la chaîne du jeton : un pipeline aggregate ne caste
+    // pas, et un tenantId en chaîne n'y matche aucun document.
+    const tf = { tenantId: new Types.ObjectId(auth.tenantId) };
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 

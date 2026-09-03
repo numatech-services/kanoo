@@ -1,11 +1,11 @@
 // Server Component — lit directement la DB (pas de fetch)
+import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import { getServerAuth } from "@/lib/server-auth";
 import { InvoiceModel } from "@/models/Invoice";
 import { PaymentModel } from "@/models/Payment";
 import { EmployeeModel } from "@/models/Employee";
 import { KpiCard } from "@/components/ui/KpiCard";
-import { fullXof } from "@/components/ui/charts/geometry";
 import { TrendingUp, AlertTriangle, CreditCard, Users } from "lucide-react";
 
 interface Stats {
@@ -27,7 +27,9 @@ async function getStats(): Promise<Stats | null> {
 
     await connectDB();
 
-    const tf = { tenantId: auth.tenantId };
+    // ObjectId, pas la chaîne du jeton : un pipeline aggregate ne caste
+    // pas, et un tenantId en chaîne n'y matche aucun document.
+    const tf = { tenantId: new Types.ObjectId(auth.tenantId) };
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -126,7 +128,7 @@ export async function StatCards() {
       <KpiCard
         label="Chiffre d'affaires — exercice"
         value={stats.caTotal}
-        format={fullXof}
+        format="xof"
         icon={<TrendingUp size={17} />}
         tone="revenue"
         trend={stats.invoiceTrend}
@@ -144,7 +146,7 @@ export async function StatCards() {
       <KpiCard
         label="Encaissé ce mois"
         value={stats.encaisseMonth}
-        format={fullXof}
+        format="xof"
         icon={<CreditCard size={17} />}
         tone="margin"
         delta={delta}
