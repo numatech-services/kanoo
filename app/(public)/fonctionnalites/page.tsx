@@ -8,27 +8,30 @@ export const metadata = {
 
 const SECTIONS = [
   {
-    id: "pme", tag: "PME & commerces", title: "Piloter une entreprise, de la vente au bilan.",
+    id: "pme", space: "pme", tag: "PME & commerces", title: "Piloter une entreprise, de la vente au bilan.",
     groups: [
-      { h: "Ventes & caisse", items: ["Devis, factures, avoirs conformes DGI (TVA 19 %, retenues, timbre)", "Caisse tactile : vente → facture + mouvement de stock + écriture", "Clients, relances automatiques des impayés"] },
-      { h: "Finance", items: ["Comptabilité OHADA / SYSCOHADA préchargée, journaux automatiques", "Trésorerie, dépenses récurrentes, immobilisations", "Fiscalité : TVA, IR/ISB, retenues à la source"] },
-      { h: "Paie & achats", items: ["Bulletins de paie, CNSS 3,6 %/16,4 %, IR", "Fournisseurs, commandes, stock", "Mobile money : Orange, Moov, Airtel réconciliés en compta"] },
+      { h: "Ventes & facturation", items: ["Devis, factures et avoirs conformes DGI — TVA 19 %, retenues, droit de timbre", "Certification SECeF : socle en place, portail e-SECeF utilisable dès aujourd'hui", "Caisse : vente, facture, mouvement de stock et écriture, d'un seul geste"] },
+      { h: "Encaissement & trésorerie", items: ["Solde de trésorerie calculé, jamais saisi : ouverture plus mouvements", "Rapprochement bancaire par import de relevé, appariements proposés et validés à la main", "Orange, Moov et Airtel Money, rapprochés en comptabilité"] },
+      { h: "Recouvrement", items: ["Relances graduées, du rappel avant échéance à la mise en demeure", "La mise en demeure attend toujours une validation humaine", "Relevé de compte client, à l'écran et en PDF, avec balance âgée"] },
+      { h: "Finance & paie", items: ["Comptabilité OHADA / SYSCOHADA, journaux automatiques", "Notes de frais, justificatif photographié au comptoir", "Bulletins de paie, CNSS 3,6 %/16,4 %, IR, déclarations prêtes"] },
     ],
   },
   {
-    id: "associations", tag: "Associations / ONG", title: "Animer une communauté et rendre des comptes.",
+    id: "associations", space: "association", tag: "Associations & ONG", title: "Animer une communauté et rendre des comptes.",
     groups: [
       { h: "Membres & dons", items: ["Adhérents, cotisations, reçus fiscaux automatiques", "Dons multi-devises (XOF/EUR/USD), reçus bailleurs", "Rapports par campagne et par projet"] },
       { h: "Gouvernance", items: ["Assemblées générales, conseils, PV", "Convocations email / SMS, calcul de quorum", "Rapports bailleurs (AFD, UE, USAID)"] },
-      { h: "Activités & billetterie", items: ["Événements : billets, jauge, tarifs multiples", "Paiement mobile money + billet email & WhatsApp", "Check-in au QR, présences en temps réel, même hors-ligne"] },
+      { h: "Activités & billetterie", items: ["Événements : billets, jauge, tarifs multiples", "Paiement mobile money, billet par courriel et WhatsApp", "Pointage au QR, présences en temps réel, même sans réseau"] },
+      { h: "Pièces & justificatifs", items: ["Contrats et conventions de financement rattachés à leur dossier", "Notes de frais des animateurs, justificatif photographié", "Aucun document en accès libre : chaque téléchargement est contrôlé"] },
     ],
   },
   {
-    id: "administrations", tag: "Administrations", title: "Exécuter un budget public, en toute traçabilité.",
+    id: "administrations", space: "administration", tag: "Administrations", title: "Exécuter un budget public, en toute traçabilité.",
     groups: [
       { h: "Budget & dépense", items: ["Chapitres budgétaires, contrôle de crédit bloquant", "Circuit engagement → mandatement → paiement", "Comptabilité publique"] },
       { h: "Marchés publics", items: ["Appels d'offres ouverts/restreints selon seuils", "Commissions d'ouverture et d'évaluation", "Portail fournisseur : dépôt d'offres en ligne"] },
       { h: "Personnel & recettes", items: ["Gestion des agents, paie, CNSS", "Recettes publiques et taxes", "Services citoyens (permis, actes)"] },
+      { h: "Traçabilité", items: ["Journal d'audit sur chaque acte, horodaté et exportable", "Pièces jointes rattachées aux marchés et aux mandats", "Droits par rôle : ordonnateur, comptable, contrôleur"] },
     ],
   },
 ];
@@ -50,20 +53,23 @@ export default function FeaturesPage() {
       </section>
 
       {SECTIONS.map((s, i) => (
-        <section key={s.id} id={s.id} className={`py-14 scroll-mt-20 ${i % 2 === 1 ? "bg-surface2" : ""}`}>
+        // `data-space` rend chaque section dans l'identité réelle de son
+        // espace : le visiteur voit la couleur et les formes qu'il retrouvera.
+        <section key={s.id} id={s.id} data-space={s.space}
+          className={`py-14 scroll-mt-20 ${i % 2 === 1 ? "bg-surface2" : "bg-bg"}`}>
           <div className="max-w-6xl mx-auto px-5 sm:px-6">
             <div className="max-w-2xl">
-              <span className="text-xs font-bold uppercase tracking-wider text-accent-700">{s.tag}</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-section">{s.tag}</span>
               <h2 className="font-display font-semibold text-ink text-[clamp(1.6rem,3.5vw,2.3rem)] tracking-tight mt-2">{s.title}</h2>
             </div>
-            <div className="grid md:grid-cols-3 gap-5 mt-8">
+            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mt-8">
               {s.groups.map((g) => (
-                <div key={g.h} className="rounded-2xl border border-line bg-surface p-6">
+                <div key={g.h} className="surface-card p-6">
                   <h3 className="font-display font-semibold text-lg text-ink mb-3">{g.h}</h3>
                   <ul className="space-y-2.5">
                     {g.items.map((it) => (
-                      <li key={it} className="flex items-start gap-2.5 text-sm text-ink">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent mt-2 flex-none" />{it}
+                      <li key={it} className="flex items-start gap-2.5 text-sm text-ink2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-section mt-2 flex-none" />{it}
                       </li>
                     ))}
                   </ul>
@@ -73,6 +79,12 @@ export default function FeaturesPage() {
           </div>
         </section>
       ))}
+
+      {/* Ancres visées depuis la page d'accueil : un lien qui ne mène nulle
+          part est pire qu'une absence de lien. */}
+      <span id="relances" className="block scroll-mt-20" />
+      <span id="tresorerie" className="block scroll-mt-20" />
+      <span id="frais" className="block scroll-mt-20" />
 
       <section className="max-w-6xl mx-auto px-5 sm:px-6 py-16 text-center">
         <h2 className="font-display font-semibold text-ink text-[clamp(1.7rem,4vw,2.4rem)]">Voir Kanoo sur vos propres données.</h2>
