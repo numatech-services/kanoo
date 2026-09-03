@@ -48,7 +48,13 @@ export async function middleware(req: NextRequest) {
     const auth = await verifyTokenEdge(token);
 
     if (!auth) {
-      console.log("❌ [Middleware] Token invalide ou expiré - middleware.ts:47");
+      // Un jeton présent mais invalide (falsifié, expiré, mauvaise signature)
+      // sur une route API doit répondre 401 JSON, pas rediriger vers /login :
+      // un client fetch suivrait le 307 et recevrait du HTML au lieu d'un code
+      // exploitable, cassant la détection « session expirée » de l'appelant.
+      if (pathname.startsWith("/api")) {
+        return withSecurityHeaders(NextResponse.json({ error: "Session invalide ou expirée" }, { status: 401 }));
+      }
       return NextResponse.redirect(new URL("/login", req.url));
     }
 
@@ -68,6 +74,10 @@ export async function middleware(req: NextRequest) {
 
   } catch (err) {
     console.log("❌ [Middleware] Erreur critique : - middleware.ts:66", err);
+    // Même règle dans le filet : une API reçoit 401, pas une redirection HTML.
+    if (pathname.startsWith("/api")) {
+      return withSecurityHeaders(NextResponse.json({ error: "Session invalide" }, { status: 401 }));
+    }
     return NextResponse.redirect(new URL("/login", req.url));
   }
 }

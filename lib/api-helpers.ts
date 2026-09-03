@@ -64,6 +64,14 @@ export function serverError(error: unknown) {
         : "Données invalides."
     );
   }
+  // Un corps de requête que `req.json()` n'arrive pas à analyser lève une
+  // SyntaxError : c'est un envoi malformé de l'appelant, pas une panne. Sans ce
+  // classement, chaque route qui appelle `await req.json()` sans filet répondait
+  // 500 avec une référence d'incident — et une pile dans les journaux — pour un
+  // simple JSON mal formé. On le rend en 400, une fois pour les 174 routes.
+  if (error instanceof SyntaxError) {
+    return badRequest("Corps de requête illisible : JSON attendu.");
+  }
 
   const ref = crypto.randomBytes(6).toString("hex");
   console.error(`[API Error ${ref}]`, error);
