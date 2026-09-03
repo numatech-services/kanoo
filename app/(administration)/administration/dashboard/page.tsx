@@ -55,7 +55,7 @@ export default function AdminDashboardPage() {
       return [];
     };
 
-    fetch("/api/budget?limit=5&page=1", { credentials: "include" })
+    fetch("/api/budget?flat=true", { credentials: "include" })
       .then(r => r.json())
       .then(d => setChapters(extractArray(d)))
       .catch((e) => console.error(e))
