@@ -16,6 +16,10 @@ const UserSchema = new Schema<IUser>(
         "asso_president","asso_treasurer","asso_secretary","asso_project_manager","asso_member_portal",
         "admin_ordonnateur","admin_daf","admin_public_accountant",
         "admin_procurement_officer","admin_procurement_commission","admin_viewer",
+        // `chef_projet_transversal` manquait ici alors qu'il était proposé à
+        // la création : toute tentative échouait en validation Mongoose, avec
+        // un message que personne ne rattachait à cette cause.
+        "chef_projet_transversal","tech_admin",
         "superadmin",
       ],
       required: true,
@@ -30,6 +34,14 @@ const UserSchema = new Schema<IUser>(
     lastLoginAt: Date,
     passwordResetToken: String,
     passwordResetExpiry: Date,
+    /**
+     * Mot de passe temporaire attribué par un administrateur : l'utilisateur
+     * doit le remplacer à sa prochaine connexion. Sans ce drapeau, un mot de
+     * passe dicté au téléphone reste en place des mois — connu de deux
+     * personnes.
+     */
+    mustChangePassword: { type: Boolean, default: false },
+    passwordChangedAt: Date,
     // Authentification à deux facteurs (TOTP).
     twoFactorEnabled: { type: Boolean, default: false },
     twoFactorSecret: String,   // secret actif (base32)

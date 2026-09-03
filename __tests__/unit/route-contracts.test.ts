@@ -565,3 +565,91 @@ describe("Solde client — calculé, jamais stocké", () => {
     expect(pdf!.src).toMatch(/withOpenItems/);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Comptes et droits — sept trous constatés à l'audit.
+//
+// L'ossature RBAC était bonne : vingt-trois rôles, une matrice de droits sur
+// quarante ressources, et une revalidation en base à chaque requête — un
+// changement de rôle prend effet immédiatement, pas à l'expiration du jeton.
+// Ce qui manquait relevait de l'exploitation quotidienne.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Comptes — ce qui manquait", () => {
+  const usersList = files.find(f => f.path === "app/api/users/route.ts")!;
+  const usersOne = files.find(f => f.path === "app/api/users/[id]/route.ts")!;
+
+  it("permet enfin de changer son mot de passe", () => {
+    // Aucune route ne le permettait : `passwordResetToken` était un champ mort
+    // et `templatePasswordReset` un modèle que rien n'appelait.
+    const self = files.find(f => f.path === "app/api/auth/password/route.ts");
+    expect(self).toBeDefined();
+    // L'ancien mot de passe est exigé même sur une session valide.
+    expect(self!.src).toMatch(/comparePassword\(current/);
+    // Changer son mot de passe ferme les autres sessions — c'est le geste
+    // qu'on fait quand on le croit compromis.
+    expect(self!.src).toMatch(/sessionVersion.*\+ 1/);
+  });
+
+  it("permet à un administrateur de réinitialiser sans choisir le mot de passe", () => {
+    const reset = files.find(f => f.path.endsWith("users/[id]/password/route.ts"));
+    expect(reset).toBeDefined();
+    // Un administrateur qui saisit la valeur en met une qu'il connaît, et la
+    // réutilise pour dix comptes.
+    expect(reset!.src).toMatch(/temporaryPassword\(\)/);
+    expect(reset!.src).toMatch(/mustChangePassword = true/);
+  });
+
+  it("applique la politique dès la création du compte", () => {
+    // Sans cela, elle ne protégeait que ceux qui changeaient leur mot de passe.
+    expect(usersList.src).toMatch(/passwordErrors/);
+  });
+
+  it("refuse de supprimer le dernier administrateur actif", () => {
+    // Le verrouillage était irrattrapable depuis l'application.
+    expect(usersOne.src).toMatch(/remaining === 0/);
+    expect(usersOne.src).toMatch(/TENANT_ADMIN_ROLES/);
+  });
+
+  it("empêche de se retirer ses propres droits d'administration", () => {
+    expect(usersOne.src).toMatch(/isSelf && losesAdmin/);
+  });
+
+  it("déclare dans le modèle tous les rôles proposés à la création", () => {
+    // `chef_projet_transversal` était offert au choix et absent de l'enum
+    // Mongoose : la création échouait en validation.
+    const model = readFileSync(join(ROOT, "models/User.ts"), "utf-8");
+    const rolesUi = readFileSync(join(ROOT, "lib/roles-ui.ts"), "utf-8");
+    for (const role of ["chef_projet_transversal", "tech_admin"]) {
+      expect(model).toContain(`"${role}"`);
+      expect(rolesUi).toContain(role);
+    }
+  });
+
+  it("expose un rôle technique sans accès aux données financières", () => {
+    const rbac = readFileSync(join(ROOT, "lib/role-resources.ts"), "utf-8");
+    const start = rbac.indexOf("const TECH_ADMIN");
+    expect(start).toBeGreaterThan(-1);
+    const block = rbac.slice(start, rbac.indexOf("};", start));
+    // Confier la paie à l'informaticien parce que c'est plus simple.
+    for (const forbidden of ["invoices", "payments", "payslips", "accountingEntries", "treasuryAccounts"]) {
+      expect(block).not.toContain(`${forbidden}:`);
+    }
+    expect(block).toContain("auditLogs:");
+  });
+
+  it("vérifie l'organisation du compte avant de le rattacher à une fiche salarié", () => {
+    const employee = files.find(f => f.path === "app/api/employees/[id]/route.ts")!;
+    // Un identifiant d'une autre organisation rembourserait ses notes de frais
+    // sur une fiche qui n'est pas la sienne.
+    expect(employee.src).toMatch(/UserModel\.findOne\(\{ _id: String\(value\), \.\.\.tenantFilter\(auth\) \}\)/);
+  });
+
+  it("garde la liste des rôles décrite pour un humain", () => {
+    const rolesUi = readFileSync(join(ROOT, "lib/roles-ui.ts"), "utf-8");
+    // L'écran affichait « pme project manager » : choisir sur cette base
+    // revient à tirer au sort, et une erreur ouvre l'accès à la paie.
+    expect(rolesUi).toMatch(/summary:/);
+    expect(rolesUi).toMatch(/cannot\?:/);
+  });
+});

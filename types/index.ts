@@ -121,6 +121,7 @@ export type UserRole =
   | "admin_viewer"
   // Transversal
   | "chef_projet_transversal"   // Accès projets tous profils, sans facturation
+  | "tech_admin"                // Intégration, journaux, support — aucune donnée financière
   // Platform
   | "superadmin";
 
@@ -142,6 +143,9 @@ export interface IUser {
   revokedAt?: Date;
   lastLoginAt?: Date;
   passwordResetToken?: string;
+  /** Mot de passe temporaire : remplacement exigé à la prochaine connexion. */
+  mustChangePassword?: boolean;
+  passwordChangedAt?: Date;
   passwordResetExpiry?: Date;
   twoFactorEnabled?: boolean;
   twoFactorSecret?: string;

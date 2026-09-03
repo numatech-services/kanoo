@@ -307,6 +307,28 @@ const SUPERADMIN: ResourcePermissions = { "*": ["create", "read", "update", "del
  * Peut gérer les projets sur tous les profils (PME, Associations, Administration)
  * Sans accès à la facturation, comptabilité, RH ni aux données financières
  */
+/**
+ * Responsable technique / intégrateur.
+ *
+ * Le profil qui manquait : la personne qui branche l'API, surveille les
+ * journaux et diagnostique une panne n'a **aucune raison** de voir le chiffre
+ * d'affaires, les salaires ou les impayés. Lui donner un rôle
+ * d'administrateur « parce que c'est plus simple » revient à confier la paie à
+ * l'informaticien.
+ *
+ * Il lit les journaux d'audit et les traces, gère les tickets, et voit la
+ * liste des comptes — sans pouvoir en créer, en modifier le rôle, ni en
+ * désactiver un seul.
+ */
+const TECH_ADMIN: ResourcePermissions = {
+  auditLogs:     ["read"],
+  supportTickets:["create", "read", "update"],
+  notifications: ["read", "update"],
+  documents:     ["read"],
+  // Lecture seule : diagnostiquer un compte suppose de le voir, pas d'y toucher.
+  users:         ["read"],
+};
+
 const CHEF_PROJET_TRANSVERSAL: ResourcePermissions = {
   projects:      ["create", "read", "update"],
   documents:     ["create", "read", "update"],
@@ -345,6 +367,7 @@ const ROLE_PERMISSIONS: Record<UserRole, ResourcePermissions> = {
   admin_viewer: ADMIN_VIEWER,
   // Transversal
   chef_projet_transversal: CHEF_PROJET_TRANSVERSAL,
+  tech_admin: TECH_ADMIN,
   // Plateforme
   superadmin: SUPERADMIN,
 };

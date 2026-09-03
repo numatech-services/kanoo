@@ -109,6 +109,10 @@ export async function POST(req: NextRequest) {
         user: { id: user._id, email: user.email, role: user.role },
         tenantType: tenant.type,
         role: user.role,
+        // Mot de passe temporaire attribué par un administrateur : l'écran
+        // redirige vers le changement. Le signaler ici plutôt que de laisser
+        // un mot de passe connu de deux personnes vivre des mois.
+        mustChangePassword: Boolean(user.mustChangePassword),
       },
     });
     setSessionCookies(response, tokenPayload);
