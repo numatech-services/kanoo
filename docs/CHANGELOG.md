@@ -1,5 +1,94 @@
 # Kanoo — Changelog
 
+## V1.8.0 — Septembre 2026
+
+### Audit de la gestion des collaborateurs — sept trous
+
+L'ossature était bonne : vingt-trois rôles, une matrice de droits sur quarante
+ressources, et une revalidation en base à chaque requête — un changement de rôle
+prend effet immédiatement, pas à l'expiration du jeton. Ce qui manquait relevait
+de l'exploitation quotidienne.
+
+| # | Constat | Conséquence |
+|---|---|---|
+| 1 | Le bouton « Inviter un utilisateur » n'avait pas d'`onClick` | **Aucun collaborateur ne pouvait être créé depuis l'interface** |
+| 2 | Aucune route de changement de mot de passe | Un mot de passe attribué à la création était définitif |
+| 3 | Aucune politique de robustesse | Un compte pouvait être créé avec le mot de passe « a » |
+| 4 | Aucune garde anti-verrouillage | Le dernier administrateur pouvait se désactiver ; reprise en base seulement |
+| 5 | `chef_projet_transversal` absent de l'enum Mongoose | Toute création avec ce rôle échouait en validation |
+| 6 | Aucun rôle technique | L'intégrateur recevait un rôle d'administrateur, donc l'accès à la paie |
+| 7 | Rattachement compte ↔ fiche salarié sans interface, et sans contrôle de tenant | Notes de frais remboursées sur une fiche étrangère |
+
+**La politique retenue privilégie la longueur sur la composition.** Exiger une
+majuscule, un chiffre et un symbole produit `Passw0rd!` : plus faible, long à
+taper sur un clavier de téléphone, et systématiquement noté sur un papier collé
+à l'écran. Douze caractères minimum, blocage de l'évident et de ce qui dérive de
+l'identité — les trois sources de la quasi-totalité des mots de passe cassés.
+
+Le mot de passe temporaire est engendré (jamais choisi par l'administrateur, qui
+en met un qu'il connaît et le réutilise), dictable au téléphone — ni `0` ni `1`,
+donc aucune confusion avec `o` et `i` —, et remplacé à la première connexion.
+
+L'écran décrit chaque rôle par ce qu'il permet **et ce qu'il interdit**. Choisir
+entre « pme approver » et « pme manager » sur la seule foi du nom revient à
+tirer au sort, et une erreur ouvre ou ferme l'accès à la paie.
+
+### Documents administratifs — la date de lancement, pas l'échéance
+
+Alerter à l'expiration ne sert à rien. Une attestation de régularité fiscale qui
+expire le 30 ne se renouvelle pas le 29 : il faut déposer, l'administration
+instruit, et le délai se compte en semaines. **La colonne principale affiche la
+date à laquelle il faut commencer.**
+
+Quinze natures de documents avec leur délai d'instruction — RCCM, NIF,
+attestations fiscale et CNSS, patente, agrément, assurance, bail, CDD,
+autorisation de travail, carte grise, visite technique, caution bancaire. Ces
+délais sont des points de départ à ajuster : l'expérience réelle d'une
+organisation avec une administration donnée vaut mieux qu'un défaut générique.
+
+Le message dit quoi faire et quand : « à lancer maintenant, 21 jours
+d'instruction pour une échéance dans 25 jours » plutôt que « expire dans
+25 jours ». Une démarche engagée fait taire l'alerte — c'est l'administration
+qu'on attend — mais elle reparle à moins d'une semaine, un dossier pouvant
+dormir sur un bureau.
+
+### Inventaire physique — aveugle, figé, valorisé au coût
+
+**Le comptage est aveugle par défaut.** Devant « théorique 48 », on compte 48 :
+l'écart réel disparaît, et avec lui la seule raison de compter. Le théorique ne
+quitte même pas le serveur pendant le comptage — le masquer à l'écran ne
+servirait à rien, il suffirait d'ouvrir l'inspecteur.
+
+**Le théorique est photographié à l'ouverture**, sans quoi une vente saisie
+pendant le comptage transforme un stock juste en écart.
+
+**L'écart se valorise au coût**, reconstitué en moyenne pondérée sur les entrées
+(le CUMP du SYSCOHADA). Le modèle Produit ne porte qu'un prix de vente :
+valoriser un manquant au prix de vente compterait comme perdue une marge jamais
+gagnée. Sans historique, la ligne reste hors de l'écriture — écrire un montant
+deviné serait pire que ne rien écrire.
+
+Excédents et manquants ne se compensent pas : compenser masquerait un vol de
+trente unités derrière une erreur de saisie de trente autres.
+
+### Budget prévisionnel — comparé au prorata
+
+Comparer trois mois de réalisé à un budget annuel donne toujours l'impression
+d'être sous contrôle. La comparaison se fait contre la part du budget
+correspondant au temps écoulé, et le mois en cours ne compte pas : confronter
+trois semaines de réalisé à un mois entier de budget ferait paraître chaque
+poste en avance sur ses dépenses.
+
+Quatre profils de saisonnalité, dont un « saison sèche » où l'hivernage arrête
+les chantiers. Un budget en douzièmes égaux produit une alerte tous les mois
+creux et un faux calme tous les mois pleins.
+
+Le réalisé vient des écritures comptables, rapproché par préfixe de compte. Un
+budget adossé à un autre total que celui du grand livre finit par diverger.
+Dépasser une ligne de charges est une mauvaise nouvelle, dépasser une ligne de
+produits en est une bonne : un tableau qui peint les deux en rouge apprend à ne
+plus regarder les couleurs.
+
 ## V1.7.0 — Septembre 2026
 
 ### Trois espaces, trois identités
