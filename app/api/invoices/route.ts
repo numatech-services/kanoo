@@ -24,7 +24,13 @@ export const GET = withAuth("invoices", "read", async (req: NextRequest, auth: T
   if (status) filter.status = status;
   if (clientId) filter.clientId = clientId;
   if (overdue === "true") {
-    filter.status = { $in: ["sent", "partial"] };
+    // Même définition que le badge de navigation (/api/nav-counters) : une
+    // facture non soldée dont l'échéance est passée. Le statut littéral
+    // « overdue » (posé par le traitement de nuit) était auparavant exclu, si
+    // bien que le badge annonçait 5 impayés et la liste n'en montrait que 2.
+    // On exclut aussi les avoirs, qui ne sont pas des créances.
+    filter.status = { $in: ["sent", "partial", "overdue"] };
+    filter.documentType = { $ne: "credit_note" };
     filter.dueDate = { $lt: new Date() };
   }
   if (search) {

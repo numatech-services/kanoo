@@ -52,7 +52,7 @@ export default function BudgetPrevisionnelPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch(`/api/budget?year=${year}`, { credentials: "include" })
+    fetch(`/api/budget-previsionnel?year=${year}`, { credentials: "include" })
       .then(r => r.json())
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
@@ -307,7 +307,7 @@ function CreateDialog({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/budget", {
+      const res = await fetch("/api/budget-previsionnel", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
         credentials: "include",
