@@ -31,9 +31,30 @@ const TenantSchema = new Schema<ITenant>(
     activatedAt: Date,
     activationToken: String,
     activationTokenExpiry: Date,
+    /**
+     * Identité visuelle des documents (factures, devis, courriers, réponses
+     * aux appels d'offres). Chaque organisation personnalise ce qui apparaît en
+     * en-tête, en pied, et les couleurs. Le logo est stocké au niveau `logo`
+     * (URL ou data-URI). Tout est optionnel : sans réglage, des valeurs par
+     * défaut sobres s'appliquent.
+     */
     branding: {
       primaryColor: { type: String, default: "#2F3E46" },
       secondaryColor: { type: String, default: "#C9B79C" },
+      /** Afficher le logo en tête de document. */
+      showLogo: { type: Boolean, default: true },
+      /** Slogan ou raison sociale complète, sous le nom. */
+      tagline: String,
+      /** Mentions légales en pied de page (RCCM, capital, siège…). */
+      legalFooter: String,
+      /** Comment régler : coordonnées bancaires, Orange/Moov/Airtel Money. */
+      paymentInstructions: String,
+      /** Conditions par défaut ajoutées aux devis/factures. */
+      defaultTerms: String,
+      /** Apposer un QR de vérification sur les documents générés. */
+      documentQr: { type: Boolean, default: true },
+      /** Disposition de l'en-tête : logo à gauche + infos à droite, ou centré. */
+      headerLayout: { type: String, enum: ["left", "centered"], default: "left" },
     },
     // Numérotation personnalisée — Q5
     documentPrefixes: {

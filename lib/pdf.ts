@@ -22,7 +22,7 @@ export interface PDFTableOptions {
  * Crée un document PDF et retourne son buffer
  */
 export async function createPDFBuffer(
-  render: (doc: InstanceType<typeof import("pdfkit")>) => void,
+  render: (doc: InstanceType<typeof import("pdfkit")>) => void | Promise<void>,
   options?: { landscape?: boolean }
 ): Promise<Buffer> {
   const PDFDocument = (await import("pdfkit")).default;
@@ -39,8 +39,11 @@ export async function createPDFBuffer(
     doc.on("end", () => resolve(Buffer.concat(buffers)));
     doc.on("error", reject);
 
-    render(doc);
-    doc.end();
+    // Le render peut être asynchrone (chargement d'un QR, d'une image) : on
+    // l'attend AVANT de clore le document. L'ancienne version appelait
+    // `doc.end()` aussitôt, si bien que tout ce qui suivait un `await` dans le
+    // render — le QR, notamment — arrivait après la clôture et disparaissait.
+    Promise.resolve(render(doc)).then(() => doc.end()).catch(reject);
   });
 }
 
