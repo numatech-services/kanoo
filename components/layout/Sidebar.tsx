@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useMe } from "@/lib/useMe";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database } from "lucide-react";
 
 type ProfileType = "pme" | "association" | "administration" | "superadmin";
 
@@ -87,6 +87,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
     { label: "Confidentialité", href: "/settings/confidentialite", icon: <FileText size={18} /> },
     { label: "Numérotation", href: "/settings/numbering", icon: <Hash size={18} /> },
+    { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
     { label: "Facture certifiée", href: "/settings/facture-certifiee", icon: <ShieldCheck size={18} /> },
     { label: "Abonnement", href: "/subscription", icon: <Diamond size={18} /> },
     { label: "Support", href: "/support", icon: <Ticket size={18} /> },
@@ -100,6 +101,7 @@ const ASSO_NAV: NavGroup[] = [
     { label: "Agenda", href: "/associations/agenda", icon: <CalendarClock size={18} /> },
     { label: "Activités", href: "/activites", icon: <Calendar size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
+    { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
   ]},
   { section: "Gouvernance", items: [
     { label: "Bureau", href: "/associations/bureau", icon: <Building2 size={18} /> },
@@ -121,6 +123,7 @@ const ADMIN_NAV: NavGroup[] = [
     { label: "Agenda", href: "/administration/agenda", icon: <CalendarClock size={18} /> },
     { label: "Activités", href: "/activites", icon: <Calendar size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
+    { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
   ]},
   { section: "Budget", items: [
     { label: "Chapitres budgétaires", href: "/administration/budget", icon: <PieChart size={18} /> },
