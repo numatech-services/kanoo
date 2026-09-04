@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail } from "lucide-react";
 
 type ProfileType = "pme" | "association" | "administration" | "superadmin";
 
@@ -33,6 +33,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Activités", href: "/activites", icon: <Calendar size={18} /> },
     { label: "Notifications", href: "/notifications", icon: <Bell size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
+    { label: "Courriers", href: "/courriers", icon: <Mail size={18} /> },
   ]},
   { section: "Ventes", items: [
     { label: "Clients", href: "/clients", icon: <Users size={18} /> },

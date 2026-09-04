@@ -293,3 +293,175 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
     drawBrandedFooter(doc, tenant);
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Devis — même structure de lignes que la facture, mais « validité » au lieu
+// d'« échéance » et pas de règlement.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface QuoteForPdf {
+  number?: string;
+  issueDate?: Date | string;
+  validUntil?: Date | string;
+  status?: string;
+  lines?: Array<{ description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; totalTTC?: number }>;
+  totalHT?: number; totalTVA?: number; totalTTC?: number; notes?: string;
+  clientId?: { name?: string; nif?: string; address?: string; phone?: string } | null;
+}
+
+const QUOTE_STATUS_FR: Record<string, string> = {
+  draft: "Brouillon", sent: "Envoyé", accepted: "Accepté", rejected: "Refusé", expired: "Expiré",
+};
+
+/** Dessine le tableau des lignes puis les totaux. Partagé facture / devis. */
+function drawLinesAndTotals(
+  doc: Doc, c: ReturnType<typeof colors>, y: number,
+  lines: Array<{ description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; totalTTC?: number }>,
+  totals: { ht?: number; tva?: number; dts?: number; ttc?: number; totalLabel: string }
+): number {
+  doc.rect(50, y, 495, 22).fill(c.primary);
+  doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(8.5);
+  doc.text("Description", 58, y + 7);
+  doc.text("Qté", 300, y + 7, { width: 34, align: "center" });
+  doc.text("P.U. HT", 340, y + 7, { width: 62, align: "right" });
+  doc.text("TVA", 408, y + 7, { width: 38, align: "center" });
+  doc.text("Total TTC", 452, y + 7, { width: 88, align: "right" });
+  y += 22;
+
+  doc.font("Helvetica").fontSize(8.5);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (y > 700) { doc.addPage(); y = 60; }
+    if (i % 2 === 0) doc.rect(50, y, 495, 20).fill("#F7F7F5");
+    doc.fillColor(c.ink);
+    doc.text(String(line.description || "").slice(0, 58), 58, y + 5, { width: 236 });
+    doc.text(String(line.quantity ?? 0), 300, y + 5, { width: 34, align: "center" });
+    doc.text(num(line.unitPrice || 0), 340, y + 5, { width: 62, align: "right" });
+    doc.text(`${Math.round((line.tvaRate || 0) * 100)} %`, 408, y + 5, { width: 38, align: "center" });
+    doc.text(XOF(line.totalTTC || 0), 452, y + 5, { width: 88, align: "right" });
+    y += 20;
+  }
+
+  y += 14;
+  if (y > 660) { doc.addPage(); y = 60; }
+  doc.moveTo(330, y - 4).lineTo(545, y - 4).strokeColor(c.line).stroke();
+  const row = (label: string, value: string) => {
+    doc.font("Helvetica").fontSize(9).fillColor(c.muted);
+    doc.text(label, 330, y); doc.text(value, 430, y, { width: 115, align: "right" });
+    y += 15;
+  };
+  if ((totals.ht ?? 0) > 0) row("Sous-total HT", XOF(totals.ht!));
+  if ((totals.tva ?? 0) > 0) row("TVA", XOF(totals.tva!));
+  if ((totals.dts ?? 0) > 0) row("Droit de timbre", XOF(totals.dts!));
+
+  doc.rect(330, y, 215, 24).fill(c.primary);
+  doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10);
+  doc.text(totals.totalLabel, 340, y + 7);
+  doc.text(XOF(totals.ttc ?? 0), 430, y + 7, { width: 105, align: "right" });
+  return y + 32;
+}
+
+export async function generateQuotePdf(q: QuoteForPdf, tenant: TenantIdentity): Promise<Buffer> {
+  const c = colors(tenant);
+  const withQr = tenant.branding?.documentQr !== false;
+  const date = q.issueDate ? new Date(q.issueDate).toLocaleDateString("fr-FR") : "";
+
+  return createPDFBuffer(async (doc) => {
+    let y = drawBrandedHeader(doc, tenant, {
+      title: "Devis", number: q.number || "—",
+      lines: [
+        ["Date", date],
+        ...(q.validUntil ? [["Validité", new Date(q.validUntil).toLocaleDateString("fr-FR")] as [string, string]] : []),
+        ["Statut", QUOTE_STATUS_FR[q.status || ""] || q.status || "—"],
+      ],
+    });
+
+    doc.fillColor(c.primary).font("Helvetica-Bold").fontSize(9).text("DESTINATAIRE", 320, y);
+    doc.font("Helvetica").fillColor(c.ink).fontSize(11).text(q.clientId?.name || "Client", 320, y + 13, { width: 225 });
+    let cy = y + 28;
+    doc.fontSize(8.5).fillColor(c.muted);
+    for (const bit of [q.clientId?.nif ? `NIF : ${q.clientId.nif}` : "", q.clientId?.address, q.clientId?.phone]) {
+      if (bit) { doc.text(bit, 320, cy, { width: 225 }); cy += 11; }
+    }
+    y += 56;
+
+    y = drawLinesAndTotals(doc, c, y, q.lines ?? [], {
+      ht: q.totalHT, tva: q.totalTVA, ttc: q.totalTTC, totalLabel: "TOTAL TTC",
+    });
+
+    const terms = q.notes || tenant.branding?.defaultTerms;
+    if (terms) {
+      const ty = Math.min(y + 20, 690);
+      doc.fillColor(c.primary).font("Helvetica-Bold").fontSize(8).text("Conditions", 50, ty);
+      doc.fillColor(c.muted).font("Helvetica").fontSize(8).text(terms, 50, ty + 11, { width: 250 });
+    }
+
+    if (withQr) {
+      await drawDocumentQr(doc, `Kanoo | Devis ${q.number ?? ""} | ${tenant.name ?? ""} | ${XOF(q.totalTTC ?? 0)} | ${date}`,
+        { x: 470, y: 700, size: 74, caption: "Vérification" });
+    }
+    drawBrandedFooter(doc, tenant);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Courrier / correspondance administrative — en-tête de marque, corps libre.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface LetterForPdf {
+  reference?: string;
+  date?: Date | string;
+  place?: string;          // lieu d'émission (ex. « Niamey »)
+  recipient?: string;      // bloc destinataire (multi-lignes)
+  subject?: string;        // objet
+  body?: string;           // corps, paragraphes séparés par des sauts de ligne
+  signatory?: string;      // nom + fonction du signataire
+}
+
+/**
+ * Courrier PDF à la marque de l'organisation. Le corps est libre — c'est ce que
+ * l'assistant IA (rédaction de correspondances) alimentera, mais il se saisit
+ * aussi à la main.
+ */
+export async function generateLetterPdf(letter: LetterForPdf, tenant: TenantIdentity): Promise<Buffer> {
+  const c = colors(tenant);
+  const M = 50;
+  const date = letter.date ? new Date(letter.date).toLocaleDateString("fr-FR") : new Date().toLocaleDateString("fr-FR");
+
+  return createPDFBuffer(async (doc) => {
+    let y = drawBrandedHeader(doc, tenant, {
+      title: "Courrier",
+      number: letter.reference || "",
+      lines: [[letter.place ? "Fait à" : "Date", letter.place ? `${letter.place}, le ${date}` : date]],
+    });
+
+    // Bloc destinataire, aligné à droite.
+    if (letter.recipient) {
+      doc.fillColor(c.ink).font("Helvetica").fontSize(10)
+        .text(letter.recipient, 320, y, { width: 225, align: "left" });
+      y += 14 * (letter.recipient.split("\n").length + 1);
+    }
+    y += 10;
+
+    if (letter.subject) {
+      doc.fillColor(c.primary).font("Helvetica-Bold").fontSize(10.5)
+        .text(`Objet : ${letter.subject}`, M, y, { width: 495 });
+      y += 26;
+    }
+
+    doc.fillColor(c.ink).font("Helvetica").fontSize(10.5);
+    for (const para of String(letter.body || "").split(/\n{2,}/)) {
+      if (y > 720) { doc.addPage(); y = 60; }
+      doc.text(para.trim(), M, y, { width: 495, align: "left", lineGap: 3 });
+      y = doc.y + 12;
+    }
+
+    if (letter.signatory) {
+      y = Math.max(y + 20, 660);
+      doc.font("Helvetica").fontSize(10).fillColor(c.ink)
+        .text(letter.signatory, 330, y, { width: 215, align: "left" });
+    }
+
+    drawBrandedFooter(doc, tenant);
+  });
+}

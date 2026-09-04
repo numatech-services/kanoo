@@ -4,7 +4,8 @@ import { ClientModel } from "@/models/Client";
 import { InvoiceModel } from "@/models/Invoice";
 import { PaymentModel } from "@/models/Payment";
 import { TenantModel } from "@/models/Tenant";
-import { createPDFBuffer, addTable, addFooter } from "@/lib/pdf";
+import { createPDFBuffer, addTable } from "@/lib/pdf";
+import { drawBrandedHeader, drawBrandedFooter, type TenantIdentity } from "@/lib/pdf-document";
 import {
   buildStatement, withOpenItems, summarySentence, KIND_LABEL,
   type StatementSource, type OpenItem,
@@ -48,9 +49,8 @@ export const GET = withAuth("clients", "read", async (req: NextRequest, auth: To
                     paidAmount?: number; creditedAmount?: number }>>(),
     PaymentModel.find(scope).select("date amount reference method").sort({ date: 1 }).limit(3_000)
       .lean<Array<{ _id: unknown; date: Date; amount: number; reference?: string; method?: string }>>(),
-    TenantModel.findById(auth.tenantId).select("name address phone email nif rccm")
-      .lean<{ name?: string; address?: string; phone?: string; email?: string;
-              nif?: string; rccm?: string } | null>(),
+    TenantModel.findById(auth.tenantId).select("name logo branding address phone email nif rccm")
+      .lean<TenantIdentity | null>(),
   ]);
 
   const sources: StatementSource[] = [
@@ -84,32 +84,22 @@ export const GET = withAuth("clients", "read", async (req: NextRequest, auth: To
   const statement = withOpenItems(buildStatement(sources, openingBalance, from, to), openItems, to);
   const t = statement.totals;
 
+  const brand = tenant ?? { name: "Relevé de compte" };
   const pdf = await createPDFBuffer((doc) => {
-    // ── En-tête ──
-    doc.fontSize(16).font("Helvetica-Bold").fillColor("#0B1020")
-      .text(tenant?.name || "Relevé de compte", 50, 50);
-    doc.fontSize(8).font("Helvetica").fillColor("#6B705C");
-    if (tenant?.address) doc.text(tenant.address, 50, doc.y + 2);
-    const idLine = [tenant?.nif && `NIF ${tenant.nif}`, tenant?.rccm && `RCCM ${tenant.rccm}`,
-                    tenant?.phone, tenant?.email].filter(Boolean).join(" · ");
-    if (idLine) doc.text(idLine);
-
-    doc.fontSize(14).font("Helvetica-Bold").fillColor("#0B1020")
-      .text("RELEVÉ DE COMPTE", 50, 110);
-    doc.fontSize(9).font("Helvetica").fillColor("#6B705C")
-      .text(`Période du ${fr(from)} au ${fr(to)}`, 50, doc.y + 2);
-
-    // ── Client ──
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#0B1020").text("Client", 340, 110);
-    doc.font("Helvetica").text(client.name, 340, doc.y + 2, { width: 205 });
-    if (client.code) doc.fillColor("#6B705C").text(`Code ${client.code}`, 340, doc.y);
-    if (client.nif) doc.text(`NIF ${client.nif}`, 340, doc.y);
-    if (client.address) doc.text(client.address, 340, doc.y, { width: 205 });
+    // En-tête à la marque de l'organisation (logo, couleurs, identité).
+    let y = drawBrandedHeader(doc, brand, {
+      title: "Relevé de compte",
+      number: client.name,
+      lines: [
+        ["Période", `${fr(from)} – ${fr(to)}`],
+        ...(client.code ? [["Code client", client.code] as [string, string]] : []),
+        ...(client.nif ? [["NIF", client.nif] as [string, string]] : []),
+      ],
+    });
 
     // ── Synthèse ──
     // La phrase avant les colonnes : un relevé qu'on n'a pas le temps de lire
     // ne se paie pas.
-    let y = 180;
     doc.rect(50, y, 495, 34).fillColor("#F3EFE7").fill();
     doc.fontSize(9).font("Helvetica-Bold").fillColor("#0B1020")
       .text(summarySentence(t), 60, y + 11, { width: 475 });
@@ -163,7 +153,7 @@ export const GET = withAuth("clients", "read", async (req: NextRequest, auth: To
         );
     }
 
-    addFooter(doc);
+    drawBrandedFooter(doc, brand);
   });
 
   await logAudit(auth, "EXPORT", "clients", {

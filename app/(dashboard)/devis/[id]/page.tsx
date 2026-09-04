@@ -91,9 +91,15 @@ export default function DevisDetailPage() {
           <h1 className="text-3xl font-black text-ink mt-1 uppercase tracking-tighter italic">{item.number}</h1>
           <StatusBadge status={item.status} />
         </div>
-        <button onClick={() => setEditOpen(true)} className="px-6 py-2.5 bg-ink text-white rounded-2xl font-bold shadow-lg hover:scale-105 transition-all">
-          Modifier le devis
-        </button>
+        <div className="flex items-center gap-2">
+          <a href={`/api/devis/${item._id}/pdf`} target="_blank" rel="noopener"
+            className="px-5 py-2.5 border border-line2 rounded-2xl font-bold text-ink2 hover:bg-surface2 transition-all">
+            PDF
+          </a>
+          <button onClick={() => setEditOpen(true)} className="px-6 py-2.5 bg-ink text-white rounded-2xl font-bold shadow-lg hover:scale-105 transition-all">
+            Modifier le devis
+          </button>
+        </div>
       </div>
 
       {/* MODE VUE : AFFICHAGE DE TOUS LES DÉTAILS */}

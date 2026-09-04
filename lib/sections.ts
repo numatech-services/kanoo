@@ -129,6 +129,7 @@ const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
   ["/activites", "accueil"],
   ["/notifications", "accueil"],
   ["/messages", "accueil"],
+  ["/courriers", "accueil"],
 ];
 
 /** Section d'un chemin. `accueil` par défaut, jamais `undefined`. */
