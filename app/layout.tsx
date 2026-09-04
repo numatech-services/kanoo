@@ -37,6 +37,30 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
+        {/*
+          CSP posée en balise <meta>, et non seulement par en-tête HTTP.
+
+          Le CDN d'Hostinger (server: hcdn) remplace l'en-tête
+          Content-Security-Policy de l'application par sa propre
+          « upgrade-insecure-requests », annulant notre politique. Le CDN ne
+          réécrit en revanche pas le corps HTML : une CSP en <meta> est donc
+          appliquée par le navigateur quoi que fasse l'edge.
+
+          `frame-ancestors` et `report-uri` ne sont pas gérés en <meta> — le
+          premier reste couvert par l'en-tête X-Frame-Options: DENY, qui, lui,
+          traverse le CDN. Les autres directives (sources de scripts, styles,
+          polices, connexions, formulaires) sont bien restaurées ici.
+        */}
+        <meta
+          httpEquiv="Content-Security-Policy"
+          content={
+            "default-src 'self'; img-src 'self' data: blob:; " +
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+            "font-src 'self' https://fonts.gstatic.com data:; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; " +
+            "base-uri 'self'; form-action 'self'"
+          }
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href={FONTS_HREF} />
