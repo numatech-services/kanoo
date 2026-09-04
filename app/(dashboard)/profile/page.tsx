@@ -25,9 +25,10 @@ export default function ProfilePage() {
   async function save() {
     setSaving(true); setError(null); setNotice(null);
     try {
+      const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
       const res = await fetch("/api/auth/me", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
         credentials: "include",
         body: JSON.stringify({ firstName: form.firstName, lastName: form.lastName, phone: form.phone }),
       });

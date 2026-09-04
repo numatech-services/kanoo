@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/api-helpers";
+import { verifyCsrf, CSRF_MESSAGES } from "@/lib/csrf";
 import { connectDB } from "@/lib/db";
 import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
@@ -30,6 +31,12 @@ export async function PATCH(req: NextRequest) {
   try {
     const auth = getAuthContext(req);
     if (!auth) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+
+    // CSRF : harmonisé avec le reste des mutations. Une requête par cookie doit
+    // présenter le jeton double-submit ; une requête par Bearer en est exemptée
+    // (verifyCsrf le gère), comme partout ailleurs.
+    const verdict = verifyCsrf(req);
+    if (verdict !== "ok") return NextResponse.json({ error: CSRF_MESSAGES[verdict] }, { status: 403 });
 
     const body = await req.json();
     
