@@ -4,6 +4,7 @@ import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { SupportButton } from "@/components/shared/SupportButton";
 import { SectionScope } from "@/components/layout/SectionScope";
 import { CommandPalette } from "@/components/shared/CommandPalette";
+import { IdleTimeout } from "@/components/shared/IdleTimeout";
 
 export default function AssociationsLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +20,7 @@ export default function AssociationsLayout({ children }: { children: React.React
       <CommandPalette />
       <OfflineBanner />
       <SupportButton />
+      <IdleTimeout />
     </div>
     </SectionScope>
   );

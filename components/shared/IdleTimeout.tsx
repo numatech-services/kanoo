@@ -36,6 +36,17 @@ export function IdleTimeout() {
   useEffect(() => {
     writeLast(now());
 
+    // Battement : prolonge la session glissante côté serveur. Appelé au montage
+    // puis sur activité réelle (throttlé 60 s) — surtout pas sur les requêtes de
+    // fond, sinon le sondage des notifications ferait passer un poste inactif
+    // pour actif.
+    let lastPing = 0;
+    function ping() {
+      lastPing = now();
+      fetch("/api/auth/ping", { method: "POST", credentials: "include" }).catch(() => {});
+    }
+    ping();
+
     async function logout(reason: "idle" | "peer") {
       if (loggingOut.current) return;
       loggingOut.current = true;
@@ -53,9 +64,12 @@ export function IdleTimeout() {
     let lastWrite = 0;
     function onActivity() {
       const t = now();
-      // Écriture throttlée (5 s). Le battement (toutes les 2 s) relit l'horodatage
-      // et masque l'avertissement dès que l'inactivité repasse sous le seuil.
+      // Écriture throttlée (5 s). Le battement local (toutes les 2 s) relit
+      // l'horodatage et masque l'avertissement dès que l'inactivité repasse
+      // sous le seuil.
       if (t - lastWrite > 5_000) { writeLast(t); lastWrite = t; }
+      // Ping serveur throttlé (60 s) : prolonge la session glissante.
+      if (t - lastPing > 60_000) ping();
     }
 
     // Un autre onglet s'est déconnecté → on suit.
@@ -86,6 +100,8 @@ export function IdleTimeout() {
 
   function stayConnected() {
     writeLast(now());
+    // Prolonge aussi la session côté serveur, sans attendre le prochain geste.
+    fetch("/api/auth/ping", { method: "POST", credentials: "include" }).catch(() => {});
     setRemaining(null);
   }
 

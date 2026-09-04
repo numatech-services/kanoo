@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { SectionScope } from "@/components/layout/SectionScope";
 import { CommandPalette } from "@/components/shared/CommandPalette";
+import { IdleTimeout } from "@/components/shared/IdleTimeout";
 
 // CONFIGURATION DES VIEWPORTS (Pour supprimer les warnings ⚠ dans tes logs)
 export const viewport = {
@@ -30,6 +31,7 @@ export default function SaasLayout({ children }: { children: React.ReactNode }) 
         </main>
       </div>
       <CommandPalette />
+      <IdleTimeout />
     </div>
     </SectionScope>
   );

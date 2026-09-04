@@ -1,9 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { signToken, generateCsrfToken, TokenPayload } from "./auth";
 import { CSRF_COOKIE } from "./csrf";
 
-/** Durée de vie de la session, alignée sur JWT_EXPIRES_IN (8 h par défaut). */
-const SESSION_MAX_AGE_S = 60 * 60 * 8;
+/**
+ * Session GLISSANTE : le cookie ne vit qu'une fenêtre d'inactivité
+ * (SESSION_IDLE_MINUTES, 5 min par défaut), prolongée à chaque battement
+ * d'activité (/api/auth/ping). Sans activité, le navigateur le laisse expirer
+ * et la requête suivante n'est plus authentifiée — la déconnexion est alors
+ * imposée côté serveur, indépendamment du minuteur côté client.
+ *
+ * Le jeton (JWT) garde son expiration propre (JWT_EXPIRES_IN, 8 h) comme borne
+ * dure : le battement ne réémet pas le jeton, il ne fait que repousser
+ * l'échéance du cookie.
+ */
+const SESSION_IDLE_MINUTES = Number(process.env.SESSION_IDLE_MINUTES || "5");
+const SESSION_MAX_AGE_S = Math.max(60, SESSION_IDLE_MINUTES * 60);
 
 /**
  * Construit la charge utile d'une session à partir de l'utilisateur et de son
@@ -61,6 +72,30 @@ export function setSessionCookies(
   response.cookies.set(CSRF_COOKIE, csrfToken, {
     httpOnly: false, secure: isProd, sameSite: "lax", maxAge: SESSION_MAX_AGE_S, path: "/",
   });
+}
+
+/**
+ * Prolonge la session glissante : réémet auth_token et csrf_token avec la MÊME
+ * valeur mais une échéance de cookie rafraîchie. On ne re-signe pas le jeton
+ * (l'expiration dure de 8 h reste celle de la connexion) et on ne change pas le
+ * jeton CSRF (les requêtes en vol continuent de fonctionner). Renvoie `false`
+ * s'il n'y a pas de session à prolonger.
+ */
+export function refreshSessionCookies(req: NextRequest, response: NextResponse): boolean {
+  const token = req.cookies.get("auth_token")?.value;
+  if (!token) return false;
+  const csrf = req.cookies.get(CSRF_COOKIE)?.value;
+  const isProd = process.env.NODE_ENV === "production";
+
+  response.cookies.set("auth_token", token, {
+    httpOnly: true, secure: isProd, sameSite: "lax", maxAge: SESSION_MAX_AGE_S, path: "/",
+  });
+  if (csrf) {
+    response.cookies.set(CSRF_COOKIE, csrf, {
+      httpOnly: false, secure: isProd, sameSite: "lax", maxAge: SESSION_MAX_AGE_S, path: "/",
+    });
+  }
+  return true;
 }
 
 /** Efface les cookies de session. */
