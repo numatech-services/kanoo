@@ -26,6 +26,7 @@
     "indexes": "tsx scripts/ensure-indexes.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.123.0",
     "bcryptjs": "^2.4.3",
     "html5-qrcode": "^2.3.8",
     "jose": "^6.2.1",

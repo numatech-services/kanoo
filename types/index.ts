@@ -32,6 +32,8 @@ export interface ITenant {
   preferredLanguage?: "fr" | "en";
   /** Identité de facturation certifiée (SECeF Niger). */
   secef?: { isf?: string; mcfId?: string; certifiedSince?: Date };
+  /** Quota mensuel de l'assistant IA — voir lib/ai-quota.ts. */
+  aiUsage?: { month?: string; count?: number; monthlyQuota?: number | null };
   documentPrefixes?: DocumentPrefixes;
   documentSequences?: DocumentSequences;
   numberingConfig?: NumberingConfig;

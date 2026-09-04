@@ -84,6 +84,19 @@ const TenantSchema = new Schema<ITenant>(
       /** Date d'obtention du certificat de conformité. */
       certifiedSince: Date,
     },
+
+    /**
+     * Consommation de l'assistant IA rédactionnel — quota mensuel par
+     * organisation. `month` est au format « AAAA-MM » ; le compteur repart à
+     * zéro dès qu'un mois différent est constaté (réservation atomique côté
+     * lib/ai-quota). `monthlyQuota` surcharge le plafond global (AI_MONTHLY_QUOTA)
+     * pour cette organisation ; à `null`, c'est le plafond global qui s'applique.
+     */
+    aiUsage: {
+      month: String,
+      count: { type: Number, default: 0 },
+      monthlyQuota: { type: Number, default: null },
+    },
   },
   { timestamps: true }
 );
