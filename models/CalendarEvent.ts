@@ -25,6 +25,7 @@ export interface ICalendarEvent {
   visibility: "personal" | "shared";
   participants: Types.ObjectId[];
   status: "planned" | "done" | "cancelled";
+  shareToken?: string;
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -50,6 +51,8 @@ const CalendarEventSchema = new Schema<ICalendarEvent>(
     /** Participants conviés : ils voient l'entrée même si elle est personnelle. */
     participants: { type: [Schema.Types.ObjectId], ref: "User", default: [] },
     status: { type: String, enum: ["planned", "done", "cancelled"], default: "planned" },
+    /** Jeton d'un lien de réunion partageable (public, en lecture seule). */
+    shareToken: { type: String },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true }
@@ -60,6 +63,8 @@ CalendarEventSchema.index({ tenantId: 1, startAt: 1 });
 // Agenda personnel et agendas partagés.
 CalendarEventSchema.index({ tenantId: 1, ownerId: 1, startAt: 1 });
 CalendarEventSchema.index({ tenantId: 1, visibility: 1, startAt: 1 });
+// Résolution d'un lien public : unique là où le jeton existe.
+CalendarEventSchema.index({ shareToken: 1 }, { unique: true, partialFilterExpression: { shareToken: { $type: "string" } } });
 
 export const CalendarEventModel =
   models.CalendarEvent || model<ICalendarEvent>("CalendarEvent", CalendarEventSchema);

@@ -13,6 +13,7 @@ export interface AgendaItem {
   color?: string;
   visibility: "personal" | "shared";
   status?: "planned" | "done" | "cancelled";
+  shareToken?: string;
   ownerId?: { _id?: string; firstName?: string; lastName?: string } | string;
   participants?: Array<{ _id?: string; firstName?: string; lastName?: string }>;
 }
