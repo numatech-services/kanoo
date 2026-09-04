@@ -117,6 +117,15 @@ InvoiceSchema.index({ tenantId: 1, documentType: 1, issueDate: -1 });
 InvoiceSchema.index({ tenantId: 1, originalInvoiceId: 1 });
 // Le code SECeF est unique par organisation : deux factures ne peuvent pas
 // porter la même certification. `sparse` laisse coexister les non certifiées.
-InvoiceSchema.index({ tenantId: 1, "secef.code": 1 }, { unique: true, sparse: true });
+// Index PARTIEL, et non `sparse` : sur un champ imbriqué, sparse indexe aussi
+// les documents dont `secef.code` vaut `null` (le cas des factures non
+// certifiées, que Mongoose matérialise à null). Deux factures non certifiées
+// entraient alors en collision d'unicité — et l'index ne pouvait même pas se
+// construire en présence de plusieurs nulls. Le filtre partiel ne retient que
+// les factures qui portent un vrai code SECeF.
+InvoiceSchema.index(
+  { tenantId: 1, "secef.code": 1 },
+  { unique: true, partialFilterExpression: { "secef.code": { $type: "string" } } }
+);
 
 export const InvoiceModel = models.Invoice || model<IInvoice>("Invoice", InvoiceSchema);

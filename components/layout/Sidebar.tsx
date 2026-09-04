@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck } from "lucide-react";
 
 type ProfileType = "pme" | "association" | "administration" | "superadmin";
 
@@ -50,6 +50,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Stock", href: "/stock", icon: <Warehouse size={18} /> },
     { label: "Inventaires", href: "/inventaires", icon: <ClipboardCheck size={18} /> },
     { label: "Marchés", href: "/marches", icon: <Scroll size={18} /> },
+    { label: "Marchés-cadres", href: "/marches-cadres", icon: <PackageCheck size={18} /> },
   ]},
   { section: "Abonnements", items: [
     { label: "Portefeuille", href: "/abonnements", icon: <Repeat size={18} /> },

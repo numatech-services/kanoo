@@ -49,7 +49,10 @@ async function main() {
   for (const model of models) {
     const name = model.modelName;
     try {
-      await model.createIndexes();
+      // syncIndexes réconcilie les index avec le schéma : il crée les manquants
+      // ET supprime/recrée ceux dont les options ont changé (ex. passage de
+      // sparse à partiel). createIndexes seul échouait sur un tel changement.
+      await model.syncIndexes();
       const indexes = await model.collection.indexes();
       const unique = indexes.filter(i => i.unique).map(i => i.name).join(", ");
       console.log(`  ✓ ${name.padEnd(24)} ${indexes.length} index${unique ? ` (unique : ${unique})` : ""}`);
