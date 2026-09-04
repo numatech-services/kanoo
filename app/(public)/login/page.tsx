@@ -14,7 +14,7 @@
  * aucune route serveur (cf. rapport, M-5). À implémenter côté API ou à retirer.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, AlertCircle, Check } from "lucide-react";
 
@@ -26,6 +26,15 @@ export default function LoginPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
   const [twoFactor, setTwoFactor] = useState(false);
   const [code, setCode] = useState("");
+  const [notice, setNotice] = useState("");
+
+  // Message d'inactivité : lu depuis la query (?reason=idle) après montage, pour
+  // éviter la frontière Suspense qu'imposerait useSearchParams.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("reason") === "idle") {
+      setNotice("Vous avez été déconnecté pour inactivité. Reconnectez-vous.");
+    }
+  }, []);
 
   function redirect(role: string) {
     window.location.href = role === "superadmin" ? "/saas/dashboard" : "/dashboard";
@@ -162,6 +171,13 @@ export default function LoginPage() {
           </div>
           <h1 className="text-[22px] font-bold tracking-tight">Connexion</h1>
           <p className="text-ink2 text-sm mt-1 mb-6">Accédez à votre espace de gestion.</p>
+
+          {notice && !error && (
+            <div role="status" className="flex gap-2.5 items-start bg-surface2 border border-line text-ink2 text-xs px-3 py-2.5 rounded-sm mb-4">
+              <AlertCircle size={15} className="flex-none mt-0.5" />
+              <span>{notice}</span>
+            </div>
+          )}
 
           {error && (
             <div role="alert" className="flex gap-2.5 items-start bg-neg-50 border border-neg/25 text-neg text-xs px-3 py-2.5 rounded-sm mb-4">
