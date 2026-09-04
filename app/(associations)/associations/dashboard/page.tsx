@@ -15,6 +15,7 @@ import {
   Megaphone
 } from "lucide-react";
 import Link from "next/link";
+import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
 
 interface DashboardStats {
   activeMembers: number;
@@ -125,8 +126,10 @@ export default function AssoDashboardPage() {
         ))}
       </div>
 
+      <UpcomingAgenda agendaHref="/associations/agenda" />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* ANALYSE FINANCIÈRE */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-surface rounded-[2.5rem] border border-line overflow-hidden shadow-sm">

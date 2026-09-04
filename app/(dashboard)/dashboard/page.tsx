@@ -6,6 +6,7 @@ import { CashflowChart } from "@/components/pme/CashflowChart";
 import { AlertsPanel } from "@/components/shared/AlertsPanel";
 import { DashboardHero } from "@/components/pme/DashboardHero";
 import { UpcomingEvents } from "@/components/shared/UpcomingEvents";
+import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
 
 export const metadata = { title: "Tableau de bord" };
 
@@ -34,6 +35,7 @@ export default function DashboardPage() {
           <Suspense fallback={<div className="h-48 bg-surface rounded-xl border border-line animate-pulse" />}>
             <AlertsPanel />
           </Suspense>
+          <UpcomingAgenda agendaHref="/agenda" />
           <UpcomingEvents />
           <Suspense fallback={<div className="h-48 bg-surface rounded-xl border border-line animate-pulse" />}>
             <RecentDeliveries />

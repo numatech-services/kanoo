@@ -398,6 +398,16 @@ for (const [role, actions] of Object.entries(EVENTS_BY_ROLE)) {
 }
 
 /**
+ * Agenda : universel. Chaque collaborateur gère son propre agenda et voit les
+ * agendas partagés de l'organisation, indépendamment de ses droits métier.
+ * L'API borne ensuite la portée (on ne modifie que ses propres entrées).
+ */
+const AGENDA_ALL: Action[] = ["create", "read", "update", "delete"];
+for (const perms of Object.values(ROLE_PERMISSIONS)) {
+  perms.agenda = AGENDA_ALL;
+}
+
+/**
  * `allowedResources` **restreint**, il n'accorde jamais.
  *
  * Ce champ est modifiable par un administrateur de tenant ; s'il pouvait

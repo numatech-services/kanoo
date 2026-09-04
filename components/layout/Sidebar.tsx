@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useMe } from "@/lib/useMe";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock } from "lucide-react";
 
 type ProfileType = "pme" | "association" | "administration" | "superadmin";
 
@@ -31,6 +31,7 @@ interface NavGroup {
 const PME_NAV: NavGroup[] = [
   { section: "Accueil", items: [
     { label: "Tableau de bord", href: "/dashboard", icon: <LayoutDashboard size={18} /> },
+    { label: "Agenda", href: "/agenda", icon: <CalendarClock size={18} /> },
     { label: "Activités", href: "/activites", icon: <Calendar size={18} /> },
     { label: "Notifications", href: "/notifications", icon: <Bell size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
@@ -96,6 +97,7 @@ const PME_NAV: NavGroup[] = [
 const ASSO_NAV: NavGroup[] = [
   { section: "Accueil", items: [
     { label: "Tableau de bord", href: "/associations/dashboard", icon: <LayoutDashboard size={18} /> },
+    { label: "Agenda", href: "/associations/agenda", icon: <CalendarClock size={18} /> },
     { label: "Activités", href: "/activites", icon: <Calendar size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
   ]},
@@ -116,6 +118,7 @@ const ASSO_NAV: NavGroup[] = [
 const ADMIN_NAV: NavGroup[] = [
   { section: "Accueil", items: [
     { label: "Tableau de bord", href: "/administration/dashboard", icon: <LayoutDashboard size={18} /> },
+    { label: "Agenda", href: "/administration/agenda", icon: <CalendarClock size={18} /> },
     { label: "Activités", href: "/activites", icon: <Calendar size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
   ]},

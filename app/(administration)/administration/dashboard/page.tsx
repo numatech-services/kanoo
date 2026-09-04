@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
 
 interface BudgetChapter { _id: string; code: string; label: string; allocatedAmount: number; engagedAmount: number; paidAmount: number; }
 interface Engagement { _id: string; reference: string; description: string; amount: number; status: string; createdAt: string; }
@@ -121,6 +122,8 @@ export default function AdminDashboardPage() {
           </Link>
         ))}
       </div>
+
+      <UpcomingAgenda agendaHref="/administration/agenda" />
 
       {/* Taux d'exécution budgétaire par chapitre */}
       <div className="bg-surface rounded-xl border border-line p-6">
