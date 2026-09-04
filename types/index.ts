@@ -497,6 +497,8 @@ export interface IGeneralAssembly {
   attendees: Types.ObjectId[];
   decisions: Array<{ text: string; votes: { for: number; against: number; abstain: number }; passed: boolean }>;
   pvDocumentId?: Types.ObjectId;
+  /** Procès-verbal joint (data-URI). */
+  pvFile?: { name?: string; dataUri?: string; uploadedAt?: Date };
   createdAt: Date;
 }
 

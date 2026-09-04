@@ -7,7 +7,7 @@ import { TokenPayload } from "@/lib/auth";
 export const GET = withAuth("assemblee", "read", async (req: NextRequest, auth: TokenPayload) => {
   const pagination = getPagination(req);
   const [items, total] = await Promise.all([
-    GeneralAssemblyModel.find({ ...tenantFilter(auth) }).sort({ date: -1 }).skip(pagination.skip).limit(pagination.limit).lean(),
+    GeneralAssemblyModel.find({ ...tenantFilter(auth) }).select("-pvFile").sort({ date: -1 }).skip(pagination.skip).limit(pagination.limit).lean(),
     GeneralAssemblyModel.countDocuments({ ...tenantFilter(auth) }),
   ]);
   return paginatedResponse(items, total, pagination);

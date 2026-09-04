@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { errorMessage } from "@/lib/errors";
-import { Plus, Trash2, Award, Ban, FileCheck, Landmark } from "lucide-react";
+import { Plus, Trash2, Award, Ban, FileCheck, Landmark, Users } from "lucide-react";
 
 interface Bid { _id?: string; bidderName: string; amount: number; compliant?: boolean; notes?: string }
 interface Tender {
@@ -14,8 +14,10 @@ interface Tender {
   publishDate?: string; bidsDeadline?: string; openingDate?: string; attributionDate?: string;
   winnerId?: string; winnerName?: string; winnerAmount?: number;
   budgetChapterId?: string; bids?: Bid[]; cancelReason?: string; engagementId?: string;
+  commissionMemberIds?: string[];
 }
 interface Chapter { _id: string; code: string; label: string }
+interface DirUser { _id: string; firstName?: string; lastName?: string }
 
 const fmt = (n?: number) => `${(n || 0).toLocaleString("fr-FR")} XOF`;
 const dt = (d?: string) => (d ? new Date(d).toLocaleDateString("fr-FR") : "—");
@@ -42,6 +44,7 @@ export default function TenderDetailPage() {
   const router = useRouter();
   const [tender, setTender] = useState<Tender | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [dir, setDir] = useState<DirUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [newBid, setNewBid] = useState<Bid>({ bidderName: "", amount: 0, compliant: true });
   const [winnerBidId, setWinnerBidId] = useState("");
@@ -54,7 +57,15 @@ export default function TenderDetailPage() {
   useEffect(() => {
     fetch("/api/budget", { credentials: "include" }).then((r) => r.json())
       .then((d) => setChapters(Array.isArray(d.data) ? d.data : d.data?.items || [])).catch(() => {});
+    fetch("/api/agenda/directory", { credentials: "include" }).then((r) => r.json())
+      .then((d) => d.success && setDir(d.data)).catch(() => {});
   }, []);
+
+  function toggleCommissioner(uid: string) {
+    const current = tender?.commissionMemberIds || [];
+    const next = current.includes(uid) ? current.filter((x) => x !== uid) : [...current, uid];
+    patch({ commissionMemberIds: next }, "Commission mise à jour");
+  }
 
   async function patch(updates: Partial<Tender>, msg = "Marché mis à jour") {
     setLoading(true);
@@ -174,6 +185,28 @@ export default function TenderDetailPage() {
                 {chapters.map((c) => <option key={c._id} value={c._id}>{c.code} — {c.label}</option>)}
               </select>
             </div>
+          </div>
+
+          {/* Commission d'évaluation */}
+          <div className="bg-surface rounded-2xl border border-line p-6">
+            <h2 className="text-lg font-bold text-ink mb-3 border-b border-line pb-2 flex items-center gap-2"><Users size={18} /> Commission d'évaluation</h2>
+            {dir.length === 0 ? (
+              <p className="text-sm text-ink3">Chargement des membres…</p>
+            ) : (
+              <div className="max-h-40 overflow-y-auto rounded-lg border border-line2 divide-y divide-line">
+                {dir.map((u) => {
+                  const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || "Sans nom";
+                  const on = (tender.commissionMemberIds || []).includes(u._id);
+                  return (
+                    <label key={u._id} className={`flex items-center gap-2 px-3 py-1.5 text-sm ${terminal ? "opacity-60" : "cursor-pointer hover:bg-surface2/40"}`}>
+                      <input type="checkbox" className="accent-section" checked={on} disabled={terminal} onChange={() => toggleCommissioner(u._id)} />
+                      <span className="text-ink">{name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            {(tender.commissionMemberIds || []).length > 0 && <p className="mt-1 text-[11px] text-ink3">{tender.commissionMemberIds!.length} membre(s) de commission désigné(s).</p>}
           </div>
 
           {/* Dépouillement des plis */}
