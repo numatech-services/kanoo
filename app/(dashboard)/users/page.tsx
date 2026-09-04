@@ -19,6 +19,7 @@ interface User {
   lastName: string;
   email: string;
   role: string;
+  roles?: string[];
   isActive: boolean;
   lastLoginAt?: string;
   mustChangePassword?: boolean;
@@ -203,7 +204,6 @@ export default function UsersPage() {
                   <tr><td colSpan={6} className="py-10 text-center text-ink3">Aucun compte.</td></tr>
                 )}
                 {shown.map(user => {
-                  const description = ROLE_UI[user.role as UserRole];
                   const linked = employees.find(e => e.userId === user._id);
                   return (
                     <tr key={user._id}>
@@ -219,24 +219,41 @@ export default function UsersPage() {
                         </span>
                       </td>
                       <td>
-                        <select value={user.role}
-                          onChange={e => patch(user, { role: e.target.value })}
-                          className="h-8 px-2 rounded border border-line2 bg-surface text-xs text-ink max-w-[13rem]">
-                          {roles.map(r => (
-                            <option key={r} value={r}>{ROLE_UI[r]?.label ?? r}</option>
-                          ))}
-                          {!roles.includes(user.role as UserRole) && (
-                            <option value={user.role}>{roleLabel(user.role)}</option>
-                          )}
-                        </select>
-                        {description && (
-                          <p className="text-[11px] text-ink3 mt-1 max-w-[15rem] leading-snug">
-                            {description.summary}
-                            {description.cannot && (
-                              <span className="block text-warn">{description.cannot}</span>
-                            )}
-                          </p>
-                        )}
+                        {/* Multi-rôle : une personne cumule comptable + RH + achats.
+                            Les puces montrent l'existant ; les cases modifient. */}
+                        {(() => {
+                          const current = user.roles?.length ? user.roles : [user.role];
+                          return (
+                            <>
+                              <span className="flex flex-wrap gap-1 mb-1 max-w-[15rem]">
+                                {current.map(r => (
+                                  <span key={r} className="pill pill-section">{ROLE_UI[r as UserRole]?.label ?? roleLabel(r)}</span>
+                                ))}
+                              </span>
+                              <details className="text-xs">
+                                <summary className="cursor-pointer text-section hover:underline select-none">Modifier les rôles</summary>
+                                <div className="mt-1.5 p-2 rounded-lg border border-line bg-surface2 grid gap-1 max-h-52 overflow-y-auto max-w-[15rem]">
+                                  {roles.map(r => {
+                                    const checked = current.includes(r);
+                                    return (
+                                      <label key={r} className="flex items-center gap-2 cursor-pointer text-ink2">
+                                        <input type="checkbox" checked={checked} className="accent-section"
+                                          onChange={e => {
+                                            const next = e.target.checked
+                                              ? [...current, r]
+                                              : current.filter(x => x !== r);
+                                            if (next.length === 0) { setError("Au moins un rôle par collaborateur."); return; }
+                                            patch(user, { roles: next });
+                                          }} />
+                                        <span>{ROLE_UI[r]?.label ?? r}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </details>
+                            </>
+                          );
+                        })()}
                       </td>
                       <td>
                         {/* Sans ce rattachement, « mes notes de frais » ne sait pas
@@ -352,15 +369,18 @@ function InviteDialog({
   open, onClose, roles, onCreated,
 }: { open: boolean; onClose: () => void; roles: UserRole[]; onCreated: () => void }) {
   const [form, setForm] = useState({
-    firstName: "", lastName: "", email: "", password: "", role: roles[0] ?? "pme_viewer",
+    firstName: "", lastName: "", email: "", password: "",
+    roles: [roles[0] ?? "pme_viewer"] as string[],
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const description = ROLE_UI[form.role as UserRole];
+  // Le premier rôle coché sert de rôle principal ; son descriptif éclaire le choix.
+  const description = ROLE_UI[form.roles[0] as UserRole];
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (form.roles.length === 0) { setError("Choisissez au moins un rôle."); return; }
     setSaving(true);
     setError(null);
     try {
@@ -401,11 +421,25 @@ function InviteDialog({
             onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
         </FormField>
 
-        <FormField label="Rôle" required>
-          <select className={selectCls} value={form.role}
-            onChange={e => setForm(f => ({ ...f, role: e.target.value as UserRole }))}>
-            {roles.map(r => <option key={r} value={r}>{ROLE_UI[r]?.label ?? r}</option>)}
-          </select>
+        <FormField label="Rôles" required
+          hint="Une personne peut en cumuler plusieurs (comptable, RH, achats…). Le premier coché est le rôle principal.">
+          <div className="grid sm:grid-cols-2 gap-1.5 p-2 rounded-lg border border-line2 bg-surface2 max-h-52 overflow-y-auto">
+            {roles.map(r => {
+              const checked = form.roles.includes(r);
+              return (
+                <label key={r} className="flex items-center gap-2 cursor-pointer text-sm text-ink2">
+                  <input type="checkbox" checked={checked} className="accent-section"
+                    onChange={e => setForm(f => ({
+                      ...f,
+                      roles: e.target.checked
+                        ? [...f.roles, r]
+                        : f.roles.filter(x => x !== r),
+                    }))} />
+                  <span>{ROLE_UI[r]?.label ?? r}</span>
+                </label>
+              );
+            })}
+          </div>
         </FormField>
 
         {description && (

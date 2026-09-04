@@ -24,6 +24,25 @@ const UserSchema = new Schema<IUser>(
       ],
       required: true,
     },
+    /**
+     * Rôles cumulés. Dans une petite structure, une personne est souvent
+     * comptable ET RH ET achats à la fois. Les permissions s'évaluent en union
+     * (voir rolesCanPerform). `role` reste le rôle PRINCIPAL — le premier de la
+     * liste — pour la rétrocompatibilité (affichage, garde superadmin du
+     * middleware). Un compte legacy sans `roles` retombe sur `[role]`.
+     */
+    roles: {
+      type: [String],
+      enum: [
+        "pme_admin","pme_manager","pme_accountant","pme_sales","pme_purchases",
+        "pme_hr","pme_project_manager","pme_approver","pme_viewer",
+        "asso_president","asso_treasurer","asso_secretary","asso_project_manager","asso_member_portal",
+        "admin_ordonnateur","admin_daf","admin_public_accountant",
+        "admin_procurement_officer","admin_procurement_commission","admin_viewer",
+        "chef_projet_transversal","tech_admin","superadmin",
+      ],
+      default: undefined,
+    },
     allowedResources: [String],
     phone: String,
     avatar: String,

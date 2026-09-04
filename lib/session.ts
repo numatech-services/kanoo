@@ -18,6 +18,7 @@ export function buildSessionPayload(
     _id: { toString(): string };
     tenantId: { toString(): string };
     role: string;
+    roles?: string[];
     email: string;
     allowedResources?: string[];
     sessionVersion?: number;
@@ -29,6 +30,8 @@ export function buildSessionPayload(
     tenantId: user.tenantId.toString(),
     tenantType: tenant.type as TokenPayload["tenantType"],
     role: user.role as TokenPayload["role"],
+    // Rôles cumulés dans le jeton ; retombe sur [role] pour un compte mono-rôle.
+    roles: (user.roles && user.roles.length > 0 ? user.roles : [user.role]) as TokenPayload["roles"],
     email: user.email,
     subscriptionStatus: tenant.subscriptionStatus as TokenPayload["subscriptionStatus"],
     planModules: tenant.planModules,

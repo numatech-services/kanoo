@@ -22,8 +22,11 @@ export const POST = withAuth("users", "create", async (req: NextRequest, auth: T
     return forbidden("Seuls les administrateurs peuvent créer des utilisateurs");
   }
   const body = await req.json();
-  const err = requireFields(body, ["email", "password", "firstName", "lastName", "role"]);
+  const err = requireFields(body, ["email", "password", "firstName", "lastName"]);
   if (err) return badRequest(err);
+  if (!body.role && !(Array.isArray(body.roles) && body.roles.length > 0)) {
+    return badRequest("Au moins un rôle est requis.");
+  }
 
   // Rôles assignables selon le type d'organisation de l'appelant.
   const ASSIGNABLE: Record<string, string[]> = {
@@ -34,9 +37,23 @@ export const POST = withAuth("users", "create", async (req: NextRequest, auth: T
   const allowedRoles = auth.role === "superadmin"
     ? [...ASSIGNABLE.pme, ...ASSIGNABLE.association, ...ASSIGNABLE.administration, "superadmin"]
     : (ASSIGNABLE[auth.tenantType] ?? []);
-  if (!allowedRoles.includes(body.role)) {
-    return badRequest("Rôle non autorisé pour ce type d'organisation");
+
+  // Multi-rôle : `roles` est la liste cumulée ; `role` en reste le premier
+  // (rôle principal). Un appel legacy qui n'envoie que `role` reste valide.
+  const requestedRoles: string[] = Array.isArray(body.roles) && body.roles.length > 0
+    ? [...new Set((body.roles as unknown[]).map(x => String(x)))]
+    : [String(body.role)];
+  if (requestedRoles.length > 5) {
+    return badRequest("Cinq rôles au maximum par collaborateur.");
   }
+  for (const r of requestedRoles) {
+    if (!allowedRoles.includes(r)) {
+      return badRequest(`Rôle non autorisé pour ce type d'organisation : ${r}`);
+    }
+  }
+  body.roles = requestedRoles;
+  body.role = requestedRoles[0];
+
   // Champs sensibles jamais acceptés depuis le corps.
   delete body._id;
   delete body.tenantId;
@@ -61,6 +78,6 @@ export const POST = withAuth("users", "create", async (req: NextRequest, auth: T
 
   const passwordHash = await hashPassword(body.password);
   const user = await UserModel.create({ ...body, email: body.email.toLowerCase(), passwordHash, tenantId: auth.tenantId });
-  await logAudit(auth, "CREATE", "users", { resourceId: user._id.toString(), after: { email: user.email, role: user.role } });
+  await logAudit(auth, "CREATE", "users", { resourceId: user._id.toString(), after: { email: user.email, role: user.role, roles: user.roles } });
   return created({ ...user.toObject(), passwordHash: undefined });
 });

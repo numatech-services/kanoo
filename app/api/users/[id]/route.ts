@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, notFound, forbidden, conflict, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, forbidden, conflict, tenantFilter, badRequest } from "@/lib/api-helpers";
 import { UserModel } from "@/models/User";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -12,7 +12,7 @@ export const GET = withAuth("users", "read", async (_req: NextRequest, auth: Tok
 // Champs modifiables par l'utilisateur sur son propre profil.
 const SELF_EDITABLE = ["firstName", "lastName", "phone", "avatar"] as const;
 // Champs réservés aux administrateurs (sur les comptes de leur organisation).
-const ADMIN_EDITABLE = ["role", "allowedResources", "isActive"] as const;
+const ADMIN_EDITABLE = ["role", "roles", "allowedResources", "isActive"] as const;
 const TENANT_ADMIN_ROLES = ["pme_admin", "asso_president", "admin_ordonnateur", "superadmin"];
 
 export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: TokenPayload, params) => {
@@ -30,8 +30,24 @@ export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: 
   for (const k of SELF_EDITABLE) if (k in body) update[k] = body[k];
   if (isAdmin) {
     for (const k of ADMIN_EDITABLE) if (k in body) update[k] = body[k];
-    // Seul un superadmin peut octroyer le rôle superadmin.
-    if (update.role === "superadmin" && auth.role !== "superadmin") {
+
+    // Multi-rôle : si `roles` est fourni, il fait foi ; `role` en devient le
+    // premier. Si seul `role` est fourni, on aligne `roles` dessus pour que les
+    // deux champs restent cohérents en base.
+    if ("roles" in update) {
+      const list = Array.isArray(update.roles) ? [...new Set((update.roles as unknown[]).map(x => String(x)))] : [];
+      if (list.length === 0) return badRequest("Au moins un rôle est requis.");
+      if (list.length > 5) return badRequest("Cinq rôles au maximum par collaborateur.");
+      update.roles = list;
+      update.role = list[0];
+    } else if ("role" in update) {
+      update.roles = [String(update.role)];
+    }
+
+    // Seul un superadmin peut octroyer le rôle superadmin — dans role OU roles.
+    const targetsSuperadmin = update.role === "superadmin"
+      || (Array.isArray(update.roles) && update.roles.includes("superadmin"));
+    if (targetsSuperadmin && auth.role !== "superadmin") {
       return forbidden("Attribution du rôle superadmin non autorisée");
     }
   }
@@ -43,8 +59,11 @@ export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: 
   // résultat est irrattrapable depuis l'application : plus personne ne peut
   // créer d'utilisateur, changer un rôle, ni réactiver quoi que ce soit. Il
   // faut alors une intervention en base.
+  const newRoles: string[] = Array.isArray(update.roles)
+    ? update.roles.map(String)
+    : "role" in update ? [String(update.role)] : [];
   const losesAdmin =
-    ("role" in update && !TENANT_ADMIN_ROLES.includes(String(update.role)))
+    (newRoles.length > 0 && !newRoles.some(r => TENANT_ADMIN_ROLES.includes(r)))
     || ("isActive" in update && update.isActive === false);
 
   if (losesAdmin) {
@@ -89,7 +108,7 @@ export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: 
   // Un changement de rôle ou une désactivation prend effet immédiatement —
   // `withAuth` relit la base à chaque requête. La révocation explicite ferme
   // en plus les sessions ouvertes, pour que l'intéressé le constate.
-  if (losesAdmin || "role" in update) {
+  if (losesAdmin || "role" in update || "roles" in update) {
     await UserModel.updateOne({ _id: params.id }, { $inc: { sessionVersion: 1 } });
   }
   await logAudit(auth, "UPDATE", "users", { resourceId: params.id });

@@ -45,6 +45,8 @@ export interface TokenPayload {
   tenantId: string;
   tenantType: TenantType;
   role: UserRole;
+  /** Rôles cumulés portés par le jeton ; union des permissions. */
+  roles?: UserRole[];
   email: string;
   subscriptionStatus: "active" | "trial" | "suspended" | "none";
   planModules: string[];

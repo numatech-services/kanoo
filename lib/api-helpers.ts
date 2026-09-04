@@ -4,7 +4,7 @@ import { Types } from "mongoose";
 import { connectDB } from "./db";
 import { errorName } from "./errors";
 import { getTokenFromRequest, verifyToken, TokenPayload } from "./auth";
-import { canPerformAction } from "./role-resources";
+import { canPerformAction, rolesCanPerform, effectiveRoles } from "./role-resources";
 import { verifyCsrf, CSRF_MESSAGES } from "./csrf";
 import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
@@ -151,11 +151,12 @@ type SecurityCheck =
  */
 async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
   const user = await UserModel.findById(auth.userId)
-    .select("sessionVersion isActive role allowedResources tenantId")
+    .select("sessionVersion isActive role roles allowedResources tenantId")
     .lean<{
       sessionVersion?: number;
       isActive?: boolean;
       role?: UserRole;
+      roles?: UserRole[];
       allowedResources?: string[];
       tenantId?: { toString(): string };
     } | null>();
@@ -177,6 +178,9 @@ async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
   }
 
   const role = user.role ?? auth.role;
+  // Rôles cumulés recalculés depuis la base : un rôle retiré à un collaborateur
+  // prend effet immédiatement, comme pour le rôle principal.
+  const roles = effectiveRoles(role, user.roles);
 
   if (role !== "superadmin") {
     const tenant = await TenantModel.findById(auth.tenantId)
@@ -200,6 +204,7 @@ async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
       auth: {
         ...auth,
         role,
+        roles,
         allowedResources: user.allowedResources,
         subscriptionStatus: (tenant.subscriptionStatus as TokenPayload["subscriptionStatus"]) ?? auth.subscriptionStatus,
         planModules: tenant.planModules ?? auth.planModules,
@@ -208,7 +213,7 @@ async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
     };
   }
 
-  return { ok: true, auth: { ...auth, role, allowedResources: user.allowedResources } };
+  return { ok: true, auth: { ...auth, role, roles, allowedResources: user.allowedResources } };
 }
 
 /** Empreinte d'une requête, pour détecter la réutilisation d'une clé d'idempotence. */
@@ -242,8 +247,9 @@ export function withAuth(
       if (!check.ok) return check.response;
       const auth = check.auth;
 
-      if (!canPerformAction(auth.role as UserRole, resource, action, auth.allowedResources)) {
-        return forbidden(`Action '${action}' sur '${resource}' non autorisée pour le rôle '${auth.role}'`);
+      const authRoles = effectiveRoles(auth.role as UserRole, auth.roles as UserRole[] | undefined);
+      if (!rolesCanPerform(authRoles, resource, action, auth.allowedResources)) {
+        return forbidden(`Action '${action}' sur '${resource}' non autorisée pour ${authRoles.join(", ")}`);
       }
 
       const params = await resolveParams(ctx);

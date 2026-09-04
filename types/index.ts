@@ -134,6 +134,8 @@ export interface IUser {
   firstName: string;
   lastName: string;
   role: UserRole;
+  /** Rôles cumulés ; `role` reste le principal. Union des permissions. */
+  roles?: UserRole[];
   allowedResources?: string[];
   phone?: string;
   avatar?: string;

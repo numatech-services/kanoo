@@ -463,6 +463,41 @@ export function getAccessibleResources(role: UserRole, allowedResources?: string
   return Object.keys(permissions).filter(r => withinAllowList(r, allowedResources));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Multi-rôle — un collaborateur peut cumuler plusieurs rôles (comptable + RH +
+// achats, courant dans une petite structure). Les permissions s'évaluent alors
+// en UNION : l'action est autorisée si AU MOINS UN des rôles la permet. Les
+// versions à rôle unique restent le cas particulier `[role]`, si bien que rien
+// ne change pour un compte mono-rôle.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Normalise en tableau non vide : `roles` s'il est fourni, sinon `[role]`. */
+export function effectiveRoles(role: UserRole, roles?: UserRole[] | null): UserRole[] {
+  return roles && roles.length > 0 ? roles : [role];
+}
+
+export function rolesCanPerform(
+  roles: UserRole[], resource: string, action: Action, allowedResources?: string[]
+): boolean {
+  return roles.some(r => canPerformAction(r, resource, action, allowedResources));
+}
+
+export function rolesCanAccess(
+  roles: UserRole[], resource: string, allowedResources?: string[]
+): boolean {
+  return roles.some(r => canAccessResource(r, resource, allowedResources));
+}
+
+/** Union des ressources accessibles par l'ensemble des rôles. */
+export function accessibleResourcesForRoles(roles: UserRole[], allowedResources?: string[]): string[] {
+  if (roles.includes("superadmin")) return ["*"];
+  const set = new Set<string>();
+  for (const role of roles) {
+    for (const r of getAccessibleResources(role, allowedResources)) set.add(r);
+  }
+  return [...set];
+}
+
 export {
   ROLE_PERMISSIONS,
   CHEF_PROJET_TRANSVERSAL,
