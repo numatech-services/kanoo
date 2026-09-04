@@ -13,8 +13,10 @@ export const GET = withAuth("commandes", "read", async (req: NextRequest, auth: 
   const p = getPagination(req);
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
+  const clientId = url.searchParams.get("clientId");
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   if (status) filter.status = status;
+  if (clientId) filter.clientId = clientId;
 
   const [items, total] = await Promise.all([
     FrameworkOrderModel.find(filter).sort({ createdAt: -1 }).skip(p.skip).limit(p.limit)

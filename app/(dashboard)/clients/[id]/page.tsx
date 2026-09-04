@@ -1,81 +1,173 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ClientForm, type ClientFormData } from "@/components/pme/ClientForm";
 import { Modal } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
-// La forme du client dérive de celle du formulaire : la page redéclarait
-// `type: string` là où le formulaire attend "individual" | "company", et les
-// deux définitions divergeaient en silence.
-type Client = ClientFormData & { _id: string; currentBalance: number };
-interface Invoice { _id:string; number:string; totalTTC:number; paidAmount:number; status:string; issueDate:string; dueDate:string; }
+type Client = ClientFormData & { _id: string; currentBalance: number; logo?: string };
+type Row = Record<string, unknown>;
+interface Section { count: number; items: Row[]; }
+interface Overview {
+  client: Client;
+  financials: { invoiced: number; paid: number; outstanding: number };
+  sections: {
+    invoices: Section; devis: Section; contracts: Section;
+    marches: Section; deliveries: Section; projects: Section; dunning: Section;
+  };
+}
+
+const fmt = (n: unknown) => `${Number(n || 0).toLocaleString("fr-FR")} F CFA`;
+const date = (d: unknown) => (d ? new Date(String(d)).toLocaleDateString("fr-FR") : "—");
+
+/** Une rubrique = un onglet : colonnes + rendu de ligne + lien « voir tout ». */
+interface TabDef {
+  key: keyof Overview["sections"];
+  label: string;
+  cols: string[];
+  row: (r: Row, id: string) => ReactNode[];
+  href?: (id: string) => string;
+  rowHref?: (r: Row) => string;
+}
+
+const TABS: TabDef[] = [
+  { key: "invoices", label: "Factures", cols: ["N°", "Date", "TTC", "Statut"],
+    row: r => [r.number as string, date(r.issueDate), fmt(r.totalTTC), <StatusBadge key="s" status={String(r.status)} />],
+    href: id => `/invoices?clientId=${id}`, rowHref: r => `/invoices/${r._id}` },
+  { key: "devis", label: "Devis", cols: ["N°", "Date", "TTC", "Statut"],
+    row: r => [r.number as string, date(r.issueDate), fmt(r.totalTTC), <StatusBadge key="s" status={String(r.status)} />],
+    href: id => `/devis?clientId=${id}`, rowHref: r => `/devis/${r._id}` },
+  { key: "contracts", label: "Contrats", cols: ["Référence", "Objet", "Montant", "Échéance", "Statut"],
+    row: r => [r.reference as string || "—", r.title as string, fmt(r.amount), date(r.endDate), <StatusBadge key="s" status={String(r.status)} />],
+    href: () => `/contracts`, rowHref: r => `/contracts/${r._id}` },
+  { key: "marches", label: "Marchés-cadres", cols: ["Référence", "Objet", "Avancement", "Statut"],
+    row: r => [r.reference as string, r.title as string,
+      `${Number(r.deliveredQuantity || 0).toLocaleString("fr-FR")} / ${Number(r.totalQuantity || 0).toLocaleString("fr-FR")}`,
+      <StatusBadge key="s" status={String(r.status)} />],
+    href: () => `/marches-cadres`, rowHref: r => `/marches-cadres/${r._id}` },
+  { key: "deliveries", label: "Livraisons", cols: ["N°", "Date", "Statut"],
+    row: r => [r.number as string, date(r.deliveryDate), <StatusBadge key="s" status={String(r.status)} />],
+    href: () => `/livraisons` },
+  { key: "projects", label: "Projets", cols: ["Intitulé", "Échéance", "Montant", "Statut"],
+    row: r => [r.label as string, date(r.dueDate), fmt(r.amount), <StatusBadge key="s" status={String(r.status)} />],
+    href: () => `/projects` },
+  { key: "dunning", label: "Relances", cols: ["Date", "Canaux", "Facture"],
+    row: r => [date(r.sentAt), Array.isArray(r.channels) ? (r.channels as string[]).join(", ") : "—", r.invoiceNumber as string || "—"] },
+];
 
 export default function ClientDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const [client, setClient] = useState<Client|null>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [data, setData] = useState<Overview | null>(null);
+  const [tab, setTab] = useState<keyof Overview["sections"]>("invoices");
   const [editOpen, setEditOpen] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/clients/${id}`,{credentials:"include"}).then(r=>r.json()).then(d=>setClient(d.data));
-    fetch(`/api/invoices?clientId=${id}&limit=10`,{credentials:"include"}).then(r=>r.json()).then(d=>setInvoices(d.data?.items||[]));
-  },[id]);
+  const load = useCallback(() => {
+    fetch(`/api/clients/${id}/overview`, { credentials: "include" })
+      .then(r => r.json()).then(d => d.success && setData(d.data));
+  }, [id]);
+  useEffect(() => { load(); }, [load]);
 
-  async function handleSave(data: ClientFormData) {
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
-    const res = await fetch(`/api/clients/${id}`, { method:"PATCH", headers:{"Content-Type":"application/json","x-csrf-token":csrfToken}, credentials:"include", body: JSON.stringify(data) });
-    const d = await res.json(); if (res.ok) { setClient(d.data); setEditOpen(false); }
+  async function handleSave(body: ClientFormData) {
+    const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+    const res = await fetch(`/api/clients/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+      credentials: "include", body: JSON.stringify(body),
+    });
+    if (res.ok) { setEditOpen(false); load(); }
   }
 
-  if (!client) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-line" /></div>;
+  if (!data) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-line" /></div>;
+  const c = data.client;
+  const active = TABS.find(t => t.key === tab)!;
+  const section = data.sections[tab];
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div className="flex items-start justify-between">
-        <div><a href="/clients" className="text-xs text-ink2 hover:text-ink">← Clients</a><h1 className="text-2xl font-bold text-ink mt-1">{client.name}</h1><p className="text-ink2 text-sm">{client.code} · {client.type === "company" ? "Entreprise" : "Particulier"}</p></div>
-        <div className="flex gap-2 mt-2">
-          <button onClick={()=>setEditOpen(true)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Modifier</button>
-          {/* Le document qu'on envoie quand le client dit « je ne sais plus
-              ce que je vous dois ». */}
+    <div className="space-y-6 max-w-5xl">
+      {/* En-tête : logo + identité + actions */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="w-16 h-16 rounded-xl border border-line bg-surface2 grid place-items-center overflow-hidden shrink-0">
+            {c.logo ? <img src={c.logo} alt="" className="max-w-full max-h-full object-contain" />
+              : <span className="text-lg font-bold text-ink3">{c.name?.[0]?.toUpperCase() || "?"}</span>}
+          </div>
+          <div>
+            <a href="/clients" className="text-xs text-ink2 hover:text-ink">← Clients</a>
+            <h1 className="text-2xl font-bold text-ink mt-0.5">{c.name}</h1>
+            <p className="text-ink2 text-sm">{c.code} · {c.type === "company" ? "Entreprise" : "Particulier"} · <StatusBadge status={c.isActive ? "active" : "inactive"} /></p>
+          </div>
+        </div>
+        <div className="flex gap-2 flex-wrap justify-end">
+          <button onClick={() => setEditOpen(true)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Modifier</button>
           <a href={`/clients/${id}/releve`} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Relevé</a>
           <a href={`/invoices/new?clientId=${id}`} className="px-4 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95">+ Facture</a>
         </div>
       </div>
+
+      {/* Synthèse financière */}
+      <div className="grid grid-cols-3 gap-4">
+        {([["Facturé", data.financials.invoiced, "text-ink"], ["Encaissé", data.financials.paid, "text-pos"], ["Restant dû", data.financials.outstanding, "text-neg"]] as [string, number, string][]).map(([k, v, cls]) => (
+          <div key={k} className="bg-surface rounded-xl border border-line p-4">
+            <p className="text-[11px] font-semibold text-ink2 uppercase tracking-wide">{k}</p>
+            <p className={`text-xl font-bold mt-1 ${cls}`}>{fmt(v)}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Informations */}
       <div className="grid md:grid-cols-2 gap-5">
         <div className="bg-surface rounded-xl border border-line p-5">
-          <h2 className="font-semibold text-ink mb-4">Informations</h2>
-          {([["NIF",client.nif||"—"],["Email",client.email||"—"],["Téléphone",client.phone||"—"],["Adresse",client.address||"—"],["Statut",""]] as [string,string][]).map(([k,v])=>(
-            <div key={k} className="flex justify-between py-2 border-b border-line last:border-0 text-sm">
-              <span className="text-ink2">{k}</span>
-              {k==="Statut" ? <StatusBadge status={client.isActive?"active":"inactive"}/> : <span className="text-ink">{v}</span>}
-            </div>
+          <h2 className="font-semibold text-ink mb-3">Informations</h2>
+          {([["NIF", c.nif || "—"], ["RCCM", c.rccm || "—"], ["Email", c.email || "—"], ["Téléphone", c.phone || "—"], ["Adresse", c.address || "—"]] as [string, string][]).map(([k, v]) => (
+            <div key={k} className="flex justify-between gap-3 py-2 border-b border-line last:border-0 text-sm"><span className="text-ink2">{k}</span><span className="text-ink text-right">{v}</span></div>
           ))}
         </div>
         <div className="bg-surface rounded-xl border border-line p-5">
-          <h2 className="font-semibold text-ink mb-4">Conditions commerciales</h2>
-          {([["Solde actuel",`${client.currentBalance.toLocaleString("fr-FR")} XOF`],["Limite de crédit",`${client.creditLimit.toLocaleString("fr-FR")} XOF`],["Délai de paiement",`${client.paymentTermDays} jours`]] as [string,string][]).map(([k,v])=>(
+          <h2 className="font-semibold text-ink mb-3">Conditions commerciales</h2>
+          {([["Limite de crédit", `${(c.creditLimit || 0).toLocaleString("fr-FR")} F CFA`], ["Délai de paiement", `${c.paymentTermDays} jours`]] as [string, string][]).map(([k, v]) => (
             <div key={k} className="flex justify-between py-2 border-b border-line last:border-0 text-sm"><span className="text-ink2">{k}</span><span className="font-mono font-medium text-ink">{v}</span></div>
           ))}
+          {c.notes ? <p className="text-xs text-ink2 mt-3 whitespace-pre-wrap">{c.notes}</p> : null}
         </div>
       </div>
-      {invoices.length > 0 && (
-        <div className="bg-surface rounded-xl border border-line overflow-hidden">
-          <div className="flex justify-between items-center px-5 py-4 border-b border-line"><h2 className="font-semibold text-ink">Factures récentes</h2><a href={`/invoices?clientId=${id}`} className="text-xs text-section hover:underline">Voir tout</a></div>
-          <table className="table-dense">
-            <thead><tr className="bg-surface2/50">{["N° Facture","Date","Montant TTC","Statut"].map(h=><th key={h} >{h}</th>)}</tr></thead>
-            <tbody>{invoices.map(inv=><tr key={inv._id} className="border-t border-line hover:bg-surface2/30 cursor-pointer" onClick={()=>router.push(`/invoices/${inv._id}`)}>
-              <td className="px-4 py-3 font-mono text-section">{inv.number}</td>
-              <td className="px-4 py-3 text-ink2">{new Date(inv.issueDate).toLocaleDateString("fr-FR")}</td>
-              <td className="px-4 py-3 font-mono text-right">{inv.totalTTC.toLocaleString("fr-FR")} XOF</td>
-              <td className="px-4 py-3"><StatusBadge status={inv.status}/></td>
-            </tr>)}</tbody>
-          </table>
+
+      {/* Onglets des rattachements */}
+      <div className="bg-surface rounded-xl border border-line overflow-hidden">
+        <div className="flex gap-1 overflow-x-auto border-b border-line px-2 pt-2">
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap ${tab === t.key ? "bg-section/10 text-section" : "text-ink2 hover:text-ink hover:bg-surface2"}`}>
+              {t.label} <span className="ml-1 text-xs opacity-70">{data.sections[t.key].count}</span>
+            </button>
+          ))}
         </div>
-      )}
-      <Modal open={editOpen} onClose={()=>setEditOpen(false)} title={`Modifier — ${client.name}`} size="lg">
-        <ClientForm initial={client} onSave={handleSave} onCancel={()=>setEditOpen(false)} />
+        <div className="p-1">
+          {section.items.length === 0 ? (
+            <p className="text-sm text-ink3 px-4 py-8 text-center">Aucun élément dans cette rubrique.</p>
+          ) : (
+            <table className="table-dense w-full">
+              <thead><tr className="bg-surface2/50">{active.cols.map(h => <th key={h}>{h}</th>)}</tr></thead>
+              <tbody>
+                {section.items.map((r, i) => {
+                  const href = active.rowHref?.(r);
+                  return (
+                    <tr key={String(r._id) || i} className={`border-t border-line ${href ? "cursor-pointer hover:bg-surface2/30" : ""}`}
+                      onClick={href ? () => router.push(href) : undefined}>
+                      {active.row(r, String(id)).map((cell, j) => <td key={j} className="px-4 py-2.5">{cell}</td>)}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          {active.href && section.count > section.items.length && (
+            <div className="px-4 py-2 text-right"><a href={active.href(String(id))} className="text-xs text-section hover:underline">Voir les {section.count} →</a></div>
+          )}
+        </div>
+      </div>
+
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title={`Modifier — ${c.name}`} size="lg">
+        <ClientForm initial={c} onSave={handleSave} onCancel={() => setEditOpen(false)} />
       </Modal>
     </div>
   );

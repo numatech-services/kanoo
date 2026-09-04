@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
@@ -14,6 +15,7 @@ interface Client {
   nif?: string;
   phone?: string;
   email?: string;
+  logo?: string;
   currentBalance: number;
   creditLimit: number;
   paymentTermDays: number;
@@ -21,6 +23,7 @@ interface Client {
 }
 
 export default function ClientsPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [total, setTotal] = useState(0);
@@ -57,7 +60,18 @@ export default function ClientsPage() {
 
   const columns: Column<Client>[] = [
     { key: "code", label: "Code", sortable: true, className: "font-mono text-xs w-24" },
-    { key: "name", label: "Client", sortable: true },
+    {
+      key: "name", label: "Client", sortable: true,
+      render: (v, row) => (
+        <span className="flex items-center gap-2.5">
+          <span className="w-7 h-7 rounded-md border border-line bg-surface2 grid place-items-center overflow-hidden shrink-0">
+            {row.logo ? <img src={row.logo} alt="" className="max-w-full max-h-full object-contain" />
+              : <span className="text-[11px] font-bold text-ink3">{String(v)?.[0]?.toUpperCase() || "?"}</span>}
+          </span>
+          <span className="font-medium text-ink">{String(v)}</span>
+        </span>
+      ),
+    },
     { key: "nif", label: "NIF", className: "text-ink2 text-xs" },
     { key: "phone", label: "Téléphone" },
     {
@@ -139,7 +153,7 @@ export default function ClientsPage() {
         loading={loading}
         keyExtractor={(c) => c._id}
         emptyMessage="Aucun client trouvé"
-        onRowClick={(c) => { setEditing(c); setModalOpen(true); }}
+        onRowClick={(c) => router.push(`/clients/${c._id}`)}
       />
 
       <Pagination

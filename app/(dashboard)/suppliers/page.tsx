@@ -1,14 +1,16 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { SupplierForm } from "@/components/pme/SupplierForm";
 
-interface Supplier { _id: string; code: string; name: string; nif?: string; phone?: string; email?: string; paymentTermDays: number; bankAccount?: string; isActive: boolean; }
+interface Supplier { _id: string; code: string; name: string; nif?: string; phone?: string; email?: string; logo?: string; paymentTermDays: number; bankAccount?: string; isActive: boolean; }
 
 export default function SuppliersPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [total, setTotal] = useState(0); const [page, setPage] = useState(1); const [loading, setLoading] = useState(true);
@@ -28,7 +30,18 @@ export default function SuppliersPage() {
 
   const columns: Column<Supplier>[] = [
     { key: "code", label: "Code", className: "font-mono text-xs w-24", sortable: true },
-    { key: "name", label: "Fournisseur", sortable: true },
+    {
+      key: "name", label: "Fournisseur", sortable: true,
+      render: (v, row) => (
+        <span className="flex items-center gap-2.5">
+          <span className="w-7 h-7 rounded-md border border-line bg-surface2 grid place-items-center overflow-hidden shrink-0">
+            {row.logo ? <img src={row.logo} alt="" className="max-w-full max-h-full object-contain" />
+              : <span className="text-[11px] font-bold text-ink3">{String(v)?.[0]?.toUpperCase() || "?"}</span>}
+          </span>
+          <span className="font-medium text-ink">{String(v)}</span>
+        </span>
+      ),
+    },
     { key: "nif", label: "NIF", className: "text-xs text-ink2" },
     { key: "phone", label: "Téléphone" },
     { key: "paymentTermDays", label: "Délai paiement", render: (v) => <span className="text-ink2">{String(v ?? "—")} j</span> },
@@ -52,7 +65,7 @@ export default function SuppliersPage() {
         <button onClick={() => { setEditing(null); setModalOpen(true); }} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors">+ Nouveau fournisseur</button>
       </div>
       <input type="text" placeholder="Rechercher…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} className="w-full max-w-sm px-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30" />
-      <DataTable columns={columns} data={suppliers} loading={loading} keyExtractor={(s) => s._id} emptyMessage="Aucun fournisseur" onRowClick={(s) => { setEditing(s); setModalOpen(true); }} />
+      <DataTable columns={columns} data={suppliers} loading={loading} keyExtractor={(s) => s._id} emptyMessage="Aucun fournisseur" onRowClick={(s) => router.push(`/suppliers/${s._id}`)} />
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
       <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }} title={editing ? `Modifier — ${editing.name}` : "Nouveau fournisseur"} size="lg">
         <SupplierForm initial={editing||undefined} onSave={handleSave} onCancel={() => { setModalOpen(false); setEditing(null); }} />

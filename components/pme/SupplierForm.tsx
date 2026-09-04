@@ -1,14 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { FormField, inputCls } from "@/components/ui/FormField";
+import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
+import { LogoPicker } from "@/components/ui/LogoPicker";
 
 export interface SupplierFormData {
   code: string;
   name: string;
   nif?: string;
+  rccm?: string;
   phone?: string;
   email?: string;
+  address?: string;
+  logo?: string;
+  notes?: string;
   paymentTermDays: number;
   bankAccount?: string;
   isActive: boolean;
@@ -32,8 +37,12 @@ export function SupplierForm({ initial, onSave, onCancel }: SupplierFormProps) {
     code: initial?.code || "",
     name: initial?.name || "",
     nif: initial?.nif || "",
+    rccm: initial?.rccm || "",
     phone: initial?.phone || "",
     email: initial?.email || "",
+    address: initial?.address || "",
+    logo: initial?.logo || "",
+    notes: initial?.notes || "",
     paymentTermDays: initial?.paymentTermDays ?? 30,
     bankAccount: initial?.bankAccount || "",
     isActive: initial?.isActive ?? true,
@@ -83,27 +92,44 @@ export function SupplierForm({ initial, onSave, onCancel }: SupplierFormProps) {
           onChange={(e) => update("name", e.target.value)} required />
       </FormField>
 
+      <LogoPicker value={form.logo} onChange={(v) => update("logo", v)} label="Logo du fournisseur" />
+
       <div className="grid grid-cols-2 gap-4">
+        <FormField label="RCCM">
+          <input className={inputCls} value={form.rccm}
+            onChange={(e) => update("rccm", e.target.value)} />
+        </FormField>
         <FormField label="Téléphone">
           <input className={inputCls} value={form.phone}
             onChange={(e) => update("phone", e.target.value)} />
         </FormField>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <FormField label="Email">
           <input type="email" className={inputCls} value={form.email}
             onChange={(e) => update("email", e.target.value)} />
         </FormField>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
         <FormField label="Délai de paiement (jours)">
           <input type="number" min={0} className={inputCls} value={form.paymentTermDays}
             onChange={(e) => update("paymentTermDays", Number(e.target.value))} />
         </FormField>
-        <FormField label="Compte bancaire (RIB)">
-          <input className={inputCls} value={form.bankAccount}
-            onChange={(e) => update("bankAccount", e.target.value)} />
-        </FormField>
       </div>
+
+      <FormField label="Adresse">
+        <textarea className={textareaCls} rows={2} value={form.address}
+          onChange={(e) => update("address", e.target.value)} />
+      </FormField>
+
+      <FormField label="Compte bancaire (RIB)">
+        <input className={inputCls} value={form.bankAccount}
+          onChange={(e) => update("bankAccount", e.target.value)} />
+      </FormField>
+
+      <FormField label="Notes internes">
+        <textarea className={textareaCls} rows={2} value={form.notes}
+          onChange={(e) => update("notes", e.target.value)} />
+      </FormField>
 
       <div className="flex justify-end gap-3 pt-2 border-t border-line">
         <button type="button" onClick={onCancel}

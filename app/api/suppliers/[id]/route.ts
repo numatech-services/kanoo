@@ -11,7 +11,7 @@ export const GET = withAuth("suppliers", "read", async (_req: NextRequest, auth:
 });
 export const PATCH = withAuth("suppliers", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   const body = await req.json();
-  const s = await SupplierModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, sanitizeBody(body, ["code"]), { new: true });
+  const s = await SupplierModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, sanitizeBody(body, ["code"]), { new: true, runValidators: true });
   if (!s) return notFound();
   await logAudit(auth, "UPDATE", "suppliers", { resourceId: params.id });
   return ok(s);

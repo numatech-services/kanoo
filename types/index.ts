@@ -175,6 +175,8 @@ export interface IClient {
   email?: string;
   phone?: string;
   address?: string;
+  /** Logo propre du client (data-URI). */
+  logo?: string;
   creditLimit: number;
   currentBalance: number;
   paymentTermDays: number;
@@ -189,9 +191,13 @@ export interface ISupplier {
   code: string;
   name: string;
   nif?: string;
+  rccm?: string;
   email?: string;
   phone?: string;
   address?: string;
+  /** Logo propre du fournisseur (data-URI). */
+  logo?: string;
+  notes?: string;
   paymentTermDays: number;
   bankName?: string;
   bankAccount?: string;

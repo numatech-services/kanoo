@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LogoPicker } from "@/components/ui/LogoPicker";
 
 export interface ClientFormData {
   code: string;
@@ -11,6 +12,7 @@ export interface ClientFormData {
   email?: string;
   phone?: string;
   address?: string;
+  logo?: string;
   creditLimit: number;
   paymentTermDays: number;
   isActive: boolean;
@@ -33,6 +35,7 @@ export function ClientForm({ initial, onSave, onCancel }: ClientFormProps) {
     email: initial?.email || "",
     phone: initial?.phone || "",
     address: initial?.address || "",
+    logo: initial?.logo || "",
     creditLimit: initial?.creditLimit ?? 0,
     paymentTermDays: initial?.paymentTermDays ?? 30,
     isActive: initial?.isActive ?? true,
@@ -93,6 +96,7 @@ export function ClientForm({ initial, onSave, onCancel }: ClientFormProps) {
           <label className={labelCls}>Nom / Raison sociale *</label>
           <input className={inputCls} value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Nom du client" required />
         </div>
+        <LogoPicker value={form.logo} onChange={(v) => update("logo", v)} label="Logo du client" />
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>NIF</label>
