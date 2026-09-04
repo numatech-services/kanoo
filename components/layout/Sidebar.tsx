@@ -115,6 +115,9 @@ const ASSO_NAV: NavGroup[] = [
   { section: "Projets", items: [
     { label: "Projets / ONG", href: "/projects", icon: <Folder size={18} /> },
   ]},
+  { section: "Paramètres", items: [
+    { label: "Mon profil", href: "/associations/profil", icon: <UserCircle size={18} /> },
+  ]},
 ];
 
 const ADMIN_NAV: NavGroup[] = [
