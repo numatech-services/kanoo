@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown } from "lucide-react";
 
 type ProfileType = "pme" | "association" | "administration" | "superadmin";
 
@@ -166,6 +166,31 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
     return () => { alive = false; };
   }, [pathname]);
 
+  // ── Groupes repliables ──────────────────────────────────────────────────
+  // On montre les modules (en-têtes de groupe) ; le clic déploie leurs entrées.
+  // Le groupe de la page courante est toujours ouvert. Les autres retiennent le
+  // choix de l'utilisateur d'une visite à l'autre.
+  const isActiveItem = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const activeSection = nav.find(g => g.items.some(i => isActiveItem(i.href)))?.section;
+
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("kanoo.nav.open") || "[]");
+      if (Array.isArray(saved)) setOpenGroups(new Set(saved));
+    } catch { /* localStorage indisponible : on part replié, ce n'est pas grave */ }
+  }, []);
+  const toggleGroup = (section: string) => {
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      next.has(section) ? next.delete(section) : next.add(section);
+      try { localStorage.setItem("kanoo.nav.open", JSON.stringify([...next])); } catch { /* sans persistance */ }
+      return next;
+    });
+  };
+  // Un groupe est ouvert s'il porte la page courante, ou si l'utilisateur l'a ouvert.
+  const isOpen = (section: string) => section === activeSection || openGroups.has(section);
+
   return (
     <aside className="w-64 bg-chrome text-white flex flex-col h-full overflow-hidden flex-shrink-0">
       <div className="px-6 py-6 border-b border-white/10">
@@ -178,12 +203,23 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
           // À défaut de teinte déclarée, on prend celle du premier item : les
           // deux tables resteront cohérentes sans double saisie.
           const tone = group.tone ?? sectionForPath(group.items[0]?.href ?? "/");
+          const open = isOpen(group.section);
+          // Somme des compteurs du groupe : quand il est replié, une pastille sur
+          // l'en-tête signale qu'il s'y passe quelque chose (impayés, alertes…).
+          const groupCount = group.items.reduce((n, it) => n + (counters[it.href] ?? 0), 0);
           return (
-            <div key={group.section} className="mb-6" data-section={tone}>
-              <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/35 px-3 mb-3">
+            <div key={group.section} className="mb-2" data-section={tone}>
+              <button type="button" onClick={() => toggleGroup(group.section)}
+                aria-expanded={open}
+                className="w-full flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 hover:text-white/70 px-3 py-2 rounded-lg transition-colors">
                 <span className="h-1.5 w-1.5 rounded-full bg-section shrink-0" aria-hidden />
-                {group.section}
-              </p>
+                <span className="flex-1 text-left">{group.section}</span>
+                {!open && groupCount > 0 && (
+                  <span className="num text-[9px] font-bold rounded-full px-1.5 bg-section text-white">{groupCount}</span>
+                )}
+                <ChevronDown size={13} className={`shrink-0 transition-transform duration-200 ${open ? "" : "-rotate-90"}`} />
+              </button>
+              {open && <div className="mt-1 mb-3">
               {group.items.map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
@@ -212,6 +248,7 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
                   </Link>
                 );
               })}
+              </div>}
             </div>
           );
         })}
