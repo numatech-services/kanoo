@@ -34,8 +34,8 @@ export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, a
   }
 });
 
-// --- MISE À JOUR (PATCH) ---
-export const PATCH = withAuth("budgetChapters", "read", async (req: NextRequest, auth: TokenPayload) => {
+// --- MISE À JOUR (PATCH) — émission du mandat de paiement ---
+export const PATCH = withAuth("budgetChapters", "update", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   
   try {

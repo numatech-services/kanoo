@@ -83,7 +83,8 @@ async function handleSubmit(e: React.FormEvent) {
   try {
     const res = await fetch("/api/services", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken },
+      credentials: "include",
       body: JSON.stringify(payload)
     });
 

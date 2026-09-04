@@ -18,23 +18,21 @@ export default function MandatementsPage() {
   const [items, setItems] = useState<Mandat[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  // « À mandater » = engagements approuvés en attente ; « Émis » = déjà mandatés.
+  const [tab, setTab] = useState<"approuve" | "mandate">("approuve");
 
-  // Récupérer les engagements déjà mandatés
   useEffect(() => {
-    const fetchMandats = async () => {
-      try {
-        const res = await fetch("/api/budget/engagements?status=mandate");
-        const response = await res.json();
+    setLoading(true);
+    fetch(`/api/budget/engagements?status=${tab}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((response) => {
         const data = response.data || response;
-        if (Array.isArray(data)) setItems(data);
-      } catch (err) {
-        console.error("Erreur chargement mandats:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMandats();
-  }, []);
+        // La liste peut renvoyer tous les engagements : on filtre par statut au cas où.
+        setItems(Array.isArray(data) ? data.filter((x: Mandat) => x.status === tab) : []);
+      })
+      .catch((err) => console.error("Erreur chargement:", err))
+      .finally(() => setLoading(false));
+  }, [tab]);
 
   const filteredItems = items.filter(item => 
     item.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -51,9 +49,19 @@ export default function MandatementsPage() {
         <div className="flex gap-2">
             <div className="bg-surface px-4 py-2 rounded-xl border border-line flex items-center gap-2">
                 <Landmark size={14} className="text-ink2" />
-                <span className="text-[10px] font-black uppercase text-ink">{items.length} Mandats émis</span>
+                <span className="text-[10px] font-black uppercase text-ink">{items.length} {tab === "approuve" ? "à mandater" : "mandats émis"}</span>
             </div>
         </div>
+      </div>
+
+      {/* Onglets : à mandater / émis */}
+      <div className="flex gap-1 border-b border-line">
+        {([["approuve", "À mandater"], ["mandate", "Mandats émis"]] as const).map(([k, label]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 ${tab === k ? "border-section text-section" : "border-transparent text-ink2 hover:text-ink"}`}>
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Barre de recherche */}

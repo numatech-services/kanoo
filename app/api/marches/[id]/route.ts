@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import { 
   withAuth, 
@@ -26,30 +27,36 @@ export const GET = withAuth("publicTenders", "read", async (_req: NextRequest, a
   return ok(item);
 });
 
-// --- PATCH: Modifier un marché (Changement de statut, attribution, etc.) ---
+// --- PATCH: Modifier un marché (Changement de statut, dépouillement, attribution) ---
+const SCALAR_FIELDS = ["object", "procedure", "estimatedAmount", "status", "publishDate", "bidsDeadline", "openingDate", "attributionDate", "winnerName", "winnerAmount", "notes", "cancelReason", "bids"];
+const OID_FIELDS = ["budgetChapterId", "winnerId", "engagementId"];
+
 export const PATCH = withAuth("publicTenders", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   try {
     const body = await req.json();
     await connectDB();
 
-    // 1. Sécurité : Vérifier l'existence et l'appartenance au tenant
     const existing = await PublicTenderModel.findOne({ _id: params.id, ...tenantFilter(auth) });
     if (!existing) return notFound("Marché introuvable");
 
-    // 2. Nettoyage des données pour éviter les erreurs BSON (Cast ObjectId failed)
-    const updates = { ...body };
-    const fieldsToClean = ["budgetChapterId", "winnerId", "commissionMemberIds"];
-    
-    fieldsToClean.forEach(field => {
-      if (updates[field] === "" || updates[field] === null) {
-        delete updates[field];
-      }
-    });
+    // Liste blanche + traitement sûr des ObjectId : un champ ObjectId ne reçoit
+    // que des identifiants valides (un nom saisi en clair partait autrefois dans
+    // `winnerId` → CastError, l'attribution échouait systématiquement).
+    const set: Record<string, unknown> = {};
+    for (const f of SCALAR_FIELDS) if (f in body) set[f] = body[f];
+    for (const f of OID_FIELDS) {
+      if (!(f in body)) continue;
+      const v = body[f];
+      if (v && Types.ObjectId.isValid(String(v))) set[f] = v;
+      else set[f] = undefined; // vide ou invalide → on retire le lien
+    }
+    if (Array.isArray(body.commissionMemberIds)) {
+      set.commissionMemberIds = body.commissionMemberIds.filter((x: unknown) => typeof x === "string" && Types.ObjectId.isValid(x));
+    }
 
-    // 3. Mise à jour
     const updatedItem = await PublicTenderModel.findByIdAndUpdate(
       params.id,
-      { $set: updates },
+      { $set: set },
       { new: true, runValidators: true }
     );
 

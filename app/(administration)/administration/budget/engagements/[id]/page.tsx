@@ -43,14 +43,16 @@ export default function EngagementDetailsPage() {
     fetchEngagement();
   }, [fetchEngagement]);
 
-  const handleStatusUpdate = async (newStatus: 'approuve' | 'rejete') => {
+  const handleStatusUpdate = async (newStatus: 'approuve' | 'rejete' | 'mandate') => {
     if (!confirm(`Confirmez-vous le passage au statut : ${newStatus}?`)) return;
-    
+
     setUpdating(true);
     try {
+      const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
       const res = await fetch(`/api/budget/engagements/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+        credentials: 'include',
         body: JSON.stringify({ status: newStatus })
       });
 
@@ -113,7 +115,7 @@ export default function EngagementDetailsPage() {
               >
                 <XCircle size={14} /> {updating ? "..." : "Rejeter"}
               </button>
-              <button 
+              <button
                 disabled={updating}
                 onClick={() => handleStatusUpdate('approuve')}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-ink text-white text-[10px] font-black uppercase hover:bg-section transition-all shadow-lg shadow-ink/10 disabled:opacity-50"
@@ -121,6 +123,16 @@ export default function EngagementDetailsPage() {
                 <CheckCircle size={14} /> {updating ? "..." : "Approuver"}
               </button>
             </>
+          )}
+
+          {data.status === 'approuve' && (
+            <button
+              disabled={updating}
+              onClick={() => handleStatusUpdate('mandate')}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-section text-white text-[10px] font-black uppercase hover:brightness-95 transition-all shadow-lg disabled:opacity-50"
+            >
+              <CheckCircle size={14} /> {updating ? "..." : "Émettre le mandat"}
+            </button>
           )}
         </div>
       </div>

@@ -539,8 +539,21 @@ export interface IPublicTender {
   openingDate?: Date;
   attributionDate?: Date;
   winnerId?: Types.ObjectId;
+  /** Nom du titulaire (peut être une entreprise non enregistrée comme fournisseur). */
+  winnerName?: string;
   winnerAmount?: number;
   commissionMemberIds: Types.ObjectId[];
+  /** Soumissions reçues (dépouillement des plis). */
+  bids?: {
+    _id?: Types.ObjectId;
+    bidderName: string;
+    supplierId?: Types.ObjectId;
+    amount: number;
+    compliant?: boolean;
+    notes?: string;
+  }[];
+  cancelReason?: string;
+  engagementId?: Types.ObjectId;
   notes?: string;
   createdAt: Date;
 }

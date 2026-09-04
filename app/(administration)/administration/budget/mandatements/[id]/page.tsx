@@ -59,9 +59,11 @@ export default function MandatementActionPage() {
     
     setSubmitting(true);
     try {
+      const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
       const res = await fetch(`/api/budget/engagements/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+        credentials: 'include',
         body: JSON.stringify({ status: 'mandate' })
       });
 

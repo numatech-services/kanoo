@@ -27,50 +27,37 @@ export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, a
   }
 });
 
-// --- MISE À JOUR (PATCH) ---
-// Note: J'ai mis "read" temporairement pour éviter ton erreur 403
-export const PATCH = withAuth("budgetChapters", "read", async (req: NextRequest, auth: TokenPayload) => {
-  console.log("--- 🚀 EXÉCUTION DU PATCH ---");
+// --- MISE À JOUR (PATCH) — changement de statut d'un engagement ---
+// Garde « update » (et non « read ») : approuver/rejeter/mandater est une
+// mutation, elle exige le droit d'écriture sur le budget.
+const ALLOWED_STATUS = ["en_attente", "approuve", "rejete", "mandate"];
+export const PATCH = withAuth("budgetChapters", "update", async (req: NextRequest, auth: TokenPayload) => {
   try {
     await connectDB();
-    
     const segments = req.nextUrl.pathname.split('/');
     const id = segments[segments.length - 1];
 
     const body = await req.json();
-    console.log("Corps reçu:", body);
-
     const rawValue = body.status || body.action;
-    
-    // Mapping pour l'enum de ton modèle (sans accents)
     let newStatus = rawValue;
     if (rawValue === "APPROVE") newStatus = "approuve";
     if (rawValue === "REJECT") newStatus = "rejete";
+    if (!ALLOWED_STATUS.includes(newStatus)) {
+      return NextResponse.json({ error: `Statut invalide : ${newStatus}` }, { status: 400 });
+    }
 
     const updated = await EngagementModel.findOneAndUpdate(
-      { 
-        _id: id, 
-        ...tenantFilter(auth) 
-      },
-      { 
-        $set: { 
-          status: newStatus, 
-          updatedAt: new Date(),
-          validatedBy: auth.userId 
-        } 
-      },
+      { _id: id, ...tenantFilter(auth) },
+      { $set: { status: newStatus, ...(newStatus === "mandate" ? { mandatedAt: new Date() } : {}) } },
       { new: true, runValidators: true }
     );
 
     if (!updated) {
       return NextResponse.json({ error: "Engagement introuvable ou accès refusé" }, { status: 404 });
     }
-
-    console.log("✅ Statut mis à jour avec succès :", newStatus);
     return NextResponse.json({ data: updated });
 
   } catch (error) {
-    console.error("💥 Erreur PATCH:", errorMessage(error));
     return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 });

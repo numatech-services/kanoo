@@ -17,12 +17,14 @@ import { TokenPayload } from "@/lib/auth";
 // GET /api/budget/engagements — Liste des engagements
 export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
-  
-  // On récupère les engagements du tenant
-  const engagements = await EngagementModel.find({
-    ...tenantFilter(auth),
-  }).sort({ createdAt: -1 }).lean();
 
+  // Filtre optionnel par statut (en_attente | approuve | rejete | mandate) —
+  // utilisé par les écrans Engagements et Mandatements.
+  const status = new URL(req.url).searchParams.get("status");
+  const filter: Record<string, unknown> = { ...tenantFilter(auth) };
+  if (status && ["en_attente", "approuve", "rejete", "mandate"].includes(status)) filter.status = status;
+
+  const engagements = await EngagementModel.find(filter).sort({ createdAt: -1 }).lean();
   return ok(engagements);
 });
 

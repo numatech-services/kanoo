@@ -45,7 +45,8 @@ export default function NewEngagementPage() {
     try {
       const res = await fetch("/api/budget/engagements", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken },
+        credentials: "include",
         body: JSON.stringify(formData),
       });
 
