@@ -9,6 +9,12 @@
    ========================================================================= */
 :root {
   --c-chrome: 23 19 14;    /* fond de la barre latérale */
+  /* Premier plan de la barre latérale (texte, séparateurs) et pilule active.
+     Par défaut : barre sombre → texte blanc, pilule active claire. L'espace PME
+     bascule ces valeurs (barre claire) sans toucher aux autres espaces. */
+  --c-chrome-fg: 255 255 255;
+  --c-chrome-active-bg: 255 255 255;
+  --c-chrome-active-fg: 23 19 14;
   --c-ink: 23 19 14;         /* encre chaude */
   --c-bg: 251 247 239;       /* papier clair (variante B) */
   --c-surface: 255 255 255;
@@ -382,9 +388,12 @@
 
 /* ── Entreprise ─────────────────────────────────────────────────────────── */
 [data-space="pme"] {
-  /* Chrome : le fond de la barre latérale. Un brun chaud sous une palette
-     froide institutionnelle jurerait — il suit donc l'espace. */
-  --c-chrome: 23 19 14;
+  /* PME (thème clair) : barre latérale BLANCHE, texte foncé, pilule active
+     ambre. Les autres espaces conservent une barre sombre. */
+  --c-chrome: 255 255 255;
+  --c-chrome-fg: 23 19 14;
+  --c-chrome-active-bg: 194 98 14;
+  --c-chrome-active-fg: 255 255 255;
   --c-bg: 251 247 239;
   --c-surface2: 243 236 224;
   --c-line: 234 225 208;
@@ -458,6 +467,12 @@
 @media (prefers-color-scheme: dark) {
   [data-space="pme"] {
     --c-chrome: 15 12 9;
+    /* En mode sombre, la barre PME redevient sombre : on rétablit un premier
+       plan clair et une pilule active claire (sinon les valeurs foncées du
+       bloc clair persisteraient et le texte serait illisible). */
+    --c-chrome-fg: 243 236 224;
+    --c-chrome-active-bg: 243 236 224;
+    --c-chrome-active-fg: 23 19 14;
     --c-bg: 22 18 13; --c-surface2: 41 34 26;
     --c-line: 52 43 32; --c-line2: 71 59 44;
     --c-ink: 243 236 224; --c-ink2: 185 174 156;

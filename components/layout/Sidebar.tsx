@@ -198,11 +198,11 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   const isOpen = (section: string) => section === activeSection || openGroups.has(section);
 
   return (
-    <aside className="w-64 bg-chrome text-white flex flex-col h-full overflow-hidden flex-shrink-0">
-      <div className="px-6 py-5 border-b border-white/10">
+    <aside className="w-64 bg-chrome text-chromefg border-r border-chromefg/10 flex flex-col h-full overflow-hidden flex-shrink-0">
+      <div className="px-6 py-5 border-b border-chromefg/10">
         <div className="flex items-center gap-2.5">
           {tenant?.logo ? (
-            <span className="w-9 h-9 rounded-lg bg-white/95 grid place-items-center overflow-hidden shrink-0">
+            <span className="w-9 h-9 rounded-lg bg-chromefg/10 grid place-items-center overflow-hidden shrink-0">
               <img src={tenant.logo} alt="" className="max-w-full max-h-full object-contain" />
             </span>
           ) : null}
@@ -210,8 +210,8 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
             {tenant?.name || "Kanoo"}
           </span>
         </div>
-        <p className="text-[10px] font-bold text-white/40 mt-2 uppercase tracking-widest">{profile}</p>
-        {tenant?.name ? <p className="text-[9px] text-white/25 mt-0.5">propulsé par Kanoo</p> : null}
+        <p className="text-[10px] font-bold text-chromefg/40 mt-2 uppercase tracking-widest">{profile}</p>
+        {tenant?.name ? <p className="text-[9px] text-chromefg/25 mt-0.5">propulsé par Kanoo</p> : null}
       </div>
 
       <nav className="flex-1 overflow-y-auto py-6 px-3 custom-scrollbar">
@@ -227,11 +227,11 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
             <div key={group.section} className="mb-2" data-section={tone}>
               <button type="button" onClick={() => toggleGroup(group.section)}
                 aria-expanded={open}
-                className="w-full flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 hover:text-white/70 px-3 py-2 rounded-lg transition-colors">
+                className="w-full flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-chromefg/40 hover:text-chromefg/70 px-3 py-2 rounded-lg transition-colors">
                 <span className="h-1.5 w-1.5 rounded-full bg-section shrink-0" aria-hidden />
                 <span className="flex-1 text-left">{group.section}</span>
                 {!open && groupCount > 0 && (
-                  <span className="num text-[9px] font-bold rounded-full px-1.5 bg-section text-white">{groupCount}</span>
+                  <span className="num text-[9px] font-bold rounded-full px-1.5 bg-section text-chromefg">{groupCount}</span>
                 )}
                 <ChevronDown size={13} className={`shrink-0 transition-transform duration-200 ${open ? "" : "-rotate-90"}`} />
               </button>
@@ -243,20 +243,20 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
                     aria-current={active ? "page" : undefined}
                     className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 mb-1 ${
                       active
-                      ? "bg-white/95 text-ink shadow-lg font-bold"
-                      : "text-white/60 hover:bg-white/5 hover:text-white"
+                      ? "bg-chromeactive text-chromeactivefg shadow-lg font-bold"
+                      : "text-chromefg/60 hover:bg-chromefg/5 hover:text-chromefg"
                     }`}
                   >
                     {active && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r bg-section" aria-hidden />
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r bg-chromeactivefg/40" aria-hidden />
                     )}
-                    <span className={`flex items-center justify-center ${active ? "text-section" : "text-white/40"}`}>
+                    <span className={`flex items-center justify-center ${active ? "text-chromeactivefg" : "text-chromefg/40"}`}>
                       {item.icon}
                     </span>
                     <span className="flex-1">{item.label}</span>
                     {(counters[item.href] ?? item.badge) && (
                       <span className={`num text-[10px] font-bold rounded-full px-1.5 min-w-[1.25rem] text-center ${
-                        active ? "bg-section text-white" : "bg-white/15 text-white"
+                        active ? "bg-chromeactivefg/25 text-chromeactivefg" : "bg-chromefg/15 text-chromefg"
                       }`}>
                         {counters[item.href] ?? item.badge}
                       </span>
@@ -270,13 +270,13 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
         })}
       </nav>
 
-      <div className="px-4 py-4 border-t border-white/10">
+      <div className="px-4 py-4 border-t border-chromefg/10">
         <button 
           onClick={async () => { 
             await fetch("/api/auth/logout", { method: "POST" }); 
             window.location.href = "/login"; 
           }}
-          className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-white/50 hover:bg-neg/10 hover:text-neg transition-all"
+          className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-chromefg/50 hover:bg-neg/10 hover:text-neg transition-all"
         >
           <LogOut size={16} />
           <span>Déconnexion</span>
