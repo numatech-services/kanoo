@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useMe } from "@/lib/useMe";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck } from "lucide-react";
 
@@ -154,6 +155,7 @@ const NAV_MAP: Record<ProfileType, NavGroup[]> = {
 export function Sidebar({ profile }: { profile: ProfileType }) {
   const pathname = usePathname();
   const nav = NAV_MAP[profile] || PME_NAV;
+  const { tenant } = useMe();
 
   // Les compteurs sont un supplément : leur absence n'empêche jamais la
   // navigation de s'afficher, et un échec de lecture reste silencieux.
@@ -194,9 +196,19 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
 
   return (
     <aside className="w-64 bg-chrome text-white flex flex-col h-full overflow-hidden flex-shrink-0">
-      <div className="px-6 py-6 border-b border-white/10">
-        <span className="text-xl font-black tracking-tight uppercase">Kanoo</span>
-        <p className="text-[10px] font-bold text-white/40 mt-1 uppercase tracking-widest">{profile}</p>
+      <div className="px-6 py-5 border-b border-white/10">
+        <div className="flex items-center gap-2.5">
+          {tenant?.logo ? (
+            <span className="w-9 h-9 rounded-lg bg-white/95 grid place-items-center overflow-hidden shrink-0">
+              <img src={tenant.logo} alt="" className="max-w-full max-h-full object-contain" />
+            </span>
+          ) : null}
+          <span className="text-lg font-black tracking-tight leading-tight line-clamp-2">
+            {tenant?.name || "Kanoo"}
+          </span>
+        </div>
+        <p className="text-[10px] font-bold text-white/40 mt-2 uppercase tracking-widest">{profile}</p>
+        {tenant?.name ? <p className="text-[9px] text-white/25 mt-0.5">propulsé par Kanoo</p> : null}
       </div>
 
       <nav className="flex-1 overflow-y-auto py-6 px-3 custom-scrollbar">

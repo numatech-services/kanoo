@@ -4,9 +4,10 @@ import Link from "next/link"; // Ajout de Link pour la navigation
 import { NotificationsBell } from "@/components/shared/NotificationsBell";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { Search } from "lucide-react";
+import { useMe } from "@/lib/useMe";
 
 export function TopBar() {
-  const [user, setUser] = useState<{ firstName: string; lastName: string; role: string } | null>(null);
+  const { user } = useMe();
   const [mounted, setMounted] = useState(false);
   // Le libellé du raccourci dépend de la plateforme, et n'est connu qu'après
   // montage : l'afficher côté serveur produirait une divergence d'hydratation.
@@ -15,10 +16,6 @@ export function TopBar() {
   useEffect(() => {
     setMounted(true);
     if (navigator.platform?.toUpperCase().includes("MAC")) setShortcut("⌘ K");
-    fetch("/api/auth/me", { credentials: "include" })
-      .then((r) => r.json())
-      .then((d) => setUser(d.data?.user || null))
-      .catch(() => {});
   }, []);
 
   return (
@@ -47,8 +44,8 @@ export function TopBar() {
         <NotificationsBell />
         
         {mounted && user && (
-          <Link 
-            href="/associations/profil" 
+          <Link
+            href="/profile"
             className="flex items-center gap-2 hover:bg-surface2 p-1.5 rounded-xl transition-colors group"
           >
             <div className="w-8 h-8 bg-section text-white rounded-full flex items-center justify-center text-sm font-semibold group-hover:ring-2 group-hover:ring-section/30 transition-all">
@@ -59,7 +56,7 @@ export function TopBar() {
                 {user.firstName} {user.lastName}
               </p>
               <p className="text-xs text-ink2 capitalize mt-0.5">
-                {user.role.replace(/_/g, " ")}
+                {user.role?.replace(/_/g, " ")}
               </p>
             </div>
           </Link>

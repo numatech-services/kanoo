@@ -2,10 +2,10 @@ import Link from "next/link";
 
 const SETTINGS_ITEMS = [
   { href:"/settings/numerotation", icon:"🔢", title:"Numérotation des documents", desc:"Personnalisez les préfixes FAC-, DEV-, BC-… pour chaque type de document. Migration depuis un logiciel existant." },
-  { href:"/companies", icon:"🏢", title:"Mon organisation", desc:"NIF, RCCM, adresse, logo, couleurs de la plateforme." },
+  { href:"/company", icon:"🏢", title:"Mon organisation", desc:"Nom, NIF, RCCM, adresse, contacts et logo de votre organisation." },
   { href:"/users", icon:"👥", title:"Utilisateurs & Rôles", desc:"Gérez les accès, invitez de nouveaux utilisateurs, modifiez les rôles." },
   { href:"/subscription", icon:"💎", title:"Abonnement", desc:"Plan actuel, dates de renouvellement, changement de plan." },
-  { href:"/company/branding", icon:"🎨", title:"Apparence", desc:"Couleurs, logo, personnalisation de l'interface." },
+  { href:"/company/branding", icon:"🎨", title:"Apparence des documents", desc:"Couleurs, mentions, instructions de paiement et QR de vos factures, devis et courriers." },
   { href:"/support", icon:"🎫", title:"Support", desc:"Ouvrez un ticket ou consultez l'historique de vos demandes." },
   { href:"/audit", icon:"🔍", title:"Journal d'audit", desc:"Toutes les actions effectuées dans votre espace, tracées et horodatées." },
 ];
