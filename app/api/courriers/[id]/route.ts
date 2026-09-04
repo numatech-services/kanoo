@@ -17,7 +17,14 @@ export const GET = withAuth("documents", "read", async (_req: NextRequest, auth:
 export const PATCH = withAuth("documents", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const body = await req.json().catch(() => ({}));
-  const update = sanitizeBody(body, ["reference", "kind", "subject", "recipient", "place", "body", "signatory", "status", "aiAssisted"]);
+  // Liste blanche : seuls ces champs sont modifiables. `sanitizeBody` retire au
+  // passage tout champ jamais inscriptible ou tout opérateur Mongo ($set…).
+  const ALLOWED = ["reference", "kind", "subject", "recipient", "place", "body", "signatory", "status", "aiAssisted"];
+  const clean = sanitizeBody(body);
+  const update: Record<string, unknown> = {};
+  for (const field of ALLOWED) {
+    if (field in clean) update[field] = clean[field];
+  }
   const letter = await LetterModel.findOneAndUpdate(
     { _id: params.id, ...tenantFilter(auth) }, { $set: update }, { new: true }
   );
