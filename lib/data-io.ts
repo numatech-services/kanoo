@@ -19,7 +19,9 @@ import { DevisModel } from "@/models/Devis";
 import { EmployeeModel } from "@/models/Employee";
 
 export interface ExportColumn { header: string; get: (doc: any) => unknown }
-export interface ImportField { header: string; field: string; required?: boolean; kind?: "string" | "number" | "boolean"; enum?: string[]; default?: unknown }
+export interface ImportField { header: string; field: string; required?: boolean; kind?: "string" | "number" | "boolean" | "date"; enum?: string[]; default?: unknown }
+/** Colonne d'import qui désigne un tiers par son code (ex. le code client d'un contrat). */
+export interface ImportResolver { header: string; field: string; model: any }
 
 export interface DataEntity {
   key: string;
@@ -31,7 +33,7 @@ export interface DataEntity {
   columns: ExportColumn[];
   sort?: Record<string, 1 | -1>;
   /** Présent si l'entité est importable (création). */
-  import?: { fields: ImportField[]; uniqueBy: string };
+  import?: { fields: ImportField[]; uniqueBy: string; resolvers?: ImportResolver[] };
 }
 
 const bool = (v: unknown) => (v ? "oui" : "non");
@@ -103,12 +105,29 @@ export const ENTITIES: Record<string, DataEntity> = {
   },
   contracts: {
     key: "contracts", label: "Contrats", resource: "contracts", model: ContractModel, sort: { createdAt: -1 },
+    populate: [["clientId", "code"], ["supplierId", "code"]],
     columns: [
       { header: "reference", get: (d) => d.reference }, { header: "title", get: (d) => d.title },
       { header: "type", get: (d) => d.type }, { header: "status", get: (d) => d.status },
       { header: "amount", get: (d) => d.amount }, { header: "startDate", get: (d) => date(d.startDate) },
       { header: "endDate", get: (d) => date(d.endDate) },
+      { header: "clientCode", get: (d) => d.clientId?.code }, { header: "supplierCode", get: (d) => d.supplierId?.code },
     ],
+    import: {
+      uniqueBy: "reference",
+      fields: [
+        { header: "reference", field: "reference", required: true }, { header: "title", field: "title", required: true },
+        { header: "type", field: "type", required: true, enum: ["client", "supplier", "employment", "freelance", "other"], default: "other" },
+        { header: "status", field: "status", enum: ["draft", "active", "suspended", "expired", "cancelled", "renewed"], default: "draft" },
+        { header: "amount", field: "amount", kind: "number", default: 0 },
+        { header: "startDate", field: "startDate", kind: "date" }, { header: "endDate", field: "endDate", kind: "date" },
+      ],
+      // Rattachement facultatif d'un tiers par son code.
+      resolvers: [
+        { header: "clientCode", field: "clientId", model: ClientModel },
+        { header: "supplierCode", field: "supplierId", model: SupplierModel },
+      ],
+    },
   },
   invoices: {
     key: "invoices", label: "Factures", resource: "invoices", model: InvoiceModel, sort: { issueDate: -1 },
@@ -134,9 +153,21 @@ export const ENTITIES: Record<string, DataEntity> = {
     columns: [
       { header: "code", get: (d) => d.code }, { header: "firstName", get: (d) => d.firstName },
       { header: "lastName", get: (d) => d.lastName }, { header: "position", get: (d) => d.position },
-      { header: "employeeType", get: (d) => d.employeeType }, { header: "grossSalary", get: (d) => d.grossSalary },
-      { header: "startDate", get: (d) => date(d.startDate) }, { header: "isActive", get: (d) => bool(d.isActive) },
+      { header: "employeeType", get: (d) => d.employeeType }, { header: "contractNature", get: (d) => d.contractNature },
+      { header: "grossSalary", get: (d) => d.grossSalary }, { header: "startDate", get: (d) => date(d.startDate) },
+      { header: "isActive", get: (d) => bool(d.isActive) },
     ],
+    import: {
+      uniqueBy: "code",
+      fields: [
+        { header: "code", field: "code", required: true }, { header: "firstName", field: "firstName", required: true },
+        { header: "lastName", field: "lastName", required: true }, { header: "position", field: "position", required: true },
+        { header: "startDate", field: "startDate", kind: "date", required: true },
+        { header: "employeeType", field: "employeeType", enum: ["employee", "intern", "freelance"], default: "employee" },
+        { header: "contractNature", field: "contractNature", enum: ["cdi", "cdd", "stage", "freelance", "consultant"], default: "cdi" },
+        { header: "grossSalary", field: "grossSalary", kind: "number", default: 0 },
+      ],
+    },
   },
 };
 
@@ -181,6 +212,13 @@ export function coerce(value: string, f: ImportField): unknown {
   const v = value?.trim() ?? "";
   if (f.kind === "number") { const n = Number(v.replace(/\s/g, "").replace(",", ".")); return isNaN(n) ? undefined : n; }
   if (f.kind === "boolean") return /^(oui|true|1|vrai|yes|x)$/i.test(v);
+  if (f.kind === "date") {
+    if (!v) return undefined;
+    // Accepte l'ISO (AAAA-MM-JJ) et le format français (JJ/MM/AAAA).
+    const fr = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v);
+    const d = fr ? new Date(Number(fr[3]), Number(fr[2]) - 1, Number(fr[1])) : new Date(v);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
   if (f.enum) return f.enum.includes(v) ? v : f.default;
   return v || undefined;
 }

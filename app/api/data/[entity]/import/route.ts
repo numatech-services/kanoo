@@ -62,12 +62,24 @@ export const POST = withAuth("agenda", "create", async (req: NextRequest, auth: 
       for (const f of spec.fields) {
         if (f.required && (doc[f.field] === undefined || doc[f.field] === "")) throw new Error(`champ « ${f.header} » requis`);
       }
+
+      // Rattachement d'un tiers par son code (ex. contrat → client). Un code
+      // fourni mais introuvable est une erreur ; un code absent est ignoré.
+      for (const rz of spec.resolvers ?? []) {
+        const idx = colIndex[norm(rz.header)];
+        const code = idx === undefined ? "" : (raw[idx] ?? "").trim();
+        if (!code) continue;
+        const found = await rz.model.findOne({ ...tf, code }).select("_id").lean();
+        if (!found) throw new Error(`${rz.header} « ${code} » introuvable`);
+        doc[rz.field] = (found as { _id: unknown })._id;
+      }
+
       const key = doc[spec.uniqueBy];
       if (!key) throw new Error(`clé « ${spec.uniqueBy} » vide`);
 
       const res = await entity.model.updateOne(
         { ...tf, [spec.uniqueBy]: key },
-        { $set: { ...doc, tenantId: auth.tenantId } },
+        { $set: { ...doc, tenantId: auth.tenantId }, $setOnInsert: { createdBy: auth.userId } },
         { upsert: true, runValidators: true, setDefaultsOnInsert: true }
       );
       if (res.upsertedCount) created++; else if (res.matchedCount) updated++;
