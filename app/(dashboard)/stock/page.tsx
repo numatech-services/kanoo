@@ -59,35 +59,30 @@ export default function StockPage() {
   }, [load]);
 
   async function handleMovement() {
-    // FORCE ALERT POUR TEST
-    alert("🚀 FONCTION APPELÉE ! ID Produit: " + mvtModal);
-    
     if (!mvtForm.reason || mvtForm.reason.trim() === "") {
-      alert("⚠️ MOTIF VIDE : Écrivez quelque chose dans le champ motif !");
+      alert("Indiquez un motif pour ce mouvement.");
       return;
     }
 
     setSaving(true);
     try {
-      console.log("Envoi des données...", mvtForm);
+      const { csrfToken } = await fetch("/api/auth/csrf").then((r) => r.json());
       const res = await fetch("/api/stock/movements", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: mvtModal, ...mvtForm })
+        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+        credentials: "include",
+        body: JSON.stringify({ productId: mvtModal, ...mvtForm }),
       });
-
       const data = await res.json();
-
       if (res.ok) {
-        alert("✅ SUCCÈS : Stock mis à jour !");
         setMvtModal(null);
         setMvtForm({ type: "entry", quantity: 1, reason: "", unitCost: 0 });
         load();
       } else {
-        alert("❌ ERREUR API : " + (data.error || "Inconnu"));
+        alert(data.error || "Le mouvement de stock a échoué.");
       }
     } catch (err) {
-      alert("🔥 ERREUR RÉSEAU : " + errorMessage(err));
+      alert(errorMessage(err));
     } finally {
       setSaving(false);
     }

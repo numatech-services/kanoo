@@ -67,7 +67,7 @@ export default function CheckinPage() {
     for (const item of [...q]) {
       try {
         const res = await fetch(`/api/events/${id}/checkin`, {
-          method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+          method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken }, credentials: "include",
           body: JSON.stringify({ code: item.code }),
         });
         if (res.ok) { q = q.filter((x) => x.at !== item.at); writeQueue(q); }
@@ -128,7 +128,7 @@ export default function CheckinPage() {
     if (navigator.onLine) {
       try {
         const res = await fetch(`/api/events/${id}/checkin`, {
-          method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+          method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken }, credentials: "include",
           body: JSON.stringify(payload ? { payload } : { code }),
         });
         const d = await res.json();

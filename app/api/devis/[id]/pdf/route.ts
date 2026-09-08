@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, ctx: RouteParams) {
 
     const [devis, tenant] = await Promise.all([
       DevisModel.findOne({ _id: id, ...tenantFilter(auth) })
-        .populate("clientId", "name nif address phone")
+        .populate("clientId", "name nif rccm code address phone")
         .lean<QuoteForPdf | null>(),
       TenantModel.findById(auth.tenantId)
         .select("name logo branding nif rccm address phone email")

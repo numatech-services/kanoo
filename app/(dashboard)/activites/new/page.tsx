@@ -40,7 +40,7 @@ export default function NewActivitePage() {
     try {
       const res = await fetch("/api/events", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken },
         credentials: "include",
         body: JSON.stringify({
           ...form,

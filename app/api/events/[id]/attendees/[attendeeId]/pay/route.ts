@@ -11,7 +11,7 @@ import { TokenPayload } from "@/lib/auth";
  * Retourne l'URL de paiement. La confirmation arrive par le webhook, qui marque
  * le billet « payé » et déclenche l'envoi (email + WhatsApp).
  */
-export const POST = withAuth("events", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
+export const POST = withAuth("events", "update", async (_req: NextRequest, auth: TokenPayload, params) => {
   const [ev, at] = await Promise.all([
     EventModel.findOne({ _id: params.id, ...tenantFilter(auth) }).lean(),
     AttendeeModel.findOne({ _id: params.attendeeId, eventId: params.id, ...tenantFilter(auth) }),

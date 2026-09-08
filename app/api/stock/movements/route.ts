@@ -15,16 +15,15 @@ export const POST = withAuth("products", "update", async (req: NextRequest, auth
   
   try {
     const body = await req.json();
-    console.log("📦 Nouveau mouvement reçu:", body);
 
     // 1. Validation stricte
     const err = requireFields(body, ["productId", "type", "quantity", "reason"]);
     if (err) return badRequest(err);
 
     // 2. Trouver le produit
-    const product = await ProductModel.findOne({ 
-      _id: body.productId, 
-      ...tenantFilter(auth) 
+    const product = await ProductModel.findOne({
+      _id: body.productId,
+      ...tenantFilter(auth)
     });
 
     if (!product) {
@@ -32,10 +31,21 @@ export const POST = withAuth("products", "update", async (req: NextRequest, auth
     }
 
     // 3. Calcul du nouveau stock
+    // - entrée / retour : on ajoute ;  sortie / perte : on retire.
+    // - ajustement d'inventaire : la quantité saisie EST le stock réel constaté
+    //   (le mouvement enregistré est l'écart). Auparavant « adjustment » n'était
+    //   pas reconnu comme positif et diminuait donc toujours le stock.
     const qty = Math.abs(Number(body.quantity));
-    const delta = ["entry", "return", "adjustment_pos"].includes(body.type) ? qty : -qty;
     const initialQty = product.stockQty || 0;
-    const finalQty = initialQty + delta;
+    let delta: number, finalQty: number;
+    if (body.type === "adjustment") {
+      finalQty = qty;
+      delta = qty - initialQty;
+    } else {
+      delta = ["entry", "return"].includes(body.type) ? qty : -qty;
+      finalQty = initialQty + delta;
+    }
+    if (finalQty < 0) return badRequest("Stock insuffisant pour cette sortie.");
 
     // 4. Enregistrement séquentiel (Plus fiable que transaction en local)
     const movement = await StockMovementModel.create({
@@ -52,8 +62,6 @@ export const POST = withAuth("products", "update", async (req: NextRequest, auth
     // Mise à jour du produit
     product.stockQty = finalQty;
     await product.save();
-
-    console.log("✅ Stock mis à jour avec succès");
 
     // 5. Audit
     await logAudit(auth, "UPDATE", "stock", {

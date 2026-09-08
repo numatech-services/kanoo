@@ -172,7 +172,7 @@ export interface InvoiceForPdf {
   lines?: Array<{ description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; totalTTC?: number }>;
   totalHT?: number; totalTVA?: number; totalDTS?: number; totalTTC?: number;
   paidAmount?: number; notes?: string;
-  clientId?: { name?: string; nif?: string; address?: string; phone?: string } | null;
+  clientId?: { name?: string; nif?: string; rccm?: string; code?: string; address?: string; phone?: string } | null;
   secef?: { code?: string; qrPayload?: string };
 }
 
@@ -215,7 +215,12 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
     doc.font("Helvetica").fillColor(c.ink).fontSize(11).text(inv.clientId?.name || "Client", 320, y + 13, { width: 225 });
     let cy = y + 28;
     doc.fontSize(8.5).fillColor(c.muted);
-    for (const bit of [inv.clientId?.nif ? `NIF : ${inv.clientId.nif}` : "", inv.clientId?.address, inv.clientId?.phone]) {
+    for (const bit of [
+      inv.clientId?.code ? `N° client : ${inv.clientId.code}` : "",
+      inv.clientId?.nif ? `NIF : ${inv.clientId.nif}` : "",
+      inv.clientId?.rccm ? `RCCM : ${inv.clientId.rccm}` : "",
+      inv.clientId?.address, inv.clientId?.phone,
+    ]) {
       if (bit) { doc.text(bit, 320, cy, { width: 225 }); cy += 11; }
     }
     y += 56;
@@ -306,7 +311,7 @@ export interface QuoteForPdf {
   status?: string;
   lines?: Array<{ description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; totalTTC?: number }>;
   totalHT?: number; totalTVA?: number; totalTTC?: number; notes?: string;
-  clientId?: { name?: string; nif?: string; address?: string; phone?: string } | null;
+  clientId?: { name?: string; nif?: string; rccm?: string; code?: string; address?: string; phone?: string } | null;
 }
 
 const QUOTE_STATUS_FR: Record<string, string> = {
@@ -380,7 +385,12 @@ export async function generateQuotePdf(q: QuoteForPdf, tenant: TenantIdentity): 
     doc.font("Helvetica").fillColor(c.ink).fontSize(11).text(q.clientId?.name || "Client", 320, y + 13, { width: 225 });
     let cy = y + 28;
     doc.fontSize(8.5).fillColor(c.muted);
-    for (const bit of [q.clientId?.nif ? `NIF : ${q.clientId.nif}` : "", q.clientId?.address, q.clientId?.phone]) {
+    for (const bit of [
+      q.clientId?.code ? `N° client : ${q.clientId.code}` : "",
+      q.clientId?.nif ? `NIF : ${q.clientId.nif}` : "",
+      q.clientId?.rccm ? `RCCM : ${q.clientId.rccm}` : "",
+      q.clientId?.address, q.clientId?.phone,
+    ]) {
       if (bit) { doc.text(bit, 320, cy, { width: 225 }); cy += 11; }
     }
     y += 56;

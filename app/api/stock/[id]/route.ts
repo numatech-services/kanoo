@@ -7,7 +7,7 @@ import { connectDB, withTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
-export const GET = withAuth("commandes", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
+export const GET = withAuth("products", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const c = await CommandeModel.findOne({ _id: params.id, ...tenantFilter(auth) })
     .populate("supplierId", "name code")
@@ -16,7 +16,7 @@ export const GET = withAuth("commandes", "read", async (_req: NextRequest, auth:
   return ok(c);
 });
 
-export const PATCH = withAuth("commandes", "update", async (req: NextRequest, auth: TokenPayload, params) => {
+export const PATCH = withAuth("products", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const body = await req.json();
 
