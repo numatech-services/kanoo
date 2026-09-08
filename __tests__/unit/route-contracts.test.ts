@@ -272,12 +272,18 @@ describe("Trésorerie — le solde ne s'écrit pas", () => {
   });
 
   it("un règlement imputé à un compte crée un mouvement dans la même transaction", () => {
-    const payments = files.find(f => f.path === "app/api/payments/route.ts");
-    expect(payments).toBeDefined();
-    expect(payments!.src).toMatch(/TreasuryMovementModel\.create/);
+    // Les effets comptables (dont le mouvement de trésorerie) sont factorisés
+    // dans lib/payments.ts et appelés par la route dans withTransaction.
+    const effects = readFileSync(join(ROOT, "lib/payments.ts"), "utf-8");
+    expect(effects).toMatch(/TreasuryMovementModel\.create/);
     // `session` prouve que le mouvement participe à la transaction du paiement :
     // un règlement enregistré sans son mouvement produirait un écart permanent.
-    expect(payments!.src).toMatch(/TreasuryMovementModel\.create[\s\S]{0,800}session/);
+    expect(effects).toMatch(/TreasuryMovementModel\.create[\s\S]{0,800}session/);
+
+    const payments = files.find(f => f.path === "app/api/payments/route.ts");
+    expect(payments).toBeDefined();
+    // La route applique les effets dans la transaction (session) du paiement.
+    expect(payments!.src).toMatch(/withTransaction[\s\S]{0,600}applyPaymentEffects[\s\S]{0,120}session/);
   });
 
   it("l'appariement refuse deux montants différents", () => {

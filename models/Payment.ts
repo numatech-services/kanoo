@@ -6,6 +6,14 @@ const PaymentSchema = new Schema<IPayment>({ tenantId: { type: Schema.Types.Obje
    * solde : la trésorerie affichait un nombre saisi que rien ne mettait à jour.
    * Optionnel pour les paiements enregistrés avant ce module.
    */
-  treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount", index: true }, createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true } }, { timestamps: true });
+  treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount", index: true },
+  /**
+   * « effective » = encaissé : impacte la facture, la comptabilité et la
+   * trésorerie. « pending » = en attente : simple promesse enregistrée, aucun
+   * effet comptable tant qu'il n'est pas confirmé. Défaut « effective » pour ne
+   * pas modifier le comportement des règlements déjà saisis.
+   */
+  status: { type: String, enum: ["pending", "effective"], default: "effective", index: true },
+  createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true } }, { timestamps: true });
 PaymentSchema.index({ tenantId: 1, invoiceId: 1 });
 export const PaymentModel = models.Payment || model<IPayment>("Payment", PaymentSchema);

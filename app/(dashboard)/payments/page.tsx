@@ -14,6 +14,8 @@ interface Payment {
   method: string;
   date: string;
   reference?: string;
+  status?: string;
+  treasuryAccountId?: { name?: string } | null;
 }
 
 export default function PaymentsPage() {
@@ -47,6 +49,18 @@ export default function PaymentsPage() {
     setMounted(true);
     load();
   }, [load]);
+
+  async function confirmPayment(id: string) {
+    if (!confirm("Marquer ce paiement comme encaissé ? Il soldera la facture et impactera la comptabilité et la trésorerie.")) return;
+    const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+    const res = await fetch(`/api/payments/${id}`, {
+      method: "PATCH", credentials: "include",
+      headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+      body: JSON.stringify({ status: "effective" }),
+    });
+    if (res.ok) load();
+    else { const d = await res.json().catch(() => ({})); alert(d.error || "Confirmation impossible."); }
+  }
 
   if (!mounted) return null;
 
@@ -91,10 +105,28 @@ export default function PaymentsPage() {
       className: "font-mono font-bold text-pos text-right",
       render: (v) => `${Number(v).toLocaleString("fr-FR")} XOF` 
     },
-    { 
-      key: "reference", 
-      label: "Réf / N° Chèque", 
-      render: (v) => v ? String(v) : <span className="text-ink2 italic text-xs">Aucune</span> 
+    {
+      key: "treasuryAccountId",
+      label: "Compte",
+      render: (v: any) => v?.name ? <span className="text-ink">{v.name}</span> : <span className="text-ink2 italic text-xs">Non imputé</span>
+    },
+    {
+      key: "status",
+      label: "État",
+      render: (v, record: any) => v === "pending"
+        ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-warn-50 text-warn border border-warn/25">En attente</span>
+            <button onClick={() => confirmPayment(record._id)}
+              className="text-[11px] font-semibold text-pos hover:underline">Marquer encaissé</button>
+          </div>
+        )
+        : <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-pos-50 text-pos border border-pos/25">Encaissé</span>
+    },
+    {
+      key: "reference",
+      label: "Réf / N° Chèque",
+      render: (v) => v ? String(v) : <span className="text-ink2 italic text-xs">Aucune</span>
     },
   ];
 

@@ -3,9 +3,8 @@ import { connectDB } from "@/lib/db";
 import { withAuth, created, badRequest, notFound, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { PaymentModel } from "@/models/Payment";
 import { InvoiceModel } from "@/models/Invoice";
-import { AccountingEntryModel } from "@/models/AccountingEntry";
-import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { withTransaction } from "@/lib/db";
+import { applyPaymentEffects } from "@/lib/payments";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -24,11 +23,12 @@ export const GET = withAuth("payments", "read", async (req: NextRequest, auth: T
       .populate({
         path: "invoiceId",
         select: "number totalTTC clientId",
-        populate: { 
-          path: "clientId", 
-          select: "name" 
+        populate: {
+          path: "clientId",
+          select: "name"
         }
       })
+      .populate("treasuryAccountId", "name")
       .sort({ date: -1 })
       .skip(pagination.skip)
       .limit(pagination.limit)
@@ -57,70 +57,22 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
     return badRequest(`Montant maximum payable : ${remaining} XOF (reste à payer)`);
   }
 
+  // « pending » = promesse enregistrée, sans effet comptable ; « effective » =
+  // encaissé, on solde la facture et on écrit compta + trésorerie.
+  const status = body.status === "pending" ? "pending" : "effective";
+
   const result = await withTransaction(async (session) => {
-    // 1. Créer le paiement
     const [payment] = await PaymentModel.create(
-      [{ ...body, tenantId: auth.tenantId, createdBy: auth.userId }],
+      [{ ...body, status, tenantId: auth.tenantId, createdBy: auth.userId }],
       { session }
     );
-
-    // 2. Mettre à jour la facture
-    invoice.paidAmount += amount;
-    if (invoice.paidAmount >= invoice.totalTTC - 1) {
-      invoice.status = "paid";
-    } else {
-      invoice.status = "partial";
-    }
-    await invoice.save({ session });
-
-    // 3. Écriture comptable automatique (BQ — Banque ou CA — Caisse)
-    const journalCode = body.method === "cash" ? "CA" : "BQ";
-    const bankAccount = body.method === "cash" ? "571000" : "521000";
-    await AccountingEntryModel.create(
-      [{
-        tenantId: auth.tenantId,
-        journalCode,
-        entryDate: new Date(body.date),
-        reference: `PMNT-${payment._id.toString().slice(-6).toUpperCase()}`,
-        label: `Règlement facture ${invoice.number}`,
-        lines: [
-          { accountCode: bankAccount, accountLabel: body.method === "cash" ? "Caisse" : "Banque", debit: amount, credit: 0 },
-          { accountCode: "411000", accountLabel: "Clients", debit: 0, credit: amount, thirdPartyId: invoice.clientId },
-        ],
-        linkedDocType: "payment",
-        linkedDocId: payment._id,
-        createdBy: auth.userId,
-      }],
-      { session }
-    );
-
-    // 4. Mouvement de trésorerie — c'est lui qui fait le solde.
-    // Sans compte désigné, aucun mouvement n'est créé : mieux vaut un solde
-    // incomplet et signalé qu'un solde imputé au hasard sur un compte.
-    if (body.treasuryAccountId) {
-      await TreasuryMovementModel.create(
-        [{
-          tenantId: auth.tenantId,
-          accountId: body.treasuryAccountId,
-          date: new Date(body.date),
-          amount: amount,
-          label: `Règlement facture ${invoice.number}`,
-          reference: body.reference,
-          source: "payment",
-          linkedDocType: "payment",
-          linkedDocId: payment._id,
-          createdBy: auth.userId,
-        }],
-        { session }
-      );
-    }
-
+    if (status === "effective") await applyPaymentEffects(payment, invoice, auth, session);
     return payment;
   });
 
   await logAudit(auth, "PAYMENT", "payments", {
     resourceId: result._id.toString(),
-    after: { invoiceId: body.invoiceId, amount, method: body.method },
+    after: { invoiceId: body.invoiceId, amount, method: body.method, status },
   });
 
   return created(result);

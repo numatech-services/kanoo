@@ -317,6 +317,8 @@ export interface IPayment {
   createdAt: Date;
   /** Compte de trésorerie encaissé. */
   treasuryAccountId?: Types.ObjectId;
+  /** « effective » = encaissé (impacte compta/trésorerie) ; « pending » = en attente. */
+  status?: "pending" | "effective";
 }
 
 export interface ICommande {

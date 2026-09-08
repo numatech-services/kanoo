@@ -37,6 +37,7 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
   const [date, setDate] = useState(today);
   const [notes, setNotes] = useState("");
   const [treasuryAccountId, setTreasuryAccountId] = useState("");
+  const [status, setStatus] = useState("effective");
   const [accounts, setAccounts] = useState<TreasuryAccountOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -69,7 +70,7 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
     setSaving(true);
     setError("");
     await onSave({
-      invoiceId, amount, method, reference, date, notes,
+      invoiceId, amount, method, reference, date, notes, status,
       ...(treasuryAccountId ? { treasuryAccountId } : {}),
     });
     setSaving(false);
@@ -128,6 +129,14 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
           restera introuvable au rapprochement.
         </p>
       )}
+
+      <FormField label="État du règlement"
+        hint="« En attente » n'impacte ni la facture ni la comptabilité tant qu'il n'est pas confirmé encaissé.">
+        <select className={selectCls} value={status} onChange={e => setStatus(e.target.value)}>
+          <option value="effective">Encaissé (effectif)</option>
+          <option value="pending">En attente</option>
+        </select>
+      </FormField>
 
       <FormField label="Référence (n° virement, chèque…)">
         <input className={inputCls} value={reference} placeholder="Optionnel"
