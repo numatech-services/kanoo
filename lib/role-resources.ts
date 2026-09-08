@@ -408,6 +408,17 @@ for (const perms of Object.values(ROLE_PERMISSIONS)) {
 }
 
 /**
+ * Messagerie : universelle, comme l'agenda. Sans cette autorisation, la
+ * ressource « messages » n'était accordée à aucun rôle et toute l'API de
+ * messagerie répondait 403. La portée reste bornée par l'API (on ne voit que
+ * les conversations où l'on est participant).
+ */
+const MESSAGES_ALL: Action[] = ["create", "read", "update", "delete"];
+for (const perms of Object.values(ROLE_PERMISSIONS)) {
+  perms.messages = MESSAGES_ALL;
+}
+
+/**
  * `allowedResources` **restreint**, il n'accorde jamais.
  *
  * Ce champ est modifiable par un administrateur de tenant ; s'il pouvait

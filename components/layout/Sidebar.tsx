@@ -116,6 +116,10 @@ const ASSO_NAV: NavGroup[] = [
     { label: "Projets / ONG", href: "/projects", icon: <Folder size={18} /> },
   ]},
   { section: "Paramètres", items: [
+    { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
+    { label: "Apparence des documents", href: "/company/branding", icon: <FileText size={18} /> },
+    { label: "Utilisateurs", href: "/users", icon: <Users size={18} /> },
+    { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
     { label: "Mon profil", href: "/associations/profil", icon: <UserCircle size={18} /> },
   ]},
 ];
@@ -142,6 +146,13 @@ const ADMIN_NAV: NavGroup[] = [
   { section: "Recettes", items: [
     { label: "Recettes publiques", href: "/administration/recettes", icon: <Banknote size={18} /> },
     { label: "Services citoyens", href: "/administration/services", icon: <Globe size={18} /> },
+  ]},
+  { section: "Paramètres", items: [
+    { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
+    { label: "Apparence des documents", href: "/company/branding", icon: <FileText size={18} /> },
+    { label: "Utilisateurs", href: "/users", icon: <Users size={18} /> },
+    { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
+    { label: "Mon profil", href: "/profile", icon: <UserCircle size={18} /> },
   ]},
 ];
 
