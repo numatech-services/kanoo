@@ -1,14 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { 
-  withAuth, 
-  created, 
-  badRequest, 
-  tenantFilter, 
-  requireFields, serverError } from "@/lib/api-helpers";
+import {
+  withAuth,
+  created,
+  badRequest,
+  tenantFilter,
+  requireFields, serverError, getPagination, paginatedResponse } from "@/lib/api-helpers";
 import { StockMovementModel } from "@/models/StockMovement";
 import { ProductModel } from "@/models/Product";
 import { logAudit } from "@/lib/audit";
+
+// GET /api/stock/movements?productId=…&limit=… — historique des mouvements.
+// La fiche produit consommait cet endpoint, qui n'existait pas (405 → historique
+// toujours vide).
+export const GET = withAuth("products", "read", async (req: NextRequest, auth) => {
+  await connectDB();
+  const url = new URL(req.url);
+  const pagination = getPagination(req);
+  const filter: Record<string, unknown> = { ...tenantFilter(auth) };
+  const productId = url.searchParams.get("productId");
+  if (productId) filter.productId = productId;
+
+  const [items, total] = await Promise.all([
+    StockMovementModel.find(filter).sort({ createdAt: -1 }).skip(pagination.skip).limit(pagination.limit).lean(),
+    StockMovementModel.countDocuments(filter),
+  ]);
+  return paginatedResponse(items, total, pagination);
+});
 
 export const POST = withAuth("products", "update", async (req: NextRequest, auth) => {
   await connectDB();

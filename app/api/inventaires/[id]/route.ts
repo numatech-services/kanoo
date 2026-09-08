@@ -250,3 +250,21 @@ export const PATCH = withAuth("products", "update", async (req: NextRequest, aut
 
   return badRequest("Action inconnue.");
 });
+
+/**
+ * DELETE /api/inventaires/[id] — supprime une session d'inventaire.
+ *
+ * Un inventaire VALIDÉ a déjà écrit le stock et la comptabilité : il fait
+ * partie de l'historique et n'est pas supprimable (on peut en lancer un
+ * nouveau). Les brouillons / comptages / annulés se suppriment sans effet.
+ */
+export const DELETE = withAuth("products", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {
+  const session = await InventoryCountModel.findOne({ _id: params.id, ...tenantFilter(auth) }).lean<Session | null>();
+  if (!session) return notFound("Inventaire introuvable");
+  if (session.status === "validated") {
+    return conflict("Un inventaire validé ne peut être supprimé (le stock a déjà été régularisé).");
+  }
+  await InventoryCountModel.deleteOne({ _id: params.id, ...tenantFilter(auth) });
+  await logAudit(auth, "DELETE", "inventaires", { resourceId: String(params.id), metadata: { reference: session.reference } });
+  return ok({ deleted: true });
+});

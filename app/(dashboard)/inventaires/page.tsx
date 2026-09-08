@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ClipboardList, Plus, EyeOff, TrendingDown, TrendingUp, Target } from "lucide-react";
+import { ClipboardList, Plus, EyeOff, TrendingDown, TrendingUp, Target, Trash2 } from "lucide-react";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { Pill, Inset, EmptyState } from "@/components/ui/Primitives";
 import { Modal } from "@/components/ui/Modal";
@@ -53,6 +53,16 @@ export default function InventairesPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  async function remove(id: string) {
+    if (!confirm("Supprimer cette session d'inventaire ?")) return;
+    const res = await fetch(`/api/inventaires/${id}`, {
+      method: "DELETE", credentials: "include",
+      headers: { "x-csrf-token": await csrf() },
+    });
+    if (res.ok) load();
+    else { const d = await res.json().catch(() => ({})); alert(d.error || "Suppression impossible."); }
+  }
 
   const running = items.find(s => ["draft", "counting", "review"].includes(s.status));
   const validated = items.filter(s => s.status === "validated");
@@ -157,9 +167,16 @@ export default function InventairesPage() {
                       {session.accuracy !== undefined ? `${session.accuracy} %` : "—"}
                     </td>
                     <td>
-                      <Pill tone={STATUS_TONE[session.status]}>
-                        {COUNT_STATUS_LABEL[session.status]}
-                      </Pill>
+                      <div className="flex items-center justify-between gap-2">
+                        <Pill tone={STATUS_TONE[session.status]}>
+                          {COUNT_STATUS_LABEL[session.status]}
+                        </Pill>
+                        {session.status !== "validated" && (
+                          <button onClick={() => remove(session._id)} className="text-ink3 hover:text-neg" title="Supprimer cet inventaire">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -4,6 +4,8 @@ import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody, notFound } from "@/lib/api-helpers";
 import { DeliveryNoteModel } from "@/models/DeliveryNote";
 import { InvoiceModel } from "@/models/Invoice";
+import { ProductModel } from "@/models/Product";
+import { StockMovementModel } from "@/models/StockMovement";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -53,6 +55,25 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
       status: "issued",
       createdBy: auth.userId,
     }], { session });
+
+    // Déduction automatique du stock : chaque ligne rattachée à un produit
+    // physique retire sa quantité du stock et laisse une trace de mouvement
+    // liée au bon de livraison. Le tout dans la transaction : bon + stock
+    // sont écrits ensemble, ou pas du tout.
+    for (const line of (doc.lines || [])) {
+      if (!line.productId || !(line.quantity > 0)) continue;
+      const product = await ProductModel.findOne({ _id: line.productId, ...tenantFilter(auth) }).session(session ?? null);
+      if (!product || product.isService) continue;
+      const before = product.stockQty || 0;
+      const after = Math.max(0, before - line.quantity);
+      await StockMovementModel.create([{
+        productId: product._id, tenantId: auth.tenantId, type: "exit",
+        quantity: -(before - after), quantityBefore: before, quantityAfter: after,
+        reason: `Bon de livraison ${number}`, linkedDocNumber: number, createdBy: auth.userId,
+      }], { session });
+      product.stockQty = after;
+      await product.save({ session });
+    }
     return doc;
   });
 

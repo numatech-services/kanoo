@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { Trash2 } from "lucide-react";
 
 interface Product { _id:string; code:string; label:string; description?:string; unit:string; stockQty:number; stockMinAlert:number; unitPrice:number; tvaRate:number; accountCode?:string; isService:boolean; }
 interface Movement { _id:string; type:string; quantity:number; quantityBefore:number; quantityAfter:number; reason:string; linkedDocNumber?:string; createdAt:string; }
@@ -15,12 +16,21 @@ export default function StockDetailPage() {
   const [movements,setMovements]=useState<Movement[]>([]);
   const [loading,setLoading]=useState(true);
 
-  useEffect(()=>{
+  const load = useCallback(()=>{
+    setLoading(true);
     Promise.all([
       fetch(`/api/products/${id}`,{credentials:"include"}).then(r=>r.json()).then(d=>setProduct(d.data)),
       fetch(`/api/stock/movements?productId=${id}&limit=50`,{credentials:"include"}).then(r=>r.json()).then(d=>setMovements(d.data?.items||[])),
     ]).finally(()=>setLoading(false));
   },[id]);
+  useEffect(()=>{ load(); },[load]);
+
+  async function removeMovement(mid:string){
+    if(!confirm("Supprimer ce mouvement ? La quantité en stock sera recalée en conséquence.")) return;
+    const { csrfToken } = await fetch("/api/auth/csrf").then(r=>r.json());
+    const res = await fetch(`/api/stock/movements/${mid}`,{ method:"DELETE", credentials:"include", headers:{ "x-csrf-token": csrfToken } });
+    if(res.ok) load(); else alert("Suppression impossible.");
+  }
 
   if(loading) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse"/></div>;
   if(!product) return <div className="p-6 text-ink2">Produit introuvable</div>;
@@ -49,7 +59,7 @@ export default function StockDetailPage() {
         <h2 className="font-semibold text-ink px-5 py-4 border-b border-line">Historique des mouvements</h2>
         {movements.length===0 ? <p className="text-ink2 text-center py-8 text-sm">Aucun mouvement enregistré</p> : (
           <table className="table-dense">
-            <thead><tr className="bg-surface2/50">{["Date","Type","Quantité","Avant","Après","Motif"].map(h=><th key={h} >{h}</th>)}</tr></thead>
+            <thead><tr className="bg-surface2/50">{["Date","Type","Quantité","Avant","Après","Motif",""].map(h=><th key={h} >{h}</th>)}</tr></thead>
             <tbody>
               {movements.map(m=>(
                 <tr key={m._id} className="border-t border-line">
@@ -59,6 +69,7 @@ export default function StockDetailPage() {
                   <td className="px-4 py-2.5 font-mono text-ink2">{m.quantityBefore}</td>
                   <td className="px-4 py-2.5 font-mono font-semibold">{m.quantityAfter}</td>
                   <td className="px-4 py-2.5 text-ink2 text-xs">{m.reason}{m.linkedDocNumber&&<span className="ml-1 text-section">#{m.linkedDocNumber}</span>}</td>
+                  <td className="px-4 py-2.5 text-right"><button onClick={()=>removeMovement(m._id)} className="text-ink3 hover:text-neg" title="Supprimer ce mouvement"><Trash2 size={14}/></button></td>
                 </tr>
               ))}
             </tbody>
