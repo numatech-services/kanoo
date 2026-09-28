@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link"; // Ajout de Link pour la navigation
 import { NotificationsBell } from "@/components/shared/NotificationsBell";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
-import { Search } from "lucide-react";
+import { Search, CalendarDays } from "lucide-react";
 import { useMe } from "@/lib/useMe";
 
 export function TopBar() {
@@ -12,10 +12,14 @@ export function TopBar() {
   // Le libellé du raccourci dépend de la plateforme, et n'est connu qu'après
   // montage : l'afficher côté serveur produirait une divergence d'hydratation.
   const [shortcut, setShortcut] = useState("Ctrl K");
+  // La date est calculée après montage : la rendre côté serveur puis client à
+  // une seconde d'écart provoquerait une divergence d'hydratation.
+  const [today, setToday] = useState("");
 
   useEffect(() => {
     setMounted(true);
     if (navigator.platform?.toUpperCase().includes("MAC")) setShortcut("⌘ K");
+    setToday(new Date().toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", year: "numeric" }));
   }, []);
 
   return (
@@ -31,15 +35,20 @@ export function TopBar() {
           className="w-full max-w-md px-3 h-9 text-sm bg-surface2 rounded-lg border border-line text-left text-ink3 hover:border-section transition-colors flex items-center gap-2"
         >
           <Search size={14} className="shrink-0" />
-          <span className="flex-1">Aller à…</span>
+          <span className="flex-1">Rechercher une facture, un client…</span>
           <kbd className="text-[10px] font-mono bg-surface px-1.5 py-0.5 rounded border border-line shrink-0">
             {shortcut}
           </kbd>
         </button>
       </div>
 
-      {/* Droite : langue + notifs + profil */}
+      {/* Droite : date + langue + notifs + profil */}
       <div className="flex items-center gap-3 ml-4">
+        {today && (
+          <span className="hidden md:inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-line bg-surface2 text-xs font-medium text-ink2 capitalize">
+            <CalendarDays size={14} /> {today}
+          </span>
+        )}
         <LanguageSwitcher />
         <NotificationsBell />
         
