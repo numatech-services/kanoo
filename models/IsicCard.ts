@@ -9,6 +9,8 @@ export interface IIsicCard {
   _id: Types.ObjectId;
   tenantId: Types.ObjectId;
   batchId: Types.ObjectId;
+  /** Fiche du registre ISIC, une fois le lot synchronisé. */
+  studentId?: Types.ObjectId;
   studentName: string;
   matricule?: string;
   isicNumber?: string;
@@ -20,6 +22,7 @@ export interface IIsicCard {
 const IsicCardSchema = new Schema<IIsicCard>({
   tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
   batchId: { type: Schema.Types.ObjectId, ref: "IsicBatch", required: true, index: true },
+  studentId: { type: Schema.Types.ObjectId, ref: "IsicStudent", index: true },
   studentName: { type: String, required: true, trim: true },
   matricule: { type: String, trim: true, index: true },
   isicNumber: { type: String, trim: true },

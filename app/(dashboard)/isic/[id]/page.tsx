@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Truck, Banknote, Upload, Download, Trash2, ArrowRight, Ban, FileText } from "lucide-react";
+import { Truck, Banknote, Upload, Download, Trash2, ArrowRight, Ban, FileText, BookUser } from "lucide-react";
 import { ISIC_STATUS, fmt, delivered as sumDelivered } from "../page";
 import { useMe, meCan } from "@/lib/useMe";
 
@@ -60,6 +60,29 @@ export default function IsicBatchPage() {
       loadCards();
     } catch (e) { alert(e instanceof Error ? e.message : "Action impossible"); } finally { setBusy(false); }
   }
+  // Synchronisation avec le registre ISIC (fiches étudiants, numéros, licences).
+  const [sync, setSync] = useState<null | {
+    academicYear: string; cards: number; linked: number; studentsCreated: number; numbersToRegistry: number;
+    numbersFromRegistry: number; licencesCreated: number;
+    conflicts: { line: number; name: string; reason: string }[]; skipped: { line: number; reason: string }[];
+  }>(null);
+  async function syncRegistry() {
+    setBusy(true);
+    try {
+      let res = await fetch(`/api/isic/${id}/registry`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: "{}" });
+      let d = await res.json();
+      if (!res.ok && /année académique/i.test(d.error || "")) {
+        const y = prompt("Année académique du lot (format 2025-2026) :");
+        if (!y) return;
+        res = await fetch(`/api/isic/${id}/registry`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify({ academicYear: y.trim() }) });
+        d = await res.json();
+      }
+      if (!res.ok) throw new Error(d.error || "Synchronisation impossible");
+      setSync(d.data);
+      loadCards();
+    } catch (e) { alert(e instanceof Error ? e.message : "Synchronisation impossible"); } finally { setBusy(false); }
+  }
+
   function importCsv(action: "import-students" | "import-numbers", file: File) {
     const reader = new FileReader();
     reader.onload = () => cardsAction({ action, csv: String(reader.result) });
@@ -176,9 +199,34 @@ export default function IsicBatchPage() {
             <Upload size={14} /> Importer les numéros ISIC (CSV)
             <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && importCsv("import-numbers", e.target.files[0])} />
           </label>
+          {cards.length > 0 && (
+            <button disabled={busy} onClick={syncRegistry} title="Rattache les cartes aux fiches du registre, ouvre les licences de l'année et reporte les numéros déjà connus"
+              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-section/40 text-section text-sm font-semibold hover:bg-section/5 disabled:opacity-50">
+              <BookUser size={14} /> Synchroniser avec le registre
+            </button>
+          )}
           {(counts.numbered || 0) > 0 && <button disabled={busy} onClick={() => cardsAction({ action: "advance", from: "numbered", to: "printed" })} className="px-3 h-9 rounded-lg bg-ink text-white text-sm font-semibold">Marquer imprimées</button>}
           {(counts.printed || 0) > 0 && <button disabled={busy} onClick={() => cardsAction({ action: "advance", from: "printed", to: "delivered" })} className="px-3 h-9 rounded-lg bg-section text-white text-sm font-semibold">Marquer livrées</button>}
         </div>
+        {sync && (
+          <div className="rounded-lg border border-section/25 bg-section/5 p-3 text-sm space-y-1.5">
+            <div className="flex justify-between items-start gap-2">
+              <p className="font-semibold text-ink">Registre synchronisé — licences {sync.academicYear}</p>
+              <button onClick={() => setSync(null)} className="text-xs text-ink3 hover:text-ink">Fermer</button>
+            </div>
+            <p className="text-ink2">
+              {sync.linked}/{sync.cards} cartes rattachées · {sync.studentsCreated} nouvel(s) étudiant(s) ·{" "}
+              {sync.licencesCreated} licence(s) ouverte(s) · {sync.numbersFromRegistry} numéro(s) repris d&apos;anciens étudiants ·{" "}
+              {sync.numbersToRegistry} numéro(s) ajouté(s) au registre
+            </p>
+            {[...sync.conflicts, ...sync.skipped.map(x => ({ ...x, name: "" }))].length > 0 && (
+              <ul className="text-xs text-warn list-disc pl-5 max-h-32 overflow-y-auto">
+                {sync.conflicts.map((c, i) => <li key={`c${i}`}>Carte {c.line} — {c.name} : {c.reason}</li>)}
+                {sync.skipped.map((c, i) => <li key={`s${i}`}>Carte {c.line} : {c.reason}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
         {cards.length > 0 ? (
           <div className="max-h-72 overflow-y-auto rounded-lg border border-line">
             <table className="table-dense w-full">

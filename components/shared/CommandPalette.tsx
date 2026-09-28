@@ -72,6 +72,7 @@ const COMMANDS: Command[] = [
   { label: "Rentabilité par secteur", href: "/analytique", section: "finance", keywords: "analytique secteur activité marge résultat" },
   { label: "Comptoir (The Spot)", href: "/comptoir", section: "finance", keywords: "the spot caisse stock matière arrêté bar vente" },
   { label: "Cartes ISIC", href: "/isic", section: "ventes", keywords: "carte étudiant lot impression" },
+  { label: "Registre ISIC", href: "/isic/registre", section: "ventes", keywords: "étudiant numéro licence renouvellement isic registre" },
   { label: "Appels à candidatures", href: "/appels", section: "contrats", keywords: "appel d'offres candidature soumission" },
 
   { label: "Collaborateurs", href: "/employees", section: "rh", keywords: "employé salarié personnel" },

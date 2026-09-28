@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CreditCard, Plus, GraduationCap } from "lucide-react";
+import Link from "next/link";
+import { CreditCard, Plus, GraduationCap, BookUser } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls } from "@/components/ui/FormField";
 import { useMe, meCan } from "@/lib/useMe";
@@ -54,9 +55,14 @@ export default function IsicListPage() {
           <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><CreditCard size={22} /> Cartes ISIC</h1>
           <p className="text-sm text-ink2">Production, envoi à ISIC, impression et livraison au fur et à mesure aux universités.</p>
         </div>
-        <button onClick={() => setOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
-          <Plus size={16} /> Nouveau lot
-        </button>
+        <div className="flex gap-2">
+          <Link href="/isic/registre" className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+            <BookUser size={16} /> Registre &amp; numéros
+          </Link>
+          <button onClick={() => setOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+            <Plus size={16} /> Nouveau lot
+          </button>
+        </div>
       </div>
 
       <div className={`grid grid-cols-1 gap-4 ${canFinance ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>

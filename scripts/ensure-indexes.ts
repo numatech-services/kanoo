@@ -43,6 +43,8 @@ async function main() {
     import("../models/SubscriptionPurchase").then(m => m.SubscriptionPurchaseModel),
     import("../models/SubscriptionSale").then(m => m.SubscriptionSaleModel),
     import("../models/IdempotencyRecord").then(m => m.IdempotencyRecordModel),
+    import("../models/IsicStudent").then(m => m.IsicStudentModel),
+    import("../models/IsicLicense").then(m => m.IsicLicenseModel),
   ]);
 
   let failed = 0;

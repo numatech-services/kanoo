@@ -5,18 +5,12 @@ import { TokenPayload } from "@/lib/auth";
 import { IsicBatchModel } from "@/models/IsicBatch";
 import { IsicCardModel } from "@/models/IsicCard";
 import { logAudit } from "@/lib/audit";
+import { parseCsv, findColumn, normalizeIsicNumber } from "@/lib/isic-registry";
 
 export const dynamic = "force-dynamic";
 
-/** Parse un CSV simple (délimiteur , ou ;). Renvoie { headers, rows }. */
-function parseCsv(text: string): { headers: string[]; rows: string[][] } {
-  const lines = text.replace(/\r/g, "").split("\n").filter((l) => l.trim() !== "");
-  if (lines.length === 0) return { headers: [], rows: [] };
-  const delim = (lines[0].match(/;/g)?.length || 0) > (lines[0].match(/,/g)?.length || 0) ? ";" : ",";
-  const split = (l: string) => l.split(delim).map((c) => c.trim().replace(/^"|"$/g, ""));
-  return { headers: split(lines[0]).map((h) => h.toLowerCase()), rows: lines.slice(1).map(split) };
-}
-const col = (headers: string[], ...names: string[]) => headers.findIndex((h) => names.some((n) => h.includes(n)));
+// Lecteur CSV partagé avec le registre : gère guillemets, « ; » d'Excel FR et BOM.
+const col = (headers: string[], ...names: string[]) => findColumn(headers, ...names);
 
 const STATUSES = ["pending", "numbered", "printed", "delivered"];
 
@@ -68,7 +62,7 @@ export const POST = withAuth("isic", "update", async (req: NextRequest, auth: To
     if (iMat < 0 || iNum < 0) return badRequest("Colonnes matricule et numéro ISIC requises dans le fichier.");
     let updated = 0;
     for (const r of rows) {
-      const mat = (r[iMat] || "").trim(); const num = (r[iNum] || "").trim();
+      const mat = (r[iMat] || "").trim(); const num = normalizeIsicNumber(r[iNum]);
       if (!mat || !num) continue;
       const res = await IsicCardModel.updateOne(
         { batchId: batch._id, ...tenantFilter(auth), matricule: mat },

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser } from "lucide-react";
 
 type ProfileType = "pme" | "association" | "administration" | "superadmin";
 
@@ -47,6 +47,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Relances", href: "/relances", icon: <BellRing size={18} /> },
     { label: "Notes de frais", href: "/notes-de-frais", icon: <ReceiptText size={18} /> },
     { label: "Cartes ISIC", href: "/isic", icon: <CreditCard size={18} /> },
+    { label: "Registre ISIC", href: "/isic/registre", icon: <BookUser size={18} /> },
   ]},
   { section: "Achats & Stock", items: [
     { label: "Fournisseurs", href: "/suppliers", icon: <Factory size={18} /> },
@@ -216,7 +217,11 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   // On montre les modules (en-têtes de groupe) ; le clic déploie leurs entrées.
   // Le groupe de la page courante est toujours ouvert. Les autres retiennent le
   // choix de l'utilisateur d'une visite à l'autre.
-  const isActiveItem = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const matches = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  // Seul le lien le plus précis est actif : sur /isic/registre, « Registre ISIC »
+  // et non aussi « Cartes ISIC » (/isic).
+  const activeHref = nav.flatMap(g => g.items.map(i => i.href)).filter(matches).sort((a, b) => b.length - a.length)[0];
+  const isActiveItem = (href: string) => href === activeHref;
   const activeSection = nav.find(g => g.items.some(i => isActiveItem(i.href)))?.section;
 
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
@@ -277,7 +282,7 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
               </button>
               {open && <div className="mt-1 mb-3">
               {group.items.map((item) => {
-                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const active = isActiveItem(item.href);
                 return (
                   <Link key={item.href} href={item.href}
                     aria-current={active ? "page" : undefined}
