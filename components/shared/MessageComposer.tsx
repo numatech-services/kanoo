@@ -1,225 +1,193 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Plus, Send, Search, Users, ArrowLeft } from "lucide-react";
 
 interface Message {
   _id: string;
   content: string;
   senderId: { _id: string; firstName: string; lastName: string; role: string } | null;
   createdAt: string;
-  readBy: string[];
-  attachments?: Array<{ name: string; url: string }>;
 }
-
 interface Conversation {
   _id: string;
   title?: string;
   type: string;
   participantIds: Array<{ _id: string; firstName: string; lastName: string; role: string }>;
   lastMessage?: { content: string; sentAt: string };
-  unreadCounts?: Record<string, number>;
 }
+interface DirUser { _id: string; firstName?: string; lastName?: string }
 
-interface MessageComposerProps {
-  currentUserId: string;
-  conversationId?: string;
-  compact?: boolean;
-  /** Filtre le type de conversation selon le profil connecté */
-}
+interface Props { currentUserId: string; conversationId?: string; compact?: boolean }
 
-export function MessageComposer({ currentUserId, conversationId: initConvId, compact = false }: MessageComposerProps) {
+async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
+const initials = (name: string) => name.split(" ").filter(Boolean).map(w => w[0]).join("").toUpperCase().slice(0, 2) || "?";
+
+export function MessageComposer({ currentUserId, conversationId: initConvId, compact = false }: Props) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(initConvId || null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [picking, setPicking] = useState(false);
+  const [dir, setDir] = useState<DirUser[]>([]);
+  const [dq, setDq] = useState("");
+  const endRef = useRef<HTMLDivElement>(null);
 
-  // Charger les conversations
-  useEffect(() => {
-    fetch("/api/conversations", { credentials: "include" })
-      .then(r => r.json())
-      .then(d => setConversations(d.data?.items || []));
+  const loadConversations = useCallback(() => {
+    fetch("/api/conversations", { credentials: "include" }).then(r => r.json()).then(d => setConversations(d.data?.items || []));
   }, []);
+  useEffect(() => { loadConversations(); }, [loadConversations]);
 
-  // Charger les messages de la conversation active
   const loadMessages = useCallback(async (convId: string) => {
     setLoading(true);
     const res = await fetch(`/api/conversations/${convId}/messages`, { credentials: "include" });
     const d = await res.json();
-    setMessages(d.data || []);
+    // L'API renvoie du plus récent au plus ancien : on inverse pour un fil de discussion.
+    setMessages((d.data || []).slice().reverse());
     setLoading(false);
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }, []);
+  useEffect(() => { if (activeConvId) loadMessages(activeConvId); }, [activeConvId, loadMessages]);
 
   useEffect(() => {
-    if (activeConvId) loadMessages(activeConvId);
-  }, [activeConvId, loadMessages]);
+    if (!picking || dir.length) return;
+    fetch("/api/agenda/directory", { credentials: "include" }).then(r => r.json())
+      .then(d => setDir((d.success ? d.data : []).filter((u: DirUser) => u._id !== currentUserId)));
+  }, [picking, dir.length, currentUserId]);
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
     if (!newMessage.trim() || !activeConvId) return;
     setSending(true);
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
-    const res = await fetch(`/api/conversations/${activeConvId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      credentials: "include",
-      body: JSON.stringify({ content: newMessage }),
-    });
-    const d = await res.json();
-    if (res.ok) {
-      setMessages(prev => [...prev, d.data]);
-      setNewMessage("");
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    }
-    setSending(false);
+    try {
+      const res = await fetch(`/api/conversations/${activeConvId}/messages`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+        body: JSON.stringify({ content: newMessage }),
+      });
+      const d = await res.json();
+      if (res.ok) { setMessages(prev => [...prev, d.data]); setNewMessage(""); loadConversations(); setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 40); }
+      else alert(d.error || "Envoi impossible.");
+    } finally { setSending(false); }
   }
 
-  function getConvName(conv: Conversation): string {
+  async function startDirect(userId: string) {
+    const res = await fetch("/api/conversations", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+      body: JSON.stringify({ type: "direct", participantIds: [userId] }),
+    });
+    const d = await res.json();
+    if (res.ok) { setPicking(false); setDq(""); loadConversations(); setActiveConvId(d.data._id); }
+    else alert(d.error || "Impossible de démarrer la conversation.");
+  }
+  async function createGroup() {
+    const name = prompt("Nom du groupe :"); if (!name) return;
+    const res = await fetch("/api/conversations", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+      body: JSON.stringify({ type: "group", title: name }),
+    });
+    const d = await res.json();
+    if (res.ok) { setPicking(false); loadConversations(); setActiveConvId(d.data._id); }
+  }
+
+  function convName(conv: Conversation): string {
     if (conv.title) return conv.title;
     const others = conv.participantIds.filter(p => p._id !== currentUserId);
     if (others.length === 0) return "Moi-même";
     if (others.length === 1) return `${others[0].firstName} ${others[0].lastName}`;
-    return `${others[0].firstName} + ${others.length - 1} autres`;
+    return `${others[0].firstName} + ${others.length - 1}`;
   }
 
-  function getInitials(name: string): string {
-    return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
-  }
-
-  if (compact && activeConvId) {
-    // Mode compact : juste la fenêtre de messages
-    return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--color-background-primary)" }}>
-        <div style={{ flex: 1, overflow: "auto", padding: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
-          {loading && <div style={{ textAlign: "center", color: "var(--color-text-secondary)", fontSize: "12px", padding: "20px" }}>Chargement…</div>}
-          {messages.map(m => {
-            const isMine = m.senderId?._id === currentUserId;
-            return (
-              <div key={m._id} style={{ display: "flex", flexDirection: isMine ? "row-reverse" : "row", gap: "8px", alignItems: "flex-end" }}>
-                {!isMine && m.senderId && (
-                  <div style={{ width: "28px", height: "28px", background: "#2F3E46", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "10px", fontWeight: 500, flexShrink: 0 }}>
-                    {getInitials(`${m.senderId.firstName} ${m.senderId.lastName}`)}
-                  </div>
-                )}
-                <div style={{ maxWidth: "70%", padding: "8px 12px", borderRadius: isMine ? "12px 12px 2px 12px" : "12px 12px 12px 2px", background: isMine ? "#2F3E46" : "var(--color-background-secondary)", color: isMine ? "#fff" : "var(--color-text-primary)", fontSize: "13px", lineHeight: "1.4" }}>
-                  {!isMine && <p style={{ fontSize: "10px", fontWeight: 500, marginBottom: "2px", color: isMine ? "rgba(255,255,255,0.7)" : "var(--color-text-secondary)" }}>{m.senderId?.firstName} {m.senderId?.lastName}</p>}
-                  {m.content}
-                  <p style={{ fontSize: "10px", marginTop: "2px", opacity: 0.6, textAlign: "right" }}>
-                    {new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                </div>
+  const Thread = (
+    <>
+      <div className="flex-1 overflow-auto p-4 flex flex-col gap-2.5">
+        {loading && <p className="text-center text-xs text-ink3 py-4">Chargement…</p>}
+        {!loading && messages.length === 0 && <p className="text-center text-xs text-ink3 py-4">Aucun message. Écrivez le premier.</p>}
+        {messages.map(m => {
+          const mine = m.senderId?._id === currentUserId;
+          return (
+            <div key={m._id} className={`flex gap-2 items-end ${mine ? "flex-row-reverse" : ""}`}>
+              {!mine && m.senderId && <div className="w-7 h-7 rounded-full bg-section text-white grid place-items-center text-[10px] font-semibold shrink-0">{initials(`${m.senderId.firstName} ${m.senderId.lastName}`)}</div>}
+              <div className={`max-w-[70%] px-3 py-2 text-sm rounded-2xl ${mine ? "bg-section text-white rounded-br-sm" : "bg-surface2 text-ink rounded-bl-sm"}`}>
+                {!mine && <p className="text-[10px] font-semibold mb-0.5 text-ink2">{m.senderId?.firstName} {m.senderId?.lastName}</p>}
+                <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                <p className={`text-[10px] mt-1 text-right ${mine ? "text-white/60" : "text-ink3"}`}>{new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</p>
               </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
-        </div>
-        <form onSubmit={sendMessage} style={{ padding: "10px 12px", borderTop: "0.5px solid var(--color-border-tertiary)", display: "flex", gap: "8px" }}>
-          <input
-            value={newMessage}
-            onChange={e => setNewMessage(e.target.value)}
-            placeholder="Écrire un message…"
-            style={{ flex: 1, padding: "8px 12px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "20px", fontSize: "13px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", outline: "none" }}
-          />
-          <button type="submit" disabled={sending || !newMessage.trim()} style={{ background: "#2F3E46", color: "#fff", border: "none", borderRadius: "50%", width: "36px", height: "36px", cursor: "pointer", opacity: sending || !newMessage.trim() ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2z"/></svg>
-          </button>
-        </form>
+            </div>
+          );
+        })}
+        <div ref={endRef} />
       </div>
-    );
+      <form onSubmit={sendMessage} className="p-3 border-t border-line flex gap-2">
+        <input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Écrire un message…"
+          className="flex-1 px-3.5 h-10 rounded-full border border-line bg-surface2 text-sm text-ink outline-none focus:border-section" />
+        <button type="submit" disabled={sending || !newMessage.trim()} className="w-10 h-10 rounded-full bg-section text-white grid place-items-center disabled:opacity-40 shrink-0"><Send size={15} /></button>
+      </form>
+    </>
+  );
+
+  if (compact) {
+    return <div className="flex flex-col h-full bg-surface">{Thread}</div>;
   }
 
   return (
-    <div style={{ display: "flex", height: "600px", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "12px", overflow: "hidden", background: "var(--color-background-primary)" }}>
-      {/* Liste conversations */}
-      <div style={{ width: "240px", borderRight: "0.5px solid var(--color-border-tertiary)", display: "flex", flexDirection: "column" }}>
-        <div style={{ padding: "14px", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <p style={{ fontWeight: 500, fontSize: "14px", margin: 0, color: "var(--color-text-primary)" }}>Messages</p>
-          <button
-            onClick={async () => {
-              const name = prompt("Nom du groupe :");
-              if (!name) return;
-              const csrfRes = await fetch("/api/auth/csrf");
-              const { csrfToken } = await csrfRes.json();
-              const res = await fetch("/api/conversations", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, credentials: "include", body: JSON.stringify({ type: "group", title: name }) });
-              const d = await res.json();
-              if (res.ok) { setConversations(prev => [d.data, ...prev]); setActiveConvId(d.data._id); }
-            }}
-            style={{ fontSize: "18px", lineHeight: 1, background: "none", border: "none", cursor: "pointer", color: "var(--color-text-secondary)" }}
-          >+</button>
+    <div className="flex h-[600px] border border-line rounded-xl overflow-hidden bg-surface">
+      {/* Liste des conversations */}
+      <div className="w-64 border-r border-line flex flex-col shrink-0">
+        <div className="p-3.5 border-b border-line flex justify-between items-center">
+          <p className="font-semibold text-sm text-ink">Messages</p>
+          <button onClick={() => setPicking(true)} className="w-7 h-7 grid place-items-center rounded-lg text-section hover:bg-section-soft" title="Nouvelle conversation"><Plus size={16} /></button>
         </div>
-        <div style={{ flex: 1, overflow: "auto" }}>
-          {conversations.length === 0 && <p style={{ fontSize: "12px", color: "var(--color-text-secondary)", textAlign: "center", padding: "20px" }}>Aucune conversation</p>}
+        <div className="flex-1 overflow-auto">
+          {conversations.length === 0 && <p className="text-xs text-ink3 text-center p-5">Aucune conversation.<br />Cliquez sur + pour écrire à un collègue.</p>}
           {conversations.map(conv => (
-            <div
-              key={conv._id}
-              onClick={() => setActiveConvId(conv._id)}
-              style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "0.5px solid var(--color-border-tertiary)", background: activeConvId === conv._id ? "var(--color-background-secondary)" : "transparent" }}
-            >
-              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                <div style={{ width: "34px", height: "34px", background: "#2F3E46", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", fontWeight: 500, flexShrink: 0 }}>
-                  {conv.type === "group" ? "G" : getInitials(getConvName(conv))}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: "12px", fontWeight: 500, margin: 0, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getConvName(conv)}</p>
-                  {conv.lastMessage && <p style={{ fontSize: "11px", color: "var(--color-text-secondary)", margin: "1px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conv.lastMessage.content}</p>}
-                </div>
+            <button key={conv._id} onClick={() => setActiveConvId(conv._id)}
+              className={`w-full flex gap-2 items-center px-3.5 py-2.5 text-left border-b border-line hover:bg-surface2/50 ${activeConvId === conv._id ? "bg-surface2" : ""}`}>
+              <div className="w-9 h-9 rounded-full bg-section text-white grid place-items-center text-[11px] font-semibold shrink-0">{conv.type === "group" ? <Users size={15} /> : initials(convName(conv))}</div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-ink truncate">{convName(conv)}</p>
+                {conv.lastMessage && <p className="text-[11px] text-ink3 truncate">{conv.lastMessage.content}</p>}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
 
-      {/* Zone messages */}
-      {activeConvId ? (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)" }}>
-            <p style={{ fontWeight: 500, fontSize: "13px", margin: 0, color: "var(--color-text-primary)" }}>
-              {getConvName(conversations.find(c => c._id === activeConvId) || { _id: "", type: "direct", participantIds: [] })}
-            </p>
+      {/* Zone principale : sélecteur, fil, ou vide */}
+      {picking ? (
+        <div className="flex-1 flex flex-col">
+          <div className="p-3.5 border-b border-line flex items-center gap-2">
+            <button onClick={() => setPicking(false)} className="text-ink2 hover:text-ink"><ArrowLeft size={17} /></button>
+            <p className="font-semibold text-sm text-ink">Nouvelle conversation</p>
+            <button onClick={createGroup} className="ml-auto text-xs text-section font-semibold inline-flex items-center gap-1"><Users size={13} /> Groupe</button>
           </div>
-          <div style={{ flex: 1, overflow: "auto", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
-            {loading && <div style={{ textAlign: "center", color: "var(--color-text-secondary)", fontSize: "12px" }}>Chargement…</div>}
-            {messages.map(m => {
-              const isMine = m.senderId?._id === currentUserId;
-              return (
-                <div key={m._id} style={{ display: "flex", flexDirection: isMine ? "row-reverse" : "row", gap: "8px", alignItems: "flex-end" }}>
-                  {!isMine && m.senderId && (
-                    <div style={{ width: "30px", height: "30px", background: "#2F3E46", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "10px", fontWeight: 500, flexShrink: 0 }}>
-                      {getInitials(`${m.senderId.firstName} ${m.senderId.lastName}`)}
-                    </div>
-                  )}
-                  <div style={{ maxWidth: "65%", padding: "9px 13px", borderRadius: isMine ? "14px 14px 2px 14px" : "14px 14px 14px 2px", background: isMine ? "#2F3E46" : "var(--color-background-secondary)", color: isMine ? "#fff" : "var(--color-text-primary)", fontSize: "13px" }}>
-                    {!isMine && <p style={{ fontSize: "10px", fontWeight: 500, margin: "0 0 3px", color: "var(--color-text-secondary)" }}>{m.senderId?.firstName} {m.senderId?.lastName}</p>}
-                    {m.content}
-                    <p style={{ fontSize: "10px", margin: "4px 0 0", opacity: 0.55, textAlign: "right" }}>
-                      {new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
+          <div className="p-3 border-b border-line relative">
+            <Search size={15} className="absolute left-5 top-1/2 -translate-y-1/2 text-ink3" />
+            <input value={dq} onChange={e => setDq(e.target.value)} placeholder="Rechercher un collègue…" className="w-full pl-8 pr-3 h-9 rounded-lg border border-line bg-surface2 text-sm outline-none" />
           </div>
-          <form onSubmit={sendMessage} style={{ padding: "12px 14px", borderTop: "0.5px solid var(--color-border-tertiary)", display: "flex", gap: "8px" }}>
-            <input
-              value={newMessage}
-              onChange={e => setNewMessage(e.target.value)}
-              placeholder="Écrire un message… (Entrée pour envoyer)"
-              style={{ flex: 1, padding: "9px 14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "22px", fontSize: "13px", background: "var(--color-background-secondary)", color: "var(--color-text-primary)", outline: "none" }}
-            />
-            <button type="submit" disabled={sending || !newMessage.trim()} style={{ background: "#2F3E46", color: "#fff", border: "none", borderRadius: "50%", width: "38px", height: "38px", cursor: "pointer", opacity: !newMessage.trim() ? 0.4 : 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2z"/></svg>
-            </button>
-          </form>
+          <div className="flex-1 overflow-auto">
+            {dir.filter(u => `${u.firstName} ${u.lastName}`.toLowerCase().includes(dq.toLowerCase())).map(u => (
+              <button key={u._id} onClick={() => startDirect(u._id)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-left hover:bg-surface2/50 border-b border-line">
+                <div className="w-8 h-8 rounded-full bg-section text-white grid place-items-center text-[11px] font-semibold">{initials(`${u.firstName} ${u.lastName}`)}</div>
+                <span className="text-sm text-ink">{[u.firstName, u.lastName].filter(Boolean).join(" ")}</span>
+              </button>
+            ))}
+            {dir.length === 0 && <p className="text-xs text-ink3 text-center p-5">Aucun autre collaborateur.</p>}
+          </div>
+        </div>
+      ) : activeConvId ? (
+        <div className="flex-1 flex flex-col">
+          <div className="px-4 py-3 border-b border-line bg-surface2/40">
+            <p className="font-semibold text-[13px] text-ink">{convName(conversations.find(c => c._id === activeConvId) || { _id: "", type: "direct", participantIds: [] })}</p>
+          </div>
+          {Thread}
         </div>
       ) : (
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-text-secondary)", fontSize: "13px" }}>
-          Sélectionnez une conversation
-        </div>
+        <div className="flex-1 grid place-items-center text-sm text-ink3">Sélectionnez une conversation, ou cliquez sur + pour en démarrer une.</div>
       )}
     </div>
   );
