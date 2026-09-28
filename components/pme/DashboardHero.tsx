@@ -7,9 +7,9 @@ import { PaymentModel } from "@/models/Payment";
 import { ClientModel } from "@/models/Client";
 import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
-import { ImpactBand, Avatar } from "@/components/ui/Primitives";
+import Link from "next/link";
 import { compactXof } from "@/components/ui/charts/geometry";
-import { Sparkles } from "lucide-react";
+import { Send, Plus, ArrowRight } from "lucide-react";
 
 interface Hero {
   userName: string;
@@ -96,55 +96,37 @@ export async function DashboardHero() {
   const now = new Date();
   const heure = now.getHours();
   const salut = heure < 12 ? "Bonjour" : heure < 18 ? "Bon après-midi" : "Bonsoir";
+  const firstName = hero.userName.split(" ")[0];
+
+  const overdue = hero.overdueCount > 0;
+  const headline = overdue ? "à reprendre en main." : "sous contrôle.";
+  const message = overdue
+    ? `${compactXof(hero.overdueAmount)} en retard chez ${hero.overdueCount} client${hero.overdueCount > 1 ? "s" : ""}.` +
+      (hero.restantDu > 0 ? ` Au total, ${compactXof(hero.restantDu)} restent à encaisser — une relance récupère l'essentiel.` : "")
+    : hero.restantDu > 0
+      ? `${compactXof(hero.restantDu)} restent à encaisser ce mois, rien en retard. Vous êtes à jour.`
+      : `Encaissé ${compactXof(hero.encaisseMois)} en ${MOIS(now)}. Aucune créance en attente.`;
 
   return (
-    <div className="space-y-5">
-      <header className="flex items-center gap-3">
-        <Avatar name={hero.userName} size="lg" />
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-ink truncate">
-            {salut}, {hero.userName.split(" ")[0]}
-          </h1>
-          <p className="text-sm text-ink2 truncate">
-            {hero.tenantName} · {hero.clientCount} client{hero.clientCount > 1 ? "s" : ""} ·{" "}
-            {now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
-          </p>
-        </div>
-      </header>
-
-      <ImpactBand
-        title="Où en est la trésorerie"
-        icon={<Sparkles size={15} />}
-        items={[
-          {
-            value: compactXof(hero.encaisseMois),
-            caption: `Encaissé en ${MOIS(now)}, sur ${hero.facturesMois} facture${hero.facturesMois > 1 ? "s" : ""} émise${hero.facturesMois > 1 ? "s" : ""}`,
-            href: "/payments",
-          },
-          {
-            value: compactXof(hero.restantDu),
-            caption: "Facturé et pas encore réglé, avoirs déduits",
-            href: "/invoices",
-          },
-          {
-            value: String(hero.overdueCount),
-            unit: hero.overdueCount > 1 ? "factures" : "facture",
-            caption: hero.overdueCount === 0
-              ? "Aucune échéance dépassée à ce jour"
-              : `En retard, soit ${compactXof(hero.overdueAmount)} à réclamer`,
-            href: "/relances",
-          },
-          {
-            value: hero.restantDu > 0
-              ? `${Math.round((hero.overdueAmount / hero.restantDu) * 100)} %`
-              : "—",
-            caption: hero.restantDu > 0
-              ? "Part de la créance déjà en retard — au-delà de 30 %, la relance devient urgente"
-              : "Rien en attente : aucune part de créance à surveiller",
-            href: "/relances",
-          },
-        ]}
-      />
+    <div className="rounded-3xl border border-line bg-section-soft/40 p-7 sm:p-9">
+      <p className="text-[11px] font-bold uppercase tracking-widest text-section">{salut}, {firstName}</p>
+      <h1 className="mt-2.5 text-3xl sm:text-4xl font-black text-ink leading-[1.06] tracking-tight">
+        Votre trésorerie,<br /><span className="text-section">{headline}</span>
+      </h1>
+      <p className="mt-3 text-sm text-ink2 max-w-xl">{message}</p>
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        {overdue && (
+          <Link href="/relances" className="px-5 h-11 rounded-xl bg-section text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-95 shadow-sm">
+            <Send size={16} /> Relancer les retards
+          </Link>
+        )}
+        <Link href="/invoices/new" className="px-5 h-11 rounded-xl border border-line2 bg-surface text-sm font-semibold text-ink inline-flex items-center gap-2 hover:bg-surface2">
+          <Plus size={16} /> Nouvelle facture
+        </Link>
+        <Link href="/payments" className="text-sm font-medium text-ink2 hover:text-ink inline-flex items-center gap-1">
+          Voir les encaissements <ArrowRight size={15} />
+        </Link>
+      </div>
     </div>
   );
 }
