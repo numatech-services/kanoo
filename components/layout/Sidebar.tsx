@@ -85,6 +85,7 @@ const PME_NAV: NavGroup[] = [
   ]},
   { section: "Paramètres", items: [
     { label: "Utilisateurs", href: "/users", icon: <Settings size={18} /> },
+    { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
     { label: "Confidentialité", href: "/settings/confidentialite", icon: <FileText size={18} /> },
     { label: "Numérotation", href: "/settings/numbering", icon: <Hash size={18} /> },
@@ -120,6 +121,7 @@ const ASSO_NAV: NavGroup[] = [
     { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
     { label: "Apparence des documents", href: "/company/branding", icon: <FileText size={18} /> },
     { label: "Utilisateurs", href: "/users", icon: <Users size={18} /> },
+    { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
     { label: "Mon profil", href: "/associations/profil", icon: <UserCircle size={18} /> },
   ]},
@@ -152,6 +154,7 @@ const ADMIN_NAV: NavGroup[] = [
     { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
     { label: "Apparence des documents", href: "/company/branding", icon: <FileText size={18} /> },
     { label: "Utilisateurs", href: "/users", icon: <Users size={18} /> },
+    { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
     { label: "Mon profil", href: "/profile", icon: <UserCircle size={18} /> },
   ]},
