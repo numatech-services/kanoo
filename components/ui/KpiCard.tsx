@@ -111,19 +111,19 @@ export function KpiCard({
 
   const body = (
     <>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs text-ink2 truncate">{label}</p>
-          <p className="text-2xl font-bold text-ink num mt-1 leading-tight tabular-nums">{display}</p>
-        </div>
+      {/* Pastille d'icône + libellé en tête, comme la maquette. */}
+      <div className="flex items-center gap-2.5">
         {icon && (
-          <span className={`chip ${t ? t.chip : ""}`} style={chipStyle}>
+          <span className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 ${t ? t.chip : ""}`} style={chipStyle}>
             {icon}
           </span>
         )}
+        <p className="text-[13px] font-medium text-ink2 truncate">{label}</p>
       </div>
 
-      <div className="flex items-end justify-between gap-3 mt-3">
+      <p className="text-[28px] font-bold text-ink num mt-3 leading-none tabular-nums">{display}</p>
+
+      <div className="flex items-end justify-between gap-3 mt-2">
         <div className="min-w-0">
           {hasDelta ? (
             <p className={`text-xs font-semibold flex items-center gap-1 ${deltaClass}`}>
@@ -134,17 +134,17 @@ export function KpiCard({
               <span className="font-normal text-ink3 truncate">{deltaLabel}</span>
             </p>
           ) : (
-            <p className="text-xs text-ink3 truncate">{hint || "Pas de comparaison disponible"}</p>
+            <p className="text-xs text-ink3 truncate">{hint || ""}</p>
           )}
         </div>
         {trend && trend.length > 1 && (
-          <Sparkline values={trend} color={sparkColor} width={92} height={28} className="shrink-0" />
+          <Sparkline values={trend} color={sparkColor} width={104} height={32} className="shrink-0" />
         )}
       </div>
     </>
   );
 
-  const shell = "bg-surface rounded-xl border border-line p-4 shadow-sm rise";
+  const shell = "bg-surface rounded-2xl border border-line p-5 shadow-sm rise";
 
   return href ? (
     <Link href={href} className={`${shell} lift block hover:border-section focus-visible:border-section`}>
