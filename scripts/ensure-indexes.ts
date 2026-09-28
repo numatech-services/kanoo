@@ -45,6 +45,8 @@ async function main() {
     import("../models/IdempotencyRecord").then(m => m.IdempotencyRecordModel),
     import("../models/IsicStudent").then(m => m.IsicStudentModel),
     import("../models/IsicLicense").then(m => m.IsicLicenseModel),
+    import("../models/IsicPhoto").then(m => m.IsicPhotoModel),
+    import("../models/IsicSettings").then(m => m.IsicSettingsModel),
   ]);
 
   let failed = 0;

@@ -12,12 +12,25 @@ export interface IIsicStudent {
   _id: Types.ObjectId;
   tenantId: Types.ObjectId;
   fullName: string;
+  /** Prénom(s) et nom séparés, comme les exige le fichier ISIC. */
+  firstName?: string;
+  lastName?: string;
+  /** « Personal ID » dans les fichiers ISIC. */
   matricule?: string;
   schoolId?: Types.ObjectId;
   schoolName: string;
   dedupKey: string;
   email?: string;
   phone?: string;
+  dateOfBirth?: Date;
+  city?: string;
+  /** Filière / classe — « Class Name » dans le fichier ISIC. */
+  className?: string;
+  nationality?: string;
+  /** Une photo est enregistrée (IsicPhoto) — filtre rapide « sans photo ». */
+  hasPhoto: boolean;
+  /** Dernier statut de carte renvoyé par ISIC (Active…). */
+  cardStatus?: string;
   /** Forme canonique (majuscules, sans espaces) — voir normalizeIsicNumber. */
   isicNumber?: string;
   numberSource?: "reprise" | "isic" | "manuel";
@@ -34,12 +47,20 @@ export interface IIsicStudent {
 const IsicStudentSchema = new Schema<IIsicStudent>({
   tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
   fullName: { type: String, required: true, trim: true, maxlength: 200 },
+  firstName: { type: String, trim: true, maxlength: 120 },
+  lastName: { type: String, trim: true, maxlength: 120 },
   matricule: { type: String, trim: true, maxlength: 60 },
   schoolId: { type: Schema.Types.ObjectId, ref: "Client" },
   schoolName: { type: String, required: true, trim: true, maxlength: 200 },
   dedupKey: { type: String, required: true },
   email: { type: String, trim: true, lowercase: true, maxlength: 200 },
-  phone: { type: String, trim: true, maxlength: 40 },
+  phone: { type: String, trim: true, maxlength: 60 },
+  dateOfBirth: Date,
+  city: { type: String, trim: true, maxlength: 120 },
+  className: { type: String, trim: true, maxlength: 160 },
+  nationality: { type: String, trim: true, maxlength: 60 },
+  hasPhoto: { type: Boolean, default: false, index: true },
+  cardStatus: { type: String, trim: true, maxlength: 40 },
   isicNumber: { type: String, trim: true, maxlength: 40 },
   numberSource: { type: String, enum: ["reprise", "isic", "manuel"] },
   numberAssignedAt: Date,

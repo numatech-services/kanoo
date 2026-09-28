@@ -11,7 +11,11 @@ export interface IIsicLicense {
   tenantId: Types.ObjectId;
   studentId: Types.ObjectId;
   academicYear: string;
+  /** Validité réelle renvoyée par ISIC (« Valid from / Valid to ») quand elle est connue. */
+  validFrom?: Date;
   validUntil: Date;
+  cardStatus?: string;
+  issuedOn?: Date;
   source: "reprise" | "lot" | "renouvellement" | "manuel";
   batchId?: Types.ObjectId;
   status: "active" | "cancelled";
@@ -24,7 +28,10 @@ const IsicLicenseSchema = new Schema<IIsicLicense>({
   tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
   studentId: { type: Schema.Types.ObjectId, ref: "IsicStudent", required: true, index: true },
   academicYear: { type: String, required: true, match: /^\d{4}-\d{4}$/ },
+  validFrom: Date,
   validUntil: { type: Date, required: true },
+  cardStatus: { type: String, maxlength: 40 },
+  issuedOn: Date,
   source: { type: String, enum: ["reprise", "lot", "renouvellement", "manuel"], default: "manuel" },
   batchId: { type: Schema.Types.ObjectId, ref: "IsicBatch" },
   status: { type: String, enum: ["active", "cancelled"], default: "active", index: true },

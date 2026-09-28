@@ -9,6 +9,7 @@ import { IsicLicenseModel } from "@/models/IsicLicense";
 import { IsicCardModel } from "@/models/IsicCard";
 import {
   studentKey, normalizeIsicNumber, isPlausibleIsicNumber, isAcademicYear, defaultValidUntil,
+  cleanName, normalizeNationality, parseDateLoose,
 } from "@/lib/isic-registry";
 import { ensureRegistryIndexes } from "@/lib/isic-registry-server";
 
@@ -44,8 +45,18 @@ export const PATCH = withAuth("isic", "update", async (req: NextRequest, auth: T
   if (!student) return notFound("Étudiant introuvable");
 
   // Identité
-  for (const f of ["fullName", "matricule", "schoolName", "email", "phone", "notes"] as const) {
-    if (f in b) (student as unknown as Record<string, unknown>)[f] = String(b[f] ?? "").trim() || undefined;
+  for (const f of ["fullName", "firstName", "lastName", "matricule", "schoolName", "email", "phone", "notes", "city", "className"] as const) {
+    if (f in b) (student as unknown as Record<string, unknown>)[f] = cleanName(b[f]) || undefined;
+  }
+  if ("nationality" in b) student.nationality = normalizeNationality(b.nationality) || undefined;
+  if ("dateOfBirth" in b) {
+    const d = b.dateOfBirth ? parseDateLoose(b.dateOfBirth) : null;
+    if (b.dateOfBirth && !d) return badRequest("Date de naissance illisible.");
+    student.dateOfBirth = d ?? undefined;
+  }
+  // Prénom/nom modifiés sans nom complet : on recompose le nom complet.
+  if (("firstName" in b || "lastName" in b) && !("fullName" in b) && (student.firstName || student.lastName)) {
+    student.fullName = cleanName(`${student.firstName ?? ""} ${student.lastName ?? ""}`);
   }
   if (!student.fullName) return badRequest("Le nom est requis.");
   if (!student.schoolName) return badRequest("L'établissement est requis.");

@@ -3,22 +3,27 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  BookUser, Users, RefreshCw, Hourglass, BadgeCheck, Upload, Download, Plus, Search, FileSpreadsheet, History,
+  BookUser, Users, RefreshCw, Hourglass, BadgeCheck, Upload, Download, Plus, Search, FileSpreadsheet, History, Send, Camera,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
 import { Pagination } from "@/components/ui/Pagination";
 import { academicYearOf, shiftAcademicYear } from "@/lib/isic-registry";
+import { EnvoiIsic } from "@/components/isic/EnvoiIsic";
+import { compressPhoto } from "@/components/isic/image";
 
-interface SchoolRow { school: string; students: number; withNumber: number; covered: number; fresh: number; renewed: number; toRenew: number }
+interface SchoolRow { school: string; students: number; withNumber: number; withoutPhoto: number; covered: number; fresh: number; renewed: number; toRenew: number }
 interface Stats {
   year: string;
-  totals: { students: number; withNumber: number; withoutNumber: number; coveredWithoutNumber: number; covered: number; fresh: number; renewed: number; returning: number; toRenew: number };
+  totals: { students: number; withNumber: number; withoutNumber: number; coveredWithoutNumber: number; coveredWithoutPhoto: number; covered: number; fresh: number; renewed: number; returning: number; toRenew: number };
   bySchool: SchoolRow[];
   years: string[];
 }
-interface Student { _id: string; fullName: string; matricule?: string; schoolName: string; isicNumber?: string; email?: string; phone?: string; years: string[] }
+interface Student {
+  _id: string; fullName: string; firstName?: string; lastName?: string; matricule?: string; schoolName: string; className?: string;
+  isicNumber?: string; email?: string; phone?: string; hasPhoto?: boolean; years: string[];
+}
 interface Report { rows: number; created: number; updated: number; numbersAssigned: number; licencesCreated: number; conflicts: { line: number; name: string; reason: string }[]; skipped: { line: number; reason: string }[] }
 
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
@@ -36,7 +41,7 @@ const n = (v: number) => v.toLocaleString("fr-FR");
 
 export default function RegistrePage() {
   const [year, setYear] = useState(academicYearOf());
-  const [tab, setTab] = useState<"dashboard" | "students" | "import">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "students" | "import" | "envoi">("dashboard");
   const [stats, setStats] = useState<Stats | null>(null);
   const [schoolFilter, setSchoolFilter] = useState("");
   const [coverageFilter, setCoverageFilter] = useState("");
@@ -70,12 +75,14 @@ export default function RegistrePage() {
         <button className={tabCls(tab === "dashboard")} onClick={() => setTab("dashboard")}><BadgeCheck size={16} /> Licences</button>
         <button className={tabCls(tab === "students")} onClick={() => openStudents()}><Users size={16} /> Étudiants</button>
         <button className={tabCls(tab === "import")} onClick={() => setTab("import")}><Upload size={16} /> Import / Export</button>
+        <button className={tabCls(tab === "envoi")} onClick={() => setTab("envoi")}><Send size={16} /> Envoi ISIC</button>
       </div>
 
       {tab === "dashboard" && <Dashboard stats={stats} year={year} onChanged={loadStats} openStudents={openStudents} goImport={() => setTab("import")} />}
       {tab === "students" && <StudentsTab key={`${schoolFilter}|${coverageFilter}|${year}`} year={year} schools={stats?.bySchool.map(s => s.school) ?? []}
         initialSchool={schoolFilter} initialCoverage={coverageFilter} onChanged={loadStats} />}
       {tab === "import" && <ImportTab year={year} schools={stats?.bySchool.map(s => s.school) ?? []} onChanged={loadStats} />}
+      {tab === "envoi" && <EnvoiIsic year={year} schools={stats?.bySchool.map(s => s.school) ?? []} onChanged={loadStats} />}
     </div>
   );
 }
@@ -103,7 +110,7 @@ function Dashboard({ stats, year, onChanged, openStudents, goImport }: {
     return (
       <div className="space-y-3">
         <EmptyState icon={<BookUser size={20} />} title="Registre vide"
-          hint="Commencez par reprendre vos étudiants existants (avec leur numéro ISIC) depuis un fichier Excel enregistré en CSV." />
+          hint="Commencez par reprendre vos étudiants existants avec leur numéro — par exemple les fichiers reçus d'ISIC des années passées (.xlsx)." />
         <div className="text-center"><button onClick={goImport} className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold">Importer les étudiants existants</button></div>
       </div>
     );
@@ -120,7 +127,7 @@ function Dashboard({ stats, year, onChanged, openStudents, goImport }: {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
         <Card icon={<BadgeCheck size={14} />} label={`Licences ${year}`} value={t.covered} tone="text-section"
           sub={`${n(t.fresh)} nouveaux · ${n(t.renewed)} renouvelés${t.returning ? ` · ${n(t.returning)} retours` : ""}`}
           action={<button onClick={() => openStudents("", "covered")} className="text-xs font-semibold text-section hover:underline">Voir la liste →</button>} />
@@ -139,6 +146,9 @@ function Dashboard({ stats, year, onChanged, openStudents, goImport }: {
               <Download size={13} /> Liste à envoyer à ISIC
             </a>
           )} />
+        <Card icon={<Camera size={14} />} label="Sans photo" value={t.coveredWithoutPhoto} tone={t.coveredWithoutPhoto ? "text-warn" : undefined}
+          sub={`Licences ${year} sans photo : carte impossible`}
+          action={t.coveredWithoutPhoto > 0 && <button onClick={() => openStudents("", "covered-nophoto")} className="text-xs font-semibold text-section hover:underline">Voir la liste →</button>} />
         <Card icon={<Users size={14} />} label="Étudiants au registre" value={t.students}
           sub={`${n(t.withNumber)} avec numéro · ${n(t.withoutNumber)} sans`} />
       </div>
@@ -146,7 +156,7 @@ function Dashboard({ stats, year, onChanged, openStudents, goImport }: {
       <div className="surface-card overflow-hidden">
         <div className="px-4 py-3 border-b border-line"><h2 className="font-semibold text-ink">Par établissement — {year}</h2></div>
         <table className="table-dense">
-          <thead><tr><th>Établissement</th><th className="text-right">Étudiants</th><th className="text-right">Avec n°</th><th className="text-right">Licences {year}</th><th className="text-right">Nouveaux</th><th className="text-right">Renouvelés</th><th className="text-right">À renouveler</th></tr></thead>
+          <thead><tr><th>Établissement</th><th className="text-right">Étudiants</th><th className="text-right">Avec n°</th><th className="text-right">Licences {year}</th><th className="text-right">Nouveaux</th><th className="text-right">Renouvelés</th><th className="text-right">À renouveler</th><th className="text-right">Sans photo</th></tr></thead>
           <tbody>
             {stats.bySchool.map(s => (
               <tr key={s.school} className="cursor-pointer hover:bg-surface2/50" onClick={() => openStudents(s.school)}>
@@ -157,6 +167,7 @@ function Dashboard({ stats, year, onChanged, openStudents, goImport }: {
                 <td className="text-right font-mono">{n(s.fresh)}</td>
                 <td className="text-right font-mono">{n(s.renewed)}</td>
                 <td className={`text-right font-mono ${s.toRenew ? "text-warn font-semibold" : ""}`}>{n(s.toRenew)}</td>
+                <td className={`text-right font-mono ${s.withoutPhoto ? "text-warn font-semibold" : ""}`}>{n(s.withoutPhoto)}</td>
               </tr>
             ))}
           </tbody>
@@ -173,7 +184,8 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
   const [q, setQ] = useState("");
   const [school, setSchool] = useState(initialSchool);
   const [number, setNumber] = useState("");
-  const [coverage, setCoverage] = useState(initialCoverage);
+  const [coverage, setCoverage] = useState(initialCoverage === "covered-nophoto" ? "covered" : initialCoverage);
+  const [photo, setPhoto] = useState(initialCoverage === "covered-nophoto" ? "without" : "");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ items: Student[]; total: number }>({ items: [], total: 0 });
   const [loading, setLoading] = useState(true);
@@ -189,10 +201,11 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
     if (school) p.set("school", school);
     if (number) p.set("number", number);
     if (coverage) { p.set("coverage", coverage); p.set("year", year); }
+    if (photo) p.set("photo", photo);
     fetch(`/api/isic/registry/students?${p}`, { credentials: "include" }).then(r => r.json())
       .then(d => setData({ items: d.data?.items ?? [], total: d.data?.pagination?.total ?? 0 }))
       .finally(() => setLoading(false));
-  }, [page, q, school, number, coverage, year]);
+  }, [page, q, school, number, coverage, photo, year]);
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
 
   async function renewSelected() {
@@ -227,6 +240,11 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
           <option value="notcovered">Sans licence {year}</option>
           <option value="torenew">À renouveler ({year})</option>
         </select>
+        <select className={`${selectCls} w-auto`} value={photo} onChange={e => { setPhoto(e.target.value); setPage(1); }}>
+          <option value="">Avec ou sans photo</option>
+          <option value="with">Avec photo</option>
+          <option value="without">Sans photo</option>
+        </select>
         <button onClick={() => setAdding(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
           <Plus size={16} /> Ajouter
         </button>
@@ -247,15 +265,16 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
       ) : (
         <div className="surface-card overflow-hidden">
           <table className="table-dense">
-            <thead><tr><th className="w-8"></th><th>Étudiant</th><th>Matricule</th><th>Établissement</th><th>N° ISIC</th><th>Licences</th></tr></thead>
+            <thead><tr><th className="w-8"></th><th>Étudiant</th><th>Personal ID</th><th>Établissement</th><th>N° ISIC</th><th>Photo</th><th>Licences</th></tr></thead>
             <tbody>
               {data.items.map(s => (
                 <tr key={s._id} className="hover:bg-surface2/50">
                   <td><input type="checkbox" checked={selected.has(s._id)} onChange={() => toggle(s._id)} aria-label={`Sélectionner ${s.fullName}`} /></td>
                   <td><button onClick={() => setOpenId(s._id)} className="text-ink font-medium hover:text-section text-left">{s.fullName}</button></td>
                   <td className="font-mono text-xs text-ink2">{s.matricule || "—"}</td>
-                  <td className="text-ink2">{s.schoolName}</td>
+                  <td className="text-ink2">{s.schoolName}{s.className && <div className="text-[11px] text-ink3">{s.className}</div>}</td>
                   <td className="font-mono text-xs">{s.isicNumber || <Pill tone="warn">En attente</Pill>}</td>
+                  <td>{s.hasPhoto ? <Pill tone="pos">Oui</Pill> : <Pill tone="neg">Non</Pill>}</td>
                   <td className="space-x-1">
                     {s.years.length === 0 ? <span className="text-xs text-ink3">—</span> : s.years.slice(0, 3).map(y =>
                       <Pill key={y} tone={y === year ? "pos" : "mute"}>{y}</Pill>)}
@@ -316,14 +335,15 @@ function AddStudentDialog({ year, schools, onClose, onSaved }: { year: string; s
 }
 
 interface StudentDetail {
-  student: Student & { notes?: string; numberHistory: { number: string; at: string; reason?: string }[] };
+  student: Student & { notes?: string; dateOfBirth?: string; city?: string; nationality?: string; cardStatus?: string; numberHistory: { number: string; at: string; reason?: string }[] };
   licences: { _id: string; academicYear: string; status: string; validUntil: string; source: string }[];
   cards: { _id: string; status: string; batchId?: { _id: string; reference: string; academicYear?: string } }[];
 }
 
 function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: string; onClose: () => void; onSaved: () => void }) {
   const [d, setD] = useState<StudentDetail | null>(null);
-  const [f, setF] = useState({ fullName: "", matricule: "", schoolName: "", email: "", phone: "", notes: "", isicNumber: "", numberReason: "" });
+  const [f, setF] = useState({ firstName: "", lastName: "", fullName: "", matricule: "", schoolName: "", className: "", dateOfBirth: "", city: "", nationality: "", email: "", phone: "", notes: "", isicNumber: "", numberReason: "" });
+  const [photoV, setPhotoV] = useState(0); // force le rechargement de la vignette
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -331,7 +351,11 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
     fetch(`/api/isic/registry/students/${id}`, { credentials: "include" }).then(r => r.json()).then(x => {
       const data: StudentDetail = x.data; setD(data);
       const s = data.student;
-      setF({ fullName: s.fullName, matricule: s.matricule ?? "", schoolName: s.schoolName, email: s.email ?? "", phone: s.phone ?? "", notes: s.notes ?? "", isicNumber: s.isicNumber ?? "", numberReason: "" });
+      setF({
+        firstName: s.firstName ?? "", lastName: s.lastName ?? "", fullName: s.fullName, matricule: s.matricule ?? "", schoolName: s.schoolName,
+        className: s.className ?? "", dateOfBirth: s.dateOfBirth ? String(s.dateOfBirth).slice(0, 10) : "", city: s.city ?? "",
+        nationality: s.nationality ?? "", email: s.email ?? "", phone: s.phone ?? "", notes: s.notes ?? "", isicNumber: s.isicNumber ?? "", numberReason: "",
+      });
     });
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -340,7 +364,12 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
   async function save(extra: Record<string, unknown> = {}) {
     setSaving(true); setError(null);
     try {
-      const body: Record<string, unknown> = { fullName: f.fullName, matricule: f.matricule, schoolName: f.schoolName, email: f.email, phone: f.phone, notes: f.notes, ...extra };
+      const body: Record<string, unknown> = {
+        firstName: f.firstName, lastName: f.lastName, matricule: f.matricule, schoolName: f.schoolName, className: f.className,
+        dateOfBirth: f.dateOfBirth || null, city: f.city, nationality: f.nationality, email: f.email, phone: f.phone, notes: f.notes, ...extra,
+      };
+      // Sans prénom/nom séparés, on garde le nom complet saisi.
+      if (!f.firstName && !f.lastName) body.fullName = f.fullName;
       if (numberChanged) { body.isicNumber = f.isicNumber; body.numberReason = f.numberReason; }
       await api(`/api/isic/registry/students/${id}`, "PATCH", body);
       onSaved(); load();
@@ -351,6 +380,18 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
     try { await api(`/api/isic/registry/students/${id}`, "DELETE"); onSaved(); onClose(); } catch (e) { setError(e instanceof Error ? e.message : "Archivage impossible"); }
   }
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF(x => ({ ...x, [k]: e.target.value }));
+  async function uploadPhoto(file: File) {
+    try {
+      const dataUri = await compressPhoto(file);
+      await api(`/api/isic/registry/students/${id}/photo`, "POST", { dataUri, fileName: file.name });
+      setPhotoV(v => v + 1); onSaved(); load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Photo refusée"); }
+  }
+  async function removePhoto() {
+    if (!confirm("Retirer la photo ?")) return;
+    try { await api(`/api/isic/registry/photos?studentId=${id}`, "DELETE"); setPhotoV(v => v + 1); onSaved(); load(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); }
+  }
   const hasYear = d?.licences.some(l => l.academicYear === year && l.status === "active");
 
   return (
@@ -358,10 +399,31 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
       {!d ? <div className="h-40 animate-pulse" /> : (
         <div className="space-y-4">
           {error && <p className="px-3 py-2 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg">{error}</p>}
+          <div className="flex gap-4 items-start">
+            <div className="shrink-0 w-28 text-center space-y-1.5">
+              {d.student.hasPhoto
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={`/api/isic/registry/students/${id}/photo?v=${photoV}`} alt="Photo" className="w-28 h-36 object-cover rounded-lg border border-line" />
+                : <div className="w-28 h-36 rounded-lg border border-dashed border-neg/40 bg-neg-50 grid place-items-center text-xs text-neg">Pas de photo</div>}
+              <label className="block text-xs font-semibold text-section cursor-pointer hover:underline">
+                {d.student.hasPhoto ? "Remplacer" : "Ajouter"}
+                <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={e => { const fl = e.target.files?.[0]; e.target.value = ""; if (fl) uploadPhoto(fl); }} />
+              </label>
+              {d.student.hasPhoto && <button onClick={removePhoto} className="text-xs text-neg hover:underline">Retirer</button>}
+            </div>
+            <div className="flex-1 grid sm:grid-cols-2 gap-3">
+              <FormField label="Prénom(s)" hint="« Cardholder's First Name »"><input className={inputCls} value={f.firstName} onChange={set("firstName")} /></FormField>
+              <FormField label="Nom" hint="« Cardholder's Last Name »"><input className={inputCls} value={f.lastName} onChange={set("lastName")} /></FormField>
+              {!f.firstName && !f.lastName && <FormField label="Nom complet" required><input className={inputCls} value={f.fullName} onChange={set("fullName")} /></FormField>}
+              <FormField label="Personal ID (matricule)"><input className={`${inputCls} font-mono`} value={f.matricule} onChange={set("matricule")} /></FormField>
+              <FormField label="Date de naissance"><input className={inputCls} type="date" value={f.dateOfBirth} onChange={set("dateOfBirth")} /></FormField>
+            </div>
+          </div>
           <div className="grid sm:grid-cols-2 gap-3">
-            <FormField label="Nom complet" required><input className={inputCls} value={f.fullName} onChange={set("fullName")} /></FormField>
-            <FormField label="Matricule"><input className={inputCls} value={f.matricule} onChange={set("matricule")} /></FormField>
             <FormField label="Établissement" required><input className={inputCls} value={f.schoolName} onChange={set("schoolName")} /></FormField>
+            <FormField label="Filière (Class Name)"><input className={inputCls} value={f.className} onChange={set("className")} /></FormField>
+            <FormField label="Ville"><input className={inputCls} value={f.city} onChange={set("city")} /></FormField>
+            <FormField label="Nationalité" hint="Conservée sur la fiche, non envoyée à ISIC"><input className={inputCls} value={f.nationality} onChange={set("nationality")} /></FormField>
             <FormField label="Téléphone"><input className={inputCls} value={f.phone} onChange={set("phone")} /></FormField>
             <FormField label="Email"><input className={inputCls} value={f.email} onChange={set("email")} /></FormField>
             <FormField label="Numéro ISIC" hint="Il suit l'étudiant d'une année à l'autre">
@@ -433,18 +495,22 @@ function ImportTab({ year, schools, onChanged }: { year: string; schools: string
   const [report, setReport] = useState<{ title: string; r: Report } | null>(null);
 
   function run(mode: "reprise" | "students" | "numbers", title: string, file: File) {
+    // .xlsx lu tel quel (vos fichiers ISIC) ; CSV lu comme texte.
+    const isExcel = /\.xlsx?$/i.test(file.name);
     const reader = new FileReader();
     reader.onload = async () => {
       setBusy(mode); setReport(null);
       try {
         const r = await api<Report>("/api/isic/registry/import", "POST", {
-          mode, csv: String(reader.result), schoolName: school || undefined,
+          mode, fileName: file.name,
+          ...(isExcel ? { fileBase64: String(reader.result) } : { csv: String(reader.result) }),
+          schoolName: school || undefined,
           academicYear: mode !== "numbers" && withLicence ? year : undefined,
         });
-        setReport({ title, r }); onChanged();
+        setReport({ title: `${title} — ${file.name}`, r }); onChanged();
       } catch (e) { alert(e instanceof Error ? e.message : "Import impossible"); } finally { setBusy(null); }
     };
-    reader.readAsText(file, "utf-8");
+    if (isExcel) reader.readAsDataURL(file); else reader.readAsText(file, "utf-8");
   }
   function template() {
     const url = URL.createObjectURL(new Blob(["﻿" + TEMPLATE], { type: "text/csv;charset=utf-8" }));
@@ -457,8 +523,8 @@ function ImportTab({ year, schools, onChanged }: { year: string; schools: string
       <p className="text-sm text-ink2">{text}</p>
       <p className="text-xs text-ink3">Colonnes : {cols}</p>
       <label className={`mt-auto inline-flex items-center justify-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold cursor-pointer ${busy ? "opacity-50 pointer-events-none" : ""} ${mode === "numbers" ? "border border-section/40 text-section hover:bg-section/5" : "bg-section text-white hover:brightness-95"}`}>
-        <Upload size={15} /> {busy === mode ? "Import en cours…" : "Choisir le fichier CSV"}
-        <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) run(mode, title, file); }} />
+        <Upload size={15} /> {busy === mode ? "Import en cours…" : "Choisir le fichier (Excel ou CSV)"}
+        <input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) run(mode, title, file); }} />
       </label>
     </div>
   );
@@ -472,17 +538,17 @@ function ImportTab({ year, schools, onChanged }: { year: string; schools: string
         </FormField>
         <label className="flex items-center gap-2 text-sm text-ink pb-2"><input type="checkbox" checked={withLicence} onChange={e => setWithLicence(e.target.checked)} /> Ouvrir la licence {year} pour les étudiants importés</label>
         <button onClick={template} className="ml-auto mb-0.5 inline-flex items-center gap-2 px-3 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
-          <FileSpreadsheet size={15} /> Modèle Excel (CSV)
+          <FileSpreadsheet size={15} /> Modèle CSV simplifié
         </button>
       </div>
 
       <div className="grid md:grid-cols-3 gap-3">
-        <Block mode="reprise" title="1. Reprise de l'existant" cols="Nom, Matricule, Établissement, Numéro ISIC (si connu)…"
-          text="Vos étudiants actuels, avec le numéro ISIC qu'ils possèdent déjà. Les doublons sont détectés (établissement + matricule)." />
-        <Block mode="students" title="2. Nouveaux étudiants" cols="Nom, Matricule, Établissement, Email, Téléphone"
-          text="Une nouvelle liste sans numéros : les étudiants passent « en attente de numéro », prêts à être envoyés à ISIC." />
-        <Block mode="numbers" title="3. Retour d'ISIC" cols="Matricule, Numéro ISIC (Établissement conseillé)"
-          text="Le fichier des numéros renvoyé par ISIC. Aucun étudiant n'est créé ; un numéro déjà attribué à quelqu'un d'autre est refusé." />
+        <Block mode="reprise" title="1. Reprise de l'existant" cols="Fichier reçu d'ISIC, ou : Nom, Personal ID, Établissement, Numéro ISIC…"
+          text="Vos étudiants actuels avec leur numéro — idéalement les fichiers reçus d'ISIC des années passées (numéro et validité repris). Doublons détectés." />
+        <Block mode="students" title="2. Nouveaux étudiants" cols="Fichier envoyé à ISIC (24 colonnes), ou : Prénom, Nom, Personal ID…"
+          text="Ex. « Fichier ISIC Première vague 2026-2027 » : les étudiants passent « en attente de numéro » pour l'année choisie." />
+        <Block mode="numbers" title="3. Retour d'ISIC" cols="Fichier reçu d'ISIC : Card Number, Personal ID, Valid from / to"
+          text="Le fichier « … AVEC N° ISIC » : numéros, statut et validité réelle. Aucun étudiant créé ; un numéro déjà pris est refusé." />
       </div>
 
       <div className="surface-card p-4 flex flex-wrap items-center gap-3">

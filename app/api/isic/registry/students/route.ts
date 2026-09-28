@@ -37,6 +37,9 @@ export const GET = withAuth("isic", "read", async (req: NextRequest, auth: Token
   const number = url.searchParams.get("number");
   if (number === "with") filter.isicNumber = { $type: "string" };
   if (number === "without") filter.$and = [{ $or: [{ isicNumber: { $exists: false } }, { isicNumber: null }, { isicNumber: "" }] }];
+  const photo = url.searchParams.get("photo");
+  if (photo === "without") filter.hasPhoto = { $ne: true };
+  if (photo === "with") filter.hasPhoto = true;
 
   const year = url.searchParams.get("year");
   const coverage = url.searchParams.get("coverage");
@@ -54,7 +57,7 @@ export const GET = withAuth("isic", "read", async (req: NextRequest, auth: Token
 
   const [items, total] = await Promise.all([
     IsicStudentModel.find(filter).sort({ schoolName: 1, fullName: 1 }).skip(p.skip).limit(p.limit)
-      .select("fullName matricule schoolName isicNumber email phone numberSource createdAt")
+      .select("fullName firstName lastName matricule schoolName className isicNumber email phone hasPhoto numberSource createdAt")
       .lean<Array<{ _id: Types.ObjectId } & Record<string, unknown>>>(),
     IsicStudentModel.countDocuments(filter),
   ]);

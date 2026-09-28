@@ -5,6 +5,7 @@ import { IsicStudentModel } from "@/models/IsicStudent";
 import { IsicLicenseModel } from "@/models/IsicLicense";
 import {
   studentKey, normalizeIsicNumber, normalizeMatricule, decideNumber, isAcademicYear, defaultValidUntil,
+  cleanName, normalizeNationality, parseDateLoose, academicYearOf, type RegistryColumns,
 } from "@/lib/isic-registry";
 
 /**
@@ -31,6 +32,17 @@ export interface RegistryEntry {
   phone?: string;
   number?: string;
   academicYear?: string;
+  firstName?: string;
+  lastName?: string;
+  dateOfBirth?: string;
+  city?: string;
+  className?: string;
+  nationality?: string;
+  /** Validité et statut renvoyés par ISIC (fichier retour). */
+  validFrom?: string;
+  validTo?: string;
+  cardStatus?: string;
+  issuedOn?: string;
 }
 
 export interface RegistryReport {
@@ -49,7 +61,7 @@ export interface RegistryOutcome {
   byLine: Map<number, { studentId: string; number?: string }>;
 }
 
-interface Known { _id: string; isicNumber?: string; fullName: string }
+interface Known { _id: string; isicNumber?: string; fullName: string; firstName?: string; lastName?: string; dateOfBirth?: Date }
 
 /**
  * Applique une liste d'entrées au registre : crée ou complète les fiches,
@@ -69,15 +81,15 @@ export async function applyRegistryEntries(
   const byLine = new Map<number, { studentId: string; number?: string }>();
 
   // Préchargement : clé étudiant → fiche, numéro → propriétaire.
-  const existing = await IsicStudentModel.find(tf).select("_id dedupKey isicNumber fullName matricule")
-    .lean<Array<{ _id: Types.ObjectId; dedupKey: string; isicNumber?: string; fullName: string; matricule?: string }>>();
+  const existing = await IsicStudentModel.find(tf).select("_id dedupKey isicNumber fullName matricule firstName lastName dateOfBirth")
+    .lean<Array<{ _id: Types.ObjectId; dedupKey: string; isicNumber?: string; fullName: string; matricule?: string; firstName?: string; lastName?: string; dateOfBirth?: Date }>>();
   const byKey = new Map<string, Known>();
   const byNumber = new Map<string, string>();
   // Pour le fichier retour d'ISIC sans colonne établissement : matricule seul,
   // accepté uniquement s'il est non ambigu dans l'organisation.
   const byMatricule = new Map<string, string[]>();
   for (const s of existing) {
-    const k: Known = { _id: String(s._id), isicNumber: s.isicNumber, fullName: s.fullName };
+    const k: Known = { _id: String(s._id), isicNumber: s.isicNumber, fullName: s.fullName, firstName: s.firstName, lastName: s.lastName, dateOfBirth: s.dateOfBirth };
     byKey.set(s.dedupKey, k);
     if (s.isicNumber) byNumber.set(s.isicNumber, k._id);
     const m = normalizeMatricule(s.matricule);
@@ -91,7 +103,15 @@ export async function applyRegistryEntries(
   const now = new Date();
 
   for (const e of entries) {
-    const fullName = (e.fullName || "").trim().slice(0, 200);
+    const firstName = cleanName(e.firstName).slice(0, 120);
+    const lastName = cleanName(e.lastName).slice(0, 120);
+    const fullName = (cleanName(e.fullName) || cleanName(`${firstName} ${lastName}`)).slice(0, 200);
+    const dob = parseDateLoose(e.dateOfBirth);
+    const profile: Record<string, unknown> = {};
+    if (e.city) profile.city = cleanName(e.city).slice(0, 120);
+    if (e.className) profile.className = cleanName(e.className).slice(0, 160);
+    if (e.nationality && normalizeNationality(e.nationality)) profile.nationality = normalizeNationality(e.nationality);
+    if (e.cardStatus) profile.cardStatus = cleanName(e.cardStatus).slice(0, 40);
     let key = studentKey(e.schoolName, e.matricule, fullName);
     let known = byKey.get(key);
 
@@ -111,17 +131,29 @@ export async function applyRegistryEntries(
       inserts.push({
         _id: id, tenantId: auth.tenantId, fullName, matricule: e.matricule?.trim().slice(0, 60) || undefined,
         schoolName: e.schoolName.trim().slice(0, 200), schoolId: e.schoolId && Types.ObjectId.isValid(e.schoolId) ? e.schoolId : undefined,
-        dedupKey: key, email: e.email?.trim().slice(0, 200) || undefined, phone: e.phone?.trim().slice(0, 40) || undefined,
-        numberHistory: [], archived: false, createdBy: auth.userId,
+        dedupKey: key, email: e.email?.trim().toLowerCase().slice(0, 200) || undefined, phone: cleanName(e.phone).slice(0, 60) || undefined,
+        firstName: firstName || undefined, lastName: lastName || undefined, dateOfBirth: dob ?? undefined, ...profile,
+        numberHistory: [], archived: false, hasPhoto: false, createdBy: auth.userId,
       });
       report.created++;
-    } else if (!opts.numbersOnly && (e.email || e.phone)) {
-      // Complète les coordonnées sans écraser celles déjà saisies.
-      const set: Record<string, unknown> = {};
-      if (e.email) set.email = e.email.trim().slice(0, 200);
-      if (e.phone) set.phone = e.phone.trim().slice(0, 40);
-      updates.push({ updateOne: { filter: { _id: known._id, ...tf }, update: { $set: set } } });
-      report.updated++;
+    } else {
+      // Fiche existante : on met à jour les coordonnées et le profil fournis par
+      // le fichier, et on complète l'identité seulement si elle manquait (un
+      // fichier ne renomme pas un étudiant en silence).
+      const set: Record<string, unknown> = { ...profile };
+      if (!opts.numbersOnly) {
+        if (e.email) set.email = e.email.trim().toLowerCase().slice(0, 200);
+        if (e.phone) set.phone = cleanName(e.phone).slice(0, 60);
+      }
+      if (firstName && !known.firstName) { set.firstName = firstName; known.firstName = firstName; }
+      if (lastName && !known.lastName) { set.lastName = lastName; known.lastName = lastName; }
+      if (dob && !known.dateOfBirth) { set.dateOfBirth = dob; known.dateOfBirth = dob; }
+      const fresh = inserts.find(d => String(d._id) === known!._id);
+      if (fresh) Object.assign(fresh, set);
+      else if (Object.keys(set).length) {
+        updates.push({ updateOne: { filter: { _id: known._id, ...tf }, update: { $set: set } } });
+        report.updated++;
+      }
     }
 
     // Numéro
@@ -148,20 +180,32 @@ export async function applyRegistryEntries(
       }
     }
 
-    // Licence annuelle
-    if (e.academicYear) {
-      if (!isAcademicYear(e.academicYear)) report.skipped.push({ line: e.line, reason: `Année « ${e.academicYear} » invalide (format 2025-2026).` });
+    // Licence annuelle. Le fichier retour d'ISIC donne la validité réelle
+    // (ex. 01/02/2026 → 28/02/2027) : elle prime sur la validité par défaut, et
+    // l'année académique s'en déduit si elle n'est pas précisée.
+    const vFrom = parseDateLoose(e.validFrom);
+    const vTo = parseDateLoose(e.validTo);
+    const year = e.academicYear || (vFrom ? academicYearOf(vFrom) : undefined);
+    if (year) {
+      if (!isAcademicYear(year)) report.skipped.push({ line: e.line, reason: `Année « ${year} » invalide (format 2025-2026).` });
       else {
-        const lk = `${known._id}|${e.academicYear}`;
+        const lk = `${known._id}|${year}`;
         if (!licenceKeys.has(lk)) {
           licenceKeys.add(lk);
+          const real: Record<string, unknown> = {};
+          if (vTo) real.validUntil = vTo;
+          if (vFrom) real.validFrom = vFrom;
+          if (e.cardStatus) real.cardStatus = cleanName(e.cardStatus).slice(0, 40);
+          const issued = parseDateLoose(e.issuedOn);
+          if (issued) real.issuedOn = issued;
+          const onInsert: Record<string, unknown> = {
+            tenantId: auth.tenantId, studentId: known._id, academicYear: year,
+            source: opts.licenceSource, batchId: opts.batchId, status: "active", createdBy: auth.userId,
+          };
+          if (!vTo) onInsert.validUntil = defaultValidUntil(year);
           licences.push({ updateOne: {
-            filter: { tenantId: auth.tenantId, studentId: known._id, academicYear: e.academicYear },
-            update: { $setOnInsert: {
-              tenantId: auth.tenantId, studentId: known._id, academicYear: e.academicYear,
-              validUntil: defaultValidUntil(e.academicYear), source: opts.licenceSource,
-              batchId: opts.batchId, status: "active", createdBy: auth.userId,
-            } },
+            filter: { tenantId: auth.tenantId, studentId: known._id, academicYear: year },
+            update: Object.keys(real).length ? { $set: real, $setOnInsert: onInsert } : { $setOnInsert: onInsert },
             upsert: true,
           } });
         }
@@ -179,21 +223,31 @@ export async function applyRegistryEntries(
   return { report, byLine };
 }
 
-/** Rows CSV → entrées de registre, d'après les en-têtes reconnus. */
-export function entriesFromCsv(
-  headers: string[], rows: string[][],
-  cols: { name: number; matricule: number; school: number; number: number; email: number; phone: number; year: number },
+/** Lignes (CSV ou Excel) → entrées de registre, d'après les colonnes reconnues. */
+export function entriesFromRows(
+  rows: string[][],
+  cols: RegistryColumns,
   defaults: { schoolName?: string; academicYear?: string },
 ): RegistryEntry[] {
   const at = (r: string[], i: number) => (i >= 0 ? (r[i] ?? "").trim() : "");
   return rows.slice(0, 20000).map((r, idx) => ({
     line: idx + 2, // +1 en-tête, +1 base 1 : numéro de ligne tel que vu dans Excel
     fullName: at(r, cols.name),
+    firstName: at(r, cols.firstName) || undefined,
+    lastName: at(r, cols.lastName) || undefined,
     matricule: at(r, cols.matricule) || undefined,
     schoolName: at(r, cols.school) || defaults.schoolName || "",
     email: at(r, cols.email) || undefined,
     phone: at(r, cols.phone) || undefined,
     number: at(r, cols.number) || undefined,
     academicYear: at(r, cols.year) || defaults.academicYear || undefined,
+    dateOfBirth: at(r, cols.dateOfBirth) || undefined,
+    city: at(r, cols.city) || undefined,
+    className: at(r, cols.className) || undefined,
+    nationality: at(r, cols.nationality) || undefined,
+    validFrom: at(r, cols.validFrom) || undefined,
+    validTo: at(r, cols.validTo) || undefined,
+    cardStatus: at(r, cols.cardStatus) || undefined,
+    issuedOn: at(r, cols.issuedOn) || undefined,
   }));
 }

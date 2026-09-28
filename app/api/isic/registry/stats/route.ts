@@ -23,8 +23,8 @@ export const GET = withAuth("isic", "read", async (req: NextRequest, auth: Token
   const year = isAcademicYear(yearParam) ? yearParam : academicYearOf();
 
   const [students, licences, yearsRaw] = await Promise.all([
-    IsicStudentModel.find({ ...tf, archived: { $ne: true } }).select("_id schoolName isicNumber")
-      .lean<Array<{ _id: Types.ObjectId; schoolName: string; isicNumber?: string }>>(),
+    IsicStudentModel.find({ ...tf, archived: { $ne: true } }).select("_id schoolName isicNumber hasPhoto")
+      .lean<Array<{ _id: Types.ObjectId; schoolName: string; isicNumber?: string; hasPhoto?: boolean }>>(),
     IsicLicenseModel.aggregate([
       { $match: { ...tf, status: "active" } },
       { $group: { _id: "$studentId", years: { $push: "$academicYear" } } },
@@ -39,6 +39,8 @@ export const GET = withAuth("isic", "read", async (req: NextRequest, auth: Token
   const withNumber = students.filter(s => !!s.isicNumber).length;
   // Étudiants couverts cette année mais encore sans numéro : la liste à envoyer à ISIC.
   const coveredWithoutNumber = withYears.filter(x => x.years.includes(year) && !x.s.isicNumber).length;
+  // Sans photo, ISIC ne peut pas produire la carte (11 doctorants sur 38 en 2025-2026).
+  const coveredWithoutPhoto = withYears.filter(x => x.years.includes(year) && !x.s.hasPhoto).length;
 
   const schools = new Map<string, typeof withYears>();
   for (const x of withYears) schools.set(x.s.schoolName, [...(schools.get(x.s.schoolName) ?? []), x]);
@@ -46,6 +48,7 @@ export const GET = withAuth("isic", "read", async (req: NextRequest, auth: Token
     school,
     students: list.length,
     withNumber: list.filter(x => !!x.s.isicNumber).length,
+    withoutPhoto: list.filter(x => x.years.includes(year) && !x.s.hasPhoto).length,
     ...coverageFor(year, list),
   })).sort((a, b) => b.covered - a.covered || a.school.localeCompare(b.school));
 
@@ -58,6 +61,7 @@ export const GET = withAuth("isic", "read", async (req: NextRequest, auth: Token
       withNumber,
       withoutNumber: students.length - withNumber,
       coveredWithoutNumber,
+      coveredWithoutPhoto,
       ...overall,
       returning: overall.covered - overall.fresh - overall.renewed,
     },
