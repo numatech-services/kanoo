@@ -418,6 +418,12 @@ for (const perms of Object.values(ROLE_PERMISSIONS)) {
   perms.messages = MESSAGES_ALL;
 }
 
+/** Module ISIC (production de cartes) : accordé largement, borné par le tenant. */
+const ISIC_ALL: Action[] = ["create", "read", "update", "delete"];
+for (const perms of Object.values(ROLE_PERMISSIONS)) {
+  perms.isic = ISIC_ALL;
+}
+
 /**
  * `allowedResources` **restreint**, il n'accorde jamais.
  *

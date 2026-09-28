@@ -45,6 +45,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Paiements", href: "/payments", icon: <CreditCard size={18} /> },
     { label: "Relances", href: "/relances", icon: <BellRing size={18} /> },
     { label: "Notes de frais", href: "/notes-de-frais", icon: <ReceiptText size={18} /> },
+    { label: "Cartes ISIC", href: "/isic", icon: <CreditCard size={18} /> },
   ]},
   { section: "Achats & Stock", items: [
     { label: "Fournisseurs", href: "/suppliers", icon: <Factory size={18} /> },

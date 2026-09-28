@@ -44,3 +44,14 @@ describe("Agenda — accès universel", () => {
     expect(canPerformAction("admin_viewer", "agenda", "update")).toBe(true);
   });
 });
+
+describe("Ressources universelles — messagerie & ISIC", () => {
+  it("la messagerie est accordée à tous les rôles", () => {
+    expect(canPerformAction("pme_viewer", "messages", "read")).toBe(true);
+    expect(canPerformAction("pme_viewer", "messages", "create")).toBe(true);
+  });
+  it("le module ISIC est accordé", () => {
+    expect(canPerformAction("pme_sales", "isic", "create")).toBe(true);
+    expect(canPerformAction("pme_admin", "isic", "delete")).toBe(true);
+  });
+});
