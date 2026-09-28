@@ -115,6 +115,8 @@ export type UserRole =
   | "pme_admin" | "pme_manager" | "pme_accountant" | "pme_sales"
   | "pme_purchases" | "pme_hr" | "pme_project_manager"
   | "pme_approver" | "pme_viewer"
+  | "pme_isic_operator"   // Cartes ISIC : production/impression/livraison, sans finances
+  | "pme_isic_finance"    // Cartes ISIC : volet financier (coûts, revente, encaissements)
   // Associations
   | "asso_president" | "asso_treasurer" | "asso_secretary"
   | "asso_project_manager" | "asso_member_portal"

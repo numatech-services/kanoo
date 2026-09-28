@@ -355,6 +355,10 @@ const ROLE_PERMISSIONS: Record<UserRole, ResourcePermissions> = {
   pme_project_manager: PME_PROJECT_MANAGER,
   pme_approver: PME_APPROVER,
   pme_viewer: PME_VIEWER,
+  // Rôles ISIC dédiés : accès étroit. Les ressources isic / isicFinance leur
+  // sont ajoutées par les boucles ci-dessous.
+  pme_isic_operator: { notifications: ["read"] },
+  pme_isic_finance: { notifications: ["read"] },
   // Associations
   asso_president: ASSO_PRESIDENT,
   asso_treasurer: ASSO_TREASURER,
@@ -418,11 +422,18 @@ for (const perms of Object.values(ROLE_PERMISSIONS)) {
   perms.messages = MESSAGES_ALL;
 }
 
-/** Module ISIC (production de cartes) : accordé largement, borné par le tenant. */
+/**
+ * Module ISIC — droits fins pour séparer production et finances :
+ * - `isic` (production, impression, livraison, fichiers) : rôles opérationnels.
+ * - `isicFinance` (coûts, revente, marge, encaissements) : rôles financiers.
+ * Ainsi l'opérateur qui imprime ne voit pas les montants, et le financier voit
+ * le volet argent. On assigne le rôle correspondant sur l'écran Utilisateurs.
+ */
 const ISIC_ALL: Action[] = ["create", "read", "update", "delete"];
-for (const perms of Object.values(ROLE_PERMISSIONS)) {
-  perms.isic = ISIC_ALL;
-}
+const ISIC_OPS_ROLES: UserRole[] = ["pme_admin", "pme_manager", "pme_sales", "pme_purchases", "pme_project_manager", "pme_isic_operator", "pme_isic_finance", "superadmin"];
+const ISIC_FINANCE_ROLES: UserRole[] = ["pme_admin", "pme_manager", "pme_accountant", "pme_isic_finance", "superadmin"];
+for (const r of ISIC_OPS_ROLES) { if (ROLE_PERMISSIONS[r]) ROLE_PERMISSIONS[r].isic = ISIC_ALL; }
+for (const r of ISIC_FINANCE_ROLES) { if (ROLE_PERMISSIONS[r]) ROLE_PERMISSIONS[r].isicFinance = ISIC_ALL; }
 
 /**
  * `allowedResources` **restreint**, il n'accorde jamais.

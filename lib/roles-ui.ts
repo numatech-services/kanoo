@@ -73,6 +73,16 @@ export const ROLE_UI: Partial<Record<UserRole, RoleDescription>> = {
     summary: "Consulte sans jamais modifier.",
     group: "Consultation",
   },
+  pme_isic_operator: {
+    label: "Opérateur ISIC",
+    summary: "Cartes ISIC : traitement, impression et livraison — sans les montants.",
+    group: "Opérations",
+  },
+  pme_isic_finance: {
+    label: "Financier ISIC",
+    summary: "Cartes ISIC : coûts, revente, marge et encaissements.",
+    group: "Finance",
+  },
 
   // ── Associations ───────────────────────────────────────────────────────
   asso_president: {
@@ -157,6 +167,7 @@ export const ASSIGNABLE_BY_TENANT: Record<string, UserRole[]> = {
   pme: [
     "pme_admin", "pme_manager", "pme_accountant", "pme_approver",
     "pme_sales", "pme_purchases", "pme_project_manager", "pme_hr",
+    "pme_isic_operator", "pme_isic_finance",
     "pme_viewer", "chef_projet_transversal", "tech_admin",
   ],
   association: [

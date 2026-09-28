@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /** POST /api/isic/[id]/payment — enregistre un encaissement de l'université.
  *  DELETE ?paymentId=… le retire. */
-export const POST = withAuth("isic", "update", async (req: NextRequest, auth: TokenPayload, params) => {
+export const POST = withAuth("isicFinance", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const body = await req.json().catch(() => ({}));
   const amount = Number(body.amount);
@@ -29,7 +29,7 @@ export const POST = withAuth("isic", "update", async (req: NextRequest, auth: To
   return ok(batch);
 });
 
-export const DELETE = withAuth("isic", "update", async (req: NextRequest, auth: TokenPayload, params) => {
+export const DELETE = withAuth("isicFinance", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const paymentId = new URL(req.url).searchParams.get("paymentId");
   if (!paymentId) return badRequest("Encaissement non précisé.");

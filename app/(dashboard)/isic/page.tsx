@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CreditCard, Plus, GraduationCap } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls } from "@/components/ui/FormField";
+import { useMe, meCan } from "@/lib/useMe";
 
 export interface Batch {
   _id: string; reference: string; universityName: string; academicYear?: string;
@@ -31,6 +32,8 @@ async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json()
 
 export default function IsicListPage() {
   const router = useRouter();
+  const { resources } = useMe();
+  const canFinance = meCan(resources, "isicFinance");
   const [items, setItems] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -56,10 +59,10 @@ export default function IsicListPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className={`grid grid-cols-1 gap-4 ${canFinance ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         <div className="surface-card p-4"><p className="text-xs text-ink2 uppercase font-semibold">Lots</p><p className="text-2xl font-bold text-ink">{items.length}</p></div>
         <div className="surface-card p-4"><p className="text-xs text-ink2 uppercase font-semibold">Cartes (total)</p><p className="text-2xl font-bold text-ink">{items.reduce((s, b) => s + b.totalCards, 0).toLocaleString("fr-FR")}</p></div>
-        <div className="surface-card p-4"><p className="text-xs text-ink2 uppercase font-semibold">Marge prévue</p><p className="text-2xl font-bold text-pos">{fmt(totalMargin)}</p></div>
+        {canFinance && <div className="surface-card p-4"><p className="text-xs text-ink2 uppercase font-semibold">Marge prévue</p><p className="text-2xl font-bold text-pos">{fmt(totalMargin)}</p></div>}
       </div>
 
       {loading ? (
@@ -94,12 +97,12 @@ export default function IsicListPage() {
         </div>
       )}
 
-      {open && <NewBatch onClose={() => setOpen(false)} onCreated={(id) => { setOpen(false); router.push(`/isic/${id}`); }} />}
+      {open && <NewBatch canFinance={canFinance} onClose={() => setOpen(false)} onCreated={(id) => { setOpen(false); router.push(`/isic/${id}`); }} />}
     </div>
   );
 }
 
-function NewBatch({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+function NewBatch({ canFinance, onClose, onCreated }: { canFinance: boolean; onClose: () => void; onCreated: (id: string) => void }) {
   const [form, setForm] = useState({ universityName: "", academicYear: "", totalCards: 0, unitLicenseFee: 0, unitSalePrice: 0 });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,10 +132,12 @@ function NewBatch({ onClose, onCreated }: { onClose: () => void; onCreated: (id:
           <FormField label="Année académique"><input className={inputCls} value={form.academicYear} onChange={e => setForm(f => ({ ...f, academicYear: e.target.value }))} placeholder="2025-2026" /></FormField>
           <FormField label="Nombre de cartes"><input type="number" min={0} className={inputCls} value={form.totalCards || ""} onChange={e => setForm(f => ({ ...f, totalCards: Number(e.target.value) }))} /></FormField>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Coût licence / carte (XOF)" hint="Ce que vous payez à ISIC."><input type="number" min={0} className={inputCls} value={form.unitLicenseFee || ""} onChange={e => setForm(f => ({ ...f, unitLicenseFee: Number(e.target.value) }))} /></FormField>
-          <FormField label="Prix de revente / carte (XOF)" hint="Facturé à l'université."><input type="number" min={0} className={inputCls} value={form.unitSalePrice || ""} onChange={e => setForm(f => ({ ...f, unitSalePrice: Number(e.target.value) }))} /></FormField>
-        </div>
+        {canFinance && (
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Coût licence / carte (XOF)" hint="Ce que vous payez à ISIC."><input type="number" min={0} className={inputCls} value={form.unitLicenseFee || ""} onChange={e => setForm(f => ({ ...f, unitLicenseFee: Number(e.target.value) }))} /></FormField>
+            <FormField label="Prix de revente / carte (XOF)" hint="Facturé à l'université."><input type="number" min={0} className={inputCls} value={form.unitSalePrice || ""} onChange={e => setForm(f => ({ ...f, unitSalePrice: Number(e.target.value) }))} /></FormField>
+          </div>
+        )}
         <div className="flex justify-end gap-3 pt-3 border-t border-line">
           <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
           <button onClick={save} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">{saving ? "Création…" : "Créer le lot"}</button>

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Truck, Banknote, Upload, Download, Trash2, ArrowRight, Ban, FileText } from "lucide-react";
 import { ISIC_STATUS, fmt, delivered as sumDelivered } from "../page";
+import { useMe, meCan } from "@/lib/useMe";
 
 interface Delivery { _id: string; date: string; quantity: number; note?: string }
 interface Payment { _id: string; date: string; amount: number; method?: string; note?: string }
@@ -28,6 +29,8 @@ async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json()
 export default function IsicBatchPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { resources } = useMe();
+  const canFinance = meCan(resources, "isicFinance");
   const [b, setB] = useState<Batch | null>(null);
   const [delivery, setDelivery] = useState({ quantity: 0, note: "" });
   const [payment, setPayment] = useState({ amount: 0, method: "", note: "" });
@@ -100,12 +103,14 @@ export default function IsicBatchPage() {
         </div>
       </div>
 
-      {/* Finances */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[["Cartes", b.totalCards.toLocaleString("fr-FR")], ["Coût licences ISIC", fmt(licenseCost)], ["Revente université", fmt(saleAmount)], ["Marge", fmt(margin)]].map(([k, v], i) => (
-          <div key={k} className="surface-card p-4"><p className="text-[11px] text-ink2 uppercase font-semibold">{k}</p><p className={`text-lg font-bold ${i === 3 ? "text-pos" : "text-ink"}`}>{v}</p></div>
-        ))}
-      </div>
+      {/* Finances — visibles seulement pour un rôle financier. */}
+      {canFinance && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[["Cartes", b.totalCards.toLocaleString("fr-FR")], ["Coût licences ISIC", fmt(licenseCost)], ["Revente université", fmt(saleAmount)], ["Marge", fmt(margin)]].map(([k, v], i) => (
+            <div key={k} className="surface-card p-4"><p className="text-[11px] text-ink2 uppercase font-semibold">{k}</p><p className={`text-lg font-bold ${i === 3 ? "text-pos" : "text-ink"}`}>{v}</p></div>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Livraisons au fur et à mesure */}
@@ -133,7 +138,8 @@ export default function IsicBatchPage() {
           )}
         </section>
 
-        {/* Encaissements */}
+        {/* Encaissements — volet financier. */}
+        {canFinance && (
         <section className="surface-card p-5 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-ink flex items-center gap-2"><Banknote size={17} /> Encaissements</h2>
@@ -155,6 +161,7 @@ export default function IsicBatchPage() {
             <button onClick={() => post("payment", payment, () => setPayment({ amount: 0, method: "", note: "" }))} className="px-3 h-9 rounded-lg bg-ink text-white text-sm font-semibold">Ajouter</button>
           </div>
         </section>
+        )}
       </div>
 
       {/* Fichiers */}

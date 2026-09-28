@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, noContent, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { IsicBatchModel } from "@/models/IsicBatch";
+import { hasIsicFinance, stripIsicFinance, ISIC_FINANCE_FIELDS } from "@/lib/isic";
 import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export const GET = withAuth("isic", "read", async (_req: NextRequest, auth: Toke
   const item = await IsicBatchModel.findOne({ _id: params.id, ...tenantFilter(auth) })
     .populate("universityId", "name code").lean();
   if (!item) return notFound("Lot ISIC introuvable");
-  return ok(item);
+  return ok(hasIsicFinance(auth) ? item : stripIsicFinance(item));
 });
 
 export const PATCH = withAuth("isic", "update", async (req: NextRequest, auth: TokenPayload, params) => {
@@ -25,8 +26,14 @@ export const PATCH = withAuth("isic", "update", async (req: NextRequest, auth: T
   const existing = await IsicBatchModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!existing) return notFound("Lot ISIC introuvable");
 
+  const finance = hasIsicFinance(auth);
   const set: Record<string, unknown> = {};
-  for (const f of SCALARS) if (f in body) set[f] = body[f];
+  for (const f of SCALARS) {
+    if (!(f in body)) continue;
+    // Les montants ne sont modifiables que par un rôle financier.
+    if ((ISIC_FINANCE_FIELDS as readonly string[]).includes(f) && !finance) continue;
+    set[f] = body[f];
+  }
   if ("universityId" in body) {
     set.universityId = body.universityId && Types.ObjectId.isValid(String(body.universityId)) ? body.universityId : undefined;
   }

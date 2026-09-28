@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { IsicBatchModel } from "@/models/IsicBatch";
+import { hasIsicFinance, stripIsicFinance } from "@/lib/isic";
 import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,9 @@ export const GET = withAuth("isic", "read", async (req: NextRequest, auth: Token
       .skip(pagination.skip).limit(pagination.limit).lean(),
     IsicBatchModel.countDocuments(filter),
   ]);
-  return paginatedResponse(items, total, pagination);
+  // Masque coûts/prix/encaissements aux rôles non financiers.
+  const safe = hasIsicFinance(auth) ? items : items.map(stripIsicFinance);
+  return paginatedResponse(safe, total, pagination);
 });
 
 /** POST /api/isic — créer un lot. */
@@ -34,6 +37,8 @@ export const POST = withAuth("isic", "create", async (req: NextRequest, auth: To
   const universityName = String(body.universityName || "").trim();
   if (!universityName) return badRequest("Le nom de l'université est obligatoire.");
 
+  // Un rôle non financier ne fixe pas les montants (ils restent à 0).
+  const finance = hasIsicFinance(auth);
   const batch = await IsicBatchModel.create({
     tenantId: auth.tenantId,
     reference: `ISIC-${new Date().getFullYear()}-${randomBytes(3).toString("hex").toUpperCase()}`,
@@ -41,8 +46,8 @@ export const POST = withAuth("isic", "create", async (req: NextRequest, auth: To
     universityId: body.universityId && /^[0-9a-fA-F]{24}$/.test(body.universityId) ? body.universityId : undefined,
     academicYear: String(body.academicYear || "").slice(0, 20),
     totalCards: Math.max(0, Number(body.totalCards) || 0),
-    unitLicenseFee: Math.max(0, Number(body.unitLicenseFee) || 0),
-    unitSalePrice: Math.max(0, Number(body.unitSalePrice) || 0),
+    unitLicenseFee: finance ? Math.max(0, Number(body.unitLicenseFee) || 0) : 0,
+    unitSalePrice: finance ? Math.max(0, Number(body.unitSalePrice) || 0) : 0,
     notes: String(body.notes || "").slice(0, 4000),
     createdBy: auth.userId,
   });

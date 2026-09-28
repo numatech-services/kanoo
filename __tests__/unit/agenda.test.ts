@@ -55,3 +55,18 @@ describe("Ressources universelles — messagerie & ISIC", () => {
     expect(canPerformAction("pme_admin", "isic", "delete")).toBe(true);
   });
 });
+
+describe("ISIC — séparation production / finances", () => {
+  it("l'opérateur ISIC voit la production mais PAS les finances", () => {
+    expect(canPerformAction("pme_isic_operator", "isic", "update")).toBe(true);
+    expect(canPerformAction("pme_isic_operator", "isicFinance", "read")).toBe(false);
+  });
+  it("le financier ISIC voit les finances", () => {
+    expect(canPerformAction("pme_isic_finance", "isicFinance", "read")).toBe(true);
+    expect(canPerformAction("pme_isic_finance", "isicFinance", "update")).toBe(true);
+  });
+  it("un rôle purement production (achats) n'a pas le volet financier ISIC", () => {
+    expect(canPerformAction("pme_purchases", "isic", "read")).toBe(true);
+    expect(canPerformAction("pme_purchases", "isicFinance", "read")).toBe(false);
+  });
+});

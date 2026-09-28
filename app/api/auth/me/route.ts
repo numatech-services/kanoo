@@ -4,6 +4,8 @@ import { verifyCsrf, CSRF_MESSAGES } from "@/lib/csrf";
 import { connectDB } from "@/lib/db";
 import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
+import { effectiveRoles, accessibleResourcesForRoles } from "@/lib/role-resources";
+import { UserRole } from "@/types";
 
 // --- Garde ton GET existant ---
 export async function GET(req: NextRequest) {
@@ -23,7 +25,13 @@ export async function GET(req: NextRequest) {
     if (t) tenant = { name: t.name, logo: t.logo, type: t.type, primaryColor: t.branding?.primaryColor };
   }
 
-  return NextResponse.json({ success: true, data: { user, tenant } });
+  // Ressources auxquelles l'utilisateur a droit (selon ses rôles + liste
+  // individuelle). Le front s'en sert pour n'afficher que ce qui le concerne
+  // (ex. masquer le volet financier ISIC à un opérateur d'impression).
+  const roles = effectiveRoles(auth.role as UserRole, auth.roles as UserRole[] | undefined);
+  const resources = accessibleResourcesForRoles(roles, auth.allowedResources);
+
+  return NextResponse.json({ success: true, data: { user, tenant, resources } });
 }
 
 // --- Ajoute le PATCH pour la modification ---
