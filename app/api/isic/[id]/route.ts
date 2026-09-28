@@ -37,6 +37,9 @@ export const PATCH = withAuth("isic", "update", async (req: NextRequest, auth: T
   if ("universityId" in body) {
     set.universityId = body.universityId && Types.ObjectId.isValid(String(body.universityId)) ? body.universityId : undefined;
   }
+  if ("invoiceId" in body) {
+    set.invoiceId = body.invoiceId && Types.ObjectId.isValid(String(body.invoiceId)) ? body.invoiceId : undefined;
+  }
   if (body.status !== undefined) {
     if (!STATUS.includes(body.status)) return badRequest("Statut invalide.");
     set.status = body.status;

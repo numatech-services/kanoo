@@ -13,8 +13,10 @@ interface Batch {
   _id: string; reference: string; universityName: string; academicYear?: string; status: string;
   totalCards: number; unitLicenseFee: number; unitSalePrice: number;
   receivedFile?: { name?: string; dataUri?: string }; isicFile?: { name?: string; dataUri?: string };
-  submittedAt?: string; numberedAt?: string; deliveries: Delivery[]; payments: Payment[]; notes?: string;
+  submittedAt?: string; numberedAt?: string; deliveries: Delivery[]; payments: Payment[];
+  licensePayments?: Payment[]; universityId?: { _id?: string; name?: string } | string; invoiceId?: string; notes?: string;
 }
+interface ClientOpt { _id: string; name: string }
 
 const STAGES: { key: string; label: string }[] = [
   { key: "received", label: "Reçu" }, { key: "processing", label: "Traitement" },
@@ -34,11 +36,41 @@ export default function IsicBatchPage() {
   const [b, setB] = useState<Batch | null>(null);
   const [delivery, setDelivery] = useState({ quantity: 0, note: "" });
   const [payment, setPayment] = useState({ amount: 0, method: "", note: "" });
+  const [licPay, setLicPay] = useState({ amount: 0, note: "" });
+  const [clients, setClients] = useState<ClientOpt[]>([]);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
     fetch(`/api/isic/${id}`, { credentials: "include" }).then(r => r.json()).then(d => setB(d.data || d));
   }, [id]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!canFinance) return;
+    fetch("/api/clients?limit=500", { credentials: "include" }).then(r => r.json())
+      .then(d => setClients(Array.isArray(d.data) ? d.data : d.data?.items || [])).catch(() => {});
+  }, [canFinance]);
+
+  async function generateInvoice() {
+    const uniId = typeof b!.universityId === "object" ? b!.universityId?._id : b!.universityId;
+    if (!uniId) { alert("Liez d'abord un client (université) pour facturer."); return; }
+    setBusy(true);
+    try {
+      const token = await csrf();
+      const today = new Date(); const due = new Date(today); due.setDate(due.getDate() + 30);
+      const res = await fetch("/api/invoices", {
+        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": token }, credentials: "include",
+        body: JSON.stringify({
+          clientId: uniId, issueDate: today.toISOString().slice(0, 10), dueDate: due.toISOString().slice(0, 10),
+          lines: [{ description: `Cartes ISIC ${b!.academicYear || ""} — ${b!.reference}`.trim(), quantity: b!.totalCards, unitPrice: b!.unitSalePrice, tvaRate: 0 }],
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Échec");
+      const invId = d.data?._id || d.data?.id;
+      await patch({ invoiceId: invId });
+      alert("Facture générée.");
+    } catch (e) { alert(e instanceof Error ? e.message : "Génération impossible"); } finally { setBusy(false); }
+  }
 
   async function patch(body: Record<string, unknown>) {
     const res = await fetch(`/api/isic/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify(body) });
@@ -70,6 +102,7 @@ export default function IsicBatchPage() {
   const licenseCost = b.totalCards * b.unitLicenseFee, saleAmount = b.totalCards * b.unitSalePrice;
   const margin = saleAmount - licenseCost;
   const paid = b.payments.reduce((x, p) => x + p.amount, 0); const balance = saleAmount - paid;
+  const licPaid = (b.licensePayments || []).reduce((x, p) => x + p.amount, 0);
   const terminal = b.status === "cancelled" || b.status === "completed";
   const currentIdx = STAGES.findIndex(st => st.key === b.status);
 
@@ -163,6 +196,51 @@ export default function IsicBatchPage() {
         </section>
         )}
       </div>
+
+      {/* Achat licences + facturation (financier) */}
+      {canFinance && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section className="surface-card p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-ink flex items-center gap-2"><Banknote size={17} /> Frais de licence ISIC</h2>
+              <span className="text-sm text-ink2">Payé {fmt(licPaid)} / {fmt(licenseCost)}</span>
+            </div>
+            {(b.licensePayments || []).length > 0 && (
+              <ul className="divide-y divide-line text-sm">
+                {(b.licensePayments || []).map(p => (
+                  <li key={p._id} className="flex items-center justify-between py-1.5">
+                    <span><b className="text-ink">{fmt(p.amount)}</b> · <span className="text-ink2">{dt(p.date)}</span></span>
+                    <button onClick={() => del("license-payment", `paymentId=${p._id}`)} className="text-ink3 hover:text-neg"><Trash2 size={13} /></button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex items-end gap-2">
+              <div className="flex-1"><label className="text-[11px] text-ink3">Montant versé à ISIC (XOF)</label><input type="number" min={1} className="w-full p-2 border border-line rounded-lg text-sm" value={licPay.amount || ""} onChange={e => setLicPay(p => ({ ...p, amount: Number(e.target.value) }))} /></div>
+              <button onClick={() => post("license-payment", licPay, () => setLicPay({ amount: 0, note: "" }))} className="px-3 h-9 rounded-lg bg-ink text-white text-sm font-semibold">Enregistrer</button>
+            </div>
+          </section>
+
+          <section className="surface-card p-5 space-y-3">
+            <h2 className="font-semibold text-ink flex items-center gap-2"><FileText size={17} /> Facturation université</h2>
+            <div>
+              <label className="text-[11px] text-ink3">Client (université) à facturer</label>
+              <select className="w-full mt-1 p-2 border border-line rounded-lg text-sm" value={(typeof b.universityId === "object" ? b.universityId?._id : b.universityId) || ""} onChange={e => patch({ universityId: e.target.value })}>
+                <option value="">— Lier un client —</option>
+                {clients.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+              </select>
+            </div>
+            {b.invoiceId ? (
+              <Link href={`/invoices/${b.invoiceId}`} className="inline-flex items-center gap-1.5 text-sm text-pos hover:underline">Facture générée — l&apos;ouvrir →</Link>
+            ) : (
+              <button onClick={generateInvoice} disabled={busy || !b.unitSalePrice} className="w-full py-2.5 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+                {busy ? "Génération…" : "Générer la facture de revente"}
+              </button>
+            )}
+            {!b.unitSalePrice && <p className="text-[11px] text-warn">Renseignez le prix de revente pour facturer.</p>}
+          </section>
+        </div>
+      )}
 
       {/* Fichiers */}
       <section className="surface-card p-5 space-y-3">

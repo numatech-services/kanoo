@@ -36,6 +36,10 @@ export interface IIsicBatch {
   /** Livraisons partielles (au fur et à mesure) et encaissements. */
   deliveries: IIsicDelivery[];
   payments: IIsicPayment[];
+  /** Règlements des frais de licence versés à ISIC (le coût, côté achat). */
+  licensePayments: IIsicPayment[];
+  /** Facture de revente générée pour l'université. */
+  invoiceId?: Types.ObjectId;
   notes?: string;
   createdBy: Types.ObjectId;
   createdAt: Date;
@@ -75,6 +79,8 @@ const IsicBatchSchema = new Schema<IIsicBatch>({
   numberedAt: Date,
   deliveries: { type: [DeliverySchema], default: [] },
   payments: { type: [PaymentSchema], default: [] },
+  licensePayments: { type: [PaymentSchema], default: [] },
+  invoiceId: { type: Schema.Types.ObjectId, ref: "Invoice" },
   notes: String,
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: true });
