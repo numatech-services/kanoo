@@ -44,9 +44,12 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
   }
 
   const delivery = await withTransaction(async (session) => {
-    const number = await nextDocumentNumber(auth.tenantId, "delivery", {
-      issueDate: body.deliveryDate, session,
-    });
+    // Numéro attribué automatiquement, mais une référence saisie à la main est
+    // respectée (l'utilisateur peut la changer).
+    const custom = typeof body.number === "string" && body.number.trim();
+    const number = custom
+      ? body.number.trim().slice(0, 40)
+      : await nextDocumentNumber(auth.tenantId, "delivery", { issueDate: body.deliveryDate, session });
     const [doc] = await DeliveryNoteModel.create([{
       ...sanitizeBody(body, ["number", "status"]),
       tenantId: auth.tenantId,

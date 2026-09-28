@@ -17,6 +17,7 @@ export default function NewDeliveryPage() {
     clientName: "",
     deliveryDate: new Date().toISOString().split('T')[0],
     deliveryAddress: "",
+    number: "",
     lines: [] as any[],
     notes: ""
   });
@@ -113,10 +114,20 @@ export default function NewDeliveryPage() {
 
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase text-ink2">Date de livraison</label>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={form.deliveryDate}
                 onChange={e => setForm({...form, deliveryDate: e.target.value})}
+                className="w-full px-4 py-2 bg-surface2/20 border border-line rounded-xl outline-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-ink2">Référence (laisser vide = automatique)</label>
+              <input
+                value={form.number}
+                onChange={e => setForm({...form, number: e.target.value})}
+                placeholder="BL-2026-… (auto si vide)"
                 className="w-full px-4 py-2 bg-surface2/20 border border-line rounded-xl outline-none"
               />
             </div>

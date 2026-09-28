@@ -12,10 +12,15 @@ const KINDS = ["courrier", "rapport", "attestation", "note", "reponse_ao", "autr
 export const GET = withAuth("documents", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const p = getPagination(req);
-  const filter = { ...tenantFilter(auth) };
+  const url = new URL(req.url);
+  const filter: Record<string, unknown> = { ...tenantFilter(auth) };
+  // Par défaut on montre les courriers actifs ; ?archived=1 pour les archivés.
+  filter.archived = url.searchParams.get("archived") === "1" ? true : { $ne: true };
+  const direction = url.searchParams.get("direction");
+  if (direction === "incoming" || direction === "outgoing") filter.direction = direction;
   const [items, total] = await Promise.all([
     LetterModel.find(filter).sort({ createdAt: -1 }).skip(p.skip).limit(p.limit)
-      .select("reference kind subject recipient status aiAssisted createdAt").lean(),
+      .select("reference kind subject recipient status direction archived aiAssisted createdAt").lean(),
     LetterModel.countDocuments(filter),
   ]);
   return paginatedResponse(items, total, p);
@@ -27,9 +32,25 @@ export const POST = withAuth("documents", "create", async (req: NextRequest, aut
   const err = requireFields(body, ["subject"]);
   if (err) return badRequest(err);
 
+  // Numéro attribué automatiquement (CR-AAAA-NNNN), modifiable : une référence
+  // saisie à la main est respectée.
+  let reference = String(body.reference || "").slice(0, 60).trim();
+  if (!reference) {
+    const year = new Date().getFullYear();
+    const start = new Date(year, 0, 1);
+    const seq = await LetterModel.countDocuments({ ...tenantFilter(auth), createdAt: { $gte: start } });
+    reference = `CR-${year}-${String(seq + 1).padStart(4, "0")}`;
+  }
+
+  const att = body.attachment && typeof body.attachment.dataUri === "string"
+    ? { name: String(body.attachment.name || "").slice(0, 200), dataUri: body.attachment.dataUri }
+    : undefined;
+
   const letter = await LetterModel.create({
     tenantId: auth.tenantId,
-    reference: String(body.reference || "").slice(0, 60) || undefined,
+    reference,
+    direction: body.direction === "incoming" ? "incoming" : "outgoing",
+    attachment: att,
     kind: KINDS.includes(body.kind) ? body.kind : "courrier",
     subject: String(body.subject).slice(0, 200),
     recipient: String(body.recipient || "").slice(0, 400),

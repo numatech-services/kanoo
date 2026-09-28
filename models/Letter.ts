@@ -24,6 +24,12 @@ const LetterSchema = new Schema(
     body: { type: String, default: "" },
     signatory: String,
     status: { type: String, enum: ["draft", "final"], default: "draft" },
+    /** Sens du courrier : sortant (émis) ou entrant (reçu). Pour le suivi. */
+    direction: { type: String, enum: ["outgoing", "incoming"], default: "outgoing", index: true },
+    /** Archivage (retiré des courriers actifs sans être supprimé). */
+    archived: { type: Boolean, default: false, index: true },
+    /** Pièce jointe importée (scan d'un courrier reçu, PDF émis…) en data-URI. */
+    attachment: { name: String, dataUri: String },
     /** Tiers concerné, s'il y a lieu. */
     linkedTo: { type: String, enum: ["client", "supplier", null] },
     linkedId: Schema.Types.ObjectId,

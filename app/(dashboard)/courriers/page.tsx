@@ -1,20 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, FileText, Trash2, Download, Sparkles } from "lucide-react";
+import { Plus, FileText, Trash2, Download, Sparkles, Archive, ArchiveRestore, Paperclip, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, textareaCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
 
 interface Letter {
   _id: string; reference?: string; kind: string; subject: string;
-  recipient?: string; status: string; aiAssisted?: boolean; createdAt: string;
+  recipient?: string; status: string; direction?: string; archived?: boolean;
+  attachment?: { name?: string; dataUri?: string };
+  aiAssisted?: boolean; createdAt: string;
 }
 
 const KIND_LABEL: Record<string, string> = {
   courrier: "Courrier", rapport: "Rapport", attestation: "Attestation",
   note: "Note", reponse_ao: "Réponse AO", autre: "Autre",
 };
+
+// Pièce jointe importée : limitée à ~2,5 Mo (stockage en data-URI, hébergement
+// mutualisé sans disque persistant).
+const MAX_ATTACHMENT = 2_500_000;
 
 async function csrf() {
   const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
@@ -26,14 +32,21 @@ export default function CourriersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Partial<Letter> & { body?: string; place?: string; signatory?: string } | null>(null);
+  // Filtres de suivi : actifs / archivés, et sens (tous / entrant / sortant).
+  const [showArchived, setShowArchived] = useState(false);
+  const [direction, setDirection] = useState<"" | "outgoing" | "incoming">("");
 
   const load = useCallback(() => {
-    fetch("/api/courriers?limit=50", { credentials: "include" })
+    setLoading(true);
+    const q = new URLSearchParams({ limit: "50" });
+    if (showArchived) q.set("archived", "1");
+    if (direction) q.set("direction", direction);
+    fetch(`/api/courriers?${q.toString()}`, { credentials: "include" })
       .then(r => r.json())
       .then(d => setItems(d.data?.items || []))
       .catch(() => setError("Lecture impossible."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [showArchived, direction]);
   useEffect(() => { load(); }, [load]);
 
   async function del(id: string) {
@@ -45,13 +58,27 @@ export default function CourriersPage() {
     load();
   }
 
+  async function toggleArchive(l: Letter) {
+    await fetch(`/api/courriers/${l._id}`, {
+      method: "PATCH", credentials: "include",
+      headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+      body: JSON.stringify({ archived: !l.archived }),
+    });
+    load();
+  }
+
+  const tabCls = (active: boolean) =>
+    `px-3 h-9 inline-flex items-center rounded-lg text-sm font-medium transition-colors ${
+      active ? "bg-section text-white" : "text-ink2 hover:bg-surface2 border border-line2"
+    }`;
+
   return (
     <div className="space-y-6">
       <div className="page-head">
         <div>
           <h1 className="text-2xl font-bold text-ink">Courriers & correspondances</h1>
           <p className="text-sm text-ink2">
-            Lettres, rapports, attestations — au format et à la marque de votre organisation.
+            Numérotation automatique, sens entrant / sortant, import et archivage — au format et à la marque de votre organisation.
           </p>
         </div>
         <button onClick={() => setEditing({ kind: "courrier", subject: "" })}
@@ -60,36 +87,67 @@ export default function CourriersPage() {
         </button>
       </div>
 
+      {/* Filtres de suivi */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button className={tabCls(!showArchived)} onClick={() => setShowArchived(false)}>Actifs</button>
+        <button className={tabCls(showArchived)} onClick={() => setShowArchived(true)}>Archivés</button>
+        <span className="mx-1 h-6 w-px bg-line2" />
+        <button className={tabCls(direction === "")} onClick={() => setDirection("")}>Tous</button>
+        <button className={tabCls(direction === "outgoing")} onClick={() => setDirection("outgoing")}>
+          <ArrowUpRight size={14} className="mr-1" /> Sortants
+        </button>
+        <button className={tabCls(direction === "incoming")} onClick={() => setDirection("incoming")}>
+          <ArrowDownLeft size={14} className="mr-1" /> Entrants
+        </button>
+      </div>
+
       {error && <p className="px-4 py-3 bg-neg-50 border border-neg/25 rounded-xl text-sm text-neg">{error}</p>}
 
       {loading ? (
         <div className="h-64 surface-card animate-pulse" />
       ) : items.length === 0 ? (
-        <EmptyState icon={<FileText size={20} />} title="Aucun courrier"
-          hint="Rédigez une lettre ou un rapport ; il sera généré en PDF à votre marque." />
+        <EmptyState icon={<FileText size={20} />} title={showArchived ? "Aucun courrier archivé" : "Aucun courrier"}
+          hint="Rédigez une lettre ou un rapport, ou importez un courrier reçu ; il sera classé et suivi ici." />
       ) : (
         <div className="surface-card overflow-hidden">
           <table className="table-dense">
-            <thead><tr><th>Objet</th><th>Type</th><th>Destinataire</th><th>Date</th><th></th></tr></thead>
+            <thead><tr><th>Réf.</th><th>Objet</th><th>Sens</th><th>Type</th><th>Destinataire</th><th>Date</th><th></th></tr></thead>
             <tbody>
               {items.map(l => (
                 <tr key={l._id}>
+                  <td className="text-ink2 font-mono text-xs whitespace-nowrap">{l.reference || "—"}</td>
                   <td>
                     <button onClick={() => fetch(`/api/courriers/${l._id}`, { credentials: "include" }).then(r => r.json()).then(d => setEditing(d.data))}
-                      className="text-ink font-medium hover:text-section text-left">
+                      className="text-ink font-medium hover:text-section text-left inline-flex items-center gap-1.5">
                       {l.subject}
+                      {l.attachment?.dataUri && <Paperclip size={12} className="text-ink3" />}
                     </button>
                     {l.aiAssisted && <span className="ml-2 text-[10px] text-section">IA</span>}
+                  </td>
+                  <td>
+                    {l.direction === "incoming"
+                      ? <Pill tone="warn"><ArrowDownLeft size={11} className="inline mr-0.5" /> Entrant</Pill>
+                      : <Pill tone="info"><ArrowUpRight size={11} className="inline mr-0.5" /> Sortant</Pill>}
                   </td>
                   <td><Pill tone="mute">{KIND_LABEL[l.kind] ?? l.kind}</Pill></td>
                   <td className="text-ink2">{l.recipient || "—"}</td>
                   <td className="text-ink2 whitespace-nowrap">{new Date(l.createdAt).toLocaleDateString("fr-FR")}</td>
                   <td>
                     <span className="flex items-center gap-1 justify-end">
+                      {l.attachment?.dataUri && (
+                        <a href={l.attachment.dataUri} download={l.attachment.name || "piece-jointe"}
+                          className="p-1.5 rounded text-ink3 hover:text-section hover:bg-surface2" title="Pièce jointe">
+                          <Paperclip size={15} />
+                        </a>
+                      )}
                       <a href={`/api/courriers/${l._id}/pdf`} target="_blank" rel="noopener"
                         className="p-1.5 rounded text-ink3 hover:text-section hover:bg-surface2" title="PDF">
                         <Download size={15} />
                       </a>
+                      <button onClick={() => toggleArchive(l)} title={l.archived ? "Désarchiver" : "Archiver"}
+                        className="p-1.5 rounded text-ink3 hover:text-section hover:bg-surface2">
+                        {l.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
+                      </button>
                       <button onClick={() => del(l._id)} title="Supprimer"
                         className="p-1.5 rounded text-ink3 hover:text-neg hover:bg-neg-50">
                         <Trash2 size={15} />
@@ -113,6 +171,7 @@ function ComposeDialog({
 }: { letter: Partial<Letter> & { body?: string; place?: string; signatory?: string }; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
     kind: letter.kind || "courrier",
+    direction: (letter.direction as "outgoing" | "incoming") || "outgoing",
     reference: letter.reference || "",
     subject: letter.subject || "",
     recipient: letter.recipient || "",
@@ -120,6 +179,7 @@ function ComposeDialog({
     body: letter.body || "",
     signatory: letter.signatory || "",
   });
+  const [attachment, setAttachment] = useState<{ name?: string; dataUri?: string } | null>(letter.attachment || null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const id = letter._id;
@@ -136,6 +196,14 @@ function ComposeDialog({
       .then(d => d.success && setAi({ configured: d.data.configured, remaining: d.data.quota.remaining, quota: d.data.quota.quota }))
       .catch(() => {});
   }, []);
+
+  function onFile(file: File | undefined) {
+    if (!file) return;
+    if (file.size > MAX_ATTACHMENT) { setError("Pièce jointe trop lourde (2,5 Mo maximum)."); return; }
+    const reader = new FileReader();
+    reader.onload = () => setAttachment({ name: file.name, dataUri: String(reader.result) });
+    reader.readAsDataURL(file);
+  }
 
   async function generate() {
     if (!form.subject.trim()) { setError("Renseignez d'abord l'objet : l'IA en a besoin."); return; }
@@ -173,7 +241,7 @@ function ComposeDialog({
         method: id ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
         credentials: "include",
-        body: JSON.stringify({ ...form, aiAssisted: aiUsed }),
+        body: JSON.stringify({ ...form, aiAssisted: aiUsed, attachment: attachment || undefined }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Enregistrement refusé");
       onSaved();
@@ -184,18 +252,35 @@ function ComposeDialog({
     }
   }
 
+  const incoming = form.direction === "incoming";
+
   return (
     <Modal open onClose={onClose} title={id ? "Modifier le courrier" : "Nouveau courrier"} size="xl">
       <div className="space-y-4">
         {error && <p className="px-3 py-2 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg">{error}</p>}
+
+        {/* Sens du courrier */}
+        <div className="grid sm:grid-cols-2 gap-2">
+          <button type="button" onClick={() => setForm(f => ({ ...f, direction: "outgoing" }))}
+            className={`px-3 h-11 rounded-lg border text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors ${
+              !incoming ? "border-section bg-section/10 text-section" : "border-line2 text-ink2 hover:bg-surface2"}`}>
+            <ArrowUpRight size={16} /> Sortant (émis)
+          </button>
+          <button type="button" onClick={() => setForm(f => ({ ...f, direction: "incoming" }))}
+            className={`px-3 h-11 rounded-lg border text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors ${
+              incoming ? "border-section bg-section/10 text-section" : "border-line2 text-ink2 hover:bg-surface2"}`}>
+            <ArrowDownLeft size={16} /> Entrant (reçu)
+          </button>
+        </div>
+
         <div className="grid sm:grid-cols-3 gap-3">
           <FormField label="Type">
             <select className={selectCls} value={form.kind} onChange={e => setForm(f => ({ ...f, kind: e.target.value }))}>
               {Object.entries(KIND_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </FormField>
-          <FormField label="Référence" hint="Optionnelle">
-            <input className={inputCls} value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} />
+          <FormField label="Référence" hint="Auto si vide (CR-AAAA-NNNN)">
+            <input className={inputCls} value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} placeholder="Automatique" />
           </FormField>
           <FormField label="Lieu" hint="Ex. Niamey">
             <input className={inputCls} value={form.place} onChange={e => setForm(f => ({ ...f, place: e.target.value }))} />
@@ -204,11 +289,32 @@ function ComposeDialog({
         <FormField label="Objet" required>
           <input className={inputCls} value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
         </FormField>
-        <FormField label="Destinataire" hint="Bloc adresse — une ligne par retour à la ligne.">
+        <FormField label={incoming ? "Expéditeur" : "Destinataire"} hint="Bloc adresse — une ligne par retour à la ligne.">
           <textarea className={textareaCls} rows={2} value={form.recipient} onChange={e => setForm(f => ({ ...f, recipient: e.target.value }))} />
         </FormField>
-        {/* Assistant IA rédactionnel */}
-        {ai?.configured && (
+
+        {/* Import d'une pièce (scan d'un courrier reçu, PDF externe…) */}
+        <FormField label="Pièce jointe" hint="Importer un scan ou un PDF (2,5 Mo max).">
+          {attachment?.dataUri ? (
+            <div className="flex items-center justify-between gap-2 px-3 h-11 rounded-lg border border-line2 bg-surface2/40">
+              <span className="inline-flex items-center gap-2 text-sm text-ink truncate">
+                <Paperclip size={15} className="text-section shrink-0" /> {attachment.name || "Pièce jointe"}
+              </span>
+              <div className="flex items-center gap-3 shrink-0">
+                <a href={attachment.dataUri} download={attachment.name || "piece-jointe"} className="text-xs text-section hover:underline">Télécharger</a>
+                <button type="button" onClick={() => setAttachment(null)} className="text-xs text-neg hover:underline">Retirer</button>
+              </div>
+            </div>
+          ) : (
+            <label className="flex items-center gap-2 px-3 h-11 rounded-lg border border-dashed border-line2 text-sm text-ink2 hover:bg-surface2 cursor-pointer">
+              <Paperclip size={15} /> Choisir un fichier…
+              <input type="file" className="hidden" onChange={e => onFile(e.target.files?.[0])} />
+            </label>
+          )}
+        </FormField>
+
+        {/* Assistant IA rédactionnel — inutile pour un courrier reçu */}
+        {!incoming && ai?.configured && (
           <div className="rounded-xl border border-section/30 bg-section/5 p-3 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-section">
@@ -235,9 +341,11 @@ function ComposeDialog({
           </div>
         )}
 
-        <FormField label="Corps du courrier">
+        <FormField label={incoming ? "Notes / résumé" : "Corps du courrier"}>
           <textarea className={textareaCls} rows={10} value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-            placeholder="Séparez les paragraphes par une ligne vide. Utilisez « Rédiger avec l'IA » ci-dessus pour un premier jet." />
+            placeholder={incoming
+              ? "Résumé du courrier reçu, suites à donner, échéance…"
+              : "Séparez les paragraphes par une ligne vide. Utilisez « Rédiger avec l'IA » ci-dessus pour un premier jet."} />
           {aiUsed && <p className="mt-1 text-[11px] text-section inline-flex items-center gap-1"><Sparkles size={11} /> Premier jet proposé par l&apos;IA — relisez et ajustez avant d&apos;enregistrer.</p>}
         </FormField>
         <FormField label="Signataire" hint="Nom et fonction.">
