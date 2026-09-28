@@ -8,7 +8,7 @@ export const RESOURCE_LABELS: Record<string, string> = {
   clients: "Clients", suppliers: "Fournisseurs", products: "Produits & stock",
   devis: "Devis", invoices: "Factures", deliveries: "Bons de livraison", livraisons: "Bons de livraison",
   commandes: "Commandes", payments: "Paiements", contracts: "Contrats", subscriptions: "Abonnements",
-  publicTenders: "Marchés / appels d'offres", companies: "Société",
+  publicTenders: "Marchés / appels d'offres", companies: "Société", appels: "Appels à candidatures",
   // Finance
   treasuryAccounts: "Trésorerie", accountingEntries: "Comptabilité", recurringCharges: "Charges récurrentes",
   fiscalDeclarations: "Fiscalité", fixedAssets: "Immobilisations", expenses: "Notes de frais",

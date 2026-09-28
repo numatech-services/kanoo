@@ -54,6 +54,10 @@ describe("Ressources universelles — messagerie & ISIC", () => {
     expect(canPerformAction("pme_sales", "isic", "create")).toBe(true);
     expect(canPerformAction("pme_admin", "isic", "delete")).toBe(true);
   });
+  it("les appels à candidatures sont accordés", () => {
+    expect(canPerformAction("pme_sales", "appels", "create")).toBe(true);
+    expect(canPerformAction("pme_viewer", "appels", "read")).toBe(true);
+  });
 });
 
 describe("ISIC — séparation production / finances", () => {

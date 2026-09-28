@@ -61,6 +61,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Reventes", href: "/abonnements/reventes", icon: <Link2 size={18} /> },
   ]},
   { section: "Contrats & Projets", items: [
+    { label: "Appels à candidatures", href: "/appels", icon: <Megaphone size={18} /> },
     { label: "Contrats", href: "/contracts", icon: <PenTool size={18} /> },
     { label: "CRM Pipeline", href: "/crm", icon: <BarChart3 size={18} /> },
     { label: "Projets", href: "/projects", icon: <Folder size={18} /> },

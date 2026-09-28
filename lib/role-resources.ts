@@ -422,6 +422,12 @@ for (const perms of Object.values(ROLE_PERMISSIONS)) {
   perms.messages = MESSAGES_ALL;
 }
 
+/** Appels à candidatures (réponse à appels d'offres) : accordé largement. */
+const APPELS_ALL: Action[] = ["create", "read", "update", "delete"];
+for (const perms of Object.values(ROLE_PERMISSIONS)) {
+  perms.appels = APPELS_ALL;
+}
+
 /**
  * Module ISIC — droits fins pour séparer production et finances :
  * - `isic` (production, impression, livraison, fichiers) : rôles opérationnels.
