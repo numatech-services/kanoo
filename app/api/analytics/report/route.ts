@@ -1,0 +1,66 @@
+import { NextRequest } from "next/server";
+import { Types } from "mongoose";
+import { connectDB } from "@/lib/db";
+import { withAuth, ok, tenantFilter } from "@/lib/api-helpers";
+import { TokenPayload } from "@/lib/auth";
+import { ActivityModel } from "@/models/Activity";
+import { AnalyticEntryModel } from "@/models/AnalyticEntry";
+import { isTenantAdmin } from "@/lib/roles-ui";
+import { UserRole } from "@/types";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/analytics/report?from=&to= — rentabilité par secteur.
+ * Le total CONSOLIDÉ (santé financière d'ensemble) n'est renvoyé qu'aux
+ * administrateurs du compte ; les autres rôles voient le détail par secteur
+ * mais pas le résultat net global.
+ */
+export const GET = withAuth("analytics", "read", async (req: NextRequest, auth: TokenPayload) => {
+  await connectDB();
+  const url = new URL(req.url);
+  const match: Record<string, unknown> = { ...tenantFilter(auth) };
+  const from = url.searchParams.get("from"); const to = url.searchParams.get("to");
+  if (from || to) {
+    const range: Record<string, Date> = {};
+    if (from) range.$gte = new Date(from);
+    if (to) range.$lt = new Date(to);
+    match.date = range;
+  }
+
+  const [activities, agg] = await Promise.all([
+    ActivityModel.find({ ...tenantFilter(auth) }).select("name color").lean<{ _id: Types.ObjectId; name: string; color?: string }[]>(),
+    AnalyticEntryModel.aggregate([
+      { $match: match },
+      { $group: { _id: { activityId: "$activityId", kind: "$kind" }, total: { $sum: "$amount" } } },
+    ]),
+  ]);
+
+  // Assemble : { activityId → { revenue, expense } }, plus « général » (activityId null).
+  const byActivity = new Map<string, { revenue: number; expense: number }>();
+  let genRevenue = 0, genExpense = 0;
+  for (const row of agg) {
+    const key = row._id.activityId ? String(row._id.activityId) : null;
+    if (key === null) { if (row._id.kind === "revenue") genRevenue += row.total; else genExpense += row.total; continue; }
+    const cur = byActivity.get(key) || { revenue: 0, expense: 0 };
+    if (row._id.kind === "revenue") cur.revenue += row.total; else cur.expense += row.total;
+    byActivity.set(key, cur);
+  }
+
+  const sectors = activities.map((a) => {
+    const v = byActivity.get(String(a._id)) || { revenue: 0, expense: 0 };
+    return { activityId: String(a._id), name: a.name, color: a.color, revenue: v.revenue, expense: v.expense, result: v.revenue - v.expense };
+  }).sort((x, y) => y.result - x.result);
+
+  const admin = isTenantAdmin(auth.role as UserRole) || (auth.roles ?? []).some(r => isTenantAdmin(r as UserRole));
+  const totalRevenue = sectors.reduce((s, x) => s + x.revenue, 0) + genRevenue;
+  const totalExpense = sectors.reduce((s, x) => s + x.expense, 0) + genExpense;
+
+  return ok({
+    sectors,
+    general: { revenue: genRevenue, expense: genExpense },
+    // Consolidé réservé à l'administrateur.
+    consolidated: admin ? { revenue: totalRevenue, expense: totalExpense, result: totalRevenue - totalExpense } : null,
+    isAdmin: admin,
+  });
+});

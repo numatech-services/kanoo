@@ -1,0 +1,128 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { PieChart, Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
+import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
+
+interface Activity { _id: string; name: string; color?: string }
+interface Sector { activityId: string; name: string; color?: string; revenue: number; expense: number; result: number }
+interface Report { sectors: Sector[]; general: { revenue: number; expense: number }; consolidated: { revenue: number; expense: number; result: number } | null; isAdmin: boolean }
+interface Entry { _id: string; kind: string; label: string; amount: number; date: string; activityId?: { name?: string } | null }
+
+const fmt = (n?: number) => `${Math.round(n || 0).toLocaleString("fr-FR")} XOF`;
+async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
+
+export default function AnalytiquePage() {
+  const [report, setReport] = useState<Report | null>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [form, setForm] = useState({ kind: "revenue", activityId: "", label: "", amount: 0, date: new Date().toISOString().slice(0, 10) });
+
+  const load = useCallback(() => {
+    fetch("/api/analytics/report", { credentials: "include" }).then(r => r.json()).then(d => setReport(d.data || null));
+    fetch("/api/analytics/activities", { credentials: "include" }).then(r => r.json()).then(d => setActivities(d.data || []));
+    fetch("/api/analytics/entries?limit=25", { credentials: "include" }).then(r => r.json()).then(d => setEntries(d.data?.items || []));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function addSector() {
+    const name = prompt("Nom du secteur (ex. Vente mobilier, ISIC, Abonnements) :"); if (!name) return;
+    const res = await fetch("/api/analytics/activities", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify({ name }) });
+    if (res.ok) load(); else alert((await res.json()).error || "Échec");
+  }
+  async function addEntry() {
+    if (!form.label.trim() || form.amount <= 0) { alert("Libellé et montant requis."); return; }
+    const res = await fetch("/api/analytics/entries", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify(form) });
+    if (res.ok) { setForm(f => ({ ...f, label: "", amount: 0 })); load(); } else alert((await res.json()).error || "Échec");
+  }
+  async function delEntry(id: string) {
+    const res = await fetch(`/api/analytics/entries/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    if (res.ok) load();
+  }
+
+  return (
+    <div className="space-y-6 max-w-5xl">
+      <div className="page-head">
+        <div>
+          <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><PieChart size={22} /> Comptabilité analytique</h1>
+          <p className="text-sm text-ink2">Rentabilité par secteur : recettes − dépenses imputées = résultat de chaque activité.</p>
+        </div>
+        <button onClick={addSector} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2"><Plus size={16} /> Secteur</button>
+      </div>
+
+      {/* Consolidé — administrateur seulement */}
+      {report?.consolidated && (
+        <div className="rounded-2xl border border-line bg-section-soft/40 p-5">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-section">Santé financière de l'entreprise · réservé à la direction</p>
+          <div className="mt-3 grid grid-cols-3 gap-4">
+            <div><p className="text-xs text-ink2">Recettes totales</p><p className="text-xl font-bold text-ink">{fmt(report.consolidated.revenue)}</p></div>
+            <div><p className="text-xs text-ink2">Dépenses totales</p><p className="text-xl font-bold text-ink">{fmt(report.consolidated.expense)}</p></div>
+            <div><p className="text-xs text-ink2">Résultat net</p><p className={`text-xl font-bold ${report.consolidated.result >= 0 ? "text-pos" : "text-neg"}`}>{fmt(report.consolidated.result)}</p></div>
+          </div>
+        </div>
+      )}
+
+      {/* Rentabilité par secteur */}
+      <section className="surface-card overflow-hidden">
+        <h2 className="font-semibold text-ink px-5 py-4 border-b border-line">Rentabilité par activité</h2>
+        {!report || report.sectors.length === 0 ? (
+          <p className="text-sm text-ink3 p-6 text-center">Aucun secteur. Créez-en un (bouton « Secteur »), puis imputez recettes et dépenses ci-dessous.</p>
+        ) : (
+          <table className="table-dense w-full">
+            <thead><tr className="bg-surface2/50"><th>Secteur</th><th className="text-right">Recettes</th><th className="text-right">Dépenses</th><th className="text-right">Résultat</th><th></th></tr></thead>
+            <tbody>
+              {report.sectors.map(s => (
+                <tr key={s.activityId} className="border-t border-line">
+                  <td className="px-4 py-2.5 font-medium text-ink">{s.name}</td>
+                  <td className="px-4 py-2.5 text-right">{fmt(s.revenue)}</td>
+                  <td className="px-4 py-2.5 text-right text-ink2">{fmt(s.expense)}</td>
+                  <td className={`px-4 py-2.5 text-right font-bold ${s.result >= 0 ? "text-pos" : "text-neg"}`}>{fmt(s.result)}</td>
+                  <td className="px-4 py-2.5 text-right">{s.result >= 0 ? <TrendingUp size={15} className="text-pos inline" /> : <TrendingDown size={15} className="text-neg inline" />}</td>
+                </tr>
+              ))}
+              {(report.general.revenue > 0 || report.general.expense > 0) && (
+                <tr className="border-t border-line bg-surface2/30">
+                  <td className="px-4 py-2.5 italic text-ink2">Frais généraux (non imputés)</td>
+                  <td className="px-4 py-2.5 text-right">{report.general.revenue ? fmt(report.general.revenue) : "—"}</td>
+                  <td className="px-4 py-2.5 text-right text-ink2">{fmt(report.general.expense)}</td>
+                  <td className="px-4 py-2.5 text-right text-ink3">—</td><td />
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      {/* Saisie d'une écriture */}
+      <section className="surface-card p-5 space-y-3">
+        <h2 className="font-semibold text-ink">Imputer une recette ou une dépense</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
+          <FormField label="Type"><select className={selectCls} value={form.kind} onChange={e => setForm(f => ({ ...f, kind: e.target.value }))}><option value="revenue">Recette</option><option value="expense">Dépense</option></select></FormField>
+          <FormField label="Secteur"><select className={selectCls} value={form.activityId} onChange={e => setForm(f => ({ ...f, activityId: e.target.value }))}><option value="">Frais généraux</option>{activities.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}</select></FormField>
+          <FormField label="Libellé"><input className={inputCls} value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder="Ex. Licences ISIC nov." /></FormField>
+          <FormField label="Montant (XOF)"><input type="number" min={1} className={inputCls} value={form.amount || ""} onChange={e => setForm(f => ({ ...f, amount: Number(e.target.value) }))} /></FormField>
+          <button onClick={addEntry} className="h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">Enregistrer</button>
+        </div>
+      </section>
+
+      {/* Écritures récentes */}
+      {entries.length > 0 && (
+        <section className="surface-card overflow-hidden">
+          <h2 className="font-semibold text-ink px-5 py-4 border-b border-line">Écritures récentes</h2>
+          <ul className="divide-y divide-line">
+            {entries.map(e => (
+              <li key={e._id} className="flex items-center justify-between px-5 py-2.5 text-sm">
+                <span className="min-w-0">
+                  <span className={`font-semibold ${e.kind === "revenue" ? "text-pos" : "text-neg"}`}>{e.kind === "revenue" ? "+" : "−"} {fmt(e.amount)}</span>
+                  <span className="text-ink"> · {e.label}</span>
+                  <span className="text-ink3"> · {e.activityId?.name || "Frais généraux"} · {new Date(e.date).toLocaleDateString("fr-FR")}</span>
+                </span>
+                <button onClick={() => delEntry(e._id)} className="text-ink3 hover:text-neg"><Trash2 size={14} /></button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}

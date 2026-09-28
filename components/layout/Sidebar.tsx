@@ -72,6 +72,7 @@ const PME_NAV: NavGroup[] = [
   { section: "Finance", items: [
     { label: "Trésorerie", href: "/treasury", icon: <Landmark size={18} /> },
     { label: "Comptabilité", href: "/accounting", icon: <BookOpen size={18} /> },
+    { label: "Rentabilité par secteur", href: "/analytique", icon: <PieChart size={18} /> },
     { label: "Budget prévisionnel", href: "/budget-previsionnel", icon: <PieChart size={18} /> },
     { label: "Dépenses récurrentes", href: "/recurring-expenses", icon: <RefreshCw size={18} /> },
     { label: "Fiscalité", href: "/fiscalite", icon: <BarChart3 size={18} /> },

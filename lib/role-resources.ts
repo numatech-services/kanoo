@@ -429,6 +429,16 @@ for (const perms of Object.values(ROLE_PERMISSIONS)) {
 }
 
 /**
+ * Comptabilité analytique (rentabilité par secteur) : rôles de gestion et de
+ * finance uniquement. La vue consolidée (santé financière d'ensemble) est en
+ * plus réservée aux administrateurs, contrôlée dans l'endpoint de rapport.
+ */
+for (const role of ["pme_admin", "pme_manager", "pme_accountant", "asso_president", "asso_treasurer", "admin_ordonnateur", "admin_daf", "superadmin"] as UserRole[]) {
+  const p = ROLE_PERMISSIONS[role];
+  if (p) p.analytics = ["create", "read", "update", "delete"];
+}
+
+/**
  * Services citoyens : le lien figure dans la navigation « administration »
  * (non filtrée par rôle). Sans accès, un rôle non-ordonnateur cliquait sur un
  * lien visible et recevait 403. On accorde au moins la lecture à tous les rôles

@@ -58,6 +58,12 @@ describe("Ressources universelles — messagerie & ISIC", () => {
     expect(canPerformAction("pme_sales", "appels", "create")).toBe(true);
     expect(canPerformAction("pme_viewer", "appels", "read")).toBe(true);
   });
+  it("la comptabilité analytique est réservée aux rôles de gestion/finance", () => {
+    expect(canPerformAction("pme_admin", "analytics", "read")).toBe(true);
+    expect(canPerformAction("pme_accountant", "analytics", "read")).toBe(true);
+    expect(canPerformAction("pme_sales", "analytics", "read")).toBe(false);
+    expect(canPerformAction("pme_viewer", "analytics", "read")).toBe(false);
+  });
 });
 
 describe("ISIC — séparation production / finances", () => {
