@@ -39,11 +39,32 @@ export default function IsicBatchPage() {
   const [licPay, setLicPay] = useState({ amount: 0, note: "" });
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [busy, setBusy] = useState(false);
+  const [cards, setCards] = useState<{ _id: string; studentName: string; matricule?: string; isicNumber?: string; status: string }[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
   const load = useCallback(() => {
     fetch(`/api/isic/${id}`, { credentials: "include" }).then(r => r.json()).then(d => setB(d.data || d));
   }, [id]);
-  useEffect(() => { load(); }, [load]);
+  const loadCards = useCallback(() => {
+    fetch(`/api/isic/${id}/cards`, { credentials: "include" }).then(r => r.json())
+      .then(d => { setCards(d.data?.cards || []); setCounts(d.data?.counts || {}); }).catch(() => {});
+  }, [id]);
+  useEffect(() => { load(); loadCards(); }, [load, loadCards]);
+
+  async function cardsAction(bodyOrFile: Record<string, unknown>) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/isic/${id}/cards`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify(bodyOrFile) });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Échec");
+      loadCards();
+    } catch (e) { alert(e instanceof Error ? e.message : "Action impossible"); } finally { setBusy(false); }
+  }
+  function importCsv(action: "import-students" | "import-numbers", file: File) {
+    const reader = new FileReader();
+    reader.onload = () => cardsAction({ action, csv: String(reader.result) });
+    reader.readAsText(file);
+  }
   useEffect(() => {
     if (!canFinance) return;
     fetch("/api/clients?limit=500", { credentials: "include" }).then(r => r.json())
@@ -135,6 +156,50 @@ export default function IsicBatchPage() {
           ))}
         </div>
       </div>
+
+      {/* Cartes — suivi détaillé (production, visible aussi de l'opérateur). */}
+      <section className="surface-card p-5 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h2 className="font-semibold text-ink flex items-center gap-2"><FileText size={17} /> Cartes (suivi détaillé)</h2>
+          <div className="flex gap-1.5 text-[11px]">
+            {[["pending", "À traiter"], ["numbered", "Numérotées"], ["printed", "Imprimées"], ["delivered", "Livrées"]].map(([k, l]) => (
+              <span key={k} className="px-2 py-0.5 rounded-full bg-surface2 text-ink2">{l} <b className="text-ink">{counts[k] || 0}</b></span>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <label className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2 cursor-pointer">
+            <Upload size={14} /> Importer les étudiants (CSV)
+            <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && importCsv("import-students", e.target.files[0])} />
+          </label>
+          <label className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2 cursor-pointer">
+            <Upload size={14} /> Importer les numéros ISIC (CSV)
+            <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && importCsv("import-numbers", e.target.files[0])} />
+          </label>
+          {(counts.numbered || 0) > 0 && <button disabled={busy} onClick={() => cardsAction({ action: "advance", from: "numbered", to: "printed" })} className="px-3 h-9 rounded-lg bg-ink text-white text-sm font-semibold">Marquer imprimées</button>}
+          {(counts.printed || 0) > 0 && <button disabled={busy} onClick={() => cardsAction({ action: "advance", from: "printed", to: "delivered" })} className="px-3 h-9 rounded-lg bg-section text-white text-sm font-semibold">Marquer livrées</button>}
+        </div>
+        {cards.length > 0 ? (
+          <div className="max-h-72 overflow-y-auto rounded-lg border border-line">
+            <table className="table-dense w-full">
+              <thead><tr className="bg-surface2/50"><th>Étudiant</th><th>Matricule</th><th>N° ISIC</th><th>Statut</th></tr></thead>
+              <tbody>
+                {cards.slice(0, 200).map(c => (
+                  <tr key={c._id} className="border-t border-line">
+                    <td className="px-3 py-1.5 text-ink">{c.studentName}</td>
+                    <td className="px-3 py-1.5 text-ink2 font-mono text-xs">{c.matricule || "—"}</td>
+                    <td className="px-3 py-1.5 font-mono text-xs">{c.isicNumber || <span className="text-ink3">—</span>}</td>
+                    <td className="px-3 py-1.5 text-xs">{({ pending: "À traiter", numbered: "Numérotée", printed: "Imprimée", delivered: "Livrée" } as Record<string, string>)[c.status]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {cards.length > 200 && <p className="text-[11px] text-ink3 px-3 py-1.5">… et {cards.length - 200} autres.</p>}
+          </div>
+        ) : (
+          <p className="text-sm text-ink3">Importez le fichier étudiants pour un suivi carte par carte (facultatif — le suivi par lot reste dispo).</p>
+        )}
+      </section>
 
       {/* Finances — visibles seulement pour un rôle financier. */}
       {canFinance && (
