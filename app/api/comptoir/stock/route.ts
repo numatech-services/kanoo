@@ -5,6 +5,7 @@ import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { logAudit } from "@/lib/audit";
+import { notifyRoles } from "@/lib/notify";
 import { TokenPayload } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,9 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     if (type === "in" && body.unitCost != null) item.unitCost = Math.max(0, Number(body.unitCost));
     await item.save({ session });
 
+    // Passage sous le seuil d'alerte à la suite de ce mouvement ?
+    const crossedThreshold = item.threshold != null && after <= item.threshold && before > item.threshold;
+
     // Vente : encaissement de caisse lié, si un montant est fourni.
     let cash = null;
     if (type === "out" && body.cashAmount != null && Number(body.cashAmount) > 0) {
@@ -71,11 +75,20 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
         linkedMoveId: move._id, createdBy: auth.userId,
       }], { session });
     }
-    return { move, cash };
+    return { move, cash, crossedThreshold, itemName: item.name, itemUnit: item.unit, after, threshold: item.threshold };
   });
 
   if ("error" in result && result.error) {
     return result.error === "Article introuvable" ? notFound(result.error) : badRequest(result.error);
+  }
+  // Alerte de réapprovisionnement : notifiée à la direction, au comptable et au
+  // gestionnaire de comptoir. Best-effort, hors transaction.
+  if ("crossedThreshold" in result && result.crossedThreshold) {
+    await notifyRoles(auth.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "pme_activity_manager"], {
+      type: "stock_alert", title: "Comptoir : seuil atteint",
+      message: `${result.itemName} : ${result.after} ${result.itemUnit} en stock (seuil ${result.threshold}). Réapprovisionnement conseillé.`,
+      linkedTo: "comptoir", linkedId: String(body.deskId),
+    });
   }
   await logAudit(auth, "CREATE", "comptoir", { metadata: { move: type, itemId: String(body.itemId) } });
   return created(result);

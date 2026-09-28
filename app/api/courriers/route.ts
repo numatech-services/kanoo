@@ -20,7 +20,7 @@ export const GET = withAuth("documents", "read", async (req: NextRequest, auth: 
   if (direction === "incoming" || direction === "outgoing") filter.direction = direction;
   const [items, total] = await Promise.all([
     LetterModel.find(filter).sort({ createdAt: -1 }).skip(p.skip).limit(p.limit)
-      .select("reference kind subject recipient status direction archived aiAssisted createdAt").lean(),
+      .select("reference kind subject recipient status direction archived dueDate handled aiAssisted createdAt").lean(),
     LetterModel.countDocuments(filter),
   ]);
   return paginatedResponse(items, total, p);
@@ -51,6 +51,7 @@ export const POST = withAuth("documents", "create", async (req: NextRequest, aut
     reference,
     direction: body.direction === "incoming" ? "incoming" : "outgoing",
     attachment: att,
+    dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
     kind: KINDS.includes(body.kind) ? body.kind : "courrier",
     subject: String(body.subject).slice(0, 200),
     recipient: String(body.recipient || "").slice(0, 400),

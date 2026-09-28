@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Store, Plus, Wallet, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins } from "lucide-react";
+import { Store, Plus, Wallet, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
@@ -20,6 +20,16 @@ const METHOD_LABEL: Record<string, string> = {
 async function csrf() {
   const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
   return csrfToken as string;
+}
+
+// Export CSV côté client (séparateur « ; », compatible Excel FR ; BOM UTF-8).
+function downloadCsv(filename: string, rows: (string | number)[][]) {
+  const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+  const csv = "﻿" + rows.map(r => r.map(esc).join(";")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }
 async function post(url: string, body: unknown, method: "POST" | "PATCH" | "DELETE" = "POST") {
   const res = await fetch(url, {
@@ -92,13 +102,25 @@ export default function ComptoirPage() {
 function NewDeskDialog({ onClose, onSaved }: { onClose: () => void; onSaved: (id: string) => void }) {
   const [name, setName] = useState("The Spot");
   const [description, setDescription] = useState("");
+  const [activityId, setActivityId] = useState("");
+  const [sectors, setSectors] = useState<{ _id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Secteurs analytiques — proposés seulement si l'utilisateur y a accès (sinon
+  // l'appel répond 403 et on masque simplement le sélecteur).
+  useEffect(() => {
+    fetch("/api/analytics/activities", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d?.data && setSectors(d.data))
+      .catch(() => {});
+  }, []);
+
   async function save() {
     if (!name.trim()) { setError("Le nom est requis."); return; }
     setSaving(true); setError(null);
     try {
-      const d = await post("/api/comptoir/desks", { name, description });
+      const d = await post("/api/comptoir/desks", { name, description, activityId: activityId || undefined });
       onSaved(d.data._id);
     } catch (e) { setError(e instanceof Error ? e.message : "Création impossible"); }
     finally { setSaving(false); }
@@ -113,6 +135,14 @@ function NewDeskDialog({ onClose, onSaved }: { onClose: () => void; onSaved: (id
         <FormField label="Description" hint="Facultative">
           <input className={inputCls} value={description} onChange={e => setDescription(e.target.value)} />
         </FormField>
+        {sectors.length > 0 && (
+          <FormField label="Secteur analytique lié" hint="Sa caisse remontera dans « Rentabilité par secteur ».">
+            <select className={selectCls} value={activityId} onChange={e => setActivityId(e.target.value)}>
+              <option value="">— Aucun (frais généraux) —</option>
+              {sectors.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+            </select>
+          </FormField>
+        )}
         <div className="flex justify-end gap-3 pt-2">
           <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
           <button onClick={save} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
@@ -192,9 +222,23 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
     load(); onChange();
   }
 
+  function exportCsv() {
+    const rows: (string | number)[][] = [["Date", "Libellé", "Moyen", "Sens", "Montant (XOF)"]];
+    for (const e of entries) rows.push([
+      new Date(e.date).toLocaleDateString("fr-FR"), e.label, METHOD_LABEL[e.method] || e.method,
+      e.direction === "in" ? "Recette" : "Dépense", e.direction === "in" ? e.amount : -e.amount,
+    ]);
+    downloadCsv(`caisse-comptoir-${new Date().toISOString().split("T")[0]}.csv`, rows);
+  }
+
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {entries.length > 0 && (
+          <button onClick={exportCsv} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+            <Download size={15} /> Export CSV
+          </button>
+        )}
         <button onClick={() => setOpen(true)} className="px-4 h-9 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
           <Plus size={15} /> Écriture de caisse
         </button>
@@ -305,9 +349,20 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
     load(); onChange();
   }
 
+  function exportCsv() {
+    const rows: (string | number)[][] = [["Article", "Unité", "Stock", "Coût unitaire", "Valeur", "Seuil"]];
+    for (const it of items) rows.push([it.name, it.unit, it.quantity, it.unitCost, it.quantity * it.unitCost, it.threshold ?? ""]);
+    downloadCsv(`stock-comptoir-${new Date().toISOString().split("T")[0]}.csv`, rows);
+  }
+
   return (
     <div className="space-y-5">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {items.length > 0 && (
+          <button onClick={exportCsv} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+            <Download size={15} /> Export CSV
+          </button>
+        )}
         <button onClick={() => setItemOpen(true)} className="px-4 h-9 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
           <Plus size={15} /> Nouvel article
         </button>

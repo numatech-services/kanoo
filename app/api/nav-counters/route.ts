@@ -3,6 +3,7 @@ import { withAuth, ok, tenantFilter } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
 import { NotificationModel } from "@/models/Notification";
 import { ProductModel } from "@/models/Product";
+import { LetterModel } from "@/models/Letter";
 import { TokenPayload } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ export const GET = withAuth("notifications", "read", async (_req: NextRequest, a
   const tf = tenantFilter(auth);
   const now = new Date();
 
-  const [overdue, unread, lowStock] = await Promise.all([
+  const [overdue, unread, lowStock, courriersDue] = await Promise.all([
     InvoiceModel.countDocuments({
       ...tf, documentType: { $ne: "credit_note" },
       status: { $in: ["sent", "partial", "overdue"] }, dueDate: { $lt: now },
@@ -34,6 +35,11 @@ export const GET = withAuth("notifications", "read", async (_req: NextRequest, a
     NotificationModel.countDocuments({ ...tf, userId: auth.userId, read: false }),
     ProductModel.countDocuments({
       ...tf, isActive: true, $expr: { $lte: ["$stockQty", "$stockMinAlert"] },
+    }),
+    // Courriers entrants dont l'échéance de réponse est passée et non traités.
+    LetterModel.countDocuments({
+      ...tf, direction: "incoming", handled: { $ne: true },
+      archived: { $ne: true }, dueDate: { $lt: now },
     }),
   ]);
 
@@ -45,6 +51,7 @@ export const GET = withAuth("notifications", "read", async (_req: NextRequest, a
   if (overdue > 0) counters["/relances"] = overdue;
   if (unread > 0) counters["/notifications"] = unread;
   if (lowStock > 0) counters["/stock"] = lowStock;
+  if (courriersDue > 0) counters["/courriers"] = courriersDue;
 
   return ok(counters);
 });

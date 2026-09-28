@@ -28,6 +28,10 @@ const LetterSchema = new Schema(
     direction: { type: String, enum: ["outgoing", "incoming"], default: "outgoing", index: true },
     /** Archivage (retiré des courriers actifs sans être supprimé). */
     archived: { type: Boolean, default: false, index: true },
+    /** Échéance de réponse (surtout pour un courrier entrant à traiter). */
+    dueDate: { type: Date, index: true },
+    /** Traité / clos : un courrier entrant auquel on a répondu ou donné suite. */
+    handled: { type: Boolean, default: false, index: true },
     /** Pièce jointe importée (scan d'un courrier reçu, PDF émis…) en data-URI. */
     attachment: { name: String, dataUri: String },
     /** Tiers concerné, s'il y a lieu. */

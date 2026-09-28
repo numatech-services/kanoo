@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, FileText, Trash2, Download, Sparkles, Archive, ArchiveRestore, Paperclip, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { Plus, FileText, Trash2, Download, Sparkles, Archive, ArchiveRestore, Paperclip, ArrowUpRight, ArrowDownLeft, CheckCircle2, Clock } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, textareaCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
@@ -10,7 +10,13 @@ interface Letter {
   _id: string; reference?: string; kind: string; subject: string;
   recipient?: string; status: string; direction?: string; archived?: boolean;
   attachment?: { name?: string; dataUri?: string };
+  dueDate?: string; handled?: boolean;
   aiAssisted?: boolean; createdAt: string;
+}
+
+// Un courrier entrant, avec une échéance dépassée et non traité, est « en retard ».
+function overdue(l: Letter): boolean {
+  return l.direction === "incoming" && !l.handled && !!l.dueDate && new Date(l.dueDate) < new Date();
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -63,6 +69,15 @@ export default function CourriersPage() {
       method: "PATCH", credentials: "include",
       headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
       body: JSON.stringify({ archived: !l.archived }),
+    });
+    load();
+  }
+
+  async function toggleHandled(l: Letter) {
+    await fetch(`/api/courriers/${l._id}`, {
+      method: "PATCH", credentials: "include",
+      headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+      body: JSON.stringify({ handled: !l.handled }),
     });
     load();
   }
@@ -128,6 +143,10 @@ export default function CourriersPage() {
                     {l.direction === "incoming"
                       ? <Pill tone="warn"><ArrowDownLeft size={11} className="inline mr-0.5" /> Entrant</Pill>
                       : <Pill tone="info"><ArrowUpRight size={11} className="inline mr-0.5" /> Sortant</Pill>}
+                    {overdue(l) && <span className="ml-1"><Pill tone="neg"><Clock size={11} className="inline mr-0.5" /> En retard</Pill></span>}
+                    {l.direction === "incoming" && l.handled && <span className="ml-1"><Pill tone="pos">Traité</Pill></span>}
+                    {l.direction === "incoming" && !l.handled && l.dueDate && !overdue(l) &&
+                      <span className="ml-1 text-[11px] text-ink3 whitespace-nowrap">échéance {new Date(l.dueDate).toLocaleDateString("fr-FR")}</span>}
                   </td>
                   <td><Pill tone="mute">{KIND_LABEL[l.kind] ?? l.kind}</Pill></td>
                   <td className="text-ink2">{l.recipient || "—"}</td>
@@ -144,6 +163,12 @@ export default function CourriersPage() {
                         className="p-1.5 rounded text-ink3 hover:text-section hover:bg-surface2" title="PDF">
                         <Download size={15} />
                       </a>
+                      {l.direction === "incoming" && (
+                        <button onClick={() => toggleHandled(l)} title={l.handled ? "Rouvrir" : "Marquer traité"}
+                          className={`p-1.5 rounded hover:bg-surface2 ${l.handled ? "text-pos" : "text-ink3 hover:text-pos"}`}>
+                          <CheckCircle2 size={15} />
+                        </button>
+                      )}
                       <button onClick={() => toggleArchive(l)} title={l.archived ? "Désarchiver" : "Archiver"}
                         className="p-1.5 rounded text-ink3 hover:text-section hover:bg-surface2">
                         {l.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
@@ -178,6 +203,7 @@ function ComposeDialog({
     place: letter.place || "",
     body: letter.body || "",
     signatory: letter.signatory || "",
+    dueDate: letter.dueDate ? String(letter.dueDate).split("T")[0] : "",
   });
   const [attachment, setAttachment] = useState<{ name?: string; dataUri?: string } | null>(letter.attachment || null);
   const [saving, setSaving] = useState(false);
@@ -241,7 +267,7 @@ function ComposeDialog({
         method: id ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
         credentials: "include",
-        body: JSON.stringify({ ...form, aiAssisted: aiUsed, attachment: attachment || undefined }),
+        body: JSON.stringify({ ...form, dueDate: form.dueDate || undefined, aiAssisted: aiUsed, attachment: attachment || undefined }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Enregistrement refusé");
       onSaved();
@@ -292,6 +318,11 @@ function ComposeDialog({
         <FormField label={incoming ? "Expéditeur" : "Destinataire"} hint="Bloc adresse — une ligne par retour à la ligne.">
           <textarea className={textareaCls} rows={2} value={form.recipient} onChange={e => setForm(f => ({ ...f, recipient: e.target.value }))} />
         </FormField>
+        {incoming && (
+          <FormField label="Échéance de réponse" hint="Laisser vide si aucun délai. Une alerte signale les retards.">
+            <input className={inputCls} type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
+          </FormField>
+        )}
 
         {/* Import d'une pièce (scan d'un courrier reçu, PDF externe…) */}
         <FormField label="Pièce jointe" hint="Importer un scan ou un PDF (2,5 Mo max).">

@@ -19,7 +19,7 @@ export const PATCH = withAuth("documents", "update", async (req: NextRequest, au
   const body = await req.json().catch(() => ({}));
   // Liste blanche : seuls ces champs sont modifiables. `sanitizeBody` retire au
   // passage tout champ jamais inscriptible ou tout opérateur Mongo ($set…).
-  const ALLOWED = ["reference", "kind", "subject", "recipient", "place", "body", "signatory", "status", "aiAssisted", "direction", "archived", "attachment"];
+  const ALLOWED = ["reference", "kind", "subject", "recipient", "place", "body", "signatory", "status", "aiAssisted", "direction", "archived", "attachment", "dueDate", "handled"];
   const clean = sanitizeBody(body);
   const update: Record<string, unknown> = {};
   for (const field of ALLOWED) {

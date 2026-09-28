@@ -5,6 +5,8 @@ import { withAuth, ok, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { ActivityModel } from "@/models/Activity";
 import { AnalyticEntryModel } from "@/models/AnalyticEntry";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
+import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { isTenantAdmin } from "@/lib/roles-ui";
 import { UserRole } from "@/types";
 
@@ -28,11 +30,18 @@ export const GET = withAuth("analytics", "read", async (req: NextRequest, auth: 
     match.date = range;
   }
 
-  const [activities, agg] = await Promise.all([
+  const [activities, agg, desks, cashAgg] = await Promise.all([
     ActivityModel.find({ ...tenantFilter(auth) }).select("name color").lean<{ _id: Types.ObjectId; name: string; color?: string }[]>(),
     AnalyticEntryModel.aggregate([
       { $match: match },
       { $group: { _id: { activityId: "$activityId", kind: "$kind" }, total: { $sum: "$amount" } } },
+    ]),
+    // Comptoirs (The Spot…) rattachés à un secteur : leur caisse remonte dans la
+    // rentabilité de ce secteur (in → recette, out → dépense).
+    ActivityDeskModel.find({ ...tenantFilter(auth) }).select("activityId").lean<{ _id: Types.ObjectId; activityId?: Types.ObjectId }[]>(),
+    ActivityCashEntryModel.aggregate([
+      { $match: match },
+      { $group: { _id: { deskId: "$deskId", direction: "$direction" }, total: { $sum: "$amount" } } },
     ]),
   ]);
 
@@ -44,6 +53,19 @@ export const GET = withAuth("analytics", "read", async (req: NextRequest, auth: 
     if (key === null) { if (row._id.kind === "revenue") genRevenue += row.total; else genExpense += row.total; continue; }
     const cur = byActivity.get(key) || { revenue: 0, expense: 0 };
     if (row._id.kind === "revenue") cur.revenue += row.total; else cur.expense += row.total;
+    byActivity.set(key, cur);
+  }
+
+  // Caisse des comptoirs : rattachée au secteur du comptoir s'il en a un, sinon
+  // versée aux frais généraux (elle reste de l'argent réel du compte).
+  const deskActivity = new Map<string, string | null>();
+  for (const d of desks) deskActivity.set(String(d._id), d.activityId ? String(d.activityId) : null);
+  for (const row of cashAgg) {
+    const key = deskActivity.get(String(row._id.deskId)) ?? null;
+    const isRevenue = row._id.direction === "in";
+    if (key === null) { if (isRevenue) genRevenue += row.total; else genExpense += row.total; continue; }
+    const cur = byActivity.get(key) || { revenue: 0, expense: 0 };
+    if (isRevenue) cur.revenue += row.total; else cur.expense += row.total;
     byActivity.set(key, cur);
   }
 

@@ -11,6 +11,7 @@ import { CRMOpportunityModel } from "@/models/CRMOpportunity";
 import { SubscriptionPurchaseModel } from "@/models/SubscriptionPurchase";
 import { SubscriptionSaleModel } from "@/models/SubscriptionSale";
 import { AdminDocumentModel } from "@/models/AdminDocument";
+import { LetterModel } from "@/models/Letter";
 import { buildAlerts, type PurchaseLike, type SaleLike } from "@/lib/subscriptions";
 import { buildAlerts as buildDocumentAlerts } from "@/lib/admin-documents";
 import { resetYearlySequences } from "@/lib/numbering";
@@ -104,6 +105,24 @@ export const CRON_JOBS: CronJob[] = [
         }
       }
       return `${products.length} alerte(s) envoyée(s)`;
+    },
+  },
+  {
+    id: "courriers-echus", label: "Courriers entrants à répondre",
+    cadence: "daily", schedule: "45 7 * * *",
+    run: async () => {
+      const letters = await LetterModel.find({
+        direction: "incoming", handled: { $ne: true }, archived: { $ne: true },
+        dueDate: { $lt: new Date() },
+      }).select("_id tenantId reference subject").lean<Array<{ _id: Id; tenantId: Id; reference?: string; subject: string }>>();
+      for (const l of letters) {
+        const admins = await getAdmins(l.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "asso_president", "asso_secretary", "admin_ordonnateur"]);
+        for (const admin of admins) {
+          await notify(l.tenantId, admin._id, "courrier_due", "Courrier à répondre",
+            `Courrier ${l.reference || ""} « ${l.subject} » : échéance de réponse dépassée.`, "documents", l._id);
+        }
+      }
+      return `${letters.length} courrier(s) échu(s)`;
     },
   },
   {
