@@ -388,18 +388,25 @@
 
 /* ── Entreprise ─────────────────────────────────────────────────────────── */
 [data-space="pme"] {
-  /* PME (thème clair) : barre latérale BLANCHE, texte foncé, pilule active
-     ambre. Les autres espaces conservent une barre sombre. */
+  /* PME (thème clair) : charte bleue « Numatech » — barre latérale BLANCHE,
+     accent et pilule de menu BLEUS, neutres frais et clairs (fond de la
+     maquette). Les autres espaces conservent leur propre teinte. */
   --c-chrome: 255 255 255;
-  --c-chrome-fg: 23 19 14;
-  --c-chrome-active-bg: 194 98 14;
+  --c-chrome-fg: 26 31 45;
+  --c-chrome-active-bg: 59 91 219;      /* bleu Numatech (pilule active) */
   --c-chrome-active-fg: 255 255 255;
-  --c-bg: 251 247 239;
-  --c-surface2: 243 236 224;
-  --c-line: 234 225 208;
-  --c-line2: 216 202 176;
-  --c-ink: 23 19 14;
-  --c-ink2: 90 82 69;
+  /* Accent bleu de l'espace PME. */
+  --c-accent: 59 91 219;
+  --c-accent600: 42 71 189;
+  --c-accent700: 32 54 150;
+  --c-accent050: 237 241 253;
+  --c-accent100: 214 223 250;
+  --c-bg: 247 248 251;
+  --c-surface2: 240 242 248;
+  --c-line: 228 231 240;
+  --c-line2: 210 215 230;
+  --c-ink: 24 28 40;
+  --c-ink2: 92 99 116;
 
   --r-sm: .5rem; --r-md: .625rem; --r-lg: .875rem;
   --gutter: 1rem;
@@ -466,16 +473,17 @@
 
 @media (prefers-color-scheme: dark) {
   [data-space="pme"] {
-    --c-chrome: 15 12 9;
-    /* En mode sombre, la barre PME redevient sombre : on rétablit un premier
-       plan clair et une pilule active claire (sinon les valeurs foncées du
-       bloc clair persisteraient et le texte serait illisible). */
-    --c-chrome-fg: 243 236 224;
-    --c-chrome-active-bg: 243 236 224;
-    --c-chrome-active-fg: 23 19 14;
-    --c-bg: 22 18 13; --c-surface2: 41 34 26;
-    --c-line: 52 43 32; --c-line2: 71 59 44;
-    --c-ink: 243 236 224; --c-ink2: 185 174 156;
+    --c-chrome: 15 18 26;
+    /* Mode sombre : barre PME sombre et fraîche, accent bleu, pilule active
+       bleue à texte blanc. */
+    --c-chrome-fg: 226 231 243;
+    --c-chrome-active-bg: 59 91 219;
+    --c-chrome-active-fg: 255 255 255;
+    --c-accent: 124 155 232; --c-accent600: 100 133 216; --c-accent700: 160 184 244;
+    --c-accent050: 20 27 44; --c-accent100: 27 37 59;
+    --c-bg: 17 20 28; --c-surface2: 27 31 42;
+    --c-line: 37 44 58; --c-line2: 54 64 84;
+    --c-ink: 226 231 243; --c-ink2: 158 170 192;
   }
   [data-space="association"] {
     --c-chrome: 10 24 19;
