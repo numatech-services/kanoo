@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, noContent, badRequest, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
+import { parseAttachment } from "@/lib/attachment";
 import { LetterModel } from "@/models/Letter";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -24,6 +25,11 @@ export const PATCH = withAuth("documents", "update", async (req: NextRequest, au
   const update: Record<string, unknown> = {};
   for (const field of ALLOWED) {
     if (field in clean) update[field] = clean[field];
+  }
+  if ("attachment" in update) {
+    const att = parseAttachment(update.attachment);
+    if (!att.ok) return badRequest(att.error);
+    update.attachment = att.value;
   }
   const letter = await LetterModel.findOneAndUpdate(
     { _id: params.id, ...tenantFilter(auth) }, { $set: update }, { new: true }

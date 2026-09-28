@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useMe, meCan } from "@/lib/useMe";
+import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store } from "lucide-react";
 
@@ -179,47 +180,6 @@ const NAV_MAP: Record<ProfileType, NavGroup[]> = {
   pme: PME_NAV, association: ASSO_NAV, administration: ADMIN_NAV, superadmin: SUPERADMIN_NAV,
 };
 
-/**
- * Ressource RBAC requise pour chaque entrée de menu. Une entrée absente de la
- * table reste **toujours visible** (universelle : agenda, messagerie, profil,
- * réglages…) — on ne masque jamais par erreur, on ne masque que ce qu'on sait
- * inaccessible. Ainsi un rôle étroit (Gestionnaire The Spot, opérateur ISIC…)
- * ne voit plus une forêt de liens qui lui répondraient « accès interdit ».
- */
-const NAV_RESOURCE: Record<string, string> = {
-  // PME — Ventes
-  "/clients": "clients", "/crm": "clients", "/devis": "devis", "/invoices": "invoices",
-  "/livraisons": "livraisons", "/payments": "payments", "/relances": "invoices",
-  "/notes-de-frais": "expenses", "/isic": "isic",
-  // PME — Achats & stock
-  "/suppliers": "suppliers", "/commandes": "commandes", "/stock": "products",
-  "/inventaires": "products", "/marches": "publicTenders", "/marches-cadres": "commandes",
-  // PME — Abonnements
-  "/abonnements": "subscriptions", "/abonnements/achats": "subscriptions", "/abonnements/reventes": "subscriptions",
-  // PME — Contrats & projets
-  "/appels": "appels", "/contracts": "contracts", "/projects": "projects",
-  "/documents": "documents", "/documents-administratifs": "documents", "/approbations": "approbations",
-  // PME — Finance
-  "/treasury": "treasuryAccounts", "/accounting": "accountingEntries", "/comptoir": "comptoir",
-  "/analytique": "analytics", "/analytics": "analytics", "/budget-previsionnel": "accountingEntries",
-  "/recurring-expenses": "recurringCharges", "/fiscalite": "fiscalDeclarations",
-  "/fiscalite/isbic": "fiscalDeclarations", "/fiscalite/retenues": "fiscalDeclarations",
-  "/fixed-assets": "fixedAssets",
-  // PME — RH & courriers
-  "/employees": "employees", "/payslips": "payslips", "/courriers": "documents",
-  // PME — Paramètres (gérés par l'administrateur)
-  "/users": "users", "/users/acces": "users", "/audit": "auditLogs",
-  // Associations
-  "/associations/bureau": "bureau", "/associations/assemblee": "assemblee",
-  "/associations/membres": "membres", "/associations/cotisations": "cotisations",
-  "/associations/dons": "dons",
-  // Administration
-  "/administration/budget": "budgetChapters", "/administration/budget/engagements": "budgetChapters",
-  "/administration/budget/mandatements": "budgetChapters", "/administration/marches-publics": "publicTenders",
-  "/administration/recettes": "publicRevenues", "/administration/services": "services",
-  // Activités (billetterie) — largement accordé mais pas aux rôles ultra-étroits
-  "/activites": "events",
-};
 
 export function Sidebar({ profile }: { profile: ProfileType }) {
   const pathname = usePathname();
@@ -231,7 +191,7 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   // n'ampute rien — pas de menu qui « clignote » vide au chargement. Superadmin
   // porte « * » et voit tout. Un groupe sans entrée visible disparaît.
   const canSee = (href: string) => {
-    const res = NAV_RESOURCE[href];
+    const res = resourceForHref(href);
     if (!res) return true;
     if (loading || resources.length === 0) return true;
     return meCan(resources, res);

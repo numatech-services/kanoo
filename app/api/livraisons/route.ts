@@ -1,7 +1,7 @@
 import { nextDocumentNumber } from "@/lib/numbering";
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
-import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody, notFound } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody, notFound, conflict } from "@/lib/api-helpers";
 import { DeliveryNoteModel } from "@/models/DeliveryNote";
 import { InvoiceModel } from "@/models/Invoice";
 import { ProductModel } from "@/models/Product";
@@ -43,12 +43,17 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
     return badRequest("Un bon de livraison ne peut être créé que pour une facture émise, partiellement payée ou soldée");
   }
 
+  // Référence saisie à la main : elle doit rester unique (index {tenantId, number}).
+  const customNumber = typeof body.number === "string" ? body.number.trim().slice(0, 40) : "";
+  if (customNumber && await DeliveryNoteModel.exists({ ...tenantFilter(auth), number: customNumber })) {
+    return conflict(`La référence ${customNumber} est déjà utilisée par un autre bon de livraison.`);
+  }
+
   const delivery = await withTransaction(async (session) => {
     // Numéro attribué automatiquement, mais une référence saisie à la main est
     // respectée (l'utilisateur peut la changer).
-    const custom = typeof body.number === "string" && body.number.trim();
-    const number = custom
-      ? body.number.trim().slice(0, 40)
+    const number = customNumber
+      ? customNumber
       : await nextDocumentNumber(auth.tenantId, "delivery", { issueDate: body.deliveryDate, session });
     const [doc] = await DeliveryNoteModel.create([{
       ...sanitizeBody(body, ["number", "status"]),

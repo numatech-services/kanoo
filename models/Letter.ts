@@ -32,6 +32,8 @@ const LetterSchema = new Schema(
     dueDate: { type: Date, index: true },
     /** Traité / clos : un courrier entrant auquel on a répondu ou donné suite. */
     handled: { type: Boolean, default: false, index: true },
+    /** Dernière relance envoyée (espacement des rappels). */
+    lastReminderAt: Date,
     /** Pièce jointe importée (scan d'un courrier reçu, PDF émis…) en data-URI. */
     attachment: { name: String, dataUri: String },
     /** Tiers concerné, s'il y a lieu. */

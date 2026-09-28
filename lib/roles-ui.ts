@@ -173,7 +173,7 @@ export const ASSIGNABLE_BY_TENANT: Record<string, UserRole[]> = {
   pme: [
     "pme_admin", "pme_manager", "pme_accountant", "pme_approver",
     "pme_sales", "pme_purchases", "pme_project_manager", "pme_hr",
-    "pme_isic_operator", "pme_isic_finance",
+    "pme_isic_operator", "pme_isic_finance", "pme_activity_manager",
     "pme_viewer", "chef_projet_transversal", "tech_admin",
   ],
   association: [
@@ -187,6 +187,18 @@ export const ASSIGNABLE_BY_TENANT: Record<string, UserRole[]> = {
     "admin_viewer", "chef_projet_transversal", "tech_admin",
   ],
 };
+
+/**
+ * Rôles qu'un appelant peut attribuer : ceux de son type d'organisation, ou
+ * tous (y compris superadmin) pour le superadmin. Utilisé par l'API à la
+ * création ET à la modification d'un compte.
+ */
+export function assignableRoles(auth: { role: string; tenantType?: string }): string[] {
+  if (auth.role === "superadmin") {
+    return [...new Set([...ASSIGNABLE_BY_TENANT.pme, ...ASSIGNABLE_BY_TENANT.association, ...ASSIGNABLE_BY_TENANT.administration, "superadmin"])];
+  }
+  return ASSIGNABLE_BY_TENANT[auth.tenantType ?? ""] ?? [];
+}
 
 /** Rôles capables d'administrer une organisation. */
 export const TENANT_ADMIN_ROLES: UserRole[] = [

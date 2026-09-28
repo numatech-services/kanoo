@@ -7,10 +7,13 @@ import { AlertsPanel } from "@/components/shared/AlertsPanel";
 import { DashboardHero } from "@/components/pme/DashboardHero";
 import { UpcomingEvents } from "@/components/shared/UpcomingEvents";
 import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
+import { getServerAccess } from "@/lib/server-auth";
 
 export const metadata = { title: "Tableau de bord" };
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  // Le graphique de trésorerie lit la comptabilité : masqué pour qui n'y a pas accès.
+  const canCashflow = (await getServerAccess())?.can("accountingEntries") ?? false;
   return (
     <div className="space-y-6">
       <Suspense fallback={<div className="h-44 bg-surface rounded-2xl border border-line animate-pulse" />}>
@@ -24,11 +27,13 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Graphique trésorerie */}
-        <div className="lg:col-span-2">
-          <Suspense fallback={<div className="h-72 bg-surface rounded-xl border border-line animate-pulse" />}>
-            <CashflowChart />
-          </Suspense>
-        </div>
+        {canCashflow && (
+          <div className="lg:col-span-2">
+            <Suspense fallback={<div className="h-72 bg-surface rounded-xl border border-line animate-pulse" />}>
+              <CashflowChart />
+            </Suspense>
+          </div>
+        )}
 
         {/* Alertes + Prochaines activités + Bons de livraison */}
         <div className="space-y-4">

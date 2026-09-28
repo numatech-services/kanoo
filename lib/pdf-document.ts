@@ -133,6 +133,13 @@ export function drawBrandedFooter(doc: Doc, tenant: TenantIdentity) {
   const b = tenant.branding ?? {};
   const M = 50;
 
+  // Le pied est écrit SOUS la marge basse (50 pt) : PDFKit y voyait un
+  // débordement et ouvrait une page par ligne — un courrier d'une page sortait
+  // en trois, dont deux blanches portant la mention légale et le téléphone.
+  // On lève la marge le temps du pied, puis on la rétablit.
+  const savedBottom = doc.page.margins.bottom;
+  doc.page.margins.bottom = 0;
+
   const y = 748;
   if (b.paymentInstructions) {
     doc.fillColor(c.secondary).font("Helvetica-Bold").fontSize(8).text("RÈGLEMENT", M, y, { characterSpacing: 1 });
@@ -149,6 +156,8 @@ export function drawBrandedFooter(doc: Doc, tenant: TenantIdentity) {
   doc.fillColor(c.muted).font("Helvetica").fontSize(7).text(legal, M, 814, { width: 495 });
   const contact = [tenant.phone, tenant.email].filter(Boolean).join("  ·  ");
   if (contact) doc.fillColor(c.muted).font("Helvetica").fontSize(7).text(contact, M, 826, { width: 495 });
+
+  doc.page.margins.bottom = savedBottom;
 }
 
 /**
@@ -511,6 +520,124 @@ export async function generateLetterPdf(letter: LetterForPdf, tenant: TenantIden
       doc.font("Helvetica").fontSize(10).fillColor(c.ink)
         .text(letter.signatory, 330, y, { width: 215, align: "left" });
     }
+
+    drawBrandedFooter(doc, tenant);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Comptoir d'activité (The Spot) — rapport de caisse et d'état du stock.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DeskReportForPdf {
+  deskName: string;
+  periodLabel: string;
+  cash: Array<{ date: Date | string; label: string; method: string; direction: "in" | "out"; amount: number }>;
+  items: Array<{ name: string; unit: string; quantity: number; unitCost: number; threshold?: number }>;
+}
+
+const METHOD_FR: Record<string, string> = {
+  cash: "Espèces", bank_transfer: "Virement", orange_money: "OM / Moov", card: "Carte", check: "Chèque", other: "Autre",
+};
+
+/**
+ * Rapport PDF d'un comptoir, à la marque de l'organisation : synthèse
+ * (recettes, dépenses, solde, valeur du stock), journal de caisse de la période
+ * et état du stock matière. Pensé pour être remis au comptable principal.
+ */
+export async function generateDeskReportPdf(r: DeskReportForPdf, tenant: TenantIdentity): Promise<Buffer> {
+  const c = colors(tenant);
+  const M = 50;
+  const W = 495;
+  const fmt = (n: number) => `${Math.round(n).toLocaleString("fr-FR").replace(/ | /g, " ")} XOF`;
+
+  const recettes = r.cash.filter(e => e.direction === "in").reduce((s, e) => s + e.amount, 0);
+  const depenses = r.cash.filter(e => e.direction === "out").reduce((s, e) => s + e.amount, 0);
+  const stockValue = r.items.reduce((s, it) => s + (it.quantity || 0) * (it.unitCost || 0), 0);
+
+  return createPDFBuffer(async (doc) => {
+    let y = drawBrandedHeader(doc, tenant, {
+      title: "Rapport de comptoir",
+      number: r.deskName,
+      lines: [["Période", r.periodLabel], ["Édité le", new Date().toLocaleDateString("fr-FR")]],
+    });
+
+    // Saut de page en gardant le pied de page de marque sur chaque page.
+    const ensure = (space: number) => {
+      if (y + space > 730) { drawBrandedFooter(doc, tenant); doc.addPage(); y = 60; }
+    };
+
+    // ── Synthèse : quatre cartes ────────────────────────────────────────────
+    const cards: Array<[string, string]> = [
+      ["Recettes", fmt(recettes)], ["Dépenses", fmt(depenses)],
+      ["Solde de la période", fmt(recettes - depenses)], ["Valeur du stock", fmt(stockValue)],
+    ];
+    const cw = (W - 3 * 8) / 4;
+    cards.forEach(([label, value], i) => {
+      const x = M + i * (cw + 8);
+      doc.rect(x, y, cw, 46).fillAndStroke("#F7F8FB", c.line);
+      doc.fillColor(c.secondary).font("Helvetica-Bold").fontSize(7).text(label.toUpperCase(), x + 8, y + 8, { width: cw - 16, characterSpacing: 0.8 });
+      doc.fillColor(i === 2 ? c.primary : c.ink).font("Helvetica-Bold").fontSize(10.5).text(value, x + 8, y + 24, { width: cw - 16 });
+    });
+    y += 64;
+
+    // ── Tableau générique ───────────────────────────────────────────────────
+    const table = (title: string, cols: Array<{ h: string; w: number; align?: "left" | "right" }>, rows: string[][]) => {
+      ensure(60);
+      doc.fillColor(c.primary).font("Helvetica-Bold").fontSize(11).text(title, M, y);
+      y += 18;
+      const header = () => {
+        doc.rect(M, y, W, 18).fill(c.primary);
+        let x = M;
+        for (const col of cols) {
+          doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(8).text(col.h, x + 5, y + 5, { width: col.w - 10, align: col.align ?? "left" });
+          x += col.w;
+        }
+        y += 18;
+      };
+      header();
+      if (rows.length === 0) {
+        doc.fillColor(c.muted).font("Helvetica-Oblique").fontSize(8.5).text("Aucune ligne sur la période.", M + 5, y + 5);
+        y += 22;
+        return;
+      }
+      rows.forEach((row, ri) => {
+        if (y + 16 > 730) { drawBrandedFooter(doc, tenant); doc.addPage(); y = 60; header(); }
+        if (ri % 2 === 1) doc.rect(M, y, W, 16).fill("#F7F8FB");
+        let x = M;
+        row.forEach((cell, ci) => {
+          doc.fillColor(c.ink).font("Helvetica").fontSize(8.5).text(cell, x + 5, y + 4, { width: cols[ci].w - 10, align: cols[ci].align ?? "left", lineBreak: false, ellipsis: true });
+          x += cols[ci].w;
+        });
+        y += 16;
+      });
+      y += 14;
+    };
+
+    table("Journal de caisse", [
+      { h: "Date", w: 70 }, { h: "Libellé", w: 215 }, { h: "Moyen", w: 80 },
+      { h: "Montant", w: 130, align: "right" },
+    ], r.cash.map(e => [
+      new Date(e.date).toLocaleDateString("fr-FR"), e.label, METHOD_FR[e.method] || e.method,
+      `${e.direction === "in" ? "+" : "-"} ${fmt(e.amount)}`,
+    ]));
+
+    table("État du stock matière", [
+      { h: "Article", w: 185 }, { h: "Stock", w: 80, align: "right" },
+      { h: "Coût unitaire", w: 105, align: "right" }, { h: "Valeur", w: 125, align: "right" },
+    ], r.items.map(it => [
+      it.threshold != null && it.quantity <= it.threshold ? `${it.name}  (sous le seuil)` : it.name,
+      `${it.quantity} ${it.unit}`, fmt(it.unitCost), fmt(it.quantity * it.unitCost),
+    ]));
+
+    // Visas : la gestion est confiée au gestionnaire, contrôlée par le comptable.
+    ensure(60);
+    y += 10;
+    doc.fillColor(c.muted).font("Helvetica").fontSize(9)
+      .text("Visa du gestionnaire du comptoir", M, y, { width: 220 })
+      .text("Visa du comptable", 330, y, { width: 215 });
+    doc.moveTo(M, y + 40).lineTo(M + 200, y + 40).strokeColor(c.line).stroke();
+    doc.moveTo(330, y + 40).lineTo(545, y + 40).strokeColor(c.line).stroke();
 
     drawBrandedFooter(doc, tenant);
   });

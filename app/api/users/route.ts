@@ -6,6 +6,7 @@ import { TenantModel } from "@/models/Tenant";
 import { passwordErrors } from "@/lib/password-policy";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { assignableRoles } from "@/lib/roles-ui";
 
 export const GET = withAuth("users", "read", async (req: NextRequest, auth: TokenPayload) => {
   const pagination = getPagination(req);
@@ -28,15 +29,10 @@ export const POST = withAuth("users", "create", async (req: NextRequest, auth: T
     return badRequest("Au moins un rôle est requis.");
   }
 
-  // Rôles assignables selon le type d'organisation de l'appelant.
-  const ASSIGNABLE: Record<string, string[]> = {
-    pme: ["pme_admin", "pme_manager", "pme_accountant", "pme_sales", "pme_purchases", "pme_hr", "pme_project_manager", "pme_approver", "pme_viewer", "chef_projet_transversal", "tech_admin"],
-    association: ["asso_president", "asso_treasurer", "asso_secretary", "asso_project_manager", "asso_member_portal", "chef_projet_transversal", "tech_admin"],
-    administration: ["admin_ordonnateur", "admin_daf", "admin_public_accountant", "admin_procurement_officer", "admin_procurement_commission", "admin_viewer", "chef_projet_transversal", "tech_admin"],
-  };
-  const allowedRoles = auth.role === "superadmin"
-    ? [...ASSIGNABLE.pme, ...ASSIGNABLE.association, ...ASSIGNABLE.administration, "superadmin"]
-    : (ASSIGNABLE[auth.tenantType] ?? []);
+  // Rôles assignables selon le type d'organisation de l'appelant — même liste
+  // que l'écran Utilisateurs (ASSIGNABLE_BY_TENANT), pour que tout rôle proposé
+  // soit effectivement accepté.
+  const allowedRoles = assignableRoles(auth);
 
   // Multi-rôle : `roles` est la liste cumulée ; `role` en reste le premier
   // (rôle principal). Un appel legacy qui n'envoie que `role` reste valide.

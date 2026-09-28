@@ -1,5 +1,5 @@
 import { Schema, model, models } from "mongoose";
-import { IUser } from "@/types";
+import { IUser, USER_ROLES } from "@/types";
 
 const UserSchema = new Schema<IUser>(
   {
@@ -10,18 +10,10 @@ const UserSchema = new Schema<IUser>(
     lastName: { type: String, required: true, trim: true },
     role: {
       type: String,
-      enum: [
-        "pme_admin","pme_manager","pme_accountant","pme_sales","pme_purchases",
-        "pme_hr","pme_project_manager","pme_approver","pme_viewer",
-        "asso_president","asso_treasurer","asso_secretary","asso_project_manager","asso_member_portal",
-        "admin_ordonnateur","admin_daf","admin_public_accountant",
-        "admin_procurement_officer","admin_procurement_commission","admin_viewer",
-        // `chef_projet_transversal` manquait ici alors qu'il était proposé à
-        // la création : toute tentative échouait en validation Mongoose, avec
-        // un message que personne ne rattachait à cette cause.
-        "chef_projet_transversal","tech_admin",
-        "superadmin",
-      ],
+      // Dérivé de la liste unique USER_ROLES : des rôles (chef de projet
+      // transversal, puis ISIC) manquaient ici alors qu'ils étaient proposés à
+      // la création, et toute tentative échouait en validation Mongoose.
+      enum: [...USER_ROLES],
       required: true,
     },
     /**
@@ -33,14 +25,7 @@ const UserSchema = new Schema<IUser>(
      */
     roles: {
       type: [String],
-      enum: [
-        "pme_admin","pme_manager","pme_accountant","pme_sales","pme_purchases",
-        "pme_hr","pme_project_manager","pme_approver","pme_viewer",
-        "asso_president","asso_treasurer","asso_secretary","asso_project_manager","asso_member_portal",
-        "admin_ordonnateur","admin_daf","admin_public_accountant",
-        "admin_procurement_officer","admin_procurement_commission","admin_viewer",
-        "chef_projet_transversal","tech_admin","superadmin",
-      ],
+      enum: [...USER_ROLES],
       default: undefined,
     },
     allowedResources: [String],

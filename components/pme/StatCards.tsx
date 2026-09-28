@@ -1,7 +1,7 @@
 // Server Component — lit directement la DB (pas de fetch)
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
-import { getServerAuth } from "@/lib/server-auth";
+import { getServerAccess } from "@/lib/server-auth";
 import { InvoiceModel } from "@/models/Invoice";
 import { PaymentModel } from "@/models/Payment";
 import { EmployeeModel } from "@/models/Employee";
@@ -20,16 +20,16 @@ interface Stats {
   invoiceTrend: number[];
 }
 
-async function getStats(): Promise<Stats | null> {
+interface Allowed { invoices: boolean; payments: boolean; employees: boolean }
+
+async function getStats(allowed: Allowed, tenantId: string): Promise<Stats | null> {
   try {
-    const auth = await getServerAuth();
-    if (!auth) return null;
 
     await connectDB();
 
     // ObjectId, pas la chaîne du jeton : un pipeline aggregate ne caste
     // pas, et un tenantId en chaîne n'y matche aucun document.
-    const tf = { tenantId: new Types.ObjectId(auth.tenantId) };
+    const tf = { tenantId: new Types.ObjectId(tenantId) };
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -40,32 +40,34 @@ async function getStats(): Promise<Stats | null> {
            activeEmployees, paymentsByMonth, invoicesByMonth] = await Promise.all([
       // CA net des avoirs : un avoir vit dans la même collection avec des
       // montants positifs, il faut donc lui donner son signe.
-      InvoiceModel.aggregate([
+      // Chaque requête n'est lancée que si le rôle peut lire la donnée : on ne
+      // calcule pas ce qu'on n'affichera pas.
+      !allowed.invoices ? [] : InvoiceModel.aggregate([
         { $match: { ...tf, issueDate: { $gte: startOfYear }, status: { $ne: "cancelled" } } },
         { $addFields: { sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] } } },
         { $group: { _id: null, total: { $sum: { $multiply: ["$totalTTC", "$sign"] } } } },
       ]),
-      InvoiceModel.countDocuments({
+      !allowed.invoices ? 0 : InvoiceModel.countDocuments({
         ...tf, documentType: { $ne: "credit_note" },
         status: { $in: ["sent", "partial"] }, dueDate: { $lt: now },
       }),
-      PaymentModel.aggregate([
+      !allowed.payments ? [] : PaymentModel.aggregate([
         { $match: { ...tf, date: { $gte: startOfMonth } } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
       // Le mois précédent sert de base de comparaison : sans lui, la carte
       // afficherait une variation inventée plutôt qu'aucune variation.
-      PaymentModel.aggregate([
+      !allowed.payments ? [] : PaymentModel.aggregate([
         { $match: { ...tf, date: { $gte: startOfPrevMonth, $lt: startOfMonth } } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
-      EmployeeModel.countDocuments({ ...tf, isActive: true }),
-      PaymentModel.aggregate([
+      !allowed.employees ? 0 : EmployeeModel.countDocuments({ ...tf, isActive: true }),
+      !allowed.payments ? [] : PaymentModel.aggregate([
         { $match: { ...tf, date: { $gte: startOfTrend } } },
         { $group: { _id: { y: { $year: "$date" }, m: { $month: "$date" } }, total: { $sum: "$amount" } } },
         { $sort: { "_id.y": 1, "_id.m": 1 } },
       ]),
-      InvoiceModel.aggregate([
+      !allowed.invoices ? [] : InvoiceModel.aggregate([
         { $match: { ...tf, issueDate: { $gte: startOfYear }, status: { $ne: "cancelled" } } },
         { $addFields: { sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] } } },
         { $group: {
@@ -107,7 +109,15 @@ async function getStats(): Promise<Stats | null> {
 }
 
 export async function StatCards() {
-  const stats = await getStats();
+  const access = await getServerAccess();
+  if (!access) return null;
+  const allowed: Allowed = {
+    invoices: access.can("invoices"), payments: access.can("payments"), employees: access.can("employees"),
+  };
+  // Rôle sans aucune de ces données (gestionnaire The Spot, opérateur ISIC…) :
+  // pas de bloc du tout plutôt que des cartes vides ou, pire, des chiffres.
+  if (!allowed.invoices && !allowed.payments && !allowed.employees) return null;
+  const stats = await getStats(allowed, access.auth.tenantId);
 
   if (!stats) {
     return (
@@ -125,7 +135,7 @@ export async function StatCards() {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      <KpiCard
+      {allowed.invoices && <KpiCard
         label="Chiffre d'affaires — exercice"
         value={stats.caTotal}
         format="xof"
@@ -134,16 +144,16 @@ export async function StatCards() {
         trend={stats.invoiceTrend}
         href="/invoices"
         hint="Factures émises depuis le 1er janvier"
-      />
-      <KpiCard
+      />}
+      {allowed.invoices && <KpiCard
         label="Impayés en retard"
         value={stats.overdue}
         icon={<AlertTriangle size={17} />}
         tone={stats.overdue > 0 ? "neg" : "pos"}
         href="/invoices?overdue=true"
         hint={stats.overdue > 0 ? "Échéance dépassée" : "Aucun retard"}
-      />
-      <KpiCard
+      />}
+      {allowed.payments && <KpiCard
         label="Encaissé ce mois"
         value={stats.encaisseMonth}
         format="xof"
@@ -154,15 +164,15 @@ export async function StatCards() {
         trend={stats.paymentTrend}
         href="/payments"
         hint="Pas d'encaissement le mois dernier"
-      />
-      <KpiCard
+      />}
+      {allowed.employees && <KpiCard
         label="Collaborateurs actifs"
         value={stats.employees}
         icon={<Users size={17} />}
         tone="parties"
         href="/employees"
         hint="Contrats en cours"
-      />
+      />}
     </div>
   );
 }

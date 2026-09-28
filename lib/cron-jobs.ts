@@ -12,11 +12,16 @@ import { SubscriptionPurchaseModel } from "@/models/SubscriptionPurchase";
 import { SubscriptionSaleModel } from "@/models/SubscriptionSale";
 import { AdminDocumentModel } from "@/models/AdminDocument";
 import { LetterModel } from "@/models/Letter";
+import { courrierReminderPlan, courrierReminderEmail, DUE_SOON_DAYS, type ReminderCandidate } from "@/lib/courriers";
+import { sendEmail } from "@/lib/email";
 import { buildAlerts, type PurchaseLike, type SaleLike } from "@/lib/subscriptions";
 import { buildAlerts as buildDocumentAlerts } from "@/lib/admin-documents";
 import { resetYearlySequences } from "@/lib/numbering";
 import { planForTenant } from "@/lib/dunning-context";
 import { executeAction } from "@/lib/dunning-send";
+
+/** Rôles qui reçoivent les relances de courriers entrants. */
+const COURRIER_ROLES = ["pme_admin", "pme_manager", "pme_accountant", "asso_president", "asso_secretary", "admin_ordonnateur"];
 
 /**
  * Les tâches planifiées de Kanoo, en un seul endroit.
@@ -108,21 +113,53 @@ export const CRON_JOBS: CronJob[] = [
     },
   },
   {
-    id: "courriers-echus", label: "Courriers entrants à répondre",
+    id: "courriers-echus", label: "Courriers entrants à répondre (relance e-mail)",
     cadence: "daily", schedule: "45 7 * * *",
     run: async () => {
+      // Candidats larges côté base, règles fines (pré-relance J-2, espacement
+      // 3 jours) dans courrierReminderPlan — testée unitairement.
+      const horizon = new Date(Date.now() + DUE_SOON_DAYS * 86_400_000);
       const letters = await LetterModel.find({
         direction: "incoming", handled: { $ne: true }, archived: { $ne: true },
-        dueDate: { $lt: new Date() },
-      }).select("_id tenantId reference subject").lean<Array<{ _id: Id; tenantId: Id; reference?: string; subject: string }>>();
-      for (const l of letters) {
-        const admins = await getAdmins(l.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "asso_president", "asso_secretary", "admin_ordonnateur"]);
-        for (const admin of admins) {
-          await notify(l.tenantId, admin._id, "courrier_due", "Courrier à répondre",
-            `Courrier ${l.reference || ""} « ${l.subject} » : échéance de réponse dépassée.`, "documents", l._id);
-        }
+        dueDate: { $lte: horizon },
+      }).select("_id tenantId reference subject dueDate direction handled archived lastReminderAt")
+        .lean<Array<ReminderCandidate & { _id: Id; tenantId: Id }>>();
+      const plan = courrierReminderPlan(letters);
+      const due = [...plan.overdue, ...plan.dueSoon];
+      if (due.length === 0) return "0 courrier à relancer";
+
+      const byTenant = new Map<string, typeof due>();
+      for (const l of due) {
+        const k = String(l.tenantId);
+        byTenant.set(k, [...(byTenant.get(k) ?? []), l]);
       }
-      return `${letters.length} courrier(s) échu(s)`;
+      const baseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
+      let mails = 0;
+      for (const [, scoped] of byTenant) {
+        const tenantId = scoped[0].tenantId;
+        const recipients = await UserModel.find({
+          tenantId, isActive: true,
+          $or: [{ role: { $in: COURRIER_ROLES } }, { roles: { $in: COURRIER_ROLES } }],
+        }).select("_id email firstName").lean<Array<{ _id: Id; email?: string; firstName?: string }>>();
+        const scopedPlan = {
+          overdue: plan.overdue.filter(l => String(l.tenantId) === String(tenantId)),
+          dueSoon: plan.dueSoon.filter(l => String(l.tenantId) === String(tenantId)),
+        };
+        for (const u of recipients) {
+          for (const l of scoped) {
+            const late = scopedPlan.overdue.includes(l);
+            await notify(tenantId, u._id, "courrier_due", late ? "Courrier en retard de réponse" : "Courrier à répondre bientôt",
+              `Courrier ${l.reference || ""} « ${l.subject} » — échéance ${new Date(l.dueDate!).toLocaleDateString("fr-FR")}.`, "documents", l._id as Id);
+          }
+          if (u.email) {
+            const mail = courrierReminderEmail(u.firstName, scopedPlan, baseUrl);
+            const r = await sendEmail({ to: u.email, ...mail });
+            if (r.sent) mails++;
+          }
+        }
+        await LetterModel.updateMany({ _id: { $in: scoped.map(l => l._id) } }, { $set: { lastReminderAt: new Date() } });
+      }
+      return `${due.length} courrier(s) relancé(s), ${mails} e-mail(s) envoyé(s)`;
     },
   },
   {

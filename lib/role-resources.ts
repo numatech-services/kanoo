@@ -443,6 +443,21 @@ for (const role of ["pme_admin", "pme_manager", "pme_accountant", "asso_presiden
 }
 
 /**
+ * Ordonnateur = administrateur de l'espace Administration (il figure dans
+ * TENANT_ADMIN_ROLES, la garde anti-verrouillage et l'API de création de
+ * comptes ; sa fiche dit « gère les comptes et les rôles »). Ses permissions ne
+ * suivaient pas : `users` en lecture seule et aucun `companies`, si bien que
+ * dans une administration personne ne pouvait créer un compte, changer un rôle
+ * ni régler la fiche organisation et la charte des documents. On l'aligne sur
+ * le président d'association.
+ */
+{
+  const p = ROLE_PERMISSIONS.admin_ordonnateur;
+  p.users = ["create", "read", "update", "delete"];
+  p.companies = ["read", "update"];
+}
+
+/**
  * Services citoyens : le lien figure dans la navigation « administration »
  * (non filtrée par rôle). Sans accès, un rôle non-ordonnateur cliquait sur un
  * lien visible et recevait 403. On accorde au moins la lecture à tous les rôles

@@ -1,13 +1,15 @@
 // Server Component — lit directement la DB
 import { connectDB } from "@/lib/db";
-import { getServerAuth } from "@/lib/server-auth";
+import { getServerAccess } from "@/lib/server-auth";
 import { InvoiceModel } from "@/models/Invoice";
 import Link from "next/link";
 
 async function getRecentInvoices() {
   try {
-    const auth = await getServerAuth();
-    if (!auth) return [];
+    const access = await getServerAccess();
+    // Même droit que l'API « invoices » : sans lui, le bloc n'est pas affiché.
+    if (!access || !access.can("invoices")) return null;
+    const auth = access.auth;
     await connectDB();
     const items = await InvoiceModel.find({ tenantId: auth.tenantId })
       .populate("clientId", "name")
@@ -35,6 +37,7 @@ function StatusPill({ status }: { status: string }) {
 
 export async function RecentInvoices() {
   const invoices = await getRecentInvoices();
+  if (invoices === null) return null;
 
   return (
     <div className="bg-surface rounded-xl border border-line">

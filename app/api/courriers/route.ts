@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { LetterModel } from "@/models/Letter";
+import { parseAttachment } from "@/lib/attachment";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -20,7 +21,9 @@ export const GET = withAuth("documents", "read", async (req: NextRequest, auth: 
   if (direction === "incoming" || direction === "outgoing") filter.direction = direction;
   const [items, total] = await Promise.all([
     LetterModel.find(filter).sort({ createdAt: -1 }).skip(p.skip).limit(p.limit)
-      .select("reference kind subject recipient status direction archived dueDate handled aiAssisted createdAt").lean(),
+      // Nom de la pièce jointe seulement : le contenu (data-URI, jusqu'à 2,5 Mo)
+      // n'est chargé qu'à l'ouverture du courrier, pas dans la liste.
+      .select("reference kind subject recipient status direction archived dueDate handled aiAssisted createdAt attachment.name").lean(),
     LetterModel.countDocuments(filter),
   ]);
   return paginatedResponse(items, total, p);
@@ -36,21 +39,24 @@ export const POST = withAuth("documents", "create", async (req: NextRequest, aut
   // saisie à la main est respectée.
   let reference = String(body.reference || "").slice(0, 60).trim();
   if (!reference) {
+    // Numéro suivant = plus grand numéro CR de l'année + 1. Compter les courriers
+    // produisait un doublon dès qu'un courrier avait été supprimé.
     const year = new Date().getFullYear();
-    const start = new Date(year, 0, 1);
-    const seq = await LetterModel.countDocuments({ ...tenantFilter(auth), createdAt: { $gte: start } });
-    reference = `CR-${year}-${String(seq + 1).padStart(4, "0")}`;
+    const prefix = `CR-${year}-`;
+    const last = await LetterModel.findOne({ ...tenantFilter(auth), reference: { $regex: `^${prefix}\\d+$` } })
+      .sort({ reference: -1 }).select("reference").lean<{ reference?: string } | null>();
+    const seq = last?.reference ? parseInt(last.reference.slice(prefix.length), 10) || 0 : 0;
+    reference = `${prefix}${String(seq + 1).padStart(4, "0")}`;
   }
 
-  const att = body.attachment && typeof body.attachment.dataUri === "string"
-    ? { name: String(body.attachment.name || "").slice(0, 200), dataUri: body.attachment.dataUri }
-    : undefined;
+  const att = parseAttachment(body.attachment);
+  if (!att.ok) return badRequest(att.error);
 
   const letter = await LetterModel.create({
     tenantId: auth.tenantId,
     reference,
     direction: body.direction === "incoming" ? "incoming" : "outgoing",
-    attachment: att,
+    attachment: att.value ?? undefined,
     dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
     kind: KINDS.includes(body.kind) ? body.kind : "courrier",
     subject: String(body.subject).slice(0, 200),

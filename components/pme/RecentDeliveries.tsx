@@ -1,13 +1,15 @@
 // Server Component — bons de livraison récents
 import { connectDB } from "@/lib/db";
-import { getServerAuth } from "@/lib/server-auth";
+import { getServerAccess } from "@/lib/server-auth";
 import { DeliveryNoteModel } from "@/models/DeliveryNote";
 import Link from "next/link";
 
 async function getRecentDeliveries() {
   try {
-    const auth = await getServerAuth();
-    if (!auth) return [];
+    const access = await getServerAccess();
+    // Même droit que l'API « livraisons » : sans lui, le bloc n'est pas affiché.
+    if (!access || !access.can("livraisons")) return null;
+    const auth = access.auth;
     await connectDB();
     const items = await DeliveryNoteModel.find({ tenantId: auth.tenantId })
       .populate("clientId", "name")
@@ -34,6 +36,7 @@ function StatusPill({ status }: { status: string }) {
 
 export async function RecentDeliveries() {
   const deliveries = await getRecentDeliveries();
+  if (deliveries === null) return null;
 
   return (
     <div className="bg-surface rounded-xl border border-line">

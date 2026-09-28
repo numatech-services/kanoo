@@ -624,13 +624,17 @@ describe("Comptes — ce qui manquait", () => {
   });
 
   it("déclare dans le modèle tous les rôles proposés à la création", () => {
-    // `chef_projet_transversal` était offert au choix et absent de l'enum
-    // Mongoose : la création échouait en validation.
-    const model = readFileSync(join(ROOT, "models/User.ts"), "utf-8");
-    const rolesUi = readFileSync(join(ROOT, "lib/roles-ui.ts"), "utf-8");
-    for (const role of ["chef_projet_transversal", "tech_admin"]) {
-      expect(model).toContain(`"${role}"`);
-      expect(rolesUi).toContain(role);
+    // `chef_projet_transversal` (puis les rôles ISIC) étaient offerts au choix et
+    // absents de l'enum Mongoose : la création échouait en validation. L'enum
+    // dérive désormais de USER_ROLES ; on vérifie l'enum EFFECTIF du schéma.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { UserModel } = require("@/models/User");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { ASSIGNABLE_BY_TENANT } = require("@/lib/roles-ui");
+    const modelEnum: string[] = UserModel.schema.path("role").options.enum;
+    const offered = Object.values(ASSIGNABLE_BY_TENANT as Record<string, string[]>).flat();
+    for (const role of [...offered, "chef_projet_transversal", "tech_admin", "pme_isic_operator", "pme_activity_manager"]) {
+      expect(modelEnum).toContain(role);
     }
   });
 

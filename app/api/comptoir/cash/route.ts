@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, notFound, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { isId, ownDesk } from "@/lib/comptoir";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -14,7 +15,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   await connectDB();
   const url = new URL(req.url);
   const deskId = url.searchParams.get("deskId");
-  if (!deskId) return badRequest("deskId requis");
+  if (!isId(deskId)) return badRequest("Comptoir invalide");
   const entries = await ActivityCashEntryModel.find({ ...tenantFilter(auth), deskId })
     .sort({ date: -1, createdAt: -1 }).limit(300).lean();
   return ok(entries);
@@ -26,6 +27,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   const err = requireFields(body, ["deskId", "direction", "amount", "label"]);
   if (err) return badRequest(err);
   if (!["in", "out"].includes(body.direction)) return badRequest("Sens invalide");
+  if (!(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
   const amount = Number(body.amount);
   if (!(amount > 0)) return badRequest("Montant invalide");
   const entry = await ActivityCashEntryModel.create({

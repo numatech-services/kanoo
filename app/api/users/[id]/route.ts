@@ -3,6 +3,7 @@ import { withAuth, ok, notFound, forbidden, conflict, tenantFilter, badRequest }
 import { UserModel } from "@/models/User";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { assignableRoles } from "@/lib/roles-ui";
 
 export const GET = withAuth("users", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   const filter = auth.role === "superadmin" ? { _id: params.id } : { _id: params.id, ...tenantFilter(auth) };
@@ -49,6 +50,14 @@ export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: 
       || (Array.isArray(update.roles) && update.roles.includes("superadmin"));
     if (targetsSuperadmin && auth.role !== "superadmin") {
       return forbidden("Attribution du rôle superadmin non autorisée");
+    }
+
+    // Même liste blanche qu'à la création : on ne peut attribuer que les rôles
+    // de son type d'organisation (pas de rôle « administration » dans une PME).
+    if (Array.isArray(update.roles)) {
+      const allowed = assignableRoles(auth);
+      const refused = (update.roles as string[]).find(r => !allowed.includes(r));
+      if (refused) return badRequest(`Rôle non autorisé pour ce type d'organisation : ${refused}`);
     }
   }
 

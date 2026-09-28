@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-interface Notif { _id:string; type:string; title:string; message:string; read:boolean; createdAt:string; linkedTo?:string; }
+import Link from "next/link";
+import { notificationHref } from "@/lib/notification-link";
+interface Notif { _id:string; type:string; title:string; message:string; read:boolean; createdAt:string; linkedTo?:string; linkedId?:string|null; }
 export default function NotificationsPage() {
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +29,11 @@ export default function NotificationsPage() {
               <p className="text-xs text-ink2 mt-0.5">{n.message}</p>
               <p className="text-xs text-ink2/60 mt-1">{new Date(n.createdAt).toLocaleString("fr-FR")}</p>
             </div>
+            {notificationHref(n) && (
+              <Link href={notificationHref(n)!} className="shrink-0 self-center px-3 h-8 inline-flex items-center rounded-lg border border-line2 text-xs font-semibold text-section hover:bg-surface2">
+                Ouvrir
+              </Link>
+            )}
           </div>
         ))
       }

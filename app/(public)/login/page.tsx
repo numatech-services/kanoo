@@ -36,8 +36,16 @@ export default function LoginPage() {
     }
   }, []);
 
+  // Page d'arrivée : les rôles « étroits » atterrissent directement sur leur
+  // module, plutôt que sur un tableau de bord dont ils ne peuvent rien lire.
+  const LANDING: Record<string, string> = {
+    superadmin: "/saas/dashboard",
+    pme_activity_manager: "/comptoir",
+    pme_isic_operator: "/isic",
+    pme_isic_finance: "/isic",
+  };
   function redirect(role: string) {
-    window.location.href = role === "superadmin" ? "/saas/dashboard" : "/dashboard";
+    window.location.href = LANDING[role] ?? "/dashboard";
   }
 
   async function verify2fa(e: React.FormEvent) {

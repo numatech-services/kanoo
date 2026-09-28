@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { isId, ownDesk } from "@/lib/comptoir";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
@@ -15,10 +16,10 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   await connectDB();
   const url = new URL(req.url);
   const deskId = url.searchParams.get("deskId");
-  if (!deskId) return badRequest("deskId requis");
+  if (!isId(deskId)) return badRequest("Comptoir invalide");
   const filter: Record<string, unknown> = { ...tenantFilter(auth), deskId };
   const itemId = url.searchParams.get("itemId");
-  if (itemId) filter.itemId = itemId;
+  if (isId(itemId)) filter.itemId = itemId;
   const moves = await ActivityStockMoveModel.find(filter)
     .populate("itemId", "name unit")
     .sort({ date: -1, createdAt: -1 }).limit(200).lean();
@@ -32,10 +33,16 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   const body = await req.json().catch(() => ({}));
   const err = requireFields(body, ["deskId", "itemId", "type", "quantity"]);
   if (err) return badRequest(err);
+  if (!isId(body.itemId)) return badRequest("Article invalide");
+  if (!(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
   const type = body.type as "in" | "out" | "adjust";
   if (!["in", "out", "adjust"].includes(type)) return badRequest("Type de mouvement invalide");
   const qty = Math.abs(Number(body.quantity) || 0);
-  if (!(qty > 0)) return badRequest("Quantité invalide");
+  // Un ajustement d'inventaire peut ramener le stock à 0 (casse, perte totale) ;
+  // une entrée ou une sortie doit porter sur une quantité positive.
+  if (type === "adjust" ? !(qty >= 0) : !(qty > 0)) return badRequest("Quantité invalide");
+  const CASH_METHODS = ["cash", "bank_transfer", "orange_money", "card", "check", "other"];
+  const cashMethod = CASH_METHODS.includes(body.cashMethod) ? body.cashMethod : "cash";
 
   const result = await withTransaction(async (session) => {
     const item = await ActivityItemModel.findOne({ _id: body.itemId, ...tenantFilter(auth), deskId: body.deskId }).session(session ?? null);
@@ -71,7 +78,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       [cash] = await ActivityCashEntryModel.create([{
         tenantId: auth.tenantId, deskId: body.deskId, direction: "in",
         amount: Number(body.cashAmount), label: `Vente : ${item.name} × ${qty}`,
-        method: body.cashMethod || "cash", date: body.date ? new Date(body.date) : new Date(),
+        method: cashMethod, date: body.date ? new Date(body.date) : new Date(),
         linkedMoveId: move._id, createdBy: auth.userId,
       }], { session });
     }

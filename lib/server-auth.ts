@@ -5,6 +5,7 @@
 import { cookies } from "next/headers";
 import { verifyToken } from "./auth";
 import type { TokenPayload } from "./auth";
+import { effectiveRoles, rolesCanPerform } from "./role-resources";
 
 export async function getServerAuth(): Promise<TokenPayload | null> {
   const cookieStore = await cookies();
@@ -18,6 +19,28 @@ export async function getServerAuth(): Promise<TokenPayload | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Droits du visiteur pour un Server Component.
+ *
+ * Les blocs du tableau de bord lisaient la base avec le seul `tenantId` : un
+ * rôle restreint (gestionnaire The Spot, opérateur ISIC, responsable technique)
+ * y voyait le chiffre d'affaires, les impayés et les dernières factures alors
+ * que l'API correspondante lui répondait 403. Chaque bloc vérifie désormais la
+ * même permission que l'API qu'il résume.
+ */
+export async function getServerAccess(): Promise<{
+  auth: TokenPayload;
+  can: (resource: string, action?: "read" | "create" | "update" | "delete") => boolean;
+} | null> {
+  const auth = await getServerAuth();
+  if (!auth) return null;
+  const roles = effectiveRoles(auth.role, auth.roles);
+  return {
+    auth,
+    can: (resource, action = "read") => rolesCanPerform(roles, resource, action, auth.allowedResources),
+  };
 }
 
 export async function getServerTenantType(): Promise<"pme" | "association" | "administration" | "superadmin"> {

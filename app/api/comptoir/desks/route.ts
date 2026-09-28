@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, conflict, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
+import { ActivityModel } from "@/models/Activity";
+import { isId } from "@/lib/comptoir";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -23,11 +25,24 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   const body = await req.json().catch(() => ({}));
   const err = requireFields(body, ["name"]);
   if (err) return badRequest(err);
+  const name = String(body.name).slice(0, 120).trim();
+  if (!name) return badRequest("Le nom est requis.");
+  if (await ActivityDeskModel.exists({ ...tenantFilter(auth), name })) {
+    return conflict("Un comptoir porte déjà ce nom.");
+  }
+  // Secteur analytique : accepté seulement s'il appartient à l'organisation.
+  let activityId: string | undefined;
+  if (body.activityId) {
+    if (!isId(body.activityId) || !(await ActivityModel.exists({ _id: body.activityId, ...tenantFilter(auth) }))) {
+      return badRequest("Secteur analytique introuvable.");
+    }
+    activityId = body.activityId;
+  }
   const desk = await ActivityDeskModel.create({
     tenantId: auth.tenantId,
-    name: String(body.name).slice(0, 120).trim(),
+    name,
     description: String(body.description || "").slice(0, 400),
-    activityId: body.activityId || undefined,
+    activityId,
     createdBy: auth.userId,
   });
   await logAudit(auth, "CREATE", "comptoir", { resourceId: desk._id.toString(), metadata: { name: desk.name } });

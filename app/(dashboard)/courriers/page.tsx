@@ -73,6 +73,16 @@ export default function CourriersPage() {
     load();
   }
 
+  // La liste ne porte que le nom de la pièce jointe : on charge le courrier
+  // complet au moment du téléchargement.
+  async function downloadAttachment(id: string) {
+    const d = await fetch(`/api/courriers/${id}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const att = d?.data?.attachment;
+    if (!att?.dataUri) { alert("Pièce jointe introuvable."); return; }
+    const a = document.createElement("a");
+    a.href = att.dataUri; a.download = att.name || "piece-jointe"; a.click();
+  }
+
   async function toggleHandled(l: Letter) {
     await fetch(`/api/courriers/${l._id}`, {
       method: "PATCH", credentials: "include",
@@ -135,7 +145,7 @@ export default function CourriersPage() {
                     <button onClick={() => fetch(`/api/courriers/${l._id}`, { credentials: "include" }).then(r => r.json()).then(d => setEditing(d.data))}
                       className="text-ink font-medium hover:text-section text-left inline-flex items-center gap-1.5">
                       {l.subject}
-                      {l.attachment?.dataUri && <Paperclip size={12} className="text-ink3" />}
+                      {l.attachment?.name && <Paperclip size={12} className="text-ink3" />}
                     </button>
                     {l.aiAssisted && <span className="ml-2 text-[10px] text-section">IA</span>}
                   </td>
@@ -153,11 +163,11 @@ export default function CourriersPage() {
                   <td className="text-ink2 whitespace-nowrap">{new Date(l.createdAt).toLocaleDateString("fr-FR")}</td>
                   <td>
                     <span className="flex items-center gap-1 justify-end">
-                      {l.attachment?.dataUri && (
-                        <a href={l.attachment.dataUri} download={l.attachment.name || "piece-jointe"}
-                          className="p-1.5 rounded text-ink3 hover:text-section hover:bg-surface2" title="Pièce jointe">
+                      {l.attachment?.name && (
+                        <button onClick={() => downloadAttachment(l._id)}
+                          className="p-1.5 rounded text-ink3 hover:text-section hover:bg-surface2" title={`Pièce jointe : ${l.attachment.name}`}>
                           <Paperclip size={15} />
-                        </a>
+                        </button>
                       )}
                       <a href={`/api/courriers/${l._id}/pdf`} target="_blank" rel="noopener"
                         className="p-1.5 rounded text-ink3 hover:text-section hover:bg-surface2" title="PDF">
@@ -267,7 +277,8 @@ function ComposeDialog({
         method: id ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
         credentials: "include",
-        body: JSON.stringify({ ...form, dueDate: form.dueDate || undefined, aiAssisted: aiUsed, attachment: attachment || undefined }),
+        // `attachment: null` explicite : retirer la pièce jointe doit être enregistré.
+        body: JSON.stringify({ ...form, dueDate: form.dueDate || null, aiAssisted: aiUsed, attachment: attachment ?? null }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Enregistrement refusé");
       onSaved();

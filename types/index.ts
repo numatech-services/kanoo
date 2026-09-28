@@ -110,26 +110,34 @@ export interface PaymentAttempt {
 
 // ─── User / Roles ─────────────────────────────────────────────────────────────
 
-export type UserRole =
+/**
+ * Liste UNIQUE des rôles. Le type `UserRole`, l'enum Mongoose du modèle User et
+ * les contrôles d'API en dérivent : ajouter un rôle ici suffit, et il ne peut
+ * plus être « proposé à l'écran mais refusé en base » (cas des rôles ISIC).
+ */
+export const USER_ROLES = [
   // PME
-  | "pme_admin" | "pme_manager" | "pme_accountant" | "pme_sales"
-  | "pme_purchases" | "pme_hr" | "pme_project_manager"
-  | "pme_approver" | "pme_viewer"
-  | "pme_isic_operator"   // Cartes ISIC : production/impression/livraison, sans finances
-  | "pme_isic_finance"    // Cartes ISIC : volet financier (coûts, revente, encaissements)
-  | "pme_activity_manager" // Comptoir d'activité (The Spot) : stock matière + caisse, sans le reste de la compta
+  "pme_admin", "pme_manager", "pme_accountant", "pme_sales",
+  "pme_purchases", "pme_hr", "pme_project_manager",
+  "pme_approver", "pme_viewer",
+  "pme_isic_operator",    // Cartes ISIC : production/impression/livraison, sans finances
+  "pme_isic_finance",     // Cartes ISIC : volet financier (coûts, revente, encaissements)
+  "pme_activity_manager", // Comptoir d'activité (The Spot) : stock matière + caisse, sans le reste de la compta
   // Associations
-  | "asso_president" | "asso_treasurer" | "asso_secretary"
-  | "asso_project_manager" | "asso_member_portal"
+  "asso_president", "asso_treasurer", "asso_secretary",
+  "asso_project_manager", "asso_member_portal",
   // Administration
-  | "admin_ordonnateur" | "admin_daf" | "admin_public_accountant"
-  | "admin_procurement_officer" | "admin_procurement_commission"
-  | "admin_viewer"
+  "admin_ordonnateur", "admin_daf", "admin_public_accountant",
+  "admin_procurement_officer", "admin_procurement_commission",
+  "admin_viewer",
   // Transversal
-  | "chef_projet_transversal"   // Accès projets tous profils, sans facturation
-  | "tech_admin"                // Intégration, journaux, support — aucune donnée financière
+  "chef_projet_transversal", // Accès projets tous profils, sans facturation
+  "tech_admin",              // Intégration, journaux, support — aucune donnée financière
   // Platform
-  | "superadmin";
+  "superadmin",
+] as const;
+
+export type UserRole = typeof USER_ROLES[number];
 
 export interface IUser {
   _id: Types.ObjectId;

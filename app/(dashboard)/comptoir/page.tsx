@@ -1,16 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Store, Plus, Wallet, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText } from "lucide-react";
+import { Store, Plus, Wallet, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText, Settings2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
 
-interface Desk { _id: string; name: string; description?: string }
+interface Desk { _id: string; name: string; description?: string; activityId?: string }
 interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number }
 interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string }
 interface Move { _id: string; type: "in" | "out" | "adjust"; quantity: number; quantityAfter: number; reason?: string; date: string; itemId?: { name?: string; unit?: string } }
 interface Summary { itemCount: number; stockValue: number; lowStock: { name: string; unit: string; quantity: number; threshold?: number }[]; cashIn: number; cashOut: number; cashBalance: number }
+
+// Jour civil LOCAL (AAAA-MM-JJ) : toISOString() donnerait le jour UTC, et une
+// vente passée juste après minuit tomberait sur la veille.
+function localDay(d: Date | string = new Date()): string {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+}
 
 const MONEY = (n: number) => `${Number(n || 0).toLocaleString("fr-FR")} XOF`;
 const METHOD_LABEL: Record<string, string> = {
@@ -47,6 +54,7 @@ export default function ComptoirPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"caisse" | "stock">("caisse");
   const [newDeskOpen, setNewDeskOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const loadDesks = useCallback(() => {
     fetch("/api/comptoir/desks", { credentials: "include" })
@@ -54,7 +62,8 @@ export default function ComptoirPage() {
       .then(d => {
         const list: Desk[] = d.data || [];
         setDesks(list);
-        setDeskId(prev => prev || list[0]?._id || "");
+        // Garde le comptoir courant s'il existe encore (il a pu être archivé).
+        setDeskId(prev => (prev && list.some(d => d._id === prev)) ? prev : (list[0]?._id || ""));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -88,12 +97,21 @@ export default function ComptoirPage() {
                 {desks.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
               </select>
             </FormField>
+            <button onClick={() => setSettingsOpen(true)} title="Paramètres du comptoir"
+              className="self-end px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+              <Settings2 size={15} /> Paramètres
+            </button>
           </div>
 
           {deskId && <DeskView key={deskId} deskId={deskId} tab={tab} setTab={setTab} />}
         </>
       )}
 
+      {settingsOpen && desks.find(d => d._id === deskId) && (
+        <DeskSettingsDialog desk={desks.find(d => d._id === deskId)!}
+          onClose={() => setSettingsOpen(false)}
+          onSaved={() => { setSettingsOpen(false); loadDesks(); }} />
+      )}
       {newDeskOpen && <NewDeskDialog onClose={() => setNewDeskOpen(false)} onSaved={(id) => { setNewDeskOpen(false); setDeskId(id); loadDesks(); }} />}
     </div>
   );
@@ -103,18 +121,10 @@ function NewDeskDialog({ onClose, onSaved }: { onClose: () => void; onSaved: (id
   const [name, setName] = useState("The Spot");
   const [description, setDescription] = useState("");
   const [activityId, setActivityId] = useState("");
-  const [sectors, setSectors] = useState<{ _id: string; name: string }[]>([]);
+  // Secteurs analytiques — proposés seulement si l'utilisateur y a accès.
+  const sectors = useSectors();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Secteurs analytiques — proposés seulement si l'utilisateur y a accès (sinon
-  // l'appel répond 403 et on masque simplement le sélecteur).
-  useEffect(() => {
-    fetch("/api/analytics/activities", { credentials: "include" })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => d?.data && setSectors(d.data))
-      .catch(() => {});
-  }, []);
 
   async function save() {
     if (!name.trim()) { setError("Le nom est requis."); return; }
@@ -154,8 +164,76 @@ function NewDeskDialog({ onClose, onSaved }: { onClose: () => void; onSaved: (id
   );
 }
 
+// Secteurs analytiques visibles par l'utilisateur (vide s'il n'y a pas accès).
+function useSectors() {
+  const [sectors, setSectors] = useState<{ _id: string; name: string }[]>([]);
+  useEffect(() => {
+    fetch("/api/analytics/activities", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d?.data && setSectors(d.data))
+      .catch(() => {});
+  }, []);
+  return sectors;
+}
+
+function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: () => void; onSaved: () => void }) {
+  const sectors = useSectors();
+  const [name, setName] = useState(desk.name);
+  const [description, setDescription] = useState(desk.description || "");
+  const [activityId, setActivityId] = useState(desk.activityId ? String(desk.activityId) : "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(extra: Record<string, unknown> = {}) {
+    if (!name.trim()) { setError("Le nom est requis."); return; }
+    setSaving(true); setError(null);
+    try {
+      // Le secteur n'est envoyé que si l'utilisateur voit la liste des secteurs :
+      // sinon on laisserait croire qu'il a été détaché.
+      const payload: Record<string, unknown> = { name, description, ...extra };
+      if (sectors.length > 0) payload.activityId = activityId || null;
+      await post(`/api/comptoir/desks/${desk._id}`, payload, "PATCH");
+      onSaved();
+    } catch (e) { setError(e instanceof Error ? e.message : "Enregistrement impossible"); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Paramètres du comptoir" size="md">
+      <div className="space-y-4">
+        {error && <p className="px-3 py-2 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg">{error}</p>}
+        <FormField label="Nom" required>
+          <input className={inputCls} value={name} onChange={e => setName(e.target.value)} />
+        </FormField>
+        <FormField label="Description" hint="Facultative">
+          <input className={inputCls} value={description} onChange={e => setDescription(e.target.value)} />
+        </FormField>
+        {sectors.length > 0 && (
+          <FormField label="Secteur analytique lié" hint="Sa caisse remonte dans « Rentabilité par secteur ».">
+            <select className={selectCls} value={activityId} onChange={e => setActivityId(e.target.value)}>
+              <option value="">— Aucun (frais généraux) —</option>
+              {sectors.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+            </select>
+          </FormField>
+        )}
+        <div className="flex justify-between items-center gap-3 pt-2">
+          <button onClick={() => { if (confirm("Archiver ce comptoir ? Ses données restent conservées.")) save({ archived: true }); }}
+            disabled={saving} className="text-sm text-neg hover:underline disabled:opacity-50">Archiver le comptoir</button>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
+            <button onClick={() => save()} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function DeskView({ deskId, tab, setTab }: { deskId: string; tab: "caisse" | "stock"; setTab: (t: "caisse" | "stock") => void }) {
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
   const reloadSummary = useCallback(() => {
     fetch(`/api/comptoir/summary?deskId=${deskId}`, { credentials: "include" })
       .then(r => r.json()).then(d => setSummary(d.data)).catch(() => {});
@@ -184,15 +262,50 @@ function DeskView({ deskId, tab, setTab }: { deskId: string; tab: "caisse" | "st
         </div>
       )}
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button className={tabCls(tab === "caisse")} onClick={() => setTab("caisse")}><Wallet size={16} /> Caisse</button>
         <button className={tabCls(tab === "stock")} onClick={() => setTab("stock")}><Package size={16} /> Stock matière</button>
+        <button onClick={() => setReportOpen(true)}
+          className="ml-auto px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+          <FileText size={15} /> Rapport PDF
+        </button>
       </div>
+      {reportOpen && <ReportDialog deskId={deskId} onClose={() => setReportOpen(false)} />}
 
       {tab === "caisse"
         ? <CaisseTab deskId={deskId} onChange={reloadSummary} />
         : <StockTab deskId={deskId} onChange={reloadSummary} />}
     </div>
+  );
+}
+
+// Rapport PDF (caisse de la période + état du stock), pour le comptable.
+function ReportDialog({ deskId, onClose }: { deskId: string; onClose: () => void }) {
+  const now = new Date();
+  const [from, setFrom] = useState(localDay(new Date(now.getFullYear(), now.getMonth(), 1)));
+  const [to, setTo] = useState(localDay(now));
+  const invalid = !from || !to || from > to;
+  function open() {
+    const q = new URLSearchParams({ deskId, from, to });
+    window.open(`/api/comptoir/report?${q.toString()}`, "_blank", "noopener");
+  }
+  return (
+    <Modal open onClose={onClose} title="Rapport PDF du comptoir" size="md">
+      <div className="space-y-4">
+        <p className="text-sm text-ink2">Journal de caisse de la période, état du stock et cases de visa — à la charte de votre organisation.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Du"><input className={inputCls} type="date" value={from} onChange={e => setFrom(e.target.value)} /></FormField>
+          <FormField label="Au"><input className={inputCls} type="date" value={to} onChange={e => setTo(e.target.value)} /></FormField>
+        </div>
+        {invalid && <p className="text-xs text-neg">La date de début doit précéder la date de fin.</p>}
+        <div className="flex justify-end gap-3 pt-2">
+          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Fermer</button>
+          <button onClick={open} disabled={invalid} className="px-5 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+            <FileText size={15} /> Ouvrir le PDF
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -229,7 +342,7 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
       new Date(e.date).toLocaleDateString("fr-FR"), e.label, METHOD_LABEL[e.method] || e.method,
       e.direction === "in" ? "Recette" : "Dépense", e.direction === "in" ? e.amount : -e.amount,
     ]);
-    downloadCsv(`caisse-comptoir-${new Date().toISOString().split("T")[0]}.csv`, rows);
+    downloadCsv(`caisse-comptoir-${localDay()}.csv`, rows);
   }
 
   return (
@@ -285,11 +398,10 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
 // Arrêté de caisse : totaux du jour, solde théorique et rapprochement des
 // espèces comptées, imprimable pour confier/contrôler la gestion du comptoir.
 function ArreteDialog({ entries, onClose }: { entries: CashEntry[]; onClose: () => void }) {
-  const today = new Date().toISOString().split("T")[0];
-  const [day, setDay] = useState(today);
+  const [day, setDay] = useState(localDay());
   const [counted, setCounted] = useState("");
 
-  const dayEntries = entries.filter(e => String(e.date).split("T")[0] === day);
+  const dayEntries = entries.filter(e => localDay(e.date) === day);
   const sum = (pred: (e: CashEntry) => boolean) => dayEntries.filter(pred).reduce((s, e) => s + e.amount, 0);
   const recettes = sum(e => e.direction === "in");
   const depenses = sum(e => e.direction === "out");
@@ -361,7 +473,7 @@ function ArreteDialog({ entries, onClose }: { entries: CashEntry[]; onClose: () 
 }
 
 function CashDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ direction: "in" as "in" | "out", amount: "", label: "", method: "cash", date: new Date().toISOString().split("T")[0] });
+  const [form, setForm] = useState({ direction: "in" as "in" | "out", amount: "", label: "", method: "cash", date: localDay() });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function save() {
@@ -437,7 +549,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
   function exportCsv() {
     const rows: (string | number)[][] = [["Article", "Unité", "Stock", "Coût unitaire", "Valeur", "Seuil"]];
     for (const it of items) rows.push([it.name, it.unit, it.quantity, it.unitCost, it.quantity * it.unitCost, it.threshold ?? ""]);
-    downloadCsv(`stock-comptoir-${new Date().toISOString().split("T")[0]}.csv`, rows);
+    downloadCsv(`stock-comptoir-${localDay()}.csv`, rows);
   }
 
   return (
@@ -573,7 +685,8 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
   }, [type, quantity, item.salePrice]);
 
   async function save() {
-    if (!(Number(quantity) > 0)) { setError("Quantité invalide."); return; }
+    const n = Number(quantity);
+    if (quantity === "" || (type === "adjust" ? !(n >= 0) : !(n > 0))) { setError("Quantité invalide."); return; }
     setSaving(true); setError(null);
     try {
       await post("/api/comptoir/stock", {

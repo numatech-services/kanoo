@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, CornerDownLeft } from "lucide-react";
 import { SECTIONS, sectionForPath, type SectionKey } from "@/lib/sections";
+import { useMe, meCan } from "@/lib/useMe";
+import { resourceForHref } from "@/lib/nav-resources";
 
 interface Command {
   label: string;
@@ -67,6 +69,10 @@ const COMMANDS: Command[] = [
   { label: "Retenues à la source", href: "/fiscalite/retenues", section: "finance" },
   { label: "Immobilisations", href: "/fixed-assets", section: "finance", keywords: "amortissement" },
   { label: "Analytique", href: "/analytics", section: "finance", keywords: "rapport graphique" },
+  { label: "Rentabilité par secteur", href: "/analytique", section: "finance", keywords: "analytique secteur activité marge résultat" },
+  { label: "Comptoir (The Spot)", href: "/comptoir", section: "finance", keywords: "the spot caisse stock matière arrêté bar vente" },
+  { label: "Cartes ISIC", href: "/isic", section: "ventes", keywords: "carte étudiant lot impression" },
+  { label: "Appels à candidatures", href: "/appels", section: "contrats", keywords: "appel d'offres candidature soumission" },
 
   { label: "Collaborateurs", href: "/employees", section: "rh", keywords: "employé salarié personnel" },
   { label: "Bulletins de paie", href: "/payslips", section: "rh", keywords: "salaire CNSS IR" },
@@ -102,10 +108,18 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
+  // Même règle que la barre latérale : on ne propose pas un écran que le rôle
+  // ne peut pas ouvrir. Tant que les droits ne sont pas chargés, on montre tout.
+  const { resources, loading } = useMe();
+  const visible = useMemo(() => COMMANDS.filter(cmd => {
+    const res = resourceForHref(cmd.href);
+    return !res || loading || resources.length === 0 || meCan(resources, res);
+  }), [resources, loading]);
+
   const results = useMemo(() => {
     const q = normalize(query.trim());
-    if (!q) return COMMANDS.slice(0, 8);
-    return COMMANDS
+    if (!q) return visible.slice(0, 8);
+    return visible
       .map(cmd => {
         const label = normalize(cmd.label);
         const keywords = normalize(cmd.keywords || "");
@@ -120,7 +134,7 @@ export function CommandPalette() {
       .sort((a, b) => a.score - b.score)
       .slice(0, 10)
       .map(x => x.cmd);
-  }, [query]);
+  }, [query, visible]);
 
   const close = useCallback(() => {
     setOpen(false);

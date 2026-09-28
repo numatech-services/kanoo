@@ -5,6 +5,7 @@ import { withAuth, ok, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { TokenPayload } from "@/lib/auth";
+import { isId } from "@/lib/comptoir";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   await connectDB();
   const url = new URL(req.url);
   const deskId = url.searchParams.get("deskId");
-  if (!deskId) return badRequest("deskId requis");
+  if (!isId(deskId)) return badRequest("Comptoir invalide");
 
   const items = await ActivityItemModel.find({ ...tenantFilter(auth), deskId, archived: { $ne: true } })
     .select("name unit quantity unitCost threshold").lean<{ name: string; unit: string; quantity: number; unitCost: number; threshold?: number }[]>();

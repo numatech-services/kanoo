@@ -63,6 +63,7 @@ const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
   ["/payments", "ventes"],
   ["/relances", "ventes"],
   ["/crm", "ventes"],
+  ["/isic", "ventes"],
 
   // Achats & stock
   ["/suppliers", "achats"],
@@ -74,6 +75,7 @@ const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
 
   // Contrats & projets
   ["/contracts", "contrats"],
+  ["/appels", "contrats"],
   ["/projects", "contrats"],
   ["/documents-administratifs", "contrats"],
   ["/documents", "contrats"],
@@ -88,6 +90,8 @@ const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
   ["/fiscalite", "finance"],
   ["/fixed-assets", "finance"],
   ["/analytics", "finance"],
+  ["/analytique", "finance"],
+  ["/comptoir", "finance"],
 
   // RH
   ["/employees", "rh"],
