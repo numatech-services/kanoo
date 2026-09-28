@@ -24,22 +24,33 @@ export default function PaymentsPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const LIMIT = 20;
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({
         page: String(page),
         limit: String(LIMIT),
       });
       const res = await fetch(`/api/payments?${params}`, { credentials: "include" });
+      if (!res.ok) {
+        // On rend l'échec visible plutôt que d'afficher une page vide qui donne
+        // l'impression que « rien ne s'ouvre » : accès refusé, session expirée…
+        const d = await res.json().catch(() => ({}));
+        setError(res.status === 403
+          ? "Votre profil n'a pas accès aux paiements. Demandez le droit « Paiements » à un administrateur."
+          : (d.error || "Impossible de charger les paiements. Réessayez."));
+        setItems([]); setTotal(0);
+        return;
+      }
       const d = await res.json();
-      
       setItems(d.data?.items || []);
       setTotal(d.data?.pagination?.total || 0);
-    } catch (error) {
-      console.error("Erreur chargement paiements:", error);
+    } catch {
+      setError("Connexion impossible au serveur des paiements. Vérifiez votre réseau puis réessayez.");
     } finally {
       setLoading(false);
     }
@@ -141,8 +152,17 @@ export default function PaymentsPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-neg-50 border border-neg/25 rounded-xl text-sm text-neg">
+          <span>{error}</span>
+          <button onClick={load} className="shrink-0 px-3 h-8 rounded-lg border border-neg/40 text-neg text-xs font-semibold hover:bg-neg/10">
+            Réessayer
+          </button>
+        </div>
+      )}
+
       <div className="bg-surface rounded-2xl border border-line overflow-hidden shadow-sm">
-        <DataTable 
+        <DataTable
           columns={columns} 
           data={items} 
           loading={loading} 

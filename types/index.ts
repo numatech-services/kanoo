@@ -117,6 +117,7 @@ export type UserRole =
   | "pme_approver" | "pme_viewer"
   | "pme_isic_operator"   // Cartes ISIC : production/impression/livraison, sans finances
   | "pme_isic_finance"    // Cartes ISIC : volet financier (coûts, revente, encaissements)
+  | "pme_activity_manager" // Comptoir d'activité (The Spot) : stock matière + caisse, sans le reste de la compta
   // Associations
   | "asso_president" | "asso_treasurer" | "asso_secretary"
   | "asso_project_manager" | "asso_member_portal"

@@ -359,6 +359,10 @@ const ROLE_PERMISSIONS: Record<UserRole, ResourcePermissions> = {
   // sont ajoutées par les boucles ci-dessous.
   pme_isic_operator: { notifications: ["read"] },
   pme_isic_finance: { notifications: ["read"] },
+  // Gestionnaire de comptoir d'activité (The Spot) : accès étroit, borné au
+  // comptoir (stock matière + caisse). La ressource `comptoir` lui est ajoutée
+  // par la boucle ci-dessous.
+  pme_activity_manager: { notifications: ["read"] },
   // Associations
   asso_president: ASSO_PRESIDENT,
   asso_treasurer: ASSO_TREASURER,
@@ -461,6 +465,16 @@ const ISIC_OPS_ROLES: UserRole[] = ["pme_admin", "pme_manager", "pme_sales", "pm
 const ISIC_FINANCE_ROLES: UserRole[] = ["pme_admin", "pme_manager", "pme_accountant", "pme_isic_finance", "superadmin"];
 for (const r of ISIC_OPS_ROLES) { if (ROLE_PERMISSIONS[r]) ROLE_PERMISSIONS[r].isic = ISIC_ALL; }
 for (const r of ISIC_FINANCE_ROLES) { if (ROLE_PERMISSIONS[r]) ROLE_PERMISSIONS[r].isicFinance = ISIC_ALL; }
+
+/**
+ * Comptoir d'activité (The Spot) — comptabilité matière (stock) + caisse.
+ * Confié au gestionnaire dédié, ET supervisé par le comptable principal et la
+ * direction (« en plus du comptable principal »). Un gestionnaire de comptoir
+ * n'a pas accès au reste de la comptabilité : sa vue s'arrête au comptoir.
+ */
+const COMPTOIR_ALL: Action[] = ["create", "read", "update", "delete"];
+const COMPTOIR_ROLES: UserRole[] = ["pme_admin", "pme_manager", "pme_accountant", "pme_activity_manager", "superadmin"];
+for (const r of COMPTOIR_ROLES) { if (ROLE_PERMISSIONS[r]) ROLE_PERMISSIONS[r].comptoir = COMPTOIR_ALL; }
 
 /**
  * `allowedResources` **restreint**, il n'accorde jamais.

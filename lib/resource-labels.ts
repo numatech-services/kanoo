@@ -26,6 +26,7 @@ export const RESOURCE_LABELS: Record<string, string> = {
   // ISIC
   isic: "Cartes ISIC — production", isicFinance: "Cartes ISIC — finances",
   analytics: "Comptabilité analytique (rentabilité par secteur)",
+  comptoir: "Comptoir d'activité (stock matière + caisse)",
 };
 
 export const resourceLabel = (key: string): string => RESOURCE_LABELS[key] || key;

@@ -83,6 +83,12 @@ export const ROLE_UI: Partial<Record<UserRole, RoleDescription>> = {
     summary: "Cartes ISIC : coûts, revente, marge et encaissements.",
     group: "Finance",
   },
+  pme_activity_manager: {
+    label: "Gestionnaire d'activité (The Spot)",
+    summary: "Comptoir d'activité : stock matière (entrées/sorties) et caisse (recettes/dépenses).",
+    cannot: "N'accède pas au reste de la comptabilité, aux ventes ni à la paie.",
+    group: "Opérations",
+  },
 
   // ── Associations ───────────────────────────────────────────────────────
   asso_president: {
