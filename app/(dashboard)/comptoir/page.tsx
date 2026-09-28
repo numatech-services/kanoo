@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Store, Plus, Wallet, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download } from "lucide-react";
+import { Store, Plus, Wallet, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
@@ -210,6 +210,7 @@ function SummaryCard({ icon, label, value, tone }: { icon: React.ReactNode; labe
 function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void }) {
   const [entries, setEntries] = useState<CashEntry[]>([]);
   const [open, setOpen] = useState(false);
+  const [arreteOpen, setArreteOpen] = useState(false);
   const load = useCallback(() => {
     fetch(`/api/comptoir/cash?deskId=${deskId}`, { credentials: "include" })
       .then(r => r.json()).then(d => setEntries(d.data || [])).catch(() => {});
@@ -235,9 +236,14 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
     <div className="space-y-3">
       <div className="flex justify-end gap-2">
         {entries.length > 0 && (
-          <button onClick={exportCsv} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
-            <Download size={15} /> Export CSV
-          </button>
+          <>
+            <button onClick={() => setArreteOpen(true)} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+              <FileText size={15} /> Arrêté de caisse
+            </button>
+            <button onClick={exportCsv} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+              <Download size={15} /> Export CSV
+            </button>
+          </>
         )}
         <button onClick={() => setOpen(true)} className="px-4 h-9 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
           <Plus size={15} /> Écriture de caisse
@@ -271,7 +277,86 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
         </div>
       )}
       {open && <CashDialog deskId={deskId} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); load(); onChange(); }} />}
+      {arreteOpen && <ArreteDialog entries={entries} onClose={() => setArreteOpen(false)} />}
     </div>
+  );
+}
+
+// Arrêté de caisse : totaux du jour, solde théorique et rapprochement des
+// espèces comptées, imprimable pour confier/contrôler la gestion du comptoir.
+function ArreteDialog({ entries, onClose }: { entries: CashEntry[]; onClose: () => void }) {
+  const today = new Date().toISOString().split("T")[0];
+  const [day, setDay] = useState(today);
+  const [counted, setCounted] = useState("");
+
+  const dayEntries = entries.filter(e => String(e.date).split("T")[0] === day);
+  const sum = (pred: (e: CashEntry) => boolean) => dayEntries.filter(pred).reduce((s, e) => s + e.amount, 0);
+  const recettes = sum(e => e.direction === "in");
+  const depenses = sum(e => e.direction === "out");
+  const cashIn = sum(e => e.direction === "in" && e.method === "cash");
+  const cashOut = sum(e => e.direction === "out" && e.method === "cash");
+  const soldeEspeces = cashIn - cashOut;
+  const ecart = counted ? Number(counted) - soldeEspeces : null;
+
+  function print() {
+    const rows = dayEntries.map(e =>
+      `<tr><td>${e.label}</td><td>${METHOD_LABEL[e.method] || e.method}</td><td style="text-align:right">${e.direction === "in" ? "+" : "−"}${MONEY(e.amount)}</td></tr>`
+    ).join("");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Arrêté de caisse ${day}</title>
+      <style>body{font-family:system-ui,Arial,sans-serif;padding:32px;color:#111}h1{font-size:18px}
+      table{width:100%;border-collapse:collapse;margin-top:12px}td,th{padding:6px 8px;border-bottom:1px solid #ddd;font-size:13px}
+      .tot{margin-top:16px;font-size:14px}.tot div{display:flex;justify-content:space-between;padding:4px 0}</style></head>
+      <body><h1>Arrêté de caisse — ${new Date(day).toLocaleDateString("fr-FR")}</h1>
+      <table><thead><tr><th>Libellé</th><th>Moyen</th><th style="text-align:right">Montant</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="tot">
+        <div><span>Recettes du jour</span><strong>${MONEY(recettes)}</strong></div>
+        <div><span>Dépenses du jour</span><strong>${MONEY(depenses)}</strong></div>
+        <div><span>Solde du jour</span><strong>${MONEY(recettes - depenses)}</strong></div>
+        <div><span>Solde théorique espèces</span><strong>${MONEY(soldeEspeces)}</strong></div>
+        ${counted ? `<div><span>Espèces comptées</span><strong>${MONEY(Number(counted))}</strong></div>
+        <div><span>Écart</span><strong>${MONEY(ecart ?? 0)}</strong></div>` : ""}
+      </div>
+      <p style="margin-top:32px;font-size:12px">Visa du gestionnaire : ____________________  Visa du comptable : ____________________</p>
+      </body></html>`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
+  }
+
+  const Line = ({ label, value, strong }: { label: string; value: string; strong?: boolean }) => (
+    <div className="flex justify-between py-1.5 text-sm">
+      <span className="text-ink2">{label}</span>
+      <span className={strong ? "font-bold text-ink" : "font-mono text-ink"}>{value}</span>
+    </div>
+  );
+
+  return (
+    <Modal open onClose={onClose} title="Arrêté de caisse" size="md">
+      <div className="space-y-4">
+        <FormField label="Journée">
+          <input className={inputCls} type="date" value={day} onChange={e => setDay(e.target.value)} />
+        </FormField>
+        <div className="surface-card p-4 divide-y divide-line">
+          <Line label="Recettes du jour" value={MONEY(recettes)} />
+          <Line label="Dépenses du jour" value={MONEY(depenses)} />
+          <Line label="Solde du jour" value={MONEY(recettes - depenses)} strong />
+          <Line label="Solde théorique espèces" value={MONEY(soldeEspeces)} />
+        </div>
+        <FormField label="Espèces comptées (XOF)" hint="Pour contrôler la caisse physique.">
+          <input className={inputCls} type="number" min="0" value={counted} onChange={e => setCounted(e.target.value)} />
+        </FormField>
+        {ecart !== null && (
+          <div className={`px-4 py-3 rounded-xl text-sm font-semibold ${ecart === 0 ? "bg-pos-50 text-pos border border-pos/25" : "bg-warn-50 text-warn border border-warn/25"}`}>
+            {ecart === 0 ? "Caisse juste — aucun écart." : `Écart : ${ecart > 0 ? "+" : ""}${MONEY(ecart)} (${ecart > 0 ? "excédent" : "manquant"}).`}
+          </div>
+        )}
+        <div className="flex justify-end gap-3 pt-2">
+          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Fermer</button>
+          <button onClick={print} className="px-5 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+            <FileText size={15} /> Imprimer l&apos;arrêté
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
