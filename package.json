@@ -23,7 +23,8 @@
     "test:e2e": "playwright test __tests__/e2e",
     "test:load": "k6 run __tests__/load/k6-config.js",
     "lint:strict": "next lint --max-warnings=0",
-    "indexes": "tsx scripts/ensure-indexes.ts"
+    "indexes": "tsx scripts/ensure-indexes.ts",
+    "seed:solutions": "tsx scripts/create-numatech-solutions.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
