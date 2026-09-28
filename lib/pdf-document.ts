@@ -63,54 +63,65 @@ function logoBuffer(logo?: string): Buffer | null {
  * En-tête de marque : logo (si fourni), identité de l'organisation, titre du
  * document et sa référence. Renvoie la position Y où le corps peut commencer.
  */
+export interface DocParty { name?: string; address?: string; nif?: string; rccm?: string; code?: string; phone?: string }
+
 export function drawBrandedHeader(
   doc: Doc, tenant: TenantIdentity,
-  meta: { title: string; number: string; lines?: Array<[string, string]> }
+  meta: { title: string; number: string; lines?: Array<[string, string]>; partyLabel?: string },
+  party?: DocParty | null
 ): number {
   const c = colors(tenant);
   const b = tenant.branding ?? {};
   const M = 50;
 
-  // Bandeau coloré discret en haut.
-  doc.rect(0, 0, 595, 6).fill(c.primary);
+  // Bande d'en-tête pleine largeur (couleur principale) + filet d'accent
+  // (couleur secondaire) — reprend la mise en forme institutionnelle.
+  const BAND = 100;
+  doc.rect(0, 0, 595, BAND).fill(c.primary);
+  doc.rect(0, BAND, 595, 4).fill(c.secondary);
 
+  // Ligne de tête : nom de l'organisation + slogan, petites capitales espacées.
+  const topLine = [tenant.name, b.tagline].filter(Boolean).join("  ·  ").toUpperCase();
+  doc.fillColor("#ffffff").fillOpacity(0.65).font("Helvetica-Bold").fontSize(7.5)
+    .text(topLine, M, 22, { width: 380, characterSpacing: 1.4 });
+  doc.fillOpacity(1);
+
+  // Type de document, en grand.
+  doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(26)
+    .text(meta.title, M, 44, { width: 360, characterSpacing: 0.3 });
+
+  // Logo à droite dans la bande.
   const logo = b.showLogo === false ? null : logoBuffer(tenant.logo);
-  let leftY = 40;
+  if (logo) { try { doc.image(logo, 435, 26, { fit: [110, 48] }); } catch { /* illisible */ } }
 
-  if (logo) {
-    try { doc.image(logo, M, 34, { fit: [120, 54] }); leftY = 96; } catch { /* image illisible : on continue */ }
+  // Deux colonnes sous la bande : destinataire (gauche) et références (droite).
+  const leftY = BAND + 26;
+  const label = (t: string, x: number, w: number, align: "left" | "right" = "left") =>
+    doc.fillColor(c.secondary).font("Helvetica-Bold").fontSize(8).text(t.toUpperCase(), x, leftY, { width: w, align, characterSpacing: 1 });
+
+  if (party) {
+    label(meta.partyLabel || "Destinataire", M, 250);
+    doc.fillColor(c.ink).font("Helvetica-Bold").fontSize(12).text(party.name || "—", M, leftY + 13, { width: 250 });
+    let py = leftY + 30;
+    doc.font("Helvetica").fontSize(8.5).fillColor(c.muted);
+    for (const bit of [party.address, party.code ? `N° client : ${party.code}` : "", party.nif ? `NIF : ${party.nif}` : "", party.rccm ? `RCCM : ${party.rccm}` : ""]) {
+      if (bit) { doc.text(bit, M, py, { width: 250 }); py += 11; }
+    }
   }
 
-  // Identité de l'organisation (sous le logo, ou à sa place).
-  doc.fillColor(c.primary).font("Helvetica-Bold").fontSize(logo ? 12 : 16)
-    .text(tenant.name || "Votre organisation", M, leftY, { width: 300 });
-  let y = leftY + (logo ? 16 : 22);
-  doc.font("Helvetica").fontSize(8).fillColor(c.muted);
-  if (b.tagline) { doc.text(b.tagline, M, y, { width: 300 }); y += 11; }
-  const idBits = [
-    tenant.nif ? `NIF : ${tenant.nif}` : "",
-    tenant.rccm ? `RCCM : ${tenant.rccm}` : "",
-  ].filter(Boolean).join("   ");
-  if (idBits) { doc.text(idBits, M, y, { width: 300 }); y += 11; }
-  if (tenant.address) { doc.text(tenant.address, M, y, { width: 260 }); y += 11; }
-  const contact = [tenant.phone, tenant.email].filter(Boolean).join("  ·  ");
-  if (contact) { doc.text(contact, M, y, { width: 300 }); y += 11; }
-
-  // Bloc titre + référence, à droite.
-  doc.fillColor(c.primary).font("Helvetica-Bold").fontSize(20)
-    .text(meta.title.toUpperCase(), 320, 40, { width: 225, align: "right" });
-  doc.fillColor(c.ink).font("Helvetica").fontSize(11)
-    .text(meta.number, 320, 66, { width: 225, align: "right" });
-  let metaY = 84;
-  doc.fontSize(8.5).fillColor(c.muted);
-  for (const [label, value] of meta.lines ?? []) {
-    doc.text(`${label} : ${value}`, 320, metaY, { width: 225, align: "right" });
-    metaY += 12;
+  // Références à droite (numéro + lignes de méta).
+  doc.fillColor(c.secondary).font("Helvetica-Bold").fontSize(8).text("RÉFÉRENCES", 345, leftY, { width: 200, align: "right", characterSpacing: 1 });
+  doc.fillColor(c.ink).font("Helvetica-Bold").fontSize(11).text(meta.number, 345, leftY + 13, { width: 200, align: "right" });
+  let metaY = leftY + 30;
+  doc.font("Helvetica").fontSize(8.5).fillColor(c.muted);
+  for (const [lab, value] of meta.lines ?? []) {
+    doc.text(`${lab}`, 300, metaY, { width: 140, align: "left" });
+    doc.font("Helvetica-Bold").fillColor(c.ink).text(value, 345, metaY, { width: 200, align: "right" });
+    doc.font("Helvetica").fillColor(c.muted);
+    metaY += 13;
   }
 
-  const bodyTop = Math.max(y, metaY, 130) + 10;
-  doc.moveTo(M, bodyTop).lineTo(545, bodyTop).strokeColor(c.line).stroke();
-  return bodyTop + 14;
+  return Math.max(leftY + 70, metaY + 12);
 }
 
 /**
@@ -122,17 +133,22 @@ export function drawBrandedFooter(doc: Doc, tenant: TenantIdentity) {
   const b = tenant.branding ?? {};
   const M = 50;
 
-  const y = 762;
+  const y = 748;
   if (b.paymentInstructions) {
-    doc.fillColor(c.primary).font("Helvetica-Bold").fontSize(8).text("Règlement", M, y);
+    doc.fillColor(c.secondary).font("Helvetica-Bold").fontSize(8).text("RÈGLEMENT", M, y, { characterSpacing: 1 });
     doc.fillColor(c.muted).font("Helvetica").fontSize(8)
-      .text(b.paymentInstructions, M, y + 11, { width: 380 });
+      .text(b.paymentInstructions, M, y + 11, { width: 400 });
   }
 
-  doc.rect(0, 812, 595, 30).fill(c.primary);
-  const footer = b.legalFooter || `${tenant.name || ""} — document généré le ${new Date().toLocaleDateString("fr-FR")}`;
-  doc.fillColor("#ffffff").font("Helvetica").fontSize(7.5)
-    .text(footer, M, 822, { width: 495, align: "center" });
+  // Filet fin + ligne légale sobre (nom, adresse, RCCM, NIF), à la manière du modèle.
+  doc.moveTo(M, 806).lineTo(545, 806).strokeColor(c.line).stroke();
+  const legal = b.legalFooter || [
+    tenant.name, tenant.address,
+    tenant.rccm ? `RCCM ${tenant.rccm}` : "", tenant.nif ? `NIF ${tenant.nif}` : "",
+  ].filter(Boolean).join("  ·  ");
+  doc.fillColor(c.muted).font("Helvetica").fontSize(7).text(legal, M, 814, { width: 495 });
+  const contact = [tenant.phone, tenant.email].filter(Boolean).join("  ·  ");
+  if (contact) doc.fillColor(c.muted).font("Helvetica").fontSize(7).text(contact, M, 826, { width: 495 });
 }
 
 /**
@@ -161,6 +177,42 @@ export async function drawDocumentQr(
 // remplace par une espace ordinaire.
 const num = (n: number) => (n || 0).toLocaleString("fr-FR").replace(/[\u202f\u00a0]/g, " ");
 const XOF = (n: number) => `${num(n)} XOF`;
+
+/** Montant entier en toutes lettres (fran\u00e7ais) \u2014 pour l'\u00ab arr\u00eat\u00e9 \u00bb des documents. */
+function amountInWordsFr(n: number): string {
+  n = Math.round(Math.abs(n));
+  const u = ["z\u00e9ro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze", "treize", "quatorze", "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf"];
+  const t = ["", "", "vingt", "trente", "quarante", "cinquante", "soixante", "soixante", "quatre-vingt", "quatre-vingt"];
+  if (n === 0) return "z\u00e9ro";
+  const below100 = (x: number): string => {
+    if (x < 20) return u[x];
+    const d = Math.floor(x / 10), r = x % 10;
+    if (d === 7 || d === 9) return t[d] + (r === 1 && d === 7 ? "-et-onze" : "-" + u[10 + r]);
+    let s = t[d];
+    if (r === 1 && d >= 2 && d <= 6) s += "-et-un";
+    else if (r > 0) s += "-" + u[r];
+    else if (d === 8) s += "s";
+    return s;
+  };
+  const below1000 = (x: number): string => {
+    const h = Math.floor(x / 100), r = x % 100;
+    let s = "";
+    if (h > 0) { s += (h > 1 ? u[h] + " " : "") + "cent" + (h > 1 && r === 0 ? "s" : ""); }
+    if (r > 0) s += (s ? " " : "") + below100(r);
+    return s;
+  };
+  const parts: string[] = [];
+  let rest = n;
+  const scales: Array<[string, string, number]> = [["milliard", "milliards", 1e9], ["million", "millions", 1e6]];
+  for (const [sing, plur, val] of scales) {
+    const q = Math.floor(rest / val); rest %= val;
+    if (q > 0) parts.push(below1000(q) + " " + (q > 1 ? plur : sing));
+  }
+  const q = Math.floor(rest / 1000); rest %= 1000;
+  if (q > 0) parts.push((q > 1 ? below1000(q) + " " : "") + "mille");
+  if (rest > 0) parts.push(below1000(rest));
+  return parts.join(" ");
+}
 
 export interface InvoiceForPdf {
   _id?: unknown;
@@ -203,32 +255,19 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
     let y = drawBrandedHeader(doc, tenant, {
       title: isCredit ? "Avoir" : "Facture",
       number: inv.number || "—",
+      partyLabel: isCredit ? "Avoir à" : "Facturé à",
       lines: [
-        ["Émission", inv.issueDate ? new Date(inv.issueDate).toLocaleDateString("fr-FR") : "—"],
+        ["Émis le", inv.issueDate ? new Date(inv.issueDate).toLocaleDateString("fr-FR") : "—"],
         ...(!isCredit && inv.dueDate ? [["Échéance", new Date(inv.dueDate).toLocaleDateString("fr-FR")] as [string, string]] : []),
         ["Statut", STATUS_FR[inv.status || ""] || inv.status || "—"],
       ],
-    });
-
-    // Bloc client.
-    doc.fillColor(c.primary).font("Helvetica-Bold").fontSize(9).text(isCredit ? "AVOIR À" : "FACTURÉ À", 320, y);
-    doc.font("Helvetica").fillColor(c.ink).fontSize(11).text(inv.clientId?.name || "Client", 320, y + 13, { width: 225 });
-    let cy = y + 28;
-    doc.fontSize(8.5).fillColor(c.muted);
-    for (const bit of [
-      inv.clientId?.code ? `N° client : ${inv.clientId.code}` : "",
-      inv.clientId?.nif ? `NIF : ${inv.clientId.nif}` : "",
-      inv.clientId?.rccm ? `RCCM : ${inv.clientId.rccm}` : "",
-      inv.clientId?.address, inv.clientId?.phone,
-    ]) {
-      if (bit) { doc.text(bit, 320, cy, { width: 225 }); cy += 11; }
-    }
-    y += 56;
+    }, inv.clientId || undefined);
 
     // Tableau des lignes.
     doc.rect(50, y, 495, 22).fill(c.primary);
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(8.5);
-    doc.text("Description", 58, y + 7);
+    doc.text("N°", 56, y + 7, { width: 20 });
+    doc.text("Désignation et caractéristiques", 78, y + 7);
     doc.text("Qté", 300, y + 7, { width: 34, align: "center" });
     doc.text("P.U. HT", 340, y + 7, { width: 62, align: "right" });
     doc.text("TVA", 408, y + 7, { width: 38, align: "center" });
@@ -240,8 +279,9 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
       const line = inv.lines![i];
       if (y > 700) { doc.addPage(); y = 60; }
       if (i % 2 === 0) { doc.rect(50, y, 495, 20).fill("#F7F7F5"); }
-      doc.fillColor(c.ink);
-      doc.text(String(line.description || "").slice(0, 58), 58, y + 5, { width: 236 });
+      doc.fillColor(c.secondary).font("Helvetica-Bold").text(String(i + 1), 56, y + 5, { width: 20 });
+      doc.fillColor(c.ink).font("Helvetica");
+      doc.text(String(line.description || "").slice(0, 58), 78, y + 5, { width: 216 });
       doc.text(String(line.quantity ?? 0), 300, y + 5, { width: 34, align: "center" });
       doc.text(num(line.unitPrice || 0), 340, y + 5, { width: 62, align: "right" });
       doc.text(`${Math.round((line.tvaRate || 0) * 100)} %`, 408, y + 5, { width: 38, align: "center" });
@@ -266,6 +306,10 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10);
     doc.text(isCredit ? "TOTAL AVOIR" : "TOTAL TTC", 340, y + 7);
     doc.text(XOF(inv.totalTTC ?? 0), 430, y + 7, { width: 105, align: "right" });
+
+    // Montant arrêté en toutes lettres (à gauche, en regard du total).
+    doc.fillColor(c.ink).font("Helvetica-Oblique").fontSize(8.5)
+      .text(`Arrêté${isCredit ? " le présent avoir" : " la présente facture"} à la somme de ${amountInWordsFr(inv.totalTTC ?? 0)} francs CFA.`, 50, y + 2, { width: 270 });
     y += 32;
 
     if (!isCredit && (inv.paidAmount ?? 0) > 0) {
@@ -279,12 +323,14 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
       }
     }
 
-    // Conditions / notes.
+    // Conditions / notes — encadré discret à la manière du modèle.
     const terms = inv.notes || tenant.branding?.defaultTerms;
     if (terms) {
-      const ty = Math.min(y + 30, 690);
-      doc.fillColor(c.primary).font("Helvetica-Bold").fontSize(8).text("Conditions", 50, ty);
-      doc.fillColor(c.muted).font("Helvetica").fontSize(8).text(terms, 50, ty + 11, { width: 250 });
+      const ty = Math.min(y + 24, 686);
+      const th = Math.min(70, 24 + Math.ceil(terms.length / 90) * 11);
+      doc.rect(50, ty, 495, th).fill("#F4F2EE");
+      doc.fillColor(c.secondary).font("Helvetica-Bold").fontSize(8).text("CONDITIONS", 62, ty + 10, { characterSpacing: 1 });
+      doc.fillColor(c.muted).font("Helvetica").fontSize(8).text(terms, 62, ty + 24, { width: 460 });
     }
 
     // QR — en bas à droite, au-dessus du pied.
@@ -326,7 +372,8 @@ function drawLinesAndTotals(
 ): number {
   doc.rect(50, y, 495, 22).fill(c.primary);
   doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(8.5);
-  doc.text("Description", 58, y + 7);
+  doc.text("N°", 56, y + 7, { width: 20 });
+  doc.text("Désignation et caractéristiques", 78, y + 7);
   doc.text("Qté", 300, y + 7, { width: 34, align: "center" });
   doc.text("P.U. HT", 340, y + 7, { width: 62, align: "right" });
   doc.text("TVA", 408, y + 7, { width: 38, align: "center" });
@@ -338,8 +385,9 @@ function drawLinesAndTotals(
     const line = lines[i];
     if (y > 700) { doc.addPage(); y = 60; }
     if (i % 2 === 0) doc.rect(50, y, 495, 20).fill("#F7F7F5");
-    doc.fillColor(c.ink);
-    doc.text(String(line.description || "").slice(0, 58), 58, y + 5, { width: 236 });
+    doc.fillColor(c.secondary).font("Helvetica-Bold").text(String(i + 1), 56, y + 5, { width: 20 });
+    doc.fillColor(c.ink).font("Helvetica");
+    doc.text(String(line.description || "").slice(0, 58), 78, y + 5, { width: 216 });
     doc.text(String(line.quantity ?? 0), 300, y + 5, { width: 34, align: "center" });
     doc.text(num(line.unitPrice || 0), 340, y + 5, { width: 62, align: "right" });
     doc.text(`${Math.round((line.tvaRate || 0) * 100)} %`, 408, y + 5, { width: 38, align: "center" });
@@ -375,35 +423,27 @@ export async function generateQuotePdf(q: QuoteForPdf, tenant: TenantIdentity): 
     let y = drawBrandedHeader(doc, tenant, {
       title: "Devis", number: q.number || "—",
       lines: [
-        ["Date", date],
-        ...(q.validUntil ? [["Validité", new Date(q.validUntil).toLocaleDateString("fr-FR")] as [string, string]] : []),
+        ["Établi le", date],
+        ...(q.validUntil ? [["Valable jusqu'au", new Date(q.validUntil).toLocaleDateString("fr-FR")] as [string, string]] : []),
         ["Statut", QUOTE_STATUS_FR[q.status || ""] || q.status || "—"],
       ],
-    });
-
-    doc.fillColor(c.primary).font("Helvetica-Bold").fontSize(9).text("DESTINATAIRE", 320, y);
-    doc.font("Helvetica").fillColor(c.ink).fontSize(11).text(q.clientId?.name || "Client", 320, y + 13, { width: 225 });
-    let cy = y + 28;
-    doc.fontSize(8.5).fillColor(c.muted);
-    for (const bit of [
-      q.clientId?.code ? `N° client : ${q.clientId.code}` : "",
-      q.clientId?.nif ? `NIF : ${q.clientId.nif}` : "",
-      q.clientId?.rccm ? `RCCM : ${q.clientId.rccm}` : "",
-      q.clientId?.address, q.clientId?.phone,
-    ]) {
-      if (bit) { doc.text(bit, 320, cy, { width: 225 }); cy += 11; }
-    }
-    y += 56;
+    }, q.clientId || undefined);
 
     y = drawLinesAndTotals(doc, c, y, q.lines ?? [], {
       ht: q.totalHT, tva: q.totalTVA, ttc: q.totalTTC, totalLabel: "TOTAL TTC",
     });
 
+    // Montant arrêté en toutes lettres.
+    doc.fillColor(c.ink).font("Helvetica-Oblique").fontSize(8.5)
+      .text(`Arrêté le présent devis à la somme de ${amountInWordsFr(q.totalTTC ?? 0)} francs CFA.`, 50, y - 26, { width: 270 });
+
     const terms = q.notes || tenant.branding?.defaultTerms;
     if (terms) {
-      const ty = Math.min(y + 20, 690);
-      doc.fillColor(c.primary).font("Helvetica-Bold").fontSize(8).text("Conditions", 50, ty);
-      doc.fillColor(c.muted).font("Helvetica").fontSize(8).text(terms, 50, ty + 11, { width: 250 });
+      const ty = Math.min(y + 6, 686);
+      const th = Math.min(70, 24 + Math.ceil(terms.length / 90) * 11);
+      doc.rect(50, ty, 495, th).fill("#F4F2EE");
+      doc.fillColor(c.secondary).font("Helvetica-Bold").fontSize(8).text("CONDITIONS", 62, ty + 10, { characterSpacing: 1 });
+      doc.fillColor(c.muted).font("Helvetica").fontSize(8).text(terms, 62, ty + 24, { width: 460 });
     }
 
     if (withQr) {
