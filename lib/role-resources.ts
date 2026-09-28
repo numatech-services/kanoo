@@ -429,6 +429,17 @@ for (const perms of Object.values(ROLE_PERMISSIONS)) {
 }
 
 /**
+ * Services citoyens : le lien figure dans la navigation « administration »
+ * (non filtrée par rôle). Sans accès, un rôle non-ordonnateur cliquait sur un
+ * lien visible et recevait 403. On accorde au moins la lecture à tous les rôles
+ * administration ; l'ordonnateur conserve la gestion complète.
+ */
+for (const role of ["admin_daf", "admin_public_accountant", "admin_procurement_officer", "admin_procurement_commission", "admin_viewer"] as UserRole[]) {
+  const p = ROLE_PERMISSIONS[role];
+  if (p && !p.services) p.services = ["read"];
+}
+
+/**
  * Module ISIC — droits fins pour séparer production et finances :
  * - `isic` (production, impression, livraison, fichiers) : rôles opérationnels.
  * - `isicFinance` (coûts, revente, marge, encaissements) : rôles financiers.

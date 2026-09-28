@@ -49,7 +49,7 @@ function procedureLabel(value: unknown): string {
     : key;
 }
 
-export const POST = withAuth("publicTenders", "update", async (req: NextRequest, auth: TokenPayload) => {
+export const POST = withAuth("publicTenders", "create", async (req: NextRequest, auth: TokenPayload) => {
   console.log("🚀 [POST /api/marches] Création d'un nouveau marché...");
   
   try {
