@@ -5,6 +5,7 @@ import { ClientModel } from "@/models/Client";
 import { InvoiceModel } from "@/models/Invoice";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 
 // GET /api/clients — Liste paginée avec recherche
 export const GET = withAuth("clients", "read", async (req: NextRequest, auth: TokenPayload) => {
@@ -42,6 +43,10 @@ export const GET = withAuth("clients", "read", async (req: NextRequest, auth: To
   //
   // Restant dû = TTC − règlements − avoirs. Omettre les avoirs gonflerait la
   // créance d'un montant déjà crédité au client.
+  // Solde : information financière, réservée à qui lit les factures.
+  if (!authCan(auth, "invoices", "read")) {
+    return paginatedResponse(items.map(({ currentBalance: _hidden, ...c }) => c), total, pagination);
+  }
   const ids = items.map(c => c._id);
   const balances = await InvoiceModel.aggregate<{ _id: unknown; due: number }>([
     { $match: {

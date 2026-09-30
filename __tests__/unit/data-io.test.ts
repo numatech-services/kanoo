@@ -39,6 +39,11 @@ describe("CSV — coercition", () => {
     expect(coerce("company", { header: "type", field: "type", enum: ["individual", "company"], default: "company" })).toBe("company");
     expect(coerce("xxx", { header: "type", field: "type", enum: ["individual", "company"], default: "company" })).toBe("company");
   });
+  it("une cellule vide ne vaut ni 0, ni faux, ni le défaut (pas d'écrasement à la mise à jour)", () => {
+    expect(coerce("", { header: "x", field: "x", kind: "number" })).toBeUndefined();
+    expect(coerce("  ", { header: "x", field: "x", kind: "boolean" })).toBeUndefined();
+    expect(coerce("", { header: "type", field: "type", enum: ["individual", "company"], default: "company" })).toBeUndefined();
+  });
   it("analyse les dates ISO et françaises", () => {
     const iso = coerce("2026-03-15", { header: "d", field: "d", kind: "date" }) as Date;
     expect(iso.getFullYear()).toBe(2026); expect(iso.getMonth()).toBe(2); expect(iso.getDate()).toBe(15);

@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/db";
 import { withAuth, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
 import { AuditLogModel } from "@/models/AuditLog";
 import { TokenPayload } from "@/lib/auth";
+import { hasFinanceAccess, effectiveRoles, accessibleResourcesForRoles } from "@/lib/role-resources";
+import { UserRole } from "@/types";
 
 export const GET = withAuth("auditLogs", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
@@ -17,7 +19,14 @@ export const GET = withAuth("auditLogs", "read", async (req: NextRequest, auth: 
     ? {}
     : { ...tenantFilter(auth) };
 
-  if (resource) filter.resource = resource;
+  // Cloisonnement : hors gérant / comptabilité, le journal se limite aux
+  // ressources que le compte lit déjà — un journal de paiements ou de paie
+  // expose montants et bénéficiaires (champs before / after).
+  const readable = auth.role === "superadmin" || hasFinanceAccess(auth)
+    ? null
+    : accessibleResourcesForRoles(effectiveRoles(auth.role as UserRole, auth.roles as UserRole[] | undefined), auth.allowedResources, auth.roleLevels);
+  if (resource) filter.resource = readable && !readable.includes(resource) ? "__aucune__" : resource;
+  else if (readable) filter.resource = { $in: readable };
   if (userId) filter.userId = userId;
   if (from || to) {
     filter.createdAt = {};

@@ -9,6 +9,7 @@ import {
   Plus, Download, X, ArrowLeft, Ticket, Mail, FileDown, CreditCard, RotateCcw,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 interface Ev {
   _id: string; title: string; description?: string; startAt: string; endAt?: string;
@@ -20,7 +21,7 @@ interface Attendee {
   _id: string; firstName: string; lastName: string; email?: string; phone?: string;
   ticketTypeName?: string; amount: number; status: string; checkedInAt?: string; ticketCode: string;
 }
-interface Stats { total: number; present: number; registered: number; absent: number; cancelled: number; refunded: number; revenue: number; }
+interface Stats { total: number; present: number; registered: number; absent: number; cancelled: number; refunded: number; revenue: number | null; }
 
 const A_STATUS: Record<string, { label: string; cls: string }> = {
   registered: { label: "Inscrit", cls: "badge-sent" },
@@ -52,6 +53,11 @@ export default function ActiviteDetailPage() {
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [showReg, setShowReg] = useState(false);
+  // Accueil (inscription sur place, pointage) : équipe de l'activité et sécurité.
+  // Encaissement / remboursement : équipe de l'activité seulement.
+  const me = useMe();
+  const canCheckin = meCanDo(me, "eventCheckin", "update");
+  const canManage = meCanDo(me, "events", "update");
   const [reg, setReg] = useState({ firstName: "", lastName: "", email: "", phone: "", ticketTypeId: "", markPaid: false, checkin: false });
   const [saving, setSaving] = useState(false);
   const [ticket, setTicket] = useState<{ name: string; payload: string; code: string } | null>(null);
@@ -171,8 +177,8 @@ export default function ActiviteDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Link href={`/activites/${id}/checkin`} className="btn-secondary"><ScanLine size={16} /> Check-in</Link>
-          <button onClick={() => setShowReg(true)} className="btn-primary"><Plus size={16} /> Inscrire</button>
+          {canCheckin && <Link href={`/activites/${id}/checkin`} className="btn-secondary"><ScanLine size={16} /> Check-in</Link>}
+          {canCheckin && <button onClick={() => setShowReg(true)} className="btn-primary"><Plus size={16} /> Inscrire</button>}
         </div>
       </div>
 
@@ -183,7 +189,7 @@ export default function ActiviteDetailPage() {
             { ic: <Users size={16} />, label: "Inscrits", value: stats.total - stats.cancelled - stats.refunded },
             { ic: <UserCheck size={16} />, label: "Présents", value: stats.present },
             { ic: <UserX size={16} />, label: "Absents", value: stats.absent },
-            { ic: <Wallet size={16} />, label: "Recette", value: `${stats.revenue.toLocaleString("fr-FR")} F` },
+            { ic: <Wallet size={16} />, label: "Recette", value: stats.revenue == null ? "—" : `${stats.revenue.toLocaleString("fr-FR")} F` },
           ].map((s, i) => (
             <div key={i} className="card p-4">
               <div className="flex items-center gap-2 text-ink2 text-xs font-medium"><span className="w-7 h-7 rounded-md bg-accent-50 text-accent-700 grid place-items-center">{s.ic}</span>{s.label}</div>
@@ -229,12 +235,12 @@ export default function ActiviteDetailPage() {
                   <td className="px-4 py-3 text-ink2 num">{a.checkedInAt ? new Date(a.checkedInAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
-                      {ev.isPaid && a.status === "registered" && (
+                      {canManage && ev.isPaid && a.status === "registered" && (
                         <button onClick={() => pay(a._id)} title="Payer en ligne (mobile money / carte)" className="w-8 h-8 grid place-items-center rounded-md border border-line2 text-accent-700 hover:bg-accent-50"><CreditCard size={14} /></button>
                       )}
                       <a href={`/api/events/${id}/attendees/${a._id}/ticket`} title="Télécharger le billet PDF" className="w-8 h-8 grid place-items-center rounded-md border border-line2 text-ink2 hover:bg-surface2"><FileDown size={14} /></a>
-                      <button onClick={() => resend(a._id)} disabled={!a.email} title={a.email ? "Renvoyer par email" : "Pas d'email"} className="w-8 h-8 grid place-items-center rounded-md border border-line2 text-ink2 hover:bg-surface2 disabled:opacity-40"><Mail size={14} /></button>
-                      {["paid", "present"].includes(a.status) && (
+                      <button onClick={() => resend(a._id)} disabled={!a.email || !canManage} title={a.email ? "Renvoyer par email" : "Pas d'email"} className="w-8 h-8 grid place-items-center rounded-md border border-line2 text-ink2 hover:bg-surface2 disabled:opacity-40"><Mail size={14} /></button>
+                      {canManage && ["paid", "present"].includes(a.status) && (
                         <button onClick={() => refund(a._id)} title="Rembourser" className="w-8 h-8 grid place-items-center rounded-md border border-line2 text-neg hover:bg-neg-50"><RotateCcw size={14} /></button>
                       )}
                     </div>

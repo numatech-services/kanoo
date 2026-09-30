@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { getAuthContext, tenantFilter } from "@/lib/api-helpers";
+import { authorize, tenantFilter } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
 import { TenantModel } from "@/models/Tenant";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
@@ -11,8 +11,9 @@ import { TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
  * Génère un PDF de rapport fiscal certifié conforme DGI Niger
  */
 export async function GET(req: NextRequest) {
-  const auth = getAuthContext(req);
-  if (!auth) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const gate = await authorize(req, "fiscalDeclarations", "read");
+  if (!gate.ok) return gate.response;
+  const auth = gate.auth;
 
   await connectDB();
   const url = new URL(req.url);

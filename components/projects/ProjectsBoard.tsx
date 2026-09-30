@@ -14,6 +14,7 @@ interface Project {
   name: string;
   status: string;
   budget: number;
+  amountsHidden?: boolean;
   spentAmount: number;
   endDate?: string;
   bailleurName?: string;
@@ -104,14 +105,15 @@ export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary })
         <p className="px-4 py-3 bg-neg-50 border border-neg/25 rounded-xl text-sm text-neg">{error}</p>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Budget : gérant et comptabilité seulement (montants masqués par l'API sinon). */}
+      {!projects.some(p => p.amountsHidden) && <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard label={`Budget cumulé${statusFilter ? " (filtré)" : ""}`}
           value={totals.budget} format={fullXof} />
         <KpiCard label="Dépensé" value={totals.spent} format={fullXof} tone="warn" />
         <KpiCard label="Taux d'exécution budgétaire" value={`${totals.rate} %`}
           tone={totals.rate > 100 ? "neg" : "pos"}
           hint={totals.rate > 100 ? "Dépassement du budget alloué" : "Sur les projets affichés"} />
-      </div>
+      </div>}
 
       <SegmentedControl
         ariaLabel="Filtrer par état"
@@ -186,7 +188,7 @@ export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary })
                 </div>
               </div>
 
-              <div>
+              {!p.amountsHidden && <div>
                 <div className="flex justify-between text-[10px] font-bold text-ink2 mb-1">
                   <span>BUDGET CONSOMMÉ</span>
                   <span className={`num ${budgetRate > 100 ? "text-neg" : ""}`}>{budgetRate}&nbsp;%</span>
@@ -198,7 +200,7 @@ export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary })
                 <p className="text-[10px] text-right mt-1 text-ink3 num">
                   {(p.spentAmount || 0).toLocaleString("fr-FR")} / {(p.budget || 0).toLocaleString("fr-FR")} XOF
                 </p>
-              </div>
+              </div>}
 
               <div className="flex justify-between text-[10px] font-bold text-ink2 pt-3 mt-3 border-t border-line">
                 <span>{tasksDone}/{tasks.length} tâches</span>

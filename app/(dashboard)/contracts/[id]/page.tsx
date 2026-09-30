@@ -6,6 +6,7 @@ import Link from "next/link";
 import { PenLine, ReceiptText } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
+import { useMe, meCan } from "@/lib/useMe";
 
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
@@ -18,6 +19,9 @@ export default function ContractDetailPage() {
   const [contract, setContract] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  // Les factures sont émises par la comptabilité : bouton masqué ailleurs.
+  const { resources } = useMe();
+  const canInvoice = meCan(resources, "invoices");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -71,7 +75,7 @@ export default function ContractDetailPage() {
               <PenLine size={15} /> Signer le contrat
             </button>
           )}
-          {["active", "signed", "renewed"].includes(contract.status) && (
+          {["active", "signed", "renewed"].includes(contract.status) && canInvoice && (
             <button onClick={() => action("generate-invoice", "Facture générée à partir du contrat.")} disabled={busy}
               className="px-4 h-9 rounded-lg border border-line2 text-ink text-sm font-semibold hover:bg-surface2 disabled:opacity-60 inline-flex items-center gap-1.5">
               <ReceiptText size={15} /> Générer une facture
@@ -83,7 +87,7 @@ export default function ContractDetailPage() {
       {Array.isArray(contract.invoiceIds) && contract.invoiceIds.length > 0 && (
         <p className="text-sm text-ink2">
           {contract.invoiceIds.length} facture{contract.invoiceIds.length > 1 ? "s" : ""} liée{contract.invoiceIds.length > 1 ? "s" : ""} —{" "}
-          <Link href="/invoices" className="text-section hover:underline">voir les factures</Link>
+          {canInvoice && <Link href="/invoices" className="text-section hover:underline">voir les factures</Link>}
         </p>
       )}
       

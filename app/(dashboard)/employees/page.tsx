@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { EmployeeForm, type EmployeeFormData } from "@/components/pme/EmployeeForm";
+import { useMe, meCan } from "@/lib/useMe";
 
 interface Employee {
   _id:string; code:string; firstName:string; lastName:string; position:string; department?:string;
@@ -38,6 +39,9 @@ export default function EmployeesPage() {
   },[page,search,employeeType]);
   useEffect(()=>{setMounted(true);load();},[load]);
 
+  const { resources } = useMe();
+  const payroll = meCan(resources, "payslips");
+
   async function handleSave(data: EmployeeFormData) {
     const url = editing ? `/api/employees/${editing._id}` : "/api/employees";
     const csrfRes=await fetch("/api/auth/csrf"); const {csrfToken}=await csrfRes.json();
@@ -62,11 +66,11 @@ export default function EmployeesPage() {
     {key:"employeeType",label:"Type",render:(v)=><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[String(v)]||""}`}>{TYPE_LABELS[String(v)]||String(v)}</span>},
     {key:"contractNature",label:"Contrat",render:(v)=><span className="text-xs text-ink2">{CONTRACT_LABELS[String(v)]||String(v)}</span>},
     {key:"position",label:"Poste",sortable:true},
-    {key:"grossSalary",label:"Rémunération (XOF)",className:"text-right font-mono",render:(v,r)=>{
+    ...(!payroll ? [] : [{key:"grossSalary",label:"Rémunération (XOF)",className:"text-right font-mono",render:(v,r)=>{
       const amount = r.employeeType==="employee" ? r.grossSalary : r.indemnity;
       const label = r.employeeType==="employee" ? "brut" : r.indemnityPeriod==="monthly"?"mois":r.indemnityPeriod;
       return amount>0?`${amount.toLocaleString("fr-FR")} / ${label}`:"—";
-    }},
+    }} as Column<Employee>]),
     {key:"contractEndDate",label:"Fin de contrat",render:(v)=>{
       if(!v) return <span className="text-ink2 text-xs">CDI / Sans fin</span>;
       const expiring = isExpiringSoon(String(v));
@@ -108,7 +112,7 @@ export default function EmployeesPage() {
       <Pagination page={page} totalPages={Math.ceil(total/LIMIT)} total={total} limit={LIMIT} onPage={setPage}/>
 
       <Modal open={modalOpen} onClose={()=>{setModalOpen(false);setEditing(null);}} title={editing?`${editing.firstName} ${editing.lastName}`:"Nouveau collaborateur"} size="xl">
-        <EmployeeForm initial={editing||undefined} onSave={handleSave} onCancel={()=>{setModalOpen(false);setEditing(null);}}/>
+        <EmployeeForm initial={editing||undefined} onSave={handleSave} onCancel={()=>{setModalOpen(false);setEditing(null);}} payroll={payroll}/>
       </Modal>
     </div>
   );

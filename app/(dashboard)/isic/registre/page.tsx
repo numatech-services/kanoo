@@ -12,6 +12,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { academicYearOf, shiftAcademicYear } from "@/lib/isic-registry";
 import { EnvoiIsic } from "@/components/isic/EnvoiIsic";
 import { compressPhoto } from "@/components/isic/image";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 interface SchoolRow { school: string; students: number; withNumber: number; withoutPhoto: number; covered: number; fresh: number; renewed: number; toRenew: number }
 interface Stats {
@@ -341,6 +342,8 @@ interface StudentDetail {
 }
 
 function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: string; onClose: () => void; onSaved: () => void }) {
+  // Archivage réservé au chef de service et au gérant.
+  const canArchive = meCanDo(useMe(), "isic", "delete");
   const [d, setD] = useState<StudentDetail | null>(null);
   const [f, setF] = useState({ firstName: "", lastName: "", fullName: "", matricule: "", schoolName: "", className: "", dateOfBirth: "", city: "", nationality: "", email: "", phone: "", notes: "", isicNumber: "", numberReason: "" });
   const [photoV, setPhotoV] = useState(0); // force le rechargement de la vignette
@@ -472,7 +475,7 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
           </div>
 
           <div className="flex justify-between items-center pt-3 border-t border-line">
-            <button onClick={archive} className="text-sm text-neg hover:underline">Archiver</button>
+            {canArchive && <button onClick={archive} className="text-sm text-neg hover:underline">Archiver</button>}
             <div className="flex gap-3">
               <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Fermer</button>
               <button onClick={() => save()} disabled={saving || (numberChanged && !!d.student.isicNumber && !f.numberReason.trim())}

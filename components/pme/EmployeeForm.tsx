@@ -17,7 +17,11 @@ const TYPE_OPTIONS = [["employee","Employé (salarié)"],["intern","Stagiaire"],
 const CONTRACT_OPTIONS = [["cdi","CDI"],["cdd","CDD"],["stage","Convention de stage"],["freelance","Contrat freelance"],["consultant","Contrat consultant"]];
 const PERIOD_OPTIONS = [["monthly","par mois"],["daily","par jour"],["hourly","par heure"],["fixed","forfait"]];
 
-export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<EmployeeFormData> & { _id?: string }; onSave: (d: EmployeeFormData) => Promise<void>; onCancel: () => void; }) {
+/**
+ * `payroll = false` : le compte gère le dossier (identité, contrat, poste) sans
+ * accès à la paie — la rémunération et le RIB ne sont ni affichés ni envoyés.
+ */
+export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { initial?: Partial<EmployeeFormData> & { _id?: string }; onSave: (d: EmployeeFormData) => Promise<void>; onCancel: () => void; payroll?: boolean; }) {
   const [form, setForm] = useState<EmployeeFormData>({
     code: initial?.code||"", firstName: initial?.firstName||"", lastName: initial?.lastName||"",
     position: initial?.position||"", department: initial?.department||"",
@@ -55,10 +59,12 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
     if (!form.code || !form.firstName || !form.lastName || !form.position || !form.startDate) {
       return setError("Les champs Code, Prénom, Nom, Poste et Date d'entrée sont obligatoires");
     }
-    if (isEmployee && form.grossSalary <= 0) return setError("Le salaire brut est requis");
-    if ((isIntern || isFreelance) && form.indemnity <= 0) return setError("L'indemnité est requise");
+    if (payroll && isEmployee && form.grossSalary <= 0) return setError("Le salaire brut est requis");
+    if (payroll && (isIntern || isFreelance) && form.indemnity <= 0) return setError("L'indemnité est requise");
     setError(""); setSaving(true);
-    try { await onSave(form); } catch (err: unknown) { setError(err instanceof Error ? err.message : "Erreur"); }
+    const PAYROLL_KEYS = ["grossSalary", "indemnity", "indemnityPeriod", "otherDeductionLabel", "otherDeductionAmount", "bankAccount", "bankName", "includeCnss", "includeIr"];
+    const body = payroll ? form : Object.fromEntries(Object.entries(form).filter(([k]) => !PAYROLL_KEYS.includes(k))) as unknown as EmployeeFormData;
+    try { await onSave(body); } catch (err: unknown) { setError(err instanceof Error ? err.message : "Erreur"); }
     setSaving(false);
   }
 
@@ -98,8 +104,8 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
         <FormField label="Poste / Fonction" required><input className={inputCls} value={form.position} onChange={e=>u("position",e.target.value)} required/></FormField>
       </fieldset>
 
-      {/* Rémunération */}
-      <fieldset className="space-y-4">
+      {/* Rémunération — réservée à la paie (chef comptable, gérant) */}
+      {payroll && <fieldset className="space-y-4">
         <legend className="text-sm font-semibold text-ink border-b border-line pb-2 w-full">
           Rémunération {isEmployee?"(salarié)":isIntern?"(stagiaire)":"(freelance)"}
         </legend>
@@ -141,7 +147,7 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
             <div className="text-center"><p className="font-bold text-pos">{Math.max(0,netSalary).toLocaleString("fr-FR")} XOF</p><p className="text-pos mt-0.5">{isEmployee?"Net estimé":"Montant net"}</p></div>
           </div>
         )}
-      </fieldset>
+      </fieldset>}
 
       {/* Dates */}
       <fieldset className="space-y-4">
@@ -164,10 +170,10 @@ export function EmployeeForm({ initial, onSave, onCancel }: { initial?: Partial<
           <FormField label="Téléphone"><input className={inputCls} value={form.phone} onChange={e=>u("phone",e.target.value)}/></FormField>
           <FormField label="Email"><input type="email" className={inputCls} value={form.email} onChange={e=>u("email",e.target.value)}/></FormField>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        {payroll && <div className="grid grid-cols-2 gap-4">
           <FormField label="Banque"><input className={inputCls} value={form.bankName} onChange={e=>u("bankName",e.target.value)}/></FormField>
           <FormField label="RIB / Compte bancaire"><input className={inputCls} value={form.bankAccount} onChange={e=>u("bankAccount",e.target.value)}/></FormField>
-        </div>
+        </div>}
       </fieldset>
 
       <FormField label="Notes"><textarea className={textareaCls} rows={2} value={form.notes} onChange={e=>u("notes",e.target.value)}/></FormField>

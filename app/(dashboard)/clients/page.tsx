@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { ClientForm } from "@/components/pme/ClientForm";
+import { useMe, meCan } from "@/lib/useMe";
 
 interface Client {
   _id: string;
@@ -25,6 +26,9 @@ interface Client {
 export default function ClientsPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  // Le solde est une information financière : colonne masquée hors comptabilité.
+  const { resources } = useMe();
+  const seeBalance = meCan(resources, "invoices");
   const [clients, setClients] = useState<Client[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -74,7 +78,7 @@ export default function ClientsPage() {
     },
     { key: "nif", label: "NIF", className: "text-ink2 text-xs" },
     { key: "phone", label: "Téléphone" },
-    {
+    ...(!seeBalance ? [] : [{
       key: "currentBalance",
       label: "Solde (XOF)",
       sortable: true,
@@ -87,7 +91,7 @@ export default function ClientsPage() {
           </span>
         );
       },
-    },
+    } as Column<Client>]),
     {
       key: "paymentTermDays",
       label: "Délai paiement",

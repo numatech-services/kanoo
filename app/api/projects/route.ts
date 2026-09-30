@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, sanitizeBody, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { ProjectModel } from "@/models/Project";
 import { ConversationModel } from "@/models/Conversation";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { maskProjectMoney, stripProjectMoneyWrites } from "@/lib/payroll-mask";
 
 export const GET = withAuth("projects", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
@@ -28,12 +29,13 @@ export const GET = withAuth("projects", "read", async (req: NextRequest, auth: T
     ProjectModel.countDocuments(filter),
   ]);
 
-  return paginatedResponse(items, total, pagination);
+  return paginatedResponse(items.map(p => maskProjectMoney(p as Record<string, unknown>, auth)), total, pagination);
 });
 
 export const POST = withAuth("projects", "create", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
-  const body = await req.json();
+  // Corps assaini : ni tenantId ni opérateur Mongo, montants réservés aux finances.
+  const body = stripProjectMoneyWrites(sanitizeBody(await req.json(), ["conversationId"]), auth);
   const err = requireFields(body, ["code", "name"]);
   if (err) return badRequest(err);
 
@@ -45,7 +47,7 @@ export const POST = withAuth("projects", "create", async (req: NextRequest, auth
     tenantId: auth.tenantId,
     type: "group",
     title: `Projet ${body.code} — ${body.name}`,
-    participantIds: [auth.userId, ...(body.teamIds || [])],
+    participantIds: [auth.userId, ...((Array.isArray(body.teamIds) ? body.teamIds : []) as string[])],
     createdBy: auth.userId,
   });
 
@@ -56,5 +58,5 @@ export const POST = withAuth("projects", "create", async (req: NextRequest, auth
   });
 
   await logAudit(auth, "CREATE", "projects", { resourceId: project._id.toString(), after: { code: body.code, name: body.name } });
-  return created(project);
+  return created(maskProjectMoney(project.toObject(), auth));
 });

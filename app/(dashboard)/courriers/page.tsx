@@ -5,6 +5,7 @@ import { Plus, FileText, Trash2, Download, Sparkles, Archive, ArchiveRestore, Pa
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, textareaCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 interface Letter {
   _id: string; reference?: string; kind: string; subject: string;
@@ -34,6 +35,8 @@ async function csrf() {
 }
 
 export default function CourriersPage() {
+  // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
+  const canDelete = meCanDo(useMe(), "documents", "delete");
   const [items, setItems] = useState<Letter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -183,10 +186,10 @@ export default function CourriersPage() {
                         className="p-1.5 rounded text-ink3 hover:text-section hover:bg-surface2">
                         {l.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
                       </button>
-                      <button onClick={() => del(l._id)} title="Supprimer"
+                      {canDelete && <button onClick={() => del(l._id)} title="Supprimer"
                         className="p-1.5 rounded text-ink3 hover:text-neg hover:bg-neg-50">
                         <Trash2 size={15} />
-                      </button>
+                      </button>}
                     </span>
                   </td>
                 </tr>

@@ -4,11 +4,15 @@ import { useParams } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { EmployeeForm, type EmployeeFormData } from "@/components/pme/EmployeeForm";
+import { useMe, meCan } from "@/lib/useMe";
 
 export default function EmployeeDetailPage() {
   const { id } = useParams();
   const [item, setItem] = useState<Record<string, unknown>|null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  // Rémunération : visible et modifiable avec l'accès à la paie seulement.
+  const { resources } = useMe();
+  const payroll = meCan(resources, "payslips");
 
   useEffect(() => {
     fetch(`/api/employees/${id}`,{credentials:"include"}).then(r=>r.json()).then(d=>setItem(d.data));
@@ -37,14 +41,14 @@ export default function EmployeeDetailPage() {
       <div className="flex items-start justify-between">
         <div>
           <a href="/employees" className="text-xs text-ink2 hover:text-ink">← Employés</a>
-          <h1 className="text-2xl font-bold text-ink mt-1">{String(item.name || item.title || item.reference || item.number || item.object || id)}</h1>
+          <h1 className="text-2xl font-bold text-ink mt-1">{[item.firstName, item.lastName].filter(Boolean).join(" ") || String(item.code || id)}</h1>
           {item.code ? <p className="text-ink2 text-sm">{String(item.code)}</p> : null}
         </div>
         <button onClick={()=>setEditOpen(true)} className="mt-2 px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Modifier</button>
       </div>
       <div className="bg-surface rounded-xl border border-line p-5">
         <div className="space-y-2">
-          {Object.entries(item).filter(([k]) => !["_id","tenantId","__v","createdAt","updatedAt","lines","approvers","decisions","attendees"].includes(k)).map(([k, v]) => {
+          {Object.entries(item).filter(([k]) => !["_id","tenantId","__v","createdAt","updatedAt","lines","approvers","decisions","attendees","payrollHidden"].includes(k)).map(([k, v]) => {
             if (v === null || v === undefined) return null;
             const display = typeof v === "object" ? JSON.stringify(v).slice(0, 80) : String(v);
             return (
@@ -62,6 +66,7 @@ export default function EmployeeDetailPage() {
           initial={item as unknown as Partial<EmployeeFormData>}
           onSave={handleSave}
           onCancel={() => setEditOpen(false)}
+          payroll={payroll}
         />
       </Modal>
     </div>

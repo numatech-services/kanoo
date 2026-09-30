@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
 import { fullXof } from "@/components/ui/charts/geometry";
 import { COUNT_STATUS_LABEL, type CountStatus } from "@/lib/inventory";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 interface Session {
   _id: string;
@@ -35,6 +36,8 @@ async function csrf() {
 }
 
 export default function InventairesPage() {
+  // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
+  const canDelete = meCanDo(useMe(), "products", "delete");
   const [items, setItems] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -171,7 +174,7 @@ export default function InventairesPage() {
                         <Pill tone={STATUS_TONE[session.status]}>
                           {COUNT_STATUS_LABEL[session.status]}
                         </Pill>
-                        {session.status !== "validated" && (
+                        {session.status !== "validated" && canDelete && (
                           <button onClick={() => remove(session._id)} className="text-ink3 hover:text-neg" title="Supprimer cet inventaire">
                             <Trash2 size={14} />
                           </button>

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Truck, Banknote, Upload, Download, Trash2, ArrowRight, Ban, FileText, BookUser } from "lucide-react";
 import { ISIC_STATUS, fmt, delivered as sumDelivered } from "../page";
-import { useMe, meCan } from "@/lib/useMe";
+import { useMe, meCan, meCanDo } from "@/lib/useMe";
 
 interface Delivery { _id: string; date: string; quantity: number; note?: string }
 interface Payment { _id: string; date: string; amount: number; method?: string; note?: string }
@@ -33,6 +33,10 @@ export default function IsicBatchPage() {
   const router = useRouter();
   const { resources } = useMe();
   const canFinance = meCan(resources, "isicFinance");
+  // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
+  const me = useMe();
+  const canDelete = meCanDo(me, "isic", "delete");
+  const canDeleteFinance = meCanDo(me, "isicFinance", "delete");
   const [b, setB] = useState<Batch | null>(null);
   const [delivery, setDelivery] = useState({ quantity: 0, note: "" });
   const [payment, setPayment] = useState({ amount: 0, method: "", note: "" });
@@ -164,7 +168,7 @@ export default function IsicBatchPage() {
         <div className="flex gap-2">
           {NEXT[b.status] && <button onClick={() => patch({ status: NEXT[b.status] })} className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 inline-flex items-center gap-1.5">Étape suivante <ArrowRight size={15} /></button>}
           {!terminal && <button onClick={() => { if (confirm("Annuler ce lot ?")) patch({ status: "cancelled" }); }} className="px-3 h-10 rounded-lg border border-warn/25 text-warn text-sm hover:bg-warn-50 inline-flex items-center gap-1.5"><Ban size={15} /> Annuler</button>}
-          <button onClick={deleteBatch} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50">Supprimer</button>
+          {canDelete && <button onClick={deleteBatch} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50">Supprimer</button>}
         </div>
       </div>
 
@@ -270,7 +274,7 @@ export default function IsicBatchPage() {
               {b.deliveries.map(d => (
                 <li key={d._id} className="flex items-center justify-between py-1.5">
                   <span><b className="text-ink">{d.quantity}</b> cartes · <span className="text-ink2">{dt(d.date)}</span>{d.note && <span className="text-ink3"> — {d.note}</span>}</span>
-                  <button onClick={() => del("delivery", `deliveryId=${d._id}`)} className="text-ink3 hover:text-neg"><Trash2 size={13} /></button>
+                  {canDelete && <button onClick={() => del("delivery", `deliveryId=${d._id}`)} className="text-ink3 hover:text-neg"><Trash2 size={13} /></button>}
                 </li>
               ))}
             </ul>
@@ -296,7 +300,7 @@ export default function IsicBatchPage() {
               {b.payments.map(p => (
                 <li key={p._id} className="flex items-center justify-between py-1.5">
                   <span><b className="text-ink">{fmt(p.amount)}</b> · <span className="text-ink2">{dt(p.date)}</span>{p.method && <span className="text-ink3"> — {p.method}</span>}</span>
-                  <button onClick={() => del("payment", `paymentId=${p._id}`)} className="text-ink3 hover:text-neg"><Trash2 size={13} /></button>
+                  {canDeleteFinance && <button onClick={() => del("payment", `paymentId=${p._id}`)} className="text-ink3 hover:text-neg"><Trash2 size={13} /></button>}
                 </li>
               ))}
             </ul>
@@ -323,7 +327,7 @@ export default function IsicBatchPage() {
                 {(b.licensePayments || []).map(p => (
                   <li key={p._id} className="flex items-center justify-between py-1.5">
                     <span><b className="text-ink">{fmt(p.amount)}</b> · <span className="text-ink2">{dt(p.date)}</span></span>
-                    <button onClick={() => del("license-payment", `paymentId=${p._id}`)} className="text-ink3 hover:text-neg"><Trash2 size={13} /></button>
+                    {canDeleteFinance && <button onClick={() => del("license-payment", `paymentId=${p._id}`)} className="text-ink3 hover:text-neg"><Trash2 size={13} /></button>}
                   </li>
                 ))}
               </ul>

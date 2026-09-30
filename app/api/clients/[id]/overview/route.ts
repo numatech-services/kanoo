@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, notFound, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 import { Types } from "mongoose";
 import { ClientModel } from "@/models/Client";
 import { InvoiceModel } from "@/models/Invoice";
@@ -56,10 +57,17 @@ export const GET = withAuth("clients", "read", async (_req: NextRequest, auth: T
   if (!client) return notFound("Client introuvable");
 
   const byClient = { ...tf, clientId };
+  // Cloisonnement : chaque section n'est remplie que si le compte a le droit de
+  // lire la ressource d'origine. Les montants facturés / encaissés relèvent de
+  // la comptabilité — un commercial voit la fiche, pas les soldes.
+  const EMPTY = { count: 0, items: [] as unknown[] };
+  const can = (res: string) => authCan(auth, res, "read");
+  const seeInvoices = can("invoices");
+  const gated = <T,>(res: boolean, fn: () => Promise<T>, fallback: T) => (res ? safe(fn, fallback) : Promise.resolve(fallback));
 
   const [financialsAgg, invoices, devis, contracts, marches, deliveries, projects, dunning] = await Promise.all([
     // Synthèse : facturé (ventes), encaissé, restant dû (ventes non soldées).
-    safe(
+    gated(seeInvoices,
       () =>
         InvoiceModel.aggregate<{ _id: null; invoiced: number; paid: number; outstanding: number }>([
           { $match: { ...tf, clientId, documentType: { $ne: "credit_note" } } },
@@ -82,20 +90,27 @@ export const GET = withAuth("clients", "read", async (_req: NextRequest, auth: T
         ]),
       [] as Array<{ invoiced: number; paid: number; outstanding: number }>
     ),
-    safe(() => section(InvoiceModel, { ...byClient, documentType: { $ne: "credit_note" } }, { issueDate: -1 }, "number totalTTC paidAmount status issueDate"), { count: 0, items: [] }),
-    safe(() => section(DevisModel, byClient, { issueDate: -1 }, "number totalTTC status issueDate"), { count: 0, items: [] }),
-    safe(() => section(ContractModel, byClient, { createdAt: -1 }, "reference title status amount endDate"), { count: 0, items: [] }),
-    safe(() => section(FrameworkOrderModel, byClient, { createdAt: -1 }, "reference title status totalQuantity deliveredQuantity invoicedQuantity unitPrice"), { count: 0, items: [] }),
-    safe(() => section(DeliveryNoteModel, byClient, { deliveryDate: -1 }, "number status deliveryDate"), { count: 0, items: [] }),
-    safe(() => section(ProjectModel, byClient, { createdAt: -1 }, "label status dueDate amount"), { count: 0, items: [] }),
-    safe(() => section(DunningLogModel, byClient, { sentAt: -1 }, "sentAt channels invoiceNumber"), { count: 0, items: [] }),
+    gated(seeInvoices, () => section(InvoiceModel, { ...byClient, documentType: { $ne: "credit_note" } }, { issueDate: -1 }, "number totalTTC paidAmount status issueDate"), EMPTY),
+    gated(can("devis"), () => section(DevisModel, byClient, { issueDate: -1 }, "number totalTTC status issueDate"), EMPTY),
+    gated(can("contracts"), () => section(ContractModel, byClient, { createdAt: -1 }, "reference title status amount endDate"), EMPTY),
+    gated(can("commandes"), () => section(FrameworkOrderModel, byClient, { createdAt: -1 }, "reference title status totalQuantity deliveredQuantity invoicedQuantity unitPrice"), EMPTY),
+    gated(can("livraisons"), () => section(DeliveryNoteModel, byClient, { deliveryDate: -1 }, "number status deliveryDate"), EMPTY),
+    gated(can("projects"), () => section(ProjectModel, byClient, { createdAt: -1 }, "label status dueDate amount"), EMPTY),
+    gated(seeInvoices, () => section(DunningLogModel, byClient, { sentAt: -1 }, "sentAt channels invoiceNumber"), EMPTY),
   ]);
 
   const f = financialsAgg[0] ?? { invoiced: 0, paid: 0, outstanding: 0 };
 
+  if (!seeInvoices) delete client.currentBalance;
   return ok({
-    client: { ...client, currentBalance: Math.max(0, f.outstanding) },
-    financials: { invoiced: f.invoiced, paid: f.paid, outstanding: Math.max(0, f.outstanding) },
+    client: seeInvoices ? { ...client, currentBalance: Math.max(0, f.outstanding) } : client,
+    financials: seeInvoices ? { invoiced: f.invoiced, paid: f.paid, outstanding: Math.max(0, f.outstanding) } : null,
     sections: { invoices, devis, contracts, marches, deliveries, projects, dunning },
+    // L'écran n'affiche que les onglets et actions autorisés.
+    access: {
+      invoices: seeInvoices, dunning: seeInvoices, devis: can("devis"), contracts: can("contracts"),
+      marches: can("commandes"), deliveries: can("livraisons"), projects: can("projects"),
+      createInvoice: authCan(auth, "invoices", "create"),
+    },
   });
 });

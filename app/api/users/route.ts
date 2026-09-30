@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { withAuth, created, badRequest, conflict, forbidden, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
-import { UserModel } from "@/models/User";
+import { UserModel, USER_PUBLIC_SELECT } from "@/models/User";
 import { hashPassword } from "@/lib/auth";
 import { TenantModel } from "@/models/Tenant";
 import { passwordErrors } from "@/lib/password-policy";
@@ -13,7 +13,7 @@ export const GET = withAuth("users", "read", async (req: NextRequest, auth: Toke
   const pagination = getPagination(req);
   const filter: Record<string, unknown> = auth.role === "superadmin" ? {} : tenantFilter(auth);
   const [items, total] = await Promise.all([
-    UserModel.find(filter).select("-passwordHash").sort({ lastName: 1 }).skip(pagination.skip).limit(pagination.limit).lean(),
+    UserModel.find(filter).select(USER_PUBLIC_SELECT).sort({ lastName: 1 }).skip(pagination.skip).limit(pagination.limit).lean(),
     UserModel.countDocuments(filter),
   ]);
   return paginatedResponse(items, total, pagination);

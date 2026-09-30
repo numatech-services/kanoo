@@ -6,6 +6,7 @@ import { effectiveRoles, rolesCanPerform } from "@/lib/role-resources";
 import { UserRole } from "@/types";
 import { ENTITIES, parseCSV, coerce } from "@/lib/data-io";
 import { logAudit } from "@/lib/audit";
+import { stripPayrollWrites } from "@/lib/payroll-mask";
 
 export const dynamic = "force-dynamic";
 
@@ -51,16 +52,26 @@ export const POST = withAuth("agenda", "create", async (req: NextRequest, auth: 
     const line = r + 2; // +1 en-tête, +1 base 1
     const raw = rows[r];
     try {
-      const doc: Record<string, unknown> = {};
+      let doc: Record<string, unknown> = {};
+      // Valeurs par défaut appliquées à la CRÉATION seulement : une colonne
+      // absente ne doit pas écraser la valeur d'une fiche existante (ex. un
+      // salaire remis à 0 par un import sans colonne « grossSalary »).
+      let defaults: Record<string, unknown> = {};
       for (const f of spec.fields) {
         const idx = colIndex[norm(f.header)];
         const cell = idx === undefined ? "" : raw[idx] ?? "";
         const val = coerce(cell, f);
         if (val !== undefined && val !== "") doc[f.field] = val;
-        else if (f.default !== undefined) doc[f.field] = f.default;
+        else if (f.default !== undefined) defaults[f.field] = f.default;
       }
       for (const f of spec.fields) {
-        if (f.required && (doc[f.field] === undefined || doc[f.field] === "")) throw new Error(`champ « ${f.header} » requis`);
+        const v = doc[f.field] ?? defaults[f.field];
+        if (f.required && (v === undefined || v === "")) throw new Error(`champ « ${f.header} » requis`);
+      }
+      // Rémunération : ni fixée ni modifiée sans accès à la paie.
+      if (entity.resource === "employees") {
+        doc = stripPayrollWrites(doc, auth);
+        defaults = stripPayrollWrites(defaults, auth);
       }
 
       // Rattachement d'un tiers par son code (ex. contrat → client). Un code
@@ -79,7 +90,7 @@ export const POST = withAuth("agenda", "create", async (req: NextRequest, auth: 
 
       const res = await entity.model.updateOne(
         { ...tf, [spec.uniqueBy]: key },
-        { $set: { ...doc, tenantId: auth.tenantId }, $setOnInsert: { createdBy: auth.userId } },
+        { $set: { ...doc, tenantId: auth.tenantId }, $setOnInsert: { ...defaults, createdBy: auth.userId } },
         { upsert: true, runValidators: true, setDefaultsOnInsert: true }
       );
       if (res.upsertedCount) created++; else if (res.matchedCount) updated++;

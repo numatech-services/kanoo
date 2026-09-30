@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { withAuth, ok, notFound, forbidden, conflict, tenantFilter, badRequest } from "@/lib/api-helpers";
-import { UserModel } from "@/models/User";
+import { UserModel, USER_PUBLIC_SELECT } from "@/models/User";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { assignableRoles } from "@/lib/roles-ui";
@@ -8,7 +8,7 @@ import { parseAccess } from "@/lib/user-access";
 
 export const GET = withAuth("users", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   const filter = auth.role === "superadmin" ? { _id: params.id } : { _id: params.id, ...tenantFilter(auth) };
-  const user = await UserModel.findOne(filter).select("-passwordHash").lean();
+  const user = await UserModel.findOne(filter).select(USER_PUBLIC_SELECT).lean();
   if (!user) return notFound(); return ok(user);
 });
 // Champs modifiables par l'utilisateur sur son propre profil.
@@ -136,7 +136,7 @@ export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: 
     { _id: params.id, ...tenantFilter(auth) },
     { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) },
     { new: true }
-  ).select("-passwordHash");
+  ).select(USER_PUBLIC_SELECT);
   if (!user) return notFound();
 
   // Un changement de rôle ou une désactivation prend effet immédiatement —

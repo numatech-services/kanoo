@@ -18,16 +18,18 @@ const PROFILE_LABELS: Record<string, { title: string; subtitle: string }> = {
 
 export default function MessagesPage() {
   const [user, setUser] = useState<UserInfo | null>(null);
+  const [tenantKind, setTenantKind] = useState<UserInfo["tenantType"] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
       .then(r => r.json())
-      .then(d => setUser(d.data?.user || null))
+      .then(d => { setUser(d.data?.user || null); setTenantKind(d.data?.tenant?.type ?? null); })
       .finally(() => setLoading(false));
   }, []);
 
-  const profile = user?.tenantType || "pme";
+  // Le type d'organisation est porté par tenant.type (pas par l'utilisateur).
+  const profile = tenantKind || user?.tenantType || "pme";
   const labels = PROFILE_LABELS[profile] || PROFILE_LABELS.pme;
 
   if (loading) {

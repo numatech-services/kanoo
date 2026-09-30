@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, notFound, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 import { Types } from "mongoose";
 import { SupplierModel } from "@/models/Supplier";
 import { CommandeModel } from "@/models/Commande";
@@ -59,20 +60,30 @@ export const GET = withAuth("suppliers", "read", async (_req: NextRequest, auth:
   if (!supplier) return notFound("Fournisseur introuvable");
 
   const bySupplier = { ...tf, supplierId };
+  // Cloisonnement : une section n'est remplie que si le compte lit la ressource
+  // d'origine ; les montants engagés restent à la comptabilité et aux achats.
+  const EMPTY = { count: 0, items: [] as unknown[] };
+  const can = (res: string) => authCan(auth, res, "read");
+  const access = {
+    commandes: can("commandes"), contracts: can("contracts"), receipts: can("commandes"),
+    commitments: can("commitmentOrders"), recurring: can("recurringCharges"),
+  };
+  const gated = <T,>(on: boolean, fn: () => Promise<T>, fallback: T) => (on ? safe(fn, fallback) : Promise.resolve(fallback));
 
   const [ordered, engaged, commandes, contracts, receipts, commitments, recurring] = await Promise.all([
-    safe(() => sum(CommandeModel, { ...tf, supplierId, status: { $ne: "cancelled" } }, "$totalTTC"), 0),
-    safe(() => sum(CommitmentOrderModel, { ...tf, supplierId }, "$amount"), 0),
-    safe(() => section(CommandeModel, bySupplier, { orderDate: -1 }, "number totalTTC status orderDate"), { count: 0, items: [] }),
-    safe(() => section(ContractModel, bySupplier, { createdAt: -1 }, "reference title status amount endDate"), { count: 0, items: [] }),
-    safe(() => section(GoodsReceiptModel, bySupplier, { receiptDate: -1 }, "number receiptDate commandeId"), { count: 0, items: [] }),
-    safe(() => section(CommitmentOrderModel, bySupplier, { date: -1 }, "number label amount date status"), { count: 0, items: [] }),
-    safe(() => section(RecurringExpenseModel, bySupplier, { nextDueDate: 1 }, "reference label amount frequency nextDueDate isActive"), { count: 0, items: [] }),
+    gated(access.commandes, () => sum(CommandeModel, { ...tf, supplierId, status: { $ne: "cancelled" } }, "$totalTTC"), 0),
+    gated(access.commitments, () => sum(CommitmentOrderModel, { ...tf, supplierId }, "$amount"), 0),
+    gated(access.commandes, () => section(CommandeModel, bySupplier, { orderDate: -1 }, "number totalTTC status orderDate"), EMPTY),
+    gated(access.contracts, () => section(ContractModel, bySupplier, { createdAt: -1 }, "reference title status amount endDate"), EMPTY),
+    gated(access.receipts, () => section(GoodsReceiptModel, bySupplier, { receiptDate: -1 }, "number receiptDate commandeId"), EMPTY),
+    gated(access.commitments, () => section(CommitmentOrderModel, bySupplier, { date: -1 }, "number label amount date status"), EMPTY),
+    gated(access.recurring, () => section(RecurringExpenseModel, bySupplier, { nextDueDate: 1 }, "reference label amount frequency nextDueDate isActive"), EMPTY),
   ]);
 
   return ok({
     supplier,
     financials: { ordered, engaged },
     sections: { commandes, contracts, receipts, commitments, recurring },
+    access,
   });
 });

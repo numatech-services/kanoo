@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, forbidden, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { ClientModel } from "@/models/Client";
 import { InvoiceModel } from "@/models/Invoice";
 import { PaymentModel } from "@/models/Payment";
@@ -9,6 +9,7 @@ import {
   type StatementSource, type OpenItem,
 } from "@/lib/statement";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,8 @@ interface PaymentRow {
  *    créance qu'il devait réduire.
  */
 export const GET = withAuth("clients", "read", async (req: NextRequest, auth: TokenPayload, params) => {
+  // Relevé de compte = factures et règlements : réservé à qui lit les factures.
+  if (!authCan(auth, "invoices", "read")) return forbidden("Relevé réservé à la comptabilité et au gérant.");
   const client = await ClientModel.findOne({ _id: params.id, ...tenantFilter(auth) })
     .select("name code email phone address nif paymentTermDays")
     .lean<{ name: string; code?: string; email?: string; phone?: string;

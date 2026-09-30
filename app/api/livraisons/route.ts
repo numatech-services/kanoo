@@ -8,6 +8,7 @@ import { ProductModel } from "@/models/Product";
 import { StockMovementModel } from "@/models/StockMovement";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 
 export const GET = withAuth("livraisons", "read", async (req: NextRequest, auth: TokenPayload) => {
     await connectDB();
@@ -22,7 +23,7 @@ export const GET = withAuth("livraisons", "read", async (req: NextRequest, auth:
 
   const [items, total] = await Promise.all([
     DeliveryNoteModel.find(filter)
-      .populate("invoiceId", "number totalTTC status")
+      .populate("invoiceId", authCan(auth, "invoices", "read") ? "number totalTTC status" : "number status")
       .populate("clientId", "name code address")
       .sort({ createdAt: -1 })
       .skip(pagination.skip).limit(pagination.limit).lean(),

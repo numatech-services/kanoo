@@ -46,6 +46,8 @@ interface Payload {
   issues: LineIssue[];
   totals: { totalTTC: number; totalVatDeducted: number; totalCharge: number };
   canApprove: boolean;
+  /** Remboursement = sortie de trésorerie : comptabilité et gérant seulement. */
+  canReimburse?: boolean;
 }
 
 interface TreasuryAccount { _id: string; label: string }
@@ -131,7 +133,7 @@ export default function NoteDeFraisPage() {
     </p>;
   }
 
-  const { report, issues, totals, canApprove, policy } = data;
+  const { report, issues, totals, canApprove, canReimburse, policy } = data;
   const editable = report.status === "draft" || report.status === "rejected";
   const blocking = issues.filter(i => i.level === "block");
   const warnings = issues.filter(i => i.level === "warn");
@@ -196,7 +198,7 @@ export default function NoteDeFraisPage() {
             </>
           )}
 
-          {report.status === "approved" && canApprove && (
+          {report.status === "approved" && canReimburse && (
             <button onClick={() => setPayOpen(true)} disabled={busy}
               className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-white text-sm font-semibold hover:brightness-95">
               <Banknote size={15} /> Rembourser

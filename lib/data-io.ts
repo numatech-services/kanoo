@@ -210,6 +210,10 @@ export function parseCSV(text: string): { headers: string[]; rows: string[][] } 
 /** Convertit une valeur texte selon le type déclaré du champ d'import. */
 export function coerce(value: string, f: ImportField): unknown {
   const v = value?.trim() ?? "";
+  // Cellule vide = « pas de valeur », jamais 0 / faux / défaut : sinon un
+  // import de mise à jour écraserait la donnée existante (salaire remis à 0).
+  // Les valeurs par défaut ne s'appliquent qu'à la création (route d'import).
+  if (!v) return undefined;
   if (f.kind === "number") { const n = Number(v.replace(/\s/g, "").replace(",", ".")); return isNaN(n) ? undefined : n; }
   if (f.kind === "boolean") return /^(oui|true|1|vrai|yes|x)$/i.test(v);
   if (f.kind === "date") {

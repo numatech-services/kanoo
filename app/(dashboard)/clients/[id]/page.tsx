@@ -10,11 +10,13 @@ type Row = Record<string, unknown>;
 interface Section { count: number; items: Row[]; }
 interface Overview {
   client: Client;
-  financials: { invoiced: number; paid: number; outstanding: number };
+  /** null : le compte n'a pas accès aux informations financières. */
+  financials: { invoiced: number; paid: number; outstanding: number } | null;
   sections: {
     invoices: Section; devis: Section; contracts: Section;
     marches: Section; deliveries: Section; projects: Section; dunning: Section;
   };
+  access?: Partial<Record<keyof Overview["sections"] | "createInvoice", boolean>>;
 }
 
 const fmt = (n: unknown) => `${Number(n || 0).toLocaleString("fr-FR")} F CFA`;
@@ -79,8 +81,10 @@ export default function ClientDetailPage() {
 
   if (!data) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-line" /></div>;
   const c = data.client;
-  const active = TABS.find(t => t.key === tab)!;
-  const section = data.sections[tab];
+  // Onglets limités aux ressources que le compte peut lire (cloisonnement).
+  const tabs = TABS.filter(t => data.access?.[t.key] ?? true);
+  const active = tabs.find(t => t.key === tab) ?? tabs[0];
+  const section = active ? data.sections[active.key] : null;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -99,20 +103,20 @@ export default function ClientDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
           <button onClick={() => setEditOpen(true)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Modifier</button>
-          <a href={`/clients/${id}/releve`} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Relevé</a>
-          <a href={`/invoices/new?clientId=${id}`} className="px-4 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95">+ Facture</a>
+          {data.financials && <a href={`/clients/${id}/releve`} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Relevé</a>}
+          {data.access?.createInvoice !== false && <a href={`/invoices/new?clientId=${id}`} className="px-4 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95">+ Facture</a>}
         </div>
       </div>
 
       {/* Synthèse financière */}
-      <div className="grid grid-cols-3 gap-4">
+      {data.financials && <div className="grid grid-cols-3 gap-4">
         {([["Facturé", data.financials.invoiced, "text-ink"], ["Encaissé", data.financials.paid, "text-pos"], ["Restant dû", data.financials.outstanding, "text-neg"]] as [string, number, string][]).map(([k, v, cls]) => (
           <div key={k} className="bg-surface rounded-xl border border-line p-4">
             <p className="text-[11px] font-semibold text-ink2 uppercase tracking-wide">{k}</p>
             <p className={`text-xl font-bold mt-1 ${cls}`}>{fmt(v)}</p>
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* Informations */}
       <div className="grid md:grid-cols-2 gap-5">
@@ -132,11 +136,11 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Onglets des rattachements */}
-      <div className="bg-surface rounded-xl border border-line overflow-hidden">
+      {active && section && <div className="bg-surface rounded-xl border border-line overflow-hidden">
         <div className="flex gap-1 overflow-x-auto border-b border-line px-2 pt-2">
-          {TABS.map(t => (
+          {tabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap ${tab === t.key ? "bg-section/10 text-section" : "text-ink2 hover:text-ink hover:bg-surface2"}`}>
+              className={`px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap ${active.key === t.key ? "bg-section/10 text-section" : "text-ink2 hover:text-ink hover:bg-surface2"}`}>
               {t.label} <span className="ml-1 text-xs opacity-70">{data.sections[t.key].count}</span>
             </button>
           ))}
@@ -164,7 +168,7 @@ export default function ClientDetailPage() {
             <div className="px-4 py-2 text-right"><a href={active.href(String(id))} className="text-xs text-section hover:underline">Voir les {section.count} →</a></div>
           )}
         </div>
-      </div>
+      </div>}
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title={`Modifier — ${c.name}`} size="lg">
         <ClientForm initial={c} onSave={handleSave} onCancel={() => setEditOpen(false)} />

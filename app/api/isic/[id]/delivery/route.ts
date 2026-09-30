@@ -37,7 +37,7 @@ export const POST = withAuth("isic", "update", async (req: NextRequest, auth: To
   return ok(batch);
 });
 
-export const DELETE = withAuth("isic", "update", async (req: NextRequest, auth: TokenPayload, params) => {
+export const DELETE = withAuth("isic", "delete", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const deliveryId = new URL(req.url).searchParams.get("deliveryId");
   if (!deliveryId) return badRequest("Livraison non précisée.");

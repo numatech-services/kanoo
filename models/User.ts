@@ -84,6 +84,13 @@ const SENSITIVE_FIELDS = [
   "twoFactorSecret", "twoFactorPending", "twoFactorBackupCodes",
 ] as const;
 
+/**
+ * Projection à utiliser avec `.lean()` : le transform `toJSON` ci-dessous ne
+ * s'applique qu'aux documents Mongoose, pas aux objets bruts renvoyés par
+ * `lean()` — sans elle, secret 2FA et jeton de réinitialisation partent au client.
+ */
+export const USER_PUBLIC_SELECT = SENSITIVE_FIELDS.map(f => `-${f}`).join(" ");
+
 UserSchema.set("toJSON", {
   transform: (_doc, ret) => {
     const plain = ret as unknown as Record<string, unknown>;

@@ -229,6 +229,29 @@ async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
   return { ok: true, auth: { ...auth, role, roles, roleLevels, siteIds, allowedResources: user.allowedResources } };
 }
 
+/**
+ * Même contrôle que withAuth (jeton → revalidation en base → RBAC), pour une
+ * route qui ne peut pas être enveloppée (flux PDF, réponse en Promise…).
+ * Une lecture seule : pas de CSRF à vérifier.
+ */
+export async function authorize(
+  req: NextRequest,
+  resource: string,
+  action: "create" | "read" | "update" | "delete",
+): Promise<SecurityCheck> {
+  const tokenAuth = getAuthContext(req);
+  if (!tokenAuth) return { ok: false, response: unauthorized() };
+  await connectDB();
+  const check = await revalidate(tokenAuth);
+  if (!check.ok) return check;
+  const auth = check.auth;
+  const authRoles = effectiveRoles(auth.role as UserRole, auth.roles as UserRole[] | undefined);
+  if (!rolesCanPerform(authRoles, resource, action, auth.allowedResources, auth.roleLevels)) {
+    return { ok: false, response: forbidden(`Action '${action}' sur '${resource}' non autorisée pour ${authRoles.join(", ")}`) };
+  }
+  return check;
+}
+
 /** Empreinte d'une requête, pour détecter la réutilisation d'une clé d'idempotence. */
 function fingerprint(method: string, url: string, body: string): string {
   return crypto.createHash("sha256").update(`${method} ${url} ${body}`).digest("hex");

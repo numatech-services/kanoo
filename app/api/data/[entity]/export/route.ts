@@ -5,6 +5,7 @@ import { TokenPayload } from "@/lib/auth";
 import { effectiveRoles, rolesCanPerform, isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { UserRole } from "@/types";
 import { ENTITIES, toCSV } from "@/lib/data-io";
+import { canSeePayroll, PAYROLL_FIELDS } from "@/lib/payroll-mask";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +30,11 @@ export const GET = withAuth("agenda", "read", async (_req: NextRequest, auth: To
   if (entity.sort) q = q.sort(entity.sort);
   const docs = await q.limit(50000).lean();
 
-  const headers = entity.columns.map((c) => c.header);
-  const rows = docs.map((d: unknown) => entity.columns.map((c) => c.get(d)));
+  // Rémunération exclue de l'export pour qui n'a pas accès à la paie.
+  const hidden = new Set<string>(entity.resource === "employees" && !canSeePayroll(auth) ? PAYROLL_FIELDS : []);
+  const columns = entity.columns.filter((c) => !hidden.has(c.header));
+  const headers = columns.map((c) => c.header);
+  const rows = docs.map((d: unknown) => columns.map((c) => c.get(d)));
   const csv = toCSV(headers, rows);
 
   const stamp = new Date().toISOString().slice(0, 10);

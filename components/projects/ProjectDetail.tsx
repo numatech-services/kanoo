@@ -23,6 +23,8 @@ interface ProjectMember {
 interface Project {
   _id: string; code: string; name: string; status: string; budget: number;
   spentAmount: number; budgetRate: number; executionRate: number;
+  /** Montants masqués par l'API : le compte n'a pas accès aux finances. */
+  amountsHidden?: boolean;
   tasks: Task[]; documents: ProjectDoc[]; projectMembers: ProjectMember[];
   conversationId?: string;
 }
@@ -101,7 +103,8 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
   }).length || 0;
   
   const currentExecRate = tasksTotal > 0 ? Math.round((tasksDone / tasksTotal) * 100) : 0;
-  const currentBudgetRate = project.budget > 0 ? Math.round((project.spentAmount / project.budget) * 100) : 0;
+  const money = !project.amountsHidden;
+  const currentBudgetRate = money && project.budget > 0 ? Math.round((project.spentAmount / project.budget) * 100) : 0;
 
   const getCsrf = async () => {
     const res = await fetch("/api/auth/csrf");
@@ -235,7 +238,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
           </div>
         </div>
 
-        <div className="surface-card p-5">
+        {money && <div className="surface-card p-5">
           <div className="flex justify-between items-center mb-3">
             <span className="text-[10px] font-bold uppercase text-ink2 flex items-center gap-1 italic">
               <Banknote size={14} /> Consommation Budget
@@ -245,9 +248,9 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
           <div className="h-2 bg-surface2 rounded-full overflow-hidden">
             <div className={`h-full transition-all duration-700 ${currentBudgetRate > 100 ? 'bg-neg' : 'bg-section'}`} style={{ width: `${Math.min(currentBudgetRate, 100)}%` }} />
           </div>
-        </div>
+        </div>}
 
-        <div className="bg-section/5 p-5 rounded-xl border border-section/10 flex flex-col justify-center items-center">
+        {money && <div className="bg-section/5 p-5 rounded-xl border border-section/10 flex flex-col justify-center items-center">
             <p className="text-[10px] font-black text-section uppercase mb-1">Dépensé / Total</p>
             <p className="text-lg font-black text-ink">
                 {project.spentAmount.toLocaleString()} <span className="text-[10px] opacity-40">/ {project.budget.toLocaleString()} XOF</span>
@@ -255,11 +258,11 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
             <button onClick={() => setBudgetModal(true)} className="mt-2 text-[10px] font-bold text-section hover:scale-105 transition-transform flex items-center gap-1 bg-surface px-3 py-1 rounded-full shadow-sm border border-section/10">
                <Plus size={10} /> AJOUTER UNE DÉPENSE
             </button>
-        </div>
+        </div>}
       </div>
 
       {/* ALERTES GESTION */}
-      {currentBudgetRate > currentExecRate + 15 && (
+      {money && currentBudgetRate > currentExecRate + 15 && (
         <div className="bg-neg-50 border border-neg/25 p-4 rounded-2xl flex gap-3 items-center animate-pulse">
           <AlertCircle className="text-neg" size={20} />
           <p className="text-[11px] text-neg font-bold uppercase tracking-tight">

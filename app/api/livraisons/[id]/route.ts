@@ -4,11 +4,12 @@ import { withAuth, ok, notFound, tenantFilter, sanitizeBody } from "@/lib/api-he
 import { DeliveryNoteModel } from "@/models/DeliveryNote";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 
 export const GET = withAuth("invoices", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const item = await DeliveryNoteModel.findOne({ _id: params.id, ...tenantFilter(auth) })
-    .populate("invoiceId", "number totalTTC issueDate")
+    .populate("invoiceId", authCan(auth, "invoices", "read") ? "number totalTTC issueDate" : "number issueDate")
     .populate("clientId", "name code nif address phone")
     .lean();
   if (!item) return notFound();

@@ -4,11 +4,15 @@ import { ClientModel } from "@/models/Client";
 import { InvoiceModel } from "@/models/Invoice";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 
 export const GET = withAuth("clients", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   const client = await ClientModel.findOne({ _id: params.id, ...tenantFilter(auth) })
     .lean<Record<string, unknown> | null>();
   if (!client) return notFound("Client introuvable");
+  // Le solde est une information financière : réservé à qui lit les factures.
+  delete client.currentBalance;
+  if (!authCan(auth, "invoices", "read")) return ok(client);
 
   // Solde calculé, jamais lu depuis le champ stocké : celui-ci vaut zéro pour
   // tout le monde depuis l'origine, faute d'être mis à jour par quoi que ce

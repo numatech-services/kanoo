@@ -5,6 +5,7 @@ import { NotificationModel } from "@/models/Notification";
 import { ProductModel } from "@/models/Product";
 import { LetterModel } from "@/models/Letter";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -27,20 +28,23 @@ export const GET = withAuth("notifications", "read", async (_req: NextRequest, a
   const tf = tenantFilter(auth);
   const now = new Date();
 
+  // Chaque compteur n'est calculé que pour qui voit l'écran correspondant :
+  // le nombre de factures en retard est une information financière.
+  const zero = Promise.resolve(0);
   const [overdue, unread, lowStock, courriersDue] = await Promise.all([
-    InvoiceModel.countDocuments({
+    authCan(auth, "invoices", "read") ? InvoiceModel.countDocuments({
       ...tf, documentType: { $ne: "credit_note" },
       status: { $in: ["sent", "partial", "overdue"] }, dueDate: { $lt: now },
-    }),
+    }) : zero,
     NotificationModel.countDocuments({ ...tf, userId: auth.userId, read: false }),
-    ProductModel.countDocuments({
+    authCan(auth, "products", "read") ? ProductModel.countDocuments({
       ...tf, isActive: true, $expr: { $lte: ["$stockQty", "$stockMinAlert"] },
-    }),
+    }) : zero,
     // Courriers entrants dont l'échéance de réponse est passée et non traités.
-    LetterModel.countDocuments({
+    authCan(auth, "documents", "read") ? LetterModel.countDocuments({
       ...tf, direction: "incoming", handled: { $ne: true },
       archived: { $ne: true }, dueDate: { $lt: now },
-    }),
+    }) : zero,
   ]);
 
   // Les entrées sans compteur sont omises plutôt que renvoyées à zéro : c'est

@@ -19,8 +19,8 @@ import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
 
 interface DashboardStats {
   activeMembers: number;
-  totalContributions: number;
-  totalDonations: number;
+  totalContributions: number | null;
+  totalDonations: number | null;
   activeProjects: number;
   pendingContributionsCount: number;
 }
@@ -65,7 +65,7 @@ export default function AssoDashboardPage() {
     },
     { 
       label: "Cotisations", 
-      value: loading ? "..." : formatFCFA(stats?.totalContributions || 0), 
+      value: loading ? "..." : stats?.totalContributions == null ? "—" : formatFCFA(stats.totalContributions), 
       sub: "Collectées cette année",
       icon: CreditCard, 
       color: "text-pos",
@@ -74,7 +74,7 @@ export default function AssoDashboardPage() {
     },
     { 
       label: "Dons & Mécénat", 
-      value: loading ? "..." : formatFCFA(stats?.totalDonations || 0), 
+      value: loading ? "..." : stats?.totalDonations == null ? "—" : formatFCFA(stats.totalDonations), 
       sub: "Fonds récoltés",
       icon: Heart, 
       color: "text-section",

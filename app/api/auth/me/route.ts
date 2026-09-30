@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/api-helpers";
 import { verifyCsrf, CSRF_MESSAGES } from "@/lib/csrf";
 import { connectDB } from "@/lib/db";
-import { UserModel } from "@/models/User";
+import { UserModel, USER_PUBLIC_SELECT } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
 import { effectiveRoles, accessibleResourcesForRoles } from "@/lib/role-resources";
 import { UserRole } from "@/types";
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const auth = getAuthContext(req);
   if (!auth) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   await connectDB();
-  const user = await UserModel.findById(auth.userId).select("-passwordHash").lean();
+  const user = await UserModel.findById(auth.userId).select(USER_PUBLIC_SELECT).lean();
   if (!user) return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
 
   // Marque de l'organisation, pour habiller l'interface (barre latérale, thème
@@ -70,7 +70,7 @@ export async function PATCH(req: NextRequest) {
         new: true,           // Retourne le document modifié
         runValidators: true  // Vérifie les règles du Schema (required, trim, etc.)
       }
-    ).select("-passwordHash");
+    ).select(USER_PUBLIC_SELECT);
 
     if (!updatedUser) {
       return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });

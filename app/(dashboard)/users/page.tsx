@@ -60,7 +60,10 @@ export default function UsersPage() {
       ]);
       setUsers(u.data?.items || []);
       setTotal(u.data?.pagination?.total || 0);
-      if (me?.data?.tenantType) setTenantType(me.data.tenantType);
+      // /api/auth/me renvoie le type sous tenant.type (tenantType n'existe pas) :
+      // sans cela, une association se voyait proposer les rôles d'une PME.
+      const type = me?.data?.tenant?.type ?? me?.data?.tenantType;
+      if (type) setTenantType(type);
       setError(null);
     } catch {
       setError("Lecture des comptes impossible.");

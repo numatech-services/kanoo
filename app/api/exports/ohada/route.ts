@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { getAuthContext, tenantFilter } from "@/lib/api-helpers";
+import { authorize, tenantFilter } from "@/lib/api-helpers";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 
 // GET /api/exports/ohada?annee=2025&format=grandlivre|bilan|resultat
 export async function GET(req: NextRequest) {
-  const auth = getAuthContext(req);
-  if (!auth) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const gate = await authorize(req, "accountingEntries", "read");
+  if (!gate.ok) return gate.response;
+  const auth = gate.auth;
 
   await connectDB();
   const url = new URL(req.url);

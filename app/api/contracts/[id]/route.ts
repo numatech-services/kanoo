@@ -4,6 +4,7 @@ import { withAuth, ok, notFound, noContent, tenantFilter } from "@/lib/api-helpe
 import { ContractModel } from "@/models/Contract";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 
 // `withAuth` passe les paramètres de route en TROISIÈME argument, déjà résolus.
 // Le code lisait `context.params.id` sur ce qui est en réalité l'objet des
@@ -19,7 +20,8 @@ export const GET = withAuth("contracts", "read", async (_req: NextRequest, auth:
     .populate("clientId", "name code nif address phone email")
     .populate("supplierId", "name code")
     .populate("employeeId", "firstName lastName code position")
-    .populate("invoiceIds", "number totalTTC status issueDate")
+    // Montants facturés : visibles de la comptabilité et du gérant seulement.
+    .populate("invoiceIds", authCan(auth, "invoices", "read") ? "number totalTTC status issueDate" : "number status issueDate")
     .lean();
 
   if (!contract) return notFound();

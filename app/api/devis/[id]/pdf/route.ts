@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { getAuthContext, tenantFilter } from "@/lib/api-helpers";
+import { authorize, tenantFilter } from "@/lib/api-helpers";
 import { DevisModel } from "@/models/Devis";
 import { TenantModel } from "@/models/Tenant";
 import { generateQuotePdf, type QuoteForPdf, type TenantIdentity } from "@/lib/pdf-document";
@@ -10,8 +10,9 @@ interface RouteParams { params: Promise<{ id: string }> | { id: string }; }
 /** GET /api/devis/:id/pdf — devis PDF à la marque de l'organisation, QR apposé. */
 export async function GET(req: NextRequest, ctx: RouteParams) {
   try {
-    const auth = getAuthContext(req);
-    if (!auth) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    const gate = await authorize(req, "devis", "read");
+    if (!gate.ok) return gate.response;
+    const auth = gate.auth;
 
     await connectDB();
     const { id } = ctx.params instanceof Promise ? await ctx.params : ctx.params;

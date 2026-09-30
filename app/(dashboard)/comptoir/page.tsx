@@ -5,6 +5,7 @@ import { Store, Plus, Wallet, Package, AlertTriangle, ArrowDownLeft, ArrowUpRigh
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 interface Desk { _id: string; name: string; description?: string; activityId?: string }
 interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number }
@@ -321,6 +322,8 @@ function SummaryCard({ icon, label, value, tone }: { icon: React.ReactNode; labe
 
 // ── Caisse (argent) ──────────────────────────────────────────────────────────
 function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void }) {
+  // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
+  const canDelete = meCanDo(useMe(), "comptoir", "delete");
   const [entries, setEntries] = useState<CashEntry[]>([]);
   const [open, setOpen] = useState(false);
   const [arreteOpen, setArreteOpen] = useState(false);
@@ -381,7 +384,7 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
                     {e.direction === "in" ? "+" : "−"}{MONEY(e.amount)}
                   </td>
                   <td className="text-right">
-                    <button onClick={() => del(e._id)} className="p-1.5 rounded text-ink3 hover:text-neg hover:bg-neg-50" title="Supprimer"><Trash2 size={15} /></button>
+                    {canDelete && <button onClick={() => del(e._id)} className="p-1.5 rounded text-ink3 hover:text-neg hover:bg-neg-50" title="Supprimer"><Trash2 size={15} /></button>}
                   </td>
                 </tr>
               ))}
@@ -529,6 +532,7 @@ function CashDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
 
 // ── Stock matière ────────────────────────────────────────────────────────────
 function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }) {
+  const canDelete = meCanDo(useMe(), "comptoir", "delete");
   const [items, setItems] = useState<Item[]>([]);
   const [moves, setMoves] = useState<Move[]>([]);
   const [itemOpen, setItemOpen] = useState(false);
@@ -588,7 +592,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
                       </button>
                     </td>
                     <td className="text-right">
-                      <button onClick={() => del(it._id)} className="p-1.5 rounded text-ink3 hover:text-neg hover:bg-neg-50" title="Supprimer"><Trash2 size={15} /></button>
+                      {canDelete && <button onClick={() => del(it._id)} className="p-1.5 rounded text-ink3 hover:text-neg hover:bg-neg-50" title="Supprimer"><Trash2 size={15} /></button>}
                     </td>
                   </tr>
                 );

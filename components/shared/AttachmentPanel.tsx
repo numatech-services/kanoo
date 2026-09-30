@@ -6,6 +6,7 @@ import {
   File as FileIcon, Download, Loader2,
 } from "lucide-react";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 export type AttachmentHost =
   | "contracts" | "subscriptions" | "invoices" | "devis" | "commandes" | "marches"
@@ -77,6 +78,8 @@ export function AttachmentPanel({
   categories = ["contrat", "avenant", "facture", "justificatif", "releve", "courrier", "autre"],
   defaultCategory, readOnly = false, onChange,
 }: Props) {
+  // Retirer une pièce = supprimer un document : chef de service et gérant.
+  const canRemove = meCanDo(useMe(), "documents", "delete");
   const [items, setItems] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -263,7 +266,7 @@ export function AttachmentPanel({
                   title={`Télécharger ${item.filename}`}>
                   <Download size={15} />
                 </a>
-                {!readOnly && (
+                {!readOnly && canRemove && (
                   <button onClick={() => destroy(item._id, item.filename)} disabled={busy}
                     className="p-1.5 rounded-lg text-ink3 hover:text-neg hover:bg-neg-50 disabled:opacity-40"
                     title="Retirer">

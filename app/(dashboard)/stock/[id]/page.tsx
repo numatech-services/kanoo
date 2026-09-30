@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 interface Product { _id:string; code:string; label:string; description?:string; unit:string; stockQty:number; stockMinAlert:number; unitPrice:number; tvaRate:number; accountCode?:string; isService:boolean; }
 interface Movement { _id:string; type:string; quantity:number; quantityBefore:number; quantityAfter:number; reason:string; linkedDocNumber?:string; createdAt:string; }
@@ -11,6 +12,8 @@ const TYPE_LABELS:Record<string,string>={entry:"Entrée",exit:"Sortie",adjustmen
 const TYPE_COLORS:Record<string,string>={entry:"text-pos",exit:"text-neg",adjustment:"text-info",return:"text-warn",loss:"text-neg"};
 
 export default function StockDetailPage() {
+  // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
+  const canDelete = meCanDo(useMe(), "products", "delete");
   const { id } = useParams();
   const [product,setProduct]=useState<Product|null>(null);
   const [movements,setMovements]=useState<Movement[]>([]);
@@ -69,7 +72,7 @@ export default function StockDetailPage() {
                   <td className="px-4 py-2.5 font-mono text-ink2">{m.quantityBefore}</td>
                   <td className="px-4 py-2.5 font-mono font-semibold">{m.quantityAfter}</td>
                   <td className="px-4 py-2.5 text-ink2 text-xs">{m.reason}{m.linkedDocNumber&&<span className="ml-1 text-section">#{m.linkedDocNumber}</span>}</td>
-                  <td className="px-4 py-2.5 text-right"><button onClick={()=>removeMovement(m._id)} className="text-ink3 hover:text-neg" title="Supprimer ce mouvement"><Trash2 size={14}/></button></td>
+                  <td className="px-4 py-2.5 text-right">{canDelete && <button onClick={()=>removeMovement(m._id)} className="text-ink3 hover:text-neg" title="Supprimer ce mouvement"><Trash2 size={14}/></button>}</td>
                 </tr>
               ))}
             </tbody>

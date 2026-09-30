@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, forbidden, ok, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
 import { ContractModel } from "@/models/Contract";
 import { InvoiceModel } from "@/models/Invoice";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
@@ -9,8 +9,11 @@ import { calculerTVA, calculerDTS, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal"
 import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 
 export const POST = withAuth("contracts", "update", async (_req: NextRequest, auth: TokenPayload, params) => {
+  // Les factures sont émises par la comptabilité.
+  if (!authCan(auth, "invoices", "create")) return forbidden("Facturation réservée à la comptabilité et au gérant.");
   await connectDB();
   const contract = await ContractModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!contract) return notFound("Contrat introuvable");

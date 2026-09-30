@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, forbidden, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { ClientModel } from "@/models/Client";
 import { InvoiceModel } from "@/models/Invoice";
 import { PaymentModel } from "@/models/Payment";
@@ -12,6 +12,7 @@ import {
 } from "@/lib/statement";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,8 @@ const fr = (d: Date | string) => new Date(d).toLocaleDateString("fr-FR");
  * découvrirait.
  */
 export const GET = withAuth("clients", "read", async (req: NextRequest, auth: TokenPayload, params) => {
+  // Relevé de compte = factures et règlements : réservé à qui lit les factures.
+  if (!authCan(auth, "invoices", "read")) return forbidden("Relevé réservé à la comptabilité et au gérant.");
   const client = await ClientModel.findOne({ _id: params.id, ...tenantFilter(auth) })
     .select("name code address nif phone email")
     .lean<{ name: string; code?: string; address?: string; nif?: string;

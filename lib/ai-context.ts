@@ -10,6 +10,7 @@
  */
 import { Types } from "mongoose";
 import { TokenPayload } from "./auth";
+import { authCan } from "./role-resources";
 import { InvoiceModel } from "@/models/Invoice";
 import { DevisModel } from "@/models/Devis";
 import { ClientModel } from "@/models/Client";
@@ -69,8 +70,9 @@ export async function gatherReportContext(auth: TokenPayload): Promise<ReportCon
       safe(() => ProjectModel.countDocuments({ tenantId, status: { $in: ["todo", "in_progress", "blocked"] } }), 0),
     ]);
     stats["Adhérents actifs"] = adherents;
-    stats["Cotisations encaissées"] = fmtCfa(cotisations);
-    stats["Dons reçus"] = fmtCfa(dons);
+    // Montants : seulement pour qui a accès aux ressources correspondantes.
+    if (authCan(auth, "cotisations", "read")) stats["Cotisations encaissées"] = fmtCfa(cotisations);
+    if (authCan(auth, "dons", "read")) stats["Dons reçus"] = fmtCfa(dons);
     stats["Projets en cours"] = projets;
   } else {
     // PME et administration : activité commerciale / facturation.
@@ -90,9 +92,14 @@ export async function gatherReportContext(auth: TokenPayload): Promise<ReportCon
         0
       ),
     ]);
-    stats["Chiffre d'affaires facturé"] = fmtCfa(caFacture);
-    stats["Encaissements"] = fmtCfa(encaisse);
-    stats["Factures émises"] = nbFactures;
+    // Chiffre d'affaires, encaissements, impayés : informations financières,
+    // réservées au gérant et à la comptabilité — jamais injectées dans un
+    // rapport rédigé par un autre service.
+    if (authCan(auth, "invoices", "read")) {
+      stats["Chiffre d'affaires facturé"] = fmtCfa(caFacture);
+      stats["Encaissements"] = fmtCfa(encaisse);
+      stats["Factures émises"] = nbFactures;
+      }
     stats["Devis émis"] = nbDevis;
     stats["Clients au portefeuille"] = nbClients;
     stats["Encours impayé"] = fmtCfa(impayes);

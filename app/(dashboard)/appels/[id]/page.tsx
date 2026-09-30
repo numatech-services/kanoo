@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Clock, Upload, Download, Trash2, Plus, Check, ArrowRight, Ban, Trophy, X } from "lucide-react";
 import { APPEL_STATUS, deadlineInfo } from "../page";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 interface ReqDoc { _id?: string; label: string; provided: boolean }
 interface Doc { _id: string; name?: string; dataUri?: string }
@@ -21,6 +22,8 @@ const NEXT: Record<string, { to: string; label: string }> = {
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function AppelDetailPage() {
+  // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
+  const canDelete = meCanDo(useMe(), "appels", "delete");
   const { id } = useParams();
   const router = useRouter();
   const [a, setA] = useState<Appel | null>(null);
@@ -85,7 +88,7 @@ export default function AppelDetailPage() {
             <button onClick={() => patch({ status: "lost" })} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm inline-flex items-center gap-1.5"><X size={15} /> Perdu</button>
           </>}
           {!terminal && <button onClick={() => patch({ status: "cancelled" })} className="px-3 h-10 rounded-lg border border-line2 text-ink2 text-sm hover:bg-surface2 inline-flex items-center gap-1.5"><Ban size={14} /> Annuler</button>}
-          <button onClick={del} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50">Supprimer</button>
+          {canDelete && <button onClick={del} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50">Supprimer</button>}
         </div>
       </div>
 

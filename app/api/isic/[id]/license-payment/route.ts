@@ -27,7 +27,7 @@ export const POST = withAuth("isicFinance", "update", async (req: NextRequest, a
   return ok(batch);
 });
 
-export const DELETE = withAuth("isicFinance", "update", async (req: NextRequest, auth: TokenPayload, params) => {
+export const DELETE = withAuth("isicFinance", "delete", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const paymentId = new URL(req.url).searchParams.get("paymentId");
   if (!paymentId) return badRequest("Règlement non précisé.");

@@ -6,6 +6,7 @@ import { MembershipModel } from "@/models/Membership";
 import { DonationModel } from "@/models/Donation";
 import { ProjectModel } from "@/models/Project";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -52,10 +53,11 @@ export const GET = withAuth("notifications", "read", async (_req: NextRequest, a
   // Jamais négatif : un membre peut régler plusieurs années d'un coup.
   const pendingContributionsCount = Math.max(0, activeMembers - paidThisYear);
 
+  // Montants encaissés : seulement pour qui lit cotisations / dons.
   return ok({
     activeMembers,
-    totalContributions: contributions[0]?.total || 0,
-    totalDonations: donations[0]?.total || 0,
+    totalContributions: authCan(auth, "cotisations", "read") ? contributions[0]?.total || 0 : null,
+    totalDonations: authCan(auth, "dons", "read") ? donations[0]?.total || 0 : null,
     activeProjects,
     pendingContributionsCount,
   });

@@ -7,6 +7,7 @@ import { generateTicketCode, signTicket, buildQrPayload } from "@/lib/ticketing"
 import { sendTicketEmail, sendTicketWhatsApp } from "@/lib/ticket-delivery";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { hasFinanceAccess } from "@/lib/role-resources";
 
 // Liste des participants + statistiques de présence.
 export const GET = withAuth("events", "read", async (req: NextRequest, auth: TokenPayload, params) => {
@@ -30,11 +31,14 @@ export const GET = withAuth("events", "read", async (req: NextRequest, auth: Tok
   }
   const absent = Math.max(0, stats.total - stats.cancelled - stats.refunded - stats.present);
 
-  return ok({ attendees, stats: { ...stats, absent } });
+  // Recette de l'activité : information financière (gérant, comptabilité).
+  const revenue = hasFinanceAccess(auth) ? stats.revenue : null;
+  return ok({ attendees, stats: { ...stats, revenue, absent } });
 });
 
 // Inscription d'un participant (émet un billet unique + QR signé).
-export const POST = withAuth("events", "read", async (req: NextRequest, auth: TokenPayload, params) => {
+// Écriture : l'équipe de l'activité ou l'accueil (contrôle des entrées), pas un simple lecteur.
+export const POST = withAuth("eventCheckin", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   const body = await req.json();
   const err = requireFields(body, ["firstName", "lastName"]);
   if (err) return badRequest(err);

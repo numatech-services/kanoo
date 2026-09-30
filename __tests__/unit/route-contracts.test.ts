@@ -121,6 +121,44 @@ describe("Conventions des routes API", () => {
   });
 });
 
+describe("Cloisonnement — aucune route ne contourne le contrôle des droits", () => {
+  // Routes volontairement hors withAuth : publiques, authentification, propres
+  // données de l'utilisateur, API par clé, webhooks signés, cron à secret.
+  const OPEN = [
+    /^app\/api\/(health|demo-requests|cron|webhooks)\//,
+    /^app\/api\/public\//, /^app\/api\/portail\//, /^app\/api\/v1\//,
+    /^app\/api\/auth\//, /^app\/api\/me\//,
+  ];
+
+  it("toute route passe par withAuth ou authorize, sauf les exceptions listées", () => {
+    const naked = files
+      .filter(f => !OPEN.some(re => re.test(f.path)))
+      .filter(f => !/\bwithAuth\(|\bauthorize\(|\bwithSuperAdmin\(|\bwithTenantAdmin\(/.test(f.src))
+      .map(f => f.path);
+    expect(naked).toEqual([]);
+  });
+
+  it("les exports comptables et déclarations exigent le droit correspondant", () => {
+    const need: Record<string, string> = {
+      "app/api/exports/generic/route.ts": "accountingEntries",
+      "app/api/exports/ohada/route.ts": "accountingEntries",
+      "app/api/exports/sage/route.ts": "accountingEntries",
+      "app/api/reports/dgi-cnss/route.ts": "payslips",
+      "app/api/reports/dgi-tva/route.ts": "fiscalDeclarations",
+      "app/api/reports/dgi-pdf/route.ts": "fiscalDeclarations",
+      "app/api/invoices/[id]/pdf/route.ts": "invoices",
+    };
+    for (const [path, res] of Object.entries(need)) {
+      const src = readFileSync(join(ROOT, path), "utf-8");
+      expect(src).toContain(`authorize(req, "${res}", "read")`);
+    }
+  });
+
+  it("les requêtes lean sur les comptes n'exposent jamais les secrets", () => {
+    for (const f of files) expect(f.src).not.toMatch(/UserModel[\s\S]{0,120}\.select\("-passwordHash"\)\s*\.lean/);
+  });
+});
+
 describe("Modules transverses", () => {
   const screens = execSync(
     "find app -name 'page.tsx' -not -path '*/node_modules/*'",

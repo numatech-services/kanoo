@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  * l'historique des mouvements suivants : seule la quantité courante est
  * recalée (borne à 0).
  */
-export const DELETE = withAuth("products", "update", async (_req: NextRequest, auth: TokenPayload, params) => {
+export const DELETE = withAuth("products", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const mv = await StockMovementModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!mv) return notFound("Mouvement introuvable");

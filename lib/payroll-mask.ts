@@ -43,3 +43,30 @@ export function maskMoney<T extends Record<string, unknown>>(doc: T, auth: AuthL
   copy.amountsHidden = true;
   return copy as T;
 }
+
+/**
+ * Projets : budget, dépensé, montants de jalons — informations financières.
+ * Le suivi (tâches, équipe, avancement physique) reste ouvert au service.
+ */
+const PROJECT_MONEY = ["budget", "spentAmount", "budgetRate", "amount"] as const;
+
+export function maskProjectMoney<T extends Record<string, unknown>>(doc: T, auth: AuthLike): T {
+  if (hasFinanceAccess(auth)) return doc;
+  const copy: Record<string, unknown> = { ...doc };
+  for (const f of PROJECT_MONEY) delete copy[f];
+  if (Array.isArray(copy.milestones)) {
+    copy.milestones = (copy.milestones as Array<Record<string, unknown>>).map(({ amount: _a, invoiceId: _i, ...m }) => m);
+  }
+  copy.amountsHidden = true;
+  return copy as T;
+}
+
+/** Retire les montants d'une écriture de projet faite sans accès aux finances. */
+export function stripProjectMoneyWrites(body: Record<string, unknown>, auth: AuthLike): Record<string, unknown> {
+  if (hasFinanceAccess(auth)) return body;
+  const copy = { ...body };
+  for (const f of PROJECT_MONEY) delete copy[f];
+  // Les jalons portent des montants : un tableau renvoyé sans eux les effacerait.
+  delete copy.milestones;
+  return copy;
+}
