@@ -96,6 +96,7 @@ describe("Conventions des routes API", () => {
     // d'un filtre documentType, soit d'un signe calculé.
     const offenders = files
       .filter(f => /\$sum:\s*"\$totalTTC"/.test(f.src))
+      .filter(f => /InvoiceModel/.test(f.src)) // les achats n'ont pas d'avoirs dans leur collection
       .filter(f => !/documentType/.test(f.src))
       .map(f => f.path);
     expect(offenders).toEqual([]);
