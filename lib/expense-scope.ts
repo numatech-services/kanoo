@@ -13,13 +13,19 @@ import { UserRole } from "@/types";
  */
 export type ExpenseAuthority = { kind: "all" } | { kind: "team"; services: string[] } | { kind: "own" };
 
-export function expenseAuthority(auth: TokenPayload): ExpenseAuthority {
+/**
+ * Portée de validation pour une ressource « demandée par chacun, validée par
+ * la hiérarchie » : notes de frais (la comptabilité valide tout) ou congés
+ * (l'Administration, en charge du personnel, valide tout).
+ */
+export function expenseAuthority(auth: TokenPayload, resource: "expenses" | "leaves" = "expenses"): ExpenseAuthority {
   const roles = effectiveRoles(auth.role, auth.roles);
   const levels = auth.roleLevels ?? {};
   const teamServices: string[] = [];
+  const allService = resource === "leaves" ? "svc_admin" : "svc_compta";
   for (const r of roles) {
-    if (!canPerformAction(r as UserRole, "expenses", "approve", auth.allowedResources, levels[r])) continue;
-    if (!isServiceRole(r) || r === "svc_compta") return { kind: "all" };
+    if (!canPerformAction(r as UserRole, resource, "approve", auth.allowedResources, levels[r])) continue;
+    if (!isServiceRole(r) || r === allService) return { kind: "all" };
     teamServices.push(r);
   }
   return teamServices.length ? { kind: "team", services: teamServices } : { kind: "own" };

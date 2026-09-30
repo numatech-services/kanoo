@@ -11,7 +11,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 export type AttachmentHost =
   | "contracts" | "subscriptions" | "invoices" | "devis" | "commandes" | "marches"
   | "expenses" | "projects" | "employees" | "clients" | "suppliers" | "payslips"
-  | "treasuryAccounts" | "documents";
+  | "treasuryAccounts" | "documents" | "purchases" | "leaves" | "accountingEntries";
 
 export type AttachmentCategory =
   | "contrat" | "avenant" | "facture" | "justificatif" | "releve" | "courrier" | "autre";

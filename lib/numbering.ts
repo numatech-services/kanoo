@@ -8,7 +8,7 @@ import { connectDB } from "./db";
 import { TenantModel } from "@/models/Tenant";
 import type { NumberingConfig as TenantNumberingConfig } from "@/types";
 
-type DocType = "invoice" | "quote" | "order" | "delivery" | "contract" | "credit_note";
+type DocType = "invoice" | "quote" | "order" | "delivery" | "contract" | "credit_note" | "purchase";
 
 interface NumberingConfig {
   invoicePrefix:   string;
@@ -17,6 +17,7 @@ interface NumberingConfig {
   deliveryPrefix:  string;
   contractPrefix:  string;
   creditNotePrefix: string;
+  purchasePrefix: string;
   separator:       string;
   digitCount:      number;
   yearInNumber:    boolean;
@@ -27,6 +28,7 @@ interface NumberingConfig {
   deliverySequence: number;
   contractSequence: number;
   creditNoteSequence: number;
+  purchaseSequence: number;
   invoiceStartAt:   number;
 }
 
@@ -39,6 +41,8 @@ const SEQUENCE_FIELD: Record<DocType, string> = {
   // Série distincte : mêler avoirs et factures dans la même suite rendrait
   // illisible une séquence que la DGI attend continue.
   credit_note: "creditNoteSequence",
+  // Achats (factures fournisseurs, dépenses) : numérotation interne de saisie.
+  purchase: "purchaseSequence",
 };
 
 const PREFIX_FIELD: Record<DocType, string> = {
@@ -48,6 +52,7 @@ const PREFIX_FIELD: Record<DocType, string> = {
   delivery: "deliveryPrefix",
   contract: "contractPrefix",
   credit_note: "creditNotePrefix",
+  purchase: "purchasePrefix",
 };
 
 /**
@@ -109,7 +114,7 @@ export async function nextDocumentNumber(
 function defaultPrefix(docType: DocType): string {
   const defaults: Record<DocType, string> = {
     invoice: "FAC", quote: "DEV", order: "BC", delivery: "BL", contract: "CTR",
-    credit_note: "AV",
+    credit_note: "AV", purchase: "ACH",
   };
   return defaults[docType];
 }
@@ -134,6 +139,7 @@ export async function resetYearlySequences(): Promise<number> {
         "numberingConfig.deliverySequence": 0,
         "numberingConfig.contractSequence": 0,
         "numberingConfig.creditNoteSequence": 0,
+        "numberingConfig.purchaseSequence": 0,
         "numberingConfig.sequenceYear":     new Date().getFullYear(),
       },
     }

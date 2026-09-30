@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 const HOSTS = new Set([
   "contracts", "subscriptions", "invoices", "devis", "commandes", "marches",
   "expenses", "projects", "employees", "clients", "suppliers", "payslips",
-  "treasuryAccounts", "documents",
+  "treasuryAccounts", "documents", "purchases", "leaves", "accountingEntries",
 ]);
 
 const CATEGORIES = new Set([

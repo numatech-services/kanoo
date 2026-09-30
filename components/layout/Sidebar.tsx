@@ -72,8 +72,12 @@ const PME_NAV: NavGroup[] = [
     { label: "Approbations", href: "/approbations", icon: <CheckCircle2 size={18} /> },
   ]},
   { section: "Finance", items: [
+    { label: "Achats & dépenses", href: "/depenses", icon: <Receipt size={18} /> },
     { label: "Trésorerie", href: "/treasury", icon: <Landmark size={18} /> },
+    { label: "Prévision de trésorerie", href: "/treasury/prevision", icon: <TrendingUp size={18} /> },
     { label: "Comptabilité", href: "/accounting", icon: <BookOpen size={18} /> },
+    { label: "États comptables", href: "/accounting/etats", icon: <FileSpreadsheet size={18} /> },
+    { label: "Plan comptable", href: "/accounting/plan", icon: <Hash size={18} /> },
     { label: "Comptoir (The Spot)", href: "/comptoir", icon: <Store size={18} /> },
     { label: "Rentabilité par secteur", href: "/analytique", icon: <PieChart size={18} /> },
     { label: "Budget prévisionnel", href: "/budget-previsionnel", icon: <PieChart size={18} /> },
@@ -87,6 +91,7 @@ const PME_NAV: NavGroup[] = [
   { section: "RH", items: [
     { label: "Collaborateurs", href: "/employees", icon: <User size={18} /> },
     { label: "Bulletins de paie", href: "/payslips", icon: <FileSpreadsheet size={18} /> },
+    { label: "Congés", href: "/conges", icon: <CalendarClock size={18} /> },
   ]},
   { section: "Paramètres", items: [
     { label: "Utilisateurs", href: "/users", icon: <Settings size={18} /> },

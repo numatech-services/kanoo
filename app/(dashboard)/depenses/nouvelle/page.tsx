@@ -1,0 +1,66 @@
+"use client";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { PurchaseForm, type PurchaseFormValue } from "@/components/achats/PurchaseForm";
+
+async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
+
+function NewPurchase() {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const commandeId = sp.get("commandeId");
+  const projectId = sp.get("projectId") ?? undefined;
+  const [initial, setInitial] = useState<Partial<PurchaseFormValue> | null>(commandeId ? null : {
+    kind: sp.get("kind") === "cash" ? "cash" : "invoice", pay: sp.get("kind") === "cash",
+    lines: [{ description: "", accountCode: "605500", quantity: 1, unitPrice: 0, tvaRate: 0, projectId }],
+  });
+
+  // Depuis un bon de commande : fournisseur, lignes et imputation repris.
+  useEffect(() => {
+    if (!commandeId) return;
+    fetch(`/api/commandes/${commandeId}`, { credentials: "include" }).then(r => r.json()).then(d => {
+      const c = d.data;
+      if (!c) { setInitial({}); return; }
+      const idOf = (v: unknown) => (v && typeof v === "object" ? String((v as { _id: string })._id) : v ? String(v) : undefined);
+      setInitial({
+        kind: "invoice", supplierId: idOf(c.supplierId) ?? "", commandeId,
+        lines: c.lines.map((l: { description: string; quantity: number; unitPrice: number; tvaRate?: number; productId?: unknown }) => ({
+          description: l.description, quantity: l.quantity, unitPrice: l.unitPrice, tvaRate: l.tvaRate ?? 0,
+          accountCode: l.productId ? "601100" : "604000",
+          projectId: idOf(c.projectId), activityId: idOf(c.activityId), costCenter: c.costCenter,
+        })),
+        notes: `Bon de commande ${c.number}`,
+      });
+    }).catch(() => setInitial({}));
+  }, [commandeId]);
+
+  async function submit(v: PurchaseFormValue, validate: boolean) {
+    const res = await fetch("/api/achats", {
+      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+      body: JSON.stringify({
+        kind: v.kind, supplierId: v.supplierId || undefined, payee: v.payee, supplierRef: v.supplierRef, date: v.date, dueDate: v.dueDate || undefined,
+        notes: v.notes, commandeId: v.commandeId, lines: v.lines, validate,
+        ...(v.kind === "cash" && v.pay && validate ? { payment: { treasuryAccountId: v.treasuryAccountId } } : {}),
+      }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || "Enregistrement impossible");
+    router.push(`/depenses/${d.data._id}`);
+  }
+
+  return (
+    <div className="max-w-4xl space-y-5">
+      <Link href="/depenses" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Achats & dépenses</Link>
+      <h1 className="text-2xl font-bold text-ink">Nouvel achat / dépense</h1>
+      <div className="bg-surface rounded-2xl border border-line p-6">
+        {initial ? <PurchaseForm initial={initial} onSubmit={submit} /> : <div className="h-40 animate-pulse bg-surface2 rounded-xl" />}
+      </div>
+    </div>
+  );
+}
+
+export default function NewPurchasePage() {
+  return <Suspense fallback={null}><NewPurchase /></Suspense>;
+}

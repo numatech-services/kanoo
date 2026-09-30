@@ -439,13 +439,15 @@ const CHEF_EXTRA: Partial<Record<UserRole, ResourcePermissions>> = {
   // Paie : chef comptable et gérant uniquement.
   svc_compta: { payslips: CRUD, employees: ["read", "update"] },
   // Chaque chef valide les notes de frais de son équipe (1er niveau).
-  svc_admin: { expenses: ["approve"] },
-  svc_comm: { expenses: ["approve"] },
-  svc_dev: { expenses: ["approve"] },
-  svc_prod: { expenses: ["approve"] },
-  svc_spot: { expenses: ["approve"] },
-  svc_prosp: { expenses: ["approve"] },
-  svc_secu: { expenses: ["approve"] },
+  // … et les congés (le chef Administration, en charge du personnel, valide
+  // ceux de toute l'organisation).
+  svc_admin: { expenses: ["approve"], leaves: ["approve", "delete"] },
+  svc_comm: { expenses: ["approve"], leaves: ["approve"] },
+  svc_dev: { expenses: ["approve"], leaves: ["approve"] },
+  svc_prod: { expenses: ["approve"], leaves: ["approve"] },
+  svc_spot: { expenses: ["approve"], leaves: ["approve"] },
+  svc_prosp: { expenses: ["approve"], leaves: ["approve"] },
+  svc_secu: { expenses: ["approve"], leaves: ["approve"] },
 };
 
 /**
@@ -627,6 +629,29 @@ for (const r of ISIC_FINANCE_ROLES) { if (ROLE_PERMISSIONS[r]) ROLE_PERMISSIONS[
 const COMPTOIR_ALL: Action[] = ["create", "read", "update", "delete"];
 const COMPTOIR_ROLES: UserRole[] = ["pme_admin", "pme_manager", "pme_accountant", "pme_activity_manager", "superadmin"];
 for (const r of COMPTOIR_ROLES) { if (ROLE_PERMISSIONS[r]) ROLE_PERMISSIONS[r].comptoir = COMPTOIR_ALL; }
+
+/**
+ * Achats (factures fournisseurs, dépenses) et plan comptable : information
+ * financière — mêmes droits que les écritures comptables (gérant, comptabilité).
+ */
+for (const perms of Object.values(ROLE_PERMISSIONS)) {
+  if (perms.accountingEntries) {
+    perms.purchases = [...perms.accountingEntries];
+    perms.ledgerAccounts = [...perms.accountingEntries];
+  }
+}
+
+/**
+ * Congés : chacun demande et suit les siens, comme ses notes de frais ; la
+ * validation suit les mêmes niveaux (chef de service, gérant).
+ */
+for (const perms of Object.values(ROLE_PERMISSIONS)) {
+  if (perms.expenses) perms.leaves = [...perms.expenses.filter(a => a !== "approve" && a !== "delete"), "read"];
+}
+for (const role of ["pme_admin", "asso_president", "admin_ordonnateur", "pme_manager", "superadmin"] as UserRole[]) {
+  const p = ROLE_PERMISSIONS[role];
+  if (p) p.leaves = ["create", "read", "update", "delete", "approve"];
+}
 
 /**
  * `allowedResources` **restreint**, il n'accorde jamais.

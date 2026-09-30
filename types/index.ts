@@ -83,6 +83,7 @@ export interface NumberingConfig {
   deliveryPrefix?: string;
   contractPrefix?: string;
   creditNotePrefix?: string;
+  purchasePrefix?: string;
   separator?: string;
   digitCount?: number;
   yearInNumber?: boolean;
@@ -93,6 +94,7 @@ export interface NumberingConfig {
   deliverySequence?: number;
   contractSequence?: number;
   creditNoteSequence?: number;
+  purchaseSequence?: number;
   invoiceStartAt?: number;
   /** Année couverte par les séquences courantes — sert au remise à zéro annuelle. */
   sequenceYear?: number;

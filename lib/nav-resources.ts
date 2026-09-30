@@ -23,7 +23,8 @@ export const NAV_RESOURCE: Record<string, string> = {
   "/treasury": "treasuryAccounts", "/accounting": "accountingEntries", "/comptoir": "comptoir",
   "/analytique": "analytics", "/analytics": "analytics", "/budget-previsionnel": "accountingEntries",
   "/recurring-expenses": "recurringCharges", "/fiscalite": "fiscalDeclarations",
-  "/fixed-assets": "fixedAssets",
+  "/fixed-assets": "fixedAssets", "/depenses": "purchases", "/accounting/plan": "ledgerAccounts",
+  "/conges": "leaves",
   // PME — RH & courriers
   "/employees": "employees", "/payslips": "payslips", "/courriers": "documents",
   // Paramètres réservés à l'administration du compte. Sécurité (2FA),
