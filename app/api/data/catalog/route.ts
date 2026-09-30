@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { withAuth, ok } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
-import { effectiveRoles, rolesCanPerform } from "@/lib/role-resources";
+import { effectiveRoles, rolesCanPerform, isInternFor } from "@/lib/role-resources";
 import { UserRole } from "@/types";
 import { ENTITIES } from "@/lib/data-io";
 
@@ -17,8 +17,8 @@ export const GET = withAuth("agenda", "read", async (_req: NextRequest, auth: To
   const catalog = Object.values(ENTITIES).map((e) => ({
     key: e.key,
     label: e.label,
-    canExport: rolesCanPerform(roles, e.resource, "read", auth.allowedResources),
-    canImport: Boolean(e.import) && rolesCanPerform(roles, e.resource, "create", auth.allowedResources),
+    canExport: rolesCanPerform(roles, e.resource, "read", auth.allowedResources, auth.roleLevels) && !isInternFor(auth, e.resource),
+    canImport: Boolean(e.import) && rolesCanPerform(roles, e.resource, "create", auth.allowedResources, auth.roleLevels),
     importable: Boolean(e.import),
     columns: e.columns.map((c) => c.header),
   }));

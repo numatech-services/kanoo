@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     const user = await UserModel.findById(auth.userId)
-      .select("sessionVersion isActive role email allowedResources tenantId")
+      .select("sessionVersion isActive role roles roleLevels siteIds accessUntil email allowedResources tenantId")
       .lean<{
         _id: { toString(): string };
         tenantId: { toString(): string };
@@ -52,9 +52,16 @@ export async function POST(req: NextRequest) {
         allowedResources?: string[];
         sessionVersion?: number;
         isActive?: boolean;
+        roles?: string[];
+        roleLevels?: Record<string, string>;
+        siteIds?: Array<{ toString(): string }>;
+        accessUntil?: Date;
       } | null>();
 
     if (!user?.isActive) return NextResponse.json({ error: "Compte désactivé" }, { status: 401 });
+    if (user.accessUntil && new Date(user.accessUntil).getTime() < Date.now()) {
+      return NextResponse.json({ error: "Accès expiré (fin de stage). Contactez le gérant.", code: "ACCESS_EXPIRED" }, { status: 401 });
+    }
 
     const currentVersion = user.sessionVersion ?? 1;
     if ((auth.sessionVersion ?? 0) < currentVersion) {

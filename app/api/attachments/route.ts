@@ -2,10 +2,9 @@ import { NextRequest } from "next/server";
 import { withAuth, ok, created, badRequest, forbidden, tenantFilter } from "@/lib/api-helpers";
 import { AttachmentModel } from "@/models/Attachment";
 import { validate, store, STORAGE_MESSAGES, sanitizeFilename } from "@/lib/storage";
-import { canPerformAction } from "@/lib/role-resources";
+import { authCan } from "@/lib/role-resources";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
-import type { UserRole } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +37,7 @@ export const GET = withAuth("documents", "read", async (req: NextRequest, auth: 
   // Le droit exigé est celui du document porteur, pas un droit « pièces
   // jointes » générique : voir la pièce d'un bulletin de paie suppose de
   // pouvoir voir les bulletins.
-  if (!canPerformAction(auth.role as UserRole, host, "read")) {
+  if (!authCan(auth, host, "read")) {
     return forbidden("Vous n'avez pas accès aux documents de ce type.");
   }
 
@@ -68,7 +67,7 @@ export const POST = withAuth("documents", "create", async (req: NextRequest, aut
   if (!CATEGORIES.has(category)) return badRequest("Nature de pièce inconnue.");
 
   // Joindre une pièce, c'est modifier le document porteur.
-  if (!canPerformAction(auth.role as UserRole, host, "update")) {
+  if (!authCan(auth, host, "update")) {
     return forbidden("Vous ne pouvez pas joindre de pièce à ce document.");
   }
 

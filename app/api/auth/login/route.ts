@@ -66,6 +66,11 @@ export async function POST(req: NextRequest) {
       return unauthorized("Identifiants incorrects");
     }
 
+    // Stagiaire : accès fermé automatiquement après la date de fin de stage.
+    if (user.accessUntil && new Date(user.accessUntil).getTime() < Date.now()) {
+      return unauthorized("Accès expiré (fin de stage). Contactez le gérant.");
+    }
+
     const tenant = await TenantModel.findById(user.tenantId);
     if (!tenant) return unauthorized("Organisation introuvable");
 

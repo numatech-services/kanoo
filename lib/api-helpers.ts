@@ -1,3 +1,4 @@
+import { toLevels } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { Types } from "mongoose";
@@ -151,18 +152,28 @@ type SecurityCheck =
  */
 async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
   const user = await UserModel.findById(auth.userId)
-    .select("sessionVersion isActive role roles allowedResources tenantId")
+    .select("sessionVersion isActive role roles roleLevels siteIds accessUntil allowedResources tenantId")
     .lean<{
       sessionVersion?: number;
       isActive?: boolean;
       role?: UserRole;
       roles?: UserRole[];
+      roleLevels?: Record<string, string>;
+      siteIds?: Array<{ toString(): string }>;
+      accessUntil?: Date;
       allowedResources?: string[];
       tenantId?: { toString(): string };
     } | null>();
 
   if (!user) return { ok: false, response: unauthorized("Compte introuvable") };
   if (!user.isActive) return { ok: false, response: unauthorized("Compte désactivé") };
+  // Stagiaire : l'accès s'arrête de lui-même à la date de fin de stage.
+  if (user.accessUntil && new Date(user.accessUntil).getTime() < Date.now()) {
+    return { ok: false, response: unauthorized("Accès expiré (fin de stage). Contactez le gérant.") };
+  }
+  // Niveaux par rôle et sites The Spot relus en base, comme les rôles.
+  const roleLevels = toLevels(user.roleLevels);
+  const siteIds = (user.siteIds ?? []).map(String);
 
   // Révocation : toute session émise avant le dernier incrément est refusée.
   // Un jeton sans sessionVersion date d'avant cette protection — il est refusé
@@ -205,6 +216,8 @@ async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
         ...auth,
         role,
         roles,
+        roleLevels,
+        siteIds,
         allowedResources: user.allowedResources,
         subscriptionStatus: (tenant.subscriptionStatus as TokenPayload["subscriptionStatus"]) ?? auth.subscriptionStatus,
         planModules: tenant.planModules ?? auth.planModules,
@@ -213,7 +226,7 @@ async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
     };
   }
 
-  return { ok: true, auth: { ...auth, role, roles, allowedResources: user.allowedResources } };
+  return { ok: true, auth: { ...auth, role, roles, roleLevels, siteIds, allowedResources: user.allowedResources } };
 }
 
 /** Empreinte d'une requête, pour détecter la réutilisation d'une clé d'idempotence. */
@@ -248,7 +261,7 @@ export function withAuth(
       const auth = check.auth;
 
       const authRoles = effectiveRoles(auth.role as UserRole, auth.roles as UserRole[] | undefined);
-      if (!rolesCanPerform(authRoles, resource, action, auth.allowedResources)) {
+      if (!rolesCanPerform(authRoles, resource, action, auth.allowedResources, auth.roleLevels)) {
         return forbidden(`Action '${action}' sur '${resource}' non autorisée pour ${authRoles.join(", ")}`);
       }
 

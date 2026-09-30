@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, conflict, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, conflict, forbidden, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityModel } from "@/models/Activity";
-import { isId } from "@/lib/comptoir";
+import { isId, deskScope, allDesks } from "@/lib/comptoir";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -14,6 +14,9 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   await connectDB();
   const url = new URL(req.url);
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
+  // Employé ou stagiaire The Spot : seulement ses sites.
+  const scope = deskScope(auth);
+  if (scope) filter._id = { $in: scope.filter(isId) };
   filter.archived = url.searchParams.get("archived") === "1" ? true : { $ne: true };
   const items = await ActivityDeskModel.find(filter).sort({ createdAt: 1 }).lean();
   return ok(items);
@@ -23,6 +26,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
 export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const body = await req.json().catch(() => ({}));
+  if (!allDesks(auth)) return forbidden("Seuls le chef The Spot, la comptabilité et le gérant créent un comptoir.");
   const err = requireFields(body, ["name"]);
   if (err) return badRequest(err);
   const name = String(body.name).slice(0, 120).trim();

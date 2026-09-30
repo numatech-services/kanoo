@@ -7,6 +7,7 @@ import { passwordErrors } from "@/lib/password-policy";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { assignableRoles } from "@/lib/roles-ui";
+import { parseAccess } from "@/lib/user-access";
 
 export const GET = withAuth("users", "read", async (req: NextRequest, auth: TokenPayload) => {
   const pagination = getPagination(req);
@@ -50,11 +51,20 @@ export const POST = withAuth("users", "create", async (req: NextRequest, auth: T
   body.roles = requestedRoles;
   body.role = requestedRoles[0];
 
+  // Niveaux, sites The Spot et fin d'accès : validés, jamais repris bruts.
+  const access = await parseAccess(body, requestedRoles, String(auth.tenantId));
+  if (!access.ok) return badRequest(access.error);
+  body.roleLevels = access.value.roleLevels;
+  body.siteIds = access.value.siteIds;
+  body.accessUntil = access.value.accessUntil ?? undefined;
+
   // Champs sensibles jamais acceptés depuis le corps.
   delete body._id;
   delete body.tenantId;
   delete body.sessionVersion;
   delete body.passwordHash;
+  delete body.isActive;
+  delete body.revokedAt;
   // allowedResources personnalisé réservé au superadmin.
   if (body.allowedResources && auth.role !== "superadmin") delete body.allowedResources;
 
@@ -74,6 +84,6 @@ export const POST = withAuth("users", "create", async (req: NextRequest, auth: T
 
   const passwordHash = await hashPassword(body.password);
   const user = await UserModel.create({ ...body, email: body.email.toLowerCase(), passwordHash, tenantId: auth.tenantId });
-  await logAudit(auth, "CREATE", "users", { resourceId: user._id.toString(), after: { email: user.email, role: user.role, roles: user.roles } });
+  await logAudit(auth, "CREATE", "users", { resourceId: user._id.toString(), after: { email: user.email, role: user.role, roles: user.roles, roleLevels: access.value.roleLevels, accessUntil: access.value.accessUntil } });
   return created({ ...user.toObject(), passwordHash: undefined });
 });

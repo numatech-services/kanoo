@@ -4,6 +4,7 @@ import { UserModel } from "@/models/User";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { assignableRoles } from "@/lib/roles-ui";
+import { parseAccess } from "@/lib/user-access";
 
 export const GET = withAuth("users", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   const filter = auth.role === "superadmin" ? { _id: params.id } : { _id: params.id, ...tenantFilter(auth) };
@@ -13,7 +14,7 @@ export const GET = withAuth("users", "read", async (_req: NextRequest, auth: Tok
 // Champs modifiables par l'utilisateur sur son propre profil.
 const SELF_EDITABLE = ["firstName", "lastName", "phone", "avatar"] as const;
 // Champs réservés aux administrateurs (sur les comptes de leur organisation).
-const ADMIN_EDITABLE = ["role", "roles", "allowedResources", "isActive"] as const;
+const ADMIN_EDITABLE = ["role", "roles", "allowedResources", "isActive", "roleLevels", "siteIds", "accessUntil"] as const;
 const TENANT_ADMIN_ROLES = ["pme_admin", "asso_president", "admin_ordonnateur", "superadmin"];
 
 export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: TokenPayload, params) => {
@@ -52,12 +53,29 @@ export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: 
       return forbidden("Attribution du rôle superadmin non autorisée");
     }
 
-    // Même liste blanche qu'à la création : on ne peut attribuer que les rôles
-    // de son type d'organisation (pas de rôle « administration » dans une PME).
-    if (Array.isArray(update.roles)) {
-      const allowed = assignableRoles(auth);
-      const refused = (update.roles as string[]).find(r => !allowed.includes(r));
-      if (refused) return badRequest(`Rôle non autorisé pour ce type d'organisation : ${refused}`);
+    // Accès actuel du compte : un ancien rôle déjà porté peut être conservé
+    // (pas réattribué ailleurs) ; niveaux, sites et fin d'accès sont revalidés.
+    const touchesAccess = ["roles", "role", "roleLevels", "siteIds", "accessUntil"].some(k => k in update);
+    if (touchesAccess) {
+      const target = await UserModel.findOne(auth.role === "superadmin" ? { _id: params.id } : { _id: params.id, ...tenantFilter(auth) })
+        .select("role roles roleLevels siteIds accessUntil tenantId")
+        .lean<{ role: string; roles?: string[]; roleLevels?: Record<string, string>; siteIds?: unknown[]; accessUntil?: Date; tenantId: unknown } | null>();
+      if (!target) return notFound();
+      const currentRoles = target.roles?.length ? target.roles : [target.role];
+
+      // Même liste blanche qu'à la création : on ne peut attribuer que les rôles
+      // de son type d'organisation (pas de rôle « administration » dans une PME).
+      if (Array.isArray(update.roles)) {
+        const allowed = [...assignableRoles(auth), ...currentRoles];
+        const refused = (update.roles as string[]).find(r => !allowed.includes(r));
+        if (refused) return badRequest(`Rôle non autorisé pour ce type d'organisation : ${refused}`);
+      }
+      const nextRoles = (update.roles as string[] | undefined) ?? currentRoles;
+      const access = await parseAccess(update, nextRoles, String(target.tenantId), target);
+      if (!access.ok) return badRequest(access.error);
+      update.roleLevels = access.value.roleLevels;
+      update.siteIds = access.value.siteIds;
+      update.accessUntil = access.value.accessUntil;
     }
   }
 
@@ -107,9 +125,16 @@ export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: 
     );
   }
 
+  // Un niveau, un site ou une date retirés doivent disparaître de la base :
+  // une valeur vide passe en $unset plutôt que de laisser l'ancienne en place.
+  const $set: Record<string, unknown> = {};
+  const $unset: Record<string, 1> = {};
+  for (const [k, v] of Object.entries(update)) {
+    if (v === undefined || v === null) $unset[k] = 1; else $set[k] = v;
+  }
   const user = await UserModel.findOneAndUpdate(
     { _id: params.id, ...tenantFilter(auth) },
-    { $set: update },
+    { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) },
     { new: true }
   ).select("-passwordHash");
   if (!user) return notFound();
@@ -117,7 +142,7 @@ export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: 
   // Un changement de rôle ou une désactivation prend effet immédiatement —
   // `withAuth` relit la base à chaque requête. La révocation explicite ferme
   // en plus les sessions ouvertes, pour que l'intéressé le constate.
-  if (losesAdmin || "role" in update || "roles" in update) {
+  if (losesAdmin || "role" in update || "roles" in update || "roleLevels" in update || "siteIds" in update) {
     await UserModel.updateOne({ _id: params.id }, { $inc: { sessionVersion: 1 } });
   }
   await logAudit(auth, "UPDATE", "users", { resourceId: params.id });

@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, notFound, badRequest, conflict, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, badRequest, conflict, forbidden, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityModel } from "@/models/Activity";
-import { isId } from "@/lib/comptoir";
+import { isId, allDesks } from "@/lib/comptoir";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic";
 export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   if (!isId(params.id)) return notFound("Comptoir introuvable");
+  if (!allDesks(auth)) return forbidden("Seuls le chef The Spot, la comptabilité et le gérant paramètrent un comptoir.");
   const clean = sanitizeBody(await req.json().catch(() => ({})));
   const $set: Record<string, unknown> = {};
   const $unset: Record<string, 1> = {};

@@ -16,78 +16,147 @@ export interface RoleDescription {
   summary: string;
   /** Ce que le rôle ne peut pas faire, quand l'omettre induirait en erreur. */
   cannot?: string;
-  group: "Direction" | "Finance" | "Opérations" | "Ressources humaines" | "Technique" | "Consultation";
+  group: "Direction" | "Finance" | "Opérations" | "Ressources humaines" | "Technique" | "Consultation" | "Services";
+  /** Ancien rôle : conservé pour les comptes existants, plus proposé à l'attribution. */
+  legacy?: boolean;
 }
+
+/** Libellés des niveaux (par rôle de service). */
+export const LEVEL_UI: Record<"chef" | "employe" | "stagiaire", { label: string; summary: string }> = {
+  chef: { label: "Chef de service", summary: "Tout dans son service, y compris supprimer et valider (notes de frais de l'équipe)." },
+  employe: { label: "Employé", summary: "Consulte, crée et modifie ; ne supprime pas et ne valide pas." },
+  stagiaire: { label: "Stagiaire", summary: "Consulte, crée et modifie ; ni suppression, ni validation, ni export. Accès fermé à la fin du stage." },
+};
 
 export const ROLE_UI: Partial<Record<UserRole, RoleDescription>> = {
   // ── PME ────────────────────────────────────────────────────────────────
   pme_admin: {
-    label: "Administrateur",
-    summary: "Tous les droits, y compris la gestion des comptes et des rôles.",
+    label: "Gérant",
+    summary: "Administrateur principal : tous les droits, dont les finances, les comptes et les rôles.",
     group: "Direction",
+  },
+  // ── Services (organisation cloisonnée) ────────────────────────────────
+  svc_admin: {
+    label: "Service Administration",
+    summary: "Vente de matériel et mobilier, achats, stock, bons de livraison, appels d'offres, dossiers du personnel (sans salaires).",
+    cannot: "Aucune information financière : factures, encaissements, comptabilité, salaires.",
+    group: "Services",
+  },
+  svc_comm: {
+    label: "Service Communication",
+    summary: "Projets de communication (interne et clients), devis, documents, courriers, événements.",
+    cannot: "Aucune information financière.",
+    group: "Services",
+  },
+  svc_prosp: {
+    label: "Service Prospection",
+    summary: "Prospects et CRM, devis, veille et candidatures aux appels d'offres.",
+    cannot: "Aucune information financière.",
+    group: "Services",
+  },
+  svc_dev: {
+    label: "Service Développement logiciel",
+    summary: "Projets, abonnements et licences (sans montants), support et intégration technique.",
+    cannot: "Aucune information financière.",
+    group: "Services",
+  },
+  svc_prod: {
+    label: "Service Production & Cartes",
+    summary: "Production, cartes ISIC et Easypay : registre, numéros, photos, lots, envoi à ISIC.",
+    cannot: "Ne voit ni les coûts ni les marges des cartes.",
+    group: "Services",
+  },
+  svc_spot: {
+    label: "Service The Spot",
+    summary: "Restauration multi-site : stock matière et saisie de caisse des sites attribués (le chef voit tous les sites).",
+    cannot: "Ne voit ni la rentabilité ni les finances de l'entreprise.",
+    group: "Services",
+  },
+  svc_secu: {
+    label: "Service Sécurité",
+    summary: "Contrôle des accès physiques : consignes et documents en lecture, contrôle des billets à l'entrée des événements.",
+    cannot: "Accès minimal : aucune donnée commerciale ni financière.",
+    group: "Services",
+  },
+  svc_compta: {
+    label: "Service Comptabilité",
+    summary: "Factures, encaissements, trésorerie, comptabilité, fiscalité, rentabilité par activité, remboursement des notes de frais.",
+    cannot: "La paie est réservée au chef comptable.",
+    group: "Finance",
   },
   pme_manager: {
     label: "Responsable",
     summary: "Ventes, achats, projets, trésorerie et validation des notes de frais.",
     cannot: "Ne gère ni les comptes utilisateurs ni la paie.",
     group: "Direction",
+    legacy: true,
   },
   pme_accountant: {
     label: "Comptable",
     summary: "Comptabilité, trésorerie, fiscalité, rapprochement bancaire, notes de frais ; consultation du stock.",
     cannot: "Ne crée pas de compte utilisateur.",
     group: "Finance",
+    legacy: true,
   },
   pme_approver: {
     label: "Approbateur",
     summary: "Valide les notes de frais et les demandes soumises à approbation.",
     cannot: "Ne saisit ni ne modifie les pièces qu'il valide.",
     group: "Finance",
+    legacy: true,
   },
   pme_sales: {
     label: "Commercial",
     summary: "Clients, devis, factures, livraisons.",
     cannot: "N'accède ni à la comptabilité ni à la paie.",
     group: "Opérations",
+    legacy: true,
   },
   pme_purchases: {
     label: "Achats & stock",
     summary: "Fournisseurs, commandes, réceptions, stock : création d'articles, entrées et inventaires.",
     cannot: "N'accède pas aux ventes ni à la paie.",
     group: "Opérations",
+    legacy: true,
   },
   pme_project_manager: {
     label: "Chef de projet",
     summary: "Projets, tâches, documents, suivi budgétaire du projet.",
     cannot: "Ne facture pas.",
     group: "Opérations",
+    legacy: true,
   },
   pme_hr: {
     label: "Ressources humaines",
     summary: "Salariés, contrats, bulletins de paie, CNSS et IR.",
     cannot: "N'accède ni aux ventes ni à la comptabilité générale.",
     group: "Ressources humaines",
+    legacy: true,
   },
   pme_viewer: {
     label: "Lecture seule",
     summary: "Consulte sans jamais modifier.",
     group: "Consultation",
+    legacy: true,
   },
   pme_isic_operator: {
     label: "Opérateur ISIC",
     summary: "Cartes ISIC : traitement, impression et livraison — sans les montants.",
     group: "Opérations",
+    legacy: true,
   },
   pme_isic_finance: {
     label: "Financier ISIC",
     summary: "Cartes ISIC : coûts, revente, marge et encaissements.",
     group: "Finance",
+    legacy: true,
   },
   pme_activity_manager: {
     label: "Gestionnaire d'activité (The Spot)",
     summary: "Comptoir d'activité : stock matière (entrées/sorties) et caisse (recettes/dépenses).",
     cannot: "N'accède pas au reste de la comptabilité, aux ventes ni à la paie.",
     group: "Opérations",
+    legacy: true,
   },
 
   // ── Associations ───────────────────────────────────────────────────────
@@ -170,11 +239,11 @@ export const ROLE_UI: Partial<Record<UserRole, RoleDescription>> = {
 
 /** Rôles proposés à la création, par type d'organisation. */
 export const ASSIGNABLE_BY_TENANT: Record<string, UserRole[]> = {
+  // Organisation cloisonnée : le gérant et les services. Les anciens rôles PME
+  // restent valables pour les comptes existants mais ne sont plus proposés.
   pme: [
-    "pme_admin", "pme_manager", "pme_accountant", "pme_approver",
-    "pme_sales", "pme_purchases", "pme_project_manager", "pme_hr",
-    "pme_isic_operator", "pme_isic_finance", "pme_activity_manager",
-    "pme_viewer", "chef_projet_transversal", "tech_admin",
+    "pme_admin",
+    "svc_admin", "svc_comm", "svc_prosp", "svc_dev", "svc_prod", "svc_spot", "svc_secu", "svc_compta",
   ],
   association: [
     "asso_president", "asso_treasurer", "asso_secretary",

@@ -39,7 +39,7 @@ export async function getServerAccess(): Promise<{
   const roles = effectiveRoles(auth.role, auth.roles);
   return {
     auth,
-    can: (resource, action = "read") => rolesCanPerform(roles, resource, action, auth.allowedResources),
+    can: (resource, action = "read") => rolesCanPerform(roles, resource, action, auth.allowedResources, auth.roleLevels),
   };
 }
 

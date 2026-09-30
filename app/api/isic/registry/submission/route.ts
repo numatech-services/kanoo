@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import JSZip from "jszip";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, badRequest, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, badRequest, tenantFilter, forbidden } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
+import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { logAudit } from "@/lib/audit";
 import { IsicStudentModel } from "@/models/IsicStudent";
 import { IsicLicenseModel } from "@/models/IsicLicense";
@@ -41,6 +42,8 @@ export const GET = withAuth("isic", "read", async (req: NextRequest, auth: Token
   const format = (url.searchParams.get("format") || "check") as "check" | "xlsx" | "zip";
   if (!isAcademicYear(year)) return badRequest("Année académique requise (format 2025-2026).");
   if (!["new", "renewal", "all"].includes(scope) || !["check", "xlsx", "zip"].includes(format)) return badRequest("Paramètres invalides.");
+  // Contrôle permis ; téléchargement du fichier ISIC interdit à un stagiaire.
+  if (format !== "check" && isInternFor(auth, "isic")) return forbidden(INTERN_EXPORT_MESSAGE);
 
   const covered = await IsicLicenseModel.distinct("studentId", { ...tf, status: "active", academicYear: year });
   const filter: Record<string, unknown> = { ...tf, archived: { $ne: true }, _id: { $in: covered } };

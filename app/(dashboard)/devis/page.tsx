@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useMe, meCan } from "@/lib/useMe";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
@@ -13,6 +14,8 @@ export default function DevisPage() {
   const [status,setStatus]=useState(""); const LIMIT=20;
   const [convertDialog,setConvertDialog]=useState<{id:string;number:string;type:"invoice"|"proforma"}|null>(null);
   const [converting,setConverting]=useState(false);
+  const { resources } = useMe();
+  const canInvoice = meCan(resources, "invoices");
 
   const load=useCallback(async()=>{
     setLoading(true);
@@ -44,6 +47,9 @@ export default function DevisPage() {
     {key:"status",label:"Statut",render:(v)=><StatusBadge status={String(v)}/>},
     {key:"_id",label:"Actions",render:(v,row)=>row.convertedToInvoiceId
       ? <span className="text-xs text-ink2 bg-surface2 px-2 py-0.5 rounded">Converti ✓</span>
+      : !canInvoice
+      // Les services préparent le devis ; la comptabilité le transforme en facture.
+      ? <span className="text-xs text-ink3">Facturation : comptabilité</span>
       : (
         <div className="flex gap-1">
           <button onClick={e=>{e.stopPropagation();setConvertDialog({id:String(v),number:row.number,type:"invoice"});}} className="px-2 py-1 bg-pos text-white text-xs rounded hover:brightness-95">→ Facture</button>

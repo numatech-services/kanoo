@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, forbidden, tenantFilter } from "@/lib/api-helpers";
 import { SubscriptionPurchaseModel } from "@/models/SubscriptionPurchase";
 import { SubscriptionSaleModel } from "@/models/SubscriptionSale";
 import {
@@ -8,6 +8,7 @@ import {
   type PurchaseLike, type SaleLike,
 } from "@/lib/subscriptions";
 import { TokenPayload } from "@/lib/auth";
+import { hasFinanceAccess } from "@/lib/role-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,8 @@ export const dynamic = "force-dynamic";
  * est censé résumer.
  */
 export const GET = withAuth("subscriptions", "read", async (req: NextRequest, auth: TokenPayload) => {
+  // Coûts, revenus et marges : réservé au gérant et à la comptabilité.
+  if (!hasFinanceAccess(auth)) return forbidden("Le rapprochement des coûts et des marges est réservé à la comptabilité et au gérant.");
   await connectDB();
 
   const url = new URL(req.url);

@@ -6,6 +6,7 @@ import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
 import { effectiveRoles, accessibleResourcesForRoles } from "@/lib/role-resources";
 import { UserRole } from "@/types";
+import { toLevels } from "@/lib/session";
 
 // --- Garde ton GET existant ---
 export async function GET(req: NextRequest) {
@@ -28,8 +29,11 @@ export async function GET(req: NextRequest) {
   // Ressources auxquelles l'utilisateur a droit (selon ses rôles + liste
   // individuelle). Le front s'en sert pour n'afficher que ce qui le concerne
   // (ex. masquer le volet financier ISIC à un opérateur d'impression).
-  const roles = effectiveRoles(auth.role as UserRole, auth.roles as UserRole[] | undefined);
-  const resources = accessibleResourcesForRoles(roles, auth.allowedResources);
+  // Calculé depuis la BASE (rôles, niveaux, liste individuelle) : un changement
+  // de rôle ou de niveau se reflète dans le menu sans attendre une reconnexion.
+  const u = user as { role?: string; roles?: string[]; roleLevels?: Record<string, string>; allowedResources?: string[] };
+  const roles = effectiveRoles((u.role ?? auth.role) as UserRole, (u.roles ?? auth.roles) as UserRole[] | undefined);
+  const resources = accessibleResourcesForRoles(roles, u.allowedResources ?? auth.allowedResources, toLevels(u.roleLevels));
 
   return NextResponse.json({ success: true, data: { user, tenant, resources } });
 }

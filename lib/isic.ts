@@ -5,7 +5,7 @@ import { UserRole } from "@/types";
 /** L'utilisateur a-t-il accès au volet FINANCIER du module ISIC ? */
 export function hasIsicFinance(auth: TokenPayload): boolean {
   const roles = effectiveRoles(auth.role as UserRole, auth.roles as UserRole[] | undefined);
-  return rolesCanPerform(roles, "isicFinance", "read", auth.allowedResources);
+  return rolesCanPerform(roles, "isicFinance", "read", auth.allowedResources, auth.roleLevels);
 }
 
 /** Champs financiers d'un lot — masqués aux rôles non financiers (ex. opérateur d'impression). */

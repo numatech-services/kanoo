@@ -123,6 +123,15 @@ export const USER_ROLES = [
   "pme_isic_operator",    // Cartes ISIC : production/impression/livraison, sans finances
   "pme_isic_finance",     // Cartes ISIC : volet financier (coûts, revente, encaissements)
   "pme_activity_manager", // Comptoir d'activité (The Spot) : stock matière + caisse, sans le reste de la compta
+  // Services de l'organisation cloisonnée (niveau chef / employé / stagiaire par rôle)
+  "svc_admin",   // Administration : vente matériel/mobilier, achats, stock, appels d'offres, dossiers RH
+  "svc_comm",    // Communication (interne et clients)
+  "svc_prosp",   // Prospection : prospects, CRM, devis, veille appels d'offres
+  "svc_dev",     // Développement logiciel
+  "svc_prod",    // Production & Cartes (ISIC, Easypay)
+  "svc_spot",    // The Spot : restauration multi-site, limité aux sites attribués
+  "svc_secu",    // Sécurité : contrôle des accès physiques
+  "svc_compta",  // Comptabilité : seule avec le gérant à voir les finances
   // Associations
   "asso_president", "asso_treasurer", "asso_secretary",
   "asso_project_manager", "asso_member_portal",
@@ -149,6 +158,12 @@ export interface IUser {
   role: UserRole;
   /** Rôles cumulés ; `role` reste le principal. Union des permissions. */
   roles?: UserRole[];
+  /** Niveau par rôle de service (chef / employe / stagiaire). */
+  roleLevels?: Record<string, "chef" | "employe" | "stagiaire">;
+  /** The Spot : comptoirs attribués. */
+  siteIds?: Types.ObjectId[];
+  /** Fin d'accès (stagiaires). */
+  accessUntil?: Date;
   allowedResources?: string[];
   phone?: string;
   avatar?: string;

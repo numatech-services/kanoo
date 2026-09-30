@@ -10,7 +10,7 @@ import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
 import Link from "next/link";
 import { compactXof } from "@/components/ui/charts/geometry";
-import { Send, Plus, ArrowRight, Store, CreditCard, Megaphone, CalendarClock } from "lucide-react";
+import { Send, Plus, ArrowRight, Store, CreditCard, Megaphone, CalendarClock, ShieldCheck, Users, FileText, Package, Folder, LifeBuoy } from "lucide-react";
 
 interface Hero {
   userName: string;
@@ -93,17 +93,24 @@ const MOIS = (d: Date) => d.toLocaleDateString("fr-FR", { month: "long" });
  * The Spot, opérateur ISIC…) : on ne lui montre ni chiffre d'affaires ni
  * créances, mais des raccourcis vers les modules qu'il peut réellement ouvrir.
  */
-async function NeutralHero({ auth, can }: { auth: TokenPayload; can: (r: string) => boolean }) {
+async function NeutralHero({ auth, can }: { auth: TokenPayload; can: (r: string, a?: "read" | "create" | "update" | "delete") => boolean }) {
   await connectDB();
   const user = await UserModel.findById(auth.userId).select("firstName").lean<{ firstName?: string } | null>().catch(() => null);
   const heure = new Date().getHours();
   const salut = heure < 12 ? "Bonjour" : heure < 18 ? "Bon après-midi" : "Bonsoir";
+  // Raccourcis vers les écrans du ou des services de la personne (5 au plus).
   const shortcuts = [
     { ok: can("comptoir"), href: "/comptoir", label: "Comptoir (The Spot)", icon: <Store size={16} /> },
-    { ok: can("isic"), href: "/isic", label: "Cartes ISIC", icon: <CreditCard size={16} /> },
+    { ok: can("isic"), href: "/isic/registre", label: "Registre ISIC", icon: <CreditCard size={16} /> },
+    { ok: can("eventCheckin") && !can("events", "create"), href: "/activites", label: "Contrôle des entrées", icon: <ShieldCheck size={16} /> },
+    { ok: can("clients"), href: "/crm", label: "Prospects et CRM", icon: <Users size={16} /> },
+    { ok: can("devis", "create"), href: "/devis/new", label: "Nouveau devis", icon: <FileText size={16} /> },
+    { ok: can("products"), href: "/stock", label: "Stock", icon: <Package size={16} /> },
+    { ok: can("projects"), href: "/projects", label: "Projets", icon: <Folder size={16} /> },
     { ok: can("appels"), href: "/appels", label: "Appels à candidatures", icon: <Megaphone size={16} /> },
+    { ok: can("supportTickets", "update"), href: "/support", label: "Support", icon: <LifeBuoy size={16} /> },
     { ok: true, href: "/agenda", label: "Mon agenda", icon: <CalendarClock size={16} /> },
-  ].filter(x => x.ok);
+  ].filter(x => x.ok).slice(0, 5);
   return (
     <div className="rounded-3xl border border-line bg-section-soft/40 p-7 sm:p-9">
       <p className="text-[11px] font-bold uppercase tracking-widest text-section">{salut}{user?.firstName ? `, ${user.firstName}` : ""}</p>

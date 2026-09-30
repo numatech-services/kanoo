@@ -10,7 +10,7 @@ import { TokenPayload } from "@/lib/auth";
  * en file de synchronisation. La vérification de signature reste faite côté
  * serveur au moment de la synchronisation.
  */
-export const GET = withAuth("events", "update", async (_req: NextRequest, auth: TokenPayload, params) => {
+export const GET = withAuth("eventCheckin", "update", async (_req: NextRequest, auth: TokenPayload, params) => {
   const list = await AttendeeModel.find({
     eventId: params.id,
     ...tenantFilter(auth),

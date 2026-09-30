@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth, ok, notFound, forbidden, tenantFilter } from "@/lib/api-helpers";
 import { AttachmentModel } from "@/models/Attachment";
 import { read, remove } from "@/lib/storage";
-import { canPerformAction } from "@/lib/role-resources";
+import { authCan } from "@/lib/role-resources";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
-import type { UserRole } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +41,7 @@ export const GET = withAuth("documents", "read", async (_req: NextRequest, auth:
     .lean<Row | null>();
   if (!doc) return notFound("Pièce jointe introuvable");
 
-  if (!canPerformAction(auth.role as UserRole, doc.host, "read")) {
+  if (!authCan(auth, doc.host, "read")) {
     return forbidden("Vous n'avez pas accès aux documents de ce type.");
   }
 
@@ -83,7 +82,7 @@ export const DELETE = withAuth("documents", "delete", async (_req: NextRequest, 
     .lean<Row | null>();
   if (!doc) return notFound("Pièce jointe introuvable");
 
-  if (!canPerformAction(auth.role as UserRole, doc.host, "update")) {
+  if (!authCan(auth, doc.host, "update")) {
     return forbidden("Vous ne pouvez pas retirer de pièce à ce document.");
   }
 

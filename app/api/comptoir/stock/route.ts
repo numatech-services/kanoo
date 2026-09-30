@@ -17,6 +17,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   const url = new URL(req.url);
   const deskId = url.searchParams.get("deskId");
   if (!isId(deskId)) return badRequest("Comptoir invalide");
+  if (!(await ownDesk(auth, deskId))) return notFound("Comptoir introuvable");
   const filter: Record<string, unknown> = { ...tenantFilter(auth), deskId };
   const itemId = url.searchParams.get("itemId");
   if (isId(itemId)) filter.itemId = itemId;
@@ -91,7 +92,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   // Alerte de réapprovisionnement : notifiée à la direction, au comptable et au
   // gestionnaire de comptoir. Best-effort, hors transaction.
   if ("crossedThreshold" in result && result.crossedThreshold) {
-    await notifyRoles(auth.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "pme_activity_manager"], {
+    await notifyRoles(auth.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "pme_activity_manager", "svc_spot", "svc_compta"], {
       type: "stock_alert", title: "Comptoir : seuil atteint",
       message: `${result.itemName} : ${result.after} ${result.itemUnit} en stock (seuil ${result.threshold}). Réapprovisionnement conseillé.`,
       linkedTo: "comptoir", linkedId: String(body.deskId),

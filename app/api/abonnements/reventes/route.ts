@@ -11,6 +11,7 @@ import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { reconcile, type SaleLike } from "@/lib/subscriptions";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { maskMoney } from "@/lib/payroll-mask";
 
 export const GET = withAuth("subscriptions", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
@@ -44,7 +45,8 @@ export const GET = withAuth("subscriptions", "read", async (req: NextRequest, au
     SubscriptionSaleModel.countDocuments(filter),
   ]);
 
-  return paginatedResponse(items, total, pagination);
+  // Montants masqués hors gérant / comptabilité.
+  return paginatedResponse(items.map(i => maskMoney(i as Record<string, unknown>, auth)), total, pagination);
 });
 
 export const POST = withAuth("subscriptions", "create", async (req: NextRequest, auth: TokenPayload) => {

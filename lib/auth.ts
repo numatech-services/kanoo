@@ -51,6 +51,10 @@ export interface TokenPayload {
   subscriptionStatus: "active" | "trial" | "suspended" | "none";
   planModules: string[];
   allowedResources?: string[];
+  /** Niveau par rôle de service ; relu en base à chaque requête (revalidate). */
+  roleLevels?: Partial<Record<string, "chef" | "employe" | "stagiaire">>;
+  /** The Spot : comptoirs attribués (vide = aucun, sauf chef / gérant / compta). */
+  siteIds?: string[];
   sessionVersion?: number;
   iat?: number;
   exp?: number;

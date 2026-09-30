@@ -500,8 +500,9 @@ describe("Pièces jointes — stockage et accès", () => {
     expect(one).toBeDefined();
     // Lire la pièce d'un contrat suppose de pouvoir lire les contrats : sans
     // ce contrôle, un droit « pièces jointes » générique ouvrirait tout.
-    expect(list!.src).toMatch(/canPerformAction\(auth\.role as UserRole, host, "read"\)/);
-    expect(one!.src).toMatch(/canPerformAction\(auth\.role as UserRole, doc\.host, "read"\)/);
+    // Tous les rôles cumulés et leurs niveaux comptent (authCan), pas seulement le rôle principal.
+    expect(list!.src).toMatch(/authCan\(auth, host, "read"\)/);
+    expect(one!.src).toMatch(/authCan\(auth, doc\.host, "read"\)/);
   });
 
   it("force le téléchargement plutôt que l'affichage dans l'origine", () => {

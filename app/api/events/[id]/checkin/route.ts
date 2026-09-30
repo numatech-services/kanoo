@@ -11,7 +11,7 @@ import { TokenPayload } from "@/lib/auth";
  * Accepte soit { payload } (contenu du QR), soit { code } (code de secours).
  * Réponses : { valid: boolean, reason?, attendee? }.
  */
-export const POST = withAuth("events", "update", async (req: NextRequest, auth: TokenPayload, params) => {
+export const POST = withAuth("eventCheckin", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   const body = await req.json();
 
   let attendeeId: string | undefined;

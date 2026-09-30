@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, noContent, notFound, badRequest, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
-import { isId } from "@/lib/comptoir";
+import { isId, deskFilter } from "@/lib/comptoir";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -29,7 +29,7 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
   }
   if (update.name === "") return badRequest("Le nom est requis.");
   const item = await ActivityItemModel.findOneAndUpdate(
-    { _id: params.id, ...tenantFilter(auth) }, { $set: update }, { new: true }
+    { _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }, { $set: update }, { new: true }
   );
   if (!item) return notFound("Article introuvable");
   await logAudit(auth, "UPDATE", "comptoir", { resourceId: String(params.id) });
@@ -39,7 +39,7 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
 export const DELETE = withAuth("comptoir", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   if (!isId(params.id)) return notFound("Article introuvable");
-  const r = await ActivityItemModel.findOneAndDelete({ _id: params.id, ...tenantFilter(auth) });
+  const r = await ActivityItemModel.findOneAndDelete({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) });
   if (!r) return notFound("Article introuvable");
   await logAudit(auth, "DELETE", "comptoir", { resourceId: String(params.id) });
   return noContent();

@@ -184,7 +184,10 @@ export async function executeAction(
 async function notifyTeam(tenantId: string, action: DunningAction) {
   const recipients = await UserModel.find({
     tenantId,
-    role: { $in: ["pme_admin", "pme_accountant", "pme_manager"] },
+    $or: [
+      { role: { $in: ["pme_admin", "pme_accountant", "pme_manager", "svc_compta"] } },
+      { roles: { $in: ["pme_admin", "pme_accountant", "pme_manager", "svc_compta"] } },
+    ],
     isActive: true,
   }).select("_id").lean<Array<{ _id: mongoose.Types.ObjectId }>>();
 

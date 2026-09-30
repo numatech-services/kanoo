@@ -1,17 +1,19 @@
 import { NextRequest } from "next/server";
 import { withAuth, ok, notFound, noContent, badRequest, conflict, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { EmployeeModel } from "@/models/Employee";
+import { maskPayroll, stripPayrollWrites } from "@/lib/payroll-mask";
 import { UserModel } from "@/models/User";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
 export const GET = withAuth("employees", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   const e = await EmployeeModel.findOne({ _id: params.id, ...tenantFilter(auth) }).lean();
-  if (!e) return notFound(); return ok(e);
+  if (!e) return notFound(); return ok(maskPayroll(e as Record<string, unknown>, auth));
 });
 export const PATCH = withAuth("employees", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   const body = await req.json();
-  const update = sanitizeBody(body, ["code"]);
+  // Hors paie, les champs de rémunération sont ignorés (ni lus ni écrits).
+  const update = stripPayrollWrites(sanitizeBody(body, ["code"]), auth);
 
   // ── Rattachement à un compte de connexion ────────────────────────────────
   //
@@ -51,7 +53,7 @@ export const PATCH = withAuth("employees", "update", async (req: NextRequest, au
     resourceId: params.id,
     metadata: "userId" in update ? { linkedUser: update.userId ?? null } : undefined,
   });
-  return ok(e);
+  return ok(maskPayroll(e.toObject(), auth));
 });
 export const DELETE = withAuth("employees", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {
   const e = await EmployeeModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, { isActive: false }, { new: true });

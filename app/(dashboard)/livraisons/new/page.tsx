@@ -27,19 +27,20 @@ export default function NewDeliveryPage() {
     if (!number) return;
     setSearching(true);
     try {
-      const res = await fetch(`/api/invoices?number=${number}`);
+      // Recherche dédiée aux livraisons : client et articles, sans montants.
+      const res = await fetch(`/api/livraisons/source?number=${encodeURIComponent(number.trim())}`, { credentials: "include" });
       const d = await res.json();
-      const invoice = d.data?.items?.[0];
+      const src = d.data;
 
-      if (invoice) {
+      if (res.ok && src) {
         setForm(prev => ({
           ...prev,
-          invoiceId: invoice._id,
-          invoiceNumber: invoice.number,
-          clientId: invoice.clientId?._id,
-          clientName: invoice.clientId?.name,
-          deliveryAddress: invoice.clientId?.address || "",
-          lines: invoice.lines.map((l: any) => ({
+          invoiceId: src.invoiceId,
+          invoiceNumber: src.number,
+          clientId: src.client?._id,
+          clientName: src.client?.name,
+          deliveryAddress: src.client?.address || "",
+          lines: (src.lines || []).map((l: { description: string; quantity: number; unit: string; productId?: string }) => ({
             description: l.description,
             quantity: l.quantity,
             unit: l.unit || "unité",
@@ -47,7 +48,7 @@ export default function NewDeliveryPage() {
           }))
         }));
       } else {
-        alert("Facture introuvable ou déjà traitée");
+        alert(d.error || "Facture introuvable");
       }
     } finally {
       setSearching(false);

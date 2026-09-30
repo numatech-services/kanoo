@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, badRequest, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { TokenPayload } from "@/lib/auth";
-import { isId } from "@/lib/comptoir";
+import { isId, ownDesk } from "@/lib/comptoir";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   const url = new URL(req.url);
   const deskId = url.searchParams.get("deskId");
   if (!isId(deskId)) return badRequest("Comptoir invalide");
+  if (!(await ownDesk(auth, deskId))) return notFound("Comptoir introuvable");
 
   const items = await ActivityItemModel.find({ ...tenantFilter(auth), deskId, archived: { $ne: true } })
     .select("name unit quantity unitCost threshold").lean<{ name: string; unit: string; quantity: number; unitCost: number; threshold?: number }[]>();

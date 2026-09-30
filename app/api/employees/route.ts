@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, created, badRequest, conflict, getPagination, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { EmployeeModel } from "@/models/Employee";
+import { maskPayroll, stripPayrollWrites, canSeePayroll } from "@/lib/payroll-mask";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -44,7 +45,8 @@ export const GET = withAuth("employees", "read", async (req: NextRequest, auth: 
   });
 
   return ok({
-    items,
+    // Rémunération masquée hors paie (chef comptable, gérant).
+    items: items.map(e => maskPayroll(e as Record<string, unknown>, auth)),
     pagination: { page: pagination.page, limit: pagination.limit, total, totalPages: Math.ceil(total / pagination.limit) },
     alertCount,
   });
@@ -52,19 +54,22 @@ export const GET = withAuth("employees", "read", async (req: NextRequest, auth: 
 
 export const POST = withAuth("employees", "create", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
-  const body = await req.json();
+  const body = stripPayrollWrites(await req.json(), auth) as Record<string, string | number | undefined>;
   const err = requireFields(body, ["firstName", "lastName", "position", "startDate", "code", "employeeType"]);
   if (err) return badRequest(err);
 
   const existing = await EmployeeModel.findOne({ tenantId: auth.tenantId, code: body.code });
   if (existing) return conflict(`Code '${body.code}' déjà utilisé`);
 
-  // Validation selon le type
-  if (body.employeeType === "employee" && !body.grossSalary) {
-    return badRequest("Le salaire brut est requis pour un employé");
-  }
-  if (["intern", "freelance"].includes(body.employeeType) && !body.indemnity) {
-    return badRequest("L'indemnité est requise pour un stagiaire ou freelance");
+  // Validation selon le type — seulement pour qui gère la paie : le service
+  // Administration crée le dossier, le chef comptable fixe la rémunération.
+  if (canSeePayroll(auth)) {
+    if (body.employeeType === "employee" && !body.grossSalary) {
+      return badRequest("Le salaire brut est requis pour un employé");
+    }
+    if (["intern", "freelance"].includes(String(body.employeeType)) && !body.indemnity) {
+      return badRequest("L'indemnité est requise pour un stagiaire ou freelance");
+    }
   }
 
   const employee = await EmployeeModel.create({ ...body, tenantId: auth.tenantId });
@@ -73,5 +78,5 @@ export const POST = withAuth("employees", "create", async (req: NextRequest, aut
     resourceId: employee._id.toString(),
     after: { code: body.code, name: `${body.firstName} ${body.lastName}`, type: body.employeeType },
   });
-  return created(employee);
+  return created(maskPayroll(employee.toObject(), auth));
 });

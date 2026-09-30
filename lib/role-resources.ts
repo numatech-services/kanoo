@@ -8,6 +8,11 @@ import { UserRole } from "@/types";
  */
 type Action = "create" | "read" | "update" | "delete" | "approve";
 
+/** Niveau d'un collaborateur dans un service : se règle pour chaque rôle attribué. */
+export type RoleLevel = "chef" | "employe" | "stagiaire";
+export type RoleLevels = Partial<Record<string, RoleLevel>>;
+export const ROLE_LEVELS: RoleLevel[] = ["chef", "employe", "stagiaire"];
+
 interface ResourcePermissions {
   [resource: string]: Action[];
 }
@@ -351,6 +356,111 @@ const CHEF_PROJET_TRANSVERSAL: ResourcePermissions = {
   employees:     ["read"],
 };
 
+// ─── Services (organisation cloisonnée) ──────────────────────────────────────
+//
+// Un rôle par service ; le NIVEAU (chef / employé / stagiaire) se règle pour
+// chaque rôle attribué (voir `canPerformAction`). Règle de base : seuls le
+// gérant (pme_admin) et la comptabilité voient les informations financières —
+// factures, encaissements, trésorerie, comptabilité, rentabilité, coûts et
+// marges, paie. Les cartes ci-dessous sont celles d'un EMPLOYÉ ; le chef reçoit
+// en plus CHEF_EXTRA et garde la suppression et la validation.
+
+const CRUD: Action[] = ["create", "read", "update", "delete"];
+const CRU: Action[] = ["create", "read", "update"];
+const CR: Action[] = ["create", "read"];
+const R: Action[] = ["read"];
+
+/** Comptabilité : le seul service qui voit et produit l'information financière. */
+const SVC_COMPTA: ResourcePermissions = {
+  invoices: CRUD, payments: CRUD, treasuryAccounts: CRUD, accountingEntries: CRUD,
+  fiscalDeclarations: CRUD, fixedAssets: CRUD, recurringCharges: CRUD, analytics: CRUD,
+  isicFinance: CRUD, comptoir: CRUD, subscriptions: R,
+  expenses: ["create", "read", "update", "approve"],
+  // Le devis accepté est transformé en facture par la comptabilité.
+  devis: ["read", "update"],
+  clients: R, suppliers: R, commandes: R, products: R, livraisons: R, deliveries: R,
+  projects: R, contracts: R, publicTenders: R, appels: R, isic: R, events: R,
+  // Dossiers des collaborateurs SANS salaires (visibles avec la paie : chef).
+  employees: R,
+  documents: CRU, approbations: CRU, supportTickets: CR, auditLogs: R,
+};
+
+/** Administration : vente de matériel et mobilier, achats, stock, appels d'offres, dossiers RH. */
+const SVC_ADMIN: ResourcePermissions = {
+  clients: CRUD, devis: CRUD, suppliers: CRUD, commandes: CRUD, products: CRUD,
+  livraisons: CRUD, deliveries: CRUD, publicTenders: CRUD, appels: CRUD,
+  documents: CRUD, employees: CRUD, projects: CRUD, contracts: R, events: R,
+  expenses: CR, approbations: CRU, supportTickets: CR,
+};
+
+/** Communication, pour l'entreprise et pour les clients. */
+const SVC_COMM: ResourcePermissions = {
+  clients: CRU, devis: CRUD, projects: CRUD, documents: CRUD, events: CRUD,
+  appels: R, publicTenders: R, expenses: CR, approbations: CRU, supportTickets: CR,
+};
+
+/** Développement logiciel : projets, abonnements et licences (sans montants), support. */
+const SVC_DEV: ResourcePermissions = {
+  clients: CRU, devis: CRUD, projects: CRUD, documents: CRUD, supportTickets: CRUD,
+  subscriptions: ["read", "update"], contracts: R, appels: R, publicTenders: R,
+  auditLogs: R, events: R, expenses: CR, approbations: CRU,
+};
+
+/** Production & Cartes : production, cartes ISIC et Easypay (sans les coûts ISIC). */
+const SVC_PROD: ResourcePermissions = {
+  isic: CRUD, projects: CRUD, devis: CRUD, clients: CRU, documents: CRUD,
+  products: ["read", "update"], suppliers: R, commandes: CR, appels: R, events: R,
+  expenses: CR, approbations: CRU, supportTickets: CR,
+};
+
+/** The Spot : comptoirs (stock matière, saisie de caisse), limités aux sites attribués. */
+const SVC_SPOT: ResourcePermissions = {
+  comptoir: CRUD, documents: R, events: R, expenses: CR, supportTickets: CR,
+};
+
+/** Prospection : prospects et CRM, devis, veille et candidatures aux appels d'offres. */
+const SVC_PROSP: ResourcePermissions = {
+  clients: CRU, devis: CRUD, appels: CRUD, publicTenders: R, projects: R, documents: CRU,
+  events: R, expenses: CR, approbations: CRU, supportTickets: CR,
+};
+
+/**
+ * Sécurité : contrôle des accès PHYSIQUES aux locaux et aux sites. Dans
+ * l'application, accès minimal : consignes et documents en lecture, contrôle
+ * des billets à l'entrée des événements (`eventCheckin`, sans pouvoir modifier
+ * les événements), ses notes de frais.
+ */
+const SVC_SECU: ResourcePermissions = {
+  eventCheckin: ["read", "update"], events: R, documents: R, expenses: CR, supportTickets: CR,
+};
+
+/** Droits propres au chef de service, en plus de la carte de l'employé. */
+const CHEF_EXTRA: Partial<Record<UserRole, ResourcePermissions>> = {
+  // Paie : chef comptable et gérant uniquement.
+  svc_compta: { payslips: CRUD, employees: ["read", "update"] },
+  // Chaque chef valide les notes de frais de son équipe (1er niveau).
+  svc_admin: { expenses: ["approve"] },
+  svc_comm: { expenses: ["approve"] },
+  svc_dev: { expenses: ["approve"] },
+  svc_prod: { expenses: ["approve"] },
+  svc_spot: { expenses: ["approve"] },
+  svc_prosp: { expenses: ["approve"] },
+  svc_secu: { expenses: ["approve"] },
+};
+
+/**
+ * Actions retirées par niveau (rôles de service uniquement) : seul le chef
+ * supprime et valide. Exception : le comptable rembourse les notes de frais
+ * (c'est son métier), ce qui passe par l'action `approve`.
+ */
+const LEVEL_DENY: Record<RoleLevel, Action[]> = { chef: [], employe: ["delete", "approve"], stagiaire: ["delete", "approve"] };
+const EMPLOYEE_KEEPS: Partial<Record<UserRole, ResourcePermissions>> = { svc_compta: { expenses: ["approve"] } };
+
+export const SERVICE_ROLES = ["svc_admin", "svc_comm", "svc_prosp", "svc_dev", "svc_prod", "svc_spot", "svc_secu", "svc_compta"] as const satisfies readonly UserRole[];
+export function isServiceRole(role: string): boolean {
+  return (SERVICE_ROLES as readonly string[]).includes(role);
+}
+
 const ROLE_PERMISSIONS: Record<UserRole, ResourcePermissions> = {
   // PME
   pme_admin: PME_ADMIN,
@@ -370,6 +480,15 @@ const ROLE_PERMISSIONS: Record<UserRole, ResourcePermissions> = {
   // comptoir (stock matière + caisse). La ressource `comptoir` lui est ajoutée
   // par la boucle ci-dessous.
   pme_activity_manager: { notifications: ["read"] },
+  // Services (organisation cloisonnée)
+  svc_admin: SVC_ADMIN,
+  svc_comm: SVC_COMM,
+  svc_dev: SVC_DEV,
+  svc_prod: SVC_PROD,
+  svc_spot: SVC_SPOT,
+  svc_compta: SVC_COMPTA,
+  svc_prosp: SVC_PROSP,
+  svc_secu: SVC_SECU,
   // Associations
   asso_president: ASSO_PRESIDENT,
   asso_treasurer: ASSO_TREASURER,
@@ -413,6 +532,15 @@ for (const [role, actions] of Object.entries(EVENTS_BY_ROLE)) {
 }
 
 /**
+ * Contrôle d'entrée (scan des billets) : droit distinct de la modification des
+ * événements, pour qu'un agent de sécurité contrôle les entrées sans pouvoir
+ * modifier l'événement. Accordé à tous ceux qui gèrent déjà les événements.
+ */
+for (const perms of Object.values(ROLE_PERMISSIONS)) {
+  if (perms.events?.includes("update") && !perms.eventCheckin) perms.eventCheckin = ["read", "update"];
+}
+
+/**
  * Agenda : universel. Chaque collaborateur gère son propre agenda et voit les
  * agendas partagés de l'organisation, indépendamment de ses droits métier.
  * L'API borne ensuite la portée (on ne modifie que ses propres entrées).
@@ -435,7 +563,9 @@ for (const perms of Object.values(ROLE_PERMISSIONS)) {
 
 /** Appels à candidatures (réponse à appels d'offres) : accordé largement. */
 const APPELS_ALL: Action[] = ["create", "read", "update", "delete"];
-for (const perms of Object.values(ROLE_PERMISSIONS)) {
+for (const [role, perms] of Object.entries(ROLE_PERMISSIONS)) {
+  if (isServiceRole(role)) continue; // les services déclarent leur accès aux appels
+  // (la Comptabilité et The Spot n'ont pas à les modifier).
   perms.appels = APPELS_ALL;
 }
 
@@ -515,61 +645,75 @@ function withinAllowList(resource: string, allowedResources?: string[]): boolean
 /**
  * Vérifie si un rôle peut accéder à une ressource.
  */
-export function canAccessResource(
-  role: UserRole,
-  resource: string,
-  allowedResources?: string[]
-): boolean {
-  if (role === "superadmin") return true;
-  if (!withinAllowList(resource, allowedResources)) return false;
-
+/** Actions d'un rôle sur une ressource, niveau compris (rôles de service). */
+function actionsFor(role: UserRole, resource: string, level?: RoleLevel): Action[] {
   const permissions = ROLE_PERMISSIONS[role];
-  if (!permissions) return false;
-  if (permissions["*"]) return true;
-
-  return resource in permissions;
+  if (!permissions) return [];
+  if (!isServiceRole(role)) return permissions[resource] ?? [];
+  const lvl: RoleLevel = level ?? "employe";
+  const base = [...(permissions[resource] ?? [])];
+  if (lvl === "chef") base.push(...(CHEF_EXTRA[role]?.[resource] ?? []));
+  const keeps = lvl === "employe" ? (EMPLOYEE_KEEPS[role]?.[resource] ?? []) : [];
+  return [...new Set(base)].filter(a => !LEVEL_DENY[lvl].includes(a) || keeps.includes(a));
 }
 
 /**
- * Vérifie si un rôle peut effectuer une action CRUD sur une ressource.
+ * Vérifie si un rôle peut accéder à une ressource.
+ */
+export function canAccessResource(
+  role: UserRole,
+  resource: string,
+  allowedResources?: string[],
+  level?: RoleLevel,
+): boolean {
+  if (role === "superadmin") return true;
+  if (!withinAllowList(resource, allowedResources)) return false;
+  const permissions = ROLE_PERMISSIONS[role];
+  if (!permissions) return false;
+  if (permissions["*"]) return true;
+  return actionsFor(role, resource, level).length > 0;
+}
+
+/**
+ * Vérifie si un rôle peut effectuer une action sur une ressource.
  *
  * `allowedResources` est pris en compte ici aussi : les deux fonctions doivent
  * répondre la même chose, sans quoi l'interface affiche ce que l'API refuse.
+ * `level` ne concerne que les rôles de service (défaut : employé).
  */
 export function canPerformAction(
   role: UserRole,
   resource: string,
   action: Action,
-  allowedResources?: string[]
+  allowedResources?: string[],
+  level?: RoleLevel,
 ): boolean {
   if (role === "superadmin") return true;
   if (!withinAllowList(resource, allowedResources)) return false;
-
   const permissions = ROLE_PERMISSIONS[role];
   if (!permissions) return false;
   if (permissions["*"]) return true;
-
-  const actions = permissions[resource];
-  return actions?.includes(action) ?? false;
+  return actionsFor(role, resource, level).includes(action);
 }
 
 /**
  * Retourne les ressources accessibles par un rôle, éventuellement réduites par
  * la liste individuelle.
  */
-export function getAccessibleResources(role: UserRole, allowedResources?: string[]): string[] {
+export function getAccessibleResources(role: UserRole, allowedResources?: string[], level?: RoleLevel): string[] {
   if (role === "superadmin") return ["*"];
   const permissions = ROLE_PERMISSIONS[role];
   if (!permissions) return [];
-  return Object.keys(permissions).filter(r => withinAllowList(r, allowedResources));
+  const keys = new Set(Object.keys(permissions));
+  if (isServiceRole(role) && (level ?? "employe") === "chef") for (const k of Object.keys(CHEF_EXTRA[role] ?? {})) keys.add(k);
+  return [...keys].filter(r => withinAllowList(r, allowedResources) && actionsFor(role, r, level).length > 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Multi-rôle — un collaborateur peut cumuler plusieurs rôles (comptable + RH +
-// achats, courant dans une petite structure). Les permissions s'évaluent alors
-// en UNION : l'action est autorisée si AU MOINS UN des rôles la permet. Les
-// versions à rôle unique restent le cas particulier `[role]`, si bien que rien
-// ne change pour un compte mono-rôle.
+// Multi-rôle — un collaborateur peut cumuler plusieurs rôles (chef du service
+// Communication ET employé du service Développement). Les permissions
+// s'évaluent en UNION, chaque rôle avec SON niveau. Les versions à rôle unique
+// restent le cas particulier `[role]`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Normalise en tableau non vide : `roles` s'il est fourni, sinon `[role]`. */
@@ -578,28 +722,70 @@ export function effectiveRoles(role: UserRole, roles?: UserRole[] | null): UserR
 }
 
 export function rolesCanPerform(
-  roles: UserRole[], resource: string, action: Action, allowedResources?: string[]
+  roles: UserRole[], resource: string, action: Action, allowedResources?: string[], levels?: RoleLevels,
 ): boolean {
-  return roles.some(r => canPerformAction(r, resource, action, allowedResources));
+  return roles.some(r => canPerformAction(r, resource, action, allowedResources, levels?.[r]));
 }
 
 export function rolesCanAccess(
-  roles: UserRole[], resource: string, allowedResources?: string[]
+  roles: UserRole[], resource: string, allowedResources?: string[], levels?: RoleLevels,
 ): boolean {
-  return roles.some(r => canAccessResource(r, resource, allowedResources));
+  return roles.some(r => canAccessResource(r, resource, allowedResources, levels?.[r]));
 }
 
 /** Union des ressources accessibles par l'ensemble des rôles. */
-export function accessibleResourcesForRoles(roles: UserRole[], allowedResources?: string[]): string[] {
+export function accessibleResourcesForRoles(roles: UserRole[], allowedResources?: string[], levels?: RoleLevels): string[] {
   if (roles.includes("superadmin")) return ["*"];
   const set = new Set<string>();
   for (const role of roles) {
-    for (const r of getAccessibleResources(role, allowedResources)) set.add(r);
+    for (const r of getAccessibleResources(role, allowedResources, levels?.[role])) set.add(r);
   }
   return [...set];
+}
+
+/**
+ * Meilleur niveau avec lequel l'utilisateur peut agir sur une ressource
+ * (chef > employé > stagiaire). Un rôle hors service (gérant, anciens rôles)
+ * compte comme « chef ». null si aucun rôle ne le permet.
+ */
+export function bestLevelFor(
+  roles: UserRole[], resource: string, action: Action, allowedResources?: string[], levels?: RoleLevels,
+): RoleLevel | null {
+  const order: RoleLevel[] = ["chef", "employe", "stagiaire"];
+  let best: RoleLevel | null = null;
+  for (const r of roles) {
+    const lvl: RoleLevel = isServiceRole(r) ? (levels?.[r] ?? "employe") : "chef";
+    if (!canPerformAction(r, resource, action, allowedResources, levels?.[r])) continue;
+    if (best === null || order.indexOf(lvl) < order.indexOf(best)) best = lvl;
+  }
+  return best;
+}
+
+/** Contexte d'autorisation minimal (jeton revalidé). */
+export interface AuthLike { role: string; roles?: string[] | null; allowedResources?: string[]; roleLevels?: RoleLevels }
+
+/** L'utilisateur peut-il … ? Tous ses rôles, chacun avec son niveau. */
+export function authCan(auth: AuthLike, resource: string, action: Action = "read"): boolean {
+  return rolesCanPerform(effectiveRoles(auth.role as UserRole, auth.roles as UserRole[] | undefined), resource, action, auth.allowedResources, auth.roleLevels);
+}
+
+/** Accès aux informations financières : gérant et comptabilité uniquement. */
+export function hasFinanceAccess(auth: AuthLike): boolean {
+  return authCan(auth, "accountingEntries", "read");
 }
 
 export {
   ROLE_PERMISSIONS,
   CHEF_PROJET_TRANSVERSAL,
 };
+
+/**
+ * Stagiaire pour cette ressource : aucun de ses rôles ne lui donne un niveau
+ * supérieur. Sert à bloquer les exports et les envois vers l'extérieur.
+ */
+export function isInternFor(auth: AuthLike, resource: string): boolean {
+  const roles = effectiveRoles(auth.role as UserRole, auth.roles as UserRole[] | undefined);
+  return bestLevelFor(roles, resource, "read", auth.allowedResources, auth.roleLevels) === "stagiaire";
+}
+
+export const INTERN_EXPORT_MESSAGE = "Les stagiaires ne peuvent pas exporter ni envoyer de fichiers : demandez à votre chef de service.";

@@ -3,14 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ShieldCheck, Search, ArrowLeft } from "lucide-react";
-import { accessibleResourcesForRoles } from "@/lib/role-resources";
-import { ROLE_UI, roleLabel } from "@/lib/roles-ui";
+import { accessibleResourcesForRoles, type RoleLevels } from "@/lib/role-resources";
+import { accessChip } from "@/components/users/AccessEditor";
+
+/** Domaines qui relèvent des finances (gérant et comptabilité uniquement). */
+const FINANCE_RESOURCES = ["invoices", "payments", "treasuryAccounts", "accountingEntries", "fiscalDeclarations",
+  "fixedAssets", "recurringCharges", "payslips", "analytics", "isicFinance"];
 import { resourceLabel } from "@/lib/resource-labels";
 import type { UserRole } from "@/types";
 
 interface U {
   _id: string; firstName?: string; lastName?: string; email?: string;
-  role: string; roles?: string[]; isActive?: boolean; allowedResources?: string[];
+  role: string; roles?: string[]; roleLevels?: Record<string, string>; isActive?: boolean; allowedResources?: string[];
 }
 
 export default function AccessSummaryPage() {
@@ -27,11 +31,13 @@ export default function AccessSummaryPage() {
 
   const rows = useMemo(() => users.map(u => {
     const roles = (u.roles?.length ? u.roles : [u.role]) as UserRole[];
-    const resources = accessibleResourcesForRoles(roles, u.allowedResources);
+    const resources = accessibleResourcesForRoles(roles, u.allowedResources, u.roleLevels as RoleLevels | undefined);
+    const finance = resources.includes("*") || resources.some(r => FINANCE_RESOURCES.includes(r));
     // Dédoublonne les libellés (isic/isicFinance ont des libellés distincts, mais
     // livraisons/deliveries partagent le même — on ne veut pas de doublon visuel).
     const domains = [...new Set(resources.map(resourceLabel))].sort((a, b) => a.localeCompare(b, "fr"));
-    return { u, roles, domains };
+    const financeDomains = new Set(resources.filter(r => FINANCE_RESOURCES.includes(r)).map(resourceLabel));
+    return { u, roles, domains, finance, financeDomains };
   }), [users]);
 
   const filtered = rows.filter(({ u }) =>
@@ -57,18 +63,19 @@ export default function AccessSummaryPage() {
         <p className="text-sm text-ink3">Aucune personne.</p>
       ) : (
         <div className="space-y-3">
-          {filtered.map(({ u, roles, domains }) => (
+          {filtered.map(({ u, roles, domains, finance, financeDomains }) => (
             <div key={u._id} className="surface-card p-4">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
                   <p className="font-semibold text-ink">{[u.firstName, u.lastName].filter(Boolean).join(" ") || u.email}
                     {u.isActive === false && <span className="ml-2 text-[11px] text-neg">(inactif)</span>}</p>
                   <p className="text-xs text-ink2">{u.email}</p>
+                  {finance && <p className="mt-1 text-[11px] font-semibold text-neg">Accès aux informations financières</p>}
                 </div>
                 <div className="flex gap-1.5 flex-wrap justify-end">
                   {roles.map(r => (
                     <span key={r} className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-section-soft text-section">
-                      {ROLE_UI[r]?.label ?? roleLabel(r)}
+                      {accessChip(r, u.roleLevels?.[r])}
                     </span>
                   ))}
                 </div>
@@ -79,7 +86,7 @@ export default function AccessSummaryPage() {
                 ) : domains.length === 0 ? (
                   <span className="text-xs text-ink3 italic">Aucun domaine — accès très restreint.</span>
                 ) : domains.map(d => (
-                  <span key={d} className="text-[11px] px-2 py-0.5 rounded-full bg-surface2 text-ink2 border border-line">{d}</span>
+                  <span key={d} className={`text-[11px] px-2 py-0.5 rounded-full border ${financeDomains.has(d) ? "bg-neg-50 text-neg border-neg/25 font-semibold" : "bg-surface2 text-ink2 border-line"}`}>{d}</span>
                 ))}
               </div>
             </div>

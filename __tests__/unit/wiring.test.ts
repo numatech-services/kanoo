@@ -30,9 +30,10 @@ describe("Rôles — source unique", () => {
     }
   });
 
-  it("l'API accepte les rôles ISIC et The Spot pour une PME, pas les rôles d'un autre espace", () => {
+  it("une PME attribue le gérant et les services, plus les anciens rôles ni ceux d'un autre espace", () => {
     const pme = assignableRoles({ role: "pme_admin", tenantType: "pme" });
-    for (const r of ["pme_isic_operator", "pme_isic_finance", "pme_activity_manager"]) expect(pme).toContain(r);
+    expect(pme).toEqual(["pme_admin", "svc_admin", "svc_comm", "svc_prosp", "svc_dev", "svc_prod", "svc_spot", "svc_secu", "svc_compta"]);
+    for (const legacy of ["pme_viewer", "pme_sales", "pme_isic_operator", "pme_activity_manager"]) expect(pme).not.toContain(legacy);
     expect(pme).not.toContain("admin_ordonnateur");
     expect(pme).not.toContain("superadmin");
     expect(assignableRoles({ role: "superadmin" })).toContain("superadmin");

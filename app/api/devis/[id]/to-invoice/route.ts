@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, badRequest, notFound, conflict, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, badRequest, notFound, conflict, forbidden, tenantFilter } from "@/lib/api-helpers";
 import { DevisModel } from "@/models/Devis";
 import { InvoiceModel } from "@/models/Invoice";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
@@ -9,10 +9,16 @@ import { calculerDTS } from "@/lib/niger-fiscal";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 
 // POST /api/devis/:id/to-invoice
 // Transforme un devis accepté en facture (ou facture proforma si body.type=proforma)
 export const POST = withAuth("devis", "update", async (req: NextRequest, auth: TokenPayload, params) => {
+  // Le devis accepté est transformé en facture par la comptabilité (ou le gérant) :
+  // la facture engage le chiffre d'affaires et les encaissements.
+  if (!authCan(auth, "invoices", "create")) {
+    return forbidden("La facture est émise par la comptabilité : transmettez-lui le devis accepté.");
+  }
   await connectDB();
   const body = await req.json().catch(() => ({}));
   const invoiceType = body.type || "invoice"; // "invoice" | "proforma"

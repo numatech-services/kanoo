@@ -23,7 +23,7 @@ export const POST = withAuth("agenda", "create", async (req: NextRequest, auth: 
   if (!entity.import) return badRequest(`« ${entity.label} » ne peut pas être importé.`);
 
   const roles = effectiveRoles(auth.role as UserRole, auth.roles as UserRole[] | undefined);
-  if (!rolesCanPerform(roles, entity.resource, "create", auth.allowedResources)) {
+  if (!rolesCanPerform(roles, entity.resource, "create", auth.allowedResources, auth.roleLevels)) {
     return forbidden(`Vous n'avez pas le droit d'importer « ${entity.label} ».`);
   }
 

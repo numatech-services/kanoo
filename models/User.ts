@@ -28,6 +28,16 @@ const UserSchema = new Schema<IUser>(
       enum: [...USER_ROLES],
       default: undefined,
     },
+    /**
+     * Niveau par rôle de service : { svc_comm: "chef", svc_dev: "employe" }.
+     * Un même collaborateur peut être chef dans un service et employé dans un
+     * autre. Absent pour un rôle de service = « employe ».
+     */
+    roleLevels: { type: Map, of: { type: String, enum: ["chef", "employe", "stagiaire"] }, default: undefined },
+    /** The Spot : sites (comptoirs) attribués à un employé ou stagiaire. */
+    siteIds: { type: [{ type: Schema.Types.ObjectId, ref: "ActivityDesk" }], default: undefined },
+    /** Fin d'accès (stagiaire) : au-delà, toute requête et toute connexion sont refusées. */
+    accessUntil: Date,
     allowedResources: [String],
     phone: String,
     avatar: String,

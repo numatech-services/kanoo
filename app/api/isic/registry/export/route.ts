@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
-import { withAuth, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, tenantFilter, forbidden } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
+import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { IsicStudentModel } from "@/models/IsicStudent";
 import { IsicLicenseModel } from "@/models/IsicLicense";
 import { isAcademicYear } from "@/lib/isic-registry";
@@ -19,6 +20,8 @@ const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
  * CSV `;` + BOM, s'ouvre tel quel dans Excel.
  */
 export const GET = withAuth("isic", "read", async (req: NextRequest, auth: TokenPayload) => {
+  // Pas d'export ni d'envoi vers l'extérieur pour un stagiaire.
+  if (isInternFor(auth, "isic")) return forbidden(INTERN_EXPORT_MESSAGE);
   await connectDB();
   const tf = tenantFilter(auth);
   const url = new URL(req.url);

@@ -24,6 +24,15 @@ const SESSION_MAX_AGE_S = Math.max(60, SESSION_IDLE_MINUTES * 60);
  * deux constructions parallèles, et `sessionVersion` n'avait été ajouté que
  * dans l'une — ce qui neutralisait silencieusement la révocation de session.
  */
+/** Map Mongoose ou objet simple → { role: niveau } (valeurs non reconnues ignorées). */
+export function toLevels(v: unknown): TokenPayload["roleLevels"] {
+  if (!v) return undefined;
+  const entries = v instanceof Map ? [...v.entries()] : Object.entries(v as Record<string, unknown>);
+  const out: NonNullable<TokenPayload["roleLevels"]> = {};
+  for (const [k, lvl] of entries) if (lvl === "chef" || lvl === "employe" || lvl === "stagiaire") out[k] = lvl;
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function buildSessionPayload(
   user: {
     _id: { toString(): string };
@@ -32,6 +41,8 @@ export function buildSessionPayload(
     roles?: string[];
     email: string;
     allowedResources?: string[];
+    roleLevels?: Record<string, string> | Map<string, string>;
+    siteIds?: Array<{ toString(): string }>;
     sessionVersion?: number;
   },
   tenant: { type: string; subscriptionStatus: string; planModules: string[] }
@@ -47,6 +58,8 @@ export function buildSessionPayload(
     subscriptionStatus: tenant.subscriptionStatus as TokenPayload["subscriptionStatus"],
     planModules: tenant.planModules,
     allowedResources: user.allowedResources,
+    roleLevels: toLevels(user.roleLevels),
+    siteIds: (user.siteIds ?? []).map(String),
     sessionVersion: user.sessionVersion ?? 1,
   };
 }

@@ -12,10 +12,9 @@ import {
   commitmentEntry, reimbursementEntry, isBalanced,
   type ExpenseLine, type ExpenseStatus,
 } from "@/lib/expenses";
-import { canPerformAction } from "@/lib/role-resources";
+import { expenseAuthority, teamMembers, canReimburse } from "@/lib/expense-scope";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
-import type { UserRole } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +29,22 @@ interface Report {
   totalTTC: number;
 }
 
-const isApprover = (auth: TokenPayload) =>
-  canPerformAction(auth.role as UserRole, "expenses", "approve");
+/**
+ * Peut-on valider (approuver / refuser) cette note ? Gérant et comptabilité :
+ * toutes ; chef de service : celles de son équipe. Tous les rôles cumulés
+ * comptent, pas seulement le rôle principal.
+ */
+/** Identifiant d'un champ, qu'il soit brut ou peuplé ({ _id, … }). */
+const idOf = (v: unknown): string =>
+  v && typeof v === "object" && "_id" in (v as Record<string, unknown>) ? String((v as { _id: unknown })._id) : String(v);
+
+async function canDecide(auth: TokenPayload, report: Report): Promise<boolean> {
+  const authority = expenseAuthority(auth);
+  if (authority.kind === "all") return true;
+  if (authority.kind === "own") return false;
+  const team = await teamMembers(auth, authority.services);
+  return team.userIds.includes(idOf(report.createdBy)) || team.employeeIds.includes(idOf(report.employeeId));
+}
 
 /**
  * Peut-on voir cette note ?
@@ -40,12 +53,12 @@ const isApprover = (auth: TokenPayload) =>
  * ceux qui valident voient celles des autres.
  */
 async function visible(auth: TokenPayload, report: Report): Promise<boolean> {
-  if (isApprover(auth)) return true;
-  if (String(report.createdBy) === auth.userId) return true;
+  if (idOf(report.createdBy) === auth.userId) return true;
+  if (await canDecide(auth, report)) return true;
   const mine = await EmployeeModel
     .findOne({ tenantId: auth.tenantId, userId: auth.userId }).select("_id")
     .lean<{ _id: unknown } | null>();
-  return Boolean(mine && String(mine._id) === String(report.employeeId));
+  return Boolean(mine && String(mine._id) === idOf(report.employeeId));
 }
 
 /**
@@ -102,7 +115,8 @@ export const GET = withAuth("expenses", "read", async (_req: NextRequest, auth: 
     // règle qui change doit se voir sur les notes encore modifiables.
     issues: checkLines(lines, policy),
     totals: totals(lines, policy),
-    canApprove: isApprover(auth),
+    canApprove: idOf(report.createdBy) !== auth.userId && await canDecide(auth, report),
+    canReimburse: canReimburse(auth),
   });
 });
 
@@ -121,12 +135,16 @@ export const PATCH = withAuth("expenses", "update", async (req: NextRequest, aut
 
     if (!canTransition(from, to)) return conflict(transitionError(from, to));
 
-    if ((to === "approved" || to === "rejected" || to === "reimbursed") && !isApprover(auth)) {
-      return forbidden("Vous n'avez pas le droit de valider une note de frais.");
+    if ((to === "approved" || to === "rejected") && !(await canDecide(auth, report as unknown as Report))) {
+      return forbidden("Vous n'avez pas le droit de valider cette note de frais.");
+    }
+    // Le remboursement engage la trésorerie : comptabilité et gérant uniquement.
+    if (to === "reimbursed" && !canReimburse(auth)) {
+      return forbidden("Le remboursement est effectué par la comptabilité.");
     }
     // Personne ne valide sa propre note. La règle vaut aussi pour un
     // administrateur : c'est justement là qu'elle protège.
-    if (to === "approved" && String(report.createdBy) === auth.userId) {
+    if (to === "approved" && idOf(report.createdBy) === auth.userId) {
       return forbidden("Une note ne peut pas être approuvée par la personne qui l'a saisie.");
     }
 

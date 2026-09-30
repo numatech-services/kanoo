@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, badRequest, notFound, conflict, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
+import { withAuth, ok, badRequest, notFound, conflict, forbidden, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { DevisModel } from "@/models/Devis";
 import { InvoiceModel } from "@/models/Invoice";
 import { calculerDTS, genererNumeroFacture } from "@/lib/niger-fiscal";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 
 export const GET = withAuth("devis", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   const d = await DevisModel.findOne({ _id: params.id, ...tenantFilter(auth) }).populate("clientId", "name code nif").lean();
@@ -18,6 +19,11 @@ export const PATCH = withAuth("devis", "update", async (req: NextRequest, auth: 
 
 // POST /api/devis/:id/convert — transformer en facture
 export const POST = withAuth("devis", "update", async (_req: NextRequest, auth: TokenPayload, params) => {
+  // Le devis accepté est transformé en facture par la comptabilité (ou le gérant) :
+  // la facture engage le chiffre d'affaires et les encaissements.
+  if (!authCan(auth, "invoices", "create")) {
+    return forbidden("La facture est émise par la comptabilité : transmettez-lui le devis accepté.");
+  }
   const devis = await DevisModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!devis) return notFound("Devis introuvable");
   if (devis.status !== "accepted") return badRequest("Seuls les devis acceptés peuvent être convertis");

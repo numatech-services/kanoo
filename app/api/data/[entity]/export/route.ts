@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, notFound, forbidden, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
-import { effectiveRoles, rolesCanPerform } from "@/lib/role-resources";
+import { effectiveRoles, rolesCanPerform, isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { UserRole } from "@/types";
 import { ENTITIES, toCSV } from "@/lib/data-io";
 
@@ -18,9 +18,10 @@ export const GET = withAuth("agenda", "read", async (_req: NextRequest, auth: To
   if (!entity) return notFound("Type de données inconnu.");
 
   const roles = effectiveRoles(auth.role as UserRole, auth.roles as UserRole[] | undefined);
-  if (!rolesCanPerform(roles, entity.resource, "read", auth.allowedResources)) {
+  if (!rolesCanPerform(roles, entity.resource, "read", auth.allowedResources, auth.roleLevels)) {
     return forbidden(`Vous n'avez pas le droit d'exporter « ${entity.label} ».`);
   }
+  if (isInternFor(auth, entity.resource)) return forbidden(INTERN_EXPORT_MESSAGE);
 
   await connectDB();
   let q = entity.model.find(tenantFilter(auth));

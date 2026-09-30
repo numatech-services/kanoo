@@ -21,7 +21,7 @@ import { planForTenant } from "@/lib/dunning-context";
 import { executeAction } from "@/lib/dunning-send";
 
 /** Rôles qui reçoivent les relances de courriers entrants. */
-const COURRIER_ROLES = ["pme_admin", "pme_manager", "pme_accountant", "asso_president", "asso_secretary", "admin_ordonnateur"];
+const COURRIER_ROLES = ["pme_admin", "pme_manager", "pme_accountant", "svc_admin", "asso_president", "asso_secretary", "admin_ordonnateur"];
 
 /**
  * Les tâches planifiées de Kanoo, en un seul endroit.
@@ -60,7 +60,9 @@ async function notify(
 }
 
 async function getAdmins(tenantId: Id, roles: string[]): Promise<Array<{ _id: Id }>> {
-  return UserModel.find({ tenantId, role: { $in: roles }, isActive: true })
+  // Rôle principal OU rôle cumulé : un comptable qui est aussi chef de service
+  // doit recevoir les alertes de ses deux casquettes.
+  return UserModel.find({ tenantId, isActive: true, $or: [{ role: { $in: roles } }, { roles: { $in: roles } }] })
     .select("_id").lean<Array<{ _id: Id }>>();
 }
 
@@ -85,7 +87,7 @@ export const CRON_JOBS: CronJob[] = [
         status: { $in: ["sent", "partial"] }, dueDate: { $lt: new Date() },
       }).lean<Array<{ _id: Id; tenantId: Id; number: string; totalTTC: number }>>();
       for (const inv of overdue) {
-        const admins = await getAdmins(inv.tenantId, ["pme_admin", "pme_accountant", "pme_manager"]);
+        const admins = await getAdmins(inv.tenantId, ["pme_admin", "pme_accountant", "pme_manager", "svc_compta"]);
         for (const admin of admins) {
           await notify(inv.tenantId, admin._id, "invoice_overdue", "Facture en retard",
             `Facture ${inv.number} — ${inv.totalTTC.toLocaleString("fr-FR")} XOF échue`, "invoices", inv._id);
@@ -102,7 +104,7 @@ export const CRON_JOBS: CronJob[] = [
         isActive: true, $expr: { $lte: ["$stockQty", "$stockMinAlert"] },
       }).lean<Array<{ _id: Id; tenantId: Id; label: string; stockQty: number; unit: string; stockMinAlert: number }>>();
       for (const product of products) {
-        const admins = await getAdmins(product.tenantId, ["pme_admin", "pme_purchases", "pme_manager"]);
+        const admins = await getAdmins(product.tenantId, ["pme_admin", "pme_purchases", "pme_manager", "svc_admin"]);
         for (const admin of admins) {
           await notify(product.tenantId, admin._id, "stock_alert", "Alerte stock",
             `Stock faible : ${product.label} — ${product.stockQty} ${product.unit} (seuil : ${product.stockMinAlert})`,
@@ -180,7 +182,7 @@ export const CRON_JOBS: CronJob[] = [
         if (actionable.length === 0) continue;
         const tenantId = scoped[0].tenantId;
         const admins = await getAdmins(tenantId, [
-          "pme_admin", "pme_manager", "asso_president", "asso_secretary", "admin_ordonnateur",
+          "pme_admin", "pme_manager", "svc_admin", "asso_president", "asso_secretary", "admin_ordonnateur",
         ]);
         for (const admin of admins) {
           for (const alert of actionable.slice(0, 10)) {
@@ -203,7 +205,7 @@ export const CRON_JOBS: CronJob[] = [
         status: "active", endDate: { $lte: limit, $gte: new Date() },
       }).lean<Array<{ _id: Id; tenantId: Id; title: string; endDate: Date }>>();
       for (const contract of expiring) {
-        const admins = await getAdmins(contract.tenantId, ["pme_admin", "pme_manager", "admin_ordonnateur"]);
+        const admins = await getAdmins(contract.tenantId, ["pme_admin", "pme_manager", "svc_admin", "admin_ordonnateur"]);
         const daysLeft = Math.ceil((contract.endDate.getTime() - Date.now()) / 86400000);
         for (const admin of admins) {
           await notify(contract.tenantId, admin._id, "contract_expiry", "Contrat expirant bientôt",
@@ -223,7 +225,7 @@ export const CRON_JOBS: CronJob[] = [
         isActive: true, contractEndDate: { $lte: limit, $gte: new Date() },
       }).lean<Array<{ _id: Id; tenantId: Id; firstName: string; lastName: string; contractEndDate: Date }>>();
       for (const emp of expiring) {
-        const admins = await getAdmins(emp.tenantId, ["pme_admin", "pme_hr"]);
+        const admins = await getAdmins(emp.tenantId, ["pme_admin", "pme_hr", "svc_admin"]);
         const daysLeft = Math.ceil((emp.contractEndDate.getTime() - Date.now()) / 86400000);
         for (const admin of admins) {
           await notify(emp.tenantId, admin._id, "employee_contract_expiry", "Fin de contrat imminente",
@@ -241,7 +243,7 @@ export const CRON_JOBS: CronJob[] = [
         isActive: true, nextDueDate: { $lte: new Date() },
       }).lean<Array<{ _id: Id; tenantId: Id; label: string; amount: number }>>();
       for (const expense of due) {
-        const admins = await getAdmins(expense.tenantId, ["pme_admin", "pme_accountant"]);
+        const admins = await getAdmins(expense.tenantId, ["pme_admin", "pme_accountant", "svc_compta"]);
         for (const admin of admins) {
           await notify(expense.tenantId, admin._id, "expense_due", "Dépense récurrente à payer",
             `${expense.label} — ${expense.amount.toLocaleString("fr-FR")} XOF`, "recurring-expenses", expense._id);
@@ -261,7 +263,7 @@ export const CRON_JOBS: CronJob[] = [
         nextFollowUpDate: { $lt: tomorrow }, stage: { $nin: ["won", "lost"] },
       }).lean<Array<{ _id: Id; tenantId: Id; title: string }>>();
       for (const opp of due) {
-        const admins = await getAdmins(opp.tenantId, ["pme_admin", "pme_manager"]);
+        const admins = await getAdmins(opp.tenantId, ["pme_admin", "pme_manager", "svc_prosp", "svc_comm"]);
         for (const admin of admins) {
           await notify(opp.tenantId, admin._id, "crm_followup", "Relance CRM",
             `Opportunité "${opp.title}" — relance due`, "crm", opp._id);
@@ -290,7 +292,7 @@ export const CRON_JOBS: CronJob[] = [
         const actionable = buildAlerts(scopedPurchases, scopedSales).filter(a => a.level !== "info");
         if (actionable.length === 0) continue;
         const tenantObjectId = scopedPurchases[0]?.tenantId ?? scopedSales[0]?.tenantId;
-        const admins = await getAdmins(tenantObjectId, ["pme_admin", "pme_manager", "pme_accountant"]);
+        const admins = await getAdmins(tenantObjectId, ["pme_admin", "pme_manager", "pme_accountant", "svc_compta", "svc_dev"]);
         for (const admin of admins) {
           for (const alert of actionable.slice(0, 10)) {
             await notify(tenantObjectId, admin._id, "subscription_alert",
@@ -345,7 +347,7 @@ export const CRON_JOBS: CronJob[] = [
         subscriptionStatus: { $in: ["active", "trial"] }, type: { $in: ["pme", "administration"] },
       }).select("_id").lean<Array<{ _id: Id }>>();
       for (const tenant of tenants) {
-        const admins = await getAdmins(tenant._id, ["pme_admin", "pme_accountant", "admin_daf"]);
+        const admins = await getAdmins(tenant._id, ["pme_admin", "pme_accountant", "svc_compta", "admin_daf"]);
         for (const admin of admins) {
           await notify(tenant._id, admin._id, "fiscal_reminder", "Rappel TVA",
             `Déclaration TVA ${now.getMonth() + 1}/${now.getFullYear()} à déposer avant le 20/${now.getMonth() + 1}/${now.getFullYear()}`,

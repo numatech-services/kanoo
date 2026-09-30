@@ -4,10 +4,9 @@ import { ExpenseReportModel } from "@/models/ExpenseReport";
 import { EmployeeModel } from "@/models/Employee";
 import { CATEGORIES, totals, DEFAULT_POLICY, type ExpenseCategory, type ExpenseLine } from "@/lib/expenses";
 import { loadPolicy } from "@/lib/expense-policy";
-import { canPerformAction } from "@/lib/role-resources";
+import { expenseAuthority, teamMembers } from "@/lib/expense-scope";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
-import type { UserRole } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +18,17 @@ export const dynamic = "force-dynamic";
  * autres ; les autres ne voient que les leurs. Le filtre est posé **côté
  * serveur** : le masquer dans l'écran laisserait l'API ouverte.
  */
-function scope(auth: TokenPayload, ownEmployeeId?: string) {
+async function scope(auth: TokenPayload, ownEmployeeId?: string) {
   const base = tenantFilter(auth);
-  if (canPerformAction(auth.role as UserRole, "expenses", "approve")) return base;
-  return { ...base, ...(ownEmployeeId ? { employeeId: ownEmployeeId } : { createdBy: auth.userId }) };
+  const authority = expenseAuthority(auth);
+  if (authority.kind === "all") return base;
+  const own = ownEmployeeId ? [{ employeeId: ownEmployeeId }, { createdBy: auth.userId }] : [{ createdBy: auth.userId }];
+  if (authority.kind === "team") {
+    // Chef de service : ses notes et celles des membres de son ou ses services.
+    const team = await teamMembers(auth, authority.services);
+    return { ...base, $or: [...own, { createdBy: { $in: team.userIds } }, { employeeId: { $in: team.employeeIds } }] };
+  }
+  return { ...base, $or: own };
 }
 
 async function ownEmployee(auth: TokenPayload): Promise<string | undefined> {
@@ -37,7 +43,7 @@ export const GET = withAuth("expenses", "read", async (req: NextRequest, auth: T
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
 
-  const filter: Record<string, unknown> = { ...scope(auth, await ownEmployee(auth)) };
+  const filter: Record<string, unknown> = { ...(await scope(auth, await ownEmployee(auth))) };
   if (status) filter.status = status;
 
   const [items, total] = await Promise.all([
@@ -106,7 +112,7 @@ export const POST = withAuth("expenses", "create", async (req: NextRequest, auth
   let employeeId = body.employeeId ? String(body.employeeId) : mine;
 
   if (body.employeeId && body.employeeId !== mine
-      && !canPerformAction(auth.role as UserRole, "expenses", "approve")) {
+      && expenseAuthority(auth).kind !== "all") {
     return badRequest("Vous ne pouvez saisir une note qu'à votre nom.");
   }
   if (!employeeId) {

@@ -16,6 +16,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   const url = new URL(req.url);
   const deskId = url.searchParams.get("deskId");
   if (!isId(deskId)) return badRequest("Comptoir invalide");
+  if (!(await ownDesk(auth, deskId))) return notFound("Comptoir introuvable");
   const entries = await ActivityCashEntryModel.find({ ...tenantFilter(auth), deskId })
     .sort({ date: -1, createdAt: -1 }).limit(300).lean();
   return ok(entries);

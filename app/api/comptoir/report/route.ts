@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, badRequest, notFound, tenantFilter, forbidden } from "@/lib/api-helpers";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { TenantModel } from "@/models/Tenant";
 import { isId, ownDesk } from "@/lib/comptoir";
 import { generateDeskReportPdf, type DeskReportForPdf, type TenantIdentity } from "@/lib/pdf-document";
 import { TokenPayload } from "@/lib/auth";
+import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,8 @@ export const dynamic = "force-dynamic";
  * de l'organisation. Sans période : le mois en cours.
  */
 export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: TokenPayload) => {
+  // Pas d'export ni d'envoi vers l'extérieur pour un stagiaire.
+  if (isInternFor(auth, "comptoir")) return forbidden(INTERN_EXPORT_MESSAGE);
   await connectDB();
   const url = new URL(req.url);
   const deskId = url.searchParams.get("deskId");
