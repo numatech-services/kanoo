@@ -73,6 +73,20 @@ describe("RBAC — administrateurs d'organisation", () => {
   });
 });
 
+describe("RBAC — stock", () => {
+  it("Achats & stock crée les articles et fait les inventaires, sans pouvoir supprimer", () => {
+    const r = "pme_purchases" as UserRole;
+    for (const a of ["create", "read", "update"] as const) expect(canPerformAction(r, "products", a)).toBe(true);
+    expect(canPerformAction(r, "products", "delete")).toBe(false);
+  });
+
+  it("le comptable consulte le stock sans pouvoir le modifier", () => {
+    const r = "pme_accountant" as UserRole;
+    expect(canPerformAction(r, "products", "read")).toBe(true);
+    for (const a of ["create", "update", "delete"] as const) expect(canPerformAction(r, "products", a)).toBe(false);
+  });
+});
+
 describe("Navigation — lien → ressource", () => {
   it("résout par plus long préfixe et ignore la requête", () => {
     expect(resourceForHref("/invoices/new")).toBe("invoices");

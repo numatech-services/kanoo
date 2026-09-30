@@ -34,7 +34,7 @@ export const ROLE_UI: Partial<Record<UserRole, RoleDescription>> = {
   },
   pme_accountant: {
     label: "Comptable",
-    summary: "Comptabilité, trésorerie, fiscalité, rapprochement bancaire, notes de frais.",
+    summary: "Comptabilité, trésorerie, fiscalité, rapprochement bancaire, notes de frais ; consultation du stock.",
     cannot: "Ne crée pas de compte utilisateur.",
     group: "Finance",
   },
@@ -52,7 +52,7 @@ export const ROLE_UI: Partial<Record<UserRole, RoleDescription>> = {
   },
   pme_purchases: {
     label: "Achats & stock",
-    summary: "Fournisseurs, commandes, réceptions, stock.",
+    summary: "Fournisseurs, commandes, réceptions, stock : création d'articles, entrées et inventaires.",
     cannot: "N'accède pas aux ventes ni à la paie.",
     group: "Opérations",
   },

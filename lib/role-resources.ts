@@ -80,6 +80,9 @@ const PME_ACCOUNTANT: ResourcePermissions = {
   accountingEntries: ["create", "read", "update", "delete"],
   fiscalDeclarations: ["create", "read", "update", "delete"],
   fixedAssets: ["create", "read", "update", "delete"],
+  // Lecture seule du stock : valorisation en fin d'exercice, contrôle des
+  // écarts d'inventaire. Aucune entrée ni sortie possible.
+  products: ["read"],
   documents: ["create", "read"],
   notifications: ["read", "update"],
   auditLogs: ["read"],
@@ -103,7 +106,11 @@ const PME_PURCHASES: ResourcePermissions = {
   expenses: ["create", "read"],
   suppliers: ["create", "read", "update"],
   subscriptions: ["create", "read", "update"],
-  products: ["read", "update"],
+  // create : le responsable achats crée les nouveaux articles et lance les
+  // inventaires physiques (tous deux exigent products:create), sans devoir
+  // passer par l'administrateur. Pas de delete : supprimer un article reste
+  // réservé à la direction.
+  products: ["create", "read", "update"],
   commandes: ["create", "read", "update", "delete"],
   publicTenders: ["create", "read", "update"],
   documents: ["create", "read"],
