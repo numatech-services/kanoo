@@ -234,6 +234,31 @@ async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
 }
 
 /**
+ * Erreur transitoire de transaction (conflit d'écriture, création de
+ * collection concurrente) : la transaction a été annulée, rien n'est écrit.
+ * La requête est rejouée en entier — les documents sont relus, jamais repris
+ * d'un état en mémoire — deux fois au plus.
+ */
+function isTransient(err: unknown): boolean {
+  const e = err as { hasErrorLabel?: (l: string) => boolean; errorLabels?: string[]; code?: number };
+  return !!(e?.hasErrorLabel?.("TransientTransactionError") || e?.errorLabels?.includes("TransientTransactionError") || e?.code === 112);
+}
+async function runWithTransientRetry(req: NextRequest, run: (r: NextRequest) => Promise<NextResponse>): Promise<NextResponse> {
+  if (!MUTATING_METHODS.has(req.method)) return run(req);
+  const copies = [req.clone(), req.clone()];
+  let current = req;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await run(current);
+    } catch (err) {
+      if (!isTransient(err) || attempt >= copies.length) throw err;
+      current = copies[attempt] as NextRequest;
+      await new Promise(r => setTimeout(r, 50 * (attempt + 1)));
+    }
+  }
+}
+
+/**
  * Même contrôle que withAuth (jeton → revalidation en base → RBAC), pour une
  * route qui ne peut pas être enveloppée (flux PDF, réponse en Promise…).
  * Une lecture seule : pas de CSRF à vérifier.
@@ -299,7 +324,7 @@ export function withAuth(
       // hors-ligne, lui, en fournit systématiquement une.
       const key = req.headers.get("idempotency-key");
       if (!key || !MUTATING_METHODS.has(req.method)) {
-        return await handler(req, auth, params);
+        return await runWithTransientRetry(req, r => handler(r, auth, params));
       }
 
       const rawBody = await req.clone().text().catch(() => "");
@@ -338,7 +363,7 @@ export function withAuth(
 
       let response: NextResponse;
       try {
-        response = await handler(req, auth, params);
+        response = await runWithTransientRetry(req, r => handler(r, auth, params));
       } catch (err) {
         // L'échec ne doit pas être mémorisé : le client doit pouvoir réessayer.
         await IdempotencyRecordModel.deleteOne({ tenantId: auth.tenantId, userId: auth.userId, key });

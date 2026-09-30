@@ -68,6 +68,7 @@ export const POST = withAuth("recurringCharges", "create", async (req: NextReque
   const expense = await RecurringExpenseModel.create({
     ...data,
     tenantId: auth.tenantId,
+    startDate: start,
     nextDueDate: start,
     createdBy: auth.userId,
   });

@@ -75,28 +75,41 @@ export async function withTransaction<T>(
   }
 
   await connectDB();
+  // Collections et index créés AVANT la transaction : MongoDB refuse de créer
+  // une collection au milieu d'une transaction (« catalog changes »), ce qui
+  // arrive à la première écriture d'un module neuf. `init()` est mémorisé par
+  // Mongoose : le coût n'est payé qu'une fois par modèle.
+  await Promise.all(Object.values(mongoose.models).map(m => m.init().catch(() => undefined)));
   const session = await mongoose.startSession();
   try {
-    // On délègue à `session.withTransaction`, le mécanisme officiel du pilote.
-    //
-    // L'ancienne implémentation commettait puis, dans son `catch`, appelait
-    // `abortTransaction()` — y compris quand l'erreur venait du commit lui-même.
-    // MongoDB refuse d'annuler une transaction déjà commise : l'opération
-    // échouait alors sur « Cannot call abortTransaction after calling
-    // commitTransaction », en masquant la vraie cause. Comme ce helper enveloppe
-    // les paiements, factures, avoirs, mouvements de trésorerie et la paie, le
-    // moindre aléa transitoire au commit faisait perdre l'écriture.
-    //
-    // `session.withTransaction` gère commit et abort de façon cohérente et
-    // réessaie sur les erreurs transitoires (`TransientTransactionError`,
-    // `UnknownTransactionCommitResult`). Le rappel peut donc être rejoué : il
-    // doit rester idempotent — ce qui est le cas, une transaction rejouée
-    // repartant d'un état où rien n'a été validé.
+    // Le rappel s'exécute UNE fois. `session.withTransaction` le rejouait sur
+    // erreur transitoire : or les routes chargent leurs documents avant la
+    // transaction et les modifient en mémoire (« paidAmount += montant »,
+    // quantités reçues…). Au rejeu, un champ déjà modifié n'était plus vu comme
+    // modifié et n'était pas réécrit — ou un cumul était appliqué deux fois.
+    // Constaté : une annulation d'encaissement validée sans rouvrir la facture.
+    // Une erreur transitoire remonte donc à l'appelant : `withAuth` rejoue alors
+    // la requête entière (relecture fraîche des documents) ; seul le commit est
+    // réessayé ici.
+    session.startTransaction();
     let result: T;
-    await session.withTransaction(async () => {
+    try {
       result = await fn(session);
-    });
-    return result!;
+    } catch (err) {
+      if (session.inTransaction()) await session.abortTransaction().catch(() => {});
+      throw err;
+    }
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await session.commitTransaction();
+        break;
+      } catch (err) {
+        const unknown = (err as { hasErrorLabel?: (l: string) => boolean })?.hasErrorLabel?.("UnknownTransactionCommitResult");
+        if (unknown && attempt < 3) continue;
+        throw err;
+      }
+    }
+    return result;
   } finally {
     session.endSession();
   }
