@@ -20,6 +20,8 @@ export interface IActivityItem {
   salePrice?: number;
   /** Seuil d'alerte de réapprovisionnement. */
   threshold?: number;
+  /** Article du catalogue : son stock est celui de la réserve du comptoir. */
+  productId?: Types.ObjectId;
   archived: boolean;
   createdBy: Types.ObjectId;
   createdAt: Date;
@@ -36,6 +38,7 @@ const ActivityItemSchema = new Schema<IActivityItem>({
   unitCost: { type: Number, default: 0, min: 0 },
   salePrice: { type: Number, min: 0 },
   threshold: { type: Number, min: 0 },
+  productId: { type: Schema.Types.ObjectId, ref: "Product", index: true },
   archived: { type: Boolean, default: false },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: true });

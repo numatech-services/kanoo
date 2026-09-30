@@ -7,8 +7,10 @@ import { reverseEntry } from "@/lib/accounting-reversal";
 import { checkImputations, pickImputation } from "@/lib/imputation";
 import { defaultAccountLabel } from "@/lib/syscohada";
 import type { TokenPayload } from "@/lib/auth";
+import { BusinessRuleError } from "@/lib/errors";
 
-export class PurchaseError extends Error {}
+/** Refus métier : rendu en 400 avec son message, même levé au fond d'une transaction. */
+export class PurchaseError extends BusinessRuleError {}
 
 export const SUPPLIER_ACCOUNT = { accountCode: "401100", accountLabel: "Fournisseurs" };
 export const VAT_ACCOUNT = { accountCode: "445200", accountLabel: "TVA récupérable sur achats" };

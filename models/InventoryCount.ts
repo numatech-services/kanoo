@@ -3,6 +3,9 @@ import { Schema, model, models } from "mongoose";
 const CountLineSchema = new Schema(
   {
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
+    /** Article suivi par lot : une ligne par lot. */
+    lotNumber: String,
+    expiryDate: Date,
     /** Code et libellé recopiés : un produit renommé après l'inventaire ne doit
      *  pas réécrire ce qui a été compté ce jour-là. */
     code: { type: String, required: true },
@@ -46,6 +49,8 @@ const InventoryCountSchema = new Schema(
 
     /** Périmètre : tout le stock, ou une sélection. */
     scope: { type: String, enum: ["all", "selection"], default: "all" },
+    /** Entrepôt inventorié (défaut : entrepôt principal). */
+    warehouseId: { type: Schema.Types.ObjectId, ref: "Warehouse" },
     location: String,
 
     /**

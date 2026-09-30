@@ -18,6 +18,7 @@ export interface IActivityDesk {
   description?: string;
   /** Secteur analytique lié (rentabilité par secteur), s'il y a lieu. */
   activityId?: Types.ObjectId;
+  warehouseId?: Types.ObjectId;
   archived: boolean;
   createdBy: Types.ObjectId;
   createdAt: Date;
@@ -29,6 +30,8 @@ const ActivityDeskSchema = new Schema<IActivityDesk>({
   name: { type: String, required: true, trim: true, maxlength: 120 },
   description: { type: String, maxlength: 400 },
   activityId: { type: Schema.Types.ObjectId, ref: "Activity" },
+  /** Réserve du comptoir dans la gestion de stock (créée automatiquement). */
+  warehouseId: { type: Schema.Types.ObjectId, ref: "Warehouse" },
   archived: { type: Boolean, default: false, index: true },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: true });

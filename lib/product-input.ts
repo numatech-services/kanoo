@@ -18,6 +18,10 @@ export function productFields(body: Record<string, unknown>): { data: Record<str
     str("label", 200); str("description", 2000); str("unit", 30); str("category", 80); str("barcode", 60); str("location", 80); str("accountCode", 20);
     num("unitPrice", { min: 0 }); num("tvaRate", { min: 0, max: 0.99 }); num("stockMinAlert", { min: 0 }); num("stockMaxAlert", { min: 0 });
     if ("isService" in body) data.isService = !!body.isService;
+    if ("trackingMode" in body) {
+      if (!["none", "lot", "serial"].includes(String(body.trackingMode))) throw new Error("Mode de suivi invalide.");
+      data.trackingMode = body.trackingMode;
+    }
     if ("isActive" in body) data.isActive = !!body.isActive;
     if ("preferredSupplierId" in body) {
       const v = body.preferredSupplierId;

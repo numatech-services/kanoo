@@ -8,7 +8,7 @@ export const ProductStockSchema = new Schema({
   // Mouvement
   type: {
     type: String,
-    enum: ["entry", "exit", "adjustment", "return", "loss"],
+    enum: ["entry", "exit", "adjustment", "return", "loss", "transfer"],
     required: true,
   },
   quantity: { type: Number, required: true }, // + entrée, - sortie
@@ -17,12 +17,21 @@ export const ProductStockSchema = new Schema({
 
   // Référence
   reason: { type: String, required: true },
-  linkedDocType: { type: String, enum: ["commande", "invoice", "delivery", "manual", "inventory", "reversal", "purchase"] },
+  linkedDocType: { type: String, enum: ["commande", "invoice", "delivery", "manual", "inventory", "reversal", "purchase", "transfer", "comptoir"] },
   linkedDocId: Schema.Types.ObjectId,
   linkedDocNumber: String,
 
   // Coût unitaire du mouvement (entrée : prix d'achat ; sortie : CMUP du moment)
   unitCost: { type: Number, default: 0 },
+  /** Entrepôt concerné ; quantités avant / après = celles de cet entrepôt. */
+  warehouseId: { type: Schema.Types.ObjectId, ref: "Warehouse", index: true },
+  /** Lots / numéros de série touchés, avec leur quantité signée. */
+  lots: [{ _id: false, lotNumber: String, expiryDate: Date, qty: Number }],
+  /** Transfert : identifiant commun aux deux jambes, et entrepôt opposé. */
+  transferId: { type: Schema.Types.ObjectId, index: true },
+  counterpartWarehouseId: { type: Schema.Types.ObjectId, ref: "Warehouse" },
+  /** Stock total de l'article (tous entrepôts) après le mouvement. */
+  totalAfter: Number,
   /** CMUP du produit après le mouvement. */
   avgCostAfter: Number,
   /** Annulation : le contre-mouvement qui annule celui-ci, et inversement. */

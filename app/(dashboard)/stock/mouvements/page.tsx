@@ -5,22 +5,25 @@ import { ArrowLeft, Download, Search } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import { inputCls, selectCls } from "@/components/ui/FormField";
 import { MOVEMENT_OPTIONS } from "@/components/stock/MovementDialog";
+import { useWarehouses } from "@/components/stock/useWarehouses";
 
 interface Movement {
   _id: string; type: string; quantity: number; quantityBefore: number; quantityAfter: number; unitCost?: number;
   reason: string; linkedDocNumber?: string; createdAt: string; reversedBy?: string; reverses?: string;
   productId?: { _id: string; code: string; label: string; unit?: string } | null;
   createdBy?: { firstName?: string; lastName?: string } | null;
+  warehouseId?: { name: string } | null; lots?: Array<{ lotNumber: string; qty: number }>;
 }
 const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
-const TYPE_LABEL: Record<string, string> = { entry: "Entrée", exit: "Sortie", return: "Retour", loss: "Perte", adjustment: "Ajustement" };
+const TYPE_LABEL: Record<string, string> = { entry: "Entrée", exit: "Sortie", return: "Retour", loss: "Perte", adjustment: "Ajustement", transfer: "Transfert" };
 
 /** Journal de tous les mouvements de stock, filtrable et exportable. */
 export default function StockMovementsPage() {
   const [items, setItems] = useState<Movement[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [f, setF] = useState({ type: "", from: "", to: "", q: "" });
+  const [f, setF] = useState({ type: "", from: "", to: "", q: "", warehouseId: "", lot: "" });
+  const { warehouses } = useWarehouses();
   const [q, setQ] = useState("");
   const LIMIT = 50;
   const params = useCallback((extra: Record<string, string> = {}) => {
@@ -51,24 +54,31 @@ export default function StockMovementsPage() {
         </label>
         <select className={`${selectCls} w-auto`} value={f.type} onChange={e => { setPage(1); setF(x => ({ ...x, type: e.target.value })); }} aria-label="Type">
           <option value="">Tous types</option>{MOVEMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{TYPE_LABEL[o.value]}</option>)}
+          <option value="transfer">Transfert</option>
         </select>
+        <select className={`${selectCls} w-auto`} value={f.warehouseId} onChange={e => { setPage(1); setF(x => ({ ...x, warehouseId: e.target.value })); }} aria-label="Entrepôt">
+          <option value="">Tous entrepôts</option>{warehouses.map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
+        </select>
+        <input className={`${inputCls} w-36`} placeholder="N° de lot / série" value={f.lot} onChange={e => { setPage(1); setF(x => ({ ...x, lot: e.target.value.trim() })); }} aria-label="Lot" />
         <input type="date" className={`${inputCls} w-auto`} value={f.from} onChange={e => { setPage(1); setF(x => ({ ...x, from: e.target.value })); }} aria-label="Du" />
         <input type="date" className={`${inputCls} w-auto`} value={f.to} onChange={e => { setPage(1); setF(x => ({ ...x, to: e.target.value })); }} aria-label="Au" />
       </div>
       <div className="bg-surface rounded-xl border border-line overflow-x-auto">
         <table className="table-dense w-full">
-          <thead><tr className="bg-surface2/50 text-left"><th>Date</th><th>Article</th><th>Type</th><th className="text-right">Qté</th><th className="text-right">Stock après</th><th className="text-right">Coût unit.</th><th>Motif / document</th><th>Par</th></tr></thead>
+          <thead><tr className="bg-surface2/50 text-left"><th>Date</th><th>Article</th><th>Entrepôt</th><th>Type</th><th className="text-right">Qté</th><th className="text-right">Stock après</th><th className="text-right">Coût unit.</th><th>Motif / document</th><th>Par</th></tr></thead>
           <tbody>
-            {items.length === 0 && <tr><td colSpan={8} className="text-center text-ink3 py-6">Aucun mouvement</td></tr>}
+            {items.length === 0 && <tr><td colSpan={9} className="text-center text-ink3 py-6">Aucun mouvement</td></tr>}
             {items.map(m => (
               <tr key={m._id} className={`border-t border-line ${m.reversedBy ? "opacity-50" : ""}`}>
                 <td className="text-xs text-ink2 whitespace-nowrap">{new Date(m.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</td>
                 <td>{m.productId ? <Link href={`/stock/${m.productId._id}`} className="hover:underline">{m.productId.label}<span className="block text-[11px] text-ink3 font-mono">{m.productId.code}</span></Link> : "—"}</td>
+                <td className="text-xs">{m.warehouseId?.name ?? "—"}</td>
                 <td>{TYPE_LABEL[m.type] ?? m.type}{m.reverses ? " (annulation)" : m.reversedBy ? " (annulé)" : ""}</td>
                 <td className={`text-right font-mono font-semibold ${m.quantity > 0 ? "text-pos" : m.quantity < 0 ? "text-neg" : ""}`}>{m.quantity > 0 ? "+" : ""}{fmt(m.quantity)}</td>
                 <td className="text-right font-mono">{fmt(m.quantityAfter)}</td>
                 <td className="text-right font-mono text-xs">{m.unitCost ? fmt(m.unitCost) : "—"}</td>
-                <td className="text-xs">{m.reason}{m.linkedDocNumber && <span className="text-section"> · {m.linkedDocNumber}</span>}</td>
+                <td className="text-xs">{m.reason}{m.linkedDocNumber && <span className="text-section"> · {m.linkedDocNumber}</span>}
+                  {m.lots && m.lots.length > 0 && <span className="block text-ink3 font-mono">{m.lots.map(l => `${l.lotNumber}:${l.qty > 0 ? "+" : ""}${l.qty}`).join(" ")}</span>}</td>
                 <td className="text-xs text-ink2">{m.createdBy ? `${m.createdBy.firstName ?? ""} ${m.createdBy.lastName ?? ""}` : "—"}</td>
               </tr>
             ))}

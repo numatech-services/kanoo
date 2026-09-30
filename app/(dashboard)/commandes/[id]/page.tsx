@@ -7,9 +7,11 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { CommandeForm } from "@/components/pme/CommandeForm";
 import { useMe, meCanDo } from "@/lib/useMe";
+import { useWarehouses } from "@/components/stock/useWarehouses";
+import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
 interface Line {
-  productId?: { _id: string; code: string; label: string; unit?: string } | string;
+  productId?: { _id: string; code: string; label: string; unit?: string; trackingMode?: string } | string;
   description: string; quantity: number; unitPrice: number; totalHT: number; receivedQty?: number;
 }
 interface Commande {
@@ -149,12 +151,19 @@ export default function CommandeDetailPage() {
 
 function ReceiveDialog({ cmd, onClose, onDone }: { cmd: Commande; onClose: () => void; onDone: () => void }) {
   const [qty, setQty] = useState<number[]>(cmd.lines.map(l => Math.max(0, l.quantity - (l.receivedQty ?? 0))));
+  const { warehouses } = useWarehouses();
+  const [warehouseId, setWarehouseId] = useState("");
+  const [lots, setLots] = useState<LotRow[][]>(cmd.lines.map(l => [{ lotNumber: "", expiryDate: "", qty: Math.max(0, l.quantity - (l.receivedQty ?? 0)) }]));
+  const modeOf = (l: Line) => (typeof l.productId === "object" && l.productId?.trackingMode && l.productId.trackingMode !== "none" ? l.productId.trackingMode : null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   async function submit() {
     setSaving(true); setError("");
     try {
-      await send(`/api/commandes/${cmd._id}/receive`, "POST", { lines: qty.map((quantity, index) => ({ index, quantity })).filter(x => x.quantity > 0) });
+      await send(`/api/commandes/${cmd._id}/receive`, "POST", {
+        warehouseId: warehouseId || undefined,
+        lines: qty.map((quantity, index) => ({ index, quantity, ...(modeOf(cmd.lines[index]) ? { lots: lotsPayload(lots[index]) } : {}) })).filter(x => x.quantity > 0),
+      });
       onDone();
     } catch (e) { setError(e instanceof Error ? e.message : "Réception impossible"); setSaving(false); }
   }
@@ -162,15 +171,24 @@ function ReceiveDialog({ cmd, onClose, onDone }: { cmd: Commande; onClose: () =>
     <Modal open onClose={onClose} title={`Réception — BC ${cmd.number}`} size="lg">
       <div className="space-y-4">
         <p className="text-sm text-ink2">Saisissez les quantités effectivement livrées. Les articles du stock y entrent au prix d&apos;achat de la commande (coût moyen recalculé).</p>
+        <label className="block"><span className="block text-xs font-medium text-ink2 mb-1">Entrepôt de réception</span>
+          <select className="w-full h-10 px-3 rounded-lg border border-line2 bg-surface text-sm" value={warehouseId} onChange={e => setWarehouseId(e.target.value)}>
+            <option value="">Entrepôt par défaut</option>
+            {warehouses.filter(w => w.kind !== "comptoir").map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
+          </select>
+        </label>
         {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
         <table className="table-dense w-full">
           <thead><tr className="text-left text-ink2"><th>Article</th><th className="text-center">Reste</th><th className="text-right">Reçu maintenant</th></tr></thead>
           <tbody>
             {cmd.lines.map((l, i) => {
               const rest = Math.max(0, l.quantity - (l.receivedQty ?? 0));
+              const mode = modeOf(l);
               return (
-                <tr key={i} className="border-t border-line">
-                  <td className="py-2">{l.description}{!l.productId && <span className="block text-[11px] text-ink3">hors stock</span>}</td>
+                <tr key={i} className="border-t border-line align-top">
+                  <td className="py-2">{l.description}{!l.productId && <span className="block text-[11px] text-ink3">hors stock</span>}
+                    {mode && qty[i] > 0 && <div className="mt-2"><LotsEditor mode={mode as "lot" | "serial"} quantity={qty[i]} value={lots[i]} onChange={v => setLots(ls => ls.map((x, j) => j === i ? v : x))} /></div>}
+                  </td>
                   <td className="text-center">{rest}</td>
                   <td className="text-right">
                     <input type="number" min={0} max={rest} className="w-24 px-2 py-1 border border-line rounded-lg text-sm text-right" value={qty[i]} disabled={rest === 0}

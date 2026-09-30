@@ -4,6 +4,8 @@ import { withAuth, ok, created, badRequest, notFound, tenantFilter, requireField
 import { isId, ownDesk } from "@/lib/comptoir";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { logAudit } from "@/lib/audit";
+import { ProductModel } from "@/models/Product";
+import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
 import { TokenPayload } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -15,25 +17,41 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   const deskId = url.searchParams.get("deskId");
   if (!isId(deskId)) return badRequest("Comptoir invalide");
   if (!(await ownDesk(auth, deskId))) return notFound("Comptoir introuvable");
+  await syncLinkedItems(auth.tenantId, deskId);
   const items = await ActivityItemModel.find({ ...tenantFilter(auth), deskId, archived: { $ne: true } })
-    .sort({ name: 1 }).lean();
+    .populate("productId", "code label trackingMode").sort({ name: 1 }).lean();
   return ok(items);
 });
 
 export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const body = await req.json().catch(() => ({}));
-  const err = requireFields(body, ["deskId", "name"]);
+  const err = requireFields(body, body.productId ? ["deskId"] : ["deskId", "name"]);
   if (err) return badRequest(err);
   if (!(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
+  // Article du catalogue : son stock vit dans la réserve du comptoir (quantité
+  // jamais saisie ici — elle arrive par approvisionnement ou achat).
+  type CatalogProduct = { _id: unknown; label: string; unit?: string; unitPrice?: number; purchaseCost?: number; code: string };
+  let product: CatalogProduct | null = null;
+  if (body.productId) {
+    if (!isId(body.productId)) return badRequest("Article du catalogue invalide.");
+    product = await ProductModel.findOne({ _id: body.productId, ...tenantFilter(auth), isService: { $ne: true } })
+      .select("label unit unitPrice purchaseCost code").lean<CatalogProduct | null>();
+    if (!product) return badRequest("Article du catalogue introuvable (ou service).");
+    if (await ActivityItemModel.exists({ ...tenantFilter(auth), deskId: body.deskId, productId: product._id, archived: { $ne: true } })) {
+      return badRequest("Cet article du catalogue est déjà au comptoir.");
+    }
+    await deskWarehouse(auth.tenantId, body.deskId);
+  }
   const item = await ActivityItemModel.create({
     tenantId: auth.tenantId,
     deskId: body.deskId,
-    name: String(body.name).slice(0, 160).trim(),
-    unit: String(body.unit || "unité").slice(0, 24),
-    sku: String(body.sku || "").slice(0, 60) || undefined,
-    quantity: Math.max(0, Number(body.quantity) || 0),
-    unitCost: Math.max(0, Number(body.unitCost) || 0),
+    name: String(body.name || product?.label || "").slice(0, 160).trim(),
+    unit: String(body.unit || product?.unit || "unité").slice(0, 24),
+    sku: String(body.sku || product?.code || "").slice(0, 60) || undefined,
+    productId: product?._id,
+    quantity: product ? 0 : Math.max(0, Number(body.quantity) || 0),
+    unitCost: product ? product.purchaseCost ?? 0 : Math.max(0, Number(body.unitCost) || 0),
     salePrice: body.salePrice != null ? Math.max(0, Number(body.salePrice)) : undefined,
     threshold: body.threshold != null ? Math.max(0, Number(body.threshold)) : undefined,
     createdBy: auth.userId,

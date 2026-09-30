@@ -256,6 +256,7 @@ export interface IProduct {
   location?: string;
   preferredSupplierId?: Types.ObjectId;
   stockMaxAlert?: number;
+  trackingMode?: "none" | "lot" | "serial";
   isService: boolean;
   accountCode?: string;
   isActive: boolean;

@@ -2,7 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Edit3, ArrowLeftRight, Undo2, Archive, Download } from "lucide-react";
+import { ArrowLeft, Edit3, ArrowLeftRight, Undo2, Archive, Download, Truck } from "lucide-react";
+import { TransferDialog } from "@/components/stock/TransferDialog";
 import { Modal } from "@/components/ui/Modal";
 import { selectCls, inputCls } from "@/components/ui/FormField";
 import { ProductForm } from "@/components/stock/ProductForm";
@@ -12,15 +13,18 @@ import { useMe, meCanDo } from "@/lib/useMe";
 interface Product {
   _id: string; code: string; label: string; description?: string; unit?: string; category?: string; barcode?: string; location?: string;
   unitPrice: number; tvaRate: number; stockQty: number; stockMinAlert: number; stockMaxAlert?: number; purchaseCost?: number; lastPurchaseCost?: number;
-  preferredSupplierId?: { _id: string; name: string } | null; isService: boolean; isActive: boolean; accountCode?: string;
+  preferredSupplierId?: { _id: string; name: string } | null; isService: boolean; isActive: boolean; accountCode?: string; trackingMode?: string;
 }
 interface Movement {
   _id: string; type: string; quantity: number; quantityBefore: number; quantityAfter: number; unitCost?: number; avgCostAfter?: number;
   reason: string; linkedDocNumber?: string; createdAt: string; reversedBy?: string; reverses?: string;
+  warehouseId?: { code: string; name: string } | null; lots?: Array<{ lotNumber: string; qty: number }>;
   createdBy?: { firstName?: string; lastName?: string } | null;
 }
 const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
-const TYPE_LABEL: Record<string, string> = { entry: "Entrée", exit: "Sortie", return: "Retour", loss: "Perte", adjustment: "Ajustement" };
+const TYPE_LABEL: Record<string, string> = { entry: "Entrée", exit: "Sortie", return: "Retour", loss: "Perte", adjustment: "Ajustement", transfer: "Transfert" };
+interface ByWarehouse { _id: string; qty: number; warehouseId?: { _id: string; code: string; name: string; kind: string } | null }
+interface LotRowView { _id: string; lotNumber: string; qty: number; expiryDate?: string; unitCost?: number; warehouseId?: { name: string } | null }
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function StockDetailPage() {
@@ -34,6 +38,9 @@ export default function StockDetailPage() {
   const [filter, setFilter] = useState({ type: "", from: "", to: "" });
   const [editOpen, setEditOpen] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [transfer, setTransfer] = useState(false);
+  const [byWh, setByWh] = useState<ByWarehouse[]>([]);
+  const [lots, setLots] = useState<LotRowView[]>([]);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -47,6 +54,9 @@ export default function StockDetailPage() {
     ]);
     setP(a?.data ?? null);
     setMoves(b?.data?.items ?? []);
+    const st = await fetch(`/api/products/${id}/stock`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    setByWh(st?.data?.warehouses ?? []);
+    setLots(st?.data?.lots ?? []);
   }, [id, filter]);
   useEffect(() => { load(); }, [load]);
 
@@ -83,6 +93,7 @@ export default function StockDetailPage() {
           <p className="text-sm text-ink2 font-mono">{p.code}{p.barcode ? ` · ${p.barcode}` : ""}{!p.isActive ? " · désactivé" : ""}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {canEdit && !p.isService && byWh.length > 0 && <button onClick={() => setTransfer(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Truck size={16} /> Transfert</button>}
           {canEdit && !p.isService && <button onClick={() => setMoving(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><ArrowLeftRight size={16} /> Mouvement</button>}
           {canEdit && <button onClick={() => setEditOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Edit3 size={16} /> Modifier</button>}
           {canDelete && p.isActive && <button onClick={deactivate} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Archive size={16} /> Désactiver</button>}
@@ -109,6 +120,41 @@ export default function StockDetailPage() {
         <p><span className="text-ink3">Dernier prix d&apos;achat :</span> {p.lastPurchaseCost ? `${fmt(p.lastPurchaseCost)} XOF` : "—"}</p>
       </div>
 
+      {!p.isService && (
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="bg-surface rounded-xl border border-line p-4">
+            <h2 className="font-semibold text-ink mb-2">Stock par entrepôt</h2>
+            {byWh.filter(w => w.qty !== 0).length === 0 ? <p className="text-sm text-ink3">Aucun stock.</p> : (
+              <ul className="divide-y divide-line text-sm">
+                {byWh.filter(w => w.qty !== 0).map(w => <li key={w._id} className="py-1.5 flex justify-between"><span>{w.warehouseId?.name ?? "—"}{w.warehouseId?.kind === "comptoir" ? " (comptoir)" : ""}</span><b className="font-mono">{fmt(w.qty)} {p.unit}</b></li>)}
+              </ul>
+            )}
+          </div>
+          {p.trackingMode && p.trackingMode !== "none" && (
+            <div className="bg-surface rounded-xl border border-line p-4">
+              <h2 className="font-semibold text-ink mb-2">{p.trackingMode === "serial" ? "Numéros de série en stock" : "Lots en stock"} ({lots.length})</h2>
+              <div className="max-h-64 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <tbody>
+                    {lots.map(l => {
+                      const exp = l.expiryDate ? new Date(l.expiryDate) : null;
+                      const days = exp ? Math.round((exp.getTime() - Date.now()) / 86400000) : null;
+                      return (
+                        <tr key={l._id} className="border-t border-line">
+                          <td className="py-1 font-mono">{l.lotNumber}</td><td>{l.warehouseId?.name}</td>
+                          <td className="text-right font-mono">{fmt(l.qty)}</td>
+                          <td className={`text-right ${days !== null && days < 0 ? "text-neg font-semibold" : days !== null && days <= 30 ? "text-warn" : "text-ink2"}`}>{exp ? exp.toLocaleDateString("fr-FR") : "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="bg-surface rounded-xl border border-line overflow-hidden">
         <div className="p-4 flex items-center justify-between gap-2 flex-wrap border-b border-line">
           <h2 className="font-semibold text-ink">Historique des mouvements</h2>
@@ -122,17 +168,19 @@ export default function StockDetailPage() {
           </div>
         </div>
         <table className="table-dense w-full">
-          <thead><tr className="bg-surface2/50 text-left"><th>Date</th><th>Type</th><th className="text-right">Qté</th><th className="text-right">Avant → Après</th><th className="text-right">Coût unit.</th><th>Motif</th><th>Par</th><th /></tr></thead>
+          <thead><tr className="bg-surface2/50 text-left"><th>Date</th><th>Type</th><th>Entrepôt</th><th className="text-right">Qté</th><th className="text-right">Avant → Après</th><th className="text-right">Coût unit.</th><th>Motif</th><th>Par</th><th /></tr></thead>
           <tbody>
-            {moves.length === 0 && <tr><td colSpan={8} className="text-center text-ink3 py-6">Aucun mouvement</td></tr>}
+            {moves.length === 0 && <tr><td colSpan={9} className="text-center text-ink3 py-6">Aucun mouvement</td></tr>}
             {moves.map(m => (
               <tr key={m._id} className={`border-t border-line ${m.reversedBy ? "opacity-50 line-through" : ""}`}>
                 <td className="text-xs text-ink2 whitespace-nowrap">{new Date(m.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</td>
                 <td>{TYPE_LABEL[m.type] ?? m.type}{m.reverses ? " (annulation)" : ""}</td>
+                <td className="text-xs">{m.warehouseId?.name ?? "—"}</td>
                 <td className={`text-right font-mono font-semibold ${m.quantity > 0 ? "text-pos" : m.quantity < 0 ? "text-neg" : ""}`}>{m.quantity > 0 ? "+" : ""}{fmt(m.quantity)}</td>
                 <td className="text-right font-mono text-xs text-ink2">{fmt(m.quantityBefore)} → {fmt(m.quantityAfter)}</td>
                 <td className="text-right font-mono text-xs">{m.unitCost ? fmt(m.unitCost) : "—"}</td>
-                <td className="text-xs">{m.reason}{m.linkedDocNumber && <span className="text-section"> · {m.linkedDocNumber}</span>}</td>
+                <td className="text-xs">{m.reason}{m.linkedDocNumber && <span className="text-section"> · {m.linkedDocNumber}</span>}
+                  {m.lots && m.lots.length > 0 && <span className="block text-ink3 font-mono">{m.lots.map(l => `${l.lotNumber}:${l.qty > 0 ? "+" : ""}${l.qty}`).join(" ")}</span>}</td>
                 <td className="text-xs text-ink2">{m.createdBy ? `${m.createdBy.firstName ?? ""} ${m.createdBy.lastName ?? ""}` : "—"}</td>
                 <td className="text-right">{canDelete && !m.reversedBy && !m.reverses && m.quantity !== 0 && (
                   <button onClick={() => reverse(m)} title="Annuler par un contre-mouvement" className="p-1 rounded text-ink3 hover:text-neg"><Undo2 size={14} /></button>
@@ -144,9 +192,10 @@ export default function StockDetailPage() {
       </div>
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title={`Modifier — ${p.label}`} size="lg">
-        <ProductForm initial={{ ...p, description: p.description ?? "", category: p.category ?? "", barcode: p.barcode ?? "", location: p.location ?? "", accountCode: p.accountCode ?? "" }} onSave={saveProduct} onCancel={() => setEditOpen(false)} />
+        <ProductForm initial={{ ...p, trackingMode: p.trackingMode ?? "none", description: p.description ?? "", category: p.category ?? "", barcode: p.barcode ?? "", location: p.location ?? "", accountCode: p.accountCode ?? "" }} onSave={saveProduct} onCancel={() => setEditOpen(false)} />
       </Modal>
       {moving && <MovementDialog product={p} onClose={() => setMoving(false)} onDone={() => { setMoving(false); load(); }} />}
+      {transfer && <TransferDialog product={{ _id: p._id, code: p.code, label: p.label, unit: p.unit, trackingMode: p.trackingMode }} onClose={() => setTransfer(false)} onDone={() => { setTransfer(false); load(); }} />}
     </div>
   );
 }

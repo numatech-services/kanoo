@@ -6,10 +6,11 @@ import { ClipboardList, Plus, EyeOff, TrendingDown, TrendingUp, Target, Trash2 }
 import { KpiCard } from "@/components/ui/KpiCard";
 import { Pill, Inset, EmptyState } from "@/components/ui/Primitives";
 import { Modal } from "@/components/ui/Modal";
-import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
+import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 import { fullXof } from "@/components/ui/charts/geometry";
 import { COUNT_STATUS_LABEL, type CountStatus } from "@/lib/inventory";
 import { useMe, meCanDo } from "@/lib/useMe";
+import { useWarehouses } from "@/components/stock/useWarehouses";
 
 interface Session {
   _id: string;
@@ -199,12 +200,13 @@ function OpenDialog({
   open, onClose, onOpened,
 }: { open: boolean; onClose: () => void; onOpened: () => void }) {
   const [form, setForm] = useState({
-    label: "", location: "", blind: true,
+    label: "", location: "", warehouseId: "", blind: true,
     recountThresholdQty: 10, reasonThresholdValue: 50_000, notes: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ lines: number; unvalued: number } | null>(null);
+  const { warehouses } = useWarehouses();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -237,9 +239,11 @@ function OpenDialog({
             onChange={e => setForm(f => ({ ...f, label: e.target.value }))} />
         </FormField>
 
-        <FormField label="Lieu">
-          <input className={inputCls} value={form.location} placeholder="Dépôt central, magasin…"
-            onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
+        <FormField label="Entrepôt inventorié" hint="Un inventaire à la fois par entrepôt ; articles suivis par lot : une ligne par lot.">
+          <select className={selectCls} value={form.warehouseId} onChange={e => setForm(f => ({ ...f, warehouseId: e.target.value }))}>
+            <option value="">Entrepôt par défaut</option>
+            {warehouses.map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
+          </select>
         </FormField>
 
         <label className="flex items-start gap-3 p-3 rounded-lg border border-line2 cursor-pointer">

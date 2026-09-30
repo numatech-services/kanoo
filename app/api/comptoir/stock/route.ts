@@ -6,6 +6,8 @@ import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { logAudit } from "@/lib/audit";
+import { applyMovement } from "@/lib/stock";
+import { deskWarehouse } from "@/lib/comptoir-stock";
 import { notifyRoles } from "@/lib/notify";
 import { TokenPayload } from "@/lib/auth";
 
@@ -51,7 +53,26 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
 
     const before = item.quantity || 0;
     let after: number;
-    if (type === "in") after = before + qty;
+    let stockMovementId: unknown;
+    if (item.productId) {
+      // Article du catalogue : le mouvement passe par la gestion de stock, dans
+      // la réserve du comptoir (lots pris péremption la plus proche d'abord).
+      const whId = await deskWarehouse(auth.tenantId, body.deskId, session);
+      {
+        // Une erreur de stock interrompt la transaction (rien n'est écrit) et
+        // revient en 400 avec son message.
+        const r = await applyMovement({
+          tenantId: auth.tenantId, userId: auth.userId, productId: item.productId, warehouseId: whId,
+          type: type === "in" ? "entry" : type === "out" ? "exit" : "adjustment", quantity: qty,
+          unitCost: type === "in" && body.unitCost != null ? Number(body.unitCost) : undefined,
+          lots: Array.isArray(body.lots) ? body.lots : undefined,
+          reason: String(body.reason || (type === "out" ? "Vente au comptoir" : type === "in" ? "Achat au comptoir" : "Inventaire du comptoir")).slice(0, 300),
+          linkedDocType: "comptoir", linkedDocId: body.deskId,
+        }, session);
+        after = r.after;
+        stockMovementId = r.movement._id;
+      }
+    } else if (type === "in") after = before + qty;
     else if (type === "out") {
       if (qty > before) return { error: "Stock insuffisant pour cette sortie" as const };
       after = before - qty;
@@ -62,11 +83,12 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       type, quantity: type === "adjust" ? Math.abs(after - before) : qty, quantityAfter: after,
       unitCost: body.unitCost != null ? Math.max(0, Number(body.unitCost)) : item.unitCost,
       reason: String(body.reason || "").slice(0, 300),
+      stockMovementId,
       date: body.date ? new Date(body.date) : new Date(),
       createdBy: auth.userId,
     }], { session });
 
-    item.quantity = after;
+    item.quantity = Math.max(0, after);
     if (type === "in" && body.unitCost != null) item.unitCost = Math.max(0, Number(body.unitCost));
     await item.save({ session });
 
@@ -87,7 +109,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   });
 
   if ("error" in result && result.error) {
-    return result.error === "Article introuvable" ? notFound(result.error) : badRequest(result.error);
+    return result.error === "Article introuvable" ? notFound(result.error) : badRequest(String(result.error));
   }
   // Alerte de réapprovisionnement : notifiée à la direction, au comptable et au
   // gestionnaire de comptoir. Best-effort, hors transaction.

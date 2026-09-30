@@ -3,6 +3,7 @@ import { NotificationModel } from "@/models/Notification";
 import { UserModel } from "@/models/User";
 import { InvoiceModel } from "@/models/Invoice";
 import { ProductModel } from "@/models/Product";
+import { StockLotModel } from "@/models/StockLot";
 import { ContractModel } from "@/models/Contract";
 import { EmployeeModel } from "@/models/Employee";
 import { RecurringExpenseModel } from "@/models/RecurringExpense";
@@ -112,6 +113,27 @@ export const CRON_JOBS: CronJob[] = [
         }
       }
       return `${products.length} alerte(s) envoyée(s)`;
+    },
+  },
+  {
+    id: "lots-peremption", label: "Lots périmés ou à péremption sous 30 jours",
+    cadence: "daily", schedule: "10 7 * * *",
+    run: async () => {
+      // Un récapitulatif par organisation (pas une notification par lot).
+      const horizon = new Date(Date.now() + 30 * 86_400_000);
+      const rows = await StockLotModel.aggregate<{ _id: Id; expired: number; soon: number }>([
+        { $match: { qty: { $gt: 0 }, expiryDate: { $ne: null, $lte: horizon } } },
+        { $group: { _id: "$tenantId", expired: { $sum: { $cond: [{ $lt: ["$expiryDate", new Date()] }, 1, 0] } }, soon: { $sum: { $cond: [{ $gte: ["$expiryDate", new Date()] }, 1, 0] } } } },
+      ]);
+      for (const r of rows) {
+        const admins = await getAdmins(r._id, ["pme_admin", "pme_purchases", "pme_manager", "svc_admin", "svc_spot"]);
+        for (const admin of admins) {
+          await notify(r._id, admin._id, "stock_alert", "Péremption",
+            `${r.expired} lot(s) périmé(s) et ${r.soon} lot(s) à péremption sous 30 jours : à écouler ou sortir du stock.`,
+            "stock", r._id);
+        }
+      }
+      return `${rows.length} organisation(s) alertée(s)`;
     },
   },
   {

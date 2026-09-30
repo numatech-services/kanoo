@@ -1,7 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Plus, AlertTriangle, ArrowLeftRight, Search, History } from "lucide-react";
+import { Plus, AlertTriangle, ArrowLeftRight, Search, History, Warehouse, Truck, CalendarX } from "lucide-react";
+import { TransferDialog } from "@/components/stock/TransferDialog";
+import { useWarehouses } from "@/components/stock/useWarehouses";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 import { inputCls, selectCls } from "@/components/ui/FormField";
@@ -10,7 +12,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 interface StockItem {
   _id: string; code: string; label: string; unit?: string; category?: string; location?: string;
-  stockQty: number; stockMinAlert: number; stockMaxAlert?: number; purchaseCost?: number; unitPrice: number;
+  stockQty: number; totalQty?: number; stockMinAlert: number; trackingMode?: string; stockMaxAlert?: number; purchaseCost?: number; unitPrice: number;
   isAlert: boolean; stockValue: number; suggestedOrder: number;
 }
 const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
@@ -23,7 +25,15 @@ export default function StockPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ search: "", category: "", location: "", alertOnly: false });
+  const [filters, setFilters] = useState({ search: "", category: "", location: "", alertOnly: false, warehouseId: "" });
+  // Entrepôt passé dans l'adresse (« Voir le stock » depuis la page Entrepôts).
+  useEffect(() => {
+    const w = new URLSearchParams(window.location.search).get("warehouseId");
+    if (w) setFilters(f => ({ ...f, warehouseId: w }));
+  }, []);
+  const { warehouses } = useWarehouses();
+  const [transfer, setTransfer] = useState(false);
+  const [lotAlerts, setLotAlerts] = useState({ expired: 0, soon: 0 });
   const [searchInput, setSearchInput] = useState("");
   const [meta, setMeta] = useState({ alertCount: 0, totalStockValue: 0, totalStockValueAtPrice: 0, uncostedCount: 0, categories: [] as string[], locations: [] as string[] });
   const [moving, setMoving] = useState<StockItem | null>(null);
@@ -36,12 +46,14 @@ export default function StockPage() {
     if (filters.category) params.set("category", filters.category);
     if (filters.location) params.set("location", filters.location);
     if (filters.alertOnly) params.set("alertOnly", "true");
+    if (filters.warehouseId) params.set("warehouseId", filters.warehouseId);
     const d = await fetch(`/api/stock?${params}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
     if (d?.data) {
       setItems(d.data.items || []);
       setTotal(d.data.pagination?.total || 0);
       setMeta({ alertCount: d.data.alertCount, totalStockValue: d.data.totalStockValue, totalStockValueAtPrice: d.data.totalStockValueAtPrice,
         uncostedCount: d.data.uncostedCount, categories: d.data.categories || [], locations: d.data.locations || [] });
+      setLotAlerts({ expired: d.data.expiredLots ?? 0, soon: d.data.expiringLots ?? 0 });
     }
     setLoading(false);
   }, [page, filters]);
@@ -59,8 +71,10 @@ export default function StockPage() {
         {(r.category || r.location) && <span className="block text-[11px] text-ink3">{[r.category, r.location].filter(Boolean).join(" · ")}</span>}
       </Link>
     ) },
-    { key: "stockQty", label: "En stock", className: "text-right", render: (v, r) => (
-      <span className={`font-mono font-semibold ${r.isAlert ? "text-neg" : "text-ink"}`}>{fmt(v)} <span className="text-[11px] text-ink3">{r.unit}</span></span>
+    { key: "stockQty", label: filters.warehouseId ? "Dans l'entrepôt" : "En stock", className: "text-right", render: (v, r) => (
+      <span className={`font-mono font-semibold ${r.isAlert ? "text-neg" : "text-ink"}`}>{fmt(v)} <span className="text-[11px] text-ink3">{r.unit}</span>
+        {filters.warehouseId && r.totalQty !== undefined && <span className="block text-[11px] text-ink3 font-normal">total {fmt(r.totalQty)}</span>}
+        {r.trackingMode && r.trackingMode !== "none" && <span className="block text-[10px] text-section font-normal">{r.trackingMode === "serial" ? "n° de série" : "par lot"}</span>}</span>
     ) },
     { key: "stockMinAlert", label: "Seuil", className: "text-right font-mono text-ink2", render: v => fmt(v) },
     { key: "purchaseCost", label: "Coût moyen", className: "text-right font-mono text-ink2", render: v => Number(v) > 0 ? fmt(v) : <span className="text-warn text-xs">à valoriser</span> },
@@ -79,7 +93,9 @@ export default function StockPage() {
           <p className="text-sm text-ink2">{total} article{total > 1 ? "s" : ""} stocké{total > 1 ? "s" : ""}</p>
         </div>
         <div className="flex gap-2">
-          <Link href="/stock/mouvements" className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2"><History size={16} /> Journal des mouvements</Link>
+          <Link href="/stock/entrepots" className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2"><Warehouse size={16} /> Entrepôts</Link>
+          <Link href="/stock/mouvements" className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2"><History size={16} /> Mouvements</Link>
+          {canMove && warehouses.length > 1 && <button onClick={() => setTransfer(true)} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2"><Truck size={16} /> Transfert</button>}
           {canCreate && <Link href="/stock/new" className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95"><Plus size={16} /> Nouvel article</Link>}
         </div>
       </div>
@@ -102,7 +118,17 @@ export default function StockPage() {
         </button>
       </div>
 
+      {(lotAlerts.expired > 0 || lotAlerts.soon > 0) && (
+        <Link href="/stock/lots" className={`flex items-center gap-2 p-3 rounded-lg text-sm border ${lotAlerts.expired ? "bg-neg-50 border-neg/25 text-neg" : "bg-warn-50 border-warn/30 text-warn"}`}>
+          <CalendarX size={16} /> {lotAlerts.expired} lot(s) périmé(s), {lotAlerts.soon} à péremption sous 30 jours — voir les lots
+        </Link>
+      )}
+
       <div className="flex gap-2 flex-wrap">
+        <select className={`${selectCls} w-auto`} value={filters.warehouseId} onChange={e => { setPage(1); setFilters(f => ({ ...f, warehouseId: e.target.value })); }} aria-label="Entrepôt">
+          <option value="">Tous les entrepôts</option>
+          {warehouses.map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
+        </select>
         <label className="relative flex-1 min-w-[14rem]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3" />
           <input className={`${inputCls} pl-9`} placeholder="Rechercher : désignation, code, code-barres" value={searchInput} onChange={e => setSearchInput(e.target.value)} />
@@ -122,7 +148,8 @@ export default function StockPage() {
       </div>
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
 
-      {moving && <MovementDialog product={moving} onClose={() => setMoving(null)} onDone={() => { setMoving(null); load(); }} />}
+      {moving && <MovementDialog product={moving} defaultWarehouseId={filters.warehouseId || undefined} onClose={() => setMoving(null)} onDone={() => { setMoving(null); load(); }} />}
+      {transfer && <TransferDialog fromWarehouseId={filters.warehouseId || undefined} onClose={() => setTransfer(false)} onDone={() => { setTransfer(false); load(); }} />}
     </div>
   );
 }

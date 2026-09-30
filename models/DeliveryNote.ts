@@ -20,6 +20,8 @@ const DeliveryNoteSchema = new Schema({
 
   // Contenu
   lines: { type: [DeliveryLineSchema], required: true },
+  /** Entrepôt de départ des articles livrés. */
+  warehouseId: { type: Schema.Types.ObjectId, ref: "Warehouse" },
 
   // Dates
   deliveryDate: { type: Date, required: true },

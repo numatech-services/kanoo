@@ -5,6 +5,7 @@ import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityModel } from "@/models/Activity";
 import { isId, deskScope, allDesks } from "@/lib/comptoir";
 import { logAudit } from "@/lib/audit";
+import { deskWarehouse } from "@/lib/comptoir-stock";
 import { TokenPayload } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,8 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     activityId,
     createdBy: auth.userId,
   });
+  // Réserve du comptoir dans la gestion de stock (approvisionnement par transfert).
+  await deskWarehouse(auth.tenantId, desk._id);
   await logAudit(auth, "CREATE", "comptoir", { resourceId: desk._id.toString(), metadata: { name: desk.name } });
   return created(desk);
 });

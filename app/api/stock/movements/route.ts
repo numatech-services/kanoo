@@ -14,8 +14,12 @@ function buildFilter(auth: TokenPayload, url: URL) {
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   const productId = url.searchParams.get("productId");
   if (productId && Types.ObjectId.isValid(productId)) filter.productId = new Types.ObjectId(productId);
+  const warehouseId = url.searchParams.get("warehouseId");
+  if (warehouseId && Types.ObjectId.isValid(warehouseId)) filter.warehouseId = new Types.ObjectId(warehouseId);
+  const lot = (url.searchParams.get("lot") || "").trim();
+  if (lot) filter["lots.lotNumber"] = lot;
   const type = url.searchParams.get("type");
-  if (type && (MOVEMENT_TYPES as readonly string[]).includes(type)) filter.type = type;
+  if (type && ([...MOVEMENT_TYPES, "transfer"] as readonly string[]).includes(type)) filter.type = type;
   const from = url.searchParams.get("from"), to = url.searchParams.get("to");
   if (from || to) {
     const r: Record<string, Date> = {};
@@ -40,15 +44,17 @@ export const GET = withAuth("products", "read", async (req: NextRequest, auth: T
   if (url.searchParams.get("format") === "csv") {
     if (isInternFor(auth, "products")) return forbidden(INTERN_EXPORT_MESSAGE);
     const rows = await StockMovementModel.find(filter).sort({ createdAt: -1 }).limit(20000)
-      .populate("productId", "code label unit").populate("createdBy", "firstName lastName")
+      .populate("productId", "code label unit").populate("createdBy", "firstName lastName").populate("warehouseId", "code name")
       .lean<Array<Record<string, unknown>>>();
     const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const lines = [["Date", "Code", "Article", "Type", "Quantité", "Avant", "Après", "Coût unitaire", "CMUP après", "Motif", "Document", "Par"].join(";")];
+    const lines = [["Date", "Code", "Article", "Entrepôt", "Type", "Quantité", "Avant", "Après", "Lots", "Coût unitaire", "CMUP après", "Motif", "Document", "Par"].join(";")];
     for (const m of rows) {
       const p = (m.productId ?? {}) as { code?: string; label?: string };
       const u = (m.createdBy ?? {}) as { firstName?: string; lastName?: string };
-      lines.push([new Date(String(m.createdAt)).toLocaleString("fr-FR"), p.code, p.label, MOVEMENT_LABEL[m.type as MovementType] ?? m.type,
-        m.quantity, m.quantityBefore, m.quantityAfter, m.unitCost, m.avgCostAfter, m.reason, m.linkedDocNumber, `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()].map(cell).join(";"));
+      const w = (m.warehouseId ?? {}) as { name?: string };
+      const lotsTxt = ((m.lots ?? []) as Array<{ lotNumber: string; qty: number }>).map(l => `${l.lotNumber}:${l.qty}`).join(" ");
+      lines.push([new Date(String(m.createdAt)).toLocaleString("fr-FR"), p.code, p.label, w.name, MOVEMENT_LABEL[m.type as MovementType] ?? m.type,
+        m.quantity, m.quantityBefore, m.quantityAfter, lotsTxt, m.unitCost, m.avgCostAfter, m.reason, m.linkedDocNumber, `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()].map(cell).join(";"));
     }
     return new NextResponse("﻿" + lines.join("\r\n"), {
       headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="mouvements-stock-${new Date().toISOString().slice(0, 10)}.csv"` },
@@ -58,7 +64,7 @@ export const GET = withAuth("products", "read", async (req: NextRequest, auth: T
   const pagination = getPagination(req);
   const [items, total] = await Promise.all([
     StockMovementModel.find(filter).sort({ createdAt: -1 }).skip(pagination.skip).limit(pagination.limit)
-      .populate("productId", "code label unit").populate("createdBy", "firstName lastName").lean(),
+      .populate("productId", "code label unit").populate("createdBy", "firstName lastName").populate("warehouseId", "code name").lean(),
     StockMovementModel.countDocuments(filter),
   ]);
   return paginatedResponse(items, total, pagination);
@@ -75,6 +81,7 @@ export const POST = withAuth("products", "update", async (req: NextRequest, auth
     const r = await withTransaction(session => applyMovement({
       tenantId: auth.tenantId, userId: auth.userId, productId: body.productId,
       type: body.type, quantity: Math.abs(Number(body.quantity)), unitCost: body.unitCost, reason: body.reason,
+      warehouseId: body.warehouseId || undefined, lots: Array.isArray(body.lots) ? body.lots : undefined,
       linkedDocNumber: typeof body.reference === "string" ? body.reference.slice(0, 60) : undefined,
     }, session));
     await logAudit(auth, "UPDATE", "stock", { resourceId: String(body.productId), after: { type: body.type, delta: r.delta, stockQty: r.after } });

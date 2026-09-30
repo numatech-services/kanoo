@@ -3,6 +3,7 @@ import { PayslipModel } from "@/models/Payslip";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { calculerBulletinDePaie, type ManualDeduction } from "@/lib/payslip-calc";
 import type { TokenPayload } from "@/lib/auth";
+import { BusinessRuleError } from "@/lib/errors";
 
 /** Salarié tel que lu pour la paie. */
 export interface PayrollEmployee {
@@ -25,7 +26,8 @@ export interface PayrollOptions {
   items?: ManualDeduction[];
 }
 
-export class PayrollError extends Error {}
+/** Refus métier : rendu en 400 avec son message, même levé au fond d'une transaction. */
+export class PayrollError extends BusinessRuleError {}
 
 export function cleanItems(raw: unknown): ManualDeduction[] {
   if (!Array.isArray(raw)) return [];

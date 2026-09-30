@@ -1,7 +1,12 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
 import { InventoryCountModel } from "@/models/InventoryCount";
 import { ProductModel } from "@/models/Product";
+import { Types } from "mongoose";
+import { WarehouseModel } from "@/models/Warehouse";
+import { ProductStockModel } from "@/models/ProductStock";
+import { StockLotModel } from "@/models/StockLot";
+import { defaultWarehouse, migrateLegacyStock } from "@/lib/stock";
 import { StockMovementModel } from "@/models/StockMovement";
 import { weightedAverageCost } from "@/lib/inventory";
 import { logAudit } from "@/lib/audit";
@@ -47,8 +52,21 @@ export const POST = withAuth("products", "create", async (req: NextRequest, auth
 
   // Une session ouverte à la fois : deux comptages simultanés sur le même
   // stock produisent deux vérités, et la seconde validation écrase la première.
+  // Entrepôt inventorié (défaut : entrepôt principal) ; une session ouverte par entrepôt.
+  await migrateLegacyStock(auth.tenantId);
+  let warehouse: { _id: Types.ObjectId; name: string; isDefault?: boolean };
+  if (body.warehouseId) {
+    if (!Types.ObjectId.isValid(String(body.warehouseId))) return badRequest("Entrepôt invalide.");
+    const w = await WarehouseModel.findOne({ _id: body.warehouseId, ...tenantFilter(auth), isActive: true }).select("_id name isDefault").lean<{ _id: Types.ObjectId; name: string; isDefault?: boolean } | null>();
+    if (!w) return badRequest("Entrepôt introuvable.");
+    warehouse = w;
+  } else {
+    const d = await defaultWarehouse(auth.tenantId);
+    warehouse = { ...d, isDefault: true };
+  }
   const running = await InventoryCountModel.findOne({
     ...tenantFilter(auth), status: { $in: ["draft", "counting", "review"] },
+    ...(warehouse.isDefault ? { $or: [{ warehouseId: warehouse._id }, { warehouseId: { $exists: false } }] } : { warehouseId: warehouse._id }),
   }).select("reference label").lean<{ reference: string; label: string } | null>();
   if (running) {
     return badRequest(
@@ -61,14 +79,20 @@ export const POST = withAuth("products", "create", async (req: NextRequest, auth
   const productFilter: Record<string, unknown> = {
     ...tenantFilter(auth), isActive: true, isService: { $ne: true },
   };
+  const whRows = await ProductStockModel.find({ ...tenantFilter(auth), warehouseId: warehouse._id })
+    .lean<Array<{ productId: Types.ObjectId; qty: number }>>();
+  const whQty = new Map(whRows.map(r => [String(r.productId), r.qty]));
   if (Array.isArray(body.productIds) && body.productIds.length > 0) {
     productFilter._id = { $in: body.productIds };
+  } else if (!warehouse.isDefault) {
+    // Dépôt secondaire / comptoir : les articles qui y ont du stock.
+    productFilter._id = { $in: whRows.filter(r => r.qty !== 0).map(r => r.productId) };
   }
 
   const products = await ProductModel.find(productFilter)
-    .select("code label unit stockQty")
+    .select("code label unit stockQty purchaseCost trackingMode")
     .sort({ code: 1 }).limit(5_000)
-    .lean<Array<{ _id: unknown; code: string; label: string; unit?: string; stockQty?: number }>>();
+    .lean<Array<{ _id: unknown; code: string; label: string; unit?: string; stockQty?: number; purchaseCost?: number; trackingMode?: string }>>();
 
   if (products.length === 0) {
     return badRequest("Aucun article à compter : le périmètre est vide.");
@@ -91,6 +115,11 @@ export const POST = withAuth("products", "create", async (req: NextRequest, auth
     else byProduct.set(key, [entry]);
   }
 
+  const lotRows = await StockLotModel.find({ ...tenantFilter(auth), warehouseId: warehouse._id, qty: { $gt: 0 }, productId: { $in: products.map(p => p._id) } })
+    .sort({ expiryDate: 1 }).lean<Array<{ productId: Types.ObjectId; lotNumber: string; expiryDate?: Date; qty: number }>>();
+  const lotsBy = new Map<string, typeof lotRows>();
+  for (const l of lotRows) lotsBy.set(String(l.productId), [...(lotsBy.get(String(l.productId)) ?? []), l]);
+
   const now = new Date();
   const year = now.getFullYear();
   const count = await InventoryCountModel.countDocuments({
@@ -103,7 +132,8 @@ export const POST = withAuth("products", "create", async (req: NextRequest, auth
     label,
     status: "counting",
     scope: productFilter._id ? "selection" : "all",
-    location: body.location ? String(body.location).slice(0, 120) : undefined,
+    location: body.location ? String(body.location).slice(0, 120) : warehouse.name,
+    warehouseId: warehouse._id,
     blind: body.blind !== false,
     recountThresholdQty: Number(body.recountThresholdQty) || 10,
     recountThresholdPercent: Number(body.recountThresholdPercent) || 10,
@@ -112,16 +142,16 @@ export const POST = withAuth("products", "create", async (req: NextRequest, auth
     openedBy: auth.userId,
     createdBy: auth.userId,
     notes: body.notes ? String(body.notes).slice(0, 2000) : undefined,
-    lines: products.map(p => ({
-      productId: p._id,
-      code: p.code,
-      label: p.label,
-      unit: p.unit,
-      theoreticalQty: p.stockQty ?? 0,
-      countedQty: null,
-      recountQty: null,
-      unitCost: weightedAverageCost(byProduct.get(String(p._id)) ?? []),
-    })),
+    // Article suivi par lot : une ligne par lot en stock dans l'entrepôt.
+    lines: products.flatMap(p => {
+      const unitCost = p.purchaseCost && p.purchaseCost > 0 ? p.purchaseCost : weightedAverageCost(byProduct.get(String(p._id)) ?? []);
+      const base = { productId: p._id, code: p.code, label: p.label, unit: p.unit, countedQty: null, recountQty: null, unitCost };
+      const lots = lotsBy.get(String(p._id));
+      if (p.trackingMode && p.trackingMode !== "none" && lots?.length) {
+        return lots.map(l => ({ ...base, label: `${p.label} — lot ${l.lotNumber}`, lotNumber: l.lotNumber, expiryDate: l.expiryDate, theoreticalQty: l.qty }));
+      }
+      return [{ ...base, theoreticalQty: whQty.get(String(p._id)) ?? 0 }];
+    }),
   });
 
   await logAudit(auth, "CREATE", "products", {

@@ -12,7 +12,7 @@ export const GET = withAuth("commandes", "read", async (_req: NextRequest, auth:
   await connectDB();
   const c = await CommandeModel.findOne({ _id: params.id, ...tenantFilter(auth) })
     .populate("supplierId", "name code address phone email nif")
-    .populate("lines.productId", "code label unit stockQty")
+    .populate("lines.productId", "code label unit stockQty trackingMode")
     .populate("projectId", "code name").populate("activityId", "name")
     .lean();
   if (!c) return notFound();

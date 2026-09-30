@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
@@ -61,6 +62,7 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
       tenantId: auth.tenantId,
       number,
       clientId: body.clientId || invoice.clientId,
+      warehouseId: body.warehouseId && Types.ObjectId.isValid(String(body.warehouseId)) ? body.warehouseId : undefined,
       status: "issued",
       createdBy: auth.userId,
     }], { session });
@@ -74,9 +76,12 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
       const product = await ProductModel.findOne({ _id: line.productId, ...tenantFilter(auth) }).select("isService").session(session ?? null).lean<{ isService?: boolean } | null>();
       if (!product || product.isService) continue;
       // Sortie plafonnée au stock disponible (le bon reste émis) ; atomique.
+      const raw = (Array.isArray(body.lines) ? body.lines : []).find((l: { productId?: unknown }) => String(l.productId) === String(line.productId)) as { lots?: [] } | undefined;
       await applyMovement({
         tenantId: auth.tenantId, userId: auth.userId, productId: line.productId, type: "exit",
         quantity: line.quantity, reason: `Bon de livraison ${number}`, allowPartial: true,
+        // Entrepôt de départ (défaut : principal) ; lots précisés ou pris péremption la plus proche d'abord.
+        warehouseId: body.warehouseId || undefined, lots: raw?.lots,
         linkedDocType: "delivery", linkedDocId: doc._id, linkedDocNumber: number,
       }, session);
     }

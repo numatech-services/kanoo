@@ -5,6 +5,7 @@ import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { TenantModel } from "@/models/Tenant";
 import { isId, ownDesk } from "@/lib/comptoir";
+import { syncLinkedItems } from "@/lib/comptoir-stock";
 import { generateDeskReportPdf, type DeskReportForPdf, type TenantIdentity } from "@/lib/pdf-document";
 import { TokenPayload } from "@/lib/auth";
 import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
@@ -34,6 +35,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   const to = new Date(toDay.getFullYear(), toDay.getMonth(), toDay.getDate() + 1);
   if (from >= to) return badRequest("Période invalide");
 
+  await syncLinkedItems(auth.tenantId, deskId);
   const [cash, items, tenant] = await Promise.all([
     ActivityCashEntryModel.find({ ...tenantFilter(auth), deskId, date: { $gte: from, $lt: to } })
       .sort({ date: 1, createdAt: 1 }).limit(2000)

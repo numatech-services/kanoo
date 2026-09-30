@@ -2,8 +2,7 @@ import { NextRequest } from "next/server";
 import { withTransaction } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, conflict, tenantFilter } from "@/lib/api-helpers";
 import { InventoryCountModel } from "@/models/InventoryCount";
-import { ProductModel } from "@/models/Product";
-import { StockMovementModel } from "@/models/StockMovement";
+import { applyMovement } from "@/lib/stock";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import {
   evaluateLine, summarizeCount, validationBlockers, adjustmentEntry, isBalanced,
@@ -180,26 +179,15 @@ export const PATCH = withAuth("products", "update", async (req: NextRequest, aut
         const result = evaluateLine(line as unknown as CountLine, policy);
         if (!result.counted || result.variance === 0 || result.finalQty === null) continue;
 
-        await ProductModel.updateOne(
-          { _id: line.productId, ...tenantFilter(auth) },
-          { $set: { stockQty: result.finalQty } },
-          { session: session_ }
-        );
-
-        await StockMovementModel.create([{
-          tenantId: auth.tenantId,
-          productId: line.productId,
-          type: "adjustment",
-          quantity: result.variance,
-          quantityBefore: line.theoreticalQty,
-          quantityAfter: result.finalQty,
+        // Même point d'écriture que tout le stock : entrepôt de la session,
+        // lot compté pour un article suivi par lot.
+        await applyMovement({
+          tenantId: auth.tenantId, userId: auth.userId, productId: line.productId, type: "adjustment",
+          quantity: result.finalQty, warehouseId: session.warehouseId || undefined,
+          lots: line.lotNumber ? [{ lotNumber: line.lotNumber, expiryDate: line.expiryDate, qty: result.finalQty }] : undefined,
           reason: line.reason?.trim() || `Inventaire ${session.reference}`,
-          linkedDocType: "manual",
-          linkedDocId: session._id,
-          linkedDocNumber: session.reference,
-          unitCost: line.unitCost ?? 0,
-          createdBy: auth.userId,
-        }], { session: session_ });
+          linkedDocType: "inventory", linkedDocId: session._id, linkedDocNumber: session.reference,
+        }, session_);
       }
 
       if (entry.length > 0) {
@@ -210,7 +198,7 @@ export const PATCH = withAuth("products", "update", async (req: NextRequest, aut
           reference: session.reference,
           label: `Régularisation d'inventaire ${session.reference} — ${session.label}`,
           lines: entry,
-          linkedDocType: "supplier_invoice",
+          linkedDocType: "inventory",
           linkedDocId: session._id,
           createdBy: auth.userId,
         }], { session: session_ });

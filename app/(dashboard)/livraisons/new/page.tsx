@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Package, ArrowLeft, Save } from "lucide-react";
+import { useWarehouses } from "@/components/stock/useWarehouses";
 
 export default function NewDeliveryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
+  const { warehouses } = useWarehouses();
   
   // État du formulaire
   const [form, setForm] = useState({
@@ -19,7 +21,8 @@ export default function NewDeliveryPage() {
     deliveryAddress: "",
     number: "",
     lines: [] as any[],
-    notes: ""
+    notes: "",
+    warehouseId: ""
   });
 
   // 1. Rechercher une facture par son numéro
@@ -111,6 +114,15 @@ export default function NewDeliveryPage() {
                   <span className="absolute right-3 top-2.5 text-xs text-ink2">Recherche…</span>
                 )}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-ink2">Entrepôt de départ</label>
+              <select value={form.warehouseId} onChange={e => setForm({ ...form, warehouseId: e.target.value })}
+                className="w-full px-4 py-2 bg-surface2/20 border border-line rounded-xl outline-none">
+                <option value="">Entrepôt par défaut</option>
+                {warehouses.map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
+              </select>
             </div>
 
             <div className="space-y-2">

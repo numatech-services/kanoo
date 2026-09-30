@@ -1,7 +1,11 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, getPagination, tenantFilter } from "@/lib/api-helpers";
+import { Types } from "mongoose";
 import { ProductModel } from "@/models/Product";
+import { ProductStockModel } from "@/models/ProductStock";
+import { StockLotModel } from "@/models/StockLot";
+import { migrateLegacyStock } from "@/lib/stock";
 import { TokenPayload } from "@/lib/auth";
 
 // Alerte : article stocké (pas un service) avec un seuil défini, à ou sous le seuil.
@@ -21,6 +25,8 @@ export const GET = withAuth("products", "read", async (req: NextRequest, auth: T
   const category = url.searchParams.get("category");
   const location = url.searchParams.get("location");
   const alertOnly = url.searchParams.get("alertOnly") === "true";
+  const warehouseId = url.searchParams.get("warehouseId");
+  await migrateLegacyStock(auth.tenantId);
 
   const filter: Record<string, unknown> = { ...tf, isActive: true, isService: { $ne: true } };
   if (alertOnly) Object.assign(filter, ALERT);
@@ -31,6 +37,9 @@ export const GET = withAuth("products", "read", async (req: NextRequest, auth: T
     filter.$or = [{ label: rx }, { code: rx }, { barcode: rx }];
   }
 
+  if (warehouseId && Types.ObjectId.isValid(warehouseId)) {
+    filter._id = { $in: await ProductStockModel.distinct("productId", { ...tf, warehouseId: new Types.ObjectId(warehouseId), qty: { $ne: 0 } }) };
+  }
   const [items, total, alertCount, valueAgg, categories, locations] = await Promise.all([
     ProductModel.find(filter).sort({ stockQty: 1, label: 1 }).skip(pagination.skip).limit(pagination.limit)
       .populate("preferredSupplierId", "name code").lean<Array<Record<string, unknown> & { stockQty?: number; stockMinAlert?: number; stockMaxAlert?: number; purchaseCost?: number; unitPrice?: number }>>(),
@@ -48,8 +57,24 @@ export const GET = withAuth("products", "read", async (req: NextRequest, auth: T
     ProductModel.distinct("category", { ...tf, isActive: true, category: { $nin: [null, ""] } }),
     ProductModel.distinct("location", { ...tf, isActive: true, location: { $nin: [null, ""] } }),
   ]);
+  const soon = new Date(Date.now() + 30 * 86400000);
+  const [expiredLots, expiringLots] = await Promise.all([
+    StockLotModel.countDocuments({ ...tf, qty: { $gt: 0 }, expiryDate: { $ne: null, $lt: new Date() } }),
+    StockLotModel.countDocuments({ ...tf, qty: { $gt: 0 }, expiryDate: { $gte: new Date(), $lte: soon } }),
+  ]);
 
+  // Vue d'un entrepôt : quantités de cet entrepôt (et son seuil propre s'il en a un).
+  let whQty: Map<string, { qty: number; minAlert?: number }> | null = null;
+  if (warehouseId && Types.ObjectId.isValid(warehouseId)) {
+    const rows = await ProductStockModel.find({ ...tf, warehouseId: new Types.ObjectId(warehouseId), productId: { $in: items.map(p => p._id) } })
+      .lean<Array<{ productId: Types.ObjectId; qty: number; minAlert?: number }>>();
+    whQty = new Map(rows.map(r => [String(r.productId), { qty: r.qty, minAlert: r.minAlert }]));
+  }
   const enriched = items.map(p => {
+    if (whQty) {
+      const w = whQty.get(String(p._id)) ?? { qty: 0 };
+      p = { ...p, totalQty: p.stockQty, stockQty: w.qty, ...(w.minAlert != null ? { stockMinAlert: w.minAlert } : {}) };
+    }
     const qty = p.stockQty || 0, min = p.stockMinAlert || 0, max = p.stockMaxAlert || 0;
     return {
       ...p,
@@ -69,6 +94,7 @@ export const GET = withAuth("products", "read", async (req: NextRequest, auth: T
     totalStockValue: v.atCost,
     totalStockValueAtPrice: v.atPrice,
     uncostedCount: v.uncosted,
+    expiredLots, expiringLots,
     categories: (categories as string[]).sort(),
     locations: (locations as string[]).sort(),
   });

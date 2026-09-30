@@ -13,6 +13,8 @@ const ProductSchema = new Schema<IProduct>({ tenantId: { type: Schema.Types.Obje
   preferredSupplierId: { type: Schema.Types.ObjectId, ref: "Supplier" },
   /** Stock maximal souhaité : sert à proposer la quantité à commander. */
   stockMaxAlert: { type: Number, default: 0, min: 0 },
+  /** Suivi : aucun, par lot (péremption) ou par numéro de série (unité par unité). */
+  trackingMode: { type: String, enum: ["none", "lot", "serial"], default: "none" },
   isService: { type: Boolean, default: false }, accountCode: String, isActive: { type: Boolean, default: true } }, { timestamps: true });
 ProductSchema.index({ tenantId: 1, code: 1 }, { unique: true });
 ProductSchema.index({ tenantId: 1, category: 1 });

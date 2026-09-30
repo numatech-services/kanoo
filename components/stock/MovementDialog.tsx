@@ -1,35 +1,67 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
+import { useWarehouses } from "@/components/stock/useWarehouses";
+import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
 export const MOVEMENT_OPTIONS = [
   { value: "entry", label: "Entrée (achat, réception)" },
   { value: "exit", label: "Sortie (vente, consommation)" },
   { value: "return", label: "Retour (client ou interne)" },
-  { value: "loss", label: "Perte / casse / vol" },
+  { value: "loss", label: "Perte / casse / péremption" },
   { value: "adjustment", label: "Ajustement : stock réel constaté" },
 ] as const;
 
+interface Lot { lotNumber: string; expiryDate?: string; qty: number; warehouseId?: { _id: string } | string }
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
-/** Saisie d'un mouvement de stock sur un article. */
-export function MovementDialog({ product, onClose, onDone }: {
-  product: { _id: string; label: string; unit?: string; stockQty?: number; purchaseCost?: number };
-  onClose: () => void; onDone: () => void;
+/** Saisie d'un mouvement de stock : entrepôt, lots / numéros de série. */
+export function MovementDialog({ product, onClose, onDone, defaultWarehouseId }: {
+  product: { _id: string; label: string; unit?: string; stockQty?: number; purchaseCost?: number; trackingMode?: string };
+  onClose: () => void; onDone: () => void; defaultWarehouseId?: string;
 }) {
-  const [f, setF] = useState({ type: "entry", quantity: 1, unitCost: product.purchaseCost || 0, reason: "", reference: "" });
+  const { warehouses } = useWarehouses();
+  const tracked = product.trackingMode === "lot" || product.trackingMode === "serial";
+  const serial = product.trackingMode === "serial";
+  const [f, setF] = useState({ type: "entry", quantity: 1, unitCost: product.purchaseCost || 0, reason: "", reference: "", warehouseId: defaultWarehouseId ?? "" });
+  const [lotsIn, setLotsIn] = useState<LotRow[]>([{ lotNumber: "", expiryDate: "", qty: 1 }]);
+  const [lotOut, setLotOut] = useState("");
+  const [avail, setAvail] = useState<Lot[]>([]);
+  const [whQty, setWhQty] = useState<Record<string, number>>({});
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const isIn = f.type === "entry" || f.type === "return";
   const isAdj = f.type === "adjustment";
+
+  useEffect(() => {
+    if (!f.warehouseId && warehouses.length) setF(p => ({ ...p, warehouseId: (warehouses.find(w => w.isDefault) ?? warehouses[0])._id }));
+  }, [warehouses, f.warehouseId]);
+  useEffect(() => {
+    fetch(`/api/products/${product._id}/stock`, { credentials: "include" }).then(r => r.json()).then(d => {
+      setAvail(d.data?.lots ?? []);
+      setWhQty(Object.fromEntries((d.data?.warehouses ?? []).map((w: { warehouseId: { _id: string }; qty: number }) => [w.warehouseId?._id, w.qty])));
+    }).catch(() => {});
+  }, [product._id]);
+  const lotsHere = useMemo(() => avail.filter(l => (typeof l.warehouseId === "object" ? l.warehouseId?._id : l.warehouseId) === f.warehouseId), [avail, f.warehouseId]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!f.reason.trim()) { setError("Indiquez le motif."); return; }
+    let lots: Array<{ lotNumber: string; expiryDate?: string; qty: number }> | undefined;
+    if (tracked) {
+      if (isIn) {
+        lots = lotsPayload(lotsIn);
+        if (lots.reduce((s, l) => s + l.qty, 0) !== f.quantity) { setError("La somme des lots doit égaler la quantité."); return; }
+      } else if (isAdj) {
+        if (!lotOut) { setError("Choisissez le lot compté."); return; }
+        lots = [{ lotNumber: lotOut, qty: f.quantity }];
+      } else if (lotOut) lots = [{ lotNumber: lotOut, qty: f.quantity }];
+    }
     setSaving(true); setError("");
     const res = await fetch("/api/stock/movements", {
       method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-      body: JSON.stringify({ productId: product._id, type: f.type, quantity: f.quantity, reason: f.reason, reference: f.reference || undefined, ...(f.type === "entry" ? { unitCost: f.unitCost } : {}) }),
+      body: JSON.stringify({ productId: product._id, type: f.type, quantity: f.quantity, reason: f.reason, reference: f.reference || undefined, warehouseId: f.warehouseId || undefined, lots, ...(f.type === "entry" ? { unitCost: f.unitCost } : {}) }),
     });
     const d = await res.json().catch(() => ({}));
     setSaving(false);
@@ -38,18 +70,26 @@ export function MovementDialog({ product, onClose, onDone }: {
   }
 
   return (
-    <Modal open onClose={onClose} title={`Mouvement — ${product.label}`}>
+    <Modal open onClose={onClose} title={`Mouvement — ${product.label}`} size="lg">
       <form onSubmit={submit} className="space-y-4">
-        <p className="text-sm text-ink2">Stock actuel : <b className="text-ink">{product.stockQty ?? 0} {product.unit ?? ""}</b>{product.purchaseCost ? ` · coût moyen ${Number(product.purchaseCost).toLocaleString("fr-FR")} XOF` : ""}</p>
+        <p className="text-sm text-ink2">Stock total : <b className="text-ink">{product.stockQty ?? 0} {product.unit ?? ""}</b>
+          {f.warehouseId && whQty[f.warehouseId] !== undefined ? <> · dans cet entrepôt : <b className="text-ink">{whQty[f.warehouseId]}</b></> : null}
+          {product.purchaseCost ? ` · coût moyen ${Number(product.purchaseCost).toLocaleString("fr-FR")} XOF` : ""}
+          {tracked ? ` · suivi par ${serial ? "numéro de série" : "lot"}` : ""}</p>
         {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
-        <FormField label="Type">
-          <select className={selectCls} value={f.type} onChange={e => setF(p => ({ ...p, type: e.target.value }))}>
-            {MOVEMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </FormField>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label={isAdj ? "Stock réel compté" : "Quantité"} required>
-            <input type="number" min={isAdj ? 0 : 0.01} step="any" className={inputCls} value={f.quantity} onChange={e => setF(p => ({ ...p, quantity: Number(e.target.value) }))} required />
+        <div className="grid sm:grid-cols-2 gap-3">
+          <FormField label="Type">
+            <select className={selectCls} value={f.type} onChange={e => setF(p => ({ ...p, type: e.target.value }))}>
+              {MOVEMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Entrepôt">
+            <select className={selectCls} value={f.warehouseId} onChange={e => { setF(p => ({ ...p, warehouseId: e.target.value })); setLotOut(""); }}>
+              {warehouses.map(w => <option key={w._id} value={w._id}>{w.name}{w.isDefault ? " (défaut)" : ""}</option>)}
+            </select>
+          </FormField>
+          <FormField label={isAdj ? (tracked ? "Quantité comptée du lot" : "Stock réel compté") : "Quantité"} required>
+            <input type="number" min={isAdj ? 0 : 0.01} step={serial ? 1 : "any"} className={inputCls} value={f.quantity} onChange={e => setF(p => ({ ...p, quantity: Number(e.target.value) }))} required />
           </FormField>
           {f.type === "entry" && (
             <FormField label="Coût d'achat unitaire" hint="Recalcule le coût moyen">
@@ -57,6 +97,16 @@ export function MovementDialog({ product, onClose, onDone }: {
             </FormField>
           )}
         </div>
+        {tracked && isIn && <LotsEditor mode={serial ? "serial" : "lot"} quantity={f.quantity} value={lotsIn} onChange={setLotsIn} />}
+        {tracked && !isIn && (
+          <FormField label={isAdj ? "Lot compté" : "Lot"} hint={isAdj ? undefined : "Laisser « automatique » : péremption la plus proche d'abord"}>
+            <select className={selectCls} value={lotOut} onChange={e => setLotOut(e.target.value)}>
+              {!isAdj && <option value="">Automatique (FEFO)</option>}
+              {isAdj && <option value="">— Choisir —</option>}
+              {lotsHere.map(l => <option key={l.lotNumber} value={l.lotNumber}>{l.lotNumber} · {l.qty} en stock{l.expiryDate ? ` · périme le ${new Date(l.expiryDate).toLocaleDateString("fr-FR")}` : ""}</option>)}
+            </select>
+          </FormField>
+        )}
         <FormField label="Motif" required><input className={inputCls} value={f.reason} onChange={e => setF(p => ({ ...p, reason: e.target.value }))} placeholder="Ex. achat au comptant, consommation atelier…" required /></FormField>
         <FormField label="Référence du document"><input className={inputCls} value={f.reference} onChange={e => setF(p => ({ ...p, reference: e.target.value }))} placeholder="N° de bon, de facture…" /></FormField>
         <button type="submit" disabled={saving} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer le mouvement"}</button>

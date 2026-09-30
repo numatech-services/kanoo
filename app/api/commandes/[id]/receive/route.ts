@@ -3,7 +3,7 @@ import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { CommandeModel } from "@/models/Commande";
-import { applyMovement, StockError } from "@/lib/stock";
+import { applyMovement, StockError, type LotInput } from "@/lib/stock";
 import { receptionStatus } from "@/lib/commande";
 import { logAudit } from "@/lib/audit";
 
@@ -24,9 +24,9 @@ export const POST = withAuth("commandes", "update", async (req: NextRequest, aut
   }
   type L = { productId?: unknown; description: string; quantity: number; unitPrice: number; receivedQty?: number };
   const lines = cmd.lines as L[];
-  const wanted: Array<{ index: number; quantity: number }> = body.all
+  const wanted: Array<{ index: number; quantity: number; lots?: LotInput[] }> = body.all
     ? lines.map((l, index) => ({ index, quantity: l.quantity - (l.receivedQty ?? 0) })).filter(x => x.quantity > 0)
-    : (Array.isArray(body.lines) ? body.lines : []).map((x: { index: unknown; quantity: unknown }) => ({ index: Number(x.index), quantity: Number(x.quantity) }))
+    : (Array.isArray(body.lines) ? body.lines : []).map((x: { index: unknown; quantity: unknown; lots?: LotInput[] }) => ({ index: Number(x.index), quantity: Number(x.quantity), lots: x.lots }))
         .filter((x: { quantity: number }) => x.quantity > 0);
   if (wanted.length === 0) return badRequest("Aucune quantité à réceptionner.");
   for (const w of wanted) {
@@ -45,6 +45,7 @@ export const POST = withAuth("commandes", "update", async (req: NextRequest, aut
           await applyMovement({
             tenantId: auth.tenantId, userId: auth.userId, productId: l.productId, type: "entry",
             quantity: w.quantity, unitCost: l.unitPrice, reason: `Réception BC ${cmd.number}`,
+            warehouseId: body.warehouseId || undefined, lots: w.lots,
             linkedDocType: "commande", linkedDocId: cmd._id, linkedDocNumber: cmd.number,
           }, session);
         }

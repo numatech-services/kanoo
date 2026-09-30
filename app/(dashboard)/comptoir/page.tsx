@@ -6,11 +6,12 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
 import { useMe, meCanDo } from "@/lib/useMe";
+import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
 interface Desk { _id: string; name: string; description?: string; activityId?: string }
-interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number }
+interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
 interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string }
-interface Move { _id: string; type: "in" | "out" | "adjust"; quantity: number; quantityAfter: number; reason?: string; date: string; itemId?: { name?: string; unit?: string } }
+interface Move { _id: string; type: "in" | "out" | "adjust" | "supply"; quantity: number; quantityAfter: number; reason?: string; date: string; itemId?: { name?: string; unit?: string } }
 interface Summary { itemCount: number; stockValue: number; lowStock: { name: string; unit: string; quantity: number; threshold?: number }[]; cashIn: number; cashOut: number; cashBalance: number }
 
 // Jour civil LOCAL (AAAA-MM-JJ) : toISOString() donnerait le jour UTC, et une
@@ -537,6 +538,8 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
   const [moves, setMoves] = useState<Move[]>([]);
   const [itemOpen, setItemOpen] = useState(false);
   const [moveFor, setMoveFor] = useState<Item | null>(null);
+  const [supplyOpen, setSupplyOpen] = useState(false);
+  const [linkFor, setLinkFor] = useState<Item | null>(null);
 
   const load = useCallback(() => {
     fetch(`/api/comptoir/items?deskId=${deskId}`, { credentials: "include" }).then(r => r.json()).then(d => setItems(d.data || [])).catch(() => {});
@@ -564,6 +567,11 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
             <Download size={15} /> Export CSV
           </button>
         )}
+        {items.some(i => i.productId) && (
+          <button onClick={() => setSupplyOpen(true)} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+            <Package size={15} /> Approvisionner depuis le magasin
+          </button>
+        )}
         <button onClick={() => setItemOpen(true)} className="px-4 h-9 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
           <Plus size={15} /> Nouvel article
         </button>
@@ -582,6 +590,9 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
                   <tr key={it._id}>
                     <td className="text-ink font-medium">{it.name}
                       {low && <span className="ml-2"><Pill tone="warn">seuil</Pill></span>}
+                      {it.productId
+                        ? <span className="block text-[11px] text-section font-normal">Catalogue · {it.productId.code}{it.productId.trackingMode && it.productId.trackingMode !== "none" ? " · lots" : ""}</span>
+                        : <button onClick={() => setLinkFor(it)} className="block text-[11px] text-ink3 hover:text-section font-normal">Relier au catalogue</button>}
                     </td>
                     <td className="text-right font-mono">{it.quantity} <span className="text-ink3 text-xs">{it.unit}</span></td>
                     <td className="text-right font-mono text-ink2">{MONEY(it.unitCost)}</td>
@@ -613,7 +624,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
                   <tr key={m._id}>
                     <td className="text-ink2 whitespace-nowrap">{new Date(m.date).toLocaleDateString("fr-FR")}</td>
                     <td className="text-ink">{m.itemId?.name || "—"}</td>
-                    <td>{m.type === "in" ? <Pill tone="pos">Entrée</Pill> : m.type === "out" ? <Pill tone="neg">Sortie</Pill> : <Pill tone="info">Ajustement</Pill>}</td>
+                    <td>{m.type === "in" ? <Pill tone="pos">Entrée</Pill> : m.type === "out" ? <Pill tone="neg">Sortie</Pill> : m.type === "supply" ? <Pill tone="pos">Approvisionnement</Pill> : <Pill tone="info">Ajustement</Pill>}</td>
                     <td className="text-right font-mono">{m.quantity}</td>
                     <td className="text-right font-mono text-ink2">{m.quantityAfter}</td>
                     <td className="text-ink2">{m.reason || "—"}</td>
@@ -627,20 +638,23 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
 
       {itemOpen && <ItemDialog deskId={deskId} onClose={() => setItemOpen(false)} onSaved={() => { setItemOpen(false); load(); onChange(); }} />}
       {moveFor && <MoveDialog deskId={deskId} item={moveFor} onClose={() => setMoveFor(null)} onSaved={() => { setMoveFor(null); load(); onChange(); }} />}
+      {supplyOpen && <SupplyDialog deskId={deskId} items={items.filter(i => i.productId)} onClose={() => setSupplyOpen(false)} onSaved={() => { setSupplyOpen(false); load(); onChange(); }} />}
+      {linkFor && <LinkDialog item={linkFor} onClose={() => setLinkFor(null)} onSaved={() => { setLinkFor(null); load(); onChange(); }} />}
     </div>
   );
 }
 
 function ItemDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ name: "", unit: "unité", quantity: "", unitCost: "", salePrice: "", threshold: "" });
+  const [form, setForm] = useState({ name: "", unit: "unité", quantity: "", unitCost: "", salePrice: "", threshold: "", productId: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const catalog = useCatalog();
   async function save() {
-    if (!form.name.trim()) { setError("Le nom est requis."); return; }
+    if (!form.productId && !form.name.trim()) { setError("Le nom est requis."); return; }
     setSaving(true); setError(null);
     try {
       await post("/api/comptoir/items", {
-        deskId, name: form.name, unit: form.unit,
+        deskId, name: form.name, unit: form.unit, productId: form.productId || undefined,
         quantity: Number(form.quantity) || 0, unitCost: Number(form.unitCost) || 0,
         salePrice: form.salePrice ? Number(form.salePrice) : undefined,
         threshold: form.threshold ? Number(form.threshold) : undefined,
@@ -653,13 +667,22 @@ function ItemDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
     <Modal open onClose={onClose} title="Nouvel article" size="md">
       <div className="space-y-4">
         {error && <p className="px-3 py-2 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg">{error}</p>}
+        <FormField label="Article du catalogue" hint="Relié : son stock est la réserve du comptoir, approvisionnée par transfert depuis le magasin.">
+          <select className={selectCls} value={form.productId} onChange={e => {
+            const p = catalog.find(x => x._id === e.target.value);
+            setForm(f => ({ ...f, productId: e.target.value, name: p ? p.label : f.name, unit: p?.unit ?? f.unit, salePrice: p?.unitPrice ? String(p.unitPrice) : f.salePrice }));
+          }}>
+            <option value="">— Article propre au comptoir (plat, boisson préparée…) —</option>
+            {catalog.map(p => <option key={p._id} value={p._id}>{p.code} — {p.label}</option>)}
+          </select>
+        </FormField>
         <FormField label="Nom de l'article" required>
           <input className={inputCls} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
         </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Unité"><input className={inputCls} value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} /></FormField>
-          <FormField label="Stock initial"><input className={inputCls} type="number" min="0" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></FormField>
-          <FormField label="Coût unitaire (XOF)"><input className={inputCls} type="number" min="0" value={form.unitCost} onChange={e => setForm(f => ({ ...f, unitCost: e.target.value }))} /></FormField>
+          {!form.productId && <FormField label="Stock initial"><input className={inputCls} type="number" min="0" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></FormField>}
+          {!form.productId && <FormField label="Coût unitaire (XOF)"><input className={inputCls} type="number" min="0" value={form.unitCost} onChange={e => setForm(f => ({ ...f, unitCost: e.target.value }))} /></FormField>}
           <FormField label="Prix de vente (XOF)" hint="Indicatif"><input className={inputCls} type="number" min="0" value={form.salePrice} onChange={e => setForm(f => ({ ...f, salePrice: e.target.value }))} /></FormField>
           <FormField label="Seuil d'alerte" hint="Facultatif"><input className={inputCls} type="number" min="0" value={form.threshold} onChange={e => setForm(f => ({ ...f, threshold: e.target.value }))} /></FormField>
         </div>
@@ -679,6 +702,8 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
   const [withCash, setWithCash] = useState(true);
+  const tracking = item.productId?.trackingMode && item.productId.trackingMode !== "none" ? item.productId.trackingMode as "lot" | "serial" : null;
+  const [lots, setLots] = useState<LotRow[]>([{ lotNumber: "", expiryDate: "", qty: 0 }]);
   const [cashAmount, setCashAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -695,6 +720,7 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
     try {
       await post("/api/comptoir/stock", {
         deskId, itemId: item._id, type, quantity: Number(quantity), reason,
+        ...(tracking && type === "in" ? { lots: lotsPayload(lots) } : {}),
         ...(type === "out" && withCash && Number(cashAmount) > 0 ? { cashAmount: Number(cashAmount), cashMethod: "cash" } : {}),
       });
       onSaved();
@@ -720,6 +746,8 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
         <FormField label={type === "adjust" ? "Nouveau stock" : "Quantité"} required>
           <input className={inputCls} type="number" min="0" value={quantity} onChange={e => setQuantity(e.target.value)} />
         </FormField>
+        {tracking && type === "in" && Number(quantity) > 0 && <LotsEditor mode={tracking} quantity={Number(quantity)} value={lots} onChange={setLots} />}
+        {tracking && type !== "in" && <p className="text-[11px] text-ink3">Article suivi par lot : la sortie prend d&apos;office le lot qui périme le plus tôt.</p>}
         {type === "out" && (
           <div className="rounded-xl border border-section/25 bg-section/5 p-3 space-y-2">
             <label className="flex items-center gap-2 text-sm font-medium text-ink">
@@ -742,6 +770,84 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
             {saving ? "Enregistrement…" : "Valider le mouvement"}
           </button>
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+
+interface CatalogProduct { _id: string; code: string; label: string; unit?: string; unitPrice?: number; trackingMode?: string }
+/** Articles stockés du catalogue (pour relier un article de comptoir). */
+function useCatalog() {
+  const [list, setList] = useState<CatalogProduct[]>([]);
+  useEffect(() => {
+    fetch("/api/products?isService=false&limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => setList(d?.data?.items ?? [])).catch(() => {});
+  }, []);
+  return list;
+}
+
+function LinkDialog({ item, onClose, onSaved }: { item: Item; onClose: () => void; onSaved: () => void }) {
+  const catalog = useCatalog();
+  const [productId, setProductId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  async function save() {
+    if (!productId) { setError("Choisissez l'article du catalogue."); return; }
+    try { await post(`/api/comptoir/items/${item._id}`, { productId }, "PATCH"); onSaved(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Rattachement impossible"); }
+  }
+  return (
+    <Modal open onClose={onClose} title={`Relier « ${item.name} » au catalogue`} size="md">
+      <div className="space-y-4">
+        <p className="text-sm text-ink2">Le stock actuel du comptoir ({item.quantity} {item.unit}) entre dans la réserve du comptoir, puis tout mouvement passe par la gestion de stock (entrepôts, lots, coût moyen).</p>
+        {error && <p className="px-3 py-2 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg">{error}</p>}
+        <select className={selectCls} value={productId} onChange={e => setProductId(e.target.value)} aria-label="Article du catalogue">
+          <option value="">— Choisir —</option>{catalog.map(p => <option key={p._id} value={p._id}>{p.code} — {p.label}</option>)}
+        </select>
+        <button onClick={save} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold">Relier</button>
+      </div>
+    </Modal>
+  );
+}
+
+function SupplyDialog({ deskId, items, onClose, onSaved }: { deskId: string; items: Item[]; onClose: () => void; onSaved: () => void }) {
+  const [warehouses, setWarehouses] = useState<Array<{ _id: string; name: string; kind: string; isDefault?: boolean }>>([]);
+  const [from, setFrom] = useState("");
+  const [qty, setQty] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    fetch("/api/warehouses", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => {
+      const list = (d?.data ?? []).filter((w: { kind: string }) => w.kind !== "comptoir");
+      setWarehouses(list);
+      const def = list.find((w: { isDefault?: boolean }) => w.isDefault) ?? list[0];
+      if (def) setFrom(def._id);
+    }).catch(() => setError("Liste des entrepôts inaccessible : l'approvisionnement se fait par le magasin ou le chef The Spot."));
+  }, []);
+  async function save() {
+    const lines = items.map(i => ({ itemId: i._id, quantity: Number(qty[i._id]) || 0 })).filter(l => l.quantity > 0);
+    if (!from || !lines.length) { setError("Choisissez l'entrepôt et au moins une quantité."); return; }
+    setSaving(true); setError(null);
+    try { await post("/api/comptoir/supply", { deskId, fromWarehouseId: from, lines }); onSaved(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Approvisionnement impossible"); }
+    finally { setSaving(false); }
+  }
+  return (
+    <Modal open onClose={onClose} title="Approvisionner le comptoir" size="md">
+      <div className="space-y-4">
+        <p className="text-sm text-ink2">Transfert depuis un entrepôt vers la réserve du comptoir ; les lots qui périment le plus tôt partent en premier.</p>
+        {error && <p className="px-3 py-2 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg">{error}</p>}
+        <FormField label="Depuis l'entrepôt">
+          <select className={selectCls} value={from} onChange={e => setFrom(e.target.value)}>{warehouses.map(w => <option key={w._id} value={w._id}>{w.name}</option>)}</select>
+        </FormField>
+        <div className="space-y-2">
+          {items.map(i => (
+            <div key={i._id} className="flex items-center gap-2">
+              <span className="flex-1 text-sm">{i.name} <span className="text-ink3 text-xs">({i.quantity} {i.unit} au comptoir)</span></span>
+              <input className={`${inputCls} w-28`} type="number" min="0" placeholder="Qté" value={qty[i._id] ?? ""} onChange={e => setQty(q => ({ ...q, [i._id]: e.target.value }))} aria-label={`Quantité — ${i.name}`} />
+            </div>
+          ))}
+        </div>
+        <button onClick={save} disabled={saving} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Transfert…" : "Approvisionner"}</button>
       </div>
     </Modal>
   );

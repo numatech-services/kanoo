@@ -53,6 +53,7 @@ export const POST = withAuth("products", "create", async (req: NextRequest, auth
       await applyMovement({
         tenantId: auth.tenantId, userId: auth.userId, productId: p._id, type: "entry", quantity: initialQty,
         unitCost: Number(body.initialCost ?? body.purchaseCost) || 0, reason: "Stock initial",
+        warehouseId: body.initialWarehouseId || undefined, lots: Array.isArray(body.initialLots) ? body.initialLots : undefined,
       }, session);
     }
     return p;
@@ -60,3 +61,4 @@ export const POST = withAuth("products", "create", async (req: NextRequest, auth
   await logAudit(auth, "CREATE", "products", { resourceId: product._id.toString(), after: { code } });
   return created(await ProductModel.findById(product._id).lean());
 });
+

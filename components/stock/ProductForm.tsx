@@ -1,18 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
+import { useWarehouses } from "@/components/stock/useWarehouses";
+import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
 export interface ProductFormValue {
   code: string; label: string; description: string; unit: string; category: string; barcode: string; location: string;
   unitPrice: number; tvaRate: number; stockMinAlert: number; stockMaxAlert: number; preferredSupplierId: string;
-  isService: boolean; accountCode: string;
+  isService: boolean; accountCode: string; trackingMode: string;
   initialQty: number; initialCost: number;
 }
 
 const EMPTY: ProductFormValue = {
   code: "", label: "", description: "", unit: "unité", category: "", barcode: "", location: "",
   unitPrice: 0, tvaRate: 0.19, stockMinAlert: 0, stockMaxAlert: 0, preferredSupplierId: "",
-  isService: false, accountCode: "", initialQty: 0, initialCost: 0,
+  isService: false, accountCode: "", trackingMode: "none", initialQty: 0, initialCost: 0,
 };
 
 /**
@@ -36,6 +38,9 @@ export function ProductForm({ initial, onSave, onCancel, creating }: {
   const [suppliers, setSuppliers] = useState<Array<{ _id: string; name: string }>>([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const { warehouses } = useWarehouses();
+  const [initialWarehouseId, setInitialWarehouseId] = useState("");
+  const [initialLots, setInitialLots] = useState<LotRow[]>([{ lotNumber: "", expiryDate: "", qty: 0 }]);
   useEffect(() => {
     fetch("/api/suppliers?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => d?.data?.items && setSuppliers(d.data.items)).catch(() => {});
   }, []);
@@ -49,7 +54,10 @@ export function ProductForm({ initial, onSave, onCancel, creating }: {
       const { initialQty, initialCost, code, ...rest } = f;
       await onSave({
         ...rest, preferredSupplierId: f.preferredSupplierId || null,
-        ...(creating ? { code: code.trim(), initialQty, initialCost } : {}),
+        ...(creating ? {
+          code: code.trim(), initialQty, initialCost, initialWarehouseId: initialWarehouseId || undefined,
+          initialLots: f.trackingMode !== "none" && initialQty > 0 ? lotsPayload(initialLots) : undefined,
+        } : {}),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Enregistrement impossible");
@@ -94,10 +102,28 @@ export function ProductForm({ initial, onSave, onCancel, creating }: {
               {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
             </select>
           </FormField>
+          <FormField label="Suivi" hint="Lot : péremption et traçabilité ; série : chaque unité a son numéro">
+            <select className={selectCls} value={f.trackingMode} onChange={e => u("trackingMode", e.target.value)}>
+              <option value="none">Aucun (quantité seule)</option>
+              <option value="lot">Par lot (péremption)</option>
+              <option value="serial">Par numéro de série</option>
+            </select>
+          </FormField>
           {creating && (
-            <div className="grid sm:grid-cols-2 gap-3 rounded-lg border border-line2 p-3">
+            <div className="grid sm:grid-cols-3 gap-3 rounded-lg border border-line2 p-3">
+              <FormField label="Entrepôt du stock initial">
+                <select className={selectCls} value={initialWarehouseId} onChange={e => setInitialWarehouseId(e.target.value)}>
+                  <option value="">Entrepôt par défaut</option>
+                  {warehouses.filter(w => w.kind !== "comptoir").map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
+                </select>
+              </FormField>
               <FormField label="Stock initial" hint="Enregistré comme une entrée"><input type="number" min={0} className={inputCls} value={f.initialQty} onChange={e => u("initialQty", Number(e.target.value))} /></FormField>
               <FormField label="Coût d'achat unitaire (XOF)" hint="Fixe le coût moyen (CMUP)"><input type="number" min={0} className={inputCls} value={f.initialCost} onChange={e => u("initialCost", Number(e.target.value))} /></FormField>
+              {f.trackingMode !== "none" && f.initialQty > 0 && (
+                <div className="sm:col-span-3">
+                  <LotsEditor mode={f.trackingMode === "serial" ? "serial" : "lot"} quantity={f.initialQty} value={initialLots} onChange={setInitialLots} />
+                </div>
+              )}
             </div>
           )}
         </>
