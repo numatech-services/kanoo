@@ -19,6 +19,7 @@ interface User {
   firstName: string;
   lastName: string;
   email: string;
+  phone?: string;
   role: string;
   roles?: string[];
   roleLevels?: Record<string, string>;
@@ -49,6 +50,7 @@ export default function UsersPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [reset, setReset] = useState<{ user: User; password: string } | null>(null);
   const [editing, setEditing] = useState<User | null>(null);
+  const [service, setService] = useState("");
   const LIMIT = 20;
 
   const load = useCallback(async () => {
@@ -158,9 +160,11 @@ export default function UsersPage() {
   const rolesOf = (u: User) => (u.roles?.length ? u.roles : [u.role]);
   const isLegacyUser = (u: User) => rolesOf(u).some(r => ROLE_UI[r as UserRole]?.legacy);
   const legacyCount = users.filter(u => u.isActive && isLegacyUser(u)).length;
-  const shown = group === "__legacy"
+  const byGroup = group === "__legacy"
     ? users.filter(isLegacyUser)
     : group ? users.filter(u => rolesOf(u).some(r => ROLE_UI[r as UserRole]?.group === group)) : users;
+  // Filtre par service (et niveau affiché dans la liste).
+  const shown = service ? byGroup.filter(u => rolesOf(u).includes(service)) : byGroup;
   const activeAdmins = users.filter(u => u.isActive && isTenantAdmin(u.role)).length;
 
   return (
@@ -207,6 +211,11 @@ export default function UsersPage() {
         value={group}
         onChange={setGroup}
       />
+      <select value={service} onChange={e => setService(e.target.value)} aria-label="Filtrer par service"
+        className="h-9 px-3 rounded-lg border border-line2 bg-surface text-sm text-ink">
+        <option value="">Tous les services</option>
+        {roles.filter(r => r.startsWith("svc_")).map(r => <option key={r} value={r}>{ROLE_UI[r]?.label ?? r}</option>)}
+      </select>
 
       {loading ? (
         <div className="surface-card p-6 space-y-3">
@@ -474,16 +483,18 @@ function EditAccessDialog({ user, roles, onClose, onSaved }: {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ident, setIdent] = useState({ firstName: user.firstName, lastName: user.lastName, phone: user.phone ?? "" });
 
   async function save() {
     if (access.roles.length === 0) { setError("Au moins un rôle par collaborateur."); return; }
+    if (!ident.firstName.trim() || !ident.lastName.trim()) { setError("Prénom et nom obligatoires."); return; }
     setSaving(true); setError(null);
     try {
       const res = await fetch(`/api/users/${user._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
         credentials: "include",
-        body: JSON.stringify(accessPayload(access)),
+        body: JSON.stringify({ ...accessPayload(access), firstName: ident.firstName.trim(), lastName: ident.lastName.trim(), phone: ident.phone.trim() }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Modification refusée");
@@ -496,8 +507,13 @@ function EditAccessDialog({ user, roles, onClose, onSaved }: {
   }
 
   return (
-    <Modal open onClose={onClose} title={`Accès de ${user.firstName} ${user.lastName}`} size="lg">
+    <Modal open onClose={onClose} title={`Compte et accès — ${user.firstName} ${user.lastName}`} size="lg">
       <div className="space-y-4">
+        <div className="grid sm:grid-cols-3 gap-2">
+          <input className="h-9 px-3 rounded-lg border border-line2 bg-surface text-sm" value={ident.firstName} onChange={e => setIdent(p => ({ ...p, firstName: e.target.value }))} placeholder="Prénom" aria-label="Prénom" />
+          <input className="h-9 px-3 rounded-lg border border-line2 bg-surface text-sm" value={ident.lastName} onChange={e => setIdent(p => ({ ...p, lastName: e.target.value }))} placeholder="Nom" aria-label="Nom" />
+          <input className="h-9 px-3 rounded-lg border border-line2 bg-surface text-sm" value={ident.phone} onChange={e => setIdent(p => ({ ...p, phone: e.target.value }))} placeholder="Téléphone" aria-label="Téléphone" />
+        </div>
         <AccessEditor value={access} onChange={setAccess} assignable={roles} />
         {error && <p className="px-3 py-2 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg">{error}</p>}
         <div className="flex justify-end gap-3 pt-3 border-t border-line">

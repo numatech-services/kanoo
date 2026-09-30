@@ -132,6 +132,13 @@ export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: 
   for (const [k, v] of Object.entries(update)) {
     if (v === undefined || v === null) $unset[k] = 1; else $set[k] = v;
   }
+  // Empreinte de l'accès avant / après : seule une modification réelle ferme les
+  // sessions (enregistrer le nom ou le téléphone ne déconnecte plus personne).
+  type AccessDoc = { role?: string; roles?: string[]; roleLevels?: unknown; siteIds?: unknown[]; isActive?: boolean } | null;
+  const sig = (u: AccessDoc) => JSON.stringify([u?.role, [...(u?.roles ?? [])].sort(),
+    Object.entries(u?.roleLevels instanceof Map ? Object.fromEntries(u.roleLevels) : (u?.roleLevels as Record<string, unknown>) ?? {}).sort(),
+    (u?.siteIds ?? []).map(String).sort(), u?.isActive]);
+  const before = await UserModel.findOne({ _id: params.id, ...tenantFilter(auth) }).select("role roles roleLevels siteIds isActive").lean<AccessDoc>();
   const user = await UserModel.findOneAndUpdate(
     { _id: params.id, ...tenantFilter(auth) },
     { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) },
@@ -142,7 +149,7 @@ export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: 
   // Un changement de rôle ou une désactivation prend effet immédiatement —
   // `withAuth` relit la base à chaque requête. La révocation explicite ferme
   // en plus les sessions ouvertes, pour que l'intéressé le constate.
-  if (losesAdmin || "role" in update || "roles" in update || "roleLevels" in update || "siteIds" in update) {
+  if (losesAdmin || sig(before) !== sig(user.toObject() as AccessDoc)) {
     await UserModel.updateOne({ _id: params.id }, { $inc: { sessionVersion: 1 } });
   }
   await logAudit(auth, "UPDATE", "users", { resourceId: params.id });
