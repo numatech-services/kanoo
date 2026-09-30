@@ -9,12 +9,13 @@ import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { loadPolicy } from "@/lib/expense-policy";
 import {
   totals, checkLines, canSubmit, canTransition, transitionError,
-  commitmentEntry, reimbursementEntry, isBalanced,
+  commitmentEntry, reimbursementEntry, isBalanced, sanitizeExpenseLine,
   type ExpenseLine, type ExpenseStatus,
 } from "@/lib/expenses";
 import { expenseAuthority, teamMembers, canReimburse } from "@/lib/expense-scope";
 import { logAudit } from "@/lib/audit";
 import { ledgerFor, treasuryKind } from "@/lib/treasury";
+import { checkImputations } from "@/lib/imputation";
 import { TokenPayload } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -283,7 +284,14 @@ export const PATCH = withAuth("expenses", "update", async (req: NextRequest, aut
 
   if (body.title !== undefined) report.title = String(body.title).trim().slice(0, 200);
   if (body.notes !== undefined) report.notes = String(body.notes).slice(0, 2000);
-  if (Array.isArray(body.lines)) report.lines = body.lines;
+  if (Array.isArray(body.lines)) {
+    // Même contrôle qu'à la création : les lignes étaient recopiées telles quelles.
+    const lines = body.lines.map(sanitizeExpenseLine).filter(Boolean) as ExpenseLine[];
+    if (lines.length !== body.lines.length) return badRequest("Une ligne au moins porte une nature ou une date invalide.");
+    const impErr = await checkImputations(auth.tenantId, lines);
+    if (impErr) return badRequest(impErr);
+    report.lines = lines as never;
+  }
 
   const policy = await loadPolicy(auth.tenantId);
   const t = totals(report.lines as ExpenseLine[], policy);

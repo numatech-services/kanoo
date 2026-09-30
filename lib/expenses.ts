@@ -96,6 +96,9 @@ export interface ExpenseLine {
   currency?: string;
   exchangeRate?: number;
   projectId?: string;
+  /** Imputation analytique : secteur d'activité et service (centre de coût). */
+  activityId?: string;
+  costCenter?: string;
   clientId?: string;
   attachmentCount?: number;
 }
@@ -262,6 +265,9 @@ export interface EntryLine {
   accountLabel: string;
   debit: number;
   credit: number;
+  projectId?: string;
+  activityId?: string;
+  costCenter?: string;
 }
 
 /**
@@ -277,22 +283,28 @@ export interface EntryLine {
 export function commitmentEntry(
   lines: ExpenseLine[], policy: ExpensePolicy
 ): EntryLine[] {
-  const byAccount = new Map<string, { label: string; amount: number }>();
+  // Regroupement par compte ET imputation : deux taxis du même projet font une
+  // ligne, deux projets différents en font deux (le coût de chacun reste juste).
+  const byKey = new Map<string, { code: string; label: string; amount: number; projectId?: string; activityId?: string; costCenter?: string }>();
   let vat = 0;
   let total = 0;
 
   for (const line of lines) {
     const c = computeLine(line, policy);
-    const current = byAccount.get(c.account);
+    const key = [c.account, line.projectId ?? "", line.activityId ?? "", line.costCenter ?? ""].join("|");
+    const current = byKey.get(key);
     if (current) current.amount += c.amountHT;
-    else byAccount.set(c.account, { label: c.accountLabel, amount: c.amountHT });
+    else byKey.set(key, { code: c.account, label: c.accountLabel, amount: c.amountHT, projectId: line.projectId, activityId: line.activityId, costCenter: line.costCenter });
     vat += c.vatDeducted;
     total += c.amountTTC;
   }
 
-  const entry: EntryLine[] = [...byAccount.entries()]
-    .filter(([, v]) => v.amount !== 0)
-    .map(([code, v]) => ({ accountCode: code, accountLabel: v.label, debit: v.amount, credit: 0 }));
+  const entry: EntryLine[] = [...byKey.values()]
+    .filter(v => v.amount !== 0)
+    .map(v => ({
+      accountCode: v.code, accountLabel: v.label, debit: v.amount, credit: 0,
+      ...(v.projectId ? { projectId: v.projectId } : {}), ...(v.activityId ? { activityId: v.activityId } : {}), ...(v.costCenter ? { costCenter: v.costCenter } : {}),
+    }));
 
   if (vat > 0) {
     entry.push({ accountCode: VAT_RECOVERABLE.account, accountLabel: VAT_RECOVERABLE.label, debit: vat, credit: 0 });
@@ -359,4 +371,37 @@ export function transitionError(from: ExpenseStatus, to: ExpenseStatus): string 
       + "Revenir en arrière suppose une contre-passation, pas une modification.";
   }
   return `Passage impossible de « ${STATUS_LABEL[from]} » à « ${STATUS_LABEL[to]} ».`;
+}
+
+const VALID_CATEGORIES = new Set(Object.keys(CATEGORIES));
+
+/** Normalise une ligne reçue du client. Le serveur ne fait confiance à rien. */
+export function sanitizeExpenseLine(raw: unknown): ExpenseLine | null {
+  const l = raw as Record<string, unknown>;
+  const category = String(l.category || "");
+  if (!VALID_CATEGORIES.has(category)) return null;
+
+  const date = new Date(String(l.date || ""));
+  if (Number.isNaN(date.getTime())) return null;
+
+  const spec = CATEGORIES[category as ExpenseCategory];
+  return {
+    date,
+    category: category as ExpenseCategory,
+    description: String(l.description || "").slice(0, 300),
+    amountTTC: Math.max(0, Number(l.amountTTC) || 0),
+    vatAmount: Math.max(0, Number(l.vatAmount) || 0),
+    // Le défaut de la nature s'applique si l'appelant ne tranche pas ; le
+    // choix est ensuite figé sur la ligne.
+    vatRecoverable: typeof l.vatRecoverable === "boolean"
+      ? l.vatRecoverable : spec.vatRecoverableByDefault,
+    distanceKm: l.distanceKm ? Number(l.distanceKm) : undefined,
+    currency: String(l.currency || "XOF"),
+    exchangeRate: l.exchangeRate ? Number(l.exchangeRate) : undefined,
+    projectId: l.projectId ? String(l.projectId) : undefined,
+    activityId: l.activityId ? String(l.activityId) : undefined,
+    costCenter: l.costCenter ? String(l.costCenter).slice(0, 20) : undefined,
+    clientId: l.clientId ? String(l.clientId) : undefined,
+    attachmentCount: 0,
+  };
 }

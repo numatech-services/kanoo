@@ -6,6 +6,8 @@ import { ConversationModel } from "@/models/Conversation";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { maskProjectMoney, stripProjectMoneyWrites } from "@/lib/payroll-mask";
+import { projectFinance } from "@/lib/project-finance";
+import { hasFinanceAccess } from "@/lib/role-resources";
 
 export const GET = withAuth("projects", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
@@ -29,7 +31,9 @@ export const GET = withAuth("projects", "read", async (req: NextRequest, auth: T
     ProjectModel.countDocuments(filter),
   ]);
 
-  return paginatedResponse(items.map(p => maskProjectMoney(p as Record<string, unknown>, auth)), total, pagination);
+  if (!hasFinanceAccess(auth)) return paginatedResponse(items.map(p => maskProjectMoney(p as Record<string, unknown>, auth)), total, pagination);
+  const fin = await projectFinance(auth.tenantId, items.map(p => p._id));
+  return paginatedResponse(items.map(p => ({ ...p, finance: fin.get(String(p._id)) ?? { cost: 0, revenue: 0, margin: 0 } })), total, pagination);
 });
 
 export const POST = withAuth("projects", "create", async (req: NextRequest, auth: TokenPayload) => {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
+import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 
 export type UnitType = "unité" | "m³" | "L" | "kg" | "m²" | "Année" | "Mois";
 
@@ -25,6 +26,8 @@ export interface InvoiceFormData {
   lines: InvoiceLine[];
   notes?: string;
   termsAndConditions?: string;
+  projectId?: string | null;
+  activityId?: string | null;
 }
 
 interface Client { 
@@ -83,6 +86,8 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
   const [issueDate, setIssueDate] = useState(initial?.issueDate?.slice(0, 10) || today);
   const [dueDate, setDueDate] = useState(initial?.dueDate?.slice(0, 10) || in30);
   const [notes, setNotes] = useState(initial?.notes || "");
+  const idOf = (v: unknown) => (v && typeof v === "object" ? String((v as { _id: string })._id) : v ? String(v) : undefined);
+  const [imputation, setImputation] = useState<ImputationValue>({ projectId: idOf(initial?.projectId), activityId: idOf(initial?.activityId) });
   const [lines, setLines] = useState<InvoiceLine[]>(
     initial?.lines?.length ? initial.lines : [calcLine({ description: "", quantity: 1, unit: "unité", unitPrice: 0 })]
   );
@@ -128,7 +133,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
     setError("");
     
     try {
-      await onSave({ clientId, issueDate, dueDate, lines, notes });
+      await onSave({ clientId, issueDate, dueDate, lines, notes, projectId: imputation.projectId ?? null, activityId: imputation.activityId ?? null });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue");
     } finally {
@@ -233,6 +238,11 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="space-y-1">
+        <p className="text-sm font-semibold text-ink">Imputation de la recette</p>
+        <ImputationFields value={imputation} onChange={setImputation} hideCostCenter />
       </div>
 
       <FormField label="Notes internes">

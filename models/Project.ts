@@ -111,7 +111,8 @@ ProjectSchema.pre("save", function(next) {
     this.executionRate = totalWeight > 0 ? Math.round((doneWeight / totalWeight) * 100) : 0;
   }
   if (this.budget && this.budget > 0 && this.spentAmount !== undefined) {
-    this.budgetRate = Math.round((this.spentAmount / this.budget) * 100);
+    // Borné au maximum du schéma (200 %) : un dépassement se lit, il ne doit pas faire échouer l'enregistrement.
+    this.budgetRate = Math.min(200, Math.round((this.spentAmount / this.budget) * 100));
   }
   next();
 });

@@ -3,7 +3,8 @@ import { NextRequest } from "next/server";
 import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
 import { ExpenseReportModel } from "@/models/ExpenseReport";
 import { EmployeeModel } from "@/models/Employee";
-import { CATEGORIES, totals, DEFAULT_POLICY, type ExpenseCategory, type ExpenseLine } from "@/lib/expenses";
+import { CATEGORIES, totals, DEFAULT_POLICY, sanitizeExpenseLine, type ExpenseLine } from "@/lib/expenses";
+import { checkImputations } from "@/lib/imputation";
 import { loadPolicy } from "@/lib/expense-policy";
 import { expenseAuthority, teamMembers } from "@/lib/expense-scope";
 import { logAudit } from "@/lib/audit";
@@ -74,37 +75,6 @@ export const GET = withAuth("expenses", "read", async (req: NextRequest, auth: T
   });
 });
 
-const VALID_CATEGORIES = new Set(Object.keys(CATEGORIES));
-
-/** Normalise une ligne reçue du client. Le serveur ne fait confiance à rien. */
-function sanitizeLine(raw: unknown): ExpenseLine | null {
-  const l = raw as Record<string, unknown>;
-  const category = String(l.category || "");
-  if (!VALID_CATEGORIES.has(category)) return null;
-
-  const date = new Date(String(l.date || ""));
-  if (Number.isNaN(date.getTime())) return null;
-
-  const spec = CATEGORIES[category as ExpenseCategory];
-  return {
-    date,
-    category: category as ExpenseCategory,
-    description: String(l.description || "").slice(0, 300),
-    amountTTC: Math.max(0, Number(l.amountTTC) || 0),
-    vatAmount: Math.max(0, Number(l.vatAmount) || 0),
-    // Le défaut de la nature s'applique si l'appelant ne tranche pas ; le
-    // choix est ensuite figé sur la ligne.
-    vatRecoverable: typeof l.vatRecoverable === "boolean"
-      ? l.vatRecoverable : spec.vatRecoverableByDefault,
-    distanceKm: l.distanceKm ? Number(l.distanceKm) : undefined,
-    currency: String(l.currency || "XOF"),
-    exchangeRate: l.exchangeRate ? Number(l.exchangeRate) : undefined,
-    projectId: l.projectId ? String(l.projectId) : undefined,
-    clientId: l.clientId ? String(l.clientId) : undefined,
-    attachmentCount: 0,
-  };
-}
-
 export const POST = withAuth("expenses", "create", async (req: NextRequest, auth: TokenPayload) => {
   const body = await req.json().catch(() => ({}));
 
@@ -129,10 +99,12 @@ export const POST = withAuth("expenses", "create", async (req: NextRequest, auth
   employeeId = String(employeeId);
 
   const rawLines = Array.isArray(body.lines) ? body.lines : [];
-  const lines = rawLines.map(sanitizeLine).filter(Boolean) as ExpenseLine[];
+  const lines = rawLines.map(sanitizeExpenseLine).filter(Boolean) as ExpenseLine[];
   if (rawLines.length > 0 && lines.length !== rawLines.length) {
     return badRequest("Une ligne au moins porte une nature ou une date invalide.");
   }
+  const impErr = await checkImputations(auth.tenantId, lines);
+  if (impErr) return badRequest(impErr);
 
   const policy = await loadPolicy(auth.tenantId);
   const t = totals(lines, policy ?? DEFAULT_POLICY);

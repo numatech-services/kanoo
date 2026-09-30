@@ -15,6 +15,7 @@ interface Project {
   status: string;
   budget: number;
   amountsHidden?: boolean;
+  finance?: { cost: number; revenue: number; margin: number };
   spentAmount: number;
   endDate?: string;
   bailleurName?: string;
@@ -73,7 +74,8 @@ export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary })
   // pas sur l'ensemble du portefeuille : l'intitulé le dit.
   const totals = useMemo(() => {
     const budget = projects.reduce((s, p) => s + (p.budget || 0), 0);
-    const spent = projects.reduce((s, p) => s + (p.spentAmount || 0), 0);
+    // Coût réel : charges imputées en comptabilité + anciennes saisies manuelles.
+    const spent = projects.reduce((s, p) => s + (p.finance?.cost ?? 0) + (p.spentAmount || 0), 0);
     return {
       budget, spent,
       rate: budget > 0 ? Math.round((spent / budget) * 100) : 0,
@@ -155,7 +157,8 @@ export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary })
           // consommation budgétaire — un projet peut avoir dépensé 90 % de son
           // budget pour 30 % du travail, et c'est précisément ce qu'il faut voir.
           const execRate = tasks.length > 0 ? Math.round((tasksDone / tasks.length) * 100) : 0;
-          const budgetRate = p.budget > 0 ? Math.round((p.spentAmount / p.budget) * 100) : 0;
+          const cost = (p.finance?.cost ?? 0) + (p.spentAmount || 0);
+          const budgetRate = p.budget > 0 ? Math.round((cost / p.budget) * 100) : 0;
 
           return (
             <button key={p._id} type="button"
@@ -198,7 +201,7 @@ export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary })
                     style={{ width: `${Math.min(budgetRate, 100)}%` }} />
                 </div>
                 <p className="text-[10px] text-right mt-1 text-ink3 num">
-                  {(p.spentAmount || 0).toLocaleString("fr-FR")} / {(p.budget || 0).toLocaleString("fr-FR")} XOF
+                  {cost.toLocaleString("fr-FR")} / {(p.budget || 0).toLocaleString("fr-FR")} XOF
                 </p>
               </div>}
 

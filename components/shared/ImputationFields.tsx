@@ -23,15 +23,15 @@ function loadOptions(): Promise<Options> {
  * Imputation analytique : projet, secteur d'activité, service. Les trois sont
  * facultatifs. `compact` : sur une seule ligne (lignes de tableau).
  */
-export function ImputationFields({ value, onChange, compact = false, hideCostCenter = false }: {
-  value: ImputationValue; onChange: (v: ImputationValue) => void; compact?: boolean; hideCostCenter?: boolean;
+export function ImputationFields({ value, onChange, compact = false, hideCostCenter = false, disabled = false }: {
+  value: ImputationValue; onChange: (v: ImputationValue) => void; compact?: boolean; hideCostCenter?: boolean; disabled?: boolean;
 }) {
   const [opts, setOpts] = useState<Options>({ projects: [], activities: [], costCenters: [] });
   useEffect(() => { loadOptions().then(setOpts); }, []);
   const set = (patch: ImputationValue) => onChange({ ...value, ...patch });
-  const cls = `${selectCls} ${compact ? "h-9 text-xs" : ""}`;
+  const cls = `${selectCls} ${compact ? "h-8 text-xs" : ""}`;
   return (
-    <div className={compact ? "grid grid-cols-3 gap-2" : "grid sm:grid-cols-3 gap-3"}>
+    <fieldset disabled={disabled} className={compact ? `grid ${hideCostCenter ? "grid-cols-2" : "grid-cols-3"} gap-2 min-w-[16rem]` : "grid sm:grid-cols-3 gap-3"}>
       <label className="block">
         {!compact && <span className="block text-xs font-medium text-ink2 mb-1">Projet</span>}
         <select className={cls} value={value.projectId ?? ""} onChange={e => set({ projectId: e.target.value || undefined })} aria-label="Projet">
@@ -55,6 +55,6 @@ export function ImputationFields({ value, onChange, compact = false, hideCostCen
           </select>
         </label>
       )}
-    </div>
+    </fieldset>
   );
 }

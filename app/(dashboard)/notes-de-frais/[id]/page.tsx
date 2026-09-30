@@ -16,6 +16,7 @@ import {
   CATEGORIES, STATUS_LABEL, computeLine,
   type ExpenseCategory, type ExpenseStatus, type ExpensePolicy, type LineIssue,
 } from "@/lib/expenses";
+import { ImputationFields } from "@/components/shared/ImputationFields";
 
 interface Line {
   _id: string;
@@ -26,6 +27,9 @@ interface Line {
   vatAmount: number;
   vatRecoverable: boolean;
   attachmentCount?: number;
+  projectId?: string;
+  activityId?: string;
+  costCenter?: string;
 }
 
 interface Report {
@@ -273,12 +277,12 @@ export default function NoteDeFraisPage() {
               <tr>
                 <th>Date</th><th>Nature</th><th>Objet</th>
                 <th className="text-right">Montant TTC</th><th className="text-right">dont TVA</th>
-                <th>Justificatif</th><th></th>
+                <th>Imputation</th><th>Justificatif</th><th></th>
               </tr>
             </thead>
             <tbody>
               {report.lines.length === 0 && (
-                <tr><td colSpan={7} className="py-10 text-center text-ink3">
+                <tr><td colSpan={8} className="py-10 text-center text-ink3">
                   Aucune dépense. Ajoutez-en une, puis photographiez son reçu.
                 </td></tr>
               )}
@@ -358,6 +362,15 @@ export default function NoteDeFraisPage() {
                       {computed.vatDeducted === 0 && line.vatAmount > 0 && (
                         <p className="text-[10px] text-ink3">non déductible</p>
                       )}
+                    </td>
+                    <td>
+                      <ImputationFields compact hideCostCenter disabled={!editable}
+                        value={{ projectId: line.projectId, activityId: line.activityId }}
+                        onChange={v => {
+                          const lines = report.lines.map((l, i) => (i === index ? { ...l, projectId: v.projectId, activityId: v.activityId } : l));
+                          setData({ ...data!, report: { ...report, lines } });
+                          saveLines(lines);
+                        }} />
                     </td>
                     <td>
                       <ReceiptCapture

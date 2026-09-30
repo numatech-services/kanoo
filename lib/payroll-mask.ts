@@ -66,7 +66,10 @@ export function stripProjectMoneyWrites(body: Record<string, unknown>, auth: Aut
   if (hasFinanceAccess(auth)) return body;
   const copy = { ...body };
   for (const f of PROJECT_MONEY) delete copy[f];
-  // Les jalons portent des montants : un tableau renvoyé sans eux les effacerait.
-  delete copy.milestones;
+  // Jalons : modifiables, mais sans montant ni facture liée (la route recopie
+  // ceux déjà enregistrés, pour ne pas les effacer).
+  if (Array.isArray(copy.milestones)) {
+    copy.milestones = (copy.milestones as Array<Record<string, unknown>>).map(({ amount: _a, invoiceId: _i, ...m }) => m);
+  }
   return copy;
 }

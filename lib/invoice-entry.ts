@@ -1,0 +1,66 @@
+import type { ClientSession } from "mongoose";
+import { ProductModel } from "@/models/Product";
+import { AccountingEntryModel } from "@/models/AccountingEntry";
+import { reverseEntry } from "@/lib/accounting-reversal";
+import { calculerTVA, calculerDTS, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
+
+export interface InvoiceLineIn { description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; discount?: number; productId?: unknown }
+
+/** Totaux d'une facture : somme des lignes arrondies (jamais l'arrondi de la somme). */
+export function computeInvoiceLines(raw: InvoiceLineIn[]) {
+  let totalHT = 0, totalTVA = 0;
+  const lines = raw.map(line => {
+    const q = Number(line.quantity) || 0, pu = Number(line.unitPrice) || 0;
+    const lineHT = Math.round(q * pu * (1 - (Number(line.discount) || 0) / 100));
+    const lineTVA = calculerTVA(lineHT, line.tvaRate ?? TVA_TAUX_STANDARD);
+    totalHT += lineHT; totalTVA += lineTVA;
+    return { ...line, quantity: q, unitPrice: pu, totalHT: lineHT, totalTVA: lineTVA, totalTTC: lineHT + lineTVA };
+  });
+  const totalDTS = calculerDTS(totalHT + totalTVA);
+  return { lines, totalHT, totalTVA, totalDTS, totalTTC: totalHT + totalTVA + totalDTS };
+}
+
+/**
+ * Lignes de l'écriture de vente (VT). Le chiffre d'affaires est ventilé par
+ * compte de produit — celui de l'article (marchandises 701, services 706…) —
+ * et porte l'imputation de la facture (projet, secteur) : c'est ce qui
+ * alimente les recettes des projets et la rentabilité par secteur.
+ */
+export async function saleEntryLines(
+  tenantId: string,
+  inv: { clientId: unknown; lines: Array<{ productId?: unknown; totalHT: number }>; totalTVA: number; totalDTS: number; totalTTC: number; projectId?: unknown; activityId?: unknown },
+  session?: ClientSession,
+) {
+  const ids = inv.lines.map(l => l.productId).filter(Boolean);
+  const products = ids.length
+    ? await ProductModel.find({ tenantId, _id: { $in: ids } }).select("accountCode isService").session(session ?? null).lean<Array<{ _id: unknown; accountCode?: string; isService?: boolean }>>()
+    : [];
+  const byId = new Map(products.map(p => [String(p._id), p]));
+  const byAccount = new Map<string, number>();
+  for (const l of inv.lines) {
+    const p = l.productId ? byId.get(String(l.productId)) : undefined;
+    const code = p?.accountCode && /^7\d{2,7}$/.test(p.accountCode) ? p.accountCode : p && !p.isService ? "701100" : "706000";
+    byAccount.set(code, (byAccount.get(code) ?? 0) + l.totalHT);
+  }
+  const LABELS: Record<string, string> = { "701100": "Ventes de marchandises", "706000": "Prestations de services" };
+  const tags = { ...(inv.projectId ? { projectId: inv.projectId } : {}), ...(inv.activityId ? { activityId: inv.activityId } : {}) };
+  return [
+    { accountCode: "411000", accountLabel: "Clients", debit: inv.totalTTC, credit: 0, thirdPartyId: inv.clientId },
+    ...[...byAccount.entries()].filter(([, v]) => v !== 0).map(([code, v]) => ({ accountCode: code, accountLabel: LABELS[code] ?? "Ventes", debit: 0, credit: v, ...tags })),
+    ...(inv.totalTVA > 0 ? [{ accountCode: "443000", accountLabel: "TVA collectée", debit: 0, credit: inv.totalTVA }] : []),
+    ...(inv.totalDTS > 0 ? [{ accountCode: "447000", accountLabel: "Droits de timbre", debit: 0, credit: inv.totalDTS }] : []),
+  ];
+}
+
+/** Écriture de vente active (non extournée) d'une facture. */
+export function findSaleEntry(tenantId: string, invoiceId: unknown, session?: ClientSession) {
+  return AccountingEntryModel.findOne({
+    tenantId, linkedDocType: "invoice", linkedDocId: invoiceId, journalCode: "VT", reversedBy: { $exists: false }, reverses: { $exists: false },
+  }).session(session ?? null);
+}
+
+/** Annulation d'une facture : son écriture de vente est extournée. */
+export async function reverseSaleEntry(opts: { tenantId: string; userId: string; invoiceId: unknown; reason: string }, session?: ClientSession) {
+  const entry = await findSaleEntry(opts.tenantId, opts.invoiceId, session);
+  if (entry) await reverseEntry({ tenantId: opts.tenantId, userId: opts.userId, entryId: entry._id, reason: opts.reason }, session);
+}

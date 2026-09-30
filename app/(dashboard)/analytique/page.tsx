@@ -5,7 +5,7 @@ import { PieChart, Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 interface Activity { _id: string; name: string; color?: string }
-interface Sector { activityId: string; name: string; color?: string; revenue: number; expense: number; result: number }
+interface Sector { activityId: string; name: string; color?: string; revenue: number; expense: number; result: number; fromAccounting?: { revenue: number; expense: number } }
 interface Report { sectors: Sector[]; general: { revenue: number; expense: number }; consolidated: { revenue: number; expense: number; result: number } | null; isAdmin: boolean }
 interface Entry { _id: string; kind: string; label: string; amount: number; date: string; activityId?: { name?: string } | null }
 
@@ -66,14 +66,18 @@ export default function AnalytiquePage() {
       <section className="surface-card overflow-hidden">
         <h2 className="font-semibold text-ink px-5 py-4 border-b border-line">Rentabilité par activité</h2>
         {!report || report.sectors.length === 0 ? (
-          <p className="text-sm text-ink3 p-6 text-center">Aucun secteur. Créez-en un (bouton « Secteur »), puis imputez recettes et dépenses ci-dessous.</p>
+          <p className="text-sm text-ink3 p-6 text-center">Aucun secteur. Créez-en un (bouton « Secteur ») : factures, achats, notes de frais et charges imputés au secteur y remontent automatiquement.</p>
         ) : (
           <table className="table-dense w-full">
             <thead><tr className="bg-surface2/50"><th>Secteur</th><th className="text-right">Recettes</th><th className="text-right">Dépenses</th><th className="text-right">Résultat</th><th></th></tr></thead>
             <tbody>
               {report.sectors.map(s => (
                 <tr key={s.activityId} className="border-t border-line">
-                  <td className="px-4 py-2.5 font-medium text-ink">{s.name}</td>
+                  <td className="px-4 py-2.5 font-medium text-ink">{s.name}
+                    {s.fromAccounting && (s.fromAccounting.revenue !== 0 || s.fromAccounting.expense !== 0) && (
+                      <span className="block text-[11px] text-ink3 font-normal">dont comptabilité : +{fmt(s.fromAccounting.revenue)} / −{fmt(s.fromAccounting.expense)}</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5 text-right">{fmt(s.revenue)}</td>
                   <td className="px-4 py-2.5 text-right text-ink2">{fmt(s.expense)}</td>
                   <td className={`px-4 py-2.5 text-right font-bold ${s.result >= 0 ? "text-pos" : "text-neg"}`}>{fmt(s.result)}</td>

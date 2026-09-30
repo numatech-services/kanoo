@@ -7,6 +7,7 @@ import { ActivityModel } from "@/models/Activity";
 import { AnalyticEntryModel } from "@/models/AnalyticEntry";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
+import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { isTenantAdmin } from "@/lib/roles-ui";
 import { UserRole } from "@/types";
 
@@ -30,7 +31,11 @@ export const GET = withAuth("analytics", "read", async (req: NextRequest, auth: 
     match.date = range;
   }
 
-  const [activities, agg, desks, cashAgg] = await Promise.all([
+  // Écritures comptables imputées à un secteur (factures de vente, achats,
+  // notes de frais, charges récurrentes…) : classe 7 = recette, classe 6 = charge.
+  const entryMatch: Record<string, unknown> = { ...tenantFilter(auth), "lines.activityId": { $exists: true } };
+  if (match.date) entryMatch.entryDate = match.date;
+  const [activities, agg, desks, cashAgg, entryAgg] = await Promise.all([
     ActivityModel.find({ ...tenantFilter(auth) }).select("name color").lean<{ _id: Types.ObjectId; name: string; color?: string }[]>(),
     AnalyticEntryModel.aggregate([
       { $match: match },
@@ -42,6 +47,12 @@ export const GET = withAuth("analytics", "read", async (req: NextRequest, auth: 
     ActivityCashEntryModel.aggregate([
       { $match: match },
       { $group: { _id: { deskId: "$deskId", direction: "$direction" }, total: { $sum: "$amount" } } },
+    ]),
+    AccountingEntryModel.aggregate<{ _id: { a: Types.ObjectId; c: string }; debit: number; credit: number }>([
+      { $match: entryMatch },
+      { $unwind: "$lines" },
+      { $match: { "lines.activityId": { $exists: true, $ne: null }, "lines.accountCode": { $regex: "^[67]" } } },
+      { $group: { _id: { a: "$lines.activityId", c: { $substrCP: ["$lines.accountCode", 0, 1] } }, debit: { $sum: "$lines.debit" }, credit: { $sum: "$lines.credit" } } },
     ]),
   ]);
 
@@ -69,9 +80,21 @@ export const GET = withAuth("analytics", "read", async (req: NextRequest, auth: 
     byActivity.set(key, cur);
   }
 
+  // Comptabilité : recettes et charges imputées au secteur.
+  const fromAccounting = new Map<string, { revenue: number; expense: number }>();
+  for (const row of entryAgg) {
+    const key = String(row._id.a);
+    const cur = byActivity.get(key) || { revenue: 0, expense: 0 };
+    const acc = fromAccounting.get(key) || { revenue: 0, expense: 0 };
+    if (row._id.c === "7") { cur.revenue += row.credit - row.debit; acc.revenue += row.credit - row.debit; }
+    else { cur.expense += row.debit - row.credit; acc.expense += row.debit - row.credit; }
+    byActivity.set(key, cur); fromAccounting.set(key, acc);
+  }
+
   const sectors = activities.map((a) => {
     const v = byActivity.get(String(a._id)) || { revenue: 0, expense: 0 };
-    return { activityId: String(a._id), name: a.name, color: a.color, revenue: v.revenue, expense: v.expense, result: v.revenue - v.expense };
+    return { activityId: String(a._id), name: a.name, color: a.color, revenue: v.revenue, expense: v.expense, result: v.revenue - v.expense,
+      fromAccounting: fromAccounting.get(String(a._id)) ?? { revenue: 0, expense: 0 } };
   }).sort((x, y) => y.result - x.result);
 
   const admin = isTenantAdmin(auth.role as UserRole) || (auth.roles ?? []).some(r => isTenantAdmin(r as UserRole));

@@ -5,7 +5,8 @@ import { InvoiceModel } from "@/models/Invoice";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { ClientModel } from "@/models/Client";
 import { logAudit } from "@/lib/audit";
-import { calculerTVA, calculerDTS, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
+import { computeInvoiceLines, saleEntryLines } from "@/lib/invoice-entry";
+import { pickImputation, checkImputations } from "@/lib/imputation";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { withTransaction } from "@/lib/db";
 import { TokenPayload } from "@/lib/auth";
@@ -67,30 +68,14 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
   const client = await ClientModel.findOne({ _id: body.clientId, tenantId: auth.tenantId });
   if (!client) return notFound("Client introuvable");
 
-  // ── Calcul des totaux ────────────────────────────────────────────────────
-  // Chaque ligne est arrondie au franc, et le total est la SOMME DES LIGNES
-  // ARRONDIES — pas l'arrondi de la somme. Autrement le pied de facture ne
-  // correspond pas à l'addition des lignes imprimées juste au-dessus, ce qui
-  // est indéfendable sur un document fiscal.
-  let totalHT = 0;
-  let totalTVA = 0;
-  const lines = body.lines.map((line: {
-    description: string;
-    quantity: number;
-    unitPrice: number;
-    tvaRate?: number;
-    discount?: number;
-    productId?: string;
-  }) => {
-    const lineHT = Math.round(line.quantity * line.unitPrice * (1 - (line.discount || 0) / 100));
-    const lineTVA = calculerTVA(lineHT, line.tvaRate ?? TVA_TAUX_STANDARD);
-    totalHT += lineHT;
-    totalTVA += lineTVA;
-    return { ...line, totalHT: lineHT, totalTVA: lineTVA, totalTTC: lineHT + lineTVA };
-  });
+  // Imputation analytique facultative (projet, secteur d'activité).
+  const imp = pickImputation(body);
+  const impErr = await checkImputations(auth.tenantId, [imp]);
+  if (impErr) return badRequest(impErr);
 
-  const totalDTS = calculerDTS(totalHT + totalTVA);
-  const totalTTC = totalHT + totalTVA + totalDTS;
+  // Chaque ligne est arrondie au franc, et le total est la SOMME DES LIGNES
+  // ARRONDIES — pas l'arrondi de la somme (lib/invoice-entry).
+  const { lines, totalHT, totalTVA, totalDTS, totalTTC } = computeInvoiceLines(body.lines);
 
   const result = await withTransaction(async (session) => {
     // La séquence est consommée DANS la transaction : si la création échoue
@@ -105,7 +90,7 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
     const [invoice] = await InvoiceModel.create(
       [{
         ...sanitizeBody(body, ["number", "status", "paidAmount", "totalHT", "totalTVA", "totalDTS", "totalTTC"]),
-        lines, number, totalHT, totalTVA, totalDTS, totalTTC,
+        lines, number, totalHT, totalTVA, totalDTS, totalTTC, projectId: imp.projectId, activityId: imp.activityId,
         paidAmount: 0, tenantId: auth.tenantId, createdBy: auth.userId, status: "draft",
       }],
       { session }
@@ -121,12 +106,7 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
         entryDate: new Date(body.issueDate),
         reference: number,
         label: `Facture client ${client.name} — ${number}`,
-        lines: [
-          { accountCode: "411000", accountLabel: "Clients", debit: totalTTC, credit: 0, thirdPartyId: client._id },
-          { accountCode: "706000", accountLabel: "Prestations de services", debit: 0, credit: totalHT },
-          ...(totalTVA > 0 ? [{ accountCode: "443000", accountLabel: "TVA collectée", debit: 0, credit: totalTVA }] : []),
-          ...(totalDTS > 0 ? [{ accountCode: "447000", accountLabel: "Droits de timbre", debit: 0, credit: totalDTS }] : []),
-        ],
+        lines: await saleEntryLines(auth.tenantId, { clientId: client._id, lines, totalTVA, totalDTS, totalTTC, ...imp }, session),
         linkedDocType: "invoice",
         linkedDocId: invoice._id,
         createdBy: auth.userId,

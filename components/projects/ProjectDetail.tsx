@@ -1,16 +1,19 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { MessageComposer } from "@/components/shared/MessageComposer";
-import { CheckCircle2, AlertCircle, Banknote, ClipboardList, Plus } from "lucide-react";
+import { CheckCircle2, AlertCircle, Banknote, ClipboardList, Plus, Trash2, Edit3, Flag } from "lucide-react";
+import { useMe, meCanDo } from "@/lib/useMe";
+import { ProjectEditForm, type ProjectEditValue } from "@/components/projects/ProjectEditForm";
 import { PROJECT_STATUS_FR, TASK_STATUS_FR, type ProjectVocabulary } from "@/lib/vocabulary";
 
 // ── Interfaces ────────────────────────────────────────────────────
 interface Task { _id: string; label: string; status: string; weight: number; }
+interface Milestone { _id?: string; label: string; dueDate?: string; completedAt?: string; amount?: number; description?: string; }
 interface ProjectDoc { _id: string; name: string; type: string; uploadedAt: string; url?: string; }
 interface BureauMember { _id: string; firstName: string; lastName: string; role: string; }
 interface ProjectMember { 
@@ -25,6 +28,11 @@ interface Project {
   spentAmount: number; budgetRate: number; executionRate: number;
   /** Montants masqués par l'API : le compte n'a pas accès aux finances. */
   amountsHidden?: boolean;
+  /** Coût et recettes réels, lus dans la comptabilité (lignes imputées au projet). */
+  finance?: { cost: number; revenue: number; margin: number };
+  milestones?: Milestone[];
+  description?: string; projectType?: string; bailleurName?: string; startDate?: string; endDate?: string;
+  clientId?: string | { _id: string } | null; managerId?: string | { _id: string } | null;
   tasks: Task[]; documents: ProjectDoc[]; projectMembers: ProjectMember[];
   conversationId?: string;
 }
@@ -47,12 +55,20 @@ const STATUS_FR: Record<string, string> = { ...PROJECT_STATUS_FR, ...TASK_STATUS
  */
 export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary }) {
   const { id } = useParams();
+  const router = useRouter();
+  const me = useMe();
+  const canEdit = meCanDo(me, "projects", "update");
+  const canDelete = meCanDo(me, "projects", "delete");
+  const canBuy = meCanDo(me, "purchases", "create");
+  const [editOpen, setEditOpen] = useState(false);
+  const [msModal, setMsModal] = useState(false);
+  const [newMs, setNewMs] = useState<Milestone>({ label: "", dueDate: "", amount: 0 });
 
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<Project | null>(null);
   const [userId, setUserId] = useState("");
-  const [activeTab, setActiveTab] = useState<"tasks" | "docs" | "team" | "messages">("tasks");
+  const [activeTab, setActiveTab] = useState<"tasks" | "milestones" | "docs" | "team" | "messages">("tasks");
 
   // Modales
   const [taskModal, setTaskModal] = useState(false);
@@ -63,8 +79,6 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
   const [memberModal, setMemberModal] = useState(false);
   const [bureauMembers, setBureauMembers] = useState<BureauMember[]>([]);
   const [newMember, setNewMember] = useState({ userId: "", role: "contributor" });
-  const [budgetModal, setBudgetModal] = useState(false);
-  const [expenseAmount, setExpenseAmount] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
@@ -102,9 +116,14 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
     return s === "done" || s === "completed";
   }).length || 0;
   
-  const currentExecRate = tasksTotal > 0 ? Math.round((tasksDone / tasksTotal) * 100) : 0;
+  // Avancement pondéré par le poids des tâches (même calcul que le serveur).
+  const totalWeight = project.tasks?.reduce((s, t) => s + (t.weight || 1), 0) || 0;
+  const doneWeight = project.tasks?.filter(t => t.status === "done" || t.status === "completed").reduce((s, t) => s + (t.weight || 1), 0) || 0;
+  const currentExecRate = totalWeight > 0 ? Math.round((doneWeight / totalWeight) * 100) : 0;
   const money = !project.amountsHidden;
-  const currentBudgetRate = money && project.budget > 0 ? Math.round((project.spentAmount / project.budget) * 100) : 0;
+  // Coût réel = charges imputées au projet en comptabilité (+ anciennes saisies manuelles).
+  const realCost = (project.finance?.cost ?? 0) + (project.spentAmount || 0);
+  const currentBudgetRate = money && project.budget > 0 ? Math.round((realCost / project.budget) * 100) : 0;
 
   const getCsrf = async () => {
     const res = await fetch("/api/auth/csrf");
@@ -118,35 +137,38 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
     const csrf = await getCsrf();
     const updatedTasks = project.tasks.map(t => t._id === taskId ? { ...t, status: newStatus } : t);
     
-    // On calcule le nouveau taux d'exécution pour le sauvegarder
-    const newDone = updatedTasks.filter(t => t.status === "done" || t.status === "completed").length;
-    const newRate = Math.round((newDone / updatedTasks.length) * 100);
-
     await fetch(`/api/projects/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
-      body: JSON.stringify({ tasks: updatedTasks, executionRate: newRate }),
+      body: JSON.stringify({ tasks: updatedTasks }),
       credentials: "include"
     });
     fetchData();
   };
 
-  const addExpense = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const patchProject = async (body: Record<string, unknown>) => {
     const csrf = await getCsrf();
-    const newSpent = project.spentAmount + Number(expenseAmount);
-    const newBudgetRate = Math.round((newSpent / project.budget) * 100);
-
-    await fetch(`/api/projects/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
-      body: JSON.stringify({ spentAmount: newSpent, budgetRate: newBudgetRate }),
-      credentials: "include"
+    const res = await fetch(`/api/projects/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": csrf }, body: JSON.stringify(body), credentials: "include",
     });
-    setBudgetModal(false);
-    setExpenseAmount(0);
-    fetchData();
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || "Modification impossible");
+    await fetchData();
   };
+
+  const deleteTask = async (taskId: string) => {
+    if (!confirm("Supprimer cette tâche ?")) return;
+    await patchProject({ tasks: project.tasks.filter(t => t._id !== taskId) });
+  };
+
+  const deleteProject = async () => {
+    if (!confirm("Supprimer définitivement ce projet ? Ses tâches et documents disparaissent ; les écritures comptables imputées restent.")) return;
+    const csrf = await getCsrf();
+    const res = await fetch(`/api/projects/${id}`, { method: "DELETE", headers: { "x-csrf-token": csrf }, credentials: "include" });
+    if (res.ok) router.push("/projects"); else alert("Suppression impossible");
+  };
+
+  const saveMilestones = (milestones: Milestone[]) => patchProject({ milestones });
 
   const completeProject = async () => {
     if (currentExecRate < 100) return;
@@ -163,7 +185,8 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
     const csrf = await getCsrf();
-    const tasks = [...project.tasks, { ...newTask, _id: `temp-${Date.now()}` }];
+    // Pas d'identifiant provisoire : Mongo attribue le sien (« temp-… » faisait échouer l'enregistrement).
+    const tasks = [...project.tasks, { ...newTask }];
     await fetch(`/api/projects/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
@@ -219,8 +242,12 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
           <h1 className="text-3xl font-bold text-ink mt-2">{project.name}</h1>
           <p className="text-ink2 font-mono text-xs opacity-70">{project.code}</p>
         </div>
-        <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${project.status === 'completed' ? 'bg-pos-50 text-pos' : 'bg-surface2 text-ink'}`}>
-          {STATUS_FR[project.status] || project.status}
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {canEdit && <button onClick={() => setEditOpen(true)} className="px-3 h-9 inline-flex items-center gap-1.5 rounded-lg border border-line2 text-sm hover:bg-surface2"><Edit3 size={14} /> Modifier</button>}
+          {canDelete && <button onClick={deleteProject} className="px-3 h-9 inline-flex items-center gap-1.5 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Trash2 size={14} /> Supprimer</button>}
+          <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${project.status === 'completed' ? 'bg-pos-50 text-pos' : 'bg-surface2 text-ink'}`}>
+            {STATUS_FR[project.status] || project.status}
+          </div>
         </div>
       </div>
 
@@ -250,14 +277,14 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
           </div>
         </div>}
 
-        {money && <div className="bg-section/5 p-5 rounded-xl border border-section/10 flex flex-col justify-center items-center">
-            <p className="text-[10px] font-black text-section uppercase mb-1">Dépensé / Total</p>
-            <p className="text-lg font-black text-ink">
-                {project.spentAmount.toLocaleString()} <span className="text-[10px] opacity-40">/ {project.budget.toLocaleString()} XOF</span>
-            </p>
-            <button onClick={() => setBudgetModal(true)} className="mt-2 text-[10px] font-bold text-section hover:scale-105 transition-transform flex items-center gap-1 bg-surface px-3 py-1 rounded-full shadow-sm border border-section/10">
-               <Plus size={10} /> AJOUTER UNE DÉPENSE
-            </button>
+        {money && <div className="bg-section/5 p-5 rounded-xl border border-section/10 space-y-1 text-sm">
+            <p className="text-[10px] font-black text-section uppercase mb-1">Finances du projet</p>
+            <p className="flex justify-between"><span className="text-ink2">Budget</span><span className="font-mono">{(project.budget || 0).toLocaleString("fr-FR")}</span></p>
+            <p className="flex justify-between"><span className="text-ink2">Coût réel</span><span className="font-mono">{realCost.toLocaleString("fr-FR")}</span></p>
+            <p className="flex justify-between"><span className="text-ink2">Recettes facturées</span><span className="font-mono">{(project.finance?.revenue ?? 0).toLocaleString("fr-FR")}</span></p>
+            <p className={`flex justify-between font-bold ${(project.finance?.revenue ?? 0) - realCost < 0 ? "text-neg" : "text-pos"}`}><span>Marge</span><span className="font-mono">{((project.finance?.revenue ?? 0) - realCost).toLocaleString("fr-FR")} XOF</span></p>
+            {project.spentAmount > 0 && <p className="text-[10px] text-ink3">dont {project.spentAmount.toLocaleString("fr-FR")} saisis à la main (avant l&apos;imputation comptable)</p>}
+            {canBuy && <Link href={`/depenses/nouvelle?projectId=${project._id}`} className="mt-2 text-[11px] font-bold text-section inline-flex items-center gap-1 hover:underline"><Plus size={11} /> Imputer une dépense à ce projet</Link>}
         </div>}
       </div>
 
@@ -273,9 +300,9 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
 
       {/* TABS NAVIGATION */}
       <div className="flex gap-2 bg-surface2/30 p-1.5 rounded-2xl w-fit">
-        {["tasks", "docs", "team", "messages"].map((t) => (
+        {["tasks", "milestones", "docs", "team", "messages"].map((t) => (
           <button key={t} onClick={() => setActiveTab(t as any)} className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === t ? "bg-surface text-section shadow-sm" : "text-ink2 hover:bg-white/50"}`}>
-            {t === "tasks" ? "Tâches" : t === "docs" ? "Documents" : t === "team" ? "Équipe" : "Messages"}
+            {t === "tasks" ? "Tâches" : t === "milestones" ? "Jalons" : t === "docs" ? "Documents" : t === "team" ? "Équipe" : "Messages"}
           </button>
         ))}
       </div>
@@ -305,6 +332,41 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
                     <option value="done">Terminé</option>
                     <option value="blocked">Bloqué</option>
                   </select>
+                  {canEdit && <button onClick={() => deleteTask(task._id)} title="Supprimer la tâche" className="ml-2 p-1.5 text-ink3 hover:text-neg"><Trash2 size={14} /></button>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "milestones" && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-black text-ink">JALONS</h2>
+              {canEdit && <button onClick={() => setMsModal(true)} className="bg-section text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest">+ Jalon</button>}
+            </div>
+            {(project.milestones ?? []).length === 0 && <p className="text-sm text-ink3">Aucun jalon. Un jalon marque une étape (livraison, validation, facturation).</p>}
+            <div className="divide-y divide-line">
+              {(project.milestones ?? []).map((m, i) => (
+                <div key={m._id ?? i} className="py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Flag size={16} className={m.completedAt ? "text-pos" : "text-ink3"} />
+                    <div>
+                      <p className={`text-sm font-semibold ${m.completedAt ? "text-ink2 line-through" : "text-ink"}`}>{m.label}</p>
+                      <p className="text-[11px] text-ink3">
+                        {m.dueDate ? `Échéance ${new Date(m.dueDate).toLocaleDateString("fr-FR")}` : "Sans échéance"}
+                        {money && m.amount ? ` · ${m.amount.toLocaleString("fr-FR")} XOF à facturer` : ""}
+                        {m.completedAt ? ` · atteint le ${new Date(m.completedAt).toLocaleDateString("fr-FR")}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  {canEdit && (
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => saveMilestones((project.milestones ?? []).map((x, j) => j === i ? { ...x, completedAt: x.completedAt ? undefined : new Date().toISOString() } : x))}
+                        className="px-2 h-8 rounded-md border border-line2 text-xs hover:bg-surface2">{m.completedAt ? "Rouvrir" : "Atteint"}</button>
+                      <button onClick={() => confirm("Supprimer ce jalon ?") && saveMilestones((project.milestones ?? []).filter((_, j) => j !== i))} className="p-1.5 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -392,14 +454,22 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
       )}
 
       {/* MODALE DEPENSE */}
-      <Modal open={budgetModal} onClose={() => setBudgetModal(false)} title="SAISIR UNE DÉPENSE">
-        <form onSubmit={addExpense} className="space-y-4">
-          <FormField label="Montant (XOF)" required>
-            <input type="number" className={inputCls} value={expenseAmount} onChange={e => setExpenseAmount(Number(e.target.value))} required />
-          </FormField>
-          <p className="text-[10px] text-ink2 font-bold uppercase">L'ajout impactera immédiatement le taux de consommation budgétaire.</p>
-          <button type="submit" className="w-full bg-section text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Enregistrer</button>
+      <Modal open={msModal} onClose={() => setMsModal(false)} title="NOUVEAU JALON">
+        <form onSubmit={async e => { e.preventDefault(); if (!newMs.label.trim()) return; await saveMilestones([...(project.milestones ?? []), { label: newMs.label.trim(), dueDate: newMs.dueDate || undefined, ...(money ? { amount: Number(newMs.amount) || 0 } : {}) }]); setMsModal(false); setNewMs({ label: "", dueDate: "", amount: 0 }); }} className="space-y-4">
+          <FormField label="Libellé" required><input className={inputCls} value={newMs.label} onChange={e => setNewMs({ ...newMs, label: e.target.value })} required /></FormField>
+          <FormField label="Échéance"><input type="date" className={inputCls} value={newMs.dueDate ?? ""} onChange={e => setNewMs({ ...newMs, dueDate: e.target.value })} /></FormField>
+          {money && <FormField label="Montant à facturer (XOF)"><input type="number" min={0} className={inputCls} value={newMs.amount ?? 0} onChange={e => setNewMs({ ...newMs, amount: Number(e.target.value) })} /></FormField>}
+          <button type="submit" className="w-full bg-section text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest">Ajouter</button>
         </form>
+      </Modal>
+
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title={`Modifier — ${project.name}`} size="lg">
+        <ProjectEditForm
+          initial={{ ...project, clientId: project.clientId, managerId: project.managerId }}
+          showBudget={money}
+          onCancel={() => setEditOpen(false)}
+          onSave={async (v: ProjectEditValue) => { await patchProject(v as unknown as Record<string, unknown>); setEditOpen(false); }}
+        />
       </Modal>
 
       {/* MODALE TACHE */}
