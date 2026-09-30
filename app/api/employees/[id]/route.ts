@@ -5,15 +5,17 @@ import { maskPayroll, stripPayrollWrites } from "@/lib/payroll-mask";
 import { UserModel } from "@/models/User";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { isCostCenter } from "@/lib/imputation";
 
 export const GET = withAuth("employees", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
-  const e = await EmployeeModel.findOne({ _id: params.id, ...tenantFilter(auth) }).lean();
+  const e = await EmployeeModel.findOne({ _id: params.id, ...tenantFilter(auth) }).populate("userId", "firstName lastName email").lean();
   if (!e) return notFound(); return ok(maskPayroll(e as Record<string, unknown>, auth));
 });
 export const PATCH = withAuth("employees", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   const body = await req.json();
   // Hors paie, les champs de rémunération sont ignorés (ni lus ni écrits).
   const update = stripPayrollWrites(sanitizeBody(body, ["code"]), auth);
+  if ("costCenter" in update && update.costCenter && !isCostCenter(update.costCenter)) return badRequest("Service inconnu.");
 
   // ── Rattachement à un compte de connexion ────────────────────────────────
   //
@@ -45,9 +47,18 @@ export const PATCH = withAuth("employees", "update", async (req: NextRequest, au
     }
   }
 
+  // Valeurs vidées : $unset (un « undefined » dans un $set est ignoré, et le
+  // détachement d'un compte ne se faisait pas).
+  const $set: Record<string, unknown> = {}, $unset: Record<string, 1> = {};
+  for (const [k, v] of Object.entries(update)) {
+    if (v === undefined || v === null || (v === "" && ["userId", "costCenter", "endDate", "contractEndDate", "exitReason"].includes(k))) $unset[k] = 1;
+    else $set[k] = v;
+  }
   const e = await EmployeeModel.findOneAndUpdate(
-    { _id: params.id, ...tenantFilter(auth) }, update, { new: true }
-  );
+    { _id: params.id, ...tenantFilter(auth) },
+    { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) },
+    { new: true, runValidators: true }
+  ).populate("userId", "firstName lastName email");
   if (!e) return notFound();
   await logAudit(auth, "UPDATE", "employees", {
     resourceId: params.id,

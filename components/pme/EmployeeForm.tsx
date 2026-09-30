@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
+import { COST_CENTERS } from "@/lib/cost-centers";
 
 export interface EmployeeFormData {
-  code: string; firstName: string; lastName: string; position: string; department: string;
+  code: string; firstName: string; lastName: string; position: string; department: string; costCenter?: string;
   employeeType: string; contractNature: string;
   grossSalary: number; indemnity: number; indemnityPeriod: string;
   startDate: string; endDate: string; contractEndDate: string;
@@ -24,7 +25,7 @@ const PERIOD_OPTIONS = [["monthly","par mois"],["daily","par jour"],["hourly","p
 export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { initial?: Partial<EmployeeFormData> & { _id?: string }; onSave: (d: EmployeeFormData) => Promise<void>; onCancel: () => void; payroll?: boolean; }) {
   const [form, setForm] = useState<EmployeeFormData>({
     code: initial?.code||"", firstName: initial?.firstName||"", lastName: initial?.lastName||"",
-    position: initial?.position||"", department: initial?.department||"",
+    position: initial?.position||"", department: initial?.department||"", costCenter: initial?.costCenter||"",
     employeeType: initial?.employeeType||"employee", contractNature: initial?.contractNature||"cdi",
     grossSalary: initial?.grossSalary??0, indemnity: initial?.indemnity??0,
     indemnityPeriod: initial?.indemnityPeriod||"monthly",
@@ -95,12 +96,18 @@ export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { in
         <legend className="text-sm font-semibold text-ink border-b border-line pb-2 w-full">Identité</legend>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Code" required><input className={inputCls} value={form.code} onChange={e=>u("code",e.target.value)} placeholder="EMP-001" required/></FormField>
-          <FormField label="Département"><input className={inputCls} value={form.department} onChange={e=>u("department",e.target.value)}/></FormField>
+          <FormField label="Service" hint="Centre de coût : la paie y est imputée">
+            <select className={selectCls} value={form.costCenter} onChange={e=>u("costCenter",e.target.value)}>
+              <option value="">—</option>
+              {Object.entries(COST_CENTERS).map(([k,l])=><option key={k} value={k}>{l}</option>)}
+            </select>
+          </FormField>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Prénom" required><input className={inputCls} value={form.firstName} onChange={e=>u("firstName",e.target.value)} required/></FormField>
           <FormField label="Nom" required><input className={inputCls} value={form.lastName} onChange={e=>u("lastName",e.target.value)} required/></FormField>
         </div>
+        <FormField label="Département / équipe"><input className={inputCls} value={form.department} onChange={e=>u("department",e.target.value)}/></FormField>
         <FormField label="Poste / Fonction" required><input className={inputCls} value={form.position} onChange={e=>u("position",e.target.value)} required/></FormField>
       </fieldset>
 

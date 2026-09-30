@@ -14,19 +14,8 @@ import { ActivityModel } from "@/models/Activity";
  * Les trois sont facultatives et indépendantes. Elles voyagent jusqu'aux
  * lignes d'écriture comptable : c'est là que se calculent coûts et marges.
  */
-export const COST_CENTERS = {
-  direction: "Direction (gérant)",
-  admin: "Administration",
-  comm: "Communication",
-  prosp: "Prospection",
-  dev: "Développement",
-  prod: "Production & Cartes",
-  spot: "The Spot",
-  secu: "Sécurité",
-  compta: "Comptabilité",
-} as const;
-export type CostCenter = keyof typeof COST_CENTERS;
-export const isCostCenter = (v: unknown): v is CostCenter => typeof v === "string" && v in COST_CENTERS;
+export { COST_CENTERS, isCostCenter, type CostCenter } from "@/lib/cost-centers";
+import { isCostCenter, type CostCenter } from "@/lib/cost-centers";
 
 export interface Imputation {
   projectId?: Types.ObjectId;
