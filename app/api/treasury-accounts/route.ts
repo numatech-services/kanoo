@@ -32,7 +32,10 @@ export const GET = withAuth("treasuryAccounts", "read", async (req: NextRequest,
     TreasuryAccountModel.countDocuments(filter),
   ]);
 
-  const ids = items.map(a => String(a._id));
+  // ObjectId, pas chaîne : `aggregate` ne convertit pas les types, et un $in de
+  // chaînes contre des ObjectId ne trouvait aucun mouvement — chaque solde
+  // affiché valait le seul solde d'ouverture.
+  const ids = items.map(a => new mongoose.Types.ObjectId(String(a._id)));
   const [movementSums, pendingCounts, lineCounts] = await Promise.all([
     TreasuryMovementModel.aggregate<{ _id: string; total: number; count: number }>([
       { $match: { ...tenantFilter(auth), accountId: { $in: ids } } },
@@ -48,9 +51,9 @@ export const GET = withAuth("treasuryAccounts", "read", async (req: NextRequest,
     ]),
   ]);
 
-  const sumBy = new Map(movementSums.map(r => [r._id, r]));
-  const pendingBy = new Map(pendingCounts.map(r => [r._id, r.count]));
-  const linesBy = new Map(lineCounts.map(r => [r._id, r.count]));
+  const sumBy = new Map(movementSums.map(r => [String(r._id), r]));
+  const pendingBy = new Map(pendingCounts.map(r => [String(r._id), r.count]));
+  const linesBy = new Map(lineCounts.map(r => [String(r._id), r.count]));
 
   const enriched = items.map(a => {
     const key = String(a._id);

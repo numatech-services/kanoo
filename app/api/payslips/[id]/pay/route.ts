@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
 import { PayslipModel } from "@/models/Payslip";
-import { accountBalance, recordMovement } from "@/lib/treasury";
+import { accountBalance, recordMovement, ledgerFor, treasuryKind } from "@/lib/treasury";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -19,6 +19,9 @@ export const POST = withAuth("payslips", "update", async (req: NextRequest, auth
   if (payslip.isPaid) return badRequest("Ce bulletin est déjà marqué comme payé");
 
   const accountId = treasuryAccountId || (payslip.employeeId as { paymentTreasuryAccountId?: string })?.paymentTreasuryAccountId;
+  // Sans compte, le bulletin passait « payé » sans décaissement ni écriture :
+  // la dette 421 restait ouverte et la trésorerie ne bougeait pas.
+  if (!accountId) return badRequest("Choisissez le compte de trésorerie qui paie ce salaire.");
 
   await withTransaction(async (session) => {
     payslip.isPaid = true;
@@ -49,14 +52,15 @@ export const POST = withAuth("payslips", "update", async (req: NextRequest, auth
       }, session);
 
       const emp = payslip.employeeId as { firstName?: string; lastName?: string; code?: string };
+      const ledger = ledgerFor(await treasuryKind(auth.tenantId, accountId, session));
       await AccountingEntryModel.create([{
-        tenantId: auth.tenantId, journalCode: "BQ",
+        tenantId: auth.tenantId, journalCode: ledger.journalCode,
         entryDate: new Date(),
         reference: `PAIE-${payslip.year}${String(payslip.month).padStart(2,"0")}-${emp.code || ""}`,
         label: `Virement salaire ${emp.firstName} ${emp.lastName} — ${payslip.month}/${payslip.year}`,
         lines: [
           { accountCode: "421000", accountLabel: "Rémunérations dues", debit: payslip.netSalary, credit: 0 },
-          { accountCode: "521000", accountLabel: "Banque", debit: 0, credit: payslip.netSalary },
+          { accountCode: ledger.accountCode, accountLabel: ledger.accountLabel, debit: 0, credit: payslip.netSalary },
         ],
         linkedDocType: "payslip", linkedDocId: payslip._id, createdBy: auth.userId,
       }], { session });

@@ -11,6 +11,12 @@ const PayslipSchema = new Schema<IPayslip>({ tenantId: { type: Schema.Types.Obje
   // de paie et recalculait un net sans impôt.
   incomeTax: { type: Number, default: 0 },
   otherDeductions: { type: Number, default: 0 },
+  // Détail des primes et retenues du mois (libellé, montant, sens) — le bulletin
+  // imprimé les liste une à une.
+  items: [{ _id: false, label: { type: String, maxlength: 120 }, amount: Number, type: { type: String, enum: ["addition", "deduction"] } }],
+  netImposable: { type: Number, default: 0 },
+  /** Écriture OD de constatation de la paie (annulée par extourne si le bulletin est supprimé). */
+  accountingEntryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },
   netSalary: { type: Number, required: true },
   employerCost: { type: Number, default: 0 },
   isPaid: { type: Boolean, default: false }, paidAt: Date }, { timestamps: true });

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, badRequest, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, badRequest, conflict, tenantFilter } from "@/lib/api-helpers";
 import { PayslipModel } from "@/models/Payslip";
 import { FiscalDeclarationModel } from "@/models/FiscalDeclaration";
 import { TokenPayload } from "@/lib/auth";
@@ -21,7 +21,8 @@ export const GET = withAuth("fiscalDeclarations", "read", async (req: NextReques
     month: { $gte: startMonth, $lte: endMonth },
   }).populate("employeeId", "firstName lastName cnssNumber code").lean();
 
-  const totalGross = payslips.reduce((s, p) => s + p.grossSalary, 0);
+  // Assiette CNSS = brut total (base + ancienneté + primes), pas la base seule.
+  const totalGross = payslips.reduce((s, p) => s + (p.grossTotal ?? p.grossSalary), 0);
   const totalEmployee = payslips.reduce((s, p) => s + p.cnssEmployee, 0);
   const totalEmployer = payslips.reduce((s, p) => s + p.cnssEmployer, 0);
   const totalCnss = totalEmployee + totalEmployer;
@@ -46,9 +47,14 @@ export const GET = withAuth("fiscalDeclarations", "read", async (req: NextReques
 export const POST = withAuth("fiscalDeclarations", "create", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const body = await req.json();
+  const trimestre = Number(body.trimestre), annee = Number(body.annee);
+  if (![1, 2, 3, 4].includes(trimestre) || !Number.isInteger(annee) || annee < 2000) return badRequest("Trimestre ou année invalide.");
+  if (!(Number(body.totalCnss) >= 0) || !(Number(body.totalBrut) >= 0)) return badRequest("Montants invalides.");
+  const dup = await FiscalDeclarationModel.exists({ ...tenantFilter(auth), type: "cnss", "period.annee": annee, "period.trimestre": trimestre });
+  if (dup) return conflict(`Déclaration CNSS du T${trimestre} ${annee} déjà enregistrée.`);
   const decl = await FiscalDeclarationModel.create({
     tenantId: auth.tenantId, type: "cnss",
-    period: { trimestre: body.trimestre, annee: body.annee },
+    period: { trimestre, annee },
     amounts: { base: body.totalBrut, montant: body.totalCnss, net: body.totalCnss },
     status: "submitted", submittedAt: new Date(), createdBy: auth.userId,
   });

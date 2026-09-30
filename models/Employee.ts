@@ -29,6 +29,12 @@ const EmployeeSchema = new Schema({
 
   position: { type: String, required: true },
   department: String,
+  /** Service de rattachement (centre de coût) : la paie y est imputée. */
+  costCenter: { type: String, maxlength: 20 },
+  /** Départ : motif (démission, fin de contrat, licenciement, retraite…). */
+  exitReason: { type: String, maxlength: 200 },
+  /** Solde de congés reporté à l'ouverture (jours), avant l'usage du module. */
+  leaveOpeningBalance: { type: Number, default: 0 },
 
   // Rémunération
   grossSalary: { type: Number, default: 0 },

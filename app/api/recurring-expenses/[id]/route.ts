@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
+import { withAuth, ok, badRequest, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { RecurringExpenseModel } from "@/models/RecurringExpense";
-import { recordMovement } from "@/lib/treasury";
+import { recordMovement, ledgerFor, treasuryKind } from "@/lib/treasury";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -26,77 +26,68 @@ export const PATCH = withAuth("recurringCharges", "update", async (req: NextRequ
   return ok(e);
 });
 
-// POST /api/recurring-expenses/:id/execute — Exécuter une dépense (décompter trésorerie)
+// POST /api/recurring-expenses/:id — exécute l'échéance : décaissement sur le
+// compte de trésorerie, écriture comptable, échéance suivante.
 export const POST = withAuth("recurringCharges", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const body = await req.json().catch(() => ({}));
 
   const expense = await RecurringExpenseModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!expense) return notFound();
-
-  if (!expense.treasuryAccountId && !body.treasuryAccountId) {
-    return ok({ message: "Dépense enregistrée (aucun compte de trésorerie configuré)", expense });
-  }
+  if (expense.isActive === false) return badRequest("Charge désactivée : réactivez-la avant de l'exécuter.");
 
   const accountId = body.treasuryAccountId || expense.treasuryAccountId;
+  // Sans compte, rien n'était enregistré alors que la réponse disait « enregistrée ».
+  if (!accountId) return badRequest("Choisissez le compte de trésorerie qui paie cette charge.");
+  const kind = await treasuryKind(auth.tenantId, accountId);
+  if (!kind) return badRequest("Compte de trésorerie introuvable.");
+  const ledger = ledgerFor(kind);
+  const amount = Number(body.amount) > 0 ? Math.round(Number(body.amount)) : expense.amount;
+  const date = body.date ? new Date(body.date) : new Date();
+  if (isNaN(date.getTime())) return badRequest("Date invalide.");
 
   await withTransaction(async (session) => {
-    // Le décaissement s'inscrit comme mouvement : c'est lui qui fait le solde.
-    // L'ancien `$inc` sur `balance` écrivait un champ que rien d'autre ne
-    // maintenait, et par `findByIdAndUpdate` sans filtre de tenant.
     await recordMovement({
       tenantId: auth.tenantId,
       accountId: String(accountId),
-      date: new Date(),
-      amount: -expense.amount,
-      label: expense.label || "Dépense récurrente",
+      date,
+      amount: -amount,
+      label: expense.label || "Charge récurrente",
+      reference: body.reference,
       source: "expense",
-      linkedDocType: "expense",
+      linkedDocType: "recurringExpense",
       linkedDocId: expense._id,
       createdBy: auth.userId,
     }, session);
 
-    // Écriture comptable
- // Dans ton fichier POST /api/recurring-expenses/:id/execute
-await AccountingEntryModel.create([{
-  tenantId: auth.tenantId, 
-  journalCode: "CA",
-  entryDate: new Date(),
-  reference: `DEP-${expense._id.toString().slice(-6).toUpperCase()}`,
-  label: expense.label || "Dépense Récurrente", // Sécurité ici
-  lines: [
-    { 
-      accountCode: expense.accountCode || "622000", 
-      accountLabel: expense.label || "Frais divers", // Sécurité ici
-      debit: expense.amount, 
-      credit: 0 
-    },
-    { 
-      accountCode: "571000", 
-      accountLabel: "Caisse / Trésorerie", 
-      debit: 0, 
-      credit: expense.amount 
-    },
-  ],
-  createdBy: auth.userId,
-}], { session });
-    // Enregistrer l'exécution
-    expense.executions.push({ executedAt: new Date(), amount: expense.amount, treasuryAccountId: accountId, reference: body.reference, notes: body.notes });
-    // Calculer prochaine date
-    const next = new Date(expense.nextDueDate);
-    if (expense.frequency === "monthly")   next.setMonth(next.getMonth() + 1);
+    await AccountingEntryModel.create([{
+      tenantId: auth.tenantId,
+      journalCode: ledger.journalCode,
+      entryDate: date,
+      reference: `DEP-${expense._id.toString().slice(-6).toUpperCase()}-${date.toISOString().slice(0, 7)}`,
+      label: expense.label || "Charge récurrente",
+      lines: [
+        { accountCode: expense.accountCode || "622000", accountLabel: expense.label || "Charges diverses", debit: amount, credit: 0,
+          ...(expense.projectId ? { projectId: expense.projectId } : {}), ...(expense.activityId ? { activityId: expense.activityId } : {}) },
+        { accountCode: ledger.accountCode, accountLabel: ledger.accountLabel, debit: 0, credit: amount },
+      ],
+      linkedDocType: "recurringExpense",
+      linkedDocId: expense._id,
+      createdBy: auth.userId,
+    }], { session });
+
+    expense.executions.push({ executedAt: date, amount, treasuryAccountId: accountId, reference: body.reference, notes: body.notes });
+    const next = new Date(expense.nextDueDate || date);
+    if (expense.frequency === "monthly") next.setMonth(next.getMonth() + 1);
     else if (expense.frequency === "quarterly") next.setMonth(next.getMonth() + 3);
-    else if (expense.frequency === "annual")    next.setFullYear(next.getFullYear() + 1);
-    else if (expense.frequency === "weekly")    next.setDate(next.getDate() + 7);
+    else if (expense.frequency === "biannual") next.setMonth(next.getMonth() + 6);
+    else if (expense.frequency === "annual") next.setFullYear(next.getFullYear() + 1);
+    else if (expense.frequency === "weekly") next.setDate(next.getDate() + 7);
+    else if (expense.frequency === "daily") next.setDate(next.getDate() + 1);
     expense.nextDueDate = next;
     await expense.save({ session });
   });
 
-  return ok({ message: `Dépense de ${expense.amount.toLocaleString("fr-FR")} XOF exécutée et déduite de la trésorerie`, expense });
-});
-
-export const DELETE = withAuth("recurringCharges", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {
-  await connectDB();
-  await RecurringExpenseModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, { isActive: false }, { new: true });
-  return noContent();
+  await logAudit(auth, "PAYMENT", "recurringCharges", { resourceId: params.id, after: { amount } });
+  return ok({ message: `Charge de ${amount.toLocaleString("fr-FR")} XOF payée et déduite de la trésorerie`, expense });
 });

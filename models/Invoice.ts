@@ -50,6 +50,9 @@ const InvoiceSchema = new Schema<IInvoice>(
 
     number: { type: String, required: true },
     clientId: { type: Schema.Types.ObjectId, ref: "Client", required: true },
+    // Imputation analytique de la vente : recette du projet et du secteur.
+    projectId: { type: Schema.Types.ObjectId, ref: "Project" },
+    activityId: { type: Schema.Types.ObjectId, ref: "Activity" },
     quoteId: { type: Schema.Types.ObjectId, ref: "Devis" },
     lines: { type: [InvoiceLineSchema], required: true },
     totalHT: { type: Number, required: true },

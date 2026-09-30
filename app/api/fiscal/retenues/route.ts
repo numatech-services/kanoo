@@ -91,7 +91,7 @@ export const POST = withAuth("fiscalDeclarations", "create", async (req: NextReq
     label: `Retenue à la source — ${body.beneficiaire} (${RETENUES_DETAILLEES[body.type].description})`,
     lines: [
       { accountCode: "401000", accountLabel: "Fournisseurs / Tiers", debit: body.montantBrut, credit: 0 },
-      { accountCode: "4471000", accountLabel: "Retenues à la source DGI", debit: 0, credit: calcul.montantRetenue },
+      { accountCode: "447200", accountLabel: "Retenues à la source DGI", debit: 0, credit: calcul.montantRetenue },
       { accountCode: "521000", accountLabel: "Banque / Trésorerie", debit: 0, credit: calcul.montantNet },
     ],
     createdBy: auth.userId,

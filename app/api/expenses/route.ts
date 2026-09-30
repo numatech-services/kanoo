@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import { NextRequest } from "next/server";
 import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
 import { ExpenseReportModel } from "@/models/ExpenseReport";
@@ -22,11 +23,15 @@ async function scope(auth: TokenPayload, ownEmployeeId?: string) {
   const base = tenantFilter(auth);
   const authority = expenseAuthority(auth);
   if (authority.kind === "all") return base;
-  const own = ownEmployeeId ? [{ employeeId: ownEmployeeId }, { createdBy: auth.userId }] : [{ createdBy: auth.userId }];
+  // ObjectId explicites : ce filtre sert aussi à un `aggregate` (compteurs par
+  // statut), qui ne convertit pas les chaînes — les compteurs restaient à zéro.
+  const oid = (x: unknown) => new Types.ObjectId(String(x));
+  const me = oid(auth.userId);
+  const own = ownEmployeeId ? [{ employeeId: oid(ownEmployeeId) }, { createdBy: me }] : [{ createdBy: me }];
   if (authority.kind === "team") {
     // Chef de service : ses notes et celles des membres de son ou ses services.
     const team = await teamMembers(auth, authority.services);
-    return { ...base, $or: [...own, { createdBy: { $in: team.userIds } }, { employeeId: { $in: team.employeeIds } }] };
+    return { ...base, $or: [...own, { createdBy: { $in: team.userIds.map(oid) } }, { employeeId: { $in: team.employeeIds.map(oid) } }] };
   }
   return { ...base, $or: own };
 }

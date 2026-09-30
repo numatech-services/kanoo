@@ -28,6 +28,8 @@ const ExpenseLineSchema = new Schema(
 
     /** Imputation analytique facultative. */
     projectId: { type: Schema.Types.ObjectId, ref: "Project" },
+    activityId: { type: Schema.Types.ObjectId, ref: "Activity" },
+    costCenter: { type: String, maxlength: 20 },
     clientId: { type: Schema.Types.ObjectId, ref: "Client" },
 
     /**

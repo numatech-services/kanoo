@@ -36,8 +36,8 @@ export async function GET(req: NextRequest) {
     for (const p of payslips) {
       const emp = p.employeeId as {firstName?:string;lastName?:string;cnssNumber?:string} | null;
       const name = emp ? `${emp.firstName||""} ${emp.lastName||""}` : "—";
-      doc.text(name.slice(0,28), 50, y).text(emp?.cnssNumber||"—", 220, y).text(p.grossSalary.toLocaleString("fr-FR"), 340, y).text(p.cnssEmployee.toLocaleString("fr-FR"), 430, y).text(p.cnssEmployer.toLocaleString("fr-FR"), 520, y).text((p.cnssEmployee+p.cnssEmployer).toLocaleString("fr-FR"), 620, y);
-      y += 16; totalGross += p.grossSalary; totalEmp += p.cnssEmployee; totalPat += p.cnssEmployer;
+      doc.text(name.slice(0,28), 50, y).text(emp?.cnssNumber||"—", 220, y).text((p.grossTotal ?? p.grossSalary).toLocaleString("fr-FR"), 340, y).text(p.cnssEmployee.toLocaleString("fr-FR"), 430, y).text(p.cnssEmployer.toLocaleString("fr-FR"), 520, y).text((p.cnssEmployee+p.cnssEmployer).toLocaleString("fr-FR"), 620, y);
+      y += 16; totalGross += (p.grossTotal ?? p.grossSalary); totalEmp += p.cnssEmployee; totalPat += p.cnssEmployer;
     }
     y += 8;
     doc.font("Helvetica-Bold").text("TOTAL", 50, y).text(totalGross.toLocaleString("fr-FR"), 340, y).text(totalEmp.toLocaleString("fr-FR"), 430, y).text(totalPat.toLocaleString("fr-FR"), 520, y).text((totalEmp+totalPat).toLocaleString("fr-FR"), 620, y);

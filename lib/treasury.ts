@@ -1,4 +1,4 @@
-import type { ClientSession } from "mongoose";
+import { Types, type ClientSession } from "mongoose";
 import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 
@@ -27,7 +27,9 @@ export async function accountBalance(
 
   const openingBalance = account.openingBalance ?? account.balance ?? 0;
   const [agg] = await TreasuryMovementModel.aggregate<{ total: number }>([
-    { $match: { tenantId, accountId: String(accountId) } },
+    // ObjectId obligatoires : aggregate ne convertit pas, et des chaînes ne
+    // correspondaient à aucun mouvement (solde = solde d'ouverture, toujours).
+    { $match: { tenantId: new Types.ObjectId(String(tenantId)), accountId: new Types.ObjectId(String(accountId)) } },
     { $group: { _id: null, total: { $sum: "$amount" } } },
   ]).session(session ?? null);
 
@@ -56,4 +58,25 @@ export interface MovementInput {
 export async function recordMovement(input: MovementInput, session?: ClientSession) {
   const [movement] = await TreasuryMovementModel.create([input], { session });
   return movement;
+}
+
+/**
+ * Compte du plan SYSCOHADA qui porte un compte de trésorerie : la banque (521),
+ * la caisse (571) ou le porte-monnaie électronique (5218). L'écriture doit
+ * créditer le compte réellement mouvementé — une sortie de caisse passée en
+ * « Banque » fausse le rapprochement des deux.
+ */
+export type TreasuryKind = "bank" | "cash" | "mobile_money";
+export function ledgerFor(kind?: string | null): { accountCode: string; accountLabel: string; journalCode: "BQ" | "CA" } {
+  if (kind === "cash") return { accountCode: "571000", accountLabel: "Caisse", journalCode: "CA" };
+  if (kind === "mobile_money") return { accountCode: "521800", accountLabel: "Monnaie électronique (mobile money)", journalCode: "BQ" };
+  return { accountCode: "521000", accountLabel: "Banque", journalCode: "BQ" };
+}
+
+/** Type d'un compte de trésorerie de l'organisation (null s'il n'existe pas). */
+export async function treasuryKind(tenantId: string, accountId: unknown, session?: ClientSession): Promise<TreasuryKind | null> {
+  if (!accountId) return null;
+  const a = await TreasuryAccountModel.findOne({ _id: accountId, tenantId }).select("type")
+    .session(session ?? null).lean<{ type?: TreasuryKind } | null>();
+  return a?.type ?? null;
 }

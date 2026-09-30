@@ -14,6 +14,7 @@ import {
 } from "@/lib/expenses";
 import { expenseAuthority, teamMembers, canReimburse } from "@/lib/expense-scope";
 import { logAudit } from "@/lib/audit";
+import { ledgerFor, treasuryKind } from "@/lib/treasury";
 import { TokenPayload } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -219,12 +220,14 @@ export const PATCH = withAuth("expenses", "update", async (req: NextRequest, aut
         );
       }
       const amount = report.totalTTC;
-      const entry = reimbursementEntry(amount);
+      // Caisse, banque ou mobile money : l'écriture crédite le compte réellement payé.
+      const ledger = ledgerFor(await treasuryKind(auth.tenantId, accountId));
+      const entry = reimbursementEntry(amount, ledger);
 
       await withTransaction(async (session) => {
         await AccountingEntryModel.create([{
           tenantId: auth.tenantId,
-          journalCode: "BQ",
+          journalCode: ledger.journalCode,
           entryDate: now,
           reference: `${report.reference}-RGL`,
           label: `Remboursement note de frais ${report.reference}`,

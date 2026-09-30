@@ -278,6 +278,8 @@ export interface IInvoice {
   /** TTC déjà couvert par des avoirs, sur une facture d'origine. */
   creditedAmount: number;
   number: string;
+  projectId?: Types.ObjectId;
+  activityId?: Types.ObjectId;
   clientId: Types.ObjectId;
   quoteId?: Types.ObjectId;
   lines: IInvoiceLine[];
@@ -360,6 +362,10 @@ export interface ICommande {
   orderDate: Date;
   expectedDeliveryDate?: Date;
   notes?: string;
+  projectId?: Types.ObjectId;
+  activityId?: Types.ObjectId;
+  costCenter?: string;
+  purchaseId?: Types.ObjectId;
   approvedBy?: Types.ObjectId;
   approvedAt?: Date;
   createdBy: Types.ObjectId;
@@ -422,6 +428,9 @@ export interface IPayslip {
   /** Impôt sur le revenu retenu à la source (barème mensuel CGI art. 84). */
   incomeTax: number;
   otherDeductions: number;
+  items?: Array<{ label: string; amount: number; type: "addition" | "deduction" }>;
+  netImposable?: number;
+  accountingEntryId?: Types.ObjectId;
   netSalary: number;
   /** Coût total employeur : brut total + part patronale. */
   employerCost: number;
@@ -440,6 +449,9 @@ export interface IAccountingLine {
   debit: number;
   credit: number;
   thirdPartyId?: Types.ObjectId;
+  projectId?: Types.ObjectId;
+  activityId?: Types.ObjectId;
+  costCenter?: string;
 }
 
 export interface IAccountingEntry {
@@ -452,7 +464,9 @@ export interface IAccountingEntry {
   lines: IAccountingLine[];
   isLettered: boolean;
   letterRef?: string;
-  linkedDocType?: "invoice" | "payment" | "supplier_invoice" | "payslip";
+  linkedDocType?: string;
+  reversedBy?: Types.ObjectId;
+  reverses?: Types.ObjectId;
   linkedDocId?: Types.ObjectId;
   createdBy: Types.ObjectId;
   createdAt: Date;

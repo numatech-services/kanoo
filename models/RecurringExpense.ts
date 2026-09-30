@@ -51,6 +51,11 @@ const RecurringExpenseSchema = new Schema({
   nextDueDate: { type: Date, required: true },
   alertDaysBefore: { type: Number, default: 5 },
 
+  // Imputation analytique (projet, secteur d'activité, service)
+  projectId: { type: Schema.Types.ObjectId, ref: "Project" },
+  activityId: { type: Schema.Types.ObjectId, ref: "Activity" },
+  costCenter: { type: String, maxlength: 20 },
+
   // État
   isActive: { type: Boolean, default: true },
   executions: [ExpenseExecutionSchema], // Historique des exécutions

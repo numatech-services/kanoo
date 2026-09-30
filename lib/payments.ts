@@ -1,6 +1,7 @@
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { TokenPayload } from "@/lib/auth";
+import { ledgerFor, treasuryKind } from "@/lib/treasury";
 
 /**
  * Applique les effets comptables d'un encaissement EFFECTIF : solde de la
@@ -15,14 +16,18 @@ export async function applyPaymentEffects(payment: any, invoice: any, auth: Toke
   invoice.status = invoice.paidAmount >= invoice.totalTTC - 1 ? "paid" : "partial";
   await invoice.save({ session });
 
-  const journalCode = payment.method === "cash" ? "CA" : "BQ";
-  const bankAccount = payment.method === "cash" ? "571000" : "521000";
+  // Le compte encaisseur fait foi (caisse, banque, mobile money) ; à défaut, le
+  // mode de règlement.
+  const kind = (await treasuryKind(auth.tenantId, payment.treasuryAccountId, session))
+    ?? (payment.method === "cash" ? "cash" : payment.method === "mobile_money" ? "mobile_money" : "bank");
+  const ledger = ledgerFor(kind);
+  const journalCode = ledger.journalCode;
   await AccountingEntryModel.create([{
     tenantId: auth.tenantId, journalCode, entryDate: new Date(payment.date),
     reference: `PMNT-${payment._id.toString().slice(-6).toUpperCase()}`,
     label: `Règlement facture ${invoice.number}`,
     lines: [
-      { accountCode: bankAccount, accountLabel: payment.method === "cash" ? "Caisse" : "Banque", debit: amount, credit: 0 },
+      { accountCode: ledger.accountCode, accountLabel: ledger.accountLabel, debit: amount, credit: 0 },
       { accountCode: "411000", accountLabel: "Clients", debit: 0, credit: amount, thirdPartyId: invoice.clientId },
     ],
     linkedDocType: "payment", linkedDocId: payment._id, createdBy: auth.userId,

@@ -144,7 +144,7 @@ export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { in
               <div className="text-center"><p className="font-semibold text-info">{cnssEmployer.toLocaleString("fr-FR")} XOF</p><p className="text-info mt-0.5">CNSS patronal</p></div>
             </>}
             {form.otherDeductionAmount > 0 && <div className="text-center"><p className="font-semibold text-warn">{form.otherDeductionAmount.toLocaleString("fr-FR")} XOF</p><p className="text-warn mt-0.5">Autre retenue</p></div>}
-            <div className="text-center"><p className="font-bold text-pos">{Math.max(0,netSalary).toLocaleString("fr-FR")} XOF</p><p className="text-pos mt-0.5">{isEmployee?"Net estimé":"Montant net"}</p></div>
+            <div className="text-center"><p className="font-bold text-pos">{Math.max(0,netSalary).toLocaleString("fr-FR")} XOF</p><p className="text-pos mt-0.5">{isEmployee?"Net avant IR (estimation)":"Montant net"}</p></div>
           </div>
         )}
       </fieldset>}

@@ -56,7 +56,8 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
     AccountingEntryModel.aggregate([
       { $match: { ...tf, journalCode: { $in: ["BQ", "CA"] } } },
       { $unwind: "$lines" },
-      { $match: { "lines.accountCode": { $in: ["521000", "571000"] } } },
+      // Banques (52x, dont mobile money 5218) et caisse (57x).
+      { $match: { "lines.accountCode": { $regex: "^(52|57)" } } },
       { $group: { _id: null, totalDebit: { $sum: "$lines.debit" }, totalCredit: { $sum: "$lines.credit" } } },
     ]),
   ]);

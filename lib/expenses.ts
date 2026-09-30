@@ -303,10 +303,13 @@ export function commitmentEntry(
 }
 
 /** Écriture de règlement : la dette s'éteint, la trésorerie sort. */
-export function reimbursementEntry(amount: number): EntryLine[] {
+export function reimbursementEntry(
+  amount: number,
+  ledger: { accountCode: string; accountLabel: string } = { accountCode: "521000", accountLabel: "Banque" },
+): EntryLine[] {
   return [
     { accountCode: STAFF_PAYABLE.account, accountLabel: STAFF_PAYABLE.label, debit: amount, credit: 0 },
-    { accountCode: "521000", accountLabel: "Banque", debit: 0, credit: amount },
+    { accountCode: ledger.accountCode, accountLabel: ledger.accountLabel, debit: 0, credit: amount },
   ];
 }
 
