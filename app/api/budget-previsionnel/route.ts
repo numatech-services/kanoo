@@ -120,31 +120,9 @@ export const POST = withAuth("accountingEntries", "create", async (req: NextRequ
     );
   }
 
-  const rawLines = Array.isArray(body.lines) ? body.lines : [];
-  const lines = rawLines.map((raw: Record<string, unknown>) => {
-    const nature = raw.nature === "revenue" ? "revenue" : "expense";
-    const weights = Array.isArray(raw.monthlyWeights) && raw.monthlyWeights.length === 12
-      ? raw.monthlyWeights.map(Number) : undefined;
-    return {
-      accountPrefix: String(raw.accountPrefix || "").trim(),
-      label: String(raw.label || "").trim().slice(0, 160),
-      nature,
-      annualAmount: Math.round(Number(raw.annualAmount) || 0),
-      monthlyWeights: weights,
-      spread: weights ? "manual" : "even",
-      notes: raw.notes ? String(raw.notes).slice(0, 500) : undefined,
-    };
-  }).filter((l: BudgetLine) => l.accountPrefix && l.label);
-
-  if (lines.length === 0) {
-    return badRequest("Un budget sans ligne ne compare rien : ajoutez au moins un poste.");
-  }
-
-  // Deux lignes sur le même préfixe compteraient le même réalisé deux fois.
-  const prefixes = lines.map((l: BudgetLine) => l.accountPrefix);
-  if (new Set(prefixes).size !== prefixes.length) {
-    return badRequest("Deux lignes portent le même compte : le même réalisé serait compté deux fois.");
-  }
+  const parsed = parseBudgetLines(body.lines);
+  if ("error" in parsed) return badRequest(parsed.error);
+  const lines = parsed.lines;
 
   const budget = await BudgetModel.create({
     tenantId: auth.tenantId,
@@ -161,4 +139,53 @@ export const POST = withAuth("accountingEntries", "create", async (req: NextRequ
   });
 
   return created(budget);
+});
+
+/** Lignes budgétaires reçues : compte, poste, nature, montant, répartition. */
+function parseBudgetLines(raw: unknown): { lines: BudgetLine[] } | { error: string } {
+  const rawLines = Array.isArray(raw) ? raw : [];
+  const lines = rawLines.map((r: Record<string, unknown>) => {
+    const nature = r.nature === "revenue" ? "revenue" : "expense";
+    const weights = Array.isArray(r.monthlyWeights) && r.monthlyWeights.length === 12
+      ? r.monthlyWeights.map(Number) : undefined;
+    return {
+      accountPrefix: String(r.accountPrefix || "").trim().replace(/\D/g, ""),
+      label: String(r.label || "").trim().slice(0, 160),
+      nature,
+      annualAmount: Math.max(0, Math.round(Number(r.annualAmount) || 0)),
+      monthlyWeights: weights,
+      spread: weights ? "manual" : "even",
+      notes: r.notes ? String(r.notes).slice(0, 500) : undefined,
+    } as BudgetLine;
+  }).filter((l: BudgetLine) => l.accountPrefix && l.label);
+  if (lines.length === 0) return { error: "Un budget sans ligne ne compare rien : ajoutez au moins un poste." };
+  // Deux lignes sur le même préfixe compteraient le même réalisé deux fois.
+  const prefixes = lines.map(l => l.accountPrefix);
+  if (new Set(prefixes).size !== prefixes.length) return { error: "Deux lignes portent le même compte : le même réalisé serait compté deux fois." };
+  return { lines };
+}
+
+/** PUT — { year, lines, label?, notes? } : révision du budget (lignes remplacées). */
+export const PUT = withAuth("accountingEntries", "update", async (req: NextRequest, auth: TokenPayload) => {
+  const body = await req.json().catch(() => ({}));
+  const year = Number(body.year);
+  const budget = await BudgetModel.findOne({ ...tenantFilter(auth), year });
+  if (!budget) return badRequest(`Aucun budget pour ${year}.`);
+  const parsed = parseBudgetLines(body.lines);
+  if ("error" in parsed) return badRequest(parsed.error);
+  budget.set({ lines: parsed.lines });
+  if (body.label) budget.set({ label: String(body.label).trim().slice(0, 160) });
+  if ("notes" in body) budget.set({ notes: String(body.notes ?? "").slice(0, 2000) });
+  await budget.save();
+  await logAudit(auth, "UPDATE", "accountingEntries", { resourceId: String(budget._id), metadata: { module: "budget", year, lines: parsed.lines.length } });
+  return ok(budget);
+});
+
+/** DELETE ?year= — supprime le budget d'une année (pour le rétablir autrement). */
+export const DELETE = withAuth("accountingEntries", "delete", async (req: NextRequest, auth: TokenPayload) => {
+  const year = Number(new URL(req.url).searchParams.get("year"));
+  const r = await BudgetModel.deleteOne({ ...tenantFilter(auth), year });
+  if (!r.deletedCount) return badRequest(`Aucun budget pour ${year}.`);
+  await logAudit(auth, "DELETE", "accountingEntries", { metadata: { module: "budget", year } });
+  return ok({ deleted: year });
 });

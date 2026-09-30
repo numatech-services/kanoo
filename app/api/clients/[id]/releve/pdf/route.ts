@@ -50,7 +50,7 @@ export const GET = withAuth("clients", "read", async (req: NextRequest, auth: To
       .lean<Array<{ _id: unknown; number: string; documentType?: string; status: string;
                     issueDate: Date; dueDate?: Date; totalTTC: number;
                     paidAmount?: number; creditedAmount?: number }>>(),
-    PaymentModel.find(scope).select("date amount reference method").sort({ date: 1 }).limit(3_000)
+    PaymentModel.find({ ...scope, status: { $nin: ["pending", "cancelled"] } }).select("date amount reference method").sort({ date: 1 }).limit(3_000)
       .lean<Array<{ _id: unknown; date: Date; amount: number; reference?: string; method?: string }>>(),
     TenantModel.findById(auth.tenantId).select("name logo branding address phone email nif rccm")
       .lean<TenantIdentity | null>(),

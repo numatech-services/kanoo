@@ -13,7 +13,9 @@ const PaymentSchema = new Schema<IPayment>({ tenantId: { type: Schema.Types.Obje
    * effet comptable tant qu'il n'est pas confirmé. Défaut « effective » pour ne
    * pas modifier le comportement des règlements déjà saisis.
    */
-  status: { type: String, enum: ["pending", "effective"], default: "effective", index: true },
+  status: { type: String, enum: ["pending", "effective", "cancelled"], default: "effective", index: true },
+  cancelledAt: Date,
+  cancelReason: String,
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true } }, { timestamps: true });
 PaymentSchema.index({ tenantId: 1, invoiceId: 1 });
 export const PaymentModel = models.Payment || model<IPayment>("Payment", PaymentSchema);

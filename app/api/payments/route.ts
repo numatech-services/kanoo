@@ -28,7 +28,7 @@ export const GET = withAuth("payments", "read", async (req: NextRequest, auth: T
           select: "name"
         }
       })
-      .populate("treasuryAccountId", "name")
+      .populate("treasuryAccountId", "label type")
       .sort({ date: -1 })
       .skip(pagination.skip)
       .limit(pagination.limit)

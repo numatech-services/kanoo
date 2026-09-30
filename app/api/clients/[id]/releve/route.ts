@@ -77,7 +77,7 @@ export const GET = withAuth("clients", "read", async (req: NextRequest, auth: To
     InvoiceModel.find({ ...scope, status: { $ne: "draft" } })
       .select("number documentType status issueDate dueDate totalTTC paidAmount creditedAmount")
       .sort({ issueDate: 1 }).limit(3_000).lean<InvoiceRow[]>(),
-    PaymentModel.find(scope)
+    PaymentModel.find({ ...scope, status: { $nin: ["pending", "cancelled"] } })
       .select("date amount reference method invoiceId")
       .sort({ date: 1 }).limit(3_000).lean<PaymentRow[]>(),
     TenantModel.findById(auth.tenantId).select("name address phone email nif rccm").lean(),

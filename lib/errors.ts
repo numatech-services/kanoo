@@ -34,3 +34,14 @@ export function errorName(error: unknown): string | null {
   }
   return null;
 }
+
+/**
+ * Refus métier (période clôturée, écriture déjà extournée…) : le message est
+ * destiné à l'utilisateur et l'API le rend tel quel en 400, où qu'il soit levé.
+ */
+export class BusinessRuleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BusinessRuleError";
+  }
+}

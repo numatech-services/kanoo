@@ -122,6 +122,10 @@ TenantSchema.add({
     vatRate: { type: Number, default: 0.19 },
   },
 
+  /** Comptabilité verrouillée jusqu'à cette date incluse (clôture de période / d'exercice). */
+  accountingLockedUntil: Date,
+  /** Exercices clôturés (à-nouveaux générés). */
+  closedFiscalYears: { type: [Number], default: [] },
   numberingConfig: {
     invoicePrefix:   { type: String, default: "FAC" },   // Ex: "NML" → NML-2025-00001
     quotePrefix:     { type: String, default: "DEV" },

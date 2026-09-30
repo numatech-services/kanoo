@@ -11,6 +11,8 @@ export type PlanCode = "starter" | "pro" | "enterprise" | "asso_basic" | "asso_p
 
 export interface ITenant {
   _id: Types.ObjectId;
+  accountingLockedUntil?: Date;
+  closedFiscalYears?: number[];
   type: TenantType;
   name: string;
   slug: string;
@@ -355,7 +357,9 @@ export interface IPayment {
   /** Compte de trésorerie encaissé. */
   treasuryAccountId?: Types.ObjectId;
   /** « effective » = encaissé (impacte compta/trésorerie) ; « pending » = en attente. */
-  status?: "pending" | "effective";
+  status?: "pending" | "effective" | "cancelled";
+  cancelledAt?: Date;
+  cancelReason?: string;
 }
 
 export interface ICommande {

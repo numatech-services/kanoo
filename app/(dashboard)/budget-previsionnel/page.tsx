@@ -49,6 +49,7 @@ export default function BudgetPrevisionnelPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -95,6 +96,16 @@ export default function BudgetPrevisionnelPage() {
               .sort((a, b) => b - a)
               .map(y => <option key={y} value={y}>{y}</option>)}
           </select>
+          {budget && (
+            <>
+              <button onClick={() => setEditOpen(true)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Réviser</button>
+              <button onClick={async () => {
+                if (!confirm(`Supprimer le budget ${year} ? Le réalisé comptable n'est pas touché.`)) return;
+                const res = await fetch(`/api/budget-previsionnel?year=${year}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+                if (res.ok) load(); else setError("Suppression impossible");
+              }} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50" title="Supprimer le budget"><Trash2 size={15} /></button>
+            </>
+          )}
           {!budget && (
             <button onClick={() => setCreateOpen(true)}
               className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
@@ -269,6 +280,15 @@ export default function BudgetPrevisionnelPage() {
 
       <CreateDialog open={createOpen} onClose={() => setCreateOpen(false)}
         year={year} profiles={profiles} onCreated={() => { setCreateOpen(false); load(); }} />
+      {editOpen && (
+        <CreateDialog open onClose={() => setEditOpen(false)} year={year} profiles={profiles} edit
+          initial={results.map(r => {
+            const w = r.line.monthlyWeights;
+            const profile = !w ? "even" : Object.entries(profiles).find(([, p]) => JSON.stringify(p.weights) === JSON.stringify(w))?.[0] ?? "custom";
+            return { accountPrefix: r.line.accountPrefix, label: r.line.label, nature: r.line.nature, annualAmount: r.line.annualAmount, profile, weights: w, spread: r.line.spread } as DraftLine;
+          })}
+          onCreated={() => { setEditOpen(false); load(); }} />
+      )}
     </div>
   );
 }
@@ -277,6 +297,8 @@ export default function BudgetPrevisionnelPage() {
 
 interface DraftLine extends Omit<BudgetLine, "monthlyWeights"> {
   profile: string;
+  /** Répartition personnalisée conservée lors d'une révision. */
+  weights?: number[];
 }
 
 const SUGGESTED: DraftLine[] = [
@@ -289,12 +311,12 @@ const SUGGESTED: DraftLine[] = [
 ];
 
 function CreateDialog({
-  open, onClose, year, profiles, onCreated,
+  open, onClose, year, profiles, onCreated, edit = false, initial,
 }: {
   open: boolean; onClose: () => void; year: number;
-  profiles: Record<string, Profile>; onCreated: () => void;
+  profiles: Record<string, Profile>; onCreated: () => void; edit?: boolean; initial?: DraftLine[];
 }) {
-  const [lines, setLines] = useState<DraftLine[]>(SUGGESTED);
+  const [lines, setLines] = useState<DraftLine[]>(initial ?? SUGGESTED);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -308,7 +330,7 @@ function CreateDialog({
     setError(null);
     try {
       const res = await fetch("/api/budget-previsionnel", {
-        method: "POST",
+        method: edit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
         credentials: "include",
         body: JSON.stringify({
@@ -321,7 +343,7 @@ function CreateDialog({
               label: l.label,
               nature: l.nature,
               annualAmount: l.annualAmount,
-              monthlyWeights: l.profile !== "even" ? profiles[l.profile]?.weights : undefined,
+              monthlyWeights: l.profile === "custom" ? l.weights : l.profile !== "even" ? profiles[l.profile]?.weights : undefined,
             })),
         }),
       });
@@ -387,6 +409,7 @@ function CreateDialog({
                       {Object.entries(profiles).map(([key, p]) => (
                         <option key={key} value={key}>{p.label}</option>
                       ))}
+                      {line.weights && <option value="custom">Répartition actuelle</option>}
                     </select>
                   </td>
                   <td>
@@ -433,7 +456,7 @@ function CreateDialog({
           </button>
           <button type="submit" disabled={saving || lines.every(l => l.annualAmount === 0)}
             className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
-            {saving ? "Enregistrement…" : `Établir le budget ${year}`}
+            {saving ? "Enregistrement…" : edit ? `Enregistrer la révision ${year}` : `Établir le budget ${year}`}
           </button>
         </div>
       </form>

@@ -19,24 +19,24 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
     const start = new Date(d.getFullYear(), d.getMonth(), 1);
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
 
+    // Flux de trésorerie = mouvements des comptes de banque (52) et de caisse
+    // (57), tous journaux confondus. Un virement interne (contrepartie 585)
+    // n'est ni une entrée ni une sortie. L'ancienne version comptait les
+    // comptes de tiers (classe 4) des deux côtés et gonflait les deux flux.
     const entries = await AccountingEntryModel.find({
       ...tenantFilter(auth),
-      journalCode: { $in: ["BQ", "CA"] },
       entryDate: { $gte: start, $lte: end },
-    }).lean();
+      "lines.accountCode": { $regex: "^5[27]" },
+    }).select("lines").lean<Array<{ lines: Array<{ accountCode: string; debit: number; credit: number }> }>>();
 
     let encaissements = 0;
     let decaissements = 0;
-
     for (const entry of entries) {
+      if (entry.lines.some(l => l.accountCode.startsWith("585"))) continue;
       for (const line of entry.lines) {
-        const code = line.accountCode;
-        if (code.startsWith("4") || code.startsWith("7")) {
-          encaissements += line.credit;
-        }
-        if (code.startsWith("6") || code.startsWith("4")) {
-          decaissements += line.debit;
-        }
+        if (!/^5[27]/.test(line.accountCode)) continue;
+        encaissements += line.debit;
+        decaissements += line.credit;
       }
     }
 

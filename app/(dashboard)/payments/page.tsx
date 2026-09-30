@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 interface Payment {
   _id: string;
@@ -19,6 +20,8 @@ interface Payment {
 }
 
 export default function PaymentsPage() {
+  const me = useMe();
+  const canDelete = meCanDo(me, "payments", "delete");
   const [mounted, setMounted] = useState(false);
   const [items, setItems] = useState<Payment[]>([]);
   const [total, setTotal] = useState(0);
@@ -73,6 +76,21 @@ export default function PaymentsPage() {
     else { const d = await res.json().catch(() => ({})); alert(d.error || "Confirmation impossible."); }
   }
 
+  async function cancelPayment(id: string, pending: boolean) {
+    const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+    let res: Response;
+    if (pending) {
+      if (!confirm("Supprimer ce paiement en attente ?")) return;
+      res = await fetch(`/api/payments/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": csrfToken } });
+    } else {
+      const reason = prompt("Annuler cet encaissement (chèque impayé, erreur…) ? L'écriture sera extournée et la facture rouverte. Motif :");
+      if (!reason) return;
+      res = await fetch(`/api/payments/${id}/cancel`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, body: JSON.stringify({ reason }) });
+    }
+    if (res.ok) load();
+    else { const d = await res.json().catch(() => ({})); alert(d.error || "Annulation impossible."); }
+  }
+
   if (!mounted) return null;
 
   const columns: Column<Payment>[] = [
@@ -119,7 +137,7 @@ export default function PaymentsPage() {
     {
       key: "treasuryAccountId",
       label: "Compte",
-      render: (v: any) => v?.name ? <span className="text-ink">{v.name}</span> : <span className="text-ink2 italic text-xs">Non imputé</span>
+      render: (v: any) => (v?.label || v?.name) ? <span className="text-ink">{v.label || v.name}</span> : <span className="text-ink2 italic text-xs">Non imputé</span>
     },
     {
       key: "status",
@@ -130,9 +148,17 @@ export default function PaymentsPage() {
             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-warn-50 text-warn border border-warn/25">En attente</span>
             <button onClick={() => confirmPayment(record._id)}
               className="text-[11px] font-semibold text-pos hover:underline">Marquer encaissé</button>
+            {canDelete && <button onClick={() => cancelPayment(record._id, true)} className="text-[11px] text-neg hover:underline">Supprimer</button>}
           </div>
         )
-        : <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-pos-50 text-pos border border-pos/25">Encaissé</span>
+        : v === "cancelled"
+          ? <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-surface2 text-ink2 border border-line" title={record.cancelReason}>Annulé</span>
+          : (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-pos-50 text-pos border border-pos/25">Encaissé</span>
+              {canDelete && <button onClick={() => cancelPayment(record._id, false)} className="text-[11px] text-neg hover:underline">Annuler</button>}
+            </div>
+          )
     },
     {
       key: "reference",

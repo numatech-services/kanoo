@@ -45,7 +45,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
 
     // Encaissements du mois
     PaymentModel.aggregate([
-      { $match: { ...tf, date: { $gte: startOfMonth, $lte: now } } },
+      { $match: { ...tf, status: { $nin: ["pending", "cancelled"] }, date: { $gte: startOfMonth, $lte: now } } },
       { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } },
     ]),
 

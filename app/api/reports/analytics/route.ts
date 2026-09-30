@@ -50,9 +50,9 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
 
   // ── Encaissements mensuels (paiements reçus) ──────────────────────────────
   const paymentsByMonth = await PaymentModel.aggregate([
-    { $match: { ...filter, paymentDate: { $gte: startDate } } },
+    { $match: { ...filter, status: { $nin: ["pending", "cancelled"] }, date: { $gte: startDate } } },
     { $group: {
-      _id: { year: { $year: "$paymentDate" }, month: { $month: "$paymentDate" } },
+      _id: { year: { $year: "$date" }, month: { $month: "$date" } },
       total: { $sum: "$amount" },
       count: { $sum: 1 },
     }},
@@ -95,7 +95,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
     ]).then(r => r[0]?.sum || 0),
 
     PaymentModel.aggregate([
-      { $match: { ...filter, paymentDate: { $gte: startDate } } },
+      { $match: { ...filter, status: { $nin: ["pending", "cancelled"] }, date: { $gte: startDate } } },
       { $group: { _id: null, sum: { $sum: "$amount" } } }
     ]).then(r => r[0]?.sum || 0),
 

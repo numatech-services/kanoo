@@ -7,6 +7,8 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { fullXof } from "@/components/ui/charts/geometry";
+import { EditAccountDialog, TransferDialog, ManualMovementDialog, MovementsDialog, type TreasuryAccountLite } from "@/components/treasury/TreasuryDialogs";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 interface Account {
   _id: string;
@@ -38,14 +40,24 @@ export default function TreasuryPage() {
     openingDate: new Date().toISOString().slice(0, 10), bankName: "",
   });
   const [saving, setSaving] = useState(false);
+  const me = useMe();
+  const canEdit = meCanDo(me, "treasuryAccounts", "update");
+  const [showInactive, setShowInactive] = useState(false);
+  const [editing, setEditing] = useState<Account | null>(null);
+  const [listing, setListing] = useState<Account | null>(null);
+  const [transfer, setTransfer] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [version, setVersion] = useState(0);
+  const reload = () => setVersion(v => v + 1);
 
   useEffect(() => {
-    fetch("/api/treasury-accounts", { credentials: "include" })
+    fetch(`/api/treasury-accounts?all=${showInactive}`, { credentials: "include" })
       .then(r => r.json())
       .then(d => setAccounts(d.data?.items || []))
       .catch(() => setError("Lecture des comptes impossible."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [showInactive, version]);
+  const active = accounts.filter(a => a.isActive !== false);
 
   const total = accounts.reduce((s, a) => s + a.balance, 0);
   const pending = accounts.reduce((s, a) => s + a.pendingCount, 0);
@@ -87,10 +99,15 @@ export default function TreasuryPage() {
             Chaque solde est calculé&nbsp;: solde d&apos;ouverture, plus les mouvements enregistrés.
           </p>
         </div>
-        <button onClick={() => setModalOpen(true)}
-          className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
-          <Plus size={16} /> Nouveau compte
-        </button>
+        <div className="flex gap-2 flex-wrap items-center">
+          <label className="flex items-center gap-2 text-sm text-ink2"><input type="checkbox" className="accent-section" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} /> Comptes désactivés</label>
+          {canEdit && active.length > 1 && <button onClick={() => setTransfer(true)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Virement interne</button>}
+          {canEdit && active.length > 0 && <button onClick={() => setManual(true)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Opération</button>}
+          <button onClick={() => setModalOpen(true)}
+            className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+            <Plus size={16} /> Nouveau compte
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -144,8 +161,12 @@ export default function TreasuryPage() {
                 </p>
 
                 <p className="text-[11px] text-ink3 mt-1">
-                  Ouverture {a.openingBalance.toLocaleString("fr-FR")} · {a.movementCount} mouvement(s)
+                  Ouverture {a.openingBalance.toLocaleString("fr-FR")} · {a.movementCount} mouvement(s){a.isActive === false ? " · désactivé" : ""}
                 </p>
+                <div className="mt-2 flex gap-3 text-xs">
+                  <button onClick={() => setListing(a)} className="text-section hover:underline">Mouvements</button>
+                  {canEdit && <button onClick={() => setEditing(a)} className="text-ink2 hover:underline">Modifier</button>}
+                </div>
 
                 <div className="mt-4 pt-3 border-t border-line flex items-center justify-between">
                   {a.pendingCount > 0 ? (
@@ -167,6 +188,11 @@ export default function TreasuryPage() {
           })}
         </div>
       )}
+
+      {editing && <EditAccountDialog account={editing as unknown as TreasuryAccountLite} onClose={() => setEditing(null)} onDone={() => { setEditing(null); reload(); }} />}
+      {listing && <MovementsDialog account={listing as unknown as TreasuryAccountLite} onClose={() => setListing(null)} />}
+      {transfer && <TransferDialog accounts={active as unknown as TreasuryAccountLite[]} onClose={() => setTransfer(false)} onDone={() => { setTransfer(false); reload(); }} />}
+      {manual && <ManualMovementDialog accounts={active as unknown as TreasuryAccountLite[]} onClose={() => setManual(false)} onDone={() => { setManual(false); reload(); }} />}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nouveau compte de trésorerie">
         <form onSubmit={handleCreate} className="space-y-4">

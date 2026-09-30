@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { errorMessage } from "@/lib/errors";
 
-interface Line { accountCode: string; accountLabel: string; debit: number; credit: number; }
+interface Line extends ImputationValue { accountCode: string; accountLabel: string; debit: number; credit: number; }
 interface AccountingEntryFormProps { onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
 
 const JOURNALS = [["AC","Achats"],["VT","Ventes"],["BQ","Banque"],["CA","Caisse"],["OD","Opérations Diverses"]];
@@ -20,6 +21,11 @@ export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormPro
   ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Plan comptable : autocomplétion du numéro, intitulé rempli d'office.
+  const [plan, setPlan] = useState<Array<{ code: string; label: string }>>([]);
+  useEffect(() => {
+    fetch("/api/ledger-accounts", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => d?.data && setPlan(d.data)).catch(() => {});
+  }, []);
 
   const totalDebit = lines.reduce((s,l)=>s+l.debit,0);
   const totalCredit = lines.reduce((s,l)=>s+l.credit,0);
@@ -28,8 +34,16 @@ export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormPro
   const balanced = Math.abs(totalDebit - totalCredit) <= 0.01 && totalDebit > 0;
   const allLinesFilled = lines.every(l => l.accountCode.trim() !== "" && l.accountLabel.trim() !== "");
 
-  function updateLine(i: number, f: keyof Line, v: string|number) { 
-    setLines(p=>p.map((l,j)=>j===i?{...l,[f]:v}:l)); 
+  function updateLine(i: number, f: keyof Line, v: string|number) {
+    setLines(p=>p.map((l,j)=>{
+      if (j!==i) return l;
+      const next = {...l,[f]:v} as Line;
+      // Débit OU crédit sur une ligne.
+      if (f === "debit" && Number(v) > 0) next.credit = 0;
+      if (f === "credit" && Number(v) > 0) next.debit = 0;
+      if (f === "accountCode") { const a = plan.find(x => x.code === String(v).trim()); if (a) next.accountLabel = a.label; }
+      return next;
+    }));
   }
 
   return (
@@ -79,6 +93,7 @@ export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormPro
               value={l.accountCode} 
               onChange={e=>updateLine(i,"accountCode",e.target.value)} 
               placeholder="Ex: 411000" 
+              list="plan-comptable"
               required 
             />
             <input 
@@ -91,8 +106,16 @@ export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormPro
             <input type="number" className={inputCls+" col-span-2 text-right"} value={l.debit} onChange={e=>updateLine(i,"debit",parseFloat(e.target.value)||0)} min={0} step="0.01" />
             <input type="number" className={inputCls+" col-span-2 text-right"} value={l.credit} onChange={e=>updateLine(i,"credit",parseFloat(e.target.value)||0)} min={0} step="0.01" />
             <button type="button" onClick={()=>lines.length>2&&setLines(p=>p.filter((_,j)=>j!==i))} className="text-ink2 hover:text-neg text-xl">×</button>
+            {/^[67]/.test(l.accountCode) && (
+              <div className="col-span-12 pl-2">
+                <ImputationFields compact value={l} onChange={v => setLines(p => p.map((x, j) => j === i ? { ...x, ...v } : x))} />
+              </div>
+            )}
           </div>
         ))}
+        <datalist id="plan-comptable">
+          {plan.map(a => <option key={a.code} value={a.code}>{a.label}</option>)}
+        </datalist>
 
         <button type="button" onClick={()=>setLines(p=>[...p,{accountCode:"",accountLabel:"",debit:0,credit:0}])} className="text-xs font-bold text-section hover:underline mt-1">+ Ajouter une ligne</button>
         

@@ -73,6 +73,10 @@ export function serverError(error: unknown) {
   if (error instanceof SyntaxError) {
     return badRequest("Corps de requête illisible : JSON attendu.");
   }
+  // Refus métier levé au fond d'une transaction : message utilisateur, 400.
+  if (errorName(error) === "BusinessRuleError") {
+    return badRequest(error instanceof Error ? error.message : "Opération refusée.");
+  }
 
   const ref = crypto.randomBytes(6).toString("hex");
   console.error(`[API Error ${ref}]`, error);

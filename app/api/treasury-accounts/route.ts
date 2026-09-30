@@ -24,7 +24,9 @@ interface AccountRow {
  */
 export const GET = withAuth("treasuryAccounts", "read", async (req: NextRequest, auth: TokenPayload) => {
   const pagination = getPagination(req);
-  const filter = { ...tenantFilter(auth), isActive: true };
+  // Comptes désactivés : masqués sauf demande explicite (?all=true).
+  const all = new URL(req.url).searchParams.get("all") === "true";
+  const filter = { ...tenantFilter(auth), ...(all ? {} : { isActive: true }) };
 
   const [items, total] = await Promise.all([
     TreasuryAccountModel.find(filter).sort({ label: 1 })

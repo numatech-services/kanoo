@@ -1,5 +1,6 @@
 import { Schema, model, models } from "mongoose";
 import { IAccountingEntry } from "@/types";
+import { BusinessRuleError } from "@/lib/errors";
 
 const AccountingLineSchema = new Schema(
   {
@@ -60,6 +61,23 @@ AccountingEntrySchema.pre("save", function (next) {
     next(new Error(`Écriture déséquilibrée : débits=${totalDebit} ≠ crédits=${totalCredit}`));
   } else {
     next();
+  }
+});
+
+/**
+ * Période clôturée : aucune écriture datée d'une période verrouillée ne peut
+ * être créée ni modifiée (les corrections passent par une écriture datée de
+ * la période ouverte). Le verrou est porté par l'organisation.
+ */
+AccountingEntrySchema.pre("save", async function () {
+  if (!this.isNew && !this.isModified("entryDate") && !this.isModified("lines")) return;
+  const Tenant = models.Tenant;
+  if (!Tenant) return;
+  const t = await Tenant.findById(this.tenantId).select("accountingLockedUntil").lean<{ accountingLockedUntil?: Date } | null>();
+  if (t?.accountingLockedUntil && new Date(this.entryDate) <= new Date(t.accountingLockedUntil)) {
+    throw new BusinessRuleError(
+      `Période comptable clôturée jusqu'au ${new Date(t.accountingLockedUntil).toLocaleDateString("fr-FR")} : datez l'opération dans la période ouverte.`
+    );
   }
 });
 
