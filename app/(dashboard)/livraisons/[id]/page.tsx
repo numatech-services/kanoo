@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 interface Delivery {
   _id:string; number:string; status:string; deliveryDate:string; deliveryAddress?:string;
@@ -12,8 +13,11 @@ interface Delivery {
   lines:Array<{description:string;quantity:number;unit:string;notes?:string}>;
 }
 
+async function csrfTok() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
+
 export default function LivraisonDetailPage() {
   const { id } = useParams();
+  const canCancelBl = meCanDo(useMe(), "livraisons", "delete");
   const [mounted, setMounted] = useState(false);
   const [delivery,setDelivery]=useState<Delivery|null>(null);
   const [loading,setLoading]=useState(true);
@@ -44,6 +48,11 @@ export default function LivraisonDetailPage() {
         <div><Link href="/livraisons" className="text-xs text-ink2 hover:text-ink">← Bons de livraison</Link><h1 className="text-2xl font-bold text-ink mt-1">{delivery.number}</h1></div>
         <div className="flex gap-2 mt-2">
           <button onClick={()=>window.print()} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">🖨️ Imprimer</button>
+          {canCancelBl && <button onClick={async()=>{
+            if(!confirm("Annuler ce bon de livraison ? Les articles sortis seront remis en stock.")) return;
+            const res=await fetch(`/api/livraisons/${id}`,{method:"DELETE",credentials:"include",headers:{"x-csrf-token":await csrfTok()}});
+            if(res.ok) window.location.href="/livraisons"; else { const d=await res.json().catch(()=>({})); alert(d.error||"Annulation impossible"); }
+          }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Annuler le BL</button>}
           {!delivery.signedAt && delivery.status!=="delivered" && <button onClick={()=>setShowSignForm(true)} className="px-4 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95">✍️ Signer la livraison</button>}
         </div>
       </div>

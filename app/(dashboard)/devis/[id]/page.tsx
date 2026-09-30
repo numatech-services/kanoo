@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 function calcLine(l: any) {
   const qty = l.quantity || 0; 
@@ -26,9 +27,14 @@ function calcLine(l: any) {
   };
 }
 
+async function csrfTok() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
+
 export default function DevisDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const me = useMe();
+  const canDeleteDevis = meCanDo(me, "devis", "delete");
+  const canEditDevis = meCanDo(me, "devis", "update");
   const [item, setItem] = useState<any>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -96,6 +102,23 @@ export default function DevisDetailPage() {
             className="px-5 py-2.5 border border-line2 rounded-2xl font-bold text-ink2 hover:bg-surface2 transition-all">
             PDF
           </a>
+          {canEditDevis && !item.convertedToInvoiceId && (
+            <select value={item.status} onChange={async e => {
+              const res = await fetch(`/api/devis/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrfTok() }, body: JSON.stringify({ status: e.target.value }) });
+              const d = await res.json().catch(() => ({}));
+              if (res.ok) setItem(d.data); else alert(d.error || "Changement impossible");
+            }} className="h-11 px-3 rounded-2xl border border-line2 text-sm font-semibold" aria-label="Statut du devis">
+              <option value="draft">Brouillon</option><option value="sent">Envoyé</option><option value="accepted">Accepté</option>
+              <option value="rejected">Refusé</option><option value="expired">Expiré</option>
+            </select>
+          )}
+          {canDeleteDevis && !item.convertedToInvoiceId && (
+            <button onClick={async () => {
+              if (!confirm("Supprimer ce devis ?")) return;
+              const res = await fetch(`/api/devis/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrfTok() } });
+              if (res.ok) router.push("/devis"); else { const d = await res.json().catch(() => ({})); alert(d.error || "Suppression impossible"); }
+            }} className="px-5 py-2.5 border border-neg/25 text-neg rounded-2xl font-bold hover:bg-neg-50">Supprimer</button>
+          )}
           <button onClick={() => setEditOpen(true)} className="px-6 py-2.5 bg-ink text-white rounded-2xl font-bold shadow-lg hover:scale-105 transition-all">
             Modifier le devis
           </button>

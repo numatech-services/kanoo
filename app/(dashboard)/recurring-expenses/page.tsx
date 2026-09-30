@@ -1,201 +1,197 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { DataTable, Column } from "@/components/ui/DataTable";
+import { Plus, Banknote, Edit3, Trash2, Power } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
+import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
+import { EXPENSE_ACCOUNTS } from "@/lib/syscohada";
+import { useMe, meCanDo } from "@/lib/useMe";
 
-// Interfaces pour la clarté du code
-interface Expense { 
-  _id: string; 
-  label: string; 
-  category: string; 
-  amount: number; 
-  frequency: string; 
-  nextDueDate: string; 
-  treasuryAccountId: { label: string } | null; 
-  isActive: boolean; 
+type Ref = { _id: string; label?: string; name?: string } | null;
+interface Expense {
+  _id: string; label: string; category: string; amount: number; frequency: string; nextDueDate: string; accountCode?: string;
+  treasuryAccountId: Ref | string; supplierId?: Ref | string; isActive: boolean; description?: string;
+  projectId?: string; activityId?: string; costCenter?: string; executions?: Array<{ executedAt: string; amount: number }>;
+}
+interface Account { _id: string; label: string; type: string }
+
+const CATEGORIES: Record<string, string> = { loyer: "Loyer", electricite: "Électricité", eau: "Eau", internet: "Internet", telephone: "Téléphone", assurance: "Assurance", abonnement: "Abonnement", salaire: "Salaire", prestation: "Prestation", maintenance: "Maintenance", fourniture: "Fournitures", transport: "Transport", autre: "Autre" };
+const FREQ: Record<string, string> = { monthly: "Mensuelle", quarterly: "Trimestrielle", biannual: "Semestrielle", annual: "Annuelle", weekly: "Hebdomadaire", daily: "Quotidienne" };
+const DEFAULT_ACCOUNT: Record<string, string> = { loyer: "622100", electricite: "605200", eau: "605100", internet: "628300", telephone: "628100", assurance: "625000", abonnement: "634000", prestation: "632400", maintenance: "624100", fourniture: "605500", transport: "618000", salaire: "661000", autre: "658000" };
+const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
+const idOf = (v: Ref | string | undefined) => (v && typeof v === "object" ? v._id : v ? String(v) : "");
+async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
+async function send(url: string, method: string, body?: unknown) {
+  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(d.error || "Opération refusée");
+  return d.data;
 }
 
-interface TreasuryAccount {
-  _id: string;
-  label: string;
-}
-
-const CATEGORIES = ["loyer", "electricite", "eau", "internet", "telephone", "assurance", "abonnement", "salaire", "prestation", "maintenance", "fourniture", "transport", "autre"];
-const FREQUENCIES = [["monthly", "Mensuelle"], ["quarterly", "Trimestrielle"], ["annual", "Annuelle"], ["weekly", "Hebdomadaire"], ["daily", "Quotidienne"]];
-
+/** Charges récurrentes : loyers, abonnements, énergie… — payées à l'échéance, imputées. */
 export default function RecurringExpensesPage() {
-  // 1. Déclarations des hooks (Toujours au sommet du composant)
-  const [mounted, setMounted] = useState(false);
+  const me = useMe();
+  const canCreate = meCanDo(me, "recurringCharges", "create");
+  const canEdit = meCanDo(me, "recurringCharges", "update");
+  const canDelete = meCanDo(me, "recurringCharges", "delete");
   const [items, setItems] = useState<Expense[]>([]);
-  const [accounts, setAccounts] = useState<TreasuryAccount[]>([]); // Initialisé par défaut en tableau vide
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [monthlyTotal, setMonthlyTotal] = useState(0);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  
-  const [form, setForm] = useState({
-    label: "",
-    category: "loyer",
-    amount: 0,
-    frequency: "monthly",
-    startDate: new Date().toISOString().slice(0, 10),
-    accountCode: "622000",
-    treasuryAccountId: ""
-  });
-
+  const [showInactive, setShowInactive] = useState(false);
+  const [editing, setEditing] = useState<Expense | "new" | null>(null);
+  const [paying, setPaying] = useState<Expense | null>(null);
+  const [error, setError] = useState("");
   const LIMIT = 20;
 
-  // 2. Fonctions de chargement
   const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/recurring-expenses?page=${page}&limit=${LIMIT}&isActive=true`, { credentials: "include" });
-      const d = await res.json();
-      setItems(d.data?.items || []);
-      setTotal(d.data?.pagination?.total || 0);
-      setMonthlyTotal(d.data?.monthlyTotal || 0);
-    } catch (err) {
-      console.error("Erreur chargement dépenses:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [page]);
+    const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+    if (!showInactive) q.set("isActive", "true");
+    const d = await fetch(`/api/recurring-expenses?${q}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    setItems(d?.data?.items ?? []); setTotal(d?.data?.pagination?.total ?? 0); setMonthlyTotal(d?.data?.monthlyTotal ?? 0);
+  }, [page, showInactive]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { fetch("/api/treasury-accounts", { credentials: "include" }).then(r => r.json()).then(d => setAccounts(d.data?.items ?? [])).catch(() => {}); }, []);
+  async function run(fn: () => Promise<unknown>) { setError(""); try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Erreur"); } }
 
-  const loadAccounts = useCallback(async () => {
-    try {
-      const res = await fetch("/api/treasury-accounts", { credentials: "include" });
-      const d = await res.json();
-      // On s'assure de toujours stocker un tableau pour éviter l'erreur .map()
-      const rawData = d?.data || d;
-      setAccounts(Array.isArray(rawData) ? rawData : []);
-    } catch (err) {
-      console.error("Erreur comptes trésorerie:", err);
-      setAccounts([]);
-    }
-  }, []);
-
-  // 3. Effets
-  useEffect(() => {
-    setMounted(true);
-    load();
-    loadAccounts();
-  }, [load, loadAccounts]);
-
-  // 4. Handlers
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-
-    const payload = { ...form };
-    // Nettoyage de l'ID optionnel pour éviter les erreurs CastError MongoDB
-    if (!payload.treasuryAccountId) delete (payload as any).treasuryAccountId;
-
-    try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
-      const res = await fetch("/api/recurring-expenses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        setModalOpen(false);
-        load();
-        setForm(p => ({ ...p, label: "", amount: 0, treasuryAccountId: "" }));
-      }
-    } catch (err) {
-      console.error("Erreur création:", err);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!mounted) return null;
-
-  const updateField = (f: string, v: unknown) => setForm(p => ({ ...p, [f]: v }));
-
-  const columns: Column<Expense>[] = [
-    { key: "label", label: "Libellé" },
-    { key: "category", label: "Catégorie", render: (v) => <span className="text-xs bg-surface2 text-ink2 px-2 py-0.5 rounded border border-line capitalize">{String(v)}</span> },
-    { key: "amount", label: "Montant (XOF)", className: "text-right font-mono font-bold", render: (v) => Number(v).toLocaleString("fr-FR") },
-    { key: "frequency", label: "Fréquence", render: (v) => FREQUENCIES.find(f => f[0] === v)?.[1] || String(v) },
-    { key: "nextDueDate", label: "Échéance", render: (v) => new Date(String(v)).toLocaleDateString("fr-FR") },
-  ];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-black text-ink uppercase tracking-tighter">Dépenses récurrentes</h1>
-          <p className="text-sm text-ink2">Total estimé : <strong className="text-section">{monthlyTotal.toLocaleString("fr-FR")} XOF/mois</strong></p>
+          <h1 className="text-2xl font-bold text-ink">Charges récurrentes</h1>
+          <p className="text-sm text-ink2">Engagement mensuel estimé : <b className="text-ink">{fmt(monthlyTotal)} XOF</b></p>
         </div>
-        <button onClick={() => setModalOpen(true)} className="px-5 py-2.5 bg-section text-white rounded-xl text-sm font-bold shadow-md hover:brightness-95 transition-all">
-          + Nouvelle dépense
-        </button>
+        <div className="flex gap-2 items-center">
+          <label className="flex items-center gap-2 text-sm text-ink2"><input type="checkbox" className="accent-section" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} /> Désactivées</label>
+          {canCreate && <button onClick={() => setEditing("new")} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><Plus size={16} /> Nouvelle charge</button>}
+        </div>
       </div>
+      {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
 
-      <div className="bg-surface rounded-2xl border border-line shadow-sm overflow-hidden">
-        <DataTable columns={columns} data={items} loading={loading} keyExtractor={e => e._id} emptyMessage="Aucune dépense planifiée" />
+      <div className="bg-surface rounded-xl border border-line overflow-x-auto">
+        <table className="table-dense w-full">
+          <thead><tr className="bg-surface2/50 text-left"><th>Charge</th><th>Fréquence</th><th className="text-right">Montant</th><th>Prochaine échéance</th><th>Compte payeur</th><th /></tr></thead>
+          <tbody>
+            {items.length === 0 && <tr><td colSpan={6} className="text-center text-ink3 py-8">Aucune charge</td></tr>}
+            {items.map(x => {
+              const due = new Date(x.nextDueDate);
+              const late = x.isActive && due < today;
+              return (
+                <tr key={x._id} className={`border-t border-line ${x.isActive ? "" : "opacity-50"}`}>
+                  <td><span className="font-medium text-ink">{x.label}</span><span className="block text-[11px] text-ink3">{CATEGORIES[x.category] ?? x.category} · compte {x.accountCode}{typeof x.supplierId === "object" && x.supplierId?.name ? ` · ${x.supplierId.name}` : ""}</span></td>
+                  <td className="text-xs">{FREQ[x.frequency] ?? x.frequency}</td>
+                  <td className="text-right font-mono">{fmt(x.amount)}</td>
+                  <td className={`text-xs ${late ? "text-neg font-semibold" : ""}`}>{due.toLocaleDateString("fr-FR")}{late ? " · en retard" : ""}</td>
+                  <td className="text-xs">{typeof x.treasuryAccountId === "object" && x.treasuryAccountId ? x.treasuryAccountId.label : "—"}</td>
+                  <td className="text-right whitespace-nowrap">
+                    {canEdit && x.isActive && <button onClick={() => setPaying(x)} className="px-2 h-8 inline-flex items-center gap-1 rounded-md bg-pos text-white text-xs font-semibold"><Banknote size={13} /> Payer</button>}
+                    {canEdit && <button onClick={() => setEditing(x)} className="ml-1 p-1.5 text-ink3 hover:text-ink" title="Modifier"><Edit3 size={14} /></button>}
+                    {canEdit && <button onClick={() => run(() => send(`/api/recurring-expenses/${x._id}`, "PATCH", { isActive: !x.isActive }))} className="p-1.5 text-ink3 hover:text-warn" title={x.isActive ? "Désactiver" : "Réactiver"}><Power size={14} /></button>}
+                    {canDelete && <button onClick={() => confirm("Supprimer cette charge ? (déjà payée : elle sera seulement désactivée)") && run(() => send(`/api/recurring-expenses/${x._id}`, "DELETE"))} className="p-1.5 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
-      
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nouvelle dépense récurrente" size="lg">
-        <form onSubmit={handleCreate} className="space-y-4 pt-4">
-          <FormField label="Libellé" required>
-            <input className={inputCls} value={form.label} onChange={e => updateField("label", e.target.value)} required />
-          </FormField>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Catégorie">
-              <select className={selectCls} value={form.category} onChange={e => updateField("category", e.target.value)}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </FormField>
-            <FormField label="Fréquence" required>
-              <select className={selectCls} value={form.frequency} onChange={e => updateField("frequency", e.target.value)}>
-                {FREQUENCIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </FormField>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Montant (XOF)" required>
-              <input type="number" className={inputCls} value={form.amount} onChange={e => updateField("amount", Number(e.target.value))} required />
-            </FormField>
-            <FormField label="Date de début" required>
-              <input type="date" className={inputCls} value={form.startDate} onChange={e => updateField("startDate", e.target.value)} required />
-            </FormField>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Compte de Trésorerie">
-              <select className={selectCls} value={form.treasuryAccountId} onChange={e => updateField("treasuryAccountId", e.target.value)}>
-                <option value="">-- Sélectionner (Optionnel) --</option>
-                {/* Sécurité renforcée : vérification que accounts est un tableau avant .map */}
-                {Array.isArray(accounts) && accounts.map(acc => (
-                  <option key={acc._id} value={acc._id}>{acc.label}</option>
-                ))}
-              </select>
-            </FormField>
-            <FormField label="Code OHADA">
-              <input className={inputCls} value={form.accountCode} onChange={e => updateField("accountCode", e.target.value)} />
-            </FormField>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-6 border-t">
-            <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm font-bold text-ink2">Annuler</button>
-            <button type="submit" disabled={saving} className="px-8 py-2.5 bg-section text-white rounded-xl text-sm font-bold disabled:opacity-50">
-              {saving ? "Enregistrement..." : "Créer l'échéance"}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      {editing && <ChargeDialog charge={editing === "new" ? null : editing} accounts={accounts} onClose={() => setEditing(null)} onDone={() => { setEditing(null); load(); }} />}
+      {paying && <PayDialog charge={paying} accounts={accounts} onClose={() => setPaying(null)} onDone={() => { setPaying(null); load(); }} />}
     </div>
+  );
+}
+
+function ChargeDialog({ charge, accounts, onClose, onDone }: { charge: Expense | null; accounts: Account[]; onClose: () => void; onDone: () => void }) {
+  const [f, setF] = useState({
+    label: charge?.label ?? "", category: charge?.category ?? "loyer", amount: charge?.amount ?? 0, frequency: charge?.frequency ?? "monthly",
+    startDate: new Date().toISOString().slice(0, 10), nextDueDate: charge?.nextDueDate?.slice(0, 10) ?? "",
+    accountCode: charge?.accountCode ?? "622100", treasuryAccountId: idOf(charge?.treasuryAccountId), supplierId: idOf(charge?.supplierId), description: charge?.description ?? "",
+  });
+  const [imp, setImp] = useState<ImputationValue>({ projectId: charge?.projectId, activityId: charge?.activityId, costCenter: charge?.costCenter });
+  const [suppliers, setSuppliers] = useState<Array<{ _id: string; name: string }>>([]);
+  const [error, setError] = useState("");
+  useEffect(() => { fetch("/api/suppliers?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => d?.data?.items && setSuppliers(d.data.items)).catch(() => {}); }, []);
+  const u = (k: keyof typeof f, v: string | number) => setF(p => ({ ...p, [k]: v }));
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const body = { ...f, ...imp, projectId: imp.projectId ?? null, activityId: imp.activityId ?? null, costCenter: imp.costCenter ?? null, treasuryAccountId: f.treasuryAccountId || null, supplierId: f.supplierId || null };
+    try {
+      if (charge) { const { startDate: _s, ...rest } = body; await send(`/api/recurring-expenses/${charge._id}`, "PATCH", { ...rest, nextDueDate: f.nextDueDate || undefined }); }
+      else await send("/api/recurring-expenses", "POST", body);
+      onDone();
+    } catch (err) { setError(err instanceof Error ? err.message : "Enregistrement impossible"); }
+  }
+  return (
+    <Modal open onClose={onClose} title={charge ? `Modifier — ${charge.label}` : "Nouvelle charge récurrente"} size="lg">
+      <form onSubmit={submit} className="space-y-4">
+        {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
+        <div className="grid sm:grid-cols-2 gap-3">
+          <FormField label="Libellé" required><input className={inputCls} value={f.label} onChange={e => u("label", e.target.value)} required /></FormField>
+          <FormField label="Catégorie">
+            <select className={selectCls} value={f.category} onChange={e => setF(p => ({ ...p, category: e.target.value, accountCode: DEFAULT_ACCOUNT[e.target.value] ?? p.accountCode }))}>
+              {Object.entries(CATEGORIES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Montant (XOF)" required><input type="number" min={1} className={inputCls} value={f.amount || ""} onChange={e => u("amount", Number(e.target.value))} /></FormField>
+          <FormField label="Fréquence">
+            <select className={selectCls} value={f.frequency} onChange={e => u("frequency", e.target.value)}>{Object.entries(FREQ).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+          </FormField>
+          {charge
+            ? <FormField label="Prochaine échéance"><input type="date" className={inputCls} value={f.nextDueDate} onChange={e => u("nextDueDate", e.target.value)} /></FormField>
+            : <FormField label="Première échéance" required><input type="date" className={inputCls} value={f.startDate} onChange={e => u("startDate", e.target.value)} /></FormField>}
+          <FormField label="Compte de charge">
+            <select className={selectCls} value={f.accountCode} onChange={e => u("accountCode", e.target.value)}>
+              {EXPENSE_ACCOUNTS.filter(a => a.code.startsWith("6")).map(a => <option key={a.code} value={a.code}>{a.code} — {a.label}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Compte qui paie (par défaut)">
+            <select className={selectCls} value={f.treasuryAccountId} onChange={e => u("treasuryAccountId", e.target.value)}>
+              <option value="">—</option>{accounts.map(a => <option key={a._id} value={a._id}>{a.label}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Fournisseur">
+            <select className={selectCls} value={f.supplierId} onChange={e => u("supplierId", e.target.value)}>
+              <option value="">—</option>{suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+            </select>
+          </FormField>
+        </div>
+        <div><p className="text-sm font-semibold text-ink mb-1">Imputation</p><ImputationFields value={imp} onChange={setImp} /></div>
+        <button type="submit" className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold">Enregistrer</button>
+      </form>
+    </Modal>
+  );
+}
+
+function PayDialog({ charge, accounts, onClose, onDone }: { charge: Expense; accounts: Account[]; onClose: () => void; onDone: () => void }) {
+  const [f, setF] = useState({ treasuryAccountId: idOf(charge.treasuryAccountId), amount: charge.amount, date: new Date().toISOString().slice(0, 10), reference: "" });
+  const [error, setError] = useState("");
+  async function submit() {
+    try { await send(`/api/recurring-expenses/${charge._id}`, "POST", f); onDone(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Paiement impossible"); }
+  }
+  return (
+    <Modal open onClose={onClose} title={`Payer — ${charge.label}`}>
+      <div className="space-y-4">
+        <p className="text-sm text-ink2">Échéance du {new Date(charge.nextDueDate).toLocaleDateString("fr-FR")}. Le décaissement et l&apos;écriture sont enregistrés ; l&apos;échéance suivante est calculée.</p>
+        {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
+        <FormField label="Compte qui paie" required>
+          <select className={selectCls} value={f.treasuryAccountId} onChange={e => setF(p => ({ ...p, treasuryAccountId: e.target.value }))}>
+            <option value="">—</option>{accounts.map(a => <option key={a._id} value={a._id}>{a.label}</option>)}
+          </select>
+        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Montant"><input type="number" min={1} className={inputCls} value={f.amount} onChange={e => setF(p => ({ ...p, amount: Number(e.target.value) }))} /></FormField>
+          <FormField label="Date"><input type="date" className={inputCls} value={f.date} onChange={e => setF(p => ({ ...p, date: e.target.value }))} /></FormField>
+        </div>
+        <FormField label="Référence"><input className={inputCls} value={f.reference} onChange={e => setF(p => ({ ...p, reference: e.target.value }))} /></FormField>
+        <button onClick={submit} className="w-full h-10 rounded-lg bg-pos text-white text-sm font-semibold">Payer</button>
+      </div>
+    </Modal>
   );
 }

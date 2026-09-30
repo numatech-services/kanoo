@@ -36,7 +36,7 @@ const RecurringExpenseSchema = new Schema({
   // Fréquence
   frequency: {
     type: String,
-    enum: ["daily", "weekly", "monthly", "quarterly", "annual"],
+    enum: ["daily", "weekly", "monthly", "quarterly", "biannual", "annual"],
     default: "monthly",
   },
   startDate: { type: Date, required: true },

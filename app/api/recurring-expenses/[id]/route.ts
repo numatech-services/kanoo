@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { RecurringExpenseModel } from "@/models/RecurringExpense";
 import { recordMovement, ledgerFor, treasuryKind } from "@/lib/treasury";
+import { recurringFields } from "@/lib/recurring";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -19,8 +20,12 @@ export const GET = withAuth("recurringCharges", "read", async (_req: NextRequest
 
 export const PATCH = withAuth("recurringCharges", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
-  const body = await req.json();
-  const e = await RecurringExpenseModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, sanitizeBody(body), { new: true });
+  const { data, error } = await recurringFields(auth.tenantId, sanitizeBody(await req.json()), true);
+  if (error) return badRequest(error);
+  const $set: Record<string, unknown> = {}, $unset: Record<string, 1> = {};
+  for (const [k, v] of Object.entries(data)) { if (v === null) $unset[k] = 1; else $set[k] = v; }
+  const e = await RecurringExpenseModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) },
+    { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) }, { new: true, runValidators: true });
   if (!e) return notFound();
   await logAudit(auth, "UPDATE", "recurringExpenses", { resourceId: params.id });
   return ok(e);
@@ -90,4 +95,23 @@ export const POST = withAuth("recurringCharges", "update", async (req: NextReque
 
   await logAudit(auth, "PAYMENT", "recurringCharges", { resourceId: params.id, after: { amount } });
   return ok({ message: `Charge de ${amount.toLocaleString("fr-FR")} XOF payée et déduite de la trésorerie`, expense });
+});
+
+/**
+ * DELETE — supprime une charge jamais payée ; une charge déjà exécutée est
+ * désactivée (ses paiements restent en comptabilité et en trésorerie).
+ */
+export const DELETE = withAuth("recurringCharges", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {
+  await connectDB();
+  const e = await RecurringExpenseModel.findOne({ _id: params.id, ...tenantFilter(auth) });
+  if (!e) return notFound();
+  if ((e.executions ?? []).length > 0) {
+    e.isActive = false;
+    await e.save();
+    await logAudit(auth, "UPDATE", "recurringExpenses", { resourceId: params.id, after: { isActive: false } });
+    return ok({ deactivated: true });
+  }
+  await RecurringExpenseModel.deleteOne({ _id: e._id });
+  await logAudit(auth, "DELETE", "recurringExpenses", { resourceId: params.id });
+  return noContent();
 });

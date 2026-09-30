@@ -117,9 +117,29 @@ export default function FixedAssetsPage() {
       {/* Plan d'amortissement inline */}
       {selectedAsset && (
         <div className="bg-surface rounded-xl border border-line overflow-hidden">
-          <div className="px-5 py-3 border-b border-line bg-surface2">
-            <p className="font-semibold text-ink text-sm">{selectedAsset.name} — Plan d'amortissement ({selectedAsset.depreciationMethod === "linear" ? "Linéaire" : "Dégressif"})</p>
-            <p className="text-xs text-ink2">{selectedAsset.acquisitionCost.toLocaleString("fr-FR")} XOF · {selectedAsset.usefulLifeYears} ans</p>
+          <div className="px-5 py-3 border-b border-line bg-surface2 flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <p className="font-semibold text-ink text-sm">{selectedAsset.name} — Plan d'amortissement ({selectedAsset.depreciationMethod === "linear" ? "Linéaire" : "Dégressif"})</p>
+              <p className="text-xs text-ink2">{selectedAsset.acquisitionCost.toLocaleString("fr-FR")} XOF · {selectedAsset.usefulLifeYears} ans</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={async () => {
+                const name = prompt("Désignation :", selectedAsset.name); if (!name) return;
+                const location = prompt("Emplacement / affectation :", (selectedAsset as { location?: string }).location ?? "") ?? undefined;
+                const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+                const res = await fetch(`/api/fixed-assets/${selectedAsset._id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, body: JSON.stringify({ name, location }) });
+                if (res.ok) load(); else alert("Modification impossible");
+              }} className="px-3 h-8 rounded-lg border border-line2 text-xs hover:bg-surface">Modifier</button>
+              {selectedAsset.status !== "disposed" && <button onClick={async () => {
+                const sale = confirm("Cession (vente) ? OK = vente, Annuler = mise au rebut sans prix.");
+                const price = sale ? Number(prompt("Prix de cession (XOF) :", "0")) || 0 : 0;
+                if (!confirm(`Sortir « ${selectedAsset.name} » de l'actif ? L'écriture de sortie sera passée.`)) return;
+                const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+                const res = await fetch(`/api/fixed-assets/${selectedAsset._id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, body: JSON.stringify({ action: "dispose", reason: sale ? "sale" : "scrap", price }) });
+                const d = await res.json().catch(() => ({}));
+                if (res.ok) load(); else alert(d.error || "Sortie impossible");
+              }} className="px-3 h-8 rounded-lg border border-neg/25 text-neg text-xs hover:bg-neg-50">Céder / mettre au rebut</button>}
+            </div>
           </div>
           <table className="w-full border-collapse text-sm">
             <thead><tr className="bg-surface2/50"><th className="px-4 py-2 text-xs text-ink2 font-medium text-left">Année</th><th className="px-4 py-2 text-xs text-ink2 font-medium text-right">Dotation</th><th className="px-4 py-2 text-xs text-ink2 font-medium text-right">Cumul</th><th className="px-4 py-2 text-xs text-ink2 font-medium text-right">VNC</th><th className="px-4 py-2 text-xs text-ink2 font-medium text-center w-36">Action</th></tr></thead>

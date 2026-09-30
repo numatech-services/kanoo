@@ -1,19 +1,10 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, created, badRequest, getPagination, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { recurringFields } from "@/lib/recurring";
 import { RecurringExpenseModel } from "@/models/RecurringExpense";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
-
-function calcNextDate(startDate: Date, frequency: string): Date {
-  const d = new Date(startDate);
-  if (frequency === "monthly")   d.setMonth(d.getMonth() + 1);
-  else if (frequency === "quarterly") d.setMonth(d.getMonth() + 3);
-  else if (frequency === "annual")    d.setFullYear(d.getFullYear() + 1);
-  else if (frequency === "weekly")    d.setDate(d.getDate() + 7);
-  else if (frequency === "daily")     d.setDate(d.getDate() + 1);
-  return d;
-}
 
 export const GET = withAuth("recurringCharges", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
@@ -50,6 +41,7 @@ export const GET = withAuth("recurringCharges", "read", async (req: NextRequest,
     if (f === "monthly")   return sum + e.amount;
     if (f === "quarterly") return sum + e.amount / 3;
     if (f === "annual")    return sum + e.amount / 12;
+    if (f === "biannual")  return sum + e.amount / 6;
     if (f === "weekly")    return sum + e.amount * 4.33;
     if (f === "daily")     return sum + e.amount * 30;
     return sum;
@@ -67,13 +59,16 @@ export const POST = withAuth("recurringCharges", "create", async (req: NextReque
   const body = await req.json();
   const err = requireFields(body, ["label", "amount", "frequency", "startDate"]);
   if (err) return badRequest(err);
+  const start = new Date(body.startDate);
+  if (isNaN(start.getTime())) return badRequest("Date de début invalide.");
+  const { data, error } = await recurringFields(auth.tenantId, body);
+  if (error) return badRequest(error);
 
-  const nextDueDate = calcNextDate(new Date(body.startDate), body.frequency);
-
+  // Première échéance = date de début (elle se décalait d'une période).
   const expense = await RecurringExpenseModel.create({
-    ...body,
+    ...data,
     tenantId: auth.tenantId,
-    nextDueDate,
+    nextDueDate: start,
     createdBy: auth.userId,
   });
 

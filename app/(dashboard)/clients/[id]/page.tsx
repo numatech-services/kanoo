@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ClientForm, type ClientFormData } from "@/components/pme/ClientForm";
 import { Modal } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 type Client = ClientFormData & { _id: string; currentBalance: number; logo?: string };
 type Row = Record<string, unknown>;
@@ -57,9 +58,12 @@ const TABS: TabDef[] = [
     row: r => [date(r.sentAt), Array.isArray(r.channels) ? (r.channels as string[]).join(", ") : "—", r.invoiceNumber as string || "—"] },
 ];
 
+async function csrfTok() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
+
 export default function ClientDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const canRemove = meCanDo(useMe(), "clients", "delete");
   const [data, setData] = useState<Overview | null>(null);
   const [tab, setTab] = useState<keyof Overview["sections"]>("invoices");
   const [editOpen, setEditOpen] = useState(false);
@@ -103,6 +107,11 @@ export default function ClientDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
           <button onClick={() => setEditOpen(true)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Modifier</button>
+          {canRemove && <button onClick={async () => {
+            if (!confirm("Désactiver ce client ? Il disparaît des listes ; ses documents restent.")) return;
+            const res = await fetch(`/api/clients/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrfTok() } });
+            if (res.ok) router.push("/clients"); else alert("Désactivation impossible");
+          }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Désactiver</button>}
           {data.financials && <a href={`/clients/${id}/releve`} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Relevé</a>}
           {data.access?.createInvoice !== false && <a href={`/invoices/new?clientId=${id}`} className="px-4 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95">+ Facture</a>}
         </div>
