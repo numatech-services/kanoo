@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { DeliveryNoteModel } from "@/models/DeliveryNote";
-import { ProductModel } from "@/models/Product";
 import { StockMovementModel } from "@/models/StockMovement";
+import { reverseMovement } from "@/lib/stock";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { authCan } from "@/lib/role-resources";
@@ -43,24 +43,13 @@ export const DELETE = withAuth("livraisons", "delete", async (_req: NextRequest,
   if (!note) return notFound();
 
   await withTransaction(async (session) => {
-    // On rend exactement ce que le bon avait sorti (ses mouvements), pas la
-    // quantité des lignes : la sortie avait pu être plafonnée au stock disponible.
-    const exits = await StockMovementModel.find({ tenantId: auth.tenantId, type: "exit", linkedDocNumber: note.number })
-      .session(session ?? null).lean<Array<{ productId: unknown; quantity: number }>>();
+    // Contre-mouvement de chaque sortie du bon : on rend exactement ce qui était
+    // sorti (la sortie avait pu être plafonnée au stock disponible).
+    const exits = await StockMovementModel.find({ tenantId: auth.tenantId, type: "exit", linkedDocNumber: note.number, reversedBy: { $exists: false } })
+      .select("_id quantity").session(session ?? null).lean<Array<{ _id: unknown; quantity: number }>>();
     for (const m of exits) {
-      const qty = Math.abs(m.quantity);
-      if (!qty) continue;
-      const product = await ProductModel.findOne({ _id: m.productId, ...tenantFilter(auth) }).session(session ?? null);
-      if (!product) continue;
-      const before = product.stockQty || 0;
-      await StockMovementModel.create([{
-        productId: product._id, tenantId: auth.tenantId, type: "return",
-        quantity: qty, quantityBefore: before, quantityAfter: before + qty,
-        reason: `Annulation du bon de livraison ${note.number}`, linkedDocType: "delivery",
-        linkedDocNumber: note.number, createdBy: auth.userId,
-      }], { session });
-      product.stockQty = before + qty;
-      await product.save({ session });
+      if (!m.quantity) continue;
+      await reverseMovement({ tenantId: auth.tenantId, userId: auth.userId, movementId: m._id, reason: `annulation du BL ${note.number}` }, session);
     }
     await DeliveryNoteModel.deleteOne({ _id: note._id }, { session });
   });

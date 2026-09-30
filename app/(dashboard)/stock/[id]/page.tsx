@@ -1,84 +1,152 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import { ArrowLeft, Edit3, ArrowLeftRight, Undo2, Archive, Download } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
+import { selectCls, inputCls } from "@/components/ui/FormField";
+import { ProductForm } from "@/components/stock/ProductForm";
+import { MovementDialog, MOVEMENT_OPTIONS } from "@/components/stock/MovementDialog";
 import { useMe, meCanDo } from "@/lib/useMe";
 
-interface Product { _id:string; code:string; label:string; description?:string; unit:string; stockQty:number; stockMinAlert:number; unitPrice:number; tvaRate:number; accountCode?:string; isService:boolean; }
-interface Movement { _id:string; type:string; quantity:number; quantityBefore:number; quantityAfter:number; reason:string; linkedDocNumber?:string; createdAt:string; }
-
-const TYPE_LABELS:Record<string,string>={entry:"Entrée",exit:"Sortie",adjustment:"Ajustement",return:"Retour",loss:"Perte/Casse"};
-const TYPE_COLORS:Record<string,string>={entry:"text-pos",exit:"text-neg",adjustment:"text-info",return:"text-warn",loss:"text-neg"};
+interface Product {
+  _id: string; code: string; label: string; description?: string; unit?: string; category?: string; barcode?: string; location?: string;
+  unitPrice: number; tvaRate: number; stockQty: number; stockMinAlert: number; stockMaxAlert?: number; purchaseCost?: number; lastPurchaseCost?: number;
+  preferredSupplierId?: { _id: string; name: string } | null; isService: boolean; isActive: boolean; accountCode?: string;
+}
+interface Movement {
+  _id: string; type: string; quantity: number; quantityBefore: number; quantityAfter: number; unitCost?: number; avgCostAfter?: number;
+  reason: string; linkedDocNumber?: string; createdAt: string; reversedBy?: string; reverses?: string;
+  createdBy?: { firstName?: string; lastName?: string } | null;
+}
+const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
+const TYPE_LABEL: Record<string, string> = { entry: "Entrée", exit: "Sortie", return: "Retour", loss: "Perte", adjustment: "Ajustement" };
+async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function StockDetailPage() {
-  // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
-  const canDelete = meCanDo(useMe(), "products", "delete");
   const { id } = useParams();
-  const [product,setProduct]=useState<Product|null>(null);
-  const [movements,setMovements]=useState<Movement[]>([]);
-  const [loading,setLoading]=useState(true);
+  const router = useRouter();
+  const me = useMe();
+  const canEdit = meCanDo(me, "products", "update");
+  const canDelete = meCanDo(me, "products", "delete");
+  const [p, setP] = useState<Product | null>(null);
+  const [moves, setMoves] = useState<Movement[]>([]);
+  const [filter, setFilter] = useState({ type: "", from: "", to: "" });
+  const [editOpen, setEditOpen] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [error, setError] = useState("");
 
-  const load = useCallback(()=>{
-    setLoading(true);
-    Promise.all([
-      fetch(`/api/products/${id}`,{credentials:"include"}).then(r=>r.json()).then(d=>setProduct(d.data)),
-      fetch(`/api/stock/movements?productId=${id}&limit=50`,{credentials:"include"}).then(r=>r.json()).then(d=>setMovements(d.data?.items||[])),
-    ]).finally(()=>setLoading(false));
-  },[id]);
-  useEffect(()=>{ load(); },[load]);
+  const load = useCallback(async () => {
+    const params = new URLSearchParams({ productId: String(id), limit: "100" });
+    if (filter.type) params.set("type", filter.type);
+    if (filter.from) params.set("from", filter.from);
+    if (filter.to) params.set("to", filter.to);
+    const [a, b] = await Promise.all([
+      fetch(`/api/products/${id}`, { credentials: "include" }).then(r => r.json()).catch(() => null),
+      fetch(`/api/stock/movements?${params}`, { credentials: "include" }).then(r => r.json()).catch(() => null),
+    ]);
+    setP(a?.data ?? null);
+    setMoves(b?.data?.items ?? []);
+  }, [id, filter]);
+  useEffect(() => { load(); }, [load]);
 
-  async function removeMovement(mid:string){
-    if(!confirm("Supprimer ce mouvement ? La quantité en stock sera recalée en conséquence.")) return;
-    const { csrfToken } = await fetch("/api/auth/csrf").then(r=>r.json());
-    const res = await fetch(`/api/stock/movements/${mid}`,{ method:"DELETE", credentials:"include", headers:{ "x-csrf-token": csrfToken } });
-    if(res.ok) load(); else alert("Suppression impossible.");
+  async function reverse(m: Movement) {
+    const reason = prompt("Motif de l'annulation (un contre-mouvement sera enregistré) :");
+    if (reason === null) return;
+    setError("");
+    const res = await fetch(`/api/stock/movements/${m._id}?reason=${encodeURIComponent(reason)}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { setError(d.error || "Annulation impossible"); return; }
+    load();
+  }
+  async function saveProduct(body: Record<string, unknown>) {
+    const res = await fetch(`/api/products/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify(body) });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || "Modification impossible");
+    setEditOpen(false); load();
+  }
+  async function deactivate() {
+    if (!confirm("Désactiver cet article ? Il disparaît des listes ; son historique est conservé.")) return;
+    const res = await fetch(`/api/products/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    if (res.ok) router.push("/stock"); else setError("Désactivation impossible");
   }
 
-  if(loading) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse"/></div>;
-  if(!product) return <div className="p-6 text-ink2">Produit introuvable</div>;
-
-  const isAlert = product.stockQty <= product.stockMinAlert;
+  if (!p) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-line" /></div>;
+  const csvParams = new URLSearchParams({ productId: String(id), format: "csv", ...(filter.type ? { type: filter.type } : {}), ...(filter.from ? { from: filter.from } : {}), ...(filter.to ? { to: filter.to } : {}) });
 
   return (
-    <div className="space-y-5 max-w-3xl">
-      <div><Link href="/stock" className="text-xs text-ink2 hover:text-ink">← Stock</Link><h1 className="text-2xl font-bold text-ink mt-1">{product.label}</h1><p className="text-ink2 text-sm font-mono">{product.code}</p></div>
+    <div className="space-y-5 max-w-6xl">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <Link href="/stock" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Stock</Link>
+          <h1 className="text-2xl font-bold text-ink mt-1">{p.label}</h1>
+          <p className="text-sm text-ink2 font-mono">{p.code}{p.barcode ? ` · ${p.barcode}` : ""}{!p.isActive ? " · désactivé" : ""}</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {canEdit && !p.isService && <button onClick={() => setMoving(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><ArrowLeftRight size={16} /> Mouvement</button>}
+          {canEdit && <button onClick={() => setEditOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Edit3 size={16} /> Modifier</button>}
+          {canDelete && p.isActive && <button onClick={deactivate} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Archive size={16} /> Désactiver</button>}
+        </div>
+      </div>
+      {error && <p className="px-4 py-3 bg-neg-50 border border-neg/25 rounded-xl text-sm text-neg">{error}</p>}
 
-      <div className="grid grid-cols-2 gap-5">
-        <div className={`rounded-xl border p-5 ${isAlert?"bg-neg-50 border-neg/25":"bg-surface border-line"}`}>
-          <p className="text-xs text-ink2 uppercase font-semibold mb-1">Quantité en stock</p>
-          <p className={`text-4xl font-bold font-mono ${isAlert?"text-neg":"text-pos"}`}>{product.stockQty}</p>
-          <p className="text-sm text-ink2 mt-1">{product.unit} — Seuil alerte : {product.stockMinAlert}</p>
-          {isAlert && <p className="text-xs text-neg font-semibold mt-2">⚠ Stock sous le seuil minimum</p>}
-        </div>
-        <div className="bg-surface rounded-xl border border-line p-5 space-y-2 text-sm">
-          {[["Prix unitaire",`${product.unitPrice.toLocaleString("fr-FR")} XOF`],["TVA",`${Math.round(product.tvaRate*100)}%`],["Valeur stock",`${(product.stockQty*product.unitPrice).toLocaleString("fr-FR")} XOF`],["Type",product.isService?"Service":"Produit physique"],["Code comptable",product.accountCode||"—"]].map(([k,v])=>(
-            <div key={String(k)} className="flex justify-between py-1 border-b border-line last:border-0"><span className="text-ink2">{k}</span><span className="font-medium">{v}</span></div>
-          ))}
-        </div>
+      <div className="grid sm:grid-cols-4 gap-4">
+        {[
+          ["En stock", `${fmt(p.stockQty)} ${p.unit ?? ""}`, p.stockMinAlert > 0 && p.stockQty <= p.stockMinAlert ? "text-neg" : "text-ink"],
+          ["Coût moyen (CMUP)", p.purchaseCost ? `${fmt(p.purchaseCost)} XOF` : "à valoriser", p.purchaseCost ? "text-ink" : "text-warn"],
+          ["Valeur au coût", `${fmt(p.stockQty * (p.purchaseCost || 0))} XOF`, "text-ink"],
+          ["Prix de vente HT", `${fmt(p.unitPrice)} XOF`, "text-ink"],
+        ].map(([k, v, c]) => (
+          <div key={k} className="bg-surface rounded-xl border border-line p-4"><p className="text-[11px] font-semibold text-ink2 uppercase">{k}</p><p className={`text-lg font-bold mt-1 ${c}`}>{v}</p></div>
+        ))}
+      </div>
+      <div className="bg-surface rounded-xl border border-line p-4 grid sm:grid-cols-3 gap-2 text-sm">
+        <p><span className="text-ink3">Catégorie :</span> {p.category || "—"}</p>
+        <p><span className="text-ink3">Emplacement :</span> {p.location || "—"}</p>
+        <p><span className="text-ink3">Fournisseur habituel :</span> {p.preferredSupplierId?.name || "—"}</p>
+        <p><span className="text-ink3">Seuil d&apos;alerte :</span> {fmt(p.stockMinAlert)}</p>
+        <p><span className="text-ink3">Stock maximal :</span> {fmt(p.stockMaxAlert)}</p>
+        <p><span className="text-ink3">Dernier prix d&apos;achat :</span> {p.lastPurchaseCost ? `${fmt(p.lastPurchaseCost)} XOF` : "—"}</p>
       </div>
 
       <div className="bg-surface rounded-xl border border-line overflow-hidden">
-        <h2 className="font-semibold text-ink px-5 py-4 border-b border-line">Historique des mouvements</h2>
-        {movements.length===0 ? <p className="text-ink2 text-center py-8 text-sm">Aucun mouvement enregistré</p> : (
-          <table className="table-dense">
-            <thead><tr className="bg-surface2/50">{["Date","Type","Quantité","Avant","Après","Motif",""].map(h=><th key={h} >{h}</th>)}</tr></thead>
-            <tbody>
-              {movements.map(m=>(
-                <tr key={m._id} className="border-t border-line">
-                  <td className="px-4 py-2.5 text-ink2 text-xs">{new Date(m.createdAt).toLocaleDateString("fr-FR")}</td>
-                  <td className="px-4 py-2.5"><span className={`text-xs font-medium ${TYPE_COLORS[m.type]||""}`}>{TYPE_LABELS[m.type]||m.type}</span></td>
-                  <td className={`px-4 py-2.5 font-mono font-bold ${m.quantity>0?"text-pos":"text-neg"}`}>{m.quantity>0?"+":""}{m.quantity}</td>
-                  <td className="px-4 py-2.5 font-mono text-ink2">{m.quantityBefore}</td>
-                  <td className="px-4 py-2.5 font-mono font-semibold">{m.quantityAfter}</td>
-                  <td className="px-4 py-2.5 text-ink2 text-xs">{m.reason}{m.linkedDocNumber&&<span className="ml-1 text-section">#{m.linkedDocNumber}</span>}</td>
-                  <td className="px-4 py-2.5 text-right">{canDelete && <button onClick={()=>removeMovement(m._id)} className="text-ink3 hover:text-neg" title="Supprimer ce mouvement"><Trash2 size={14}/></button>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <div className="p-4 flex items-center justify-between gap-2 flex-wrap border-b border-line">
+          <h2 className="font-semibold text-ink">Historique des mouvements</h2>
+          <div className="flex gap-2 flex-wrap items-center">
+            <select className={`${selectCls} w-auto h-9 text-sm`} value={filter.type} onChange={e => setFilter(f => ({ ...f, type: e.target.value }))} aria-label="Type">
+              <option value="">Tous types</option>{MOVEMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{TYPE_LABEL[o.value]}</option>)}
+            </select>
+            <input type="date" className={`${inputCls} w-auto h-9 text-sm`} value={filter.from} onChange={e => setFilter(f => ({ ...f, from: e.target.value }))} aria-label="Du" />
+            <input type="date" className={`${inputCls} w-auto h-9 text-sm`} value={filter.to} onChange={e => setFilter(f => ({ ...f, to: e.target.value }))} aria-label="Au" />
+            <a href={`/api/stock/movements?${csvParams}`} className="px-3 h-9 inline-flex items-center gap-1 rounded-lg border border-line2 text-sm hover:bg-surface2"><Download size={14} /> CSV</a>
+          </div>
+        </div>
+        <table className="table-dense w-full">
+          <thead><tr className="bg-surface2/50 text-left"><th>Date</th><th>Type</th><th className="text-right">Qté</th><th className="text-right">Avant → Après</th><th className="text-right">Coût unit.</th><th>Motif</th><th>Par</th><th /></tr></thead>
+          <tbody>
+            {moves.length === 0 && <tr><td colSpan={8} className="text-center text-ink3 py-6">Aucun mouvement</td></tr>}
+            {moves.map(m => (
+              <tr key={m._id} className={`border-t border-line ${m.reversedBy ? "opacity-50 line-through" : ""}`}>
+                <td className="text-xs text-ink2 whitespace-nowrap">{new Date(m.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</td>
+                <td>{TYPE_LABEL[m.type] ?? m.type}{m.reverses ? " (annulation)" : ""}</td>
+                <td className={`text-right font-mono font-semibold ${m.quantity > 0 ? "text-pos" : m.quantity < 0 ? "text-neg" : ""}`}>{m.quantity > 0 ? "+" : ""}{fmt(m.quantity)}</td>
+                <td className="text-right font-mono text-xs text-ink2">{fmt(m.quantityBefore)} → {fmt(m.quantityAfter)}</td>
+                <td className="text-right font-mono text-xs">{m.unitCost ? fmt(m.unitCost) : "—"}</td>
+                <td className="text-xs">{m.reason}{m.linkedDocNumber && <span className="text-section"> · {m.linkedDocNumber}</span>}</td>
+                <td className="text-xs text-ink2">{m.createdBy ? `${m.createdBy.firstName ?? ""} ${m.createdBy.lastName ?? ""}` : "—"}</td>
+                <td className="text-right">{canDelete && !m.reversedBy && !m.reverses && m.quantity !== 0 && (
+                  <button onClick={() => reverse(m)} title="Annuler par un contre-mouvement" className="p-1 rounded text-ink3 hover:text-neg"><Undo2 size={14} /></button>
+                )}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
+
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title={`Modifier — ${p.label}`} size="lg">
+        <ProductForm initial={{ ...p, description: p.description ?? "", category: p.category ?? "", barcode: p.barcode ?? "", location: p.location ?? "", accountCode: p.accountCode ?? "" }} onSave={saveProduct} onCancel={() => setEditOpen(false)} />
+      </Modal>
+      {moving && <MovementDialog product={p} onClose={() => setMoving(false)} onDone={() => { setMoving(false); load(); }} />}
     </div>
   );
 }

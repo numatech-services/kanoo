@@ -4,71 +4,72 @@ import { withAuth, ok, getPagination, tenantFilter } from "@/lib/api-helpers";
 import { ProductModel } from "@/models/Product";
 import { TokenPayload } from "@/lib/auth";
 
-// GET /api/stock — État global du stock avec KPIs et alertes
+// Alerte : article stocké (pas un service) avec un seuil défini, à ou sous le seuil.
+const ALERT = { isService: { $ne: true }, stockMinAlert: { $gt: 0 }, $expr: { $lte: ["$stockQty", "$stockMinAlert"] } };
+
+/**
+ * GET /api/stock?search=&category=&location=&alertOnly=true
+ * État du stock : quantités, CMUP, valeur au coût (à défaut, au prix de vente),
+ * quantité à commander (jusqu'au stock maximal).
+ */
 export const GET = withAuth("products", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
-  
   const pagination = getPagination(req);
   const url = new URL(req.url);
+  const tf = tenantFilter(auth);
+  const search = (url.searchParams.get("search") || "").trim();
+  const category = url.searchParams.get("category");
+  const location = url.searchParams.get("location");
   const alertOnly = url.searchParams.get("alertOnly") === "true";
-  const search = url.searchParams.get("search") || "";
 
-  // 1. Construction du filtre (Multi-locataire + Recherche + Alertes)
-  const filter: Record<string, any> = { 
-    ...tenantFilter(auth), 
-    isActive: true 
-  };
-
-  if (alertOnly) {
-    // Utilise $expr pour comparer deux champs du même document (stockQty <= stockMinAlert)
-    filter.$expr = { $lte: ["$stockQty", "$stockMinAlert"] };
-  }
-
+  const filter: Record<string, unknown> = { ...tf, isActive: true, isService: { $ne: true } };
+  if (alertOnly) Object.assign(filter, ALERT);
+  if (category) filter.category = category;
+  if (location) filter.location = location;
   if (search) {
-    filter.$or = [
-      { label: { $regex: search, $options: "i" } },
-      { code: { $regex: search, $options: "i" } }
-    ];
+    const rx = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+    filter.$or = [{ label: rx }, { code: rx }, { barcode: rx }];
   }
 
-  // 2. Récupération des données et du total
-  const [items, total] = await Promise.all([
-    ProductModel.find(filter)
-      .sort({ stockQty: 1 }) // Priorité aux stocks bas
-      .skip(pagination.skip)
-      .limit(pagination.limit)
-      .lean(),
+  const [items, total, alertCount, valueAgg, categories, locations] = await Promise.all([
+    ProductModel.find(filter).sort({ stockQty: 1, label: 1 }).skip(pagination.skip).limit(pagination.limit)
+      .populate("preferredSupplierId", "name code").lean<Array<Record<string, unknown> & { stockQty?: number; stockMinAlert?: number; stockMaxAlert?: number; purchaseCost?: number; unitPrice?: number }>>(),
     ProductModel.countDocuments(filter),
+    ProductModel.countDocuments({ ...tf, isActive: true, ...ALERT }),
+    ProductModel.aggregate([
+      { $match: { ...tf, isActive: true, isService: { $ne: true } } },
+      { $group: {
+        _id: null,
+        atCost: { $sum: { $multiply: [{ $ifNull: ["$stockQty", 0] }, { $ifNull: ["$purchaseCost", 0] }] } },
+        atPrice: { $sum: { $multiply: [{ $ifNull: ["$stockQty", 0] }, { $ifNull: ["$unitPrice", 0] }] } },
+        uncosted: { $sum: { $cond: [{ $and: [{ $gt: ["$stockQty", 0] }, { $lte: [{ $ifNull: ["$purchaseCost", 0] }, 0] }] }, 1, 0] } },
+      } },
+    ]),
+    ProductModel.distinct("category", { ...tf, isActive: true, category: { $nin: [null, ""] } }),
+    ProductModel.distinct("location", { ...tf, isActive: true, location: { $nin: [null, ""] } }),
   ]);
 
-  // 3. Calcul du nombre global de produits en alerte (indépendant des filtres de page)
-  const alertCount = await ProductModel.countDocuments({
-    ...tenantFilter(auth),
-    isActive: true,
-    $expr: { $lte: ["$stockQty", "$stockMinAlert"] },
+  const enriched = items.map(p => {
+    const qty = p.stockQty || 0, min = p.stockMinAlert || 0, max = p.stockMaxAlert || 0;
+    return {
+      ...p,
+      isAlert: min > 0 && qty <= min,
+      stockValue: qty * (p.purchaseCost || 0),
+      stockValueAtPrice: qty * (p.unitPrice || 0),
+      suggestedOrder: max > qty ? max - qty : min > 0 && qty <= min ? Math.max(min * 2 - qty, 1) : 0,
+    };
   });
-
-  // 4. Enrichissement des données (Calcul valeur et flag alerte)
-  const enriched = items.map(p => ({
-    ...p,
-    isAlert: p.stockQty <= p.stockMinAlert,
-    stockValue: (p.stockQty || 0) * (p.unitPrice || 0),
-  }));
-
-  // 5. Calcul de la valeur totale du stock (pour l'ensemble du catalogue)
-  // Note: Pour une performance optimale sur de gros stocks, utilisez un .aggregate()
-  const allProducts = await ProductModel.find({ ...tenantFilter(auth), isActive: true }).select("stockQty unitPrice");
-  const totalStockValue = allProducts.reduce((sum, p) => sum + ((p.stockQty || 0) * (p.unitPrice || 0)), 0);
+  const v = valueAgg[0] ?? { atCost: 0, atPrice: 0, uncosted: 0 };
 
   return ok({
     items: enriched,
-    pagination: { 
-      page: pagination.page, 
-      limit: pagination.limit, 
-      total, 
-      totalPages: Math.ceil(total / pagination.limit) 
-    },
+    pagination: { page: pagination.page, limit: pagination.limit, total, totalPages: Math.ceil(total / pagination.limit) },
     alertCount,
-    totalStockValue,
+    // Valeur au coût (CMUP). La valeur au prix de vente reste indiquée à part.
+    totalStockValue: v.atCost,
+    totalStockValueAtPrice: v.atPrice,
+    uncostedCount: v.uncosted,
+    categories: (categories as string[]).sort(),
+    locations: (locations as string[]).sort(),
   });
 });

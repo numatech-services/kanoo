@@ -1,232 +1,128 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { Plus, AlertTriangle, ArrowLeftRight, Search, History } from "lucide-react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
-import { Modal } from "@/components/ui/Modal";
-import { useRouter } from "next/navigation";
-import { PackagePlus, AlertTriangle } from "lucide-react";
-import { errorMessage } from "@/lib/errors";
+import { inputCls, selectCls } from "@/components/ui/FormField";
+import { MovementDialog } from "@/components/stock/MovementDialog";
+import { useMe, meCanDo } from "@/lib/useMe";
 
-interface StockItem { 
-  _id: string; 
-  code: string; 
-  label: string; 
-  unit: string; 
-  stockQty: number; 
-  stockMinAlert: number; 
-  unitPrice: number; 
-  isAlert: boolean; 
-  stockValue: number; 
+interface StockItem {
+  _id: string; code: string; label: string; unit?: string; category?: string; location?: string;
+  stockQty: number; stockMinAlert: number; stockMaxAlert?: number; purchaseCost?: number; unitPrice: number;
+  isAlert: boolean; stockValue: number; suggestedOrder: number;
 }
+const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
 
 export default function StockPage() {
-  const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [items, setItems] = useState<StockItem[]>([]); 
-  const [total, setTotal] = useState(0); 
-  const [page, setPage] = useState(1); 
+  const me = useMe();
+  const canCreate = meCanDo(me, "products", "create");
+  const canMove = meCanDo(me, "products", "update");
+  const [items, setItems] = useState<StockItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [alertOnly, setAlertOnly] = useState(false); 
-  const [alertCount, setAlertCount] = useState(0); 
-  const [totalValue, setTotalValue] = useState(0);
-  
-  const [mvtModal, setMvtModal] = useState<string | null>(null);
-  const [mvtForm, setMvtForm] = useState({ type: "entry", quantity: 1, reason: "", unitCost: 0 });
-  const [saving, setSaving] = useState(false); 
-  const LIMIT = 30;
+  const [filters, setFilters] = useState({ search: "", category: "", location: "", alertOnly: false });
+  const [searchInput, setSearchInput] = useState("");
+  const [meta, setMeta] = useState({ alertCount: 0, totalStockValue: 0, totalStockValueAtPrice: 0, uncostedCount: 0, categories: [] as string[], locations: [] as string[] });
+  const [moving, setMoving] = useState<StockItem | null>(null);
+  const LIMIT = 25;
 
   const load = useCallback(async () => {
     setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-      if (alertOnly) params.set("alertOnly", "true");
-      const res = await fetch(`/api/stock?${params}`, { credentials: "include" });
-      const d = await res.json();
-      setItems(d.data?.items || []);
-      setTotal(d.data?.pagination?.total || 0);
-      setAlertCount(d.data?.alertCount || 0);
-      setTotalValue(d.data?.totalStockValue || 0);
-    } catch (error) {
-      console.error("Erreur chargement stock:", error);
-    } finally {
-      setLoading(false);
+    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+    if (filters.search) params.set("search", filters.search);
+    if (filters.category) params.set("category", filters.category);
+    if (filters.location) params.set("location", filters.location);
+    if (filters.alertOnly) params.set("alertOnly", "true");
+    const d = await fetch(`/api/stock?${params}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    if (d?.data) {
+      setItems(d.data.items || []);
+      setTotal(d.data.pagination?.total || 0);
+      setMeta({ alertCount: d.data.alertCount, totalStockValue: d.data.totalStockValue, totalStockValueAtPrice: d.data.totalStockValueAtPrice,
+        uncostedCount: d.data.uncostedCount, categories: d.data.categories || [], locations: d.data.locations || [] });
     }
-  }, [page, alertOnly]);
-
-  useEffect(() => { 
-    setMounted(true); 
-    load(); 
-  }, [load]);
-
-  async function handleMovement() {
-    if (!mvtForm.reason || mvtForm.reason.trim() === "") {
-      alert("Indiquez un motif pour ce mouvement.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const { csrfToken } = await fetch("/api/auth/csrf").then((r) => r.json());
-      const res = await fetch("/api/stock/movements", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify({ productId: mvtModal, ...mvtForm }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setMvtModal(null);
-        setMvtForm({ type: "entry", quantity: 1, reason: "", unitCost: 0 });
-        load();
-      } else {
-        alert(data.error || "Le mouvement de stock a échoué.");
-      }
-    } catch (err) {
-      alert(errorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!mounted) return null;
+    setLoading(false);
+  }, [page, filters]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const t = setTimeout(() => { setPage(1); setFilters(f => ({ ...f, search: searchInput.trim() })); }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   const columns: Column<StockItem>[] = [
-    { key: "code", label: "Code", className: "font-mono text-[10px] text-ink2 uppercase w-24" },
-    { key: "label", label: "Produit / Article", className: "font-medium text-ink" },
-    { key: "unit", label: "Unité", className: "text-ink2 text-xs" },
-    { 
-      key: "stockQty", 
-      label: "En Stock", 
-      className: "text-right font-mono font-bold", 
-      render: (v, r) => (
-        <span className={r.isAlert ? "text-neg bg-neg-50 px-2 py-1 rounded-md" : "text-pos"}>
-          {Number(v).toLocaleString()}
-        </span>
-      ) 
-    },
-    { key: "stockMinAlert", label: "Alerte", className: "text-right font-mono text-ink2 text-xs", render: (v) => String(v) },
-    { 
-      key: "stockValue", 
-      label: "Valeur (XOF)", 
-      className: "text-right font-mono text-section font-semibold", 
-      render: (v) => Math.round(Number(v)).toLocaleString("fr-FR") 
-    },
-    { 
-      key: "isAlert", 
-      label: "Statut", 
-      render: (v) => v ? (
-        <span className="flex items-center gap-1 text-[10px] bg-neg-50 text-neg px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">
-          <AlertTriangle size={10} /> Critique
-        </span>
-      ) : (
-        <span className="text-[10px] bg-pos-50 text-pos px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">OK</span>
-      ) 
-    },
-    { 
-      key: "_id", 
-      label: "Action", 
-      render: (v, r) => (
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            setMvtModal(String(v));
-            setMvtForm({ type: "entry", quantity: 1, reason: "", unitCost: r.unitPrice });
-          }} 
-          className="px-3 py-1 text-xs bg-ink text-white rounded-lg hover:bg-section transition-colors shadow-sm"
-        >
-          Mouvement
-        </button>
-      ) 
-    },
+    { key: "code", label: "Code", className: "font-mono text-xs w-24" },
+    { key: "label", label: "Article", render: (_v, r) => (
+      <Link href={`/stock/${r._id}`} className="hover:underline">
+        <span className="font-medium text-ink">{r.label}</span>
+        {(r.category || r.location) && <span className="block text-[11px] text-ink3">{[r.category, r.location].filter(Boolean).join(" · ")}</span>}
+      </Link>
+    ) },
+    { key: "stockQty", label: "En stock", className: "text-right", render: (v, r) => (
+      <span className={`font-mono font-semibold ${r.isAlert ? "text-neg" : "text-ink"}`}>{fmt(v)} <span className="text-[11px] text-ink3">{r.unit}</span></span>
+    ) },
+    { key: "stockMinAlert", label: "Seuil", className: "text-right font-mono text-ink2", render: v => fmt(v) },
+    { key: "purchaseCost", label: "Coût moyen", className: "text-right font-mono text-ink2", render: v => Number(v) > 0 ? fmt(v) : <span className="text-warn text-xs">à valoriser</span> },
+    { key: "stockValue", label: "Valeur (coût)", className: "text-right font-mono", render: v => fmt(v) },
+    { key: "suggestedOrder", label: "À commander", className: "text-right font-mono", render: v => Number(v) > 0 ? <span className="text-warn font-semibold">{fmt(v)}</span> : "—" },
+    ...(canMove ? [{ key: "_id", label: "", render: (_v: unknown, r: StockItem) => (
+      <button onClick={() => setMoving(r)} className="px-2 h-8 inline-flex items-center gap-1 rounded-md border border-line2 text-xs text-ink2 hover:bg-surface2"><ArrowLeftRight size={13} /> Mouvement</button>
+    ) } as Column<StockItem>] : []),
   ];
 
-  const inp = "w-full px-3 py-2 bg-surface2/20 border border-line rounded-xl text-sm focus:ring-2 focus:ring-section/30 outline-none transition-all";
-  const lbl = "block text-[10px] font-bold text-ink2 uppercase mb-1 tracking-widest";
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Gestion du stock</h1>
-          <p className="text-sm text-ink2 italic">{total} référence{total > 1 ? "s" : ""} au catalogue</p>
+          <h1 className="text-2xl font-bold text-ink">Stock</h1>
+          <p className="text-sm text-ink2">{total} article{total > 1 ? "s" : ""} stocké{total > 1 ? "s" : ""}</p>
         </div>
-        <button onClick={() => router.push('/stock/new')} className="flex items-center gap-2 px-4 py-2 bg-section text-white rounded-xl text-sm font-bold hover:brightness-95 transition-all shadow-md">
-          <PackagePlus size={18} /> Nouveau Produit
+        <div className="flex gap-2">
+          <Link href="/stock/mouvements" className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2"><History size={16} /> Journal des mouvements</Link>
+          {canCreate && <Link href="/stock/new" className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95"><Plus size={16} /> Nouvel article</Link>}
+        </div>
+      </div>
+
+      <div className="grid sm:grid-cols-3 gap-4">
+        <div className="bg-surface rounded-xl border border-line p-4">
+          <p className="text-[11px] font-semibold text-ink2 uppercase">Valeur du stock (coût moyen)</p>
+          <p className="text-xl font-bold text-ink mt-1">{fmt(meta.totalStockValue)} XOF</p>
+          {meta.uncostedCount > 0 && <p className="text-[11px] text-warn mt-1">{meta.uncostedCount} article(s) sans coût d&apos;achat</p>}
+        </div>
+        <div className="bg-surface rounded-xl border border-line p-4">
+          <p className="text-[11px] font-semibold text-ink2 uppercase">Valeur au prix de vente</p>
+          <p className="text-xl font-bold text-ink mt-1">{fmt(meta.totalStockValueAtPrice)} XOF</p>
+        </div>
+        <button onClick={() => { setPage(1); setFilters(f => ({ ...f, alertOnly: !f.alertOnly })); }}
+          className={`text-left rounded-xl border p-4 ${filters.alertOnly ? "border-neg/40 bg-neg-50" : "border-line bg-surface hover:bg-surface2"}`}>
+          <p className="text-[11px] font-semibold text-ink2 uppercase flex items-center gap-1"><AlertTriangle size={13} className="text-neg" /> Sous le seuil d&apos;alerte</p>
+          <p className="text-xl font-bold text-neg mt-1">{meta.alertCount}</p>
+          <p className="text-[11px] text-ink3">{filters.alertOnly ? "Filtre actif — cliquer pour tout voir" : "Cliquer pour filtrer"}</p>
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-surface rounded-2xl border border-line p-5 shadow-sm">
-          <p className="text-[10px] font-bold text-ink2 uppercase">Valeur de l'inventaire</p>
-          <p className="text-2xl font-bold font-mono text-ink mt-2">{Math.round(totalValue).toLocaleString("fr-FR")} <small className="text-xs font-normal opacity-50">XOF</small></p>
-        </div>
-        {/* Le filtre `alertOnly` était bien envoyé à l'API mais aucun contrôle
-            ne pouvait l'activer : il valait faux pour toujours. La carte le
-            pilote désormais. */}
-        <button
-          type="button"
-          onClick={() => { setAlertOnly(v => !v); setPage(1); }}
-          aria-pressed={alertOnly}
-          className={`text-left rounded-2xl border p-5 shadow-sm transition-colors ${
-            alertOnly ? "bg-neg-50 border-neg/25 ring-2 ring-red-200"
-                      : alertCount > 0 ? "bg-neg-50 border-neg/25 hover:bg-neg-50"
-                                       : "bg-surface border-line hover:bg-surface2/40"
-          }`}
-        >
-          <p className="text-[10px] font-bold text-ink2 uppercase">Ruptures / Alertes</p>
-          <p className={`text-2xl font-bold mt-2 ${alertCount > 0 ? "text-neg" : "text-pos"}`}>{alertCount}</p>
-          <p className="text-[10px] text-ink2 mt-1">
-            {alertOnly ? "Filtre actif — cliquez pour tout afficher" : "Cliquez pour ne voir que les alertes"}
-          </p>
-        </button>
-        <div className="bg-surface rounded-2xl border border-line p-5 shadow-sm">
-          <p className="text-[10px] font-bold text-ink2 uppercase">Total Références</p>
-          <p className="text-2xl font-bold mt-2 text-ink">{total}</p>
-        </div>
+      <div className="flex gap-2 flex-wrap">
+        <label className="relative flex-1 min-w-[14rem]">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3" />
+          <input className={`${inputCls} pl-9`} placeholder="Rechercher : désignation, code, code-barres" value={searchInput} onChange={e => setSearchInput(e.target.value)} />
+        </label>
+        <select className={`${selectCls} w-auto`} value={filters.category} onChange={e => { setPage(1); setFilters(f => ({ ...f, category: e.target.value })); }} aria-label="Catégorie">
+          <option value="">Toutes catégories</option>
+          {meta.categories.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select className={`${selectCls} w-auto`} value={filters.location} onChange={e => { setPage(1); setFilters(f => ({ ...f, location: e.target.value })); }} aria-label="Emplacement">
+          <option value="">Tous emplacements</option>
+          {meta.locations.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
-      <div className="bg-surface rounded-2xl border border-line shadow-sm overflow-hidden">
-        <DataTable columns={columns} data={items} loading={loading} keyExtractor={s => s._id} />
+      <div className="bg-surface rounded-xl border border-line overflow-hidden">
+        <DataTable columns={columns} data={items} loading={loading} keyExtractor={i => i._id} emptyMessage="Aucun article" />
       </div>
-
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
 
-     <Modal open={!!mvtModal} onClose={() => setMvtModal(null)} title="Mouvement de Stock">
-        <div className="p-6 space-y-5 bg-surface">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={lbl}>Opération</label>
-              <select className={inp} value={mvtForm.type} onChange={e => setMvtForm(p => ({ ...p, type: e.target.value }))}>
-                <option value="entry">📥 Entrée (Réception)</option>
-                <option value="exit">📤 Sortie (Vente/Usage)</option>
-                <option value="adjustment">🔄 Ajustement Inventaire</option>
-              </select>
-            </div>
-            <div>
-              <label className={lbl}>Quantité</label>
-              <input type="number" className={inp} value={mvtForm.quantity} onChange={e => setMvtForm(p => ({ ...p, quantity: Number(e.target.value) }))} min={1} />
-            </div>
-          </div>
-          
-          <div>
-            <label className={lbl}>Motif ou Référence (OBLIGATOIRE)</label>
-            <input className={inp} value={mvtForm.reason} onChange={e => setMvtForm(p => ({ ...p, reason: e.target.value }))} placeholder="Tapez la raison ici..." />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button onClick={() => setMvtModal(null)} className="px-4 py-2 text-sm text-ink2">Annuler</button>
-            <button 
-              onClick={() => {
-                console.log("Clic détecté !");
-                handleMovement();
-              }} 
-              className="px-6 py-2 bg-section text-white rounded-xl text-sm font-bold hover:brightness-95 shadow-lg active:scale-95"
-            >
-              {saving ? "Enregistrement..." : "CONFIRMER MAINTENANT"}
-            </button>
-          </div>
-        </div>
-      </Modal>
+      {moving && <MovementDialog product={moving} onClose={() => setMoving(null)} onDone={() => { setMoving(null); load(); }} />}
     </div>
   );
 }

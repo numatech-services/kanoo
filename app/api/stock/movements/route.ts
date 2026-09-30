@@ -1,96 +1,86 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/db";
-import {
-  withAuth,
-  created,
-  badRequest,
-  tenantFilter,
-  requireFields, serverError, getPagination, paginatedResponse } from "@/lib/api-helpers";
+import { Types } from "mongoose";
+import { connectDB, withTransaction } from "@/lib/db";
+import { withAuth, created, badRequest, forbidden, tenantFilter, requireFields, getPagination, paginatedResponse } from "@/lib/api-helpers";
+import { TokenPayload } from "@/lib/auth";
 import { StockMovementModel } from "@/models/StockMovement";
-import { ProductModel } from "@/models/Product";
+import { applyMovement, StockError, MOVEMENT_TYPES, MOVEMENT_LABEL, type MovementType } from "@/lib/stock";
+import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { logAudit } from "@/lib/audit";
 
-// GET /api/stock/movements?productId=…&limit=… — historique des mouvements.
-// La fiche produit consommait cet endpoint, qui n'existait pas (405 → historique
-// toujours vide).
-export const GET = withAuth("products", "read", async (req: NextRequest, auth) => {
-  await connectDB();
-  const url = new URL(req.url);
-  const pagination = getPagination(req);
+export const dynamic = "force-dynamic";
+
+function buildFilter(auth: TokenPayload, url: URL) {
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   const productId = url.searchParams.get("productId");
-  if (productId) filter.productId = productId;
+  if (productId && Types.ObjectId.isValid(productId)) filter.productId = new Types.ObjectId(productId);
+  const type = url.searchParams.get("type");
+  if (type && (MOVEMENT_TYPES as readonly string[]).includes(type)) filter.type = type;
+  const from = url.searchParams.get("from"), to = url.searchParams.get("to");
+  if (from || to) {
+    const r: Record<string, Date> = {};
+    if (from) r.$gte = new Date(from);
+    if (to) r.$lte = new Date(`${to}T23:59:59`);
+    filter.createdAt = r;
+  }
+  const q = (url.searchParams.get("q") || "").trim();
+  if (q) filter.$or = [{ reason: { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } }, { linkedDocNumber: q }];
+  return filter;
+}
 
+/**
+ * GET /api/stock/movements?productId=&type=&from=&to=&q=&format=csv
+ * Journal des mouvements (tous produits ou un seul), filtrable, exportable.
+ */
+export const GET = withAuth("products", "read", async (req: NextRequest, auth: TokenPayload) => {
+  await connectDB();
+  const url = new URL(req.url);
+  const filter = buildFilter(auth, url);
+
+  if (url.searchParams.get("format") === "csv") {
+    if (isInternFor(auth, "products")) return forbidden(INTERN_EXPORT_MESSAGE);
+    const rows = await StockMovementModel.find(filter).sort({ createdAt: -1 }).limit(20000)
+      .populate("productId", "code label unit").populate("createdBy", "firstName lastName")
+      .lean<Array<Record<string, unknown>>>();
+    const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [["Date", "Code", "Article", "Type", "Quantité", "Avant", "Après", "Coût unitaire", "CMUP après", "Motif", "Document", "Par"].join(";")];
+    for (const m of rows) {
+      const p = (m.productId ?? {}) as { code?: string; label?: string };
+      const u = (m.createdBy ?? {}) as { firstName?: string; lastName?: string };
+      lines.push([new Date(String(m.createdAt)).toLocaleString("fr-FR"), p.code, p.label, MOVEMENT_LABEL[m.type as MovementType] ?? m.type,
+        m.quantity, m.quantityBefore, m.quantityAfter, m.unitCost, m.avgCostAfter, m.reason, m.linkedDocNumber, `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()].map(cell).join(";"));
+    }
+    return new NextResponse("﻿" + lines.join("\r\n"), {
+      headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="mouvements-stock-${new Date().toISOString().slice(0, 10)}.csv"` },
+    });
+  }
+
+  const pagination = getPagination(req);
   const [items, total] = await Promise.all([
-    StockMovementModel.find(filter).sort({ createdAt: -1 }).skip(pagination.skip).limit(pagination.limit).lean(),
+    StockMovementModel.find(filter).sort({ createdAt: -1 }).skip(pagination.skip).limit(pagination.limit)
+      .populate("productId", "code label unit").populate("createdBy", "firstName lastName").lean(),
     StockMovementModel.countDocuments(filter),
   ]);
   return paginatedResponse(items, total, pagination);
 });
 
-export const POST = withAuth("products", "update", async (req: NextRequest, auth) => {
+/** POST — { productId, type, quantity, unitCost?, reason } : saisie d'un mouvement. */
+export const POST = withAuth("products", "update", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
-  
+  const body = await req.json().catch(() => ({}));
+  const err = requireFields(body, ["productId", "type", "quantity", "reason"]);
+  if (err) return badRequest(err);
+  if (!Types.ObjectId.isValid(String(body.productId))) return badRequest("Produit invalide.");
   try {
-    const body = await req.json();
-
-    // 1. Validation stricte
-    const err = requireFields(body, ["productId", "type", "quantity", "reason"]);
-    if (err) return badRequest(err);
-
-    // 2. Trouver le produit
-    const product = await ProductModel.findOne({
-      _id: body.productId,
-      ...tenantFilter(auth)
-    });
-
-    if (!product) {
-      return NextResponse.json({ error: "Produit introuvable" }, { status: 404 });
-    }
-
-    // 3. Calcul du nouveau stock
-    // - entrée / retour : on ajoute ;  sortie / perte : on retire.
-    // - ajustement d'inventaire : la quantité saisie EST le stock réel constaté
-    //   (le mouvement enregistré est l'écart). Auparavant « adjustment » n'était
-    //   pas reconnu comme positif et diminuait donc toujours le stock.
-    const qty = Math.abs(Number(body.quantity));
-    const initialQty = product.stockQty || 0;
-    let delta: number, finalQty: number;
-    if (body.type === "adjustment") {
-      finalQty = qty;
-      delta = qty - initialQty;
-    } else {
-      delta = ["entry", "return"].includes(body.type) ? qty : -qty;
-      finalQty = initialQty + delta;
-    }
-    if (finalQty < 0) return badRequest("Stock insuffisant pour cette sortie.");
-
-    // 4. Enregistrement séquentiel (Plus fiable que transaction en local)
-    const movement = await StockMovementModel.create({
-      productId: product._id,
-      tenantId: auth.tenantId,
-      type: body.type,
-      quantity: delta,
-      quantityBefore: initialQty,
-      quantityAfter: finalQty,
-      reason: body.reason,
-      createdBy: auth.userId,
-    });
-
-    // Mise à jour du produit
-    product.stockQty = finalQty;
-    await product.save();
-
-    // 5. Audit
-    await logAudit(auth, "UPDATE", "stock", {
-      resourceId: body.productId,
-      after: { stockQty: finalQty, type: body.type }
-    });
-
-    return created({ movementId: movement._id, newQty: finalQty, previousQty: initialQty });
-
-  } catch (error) {
-    // Le message interne partait au client : chemins, contraintes Mongo.
-    return serverError(error);
+    const r = await withTransaction(session => applyMovement({
+      tenantId: auth.tenantId, userId: auth.userId, productId: body.productId,
+      type: body.type, quantity: Math.abs(Number(body.quantity)), unitCost: body.unitCost, reason: body.reason,
+      linkedDocNumber: typeof body.reference === "string" ? body.reference.slice(0, 60) : undefined,
+    }, session));
+    await logAudit(auth, "UPDATE", "stock", { resourceId: String(body.productId), after: { type: body.type, delta: r.delta, stockQty: r.after } });
+    return created({ movementId: r.movement._id, newQty: r.after, previousQty: r.before, avgCost: r.avgCost });
+  } catch (e) {
+    if (e instanceof StockError) return badRequest(e.message);
+    throw e;
   }
 });

@@ -245,6 +245,13 @@ export interface IProduct {
   unit: string;
   stockQty: number;
   stockMinAlert: number;
+  purchaseCost?: number;
+  lastPurchaseCost?: number;
+  category?: string;
+  barcode?: string;
+  location?: string;
+  preferredSupplierId?: Types.ObjectId;
+  stockMaxAlert?: number;
   isService: boolean;
   accountCode?: string;
   isActive: boolean;

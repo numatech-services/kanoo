@@ -1,185 +1,188 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
-import { StatusBadge } from "@/components/ui/StatusBadge";
-import { CommandeForm } from "@/components/pme/CommandeForm";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Printer, Edit3, ArrowLeft } from "lucide-react";
+import { Printer, Edit3, ArrowLeft, CheckCircle2, PackageCheck, Ban, Trash2, FileText } from "lucide-react";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { Modal } from "@/components/ui/Modal";
+import { CommandeForm } from "@/components/pme/CommandeForm";
+import { useMe, meCanDo } from "@/lib/useMe";
+
+interface Line {
+  productId?: { _id: string; code: string; label: string; unit?: string } | string;
+  description: string; quantity: number; unitPrice: number; totalHT: number; receivedQty?: number;
+}
+interface Commande {
+  _id: string; number: string; status: string; orderDate: string; expectedDeliveryDate?: string; notes?: string;
+  supplierId?: { _id: string; name: string; code?: string } | null;
+  projectId?: { code: string; name: string } | null; activityId?: { name: string } | null; costCenter?: string;
+  lines: Line[]; totalHT: number; totalTVA: number; totalTTC: number; purchaseId?: string;
+}
+
+const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
+async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
+async function send(url: string, method: string, body?: unknown) {
+  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(d.error || "Action impossible");
+  return d.data;
+}
 
 export default function CommandeDetailPage() {
   const { id } = useParams();
-  const [item, setItem] = useState<any>(null);
+  const router = useRouter();
+  const me = useMe();
+  const canEdit = meCanDo(me, "commandes", "update");
+  const canDelete = meCanDo(me, "commandes", "delete");
+  const canPurchase = meCanDo(me, "purchases", "create");
+  const [item, setItem] = useState<Commande | null>(null);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [error, setError] = useState("");
 
-  const loadData = useCallback(async () => {
-    try {
-      const r = await fetch(`/api/commandes/${id}`, { credentials: "include" });
-      const d = await r.json();
-      setItem(d.data);
-    } catch (err) {
-      console.error("❌ [Détail BC] Erreur lors du fetch:", err);
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(async () => {
+    const d = await fetch(`/api/commandes/${id}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    setItem(d?.data ?? null);
+    setLoading(false);
   }, [id]);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => { loadData(); }, [loadData]);
-
-  async function handleUpdate(body: Record<string, unknown>) {
-    console.log("📤 [Détail BC] Tentative de mise à jour avec:", body);
-    try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
-
-      const res = await fetch(`/api/commandes/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "x-csrf-token": csrfToken
-        },
-        credentials: "include",
-        body: JSON.stringify(body)
-      });
-
-      if (res.ok) {
-        const d = await res.json();
-        console.log("✅ [Détail BC] Mise à jour réussie");
-        setItem(d.data);
-        setEditOpen(false);
-      } else {
-        const d = await res.json();
-        console.error("❌ [Détail BC] Échec de la mise à jour:", d.error);
-        alert("Erreur: " + d.error);
-      }
-    } catch (err) {
-      console.error("🔥 [Détail BC] Erreur critique handleUpdate:", err);
-      alert("Erreur lors de la mise à jour");
-    }
+  async function act(fn: () => Promise<unknown>) {
+    setError("");
+    try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Action impossible"); }
   }
 
-  const handlePrint = () => {
-    // L'indicateur `isPrinting` n'était affiché nulle part : le délai suffit à
-    // laisser l'interface se stabiliser avant l'impression.
-    setTimeout(() => window.print(), 100);
-  };
-
-  // Log à chaque changement d'état de la modal
-  useEffect(() => {
-    console.log("🔄 [Détail BC] État de editOpen:", editOpen);
-  }, [editOpen]);
-
-  if (loading) return <div className="p-6 text-ink2 italic">Chargement du bon de commande...</div>;
+  if (loading) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-line" /></div>;
   if (!item) return <div className="p-6 text-neg">Commande introuvable.</div>;
 
+  const editable = ["draft", "confirmed"].includes(item.status);
+  const anyReceived = item.lines.some(l => (l.receivedQty ?? 0) > 0);
+  const receivable = ["confirmed", "partially_received"].includes(item.status);
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div className="flex items-center justify-between print:hidden">
+    <div className="space-y-6 max-w-5xl">
+      <div className="flex items-start justify-between gap-3 flex-wrap print:hidden">
         <div>
-          <Link href="/commandes" className="text-xs text-ink2 hover:text-ink flex items-center gap-1">
-            <ArrowLeft size={12} /> Retour aux bons de commande
-          </Link>
+          <Link href="/commandes" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Bons de commande</Link>
           <div className="flex items-center gap-3 mt-1">
-            <h1 className="text-2xl font-bold text-ink uppercase">BC {item.number}</h1>
+            <h1 className="text-2xl font-bold text-ink">BC {item.number}</h1>
             <StatusBadge status={item.status} />
           </div>
         </div>
-        
-        <div className="flex gap-2">
-          <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-surface border border-line rounded-xl text-sm font-medium hover:bg-surface2 transition-colors">
-            <Printer size={16} /> Imprimer
-          </button>
-          
-          <button 
-            onClick={() => {
-              console.log("Click sur MODIFIER détecté");
-              setEditOpen(true);
-            }} 
-            className="flex items-center gap-2 px-4 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 transition-colors"
-          >
-            <Edit3 size={16} /> Modifier
-          </button>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={() => window.print()} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Printer size={16} /> Imprimer</button>
+          {canEdit && item.status === "draft" && (
+            <button onClick={() => act(() => send(`/api/commandes/${id}`, "PATCH", { status: "confirmed" }))} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2"><CheckCircle2 size={16} /> Confirmer</button>
+          )}
+          {canEdit && receivable && (
+            <button onClick={() => setReceiveOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95"><PackageCheck size={16} /> Réceptionner</button>
+          )}
+          {canPurchase && ["confirmed", "partially_received", "received"].includes(item.status) && !item.purchaseId && (
+            <Link href={`/depenses/nouvelle?commandeId=${item._id}`} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2"><FileText size={16} /> Saisir la facture fournisseur</Link>
+          )}
+          {item.purchaseId && <Link href={`/depenses/${item.purchaseId}`} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><FileText size={16} /> Facture fournisseur</Link>}
+          {canEdit && editable && (
+            <button onClick={() => setEditOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Edit3 size={16} /> Modifier</button>
+          )}
+          {canEdit && editable && !anyReceived && (
+            <button onClick={() => confirm("Annuler cette commande ?") && act(() => send(`/api/commandes/${id}`, "PATCH", { status: "cancelled" }))} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-warn/30 text-warn text-sm hover:bg-warn-50"><Ban size={16} /> Annuler</button>
+          )}
+          {canDelete && item.status === "draft" && (
+            <button onClick={async () => { if (!confirm("Supprimer ce brouillon ?")) return; try { await send(`/api/commandes/${id}`, "DELETE"); router.push("/commandes"); } catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); } }}
+              className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Trash2 size={16} /> Supprimer</button>
+          )}
         </div>
       </div>
+      {error && <p className="px-4 py-3 bg-neg-50 border border-neg/25 rounded-xl text-sm text-neg">{error}</p>}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <div className="bg-surface rounded-2xl border border-line p-6 shadow-sm print:border-none">
-            <h3 className="text-sm font-bold text-ink2 uppercase mb-4 tracking-wider">Articles</h3>
-            <table className="table-dense">
-              <thead>
-                <tr className="text-left text-ink2 border-b border-line">
-                  <th className="pb-3 font-medium">Désignation</th>
-                  <th className="pb-3 font-medium text-center">Volume</th>
-                  <th className="pb-3 font-medium text-right">P.U HT</th>
-                  <th className="pb-3 font-medium text-right">Total HT</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {item.lines?.map((line: any, idx: number) => (
-                  <tr key={idx}>
-                    <td className="py-3 text-ink font-medium">{line.description}</td>
-                    <td className="py-3 text-center text-ink2">{line.quantity}</td>
-                    <td className="py-3 text-right font-mono text-xs">{Number(line.unitPrice).toLocaleString()}</td>
-                    <td className="py-3 text-right font-mono font-bold text-section">{Number(line.totalHT).toLocaleString()}</td>
+      <div className="grid md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 bg-surface rounded-2xl border border-line p-5">
+          <h3 className="text-sm font-bold text-ink2 uppercase mb-3">Articles</h3>
+          <table className="table-dense w-full">
+            <thead><tr className="text-left text-ink2 border-b border-line">
+              <th>Désignation</th><th className="text-center">Commandé</th><th className="text-center">Reçu</th><th className="text-right">P.U. HT</th><th className="text-right">Total HT</th>
+            </tr></thead>
+            <tbody className="divide-y divide-line">
+              {item.lines.map((l, i) => {
+                const p = typeof l.productId === "object" ? l.productId : null;
+                const rec = l.receivedQty ?? 0;
+                return (
+                  <tr key={i}>
+                    <td className="py-2.5"><span className="font-medium text-ink">{l.description}</span>{p && <span className="block text-[11px] text-ink3">Stock · {p.code}</span>}</td>
+                    <td className="text-center">{l.quantity}</td>
+                    <td className={`text-center ${rec >= l.quantity ? "text-pos font-semibold" : rec > 0 ? "text-warn" : "text-ink3"}`}>{rec}</td>
+                    <td className="text-right font-mono text-xs">{fmt(l.unitPrice)}</td>
+                    <td className="text-right font-mono font-semibold">{fmt(l.totalHT)}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-
-        <div className="space-y-6">
-          <div className="bg-surface rounded-2xl border border-line p-5 shadow-sm">
-            <p className="text-[10px] font-bold text-ink2 uppercase mb-2">Fournisseur</p>
-            <p className="text-ink font-bold">{item.supplierId?.name || "—"}</p>
+        <div className="space-y-4">
+          <div className="bg-surface rounded-2xl border border-line p-5 text-sm space-y-1">
+            <p className="text-[10px] font-bold text-ink2 uppercase">Fournisseur</p>
+            <p className="font-bold text-ink">{item.supplierId?.name || "—"}</p>
+            <p className="text-ink2">Commande du {new Date(item.orderDate).toLocaleDateString("fr-FR")}</p>
+            {item.expectedDeliveryDate && <p className="text-ink2">Livraison prévue le {new Date(item.expectedDeliveryDate).toLocaleDateString("fr-FR")}</p>}
+            {(item.projectId || item.activityId) && (
+              <p className="text-ink2 pt-2">Imputation : {[item.projectId && `${item.projectId.code} ${item.projectId.name}`, item.activityId?.name].filter(Boolean).join(" · ")}</p>
+            )}
           </div>
-
-          <div className="bg-ink text-white rounded-2xl p-6 shadow-lg print:bg-surface print:text-ink print:border">
-            <div className="space-y-3">
-              <div className="flex justify-between text-xs opacity-70">
-                <span>TOTAL HT</span>
-                <span className="font-mono">{item.totalHT?.toLocaleString()} XOF</span>
-              </div>
-              <div className="flex justify-between text-xs opacity-70">
-                <span>TVA (19%)</span>
-                <span className="font-mono">{item.totalTVA?.toLocaleString()} XOF</span>
-              </div>
-              <div className="h-px bg-white/10 my-3" />
-              <div className="flex justify-between items-baseline">
-                <span className="text-[10px] font-bold">NET À PAYER</span>
-                <span className="text-2xl font-mono font-bold">
-                  {item.totalTTC?.toLocaleString()} <small className="text-[10px] font-normal">XOF</small>
-                </span>
-              </div>
-            </div>
+          <div className="bg-surface rounded-2xl border border-line p-5 text-sm space-y-1">
+            <div className="flex justify-between"><span className="text-ink2">Total HT</span><span className="font-mono">{fmt(item.totalHT)}</span></div>
+            <div className="flex justify-between"><span className="text-ink2">TVA</span><span className="font-mono">{fmt(item.totalTVA)}</span></div>
+            <div className="flex justify-between font-bold text-lg pt-2 border-t border-line"><span>Total TTC</span><span className="font-mono">{fmt(item.totalTTC)} XOF</span></div>
           </div>
+          {item.notes && <p className="text-xs text-ink2 whitespace-pre-wrap">{item.notes}</p>}
         </div>
       </div>
 
-      {/* TEST DE RENDU DIRECT SI LA MODAL EST CASSÉE */}
-      {editOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-line flex justify-between items-center">
-              <h2 className="text-xl font-bold text-ink">Modifier le Bon de Commande</h2>
-              <button onClick={() => setEditOpen(false)} className="text-ink2 hover:text-ink">✕</button>
-            </div>
-            
-            <div className="p-6">
-              {item ? (
-                <CommandeForm 
-                  initialData={item} 
-                  onSave={handleUpdate} 
-                  onCancel={() => setEditOpen(false)} 
-                />
-              ) : (
-                <p className="text-neg text-center">Données introuvables</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title={`Modifier le BC ${item.number}`} size="xl">
+        <CommandeForm initialData={item} onSave={async body => { await send(`/api/commandes/${id}`, "PATCH", body); setEditOpen(false); load(); }} onCancel={() => setEditOpen(false)} />
+      </Modal>
+      {receiveOpen && <ReceiveDialog cmd={item} onClose={() => setReceiveOpen(false)} onDone={() => { setReceiveOpen(false); load(); }} />}
     </div>
+  );
+}
+
+function ReceiveDialog({ cmd, onClose, onDone }: { cmd: Commande; onClose: () => void; onDone: () => void }) {
+  const [qty, setQty] = useState<number[]>(cmd.lines.map(l => Math.max(0, l.quantity - (l.receivedQty ?? 0))));
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  async function submit() {
+    setSaving(true); setError("");
+    try {
+      await send(`/api/commandes/${cmd._id}/receive`, "POST", { lines: qty.map((quantity, index) => ({ index, quantity })).filter(x => x.quantity > 0) });
+      onDone();
+    } catch (e) { setError(e instanceof Error ? e.message : "Réception impossible"); setSaving(false); }
+  }
+  return (
+    <Modal open onClose={onClose} title={`Réception — BC ${cmd.number}`} size="lg">
+      <div className="space-y-4">
+        <p className="text-sm text-ink2">Saisissez les quantités effectivement livrées. Les articles du stock y entrent au prix d&apos;achat de la commande (coût moyen recalculé).</p>
+        {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
+        <table className="table-dense w-full">
+          <thead><tr className="text-left text-ink2"><th>Article</th><th className="text-center">Reste</th><th className="text-right">Reçu maintenant</th></tr></thead>
+          <tbody>
+            {cmd.lines.map((l, i) => {
+              const rest = Math.max(0, l.quantity - (l.receivedQty ?? 0));
+              return (
+                <tr key={i} className="border-t border-line">
+                  <td className="py-2">{l.description}{!l.productId && <span className="block text-[11px] text-ink3">hors stock</span>}</td>
+                  <td className="text-center">{rest}</td>
+                  <td className="text-right">
+                    <input type="number" min={0} max={rest} className="w-24 px-2 py-1 border border-line rounded-lg text-sm text-right" value={qty[i]} disabled={rest === 0}
+                      onChange={e => setQty(q => q.map((x, j) => j === i ? Math.min(rest, Math.max(0, Number(e.target.value))) : x))} aria-label={`Quantité reçue — ${l.description}`} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <button onClick={submit} disabled={saving} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Valider la réception"}</button>
+      </div>
+    </Modal>
   );
 }

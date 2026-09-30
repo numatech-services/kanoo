@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
+import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 
 // On ajoute productId dans l'interface pour faire le lien avec le stock
 interface CmdLine { 
@@ -16,7 +17,7 @@ interface CmdLine {
 }
 
 interface Supplier { _id: string; name: string; code: string; }
-interface Product { _id: string; label: string; code: string; unitPrice: number; } // Pour le catalogue
+interface Product { _id: string; label: string; code: string; unitPrice: number; purchaseCost?: number; lastPurchaseCost?: number; }
 
 interface CommandeFormProps { 
   initialData?: any; 
@@ -50,7 +51,7 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
   const [supplierId, setSupplierId] = useState("");
   const [orderDate, setOrderDate] = useState("");
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
-  const [status, setStatus] = useState("draft");
+  const [imputation, setImputation] = useState<ImputationValue>({});
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<CmdLine[]>([calcLine({ description: "", quantity: 1, unitPrice: 0 })]);
   const [saving, setSaving] = useState(false);
@@ -63,7 +64,7 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
       .then(r=>r.json()).then(d=>setSuppliers(d.data?.items||[])); 
     
     // Charger catalogue produits (pour lier au stock)
-    fetch("/api/stock?limit=500",{credentials:"include"})
+    fetch("/api/stock?limit=100",{credentials:"include"})
       .then(r=>r.json()).then(d=>setCatalog(d.data?.items||[]));
   }, []);
 
@@ -72,9 +73,10 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
       setSupplierId(typeof initialData.supplierId === 'object' ? initialData.supplierId._id : initialData.supplierId || "");
       setOrderDate(initialData.orderDate ? new Date(initialData.orderDate).toISOString().split('T')[0] : "");
       setExpectedDeliveryDate(initialData.expectedDeliveryDate ? new Date(initialData.expectedDeliveryDate).toISOString().split('T')[0] : "");
-      setStatus(initialData.status || "draft");
       setNotes(initialData.notes || "");
-      if (initialData.lines) setLines(initialData.lines);
+      const idOf = (v: unknown) => (v && typeof v === "object" ? String((v as { _id: string })._id) : v ? String(v) : undefined);
+      setImputation({ projectId: idOf(initialData.projectId), activityId: idOf(initialData.activityId), costCenter: initialData.costCenter });
+      if (initialData.lines) setLines(initialData.lines.map((l: CmdLine & { productId?: unknown }) => ({ ...l, productId: idOf(l.productId) })));
     }
   }, [initialData]);
 
@@ -91,7 +93,8 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
           ...l, 
           productId: v, 
           description: prod?.label || l.description,
-          unitPrice: prod?.unitPrice || l.unitPrice 
+          // Prix d'achat : dernier coût connu, sinon CMUP ; jamais le prix de vente.
+          unitPrice: prod?.lastPurchaseCost || prod?.purchaseCost || l.unitPrice
         });
       }
       
@@ -107,11 +110,13 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
     <form onSubmit={async(e)=>{
       e.preventDefault();
       setSaving(true);
-      await onSave({supplierId, orderDate, expectedDeliveryDate, status, lines, notes, totalHT, totalTVA, totalTTC});
+      await onSave({supplierId, orderDate, expectedDeliveryDate, notes, ...imputation,
+        projectId: imputation.projectId ?? null, activityId: imputation.activityId ?? null, costCenter: imputation.costCenter ?? null,
+        lines: lines.map(l => ({ productId: l.productId || undefined, description: l.description, quantity: l.quantity, unitPrice: l.unitPrice, tvaRate: l.tvaRate })) });
       setSaving(false);
     }} className="space-y-5">
       
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid sm:grid-cols-3 gap-4">
         <FormField label="Fournisseur" required>
           <select className={selectCls} value={supplierId} onChange={e=>setSupplierId(e.target.value)} required>
             <option value="">Choisir…</option>
@@ -125,15 +130,6 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
           <input type="date" className={inputCls} value={expectedDeliveryDate} onChange={e=>setExpectedDeliveryDate(e.target.value)} />
         </FormField>
         
-        <FormField label="Statut">
-          <select className={selectCls + " font-bold " + (status === 'received' ? 'text-pos' : '')} 
-                  value={status} onChange={e=>setStatus(e.target.value)}>
-            <option value="draft">Brouillon</option>
-            <option value="confirmed">Confirmé</option>
-            <option value="received">✅ Reçu (Impacte le stock)</option>
-            <option value="cancelled">Annulé</option>
-          </select>
-        </FormField>
       </div>
 
       <div className="space-y-2">
@@ -146,18 +142,21 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
         {lines.map((l,i)=>(
           <div key={i} className="grid grid-cols-12 gap-2 bg-surface2/30 p-3 rounded-xl items-center border border-line">
             {/* SÉLECTEUR DE PRODUIT AU LIEU DU TEXTE */}
-            <div className="col-span-5">
+            <div className="col-span-5 space-y-1">
               <select 
                 className={selectCls} 
                 value={l.productId || ""} 
                 onChange={e => updateLine(i, "productId", e.target.value)}
-                required
+                aria-label="Article du stock"
               >
-                <option value="">Sélectionner un produit...</option>
+                <option value="">Hors stock (prestation, frais…)</option>
                 {catalog.map(p => (
                   <option key={p._id} value={p._id}>{p.label} ({p.code})</option>
                 ))}
               </select>
+              {!l.productId && (
+                <input className={inputCls} placeholder="Désignation" value={l.description} onChange={e => updateLine(i, "description", e.target.value)} required />
+              )}
             </div>
 
             <input type="number" className={inputCls+" col-span-2"} value={l.quantity} onChange={e=>updateLine(i,"quantity",parseFloat(e.target.value)||0)} min={1} placeholder="Quantité" />
@@ -173,7 +172,11 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
         ))}
       </div>
 
-      {/* Reste du formulaire (Notes et Totaux) inchangé mais gardé pour la cohérence */}
+      <div className="space-y-1">
+        <p className="text-sm font-bold text-ink uppercase tracking-wider">Imputation</p>
+        <ImputationFields value={imputation} onChange={setImputation} />
+      </div>
+
       <div className="flex justify-between items-start gap-6">
         <div className="flex-1">
           <label className="text-[10px] font-bold text-ink2 uppercase mb-1 block">Notes / Observations</label>

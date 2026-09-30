@@ -68,6 +68,12 @@ export const POST = withAuth("agenda", "create", async (req: NextRequest, auth: 
         const v = doc[f.field] ?? defaults[f.field];
         if (f.required && (v === undefined || v === "")) throw new Error(`champ « ${f.header} » requis`);
       }
+      // Stock : la quantité d'un article existant ne bouge que par mouvements ;
+      // l'import ne la fixe qu'à la création (reprise de stock).
+      if (entity.resource === "products" && "stockQty" in doc) {
+        defaults.stockQty = doc.stockQty;
+        delete doc.stockQty;
+      }
       // Rémunération : ni fixée ni modifiée sans accès à la paie.
       if (entity.resource === "employees") {
         doc = stripPayrollWrites(doc, auth);

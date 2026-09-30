@@ -38,7 +38,7 @@ export const GET = withAuth("notifications", "read", async (_req: NextRequest, a
     }) : zero,
     NotificationModel.countDocuments({ ...tf, userId: auth.userId, read: false }),
     authCan(auth, "products", "read") ? ProductModel.countDocuments({
-      ...tf, isActive: true, $expr: { $lte: ["$stockQty", "$stockMinAlert"] },
+      ...tf, isActive: true, isService: { $ne: true }, stockMinAlert: { $gt: 0 }, $expr: { $lte: ["$stockQty", "$stockMinAlert"] },
     }) : zero,
     // Courriers entrants dont l'échéance de réponse est passée et non traités.
     authCan(auth, "documents", "read") ? LetterModel.countDocuments({

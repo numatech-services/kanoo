@@ -101,7 +101,7 @@ export const CRON_JOBS: CronJob[] = [
     cadence: "daily", schedule: "0 7 * * *",
     run: async () => {
       const products = await ProductModel.find({
-        isActive: true, $expr: { $lte: ["$stockQty", "$stockMinAlert"] },
+        isActive: true, isService: { $ne: true }, stockMinAlert: { $gt: 0 }, $expr: { $lte: ["$stockQty", "$stockMinAlert"] },
       }).lean<Array<{ _id: Id; tenantId: Id; label: string; stockQty: number; unit: string; stockMinAlert: number }>>();
       for (const product of products) {
         const admins = await getAdmins(product.tenantId, ["pme_admin", "pme_purchases", "pme_manager", "svc_admin"]);

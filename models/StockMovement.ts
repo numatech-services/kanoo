@@ -17,12 +17,17 @@ export const ProductStockSchema = new Schema({
 
   // Référence
   reason: { type: String, required: true },
-  linkedDocType: { type: String, enum: ["commande", "invoice", "delivery", "manual"] },
+  linkedDocType: { type: String, enum: ["commande", "invoice", "delivery", "manual", "inventory", "reversal", "purchase"] },
   linkedDocId: Schema.Types.ObjectId,
   linkedDocNumber: String,
 
-  // Prix unitaire au mouvement
+  // Coût unitaire du mouvement (entrée : prix d'achat ; sortie : CMUP du moment)
   unitCost: { type: Number, default: 0 },
+  /** CMUP du produit après le mouvement. */
+  avgCostAfter: Number,
+  /** Annulation : le contre-mouvement qui annule celui-ci, et inversement. */
+  reversedBy: { type: Schema.Types.ObjectId, ref: "StockMovement" },
+  reverses: { type: Schema.Types.ObjectId, ref: "StockMovement" },
 
   // Opérateur
   createdBy: { type: Schema.Types.ObjectId, ref: "User" },
@@ -30,5 +35,7 @@ export const ProductStockSchema = new Schema({
 });
 
 ProductStockSchema.index({ tenantId: 1, productId: 1, createdAt: -1 });
+ProductStockSchema.index({ tenantId: 1, createdAt: -1 });
+ProductStockSchema.index({ tenantId: 1, linkedDocNumber: 1 });
 
 export const StockMovementModel = models.StockMovement || model("StockMovement", ProductStockSchema);

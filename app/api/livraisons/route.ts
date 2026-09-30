@@ -5,7 +5,7 @@ import { withAuth, created, badRequest, getPagination, paginatedResponse, tenant
 import { DeliveryNoteModel } from "@/models/DeliveryNote";
 import { InvoiceModel } from "@/models/Invoice";
 import { ProductModel } from "@/models/Product";
-import { StockMovementModel } from "@/models/StockMovement";
+import { applyMovement } from "@/lib/stock";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { authCan } from "@/lib/role-resources";
@@ -71,17 +71,14 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
     // sont écrits ensemble, ou pas du tout.
     for (const line of (doc.lines || [])) {
       if (!line.productId || !(line.quantity > 0)) continue;
-      const product = await ProductModel.findOne({ _id: line.productId, ...tenantFilter(auth) }).session(session ?? null);
+      const product = await ProductModel.findOne({ _id: line.productId, ...tenantFilter(auth) }).select("isService").session(session ?? null).lean<{ isService?: boolean } | null>();
       if (!product || product.isService) continue;
-      const before = product.stockQty || 0;
-      const after = Math.max(0, before - line.quantity);
-      await StockMovementModel.create([{
-        productId: product._id, tenantId: auth.tenantId, type: "exit",
-        quantity: -(before - after), quantityBefore: before, quantityAfter: after,
-        reason: `Bon de livraison ${number}`, linkedDocNumber: number, createdBy: auth.userId,
-      }], { session });
-      product.stockQty = after;
-      await product.save({ session });
+      // Sortie plafonnée au stock disponible (le bon reste émis) ; atomique.
+      await applyMovement({
+        tenantId: auth.tenantId, userId: auth.userId, productId: line.productId, type: "exit",
+        quantity: line.quantity, reason: `Bon de livraison ${number}`, allowPartial: true,
+        linkedDocType: "delivery", linkedDocId: doc._id, linkedDocNumber: number,
+      }, session);
     }
     return doc;
   });

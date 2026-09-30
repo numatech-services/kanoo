@@ -1,34 +1,29 @@
 import { NextRequest } from "next/server";
-import { connectDB } from "@/lib/db";
-import { withAuth, ok, noContent, notFound, tenantFilter } from "@/lib/api-helpers";
+import { connectDB, withTransaction } from "@/lib/db";
+import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { StockMovementModel } from "@/models/StockMovement";
-import { ProductModel } from "@/models/Product";
+import { reverseMovement, StockError } from "@/lib/stock";
 import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
 /**
- * DELETE /api/stock/movements/[id] — annule un mouvement de stock erroné.
- *
- * Le mouvement porte son écart signé (`quantity`) ; on le retire donc de la
- * quantité courante du produit avant de supprimer la ligne. On ne réécrit pas
- * l'historique des mouvements suivants : seule la quantité courante est
- * recalée (borne à 0).
+ * DELETE /api/stock/movements/[id] — annule un mouvement erroné par un
+ * contre-mouvement. L'historique n'est jamais effacé : l'ancienne version
+ * supprimait la ligne et recalait le stock en le bornant à zéro.
  */
-export const DELETE = withAuth("products", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {
+export const DELETE = withAuth("products", "delete", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
-  const mv = await StockMovementModel.findOne({ _id: params.id, ...tenantFilter(auth) });
-  if (!mv) return notFound("Mouvement introuvable");
-
-  const product = await ProductModel.findOne({ _id: mv.productId, ...tenantFilter(auth) });
-  if (product) {
-    product.stockQty = Math.max(0, (product.stockQty || 0) - (mv.quantity || 0));
-    await product.save();
+  const reason = new URL(req.url).searchParams.get("reason") ?? undefined;
+  try {
+    const r = await withTransaction(session => reverseMovement({ tenantId: auth.tenantId, userId: auth.userId, movementId: params.id, reason }, session));
+    await logAudit(auth, "UPDATE", "stock", { resourceId: String(params.id), metadata: { reversed: true, delta: r.delta } });
+    return ok({ reversal: r.movement._id, stockQty: r.after });
+  } catch (e) {
+    if (e instanceof StockError) return /introuvable/.test(e.message) ? notFound(e.message) : badRequest(e.message);
+    throw e;
   }
-  await StockMovementModel.deleteOne({ _id: mv._id });
-  await logAudit(auth, "DELETE", "stock", { resourceId: String(params.id), metadata: { revertedDelta: mv.quantity } });
-  return noContent();
 });
 
 /** PATCH — corriger le motif d'un mouvement (sans toucher aux quantités). */
@@ -36,10 +31,9 @@ export const PATCH = withAuth("products", "update", async (req: NextRequest, aut
   await connectDB();
   const body = await req.json().catch(() => ({}));
   const reason = String(body.reason || "").trim();
+  if (!reason) return badRequest("Motif obligatoire.");
   const mv = await StockMovementModel.findOneAndUpdate(
-    { _id: params.id, ...tenantFilter(auth) },
-    { $set: { reason: reason.slice(0, 300) } },
-    { new: true }
+    { _id: params.id, ...tenantFilter(auth) }, { $set: { reason: reason.slice(0, 300) } }, { new: true },
   ).lean();
   if (!mv) return notFound("Mouvement introuvable");
   await logAudit(auth, "UPDATE", "stock", { resourceId: String(params.id) });
