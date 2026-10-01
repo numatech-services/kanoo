@@ -11,7 +11,7 @@ import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEdi
 interface Desk { _id: string; name: string; description?: string; activityId?: string }
 interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
 interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string }
-interface Move { _id: string; type: "in" | "out" | "adjust" | "supply"; quantity: number; quantityAfter: number; reason?: string; date: string; itemId?: { name?: string; unit?: string } }
+interface Move { _id: string; type: "in" | "out" | "adjust" | "supply" | "return"; quantity: number; quantityAfter: number; reason?: string; date: string; itemId?: { name?: string; unit?: string } }
 interface Summary { itemCount: number; stockValue: number; lowStock: { name: string; unit: string; quantity: number; threshold?: number }[]; cashIn: number; cashOut: number; cashBalance: number }
 
 // Jour civil LOCAL (AAAA-MM-JJ) : toISOString() donnerait le jour UTC, et une
@@ -569,7 +569,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
         )}
         {items.some(i => i.productId) && (
           <button onClick={() => setSupplyOpen(true)} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
-            <Package size={15} /> Approvisionner depuis le magasin
+            <Package size={15} /> Magasin ⇄ comptoir
           </button>
         )}
         <button onClick={() => setItemOpen(true)} className="px-4 h-9 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
@@ -624,7 +624,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
                   <tr key={m._id}>
                     <td className="text-ink2 whitespace-nowrap">{new Date(m.date).toLocaleDateString("fr-FR")}</td>
                     <td className="text-ink">{m.itemId?.name || "—"}</td>
-                    <td>{m.type === "in" ? <Pill tone="pos">Entrée</Pill> : m.type === "out" ? <Pill tone="neg">Sortie</Pill> : m.type === "supply" ? <Pill tone="pos">Approvisionnement</Pill> : <Pill tone="info">Ajustement</Pill>}</td>
+                    <td>{m.type === "in" ? <Pill tone="pos">Entrée</Pill> : m.type === "out" ? <Pill tone="neg">Sortie</Pill> : m.type === "supply" ? <Pill tone="pos">Approvisionnement</Pill> : m.type === "return" ? <Pill tone="warn">Retour magasin</Pill> : <Pill tone="info">Ajustement</Pill>}</td>
                     <td className="text-right font-mono">{m.quantity}</td>
                     <td className="text-right font-mono text-ink2">{m.quantityAfter}</td>
                     <td className="text-ink2">{m.reason || "—"}</td>
@@ -781,7 +781,7 @@ interface CatalogProduct { _id: string; code: string; label: string; unit?: stri
 function useCatalog() {
   const [list, setList] = useState<CatalogProduct[]>([]);
   useEffect(() => {
-    fetch("/api/products?isService=false&limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => setList(d?.data?.items ?? [])).catch(() => {});
+    fetch("/api/comptoir/catalog", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => setList(d?.data?.products ?? [])).catch(() => {});
   }, []);
   return list;
 }
@@ -813,30 +813,44 @@ function SupplyDialog({ deskId, items, onClose, onSaved }: { deskId: string; ite
   const [warehouses, setWarehouses] = useState<Array<{ _id: string; name: string; kind: string; isDefault?: boolean }>>([]);
   const [from, setFrom] = useState("");
   const [qty, setQty] = useState<Record<string, string>>({});
+  const [back, setBack] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    fetch("/api/warehouses", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => {
-      const list = (d?.data ?? []).filter((w: { kind: string }) => w.kind !== "comptoir");
+    fetch("/api/comptoir/catalog", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => {
+      const list = d?.data?.warehouses ?? [];
+      if (!d?.data?.canSupply) setError("L'approvisionnement depuis le magasin est fait par le magasin ou le chef The Spot.");
       setWarehouses(list);
       const def = list.find((w: { isDefault?: boolean }) => w.isDefault) ?? list[0];
       if (def) setFrom(def._id);
-    }).catch(() => setError("Liste des entrepôts inaccessible : l'approvisionnement se fait par le magasin ou le chef The Spot."));
+    }).catch(() => setError("Liste des entrepôts inaccessible."));
   }, []);
   async function save() {
     const lines = items.map(i => ({ itemId: i._id, quantity: Number(qty[i._id]) || 0 })).filter(l => l.quantity > 0);
     if (!from || !lines.length) { setError("Choisissez l'entrepôt et au moins une quantité."); return; }
     setSaving(true); setError(null);
-    try { await post("/api/comptoir/supply", { deskId, fromWarehouseId: from, lines }); onSaved(); }
-    catch (e) { setError(e instanceof Error ? e.message : "Approvisionnement impossible"); }
+    if (back) {
+      const over = items.find(i => (Number(qty[i._id]) || 0) > i.quantity);
+      if (over) { setError(`« ${over.name} » : seulement ${over.quantity} ${over.unit} en réserve.`); return; }
+    }
+    try { await post("/api/comptoir/supply", { deskId, fromWarehouseId: from, lines, direction: back ? "return" : "supply" }); onSaved(); }
+    catch (e) { setError(e instanceof Error ? e.message : back ? "Retour impossible" : "Approvisionnement impossible"); }
     finally { setSaving(false); }
   }
   return (
-    <Modal open onClose={onClose} title="Approvisionner le comptoir" size="md">
+    <Modal open onClose={onClose} title={back ? "Renvoyer au magasin" : "Approvisionner le comptoir"} size="md">
       <div className="space-y-4">
-        <p className="text-sm text-ink2">Transfert depuis un entrepôt vers la réserve du comptoir ; les lots qui périment le plus tôt partent en premier.</p>
+        <div className="flex gap-2">
+          {[[false, "Approvisionner"], [true, "Renvoyer les invendus"]].map(([v, l]) => (
+            <button key={String(v)} type="button" onClick={() => setBack(v as boolean)}
+              className={`flex-1 h-9 rounded-lg border text-sm font-semibold ${back === v ? "bg-section text-white border-section" : "border-line2 text-ink2 hover:bg-surface2"}`}>{l as string}</button>
+          ))}
+        </div>
+        <p className="text-sm text-ink2">{back
+          ? "Transfert de la réserve du comptoir vers un entrepôt (lots et péremptions suivent)."
+          : "Transfert depuis un entrepôt vers la réserve du comptoir ; les lots qui périment le plus tôt partent en premier."}</p>
         {error && <p className="px-3 py-2 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg">{error}</p>}
-        <FormField label="Depuis l'entrepôt">
+        <FormField label={back ? "Vers l'entrepôt" : "Depuis l'entrepôt"}>
           <select className={selectCls} value={from} onChange={e => setFrom(e.target.value)}>{warehouses.map(w => <option key={w._id} value={w._id}>{w.name}</option>)}</select>
         </FormField>
         <div className="space-y-2">
@@ -847,7 +861,7 @@ function SupplyDialog({ deskId, items, onClose, onSaved }: { deskId: string; ite
             </div>
           ))}
         </div>
-        <button onClick={save} disabled={saving} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Transfert…" : "Approvisionner"}</button>
+        <button onClick={save} disabled={saving} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Transfert…" : back ? "Renvoyer au magasin" : "Approvisionner"}</button>
       </div>
     </Modal>
   );

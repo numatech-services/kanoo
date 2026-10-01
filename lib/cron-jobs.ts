@@ -3,6 +3,7 @@ import { NotificationModel } from "@/models/Notification";
 import { UserModel } from "@/models/User";
 import { InvoiceModel } from "@/models/Invoice";
 import { ProductModel } from "@/models/Product";
+import { ProductStockModel } from "@/models/ProductStock";
 import { StockLotModel } from "@/models/StockLot";
 import { ContractModel } from "@/models/Contract";
 import { EmployeeModel } from "@/models/Employee";
@@ -112,7 +113,20 @@ export const CRON_JOBS: CronJob[] = [
             "stock", product._id);
         }
       }
-      return `${products.length} alerte(s) envoyée(s)`;
+      // Seuils propres à un entrepôt (boutique, dépôt, réserve de comptoir).
+      const rows = await ProductStockModel.find({ minAlert: { $gt: 0 }, $expr: { $lte: ["$qty", "$minAlert"] } })
+        .populate("productId", "label unit isActive").populate("warehouseId", "name isActive")
+        .lean<Array<{ tenantId: Id; qty: number; minAlert: number; productId?: { _id: Id; label: string; unit: string; isActive?: boolean }; warehouseId?: { name: string; isActive?: boolean } }>>();
+      const live = rows.filter(r => r.productId?.isActive !== false && r.productId && r.warehouseId?.isActive !== false);
+      for (const r of live) {
+        const admins = await getAdmins(r.tenantId, ["pme_admin", "pme_purchases", "pme_manager", "svc_admin"]);
+        for (const admin of admins) {
+          await notify(r.tenantId, admin._id, "stock_alert", "Alerte stock",
+            `Stock faible à ${r.warehouseId?.name ?? "l'entrepôt"} : ${r.productId!.label} — ${r.qty} ${r.productId!.unit} (seuil : ${r.minAlert})`,
+            "stock", r.productId!._id);
+        }
+      }
+      return `${products.length + live.length} alerte(s) envoyée(s)`;
     },
   },
   {

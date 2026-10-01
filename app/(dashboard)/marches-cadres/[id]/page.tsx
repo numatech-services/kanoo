@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, FileText, Truck } from "lucide-react";
+import { ArrowLeft, FileText, Truck } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
-import { FormField, inputCls } from "@/components/ui/FormField";
+import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
+import { useWarehouses } from "@/components/stock/useWarehouses";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Inset } from "@/components/ui/Primitives";
@@ -145,6 +146,8 @@ function DeliverDialog({ open, onClose, order, onDone }: { open: boolean; onClos
   const [qty, setQty] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
+  const [warehouseId, setWarehouseId] = useState("");
+  const { warehouses } = useWarehouses();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const p = orderProgress(order);
@@ -158,7 +161,7 @@ function DeliverDialog({ open, onClose, order, onDone }: { open: boolean; onClos
     try {
       const res = await fetch(`/api/marches-cadres/${order._id}/lots`, {
         method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include", body: JSON.stringify({ quantity: n, date, notes }),
+        credentials: "include", body: JSON.stringify({ quantity: n, date, notes, warehouseId: warehouseId || undefined }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Livraison refusée");
@@ -185,6 +188,14 @@ function DeliverDialog({ open, onClose, order, onDone }: { open: boolean; onClos
         </div>
         {check && !check.ok && <p className="text-xs text-warn">{check.message}</p>}
         {t && check?.ok && <p className="text-xs text-ink2">Ce lot représentera <strong className="num">{fullXof(t.ttc)}</strong> à facturer.</p>}
+        {order.inputProductId && warehouses.length > 1 && (
+          <FormField label={`Intrant prélevé dans (${order.inputProductId.label ?? "intrant"})`} hint="Par défaut : l'entrepôt principal ; les lots qui périment le plus tôt partent d'abord">
+            <select className={selectCls} value={warehouseId} onChange={e => setWarehouseId(e.target.value)}>
+              <option value="">Entrepôt par défaut</option>
+              {warehouses.map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
+            </select>
+          </FormField>
+        )}
         <FormField label="Note"><input className={inputCls} value={notes} onChange={e => setNotes(e.target.value)} /></FormField>
         <div className="flex justify-end gap-3 pt-2 border-t border-line">
           <button type="button" onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>

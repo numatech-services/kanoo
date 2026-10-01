@@ -83,7 +83,7 @@ export function TransferDialog({ onClose, onDone, product, fromWarehouseId }: {
                 <input type="number" min={0.01} step="any" className={`${inputCls} col-span-2`} value={l.quantity} onChange={e => setLine(i, { quantity: Number(e.target.value) })} aria-label="Quantité" />
                 {tracked ? (
                   <select className={`${selectCls} col-span-3`} value={l.lotNumber} onChange={e => setLine(i, { lotNumber: e.target.value })} aria-label="Lot">
-                    <option value="">Lots FEFO</option>{here.map(x => <option key={x.lotNumber} value={x.lotNumber}>{x.lotNumber} ({x.qty})</option>)}
+                    <option value="">Lots FEFO</option>{here.map(x => <option key={x.lotNumber} value={x.lotNumber}>{x.lotNumber} ({x.qty}){x.expiryDate && new Date(x.expiryDate) < new Date(new Date().toDateString()) ? " — périmé" : ""}</option>)}
                   </select>
                 ) : <span className="col-span-3 text-xs text-ink3">{p?.unit}</span>}
                 {!product && lines.length > 1 && <button type="button" onClick={() => setLines(ls => ls.filter((_, j) => j !== i))} className="col-span-1 text-ink3 hover:text-neg" aria-label="Retirer"><X size={14} /></button>}

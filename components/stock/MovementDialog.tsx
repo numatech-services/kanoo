@@ -103,7 +103,7 @@ export function MovementDialog({ product, onClose, onDone, defaultWarehouseId }:
             <select className={selectCls} value={lotOut} onChange={e => setLotOut(e.target.value)}>
               {!isAdj && <option value="">Automatique (FEFO)</option>}
               {isAdj && <option value="">— Choisir —</option>}
-              {lotsHere.map(l => <option key={l.lotNumber} value={l.lotNumber}>{l.lotNumber} · {l.qty} en stock{l.expiryDate ? ` · périme le ${new Date(l.expiryDate).toLocaleDateString("fr-FR")}` : ""}</option>)}
+              {lotsHere.map(l => <option key={l.lotNumber} value={l.lotNumber}>{l.lotNumber} · {l.qty} en stock{l.expiryDate ? (new Date(l.expiryDate) < new Date(new Date().toDateString()) ? " · PÉRIMÉ" : ` · périme le ${new Date(l.expiryDate).toLocaleDateString("fr-FR")}`) : ""}</option>)}
             </select>
           </FormField>
         )}

@@ -6,6 +6,8 @@ import { ActivityItemModel } from "@/models/ActivityItem";
 import { logAudit } from "@/lib/audit";
 import { withTransaction } from "@/lib/db";
 import { ProductModel } from "@/models/Product";
+import { ProductStockModel } from "@/models/ProductStock";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { applyMovement, StockError } from "@/lib/stock";
 import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
 import { TokenPayload } from "@/lib/auth";
@@ -78,8 +80,19 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
 export const DELETE = withAuth("comptoir", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   if (!isId(params.id)) return notFound("Article introuvable");
-  const r = await ActivityItemModel.findOneAndDelete({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) });
-  if (!r) return notFound("Article introuvable");
+  const it = await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) })
+    .select("productId deskId name").lean<{ _id: unknown; productId?: unknown; deskId: unknown; name: string } | null>();
+  if (!it) return notFound("Article introuvable");
+  // Article relié : la réserve du comptoir est du stock réel de l'entreprise ;
+  // on ne la laisse pas orpheline.
+  if (it.productId) {
+    const desk = await ActivityDeskModel.findOne({ _id: it.deskId, ...tenantFilter(auth) }).select("warehouseId").lean<{ warehouseId?: unknown } | null>();
+    const row = desk?.warehouseId
+      ? await ProductStockModel.findOne({ ...tenantFilter(auth), productId: it.productId, warehouseId: desk.warehouseId }).select("qty").lean<{ qty: number } | null>()
+      : null;
+    if ((row?.qty ?? 0) > 0) return badRequest(`« ${it.name} » a encore ${row!.qty} en réserve : renvoyez-les au magasin (Retour des invendus) ou sortez-les avant de supprimer l'article.`);
+  }
+  await ActivityItemModel.deleteOne({ _id: it._id });
   await logAudit(auth, "DELETE", "comptoir", { resourceId: String(params.id) });
   return noContent();
 });

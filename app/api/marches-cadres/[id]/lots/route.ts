@@ -4,7 +4,8 @@ import { withAuth, ok, created, badRequest, notFound, conflict, tenantFilter, re
 import { FrameworkOrderModel } from "@/models/FrameworkOrder";
 import { DeliveryLotModel } from "@/models/DeliveryLot";
 import { ProductModel } from "@/models/Product";
-import { StockMovementModel } from "@/models/StockMovement";
+import { applyMovement } from "@/lib/stock";
+import { BusinessRuleError } from "@/lib/errors";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { canDeliver, inputConsumption, isFullyCompleted } from "@/lib/framework-order";
 import { logAudit } from "@/lib/audit";
@@ -65,20 +66,19 @@ export const POST = withAuth("commandes", "update", async (req: NextRequest, aut
       { session }
     );
     if (guard.modifiedCount === 0) {
-      throw new Error("Un autre lot est intervenu : le reste à livrer a changé. Rechargez.");
+      throw new BusinessRuleError("Un autre lot est intervenu : le reste à livrer a changé. Rechargez.");
     }
 
-    // Consommation d'intrant, tracée comme un mouvement de stock.
+    // Consommation d'intrant : sortie de l'entrepôt choisi (défaut sinon),
+    // lots pris par péremption la plus proche ; refusée si l'entrepôt manque.
     if (order.inputProductId && needed > 0) {
-      const before = inputProduct!.stockQty || 0;
-      await ProductModel.updateOne({ _id: order.inputProductId, ...tenantFilter(auth) },
-        { $inc: { stockQty: -needed } }, { session });
-      await StockMovementModel.create([{
-        tenantId: auth.tenantId, productId: order.inputProductId,
-        type: "exit", quantity: -needed, quantityBefore: before, quantityAfter: before - needed,
+      await applyMovement({
+        tenantId: auth.tenantId, userId: auth.userId, productId: order.inputProductId,
+        type: "exit", quantity: needed, warehouseId: body.warehouseId || undefined,
+        lots: Array.isArray(body.lots) ? body.lots : undefined,
         reason: `Livraison lot ${reference} — marché ${order.reference}`,
-        linkedDocType: "delivery", createdBy: auth.userId,
-      }], { session });
+        linkedDocType: "delivery", linkedDocNumber: reference,
+      }, session);
     }
 
     const [createdLot] = await DeliveryLotModel.create([{

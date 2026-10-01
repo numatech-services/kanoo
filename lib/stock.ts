@@ -136,7 +136,16 @@ async function availableLots(tenantId: string, productId: Types.ObjectId, wareho
   });
 }
 
-async function takeLots(tenantId: string, product: ProductLean, warehouseId: Types.ObjectId, qty: number, wanted: LotAlloc[] | null, session?: ClientSession): Promise<LotAlloc[]> {
+/**
+ * Lots périmés : `block` (vente, consommation) — jamais pris automatiquement,
+ * refusés s'ils sont désignés ; `skip` (transfert) — écartés du choix
+ * automatique mais transférables sur désignation (ex. vers une zone de
+ * destruction) ; `allow` (perte, ajustement, annulation).
+ */
+type ExpiredPolicy = "block" | "skip" | "allow";
+const isExpired = (d?: Date) => !!d && new Date(d).getTime() < new Date().setHours(0, 0, 0, 0);
+
+async function takeLots(tenantId: string, product: ProductLean, warehouseId: Types.ObjectId, qty: number, wanted: LotAlloc[] | null, session?: ClientSession, expired: ExpiredPolicy = "allow"): Promise<LotAlloc[]> {
   const avail = await availableLots(tenantId, product._id, warehouseId, session);
   let plan: LotAlloc[];
   if (wanted && wanted.length) {
@@ -145,18 +154,20 @@ async function takeLots(tenantId: string, product: ProductLean, warehouseId: Typ
     plan = wanted.map(w => {
       const a = avail.find(x => x.lotNumber === w.lotNumber);
       if (!a || a.qty < w.qty) throw new StockError(`Lot ${w.lotNumber} : ${a?.qty ?? 0} disponible(s), ${w.qty} demandé(s).`);
+      if (expired === "block" && isExpired(a.expiryDate)) throw new StockError(`Le lot ${w.lotNumber} est périmé : il ne peut pas être vendu ni consommé. Sortez-le en perte.`);
       return { lotNumber: w.lotNumber, expiryDate: a.expiryDate, qty: w.qty, unitCost: a.unitCost };
     });
   } else {
     plan = [];
-    let rest = qty;
+    let rest = qty, skipped = 0;
     for (const a of avail) {
       if (rest <= 0) break;
+      if (expired !== "allow" && isExpired(a.expiryDate)) { skipped += a.qty; continue; }
       const take = Math.min(a.qty, rest);
       plan.push({ lotNumber: a.lotNumber, expiryDate: a.expiryDate, qty: take, unitCost: a.unitCost });
       rest -= take;
     }
-    if (rest > 0) throw new StockError(`« ${product.label} » : lots insuffisants dans cet entrepôt (${qty - rest} disponible(s)).`);
+    if (rest > 0) throw new StockError(`« ${product.label} » : lots insuffisants dans cet entrepôt (${qty - rest} disponible(s)${skipped ? `, sans compter ${skipped} périmé(s) à sortir en perte` : ""}).`);
   }
   for (const p of plan) {
     const r = await StockLotModel.updateOne(
@@ -270,7 +281,8 @@ async function moveCore(input: CoreInput, session?: ClientSession) {
       }
       if (lotsIn.length) { await putLots(input.tenantId, product, wh._id, lotsIn, input.unitCost, session); lotsTouched.push(...lotsIn); }
     } else if (delta < 0) {
-      const taken = await takeLots(input.tenantId, product, wh._id, -delta, lotsOut, session);
+      const policy: ExpiredPolicy = input.type === "exit" && input.linkedDocType !== "reversal" ? "block" : input.type === "transfer" ? "skip" : "allow";
+      const taken = await takeLots(input.tenantId, product, wh._id, -delta, lotsOut, session, policy);
       lotsTouched = taken.map(t => ({ ...t, qty: -t.qty }));
     } else if (delta > 0) {
       await putLots(input.tenantId, product, wh._id, lotsIn, input.unitCost, session);

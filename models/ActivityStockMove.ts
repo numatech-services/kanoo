@@ -10,7 +10,7 @@ export interface IActivityStockMove {
   tenantId: Types.ObjectId;
   deskId: Types.ObjectId;
   itemId: Types.ObjectId;
-  type: "in" | "out" | "adjust" | "supply";
+  type: "in" | "out" | "adjust" | "supply" | "return";
   /** Quantité du mouvement (toujours positive ; le sens vient de `type`). */
   quantity: number;
   quantityAfter: number;
@@ -27,7 +27,7 @@ const ActivityStockMoveSchema = new Schema<IActivityStockMove>({
   tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
   deskId: { type: Schema.Types.ObjectId, ref: "ActivityDesk", required: true, index: true },
   itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true, index: true },
-  type: { type: String, enum: ["in", "out", "adjust", "supply"], required: true },
+  type: { type: String, enum: ["in", "out", "adjust", "supply", "return"], required: true },
   quantity: { type: Number, required: true, min: 0 },
   quantityAfter: { type: Number, required: true },
   unitCost: { type: Number, min: 0 },

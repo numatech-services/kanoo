@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Edit3, ArrowLeftRight, Undo2, Archive, Download, Truck } from "lucide-react";
 import { TransferDialog } from "@/components/stock/TransferDialog";
+import { useWarehouses } from "@/components/stock/useWarehouses";
 import { Modal } from "@/components/ui/Modal";
 import { selectCls, inputCls } from "@/components/ui/FormField";
 import { ProductForm } from "@/components/stock/ProductForm";
@@ -23,7 +24,7 @@ interface Movement {
 }
 const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
 const TYPE_LABEL: Record<string, string> = { entry: "Entrée", exit: "Sortie", return: "Retour", loss: "Perte", adjustment: "Ajustement", transfer: "Transfert" };
-interface ByWarehouse { _id: string; qty: number; warehouseId?: { _id: string; code: string; name: string; kind: string } | null }
+interface ByWarehouse { _id: string; qty: number; minAlert?: number; warehouseId?: { _id: string; code: string; name: string; kind: string } | null }
 interface LotRowView { _id: string; lotNumber: string; qty: number; expiryDate?: string; unitCost?: number; warehouseId?: { name: string } | null }
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
@@ -40,6 +41,7 @@ export default function StockDetailPage() {
   const [moving, setMoving] = useState(false);
   const [transfer, setTransfer] = useState(false);
   const [byWh, setByWh] = useState<ByWarehouse[]>([]);
+  const { warehouses } = useWarehouses();
   const [lots, setLots] = useState<LotRowView[]>([]);
   const [error, setError] = useState("");
 
@@ -59,6 +61,21 @@ export default function StockDetailPage() {
     setLots(st?.data?.lots ?? []);
   }, [id, filter]);
   useEffect(() => { load(); }, [load]);
+
+  // Entrepôts actifs (même vides, pour y fixer un seuil) + ceux où il reste du stock.
+  const whRows = [
+    ...warehouses.filter(w => w.isActive !== false).map(w => {
+      const r = byWh.find(x => x.warehouseId?._id === w._id);
+      return { id: w._id, name: w.name, kind: w.kind, qty: r?.qty ?? 0, minAlert: r?.minAlert };
+    }),
+    ...byWh.filter(r => r.qty !== 0 && r.warehouseId && !warehouses.some(w => w._id === r.warehouseId!._id && w.isActive !== false))
+      .map(r => ({ id: r.warehouseId!._id, name: r.warehouseId!.name, kind: r.warehouseId!.kind, qty: r.qty, minAlert: r.minAlert })),
+  ];
+  async function saveThreshold(warehouseId: string, v: string) {
+    const res = await fetch(`/api/products/${id}/stock`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify({ warehouseId, minAlert: v === "" ? null : Number(v) }) });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Seuil refusé"); }
+    load();
+  }
 
   async function reverse(m: Movement) {
     const reason = prompt("Motif de l'annulation (un contre-mouvement sera enregistré) :");
@@ -124,11 +141,30 @@ export default function StockDetailPage() {
         <div className="grid md:grid-cols-2 gap-4">
           <div className="bg-surface rounded-xl border border-line p-4">
             <h2 className="font-semibold text-ink mb-2">Stock par entrepôt</h2>
-            {byWh.filter(w => w.qty !== 0).length === 0 ? <p className="text-sm text-ink3">Aucun stock.</p> : (
-              <ul className="divide-y divide-line text-sm">
-                {byWh.filter(w => w.qty !== 0).map(w => <li key={w._id} className="py-1.5 flex justify-between"><span>{w.warehouseId?.name ?? "—"}{w.warehouseId?.kind === "comptoir" ? " (comptoir)" : ""}</span><b className="font-mono">{fmt(w.qty)} {p.unit}</b></li>)}
-              </ul>
+            {whRows.length === 0 ? <p className="text-sm text-ink3">Aucun stock.</p> : (
+              <table className="w-full text-sm">
+                <thead><tr className="text-[11px] text-ink3 uppercase"><th className="text-left font-semibold py-1">Entrepôt</th><th className="text-right font-semibold">Quantité</th><th className="text-right font-semibold">Seuil propre</th></tr></thead>
+                <tbody className="divide-y divide-line">
+                  {whRows.map(w => {
+                    const low = w.minAlert != null && w.minAlert > 0 && w.qty <= w.minAlert;
+                    return (
+                      <tr key={w.id}>
+                        <td className="py-1.5">{w.name}{w.kind === "comptoir" ? " (comptoir)" : ""}</td>
+                        <td className={`text-right font-mono font-semibold ${low ? "text-neg" : ""}`}>{fmt(w.qty)} {p.unit}</td>
+                        <td className="text-right">
+                          {canEdit
+                            ? <input type="number" min={0} defaultValue={w.minAlert ?? ""} placeholder="—" aria-label={`Seuil — ${w.name}`}
+                                className="w-20 h-7 px-2 rounded border border-line2 bg-surface text-right font-mono text-xs"
+                                onBlur={e => { const v = e.target.value; if (v !== String(w.minAlert ?? "")) saveThreshold(w.id, v); }} />
+                            : <span className="font-mono text-ink2">{w.minAlert ?? "—"}</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             )}
+            {canEdit && whRows.length > 0 && <p className="text-[11px] text-ink3 mt-2">Seuil propre : alerte quand le stock de cet entrepôt passe dessous (vide = aucun).</p>}
           </div>
           {p.trackingMode && p.trackingMode !== "none" && (
             <div className="bg-surface rounded-xl border border-line p-4">
