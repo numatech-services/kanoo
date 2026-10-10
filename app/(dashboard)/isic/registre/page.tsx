@@ -192,6 +192,7 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const canPurge = meCanDo(useMe(), "isic", "delete");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const LIMIT = 50;
 
@@ -209,6 +210,15 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
   }, [page, q, school, number, coverage, photo, year]);
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
 
+  async function purgeSelected() {
+    if (!confirm(`Supprimer DÉFINITIVEMENT ${selected.size} fiche(s) saisie(s) par erreur ?\n\nFiches, photos et licences effacées ; les numéros ISIC redeviennent libres. Action irréversible.`)) return;
+    try {
+      const r = await api<{ deleted: number; licenses: number }>("/api/isic/registry/students/delete", "POST", { studentIds: [...selected] });
+      setSelected(new Set());
+      alert(`${r.deleted} fiche(s) supprimée(s)${r.licenses ? `, ${r.licenses} licence(s) effacée(s)` : ""}.`);
+      load(); onChanged();
+    } catch (e) { alert(e instanceof Error ? e.message : "Suppression impossible"); }
+  }
   async function renewSelected() {
     if (!confirm(`Ouvrir la licence ${year} pour ${selected.size} étudiant(s) ? Ils gardent leur numéro.`)) return;
     try {
@@ -256,6 +266,7 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
           <span>{selected.size} étudiant(s) sélectionné(s)</span>
           <div className="flex gap-2">
             <button onClick={() => setSelected(new Set())} className="px-3 h-8 rounded-lg border border-line2 text-xs text-ink2">Désélectionner</button>
+            {canPurge && <button onClick={purgeSelected} className="px-3 h-8 rounded-lg border border-neg/40 text-neg text-xs font-semibold hover:bg-neg-50">Supprimer</button>}
             <button onClick={renewSelected} className="px-3 h-8 rounded-lg bg-section text-white text-xs font-semibold">Ouvrir la licence {year}</button>
           </div>
         </div>
@@ -382,6 +393,11 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
     if (!confirm("Archiver cet étudiant ? Son numéro reste réservé et son historique conservé.")) return;
     try { await api(`/api/isic/registry/students/${id}`, "DELETE"); onSaved(); onClose(); } catch (e) { setError(e instanceof Error ? e.message : "Archivage impossible"); }
   }
+  // Fiche saisie par erreur (doublon, mauvais import) : effacée pour de bon, avec photo et licences.
+  async function purge() {
+    if (!confirm("Supprimer DÉFINITIVEMENT cette fiche (saisie par erreur) ?\n\nLa fiche, sa photo et ses licences sont effacées ; le numéro ISIC redevient libre. Action irréversible.")) return;
+    try { await api(`/api/isic/registry/students/${id}?purge=1`, "DELETE"); onSaved(); onClose(); } catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); }
+  }
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF(x => ({ ...x, [k]: e.target.value }));
   async function uploadPhoto(file: File) {
     try {
@@ -475,7 +491,10 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
           </div>
 
           <div className="flex justify-between items-center pt-3 border-t border-line">
-            {canArchive && <button onClick={archive} className="text-sm text-neg hover:underline">Archiver</button>}
+            {canArchive ? <span className="flex gap-4">
+              <button onClick={archive} className="text-sm text-ink2 hover:underline">Archiver</button>
+              <button onClick={purge} className="text-sm text-neg hover:underline">Supprimer (erreur)</button>
+            </span> : <span />}
             <div className="flex gap-3">
               <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Fermer</button>
               <button onClick={() => save()} disabled={saving || (numberChanged && !!d.student.isicNumber && !f.numberReason.trim())}

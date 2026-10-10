@@ -11,7 +11,7 @@ import {
   studentKey, normalizeIsicNumber, isPlausibleIsicNumber, isAcademicYear, defaultValidUntil,
   cleanName, normalizeNationality, parseDateLoose,
 } from "@/lib/isic-registry";
-import { ensureRegistryIndexes } from "@/lib/isic-registry-server";
+import { ensureRegistryIndexes, purgeRegistryStudents } from "@/lib/isic-registry-server";
 
 export const dynamic = "force-dynamic";
 
@@ -107,10 +107,20 @@ export const PATCH = withAuth("isic", "update", async (req: NextRequest, auth: T
   return ok(student);
 });
 
-/** DELETE — archive la fiche (l'historique et le numéro restent réservés). */
-export const DELETE = withAuth("isic", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {
+/**
+ * DELETE — archive la fiche (l'historique et le numéro restent réservés).
+ * `?purge=1` : suppression définitive d'une fiche saisie par erreur (fiche,
+ * photo, licences), pour pouvoir la ressaisir correctement.
+ */
+export const DELETE = withAuth("isic", "delete", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   if (!Types.ObjectId.isValid(params.id)) return notFound("Étudiant introuvable");
+  if (new URL(req.url).searchParams.get("purge") === "1") {
+    const r = await purgeRegistryStudents(auth.tenantId, [params.id]);
+    if (!r.deleted) return notFound("Étudiant introuvable");
+    await logAudit(auth, "DELETE", "isic", { resourceId: String(params.id), metadata: { registry: "student-purged", names: r.names, licenses: r.licenses } });
+    return ok({ deleted: r.deleted, licenses: r.licenses });
+  }
   const r = await IsicStudentModel.updateOne({ _id: params.id, ...tenantFilter(auth) }, { $set: { archived: true } });
   if (!r.matchedCount) return notFound("Étudiant introuvable");
   await logAudit(auth, "DELETE", "isic", { resourceId: String(params.id), metadata: { registry: "student-archived" } });

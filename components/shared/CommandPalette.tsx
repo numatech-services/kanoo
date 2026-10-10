@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, CornerDownLeft } from "lucide-react";
-import { SECTIONS, sectionForPath, type SectionKey } from "@/lib/sections";
+import { SECTIONS, type SectionKey } from "@/lib/sections";
 import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { NAV_MAP, type ProfileType } from "@/components/layout/Sidebar";
@@ -132,13 +132,15 @@ export function CommandPalette({ profile = "pme" }: { profile?: ProfileType }) {
     if (profile !== "pme" || q.length < 2) { setFound([]); return; }
     const t = setTimeout(async () => {
       const get = (url: string) => fetch(url, { credentials: "include" }).then(r => (r.ok ? r.json() : null)).catch(() => null);
-      const [c, i] = await Promise.all([
+      const [c, i, l] = await Promise.all([
         meCan(resources, "clients") ? get(`/api/clients?search=${encodeURIComponent(q)}&limit=4`) : null,
         meCan(resources, "invoices") ? get(`/api/invoices?search=${encodeURIComponent(q)}&limit=4`) : null,
+        meCan(resources, "documents") ? get(`/api/courriers?q=${encodeURIComponent(q)}&limit=4`) : null,
       ]);
       setFound([
         ...((c?.data?.items ?? []) as Array<{ _id: string; name: string }>).map(x => ({ label: x.name, href: `/clients/${x._id}`, section: "ventes" as SectionKey, group: "Client" })),
         ...((i?.data?.items ?? []) as Array<{ _id: string; number: string }>).map(x => ({ label: `Facture ${x.number}`, href: `/invoices/${x._id}`, section: "ventes" as SectionKey, group: "Facture" })),
+        ...((l?.data?.items ?? []) as Array<{ _id: string; reference?: string; subject: string }>).map(x => ({ label: `${x.reference ? `${x.reference} — ` : ""}${x.subject}`, href: `/courriers?q=${encodeURIComponent(x.reference || x.subject)}`, section: "accueil" as SectionKey, group: "Courrier" })),
       ]);
     }, 250);
     return () => clearTimeout(t);

@@ -1,5 +1,6 @@
 "use client";
 
+import { isicBatchFinance } from "@/lib/isic-finance";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -11,6 +12,7 @@ import { useMe, meCan } from "@/lib/useMe";
 export interface Batch {
   _id: string; reference: string; universityName: string; academicYear?: string;
   status: string; totalCards: number; unitLicenseFee: number; unitSalePrice: number;
+  unitPrintCost?: number; unitLanyardCost?: number; costs?: { category: string; amount: number }[]; licensePayments?: { amount: number }[];
   deliveries: { quantity: number }[]; payments: { amount: number }[];
 }
 
@@ -46,7 +48,8 @@ export default function IsicListPage() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const totalMargin = items.reduce((s, b) => s + (b.totalCards * (b.unitSalePrice - b.unitLicenseFee)), 0);
+  // Marge à terminaison : revente − licences, impression, tours de cou, frais opérationnels et autres.
+  const totalMargin = items.reduce((s, b) => s + isicBatchFinance(b).forecastMargin, 0);
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -68,7 +71,7 @@ export default function IsicListPage() {
       <div className={`grid grid-cols-1 gap-4 ${canFinance ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         <div className="surface-card p-4"><p className="text-xs text-ink2 uppercase font-semibold">Lots</p><p className="text-2xl font-bold text-ink">{items.length}</p></div>
         <div className="surface-card p-4"><p className="text-xs text-ink2 uppercase font-semibold">Cartes (total)</p><p className="text-2xl font-bold text-ink">{items.reduce((s, b) => s + b.totalCards, 0).toLocaleString("fr-FR")}</p></div>
-        {canFinance && <div className="surface-card p-4"><p className="text-xs text-ink2 uppercase font-semibold">Marge prévue</p><p className="text-2xl font-bold text-pos">{fmt(totalMargin)}</p></div>}
+        {canFinance && <div className="surface-card p-4"><p className="text-xs text-ink2 uppercase font-semibold">Marge (tous coûts)</p><p className="text-2xl font-bold text-pos">{fmt(totalMargin)}</p></div>}
       </div>
 
       {loading ? (
@@ -109,7 +112,7 @@ export default function IsicListPage() {
 }
 
 function NewBatch({ canFinance, onClose, onCreated }: { canFinance: boolean; onClose: () => void; onCreated: (id: string) => void }) {
-  const [form, setForm] = useState({ universityName: "", academicYear: "", totalCards: 0, unitLicenseFee: 0, unitSalePrice: 0 });
+  const [form, setForm] = useState({ universityName: "", academicYear: "", totalCards: 0, unitLicenseFee: 0, unitSalePrice: 0, unitPrintCost: 0, unitLanyardCost: 0 });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -142,6 +145,8 @@ function NewBatch({ canFinance, onClose, onCreated }: { canFinance: boolean; onC
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Coût licence / carte (XOF)" hint="Ce que vous payez à ISIC."><input type="number" min={0} className={inputCls} value={form.unitLicenseFee || ""} onChange={e => setForm(f => ({ ...f, unitLicenseFee: Number(e.target.value) }))} /></FormField>
             <FormField label="Prix de revente / carte (XOF)" hint="Facturé à l'université."><input type="number" min={0} className={inputCls} value={form.unitSalePrice || ""} onChange={e => setForm(f => ({ ...f, unitSalePrice: Number(e.target.value) }))} /></FormField>
+            <FormField label="Impression / carte (XOF)" hint="Coût prévu d'impression."><input type="number" min={0} className={inputCls} value={form.unitPrintCost || ""} onChange={e => setForm(f => ({ ...f, unitPrintCost: Number(e.target.value) }))} /></FormField>
+            <FormField label="Tour de cou / carte (XOF)" hint="Coût prévu du tour de cou personnalisé."><input type="number" min={0} className={inputCls} value={form.unitLanyardCost || ""} onChange={e => setForm(f => ({ ...f, unitLanyardCost: Number(e.target.value) }))} /></FormField>
           </div>
         )}
         <div className="flex justify-end gap-3 pt-3 border-t border-line">

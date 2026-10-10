@@ -1,5 +1,6 @@
 "use client";
 
+import { isicBatchFinance, ISIC_COST_LABEL, type IsicCostKey } from "@/lib/isic-finance";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -11,7 +12,8 @@ interface Delivery { _id: string; date: string; quantity: number; note?: string 
 interface Payment { _id: string; date: string; amount: number; method?: string; note?: string }
 interface Batch {
   _id: string; reference: string; universityName: string; academicYear?: string; status: string;
-  totalCards: number; unitLicenseFee: number; unitSalePrice: number;
+  totalCards: number; unitLicenseFee: number; unitSalePrice: number; unitPrintCost?: number; unitLanyardCost?: number;
+  costs?: Array<{ _id: string; category: string; label: string; quantity?: number; unitCost?: number; amount: number; date: string; supplier?: string; note?: string }>;
   receivedFile?: { name?: string; dataUri?: string }; isicFile?: { name?: string; dataUri?: string };
   submittedAt?: string; numberedAt?: string; deliveries: Delivery[]; payments: Payment[];
   licensePayments?: Payment[]; universityId?: { _id?: string; name?: string } | string; invoiceId?: string; notes?: string;
@@ -151,7 +153,7 @@ export default function IsicBatchPage() {
   const s = ISIC_STATUS[b.status] || { label: b.status, cls: "bg-surface2 text-ink2" };
   const done = sumDelivered(b); const remaining = b.totalCards - done;
   const licenseCost = b.totalCards * b.unitLicenseFee, saleAmount = b.totalCards * b.unitSalePrice;
-  const margin = saleAmount - licenseCost;
+  const fin = isicBatchFinance(b);
   const paid = b.payments.reduce((x, p) => x + p.amount, 0); const balance = saleAmount - paid;
   const licPaid = (b.licensePayments || []).reduce((x, p) => x + p.amount, 0);
   const terminal = b.status === "cancelled" || b.status === "completed";
@@ -258,11 +260,17 @@ export default function IsicBatchPage() {
 
       {/* Finances — visibles seulement pour un rôle financier. */}
       {canFinance && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[["Cartes", b.totalCards.toLocaleString("fr-FR")], ["Coût licences ISIC", fmt(licenseCost)], ["Revente université", fmt(saleAmount)], ["Marge", fmt(margin)]].map(([k, v], i) => (
-            <div key={k} className="surface-card p-4"><p className="text-[11px] text-ink2 uppercase font-semibold">{k}</p><p className={`text-lg font-bold ${i === 3 ? "text-pos" : "text-ink"}`}>{v}</p></div>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[["Revente université", fmt(fin.sale), "text-ink"], ["Coût de revient / carte", fmt(fin.unitCostForecast), "text-ink"],
+              ["Marge / carte", fmt(fin.unitMarginForecast), fin.unitMarginForecast < 0 ? "text-neg" : "text-pos"],
+              ["Marge du lot", `${fmt(fin.forecastMargin)}${fin.marginRate !== null ? ` · ${fin.marginRate} %` : ""}`, fin.forecastMargin < 0 ? "text-neg" : "text-pos"]].map(([k, v, c]) => (
+              <div key={k} className="surface-card p-4"><p className="text-[11px] text-ink2 uppercase font-semibold">{k}</p><p className={`text-lg font-bold ${c}`}>{v}</p></div>
+            ))}
+          </div>
+          <IsicCostsPanel batch={b} fin={fin} canEdit={canFinance} canDelete={canDeleteFinance}
+            onPatch={patch} onAdd={(body, reset) => post("costs", body, reset)} onDelete={costId => del("costs", `costId=${costId}`)} />
+        </>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -398,5 +406,89 @@ export default function IsicBatchPage() {
         <textarea className="w-full mt-2 p-2 border border-line rounded-lg text-sm" rows={2} defaultValue={b.notes || ""} onBlur={e => e.target.value !== (b.notes || "") && patch({ notes: e.target.value })} placeholder="Remarques internes…" />
       </section>
     </div>
+  );
+}
+
+const COST_CATEGORIES: Array<{ key: "printing" | "lanyard" | "operations" | "other"; hint: string }> = [
+  { key: "printing", hint: "Impression des cartes (prestataire, consommables)" },
+  { key: "lanyard", hint: "Achat des tours de cou personnalisés" },
+  { key: "operations", hint: "Transport, livraison, saisie, frais bancaires…" },
+  { key: "other", hint: "Toute autre dépense du lot" },
+];
+
+/** Coûts du lot : prévu (par carte) et réel (dépenses saisies), catégorie par catégorie. */
+function IsicCostsPanel({ batch, fin, canEdit, canDelete, onPatch, onAdd, onDelete }: {
+  batch: Batch; fin: ReturnType<typeof isicBatchFinance>; canEdit: boolean; canDelete: boolean;
+  onPatch: (body: Record<string, unknown>) => Promise<void> | void;
+  onAdd: (body: Record<string, unknown>, reset: () => void) => Promise<void> | void;
+  onDelete: (costId: string) => void;
+}) {
+  const empty = { category: "printing", label: "", quantity: "", unitCost: "", amount: "", supplier: "", date: new Date().toISOString().slice(0, 10) };
+  const [f, setF] = useState(empty);
+  const [units, setUnits] = useState({ print: String(batch.unitPrintCost ?? ""), lanyard: String(batch.unitLanyardCost ?? "") });
+  const computed = f.quantity && f.unitCost ? Math.round(Number(f.quantity) * Number(f.unitCost)) : 0;
+  const keys = Object.keys(ISIC_COST_LABEL) as IsicCostKey[];
+  return (
+    <section className="surface-card p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="font-semibold text-ink">Coûts du lot</h2>
+          <p className="text-xs text-ink2">Prévu : coûts par carte × {batch.totalCards} cartes. Réel : licences réglées et dépenses saisies ci-dessous.</p>
+        </div>
+        {canEdit && (
+          <div className="flex items-end gap-2 text-xs">
+            <label className="text-ink3">Impression / carte<input type="number" min={0} className="block w-28 p-1.5 border border-line rounded-lg text-sm" value={units.print} onChange={e => setUnits(u => ({ ...u, print: e.target.value }))} /></label>
+            <label className="text-ink3">Tour de cou / carte<input type="number" min={0} className="block w-28 p-1.5 border border-line rounded-lg text-sm" value={units.lanyard} onChange={e => setUnits(u => ({ ...u, lanyard: e.target.value }))} /></label>
+            <button onClick={() => onPatch({ unitPrintCost: Number(units.print) || 0, unitLanyardCost: Number(units.lanyard) || 0 })} className="px-3 h-9 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Enregistrer</button>
+          </div>
+        )}
+      </div>
+      <table className="table-dense w-full">
+        <thead><tr className="text-left text-ink2"><th>Poste</th><th className="text-right">Prévu</th><th className="text-right">Réel</th></tr></thead>
+        <tbody>
+          {keys.map(k => (
+            <tr key={k} className="border-t border-line">
+              <td className="text-sm">{ISIC_COST_LABEL[k]}</td>
+              <td className="text-right font-mono">{fin.planned[k] ? fmt(fin.planned[k]) : "—"}</td>
+              <td className="text-right font-mono">{fin.actual[k] ? fmt(fin.actual[k]) : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-line font-semibold"><td>Total des coûts</td><td className="text-right font-mono">{fmt(fin.plannedTotal)}</td><td className="text-right font-mono">{fmt(fin.actualTotal)}</td></tr>
+          <tr className="font-semibold"><td>Marge (revente {fmt(fin.sale)})</td><td className={`text-right font-mono ${fin.plannedMargin < 0 ? "text-neg" : "text-pos"}`}>{fmt(fin.plannedMargin)}</td><td className="text-right font-mono text-ink3 text-xs">à terminaison {fmt(fin.forecastMargin)}</td></tr>
+        </tfoot>
+      </table>
+
+      {(batch.costs ?? []).length > 0 && (
+        <ul className="divide-y divide-line text-sm">
+          {(batch.costs ?? []).map(c => (
+            <li key={c._id} className="flex items-center justify-between py-1.5 gap-2">
+              <span><b className="text-ink">{fmt(c.amount)}</b> · {ISIC_COST_LABEL[c.category as IsicCostKey] ?? c.category} — {c.label}
+                {c.quantity && c.unitCost ? <span className="text-ink3"> ({c.quantity} × {fmt(c.unitCost)})</span> : null}
+                {c.supplier && <span className="text-ink3"> · {c.supplier}</span>}
+                <span className="text-ink3"> · {new Date(c.date).toLocaleDateString("fr-FR")}</span></span>
+              {canDelete && <button onClick={() => onDelete(c._id)} className="text-ink3 hover:text-neg" aria-label="Retirer"><Trash2 size={13} /></button>}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canEdit && (
+        <div className="grid grid-cols-2 lg:grid-cols-7 gap-2 items-end">
+          <label className="text-[11px] text-ink3 col-span-2 lg:col-span-1">Poste
+            <select className="w-full p-2 border border-line rounded-lg text-sm" value={f.category} onChange={e => setF(x => ({ ...x, category: e.target.value }))} title={COST_CATEGORIES.find(c => c.key === f.category)?.hint}>
+              {COST_CATEGORIES.map(c => <option key={c.key} value={c.key}>{ISIC_COST_LABEL[c.key]}</option>)}
+            </select></label>
+          <label className="text-[11px] text-ink3 col-span-2">Libellé<input className="w-full p-2 border border-line rounded-lg text-sm" value={f.label} placeholder="Ex. impression 1 200 cartes" onChange={e => setF(x => ({ ...x, label: e.target.value }))} /></label>
+          <label className="text-[11px] text-ink3">Quantité<input type="number" min={0} className="w-full p-2 border border-line rounded-lg text-sm" value={f.quantity} onChange={e => setF(x => ({ ...x, quantity: e.target.value }))} /></label>
+          <label className="text-[11px] text-ink3">Coût unitaire<input type="number" min={0} className="w-full p-2 border border-line rounded-lg text-sm" value={f.unitCost} onChange={e => setF(x => ({ ...x, unitCost: e.target.value }))} /></label>
+          <label className="text-[11px] text-ink3">Montant{computed ? ` (= ${fmt(computed)})` : ""}<input type="number" min={0} className="w-full p-2 border border-line rounded-lg text-sm" value={f.amount} placeholder={computed ? String(computed) : ""} onChange={e => setF(x => ({ ...x, amount: e.target.value }))} /></label>
+          <button onClick={() => onAdd({ ...f, amount: f.amount || (computed || "") }, () => setF(empty))} className="h-9 rounded-lg bg-ink text-white text-sm font-semibold">Ajouter</button>
+          <label className="text-[11px] text-ink3 col-span-2 lg:col-span-2">Fournisseur<input className="w-full p-2 border border-line rounded-lg text-sm" value={f.supplier} onChange={e => setF(x => ({ ...x, supplier: e.target.value }))} /></label>
+          <label className="text-[11px] text-ink3">Date<input type="date" className="w-full p-2 border border-line rounded-lg text-sm" value={f.date} onChange={e => setF(x => ({ ...x, date: e.target.value }))} /></label>
+        </div>
+      )}
+    </section>
   );
 }

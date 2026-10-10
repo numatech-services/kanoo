@@ -9,7 +9,7 @@ export function hasIsicFinance(auth: TokenPayload): boolean {
 }
 
 /** Champs financiers d'un lot — masqués aux rôles non financiers (ex. opérateur d'impression). */
-export const ISIC_FINANCE_FIELDS = ["unitLicenseFee", "unitSalePrice", "payments", "licensePayments"] as const;
+export const ISIC_FINANCE_FIELDS = ["unitLicenseFee", "unitSalePrice", "unitPrintCost", "unitLanyardCost", "costs", "payments", "licensePayments"] as const;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function stripIsicFinance<T extends Record<string, any>>(batch: T): T {

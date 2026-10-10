@@ -10,7 +10,7 @@ import { logAudit } from "@/lib/audit";
 export const dynamic = "force-dynamic";
 
 const STATUS = ["received", "processing", "submitted", "numbered", "printing", "printed", "delivering", "completed", "cancelled"];
-const SCALARS = ["universityName", "academicYear", "totalCards", "unitLicenseFee", "unitSalePrice", "notes", "receivedFile", "isicFile"];
+const SCALARS = ["universityName", "academicYear", "totalCards", "unitLicenseFee", "unitSalePrice", "unitPrintCost", "unitLanyardCost", "notes", "receivedFile", "isicFile"];
 
 export const GET = withAuth("isic", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();

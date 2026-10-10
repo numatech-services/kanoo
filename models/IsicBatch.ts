@@ -14,6 +14,9 @@ export type IsicStatus =
 
 export interface IIsicDelivery { _id?: Types.ObjectId; date: Date; quantity: number; note?: string }
 export interface IIsicPayment { _id?: Types.ObjectId; date: Date; amount: number; method?: string; note?: string }
+/** Dépense du lot : impression des cartes, tours de cou personnalisés, frais opérationnels… */
+export type IsicCostCategory = "printing" | "lanyard" | "operations" | "other";
+export interface IIsicCost { _id?: Types.ObjectId; category: IsicCostCategory; label: string; quantity?: number; unitCost?: number; amount: number; date: Date; supplier?: string; note?: string }
 
 export interface IIsicBatch {
   _id: Types.ObjectId;
@@ -28,6 +31,11 @@ export interface IIsicBatch {
   /** Coût d'une licence ISIC (achat) et prix de revente d'une carte (à l'université). */
   unitLicenseFee: number;
   unitSalePrice: number;
+  /** Coûts unitaires PRÉVUS par carte (impression, tour de cou) : base de la marge prévue. */
+  unitPrintCost?: number;
+  unitLanyardCost?: number;
+  /** Dépenses RÉELLES du lot, par catégorie. */
+  costs: IIsicCost[];
   /** Fichiers : reçu de l'université, et retourné par ISIC (avec numéros). Data-URI. */
   receivedFile?: { name?: string; dataUri?: string };
   isicFile?: { name?: string; dataUri?: string };
@@ -59,6 +67,17 @@ const PaymentSchema = new Schema<IIsicPayment>({
   note: String,
 }, { _id: true });
 
+const CostSchema = new Schema<IIsicCost>({
+  category: { type: String, enum: ["printing", "lanyard", "operations", "other"], required: true },
+  label: { type: String, required: true, trim: true, maxlength: 200 },
+  quantity: { type: Number, min: 0 },
+  unitCost: { type: Number, min: 0 },
+  amount: { type: Number, required: true, min: 0 },
+  date: { type: Date, required: true, default: Date.now },
+  supplier: { type: String, trim: true, maxlength: 200 },
+  note: { type: String, maxlength: 300 },
+});
+
 const IsicBatchSchema = new Schema<IIsicBatch>({
   tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
   reference: { type: String, required: true },
@@ -73,6 +92,9 @@ const IsicBatchSchema = new Schema<IIsicBatch>({
   totalCards: { type: Number, required: true, min: 0, default: 0 },
   unitLicenseFee: { type: Number, min: 0, default: 0 },
   unitSalePrice: { type: Number, min: 0, default: 0 },
+  unitPrintCost: { type: Number, min: 0, default: 0 },
+  unitLanyardCost: { type: Number, min: 0, default: 0 },
+  costs: { type: [CostSchema], default: [] },
   receivedFile: { name: String, dataUri: String },
   isicFile: { name: String, dataUri: String },
   submittedAt: Date,

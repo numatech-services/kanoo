@@ -19,6 +19,12 @@ export const GET = withAuth("documents", "read", async (req: NextRequest, auth: 
   filter.archived = url.searchParams.get("archived") === "1" ? true : { $ne: true };
   const direction = url.searchParams.get("direction");
   if (direction === "incoming" || direction === "outgoing") filter.direction = direction;
+  // Recherche : référence (CR-2026-003), objet, destinataire / expéditeur.
+  const q = (url.searchParams.get("q") || "").trim();
+  if (q) {
+    const rx = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+    filter.$or = [{ reference: rx }, { subject: rx }, { recipient: rx }];
+  }
   const [items, total] = await Promise.all([
     LetterModel.find(filter).sort({ createdAt: -1 }).skip(p.skip).limit(p.limit)
       // Nom de la pièce jointe seulement : le contenu (data-URI, jusqu'à 2,5 Mo)

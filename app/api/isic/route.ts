@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { randomBytes } from "crypto";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { IsicBatchModel } from "@/models/IsicBatch";
 import { hasIsicFinance, stripIsicFinance } from "@/lib/isic";
@@ -48,6 +48,8 @@ export const POST = withAuth("isic", "create", async (req: NextRequest, auth: To
     totalCards: Math.max(0, Number(body.totalCards) || 0),
     unitLicenseFee: finance ? Math.max(0, Number(body.unitLicenseFee) || 0) : 0,
     unitSalePrice: finance ? Math.max(0, Number(body.unitSalePrice) || 0) : 0,
+    unitPrintCost: finance ? Math.max(0, Number(body.unitPrintCost) || 0) : 0,
+    unitLanyardCost: finance ? Math.max(0, Number(body.unitLanyardCost) || 0) : 0,
     notes: String(body.notes || "").slice(0, 4000),
     createdBy: auth.userId,
   });

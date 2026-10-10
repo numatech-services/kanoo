@@ -44,18 +44,34 @@ export default function CourriersPage() {
   // Filtres de suivi : actifs / archivés, et sens (tous / entrant / sortant).
   const [showArchived, setShowArchived] = useState(false);
   const [direction, setDirection] = useState<"" | "outgoing" | "incoming">("");
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+  const LIMIT = 50;
+  useEffect(() => { const t = setTimeout(() => { setPage(1); setQuery(search.trim()); }, 300); return () => clearTimeout(t); }, [search]);
+  // Recherche transmise par l'adresse (résultat de la recherche ⌘K).
+  useEffect(() => { const v = new URLSearchParams(window.location.search).get("q"); if (v) setSearch(v); }, []);
 
   const load = useCallback(() => {
     setLoading(true);
-    const q = new URLSearchParams({ limit: "50" });
+    setError(null);
+    const q = new URLSearchParams({ limit: String(LIMIT), page: String(page) });
     if (showArchived) q.set("archived", "1");
     if (direction) q.set("direction", direction);
+    if (query) q.set("q", query);
     fetch(`/api/courriers?${q.toString()}`, { credentials: "include" })
-      .then(r => r.json())
-      .then(d => setItems(d.data?.items || []))
-      .catch(() => setError("Lecture impossible."))
+      .then(async r => {
+        const d = await r.json().catch(() => ({}));
+        // Une lecture refusée ou en erreur s'affiche : elle ne se fait plus passer pour « aucun courrier ».
+        if (!r.ok) throw new Error(d.error || `Lecture impossible (erreur ${r.status}).`);
+        setItems(d.data?.items || []);
+        setTotal(d.data?.pagination?.total ?? 0);
+      })
+      .catch(e => { setItems([]); setError(e instanceof Error ? e.message : "Lecture impossible."); })
       .finally(() => setLoading(false));
-  }, [showArchived, direction]);
+  }, [showArchived, direction, query, page]);
   useEffect(() => { load(); }, [load]);
 
   async function del(id: string) {
@@ -127,15 +143,18 @@ export default function CourriersPage() {
         <button className={tabCls(direction === "incoming")} onClick={() => setDirection("incoming")}>
           <ArrowDownLeft size={14} className="mr-1" /> Entrants
         </button>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher : référence, objet, destinataire"
+          aria-label="Rechercher un courrier" className="ml-auto h-9 px-3 rounded-lg border border-line2 bg-surface text-sm text-ink min-w-[16rem]" />
       </div>
+      {notice && <p className="px-4 py-3 bg-pos-50 border border-pos/25 rounded-xl text-sm text-pos">{notice}</p>}
 
       {error && <p className="px-4 py-3 bg-neg-50 border border-neg/25 rounded-xl text-sm text-neg">{error}</p>}
 
       {loading ? (
         <div className="h-64 surface-card animate-pulse" />
       ) : items.length === 0 ? (
-        <EmptyState icon={<FileText size={20} />} title={showArchived ? "Aucun courrier archivé" : "Aucun courrier"}
-          hint="Rédigez une lettre ou un rapport, ou importez un courrier reçu ; il sera classé et suivi ici." />
+        <EmptyState icon={<FileText size={20} />} title={query ? `Aucun courrier pour « ${query} »` : showArchived ? "Aucun courrier archivé" : "Aucun courrier"}
+          hint={query || direction ? "Élargissez la recherche ou affichez « Tous »." : "Rédigez une lettre ou un rapport, ou importez un courrier reçu ; il sera classé et suivi ici."} />
       ) : (
         <div className="surface-card overflow-hidden">
           <table className="table-dense">
@@ -196,17 +215,32 @@ export default function CourriersPage() {
               ))}
             </tbody>
           </table>
+          {total > LIMIT && (
+            <div className="flex items-center justify-between px-4 py-2 border-t border-line text-sm text-ink2">
+              <span>{(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} sur {total}</span>
+              <span className="flex gap-2">
+                <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 h-8 rounded-lg border border-line2 disabled:opacity-40">Précédent</button>
+                <button disabled={page * LIMIT >= total} onClick={() => setPage(p => p + 1)} className="px-3 h-8 rounded-lg border border-line2 disabled:opacity-40">Suivant</button>
+              </span>
+            </div>
+          )}
         </div>
       )}
 
-      {editing && <ComposeDialog letter={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {editing && <ComposeDialog letter={editing} onClose={() => setEditing(null)} onSaved={(saved) => {
+        setEditing(null);
+        // Le courrier enregistré doit se voir : on revient sur les actifs, tous sens, sans recherche.
+        setShowArchived(false); setDirection(""); setSearch(""); setQuery(""); setPage(1);
+        setNotice(saved?.reference ? `Courrier ${saved.reference} enregistré.` : "Courrier enregistré.");
+        load();
+      }} />}
     </div>
   );
 }
 
 function ComposeDialog({
   letter, onClose, onSaved,
-}: { letter: Partial<Letter> & { body?: string; place?: string; signatory?: string }; onClose: () => void; onSaved: () => void }) {
+}: { letter: Partial<Letter> & { body?: string; place?: string; signatory?: string }; onClose: () => void; onSaved: (saved?: { reference?: string }) => void }) {
   const [form, setForm] = useState({
     kind: letter.kind || "courrier",
     direction: (letter.direction as "outgoing" | "incoming") || "outgoing",
@@ -283,8 +317,13 @@ function ComposeDialog({
         // `attachment: null` explicite : retirer la pièce jointe doit être enregistré.
         body: JSON.stringify({ ...form, dueDate: form.dueDate || null, aiAssisted: aiUsed, attachment: attachment ?? null }),
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Enregistrement refusé");
-      onSaved();
+      const d = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(d?.error || (res.status === 413
+          ? "Pièce jointe trop lourde pour le serveur : réduisez le PDF (ou relevez la limite d'envoi de l'hébergement)."
+          : `Enregistrement refusé (erreur ${res.status}).`));
+      }
+      onSaved(d?.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Enregistrement impossible");
     } finally {

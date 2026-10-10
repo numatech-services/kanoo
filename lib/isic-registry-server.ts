@@ -3,6 +3,8 @@ import { tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { IsicStudentModel } from "@/models/IsicStudent";
 import { IsicLicenseModel } from "@/models/IsicLicense";
+import { IsicPhotoModel } from "@/models/IsicPhoto";
+import { IsicCardModel } from "@/models/IsicCard";
 import {
   studentKey, normalizeIsicNumber, normalizeMatricule, decideNumber, isAcademicYear, defaultValidUntil,
   cleanName, normalizeNationality, parseDateLoose, academicYearOf, type RegistryColumns,
@@ -250,4 +252,25 @@ export function entriesFromRows(
     cardStatus: at(r, cols.cardStatus) || undefined,
     issuedOn: at(r, cols.issuedOn) || undefined,
   }));
+}
+
+/**
+ * Suppression DÉFINITIVE de fiches du registre saisies par erreur (doublon,
+ * mauvais import, faute de frappe) : la fiche, sa photo et ses licences. Les
+ * cartes de production rattachées sont seulement déliées. L'archivage reste le
+ * geste normal pour un étudiant réel qui quitte l'établissement.
+ */
+export async function purgeRegistryStudents(tenantId: string, ids: string[]) {
+  const oids = ids.filter(id => Types.ObjectId.isValid(id)).map(id => new Types.ObjectId(id));
+  const tid = new Types.ObjectId(tenantId);
+  const students = await IsicStudentModel.find({ tenantId: tid, _id: { $in: oids } }).select("fullName isicNumber").lean<Array<{ _id: unknown; fullName: string; isicNumber?: string }>>();
+  const found = students.map(s => s._id);
+  if (!found.length) return { deleted: 0, licenses: 0, names: [] as string[] };
+  const [lic] = await Promise.all([
+    IsicLicenseModel.deleteMany({ tenantId: tid, studentId: { $in: found } }),
+    IsicPhotoModel.deleteMany({ tenantId: tid, studentId: { $in: found } }),
+    IsicCardModel.updateMany({ tenantId: tid, studentId: { $in: found } }, { $unset: { studentId: 1 } }),
+  ]);
+  const r = await IsicStudentModel.deleteMany({ tenantId: tid, _id: { $in: found } });
+  return { deleted: r.deletedCount ?? 0, licenses: lic.deletedCount ?? 0, names: students.map(s => `${s.fullName}${s.isicNumber ? ` (${s.isicNumber})` : ""}`) };
 }
