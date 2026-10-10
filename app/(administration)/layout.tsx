@@ -1,4 +1,5 @@
 import { SidebarWrapper } from "@/components/layout/SidebarWrapper";
+import { PageGuard } from "@/components/layout/PageGuard";
 import { TopBar } from "@/components/layout/TopBar";
 import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { SupportButton } from "@/components/shared/SupportButton";
@@ -14,10 +15,10 @@ export default function AdministrationLayout({ children }: { children: React.Rea
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <TopBar />
         <main className="flex-1 overflow-y-auto p-6">
-            {children}
+            <PageGuard>{children}</PageGuard>
         </main>
       </div>
-      <CommandPalette />
+      <CommandPalette profile="administration" />
       <OfflineBanner />
       <SupportButton />
       <IdleTimeout />

@@ -186,7 +186,7 @@ export default function AssoDashboardPage() {
                 </h2>
                 
                 <div className="space-y-3">
-                    <Link href="/associations/cotisations?status=unpaid" className="flex items-center gap-4 p-4 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
+                    <Link href="/associations/cotisations?paid=false" className="flex items-center gap-4 p-4 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
                         <div className="w-10 h-10 rounded-2xl bg-neg/20 flex items-center justify-center shrink-0">
                             <CreditCard className="w-5 h-5 text-neg" />
                         </div>
@@ -210,9 +210,11 @@ export default function AssoDashboardPage() {
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-white/10">
-                    <button className="w-full py-4 bg-section text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-surface hover:text-ink transition-all shadow-lg active:scale-95">
-                        Exporter Bilan Financier
-                    </button>
+                    {/* Bilan de l'exercice (actif / passif) au format tableur. */}
+                    <a href={`/api/accounting/reports?type=bs&format=csv&to=${new Date().toISOString().slice(0, 10)}`}
+                      className="block text-center w-full py-4 bg-section text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-surface hover:text-ink transition-all shadow-lg active:scale-95">
+                        Exporter le bilan financier (CSV)
+                    </a>
                 </div>
             </div>
           </div>

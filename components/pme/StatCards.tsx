@@ -49,16 +49,17 @@ async function getStats(allowed: Allowed, tenantId: string): Promise<Stats | nul
       ]),
       !allowed.invoices ? 0 : InvoiceModel.countDocuments({
         ...tf, documentType: { $ne: "credit_note" },
-        status: { $in: ["sent", "partial"] }, dueDate: { $lt: now },
+        // Même définition que la liste « En retard » et la pastille du menu.
+        status: { $in: ["sent", "partial", "overdue"] }, dueDate: { $lt: now },
       }),
       !allowed.payments ? [] : PaymentModel.aggregate([
-        { $match: { ...tf, date: { $gte: startOfMonth } } },
+        { $match: { ...tf, date: { $gte: startOfMonth }, status: { $nin: ["pending", "cancelled"] } } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
       // Le mois précédent sert de base de comparaison : sans lui, la carte
       // afficherait une variation inventée plutôt qu'aucune variation.
       !allowed.payments ? [] : PaymentModel.aggregate([
-        { $match: { ...tf, date: { $gte: startOfPrevMonth, $lt: startOfMonth } } },
+        { $match: { ...tf, date: { $gte: startOfPrevMonth, $lt: startOfMonth }, status: { $nin: ["pending", "cancelled"] } } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
       !allowed.employees ? 0 : EmployeeModel.countDocuments({ ...tf, isActive: true }),

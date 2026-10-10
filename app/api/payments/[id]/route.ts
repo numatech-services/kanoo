@@ -6,6 +6,8 @@ import { PaymentModel } from "@/models/Payment";
 import { InvoiceModel } from "@/models/Invoice";
 import { applyPaymentEffects } from "@/lib/payments";
 import { logAudit } from "@/lib/audit";
+import { paymentDate } from "@/lib/payment-date";
+import { treasuryKind } from "@/lib/treasury";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,13 @@ export const PATCH = withAuth("payments", "update", async (req: NextRequest, aut
   }
   const remaining = invoice.totalTTC - invoice.paidAmount;
   if (payment.amount > remaining + 1) return badRequest(`Montant supérieur au reste à payer (${remaining} XOF).`);
+  // À l'encaissement : date réelle (saisie, sinon la date prévue si elle est passée,
+  // sinon aujourd'hui) et compte réellement crédité.
+  payment.date = paymentDate(body.date ?? (payment.date && payment.date <= new Date() ? payment.date.toISOString() : undefined));
+  if (body.treasuryAccountId) {
+    if (!(await treasuryKind(auth.tenantId, String(body.treasuryAccountId)))) return badRequest("Compte de trésorerie introuvable.");
+    payment.treasuryAccountId = body.treasuryAccountId;
+  }
 
   await withTransaction(async (session) => {
     await applyPaymentEffects(payment, invoice, auth, session);

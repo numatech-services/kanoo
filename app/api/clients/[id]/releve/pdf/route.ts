@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { withAuth, forbidden, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { ClientModel } from "@/models/Client";
 import { InvoiceModel } from "@/models/Invoice";
@@ -28,6 +29,8 @@ const fr = (d: Date | string) => new Date(d).toLocaleDateString("fr-FR");
  * découvrirait.
  */
 export const GET = withAuth("clients", "read", async (req: NextRequest, auth: TokenPayload, params) => {
+  // Stagiaire : ni export ni envoi de fichier (règle commune).
+  if (isInternFor(auth, "clients")) return forbidden(INTERN_EXPORT_MESSAGE);
   // Relevé de compte = factures et règlements : réservé à qui lit les factures.
   if (!authCan(auth, "invoices", "read")) return forbidden("Relevé réservé à la comptabilité et au gérant.");
   const client = await ClientModel.findOne({ _id: params.id, ...tenantFilter(auth) })

@@ -28,6 +28,9 @@ export const POST = withAuth("agenda", "create", async (req: NextRequest, auth: 
     return forbidden(`Vous n'avez pas le droit d'importer « ${entity.label} ».`);
   }
 
+  // Une ligne dont la clé existe déjà MODIFIE la fiche : il faut aussi le droit de modifier.
+  const canUpdate = rolesCanPerform(roles, entity.resource, "update", auth.allowedResources, auth.roleLevels);
+
   const text = await req.text();
   const { headers, rows } = parseCSV(text);
   if (headers.length === 0) return badRequest("Fichier CSV vide ou illisible.");
@@ -93,6 +96,9 @@ export const POST = withAuth("agenda", "create", async (req: NextRequest, auth: 
 
       const key = doc[spec.uniqueBy];
       if (!key) throw new Error(`clé « ${spec.uniqueBy} » vide`);
+      if (!canUpdate && await entity.model.exists({ ...tf, [spec.uniqueBy]: key })) {
+        throw new Error(`« ${key} » existe déjà : vous pouvez créer mais pas modifier ces fiches`);
+      }
 
       const res = await entity.model.updateOne(
         { ...tf, [spec.uniqueBy]: key },

@@ -5,10 +5,19 @@ import { EngagementModel } from "@/models/Engagement";
 // Importe ton modèle Mandat si tu en as un, sinon on utilise Engagement
 import { TokenPayload } from "@/lib/auth";
 
-// La signature était inversée : `auth` recevait les params et le filtre de
-// tenant partait avec un tenantId indéfini — la requête ne remontait alors
-// jamais aucun engagement.
-export const POST = withAuth("budgetChapters", "update", async (req: NextRequest, auth: TokenPayload) => {
+// Engagements : droit « commitmentOrders » (ordonnateur) ; mandatements : droit
+// « paymentOrders » (comptable public). Les deux routes exigeaient le droit sur
+// les chapitres budgétaires : le comptable public ne pouvait pas mandater, et le
+// DAF (lecture seule des engagements) pouvait engager et mandater.
+
+/** GET — engagements mandatés (tableau de bord, écran Mandatements). */
+export const GET = withAuth("paymentOrders", "read", async (_req: NextRequest, auth: TokenPayload) => {
+  await connectDB();
+  const items = await EngagementModel.find({ ...tenantFilter(auth), status: "mandate" }).sort({ mandatedAt: -1, updatedAt: -1 }).limit(200).lean();
+  return ok(items);
+});
+
+export const POST = withAuth("paymentOrders", "create", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const { engagementId, dateMandatement, observations } = await req.json();
 

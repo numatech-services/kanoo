@@ -124,7 +124,9 @@ export default function InvoiceDetailPage() {
       credentials: "include",
       body: JSON.stringify(data),
     });
-    if (res.ok) { setPaymentOpen(false); load(); }
+    // Un refus (montant, date, compte…) s'affiche dans le formulaire au lieu de ne rien faire.
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Paiement refusé"); }
+    setPaymentOpen(false); load();
   }
 
   async function relancer() {

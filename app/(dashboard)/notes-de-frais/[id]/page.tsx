@@ -81,6 +81,7 @@ export default function NoteDeFraisPage() {
   const [payOpen, setPayOpen] = useState(false);
   const [accounts, setAccounts] = useState<TreasuryAccount[]>([]);
   const [accountId, setAccountId] = useState("");
+  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
 
   const load = useCallback(() => {
     fetch(`/api/expenses/${id}`, { credentials: "include" })
@@ -445,6 +446,10 @@ export default function NoteDeFraisPage() {
             )}
           </FormField>
 
+          <FormField label="Date du remboursement" required hint="Date réelle du virement ou du paiement en espèces.">
+            <input type="date" className={inputCls} value={payDate} max={new Date().toISOString().slice(0, 10)} onChange={e => setPayDate(e.target.value)} />
+          </FormField>
+
           <p className="text-xs text-ink3">
             Le remboursement passe l&apos;écriture de règlement et crée le mouvement de
             trésorerie. La note devient définitive&nbsp;: une correction ultérieure
@@ -459,7 +464,7 @@ export default function NoteDeFraisPage() {
             <button
               disabled={busy || !accountId}
               onClick={async () => {
-                const done = await patch({ status: "reimbursed", treasuryAccountId: accountId });
+                const done = await patch({ status: "reimbursed", treasuryAccountId: accountId, date: payDate });
                 if (done) { setPayOpen(false); router.refresh(); }
               }}
               className="px-5 h-10 rounded-lg bg-pos text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">

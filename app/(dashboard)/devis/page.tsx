@@ -1,4 +1,6 @@
 "use client";
+import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
+import { useUrlReady } from "@/lib/url-param";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useMe, meCan, meCanDo } from "@/lib/useMe";
@@ -13,6 +15,8 @@ interface Devis { _id:string; number:string; clientId:{name:string}|null|string;
 export default function DevisPage() {
   const [devis,setDevis]=useState<Devis[]>([]); const [total,setTotal]=useState(0); const [page,setPage]=useState(1); const [loading,setLoading]=useState(true);
   const [status,setStatus]=useState(""); const LIMIT=20;
+  const [clientId,setClientId]=useState("");
+  const ready=useUrlReady(p=>setClientId(p.get("clientId")??""));
   const [convertDialog,setConvertDialog]=useState<{id:string;number:string;type:"invoice"|"proforma"}|null>(null);
   const [converting,setConverting]=useState(false);
   const me = useMe();
@@ -24,9 +28,11 @@ export default function DevisPage() {
     setLoading(true);
     const params=new URLSearchParams({page:String(page),limit:String(LIMIT)});
     if(status) params.set("status",status);
+    if(clientId) params.set("clientId",clientId);
+    if(!ready) return;
     const res=await fetch(`/api/devis?${params}`,{credentials:"include"});
     const d=await res.json(); setDevis(d.data?.items||[]); setTotal(d.data?.pagination?.total||0); setLoading(false);
-  },[page,status]);
+  },[page,status,clientId,ready]);
   useEffect(()=>{load();},[load]);
 
   async function handleConvert() {
@@ -83,6 +89,7 @@ export default function DevisPage() {
         {["draft","sent","accepted","rejected","expired"].map(s=><option key={s} value={s}>{s}</option>)}
       </select>
 
+      {clientId&&<ClientFilterChip name={((devis[0]?.clientId as { name?: string } | undefined)?.name)} onClear={()=>{setClientId("");setPage(1);}}/>}
       <DataTable columns={columns} data={devis} loading={loading} keyExtractor={d=>d._id} emptyMessage="Aucun devis"/>
       <Pagination page={page} totalPages={Math.ceil(total/LIMIT)} total={total} limit={LIMIT} onPage={setPage}/>
 

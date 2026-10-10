@@ -1,5 +1,6 @@
 "use client";
 
+import { IfCan } from "@/components/shared/IfCan";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Calendar, MapPin, Video, Users, Plus, Ticket } from "lucide-react";
@@ -69,9 +70,11 @@ export default function ActivitesPage() {
           <h1 className="page-title">Activités</h1>
           <p className="text-sm text-ink2 mt-0.5">Événements, réunions et billetterie de votre organisation.</p>
         </div>
+        <IfCan resource="events">
         <Link href="/activites/new" className="btn-primary">
           <Plus size={16} /> Nouvelle activité
         </Link>
+        </IfCan>
       </div>
 
       <div className="flex gap-1.5 flex-wrap">
@@ -99,7 +102,9 @@ export default function ActivitesPage() {
           <Calendar size={34} className="mx-auto text-ink3" />
           <p className="mt-3 font-display text-lg text-ink">Aucune activité pour le moment</p>
           <p className="text-sm text-ink2 mt-1">Créez votre première activité pour gérer inscriptions, billets et présences.</p>
+          <IfCan resource="events">
           <Link href="/activites/new" className="btn-primary mt-4 inline-flex"><Plus size={16} /> Créer une activité</Link>
+          </IfCan>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

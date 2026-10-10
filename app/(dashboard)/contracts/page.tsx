@@ -1,4 +1,6 @@
 "use client";
+import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
+import { useUrlReady } from "@/lib/url-param";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -19,6 +21,8 @@ export default function ContractsPage() {
   const [mounted,setMounted]=useState(false);
   const [contracts,setContracts]=useState<Contract[]>([]); const [total,setTotal]=useState(0); const [page,setPage]=useState(1); const [loading,setLoading]=useState(true);
   const [status,setStatus]=useState(""); const [type,setType]=useState(""); const [isRecurring,setIsRecurring]=useState(""); const LIMIT=20;
+  const [clientId,setClientId]=useState("");
+  const ready=useUrlReady(p=>setClientId(p.get("clientId")??""));
 
   const load=useCallback(async()=>{
     setLoading(true);
@@ -26,9 +30,11 @@ export default function ContractsPage() {
     if(status) params.set("status",status);
     if(type) params.set("type",type);
     if(isRecurring) params.set("isRecurring",isRecurring);
+    if(clientId) params.set("clientId",clientId);
+    if(!ready) return;
     const res=await fetch(`/api/contracts?${params}`,{credentials:"include"});
     const d=await res.json(); setContracts(d.data?.items||[]); setTotal(d.data?.pagination?.total||0); setLoading(false);
-  },[page,status,type,isRecurring]);
+  },[page,status,type,isRecurring,clientId,ready]);
   useEffect(()=>{setMounted(true);load();;},[load]);
 
   if(!mounted) return null;
@@ -67,6 +73,7 @@ export default function ContractsPage() {
           <option value="">Tous</option><option value="true">Récurrents</option><option value="false">Ponctuels</option>
         </select>
       </div>
+      {clientId&&<ClientFilterChip name={((contracts[0]?.clientId as { name?: string } | undefined)?.name)} onClear={()=>{setClientId("");setPage(1);}}/>}
       <DataTable columns={columns} data={contracts} loading={loading} keyExtractor={c=>c._id} emptyMessage="Aucun contrat"/>
       <Pagination page={page} totalPages={Math.ceil(total/LIMIT)} total={total} limit={LIMIT} onPage={setPage}/>
     </div>

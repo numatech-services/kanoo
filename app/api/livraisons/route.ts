@@ -19,6 +19,9 @@ export const GET = withAuth("livraisons", "read", async (req: NextRequest, auth:
   const status = url.searchParams.get("status");
 
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
+  // Raccourci « Voir les … » de la fiche client.
+  const clientId = url.searchParams.get("clientId");
+  if (clientId && Types.ObjectId.isValid(clientId)) filter.clientId = new Types.ObjectId(clientId);
   if (invoiceId) filter.invoiceId = invoiceId;
   if (status) filter.status = status;
 

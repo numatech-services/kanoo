@@ -1,5 +1,7 @@
 "use client";
 
+import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
+import { useUrlReady } from "@/lib/url-param";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, FolderKanban } from "lucide-react";
@@ -50,12 +52,16 @@ export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary })
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+  const [clientId, setClientId] = useState("");
+  const ready = useUrlReady(p => setClientId(p.get("clientId") ?? ""));
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: "100" });
       if (statusFilter) params.set("status", statusFilter);
+      if (clientId) params.set("clientId", clientId);
+      if (!ready) return;
       const res = await fetch(`/api/projects?${params}`, { credentials: "include" });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Chargement impossible");
@@ -66,7 +72,7 @@ export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary })
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, clientId, ready]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -117,6 +123,7 @@ export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary })
           hint={totals.rate > 100 ? "Dépassement du budget alloué" : "Sur les projets affichés"} />
       </div>}
 
+      {clientId && <ClientFilterChip name={((projects[0] as { clientId?: { name?: string } } | undefined)?.clientId?.name)} onClear={() => setClientId("")} />}
       <SegmentedControl
         ariaLabel="Filtrer par état"
         segments={[

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { connectDB } from "@/lib/db";
 import { authorize, tenantFilter } from "@/lib/api-helpers";
 import { DevisModel } from "@/models/Devis";
@@ -13,6 +14,8 @@ export async function GET(req: NextRequest, ctx: RouteParams) {
     const gate = await authorize(req, "devis", "read");
     if (!gate.ok) return gate.response;
     const auth = gate.auth;
+    // Stagiaire : ni export ni envoi de fichier (règle commune).
+    if (isInternFor(auth, "devis")) return NextResponse.json({ success: false, error: INTERN_EXPORT_MESSAGE }, { status: 403 });
 
     await connectDB();
     const { id } = ctx.params instanceof Promise ? await ctx.params : ctx.params;

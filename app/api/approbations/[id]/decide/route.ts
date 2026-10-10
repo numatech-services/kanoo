@@ -5,7 +5,10 @@ import { NotificationModel } from "@/models/Notification";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
-export const POST = withAuth("approbations", "update", async (req: NextRequest, auth: TokenPayload, params) => {
+// Le droit de décider vient de la désignation comme valideur (vérifiée plus
+// bas), pas d'un droit « modifier les approbations » que beaucoup de valideurs
+// désignés n'ont pas.
+export const POST = withAuth("approbations", "read", async (req: NextRequest, auth: TokenPayload, params) => {
   const { id } = params;
   const body = await req.json();
   if (!body.decision || !["approved", "rejected"].includes(body.decision)) {

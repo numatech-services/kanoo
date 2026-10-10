@@ -1,11 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useUrlReady } from "@/lib/url-param";
 import { CommandeForm } from "@/components/pme/CommandeForm";
 import { errorMessage } from "@/lib/errors";
 
 export default function NewCommandePage() {
   const router = useRouter();
+  const [supplierId, setSupplierId] = useState("");
+  const ready = useUrlReady(p => setSupplierId(p.get("supplierId") ?? ""));
 
   async function handleSave(data: Record<string, unknown>) {
     console.log("📤 [BC New] Tentative d'enregistrement avec les données:", data);
@@ -56,10 +60,12 @@ export default function NewCommandePage() {
       </div>
       
       <div className="bg-surface rounded-2xl border border-line p-6 shadow-sm">
-        <CommandeForm 
+        {/* Fournisseur présélectionné depuis sa fiche (« + Commande »). */}
+        {ready && <CommandeForm 
+          initialData={supplierId ? { supplierId, orderDate: new Date().toISOString() } : undefined}
           onSave={handleSave} 
           onCancel={() => router.push("/commandes")} 
-        />
+        />}
       </div>
     </div>
   );

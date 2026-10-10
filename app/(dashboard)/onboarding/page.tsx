@@ -12,19 +12,7 @@ const STEPS = [
   { id:6, icon:"🚀", title:"Prêt à démarrer",        desc:"Récapitulatif et ressources" },
 ];
 
-const VIDEO_LINKS = [
-  { label:"Créer une facture", url:"https://loom.com/share/placeholder-facture", duration:"4 min" },
-  { label:"Configurer la paie", url:"https://loom.com/share/placeholder-paie", duration:"6 min" },
-  { label:"Déclarer la TVA", url:"https://loom.com/share/placeholder-tva", duration:"5 min" },
-  { label:"Gérer les adhérents", url:"https://loom.com/share/placeholder-adherents", duration:"4 min" },
-];
 
-const GUIDE_LINKS = [
-  { label:"Guide Facturation PDF", href:"/docs/guides/facturation.pdf", icon:"📄" },
-  { label:"Guide RH & Paie PDF", href:"/docs/guides/rh-paie.pdf", icon:"📄" },
-  { label:"Guide Comptabilité OHADA PDF", href:"/docs/guides/comptabilite.pdf", icon:"📄" },
-  { label:"Guide Fiscalité Niger PDF", href:"/docs/guides/fiscalite.pdf", icon:"📄" },
-];
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -189,33 +177,18 @@ export default function OnboardingPage() {
           <p className="text-sm text-pos mt-1">Votre organisation est prête. Voici les ressources pour démarrer rapidement.</p>
         </div>
 
-        {/* Vidéos de formation */}
+        {/* Prise en main : les écrans clés, directement. */}
         <div>
-          <p className="text-sm font-semibold text-ink mb-3">📹 Vidéos de démarrage (Loom)</p>
+          <p className="text-sm font-semibold text-ink mb-3">Premiers pas</p>
           <div className="grid grid-cols-2 gap-3">
-            {VIDEO_LINKS.map(v => (
-              <a key={v.label} href={v.url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-surface border border-line rounded-xl hover:border-section/40 transition-colors">
-                <div className="w-8 h-8 bg-neg-50 rounded-lg flex items-center justify-center text-sm flex-shrink-0">▶️</div>
-                <div><p className="text-xs font-medium text-ink">{v.label}</p><p className="text-xs text-ink2">{v.duration}</p></div>
+            {[["Créer une facture", "/invoices/new"], ["Ajouter un client", "/clients?new=1"], ["Configurer la trésorerie", "/treasury"], ["Inviter un collaborateur", "/users"]].map(([label, href]) => (
+              <a key={href} href={href} className="flex items-center gap-3 p-3 bg-surface border border-line rounded-xl hover:border-section/40 transition-colors">
+                <p className="text-xs font-medium text-ink">{label} →</p>
               </a>
             ))}
           </div>
         </div>
 
-        {/* Guides PDF */}
-        <div>
-          <p className="text-sm font-semibold text-ink mb-3">📄 Guides PDF par module</p>
-          <div className="grid grid-cols-2 gap-3">
-            {GUIDE_LINKS.map(g => (
-              <a key={g.label} href={g.href} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-surface border border-line rounded-xl hover:border-section/40 transition-colors">
-                <span className="text-lg">{g.icon}</span>
-                <p className="text-xs font-medium text-ink">{g.label}</p>
-              </a>
-            ))}
-          </div>
-        </div>
 
         {/* Support chat */}
         <div className="bg-section/5 border border-section/20 rounded-xl p-4 flex items-start gap-3">

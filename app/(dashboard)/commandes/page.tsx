@@ -1,4 +1,5 @@
 "use client";
+import { IfCan } from "@/components/shared/IfCan";
 import { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -81,14 +82,12 @@ const columns: Column<Commande>[] = [
             <h1 className="text-2xl font-bold text-ink">Bons de commande</h1>
             <p className="text-sm text-ink2 mt-0.5">{total} commande{total>1?"s":""}</p>
         </div>
-        {/* CHANGEMENT ICI : Utilisation de Link au lieu de button */}
-        <Link 
-  href="/commandes/new" 
-  onClick={() => console.log("Lien cliqué !")}
-  className="relative z-50 px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors"
->
-  + Nouveau BC
-</Link>
+        <IfCan resource="commandes">
+          <Link href="/commandes/new"
+            className="relative z-50 px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors">
+            + Nouveau BC
+          </Link>
+        </IfCan>
       </div>
 
       <select value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}} className="px-3 py-2 border border-line rounded-lg text-sm">

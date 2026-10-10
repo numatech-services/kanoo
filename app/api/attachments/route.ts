@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { withAuth, ok, created, badRequest, forbidden, tenantFilter } from "@/lib/api-helpers";
 import { AttachmentModel } from "@/models/Attachment";
 import { validate, store, STORAGE_MESSAGES, sanitizeFilename } from "@/lib/storage";
-import { authCan } from "@/lib/role-resources";
+import { attachmentAccess } from "@/lib/attachment-access";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -26,7 +26,7 @@ const CATEGORIES = new Set([
 ]);
 
 /** GET /api/attachments?host=contracts&hostId=… — les pièces d'un document. */
-export const GET = withAuth("documents", "read", async (req: NextRequest, auth: TokenPayload) => {
+export const GET = withAuth("attachments", "read", async (req: NextRequest, auth: TokenPayload) => {
   const url = new URL(req.url);
   const host = url.searchParams.get("host") || "";
   const hostId = url.searchParams.get("hostId") || "";
@@ -37,8 +37,8 @@ export const GET = withAuth("documents", "read", async (req: NextRequest, auth: 
   // Le droit exigé est celui du document porteur, pas un droit « pièces
   // jointes » générique : voir la pièce d'un bulletin de paie suppose de
   // pouvoir voir les bulletins.
-  if (!authCan(auth, host, "read")) {
-    return forbidden("Vous n'avez pas accès aux documents de ce type.");
+  if (!(await attachmentAccess(auth, host, hostId, "read"))) {
+    return forbidden("Vous n'avez pas accès aux pièces de ce document.");
   }
 
   const items = await AttachmentModel.find({ ...tenantFilter(auth), host, hostId })
@@ -51,7 +51,7 @@ export const GET = withAuth("documents", "read", async (req: NextRequest, auth: 
 });
 
 /** POST /api/attachments — téléversement multipart. */
-export const POST = withAuth("documents", "create", async (req: NextRequest, auth: TokenPayload) => {
+export const POST = withAuth("attachments", "create", async (req: NextRequest, auth: TokenPayload) => {
   const form = await req.formData().catch(() => null);
   if (!form) return badRequest("Requête multipart attendue.");
 
@@ -67,7 +67,7 @@ export const POST = withAuth("documents", "create", async (req: NextRequest, aut
   if (!CATEGORIES.has(category)) return badRequest("Nature de pièce inconnue.");
 
   // Joindre une pièce, c'est modifier le document porteur.
-  if (!authCan(auth, host, "update")) {
+  if (!(await attachmentAccess(auth, host, hostId, "write"))) {
     return forbidden("Vous ne pouvez pas joindre de pièce à ce document.");
   }
 

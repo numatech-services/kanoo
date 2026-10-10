@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth, ok, notFound, forbidden, tenantFilter } from "@/lib/api-helpers";
 import { AttachmentModel } from "@/models/Attachment";
 import { read, remove } from "@/lib/storage";
-import { authCan } from "@/lib/role-resources";
+import { attachmentAccess } from "@/lib/attachment-access";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -36,13 +36,13 @@ interface Row {
  *   • `Cache-Control: private` — un document d'entreprise n'a rien à faire
  *     dans un cache partagé.
  */
-export const GET = withAuth("documents", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
+export const GET = withAuth("attachments", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   const doc = await AttachmentModel.findOne({ _id: params.id, ...tenantFilter(auth) })
     .lean<Row | null>();
   if (!doc) return notFound("Pièce jointe introuvable");
 
-  if (!authCan(auth, doc.host, "read")) {
-    return forbidden("Vous n'avez pas accès aux documents de ce type.");
+  if (!(await attachmentAccess(auth, doc.host, doc.hostId, "read"))) {
+    return forbidden("Vous n'avez pas accès aux pièces de ce document.");
   }
 
   let bytes: Buffer;
@@ -77,12 +77,12 @@ export const GET = withAuth("documents", "read", async (_req: NextRequest, auth:
  * le contenu étant partagé entre doublons, supprimer à la première
  * suppression viderait les pièces des autres documents.
  */
-export const DELETE = withAuth("documents", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {
+export const DELETE = withAuth("attachments", "create", async (_req: NextRequest, auth: TokenPayload, params) => {
   const doc = await AttachmentModel.findOne({ _id: params.id, ...tenantFilter(auth) })
     .lean<Row | null>();
   if (!doc) return notFound("Pièce jointe introuvable");
 
-  if (!authCan(auth, doc.host, "update")) {
+  if (!(await attachmentAccess(auth, doc.host, doc.hostId, "write"))) {
     return forbidden("Vous ne pouvez pas retirer de pièce à ce document.");
   }
 

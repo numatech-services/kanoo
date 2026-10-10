@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
+import { Types } from "mongoose";
 import { withAuth, created, badRequest, notFound, paginatedResponse, getPagination, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
@@ -22,13 +23,19 @@ export const GET = withAuth("invoices", "read", async (req: NextRequest, auth: T
   const overdue = url.searchParams.get("overdue");
 
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
-  if (status) filter.status = status;
-  if (clientId) filter.clientId = clientId;
+  // « overdue » et « unpaid » sont des états calculés, pas des statuts stockés :
+  // le statut littéral « overdue » n'est presque jamais posé, et le filtre
+  // « En retard » ne renvoyait rien.
+  if (status === "unpaid") {
+    filter.status = { $in: ["sent", "partial", "overdue"] };
+    filter.documentType = { $ne: "credit_note" };
+  } else if (status && status !== "overdue") filter.status = status;
+  if (clientId && Types.ObjectId.isValid(clientId)) filter.clientId = new Types.ObjectId(clientId);
   // Recherche exacte par numéro (?number=) : ignorée jusqu'ici, la liste
   // renvoyait la première facture venue.
   const number = url.searchParams.get("number");
   if (number) filter.number = { $regex: `^${number.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" };
-  if (overdue === "true") {
+  if (overdue === "true" || status === "overdue") {
     // Même définition que le badge de navigation (/api/nav-counters) : une
     // facture non soldée dont l'échéance est passée. Le statut littéral
     // « overdue » (posé par le traitement de nuit) était auparavant exclu, si

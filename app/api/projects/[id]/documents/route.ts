@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { projectScope } from "@/lib/project-scope";
 import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { ProjectModel } from "@/models/Project";
 import { AttachmentModel } from "@/models/Attachment";
@@ -21,6 +22,8 @@ export const dynamic = "force-dynamic";
  * route qui disparaît casse un client hors ligne qui rejoue sa file d'attente.
  */
 export const GET = withAuth("projects", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
+  // Mêmes projets visibles que la fiche : pas de pièces d'un projet hors de portée.
+  if (!(await ProjectModel.exists({ _id: params.id, ...tenantFilter(auth), ...projectScope(auth) }))) return ok({ items: [] });
   const items = await AttachmentModel.find({
     ...tenantFilter(auth), host: "projects", hostId: params.id,
   }).select("-storageKey").sort({ createdAt: -1 }).lean();
@@ -35,7 +38,7 @@ export const POST = withAuth("projects", "update", async (req: NextRequest, auth
   if (!(file instanceof File)) return badRequest("Fichier manquant");
 
   // L'appartenance du projet se vérifie AVANT toute écriture sur disque.
-  const project = await ProjectModel.findOne({ _id: params.id, ...tenantFilter(auth) }).select("_id");
+  const project = await ProjectModel.findOne({ _id: params.id, ...tenantFilter(auth), ...projectScope(auth) }).select("_id");
   if (!project) return notFound();
 
   const buffer = Buffer.from(await file.arrayBuffer());

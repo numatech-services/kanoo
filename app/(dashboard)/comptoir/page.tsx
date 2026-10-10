@@ -171,9 +171,9 @@ function NewDeskDialog({ onClose, onSaved }: { onClose: () => void; onSaved: (id
 function useSectors() {
   const [sectors, setSectors] = useState<{ _id: string; name: string }[]>([]);
   useEffect(() => {
-    fetch("/api/analytics/activities", { credentials: "include" })
+    fetch("/api/comptoir/catalog", { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
-      .then(d => d?.data && setSectors(d.data))
+      .then(d => d?.data?.sectors && setSectors(d.data.sectors))
       .catch(() => {});
   }, []);
   return sectors;

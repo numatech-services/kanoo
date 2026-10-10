@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { appBaseUrl } from "@/lib/app-url";
 import { connectDB } from "@/lib/db";
 import { badRequest, serverError } from "@/lib/api-helpers";
 import { TenantModel } from "@/models/Tenant";
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
       tenant.activationTokenExpiry = new Date(Date.now() + 2 * 60 * 60 * 1000);
       await tenant.save();
 
-      const baseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
+      const baseUrl = appBaseUrl();
       await sendEmail({ ...templateActivation(tenant.name, token, baseUrl), to: tenant.email });
     }
 

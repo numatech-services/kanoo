@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+import { projectScope } from "@/lib/project-scope";
+import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import { withAuth, sanitizeBody, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { ProjectModel } from "@/models/Project";
@@ -18,9 +20,14 @@ export const GET = withAuth("projects", "read", async (req: NextRequest, auth: T
   const search = url.searchParams.get("search");
 
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
+  // Raccourci « Voir les … » de la fiche client.
+  const clientId = url.searchParams.get("clientId");
+  if (clientId && Types.ObjectId.isValid(clientId)) filter.clientId = new Types.ObjectId(clientId);
   if (status) filter.status = status;
   if (type) filter.projectType = type;
   if (search) filter.$or = [{ name: { $regex: search, $options: "i" } }, { code: { $regex: search, $options: "i" } }];
+  const scope = projectScope(auth);
+  if (scope.$or) filter.$and = [{ $or: scope.$or }];
 
   const [items, total] = await Promise.all([
     ProjectModel.find(filter)
@@ -55,8 +62,11 @@ export const POST = withAuth("projects", "create", async (req: NextRequest, auth
     createdBy: auth.userId,
   });
 
+  // Le créateur fait partie de l'équipe : il retrouve son projet même s'il n'en est pas le responsable.
+  const teamIds = [...new Set([...(Array.isArray(body.teamIds) ? (body.teamIds as unknown[]).map(String) : []), auth.userId])];
   const project = await ProjectModel.create({
     ...body,
+    teamIds,
     tenantId: auth.tenantId,
     conversationId: conv._id,
   });

@@ -30,7 +30,7 @@ export default function SaasLayout({ children }: { children: React.ReactNode }) 
           </div>
         </main>
       </div>
-      <CommandPalette />
+      <CommandPalette profile="superadmin" />
       <IdleTimeout />
     </div>
     </SectionScope>

@@ -144,7 +144,7 @@ export const CRON_JOBS: CronJob[] = [
         for (const admin of admins) {
           await notify(r._id, admin._id, "stock_alert", "Péremption",
             `${r.expired} lot(s) périmé(s) et ${r.soon} lot(s) à péremption sous 30 jours : à écouler ou sortir du stock.`,
-            "stock", r._id);
+            "stock_lots");
         }
       }
       return `${rows.length} organisation(s) alertée(s)`;

@@ -9,6 +9,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { inputCls, selectCls } from "@/components/ui/FormField";
 import { MovementDialog } from "@/components/stock/MovementDialog";
 import { useMe, meCanDo } from "@/lib/useMe";
+import { useUrlReady } from "@/lib/url-param";
 
 interface StockItem {
   _id: string; code: string; label: string; unit?: string; category?: string; location?: string;
@@ -25,12 +26,11 @@ export default function StockPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  // Filtres repris de l'adresse (« Voir le stock » d'un entrepôt, pastille
+  // « sous le seuil ») dès le premier chargement : une seule requête, pas de
+  // réponse non filtrée qui écraserait la filtrée.
   const [filters, setFilters] = useState({ search: "", category: "", location: "", alertOnly: false, warehouseId: "" });
-  // Entrepôt passé dans l'adresse (« Voir le stock » depuis la page Entrepôts).
-  useEffect(() => {
-    const w = new URLSearchParams(window.location.search).get("warehouseId");
-    if (w) setFilters(f => ({ ...f, warehouseId: w }));
-  }, []);
+  const ready = useUrlReady(p => setFilters(f => ({ ...f, alertOnly: p.get("alertOnly") === "true", warehouseId: p.get("warehouseId") ?? "" })));
   const { warehouses } = useWarehouses();
   const [transfer, setTransfer] = useState(false);
   const [lotAlerts, setLotAlerts] = useState({ expired: 0, soon: 0 });
@@ -40,6 +40,7 @@ export default function StockPage() {
   const LIMIT = 25;
 
   const load = useCallback(async () => {
+    if (!ready) return;
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (filters.search) params.set("search", filters.search);
@@ -56,10 +57,13 @@ export default function StockPage() {
       setLotAlerts({ expired: d.data.expiredLots ?? 0, soon: d.data.expiringLots ?? 0 });
     }
     setLoading(false);
-  }, [page, filters]);
+  }, [page, filters, ready]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    const t = setTimeout(() => { setPage(1); setFilters(f => ({ ...f, search: searchInput.trim() })); }, 300);
+    const t = setTimeout(() => {
+      // Pas de nouvel état (donc pas de requête) tant que la recherche ne change pas.
+      setFilters(f => (f.search === searchInput.trim() ? f : (setPage(1), { ...f, search: searchInput.trim() })));
+    }, 300);
     return () => clearTimeout(t);
   }, [searchInput]);
 

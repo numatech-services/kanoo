@@ -69,6 +69,8 @@ const UserSchema = new Schema<IUser>(
       updatedAt: Date,
     },
     deletionRequestedAt: Date,
+    /** Compte supprimé par un administrateur : anonymisé, sans accès, conservé pour l'historique. */
+    deletedAt: Date,
   },
   { timestamps: true }
 );

@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Printer, Banknote, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
-import { FormField, selectCls } from "@/components/ui/FormField";
+import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 interface Payslip {
@@ -161,6 +161,7 @@ export default function PayslipDetailPage() {
 function PayDialog({ id, net, onClose, onPaid }: { id: string; net: number; onClose: () => void; onPaid: () => void }) {
   const [accounts, setAccounts] = useState<Array<{ _id: string; label: string; type: string; balance?: number }>>([]);
   const [accountId, setAccountId] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => {
@@ -175,7 +176,7 @@ function PayDialog({ id, net, onClose, onPaid }: { id: string; net: number; onCl
     setSaving(true); setError("");
     const res = await fetch(`/api/payslips/${id}/pay`, {
       method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include",
-      body: JSON.stringify({ treasuryAccountId: accountId }),
+      body: JSON.stringify({ treasuryAccountId: accountId, date }),
     });
     const d = await res.json().catch(() => ({}));
     setSaving(false);
@@ -192,6 +193,9 @@ function PayDialog({ id, net, onClose, onPaid }: { id: string; net: number; onCl
             <option value="">— Choisir —</option>
             {accounts.map(a => <option key={a._id} value={a._id}>{a.label} ({a.type === "cash" ? "caisse" : a.type === "mobile_money" ? "mobile money" : "banque"}){a.balance !== undefined ? ` — solde ${fmt(a.balance)}` : ""}</option>)}
           </select>
+        </FormField>
+        <FormField label="Date du versement" required hint="Date à laquelle le virement ou le paiement a réellement eu lieu.">
+          <input type="date" className={inputCls} value={date} max={new Date().toISOString().slice(0, 10)} onChange={e => setDate(e.target.value)} />
         </FormField>
         <button onClick={pay} disabled={saving} className="w-full h-10 rounded-lg bg-pos text-white text-sm font-semibold disabled:opacity-60">{saving ? "Paiement…" : "Confirmer le paiement"}</button>
       </div>

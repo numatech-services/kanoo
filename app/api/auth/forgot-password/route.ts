@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { appBaseUrl } from "@/lib/app-url";
 import crypto from "crypto";
 import { connectDB } from "@/lib/db";
 import { badRequest, serverError } from "@/lib/api-helpers";
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
       user.passwordResetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 h
       await user.save();
 
-      const baseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
+      const baseUrl = appBaseUrl();
       const payload = templatePasswordReset(`${baseUrl}/reinitialiser?token=${token}`);
       await sendEmail({ ...payload, to: user.email });
     }

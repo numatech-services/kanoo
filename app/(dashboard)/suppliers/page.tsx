@@ -1,4 +1,5 @@
 "use client";
+import { IfCan } from "@/components/shared/IfCan";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -62,7 +63,9 @@ export default function SuppliersPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold text-ink">Fournisseurs</h1><p className="text-sm text-ink2 mt-0.5">{total} fournisseur{total > 1 ? "s" : ""}</p></div>
+        <IfCan resource="suppliers">
         <button onClick={() => { setEditing(null); setModalOpen(true); }} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors">+ Nouveau fournisseur</button>
+        </IfCan>
       </div>
       <input type="text" placeholder="Rechercher…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} className="w-full max-w-sm px-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30" />
       <DataTable columns={columns} data={suppliers} loading={loading} keyExtractor={(s) => s._id} emptyMessage="Aucun fournisseur" onRowClick={(s) => router.push(`/suppliers/${s._id}`)} />

@@ -15,7 +15,7 @@ import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
 // GET /api/budget/engagements — Liste des engagements
-export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, auth: TokenPayload) => {
+export const GET = withAuth("commitmentOrders", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
 
   // Filtre optionnel par statut (en_attente | approuve | rejete | mandate) —
@@ -29,7 +29,7 @@ export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, a
 });
 
 // POST /api/budget/engagements — Créer un engagement et impacter le budget
-export const POST = withAuth("budgetChapters", "create", async (req: NextRequest, auth: TokenPayload) => {
+export const POST = withAuth("commitmentOrders", "create", async (req: NextRequest, auth: TokenPayload) => {
   const body = await req.json();
   const missing = requireFields(body, ["chapterId", "objet", "montant", "beneficiaire"]);
   if (missing) return badRequest(missing);

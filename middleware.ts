@@ -9,7 +9,10 @@ const PUBLIC_EXACT_PATHS = [
   // Récupération de compte : par construction, l'utilisateur n'a pas de session.
   "/mot-de-passe-oublie", "/reinitialiser",
 ];
-const PUBLIC_PREFIX_PATHS = ["/_next", "/favicon.ico", "/api/auth", "/api/public", "/api/demo-requests", "/api/cron", "/api/health", "/reunion", "/manifest.json", "/sw.js", "/offline", "/robots.txt", "/sitemap.xml"];
+// API publique (clé d'API), webhook de paiement (signature) et portails
+// adhérent / fournisseur (jeton de portail) s'authentifient eux-mêmes : sans
+// cookie de session, le filtre les rejetait tous.
+const PUBLIC_PREFIX_PATHS = ["/_next", "/favicon.ico", "/api/auth", "/api/public", "/api/demo-requests", "/api/cron", "/api/health", "/api/v1/", "/api/webhooks/", "/api/portail/", "/portail/", "/reunion", "/manifest.json", "/sw.js", "/offline", "/robots.txt", "/sitemap.xml"];
 
 // ─── Sécurité ────────────────────────────────────────────────────────────────
 function withSecurityHeaders(res: NextResponse): NextResponse {

@@ -281,3 +281,16 @@ export function roleLabel(role: string): string {
 export function isTenantAdmin(role: string): boolean {
   return TENANT_ADMIN_ROLES.includes(role as UserRole);
 }
+
+/**
+ * Administrateur d'organisation, sur TOUS ses rôles cumulés : le rôle principal
+ * seul (`role`) laissait un gérant multi-rôle sans droits d'administration
+ * dès que « gérant » n'était pas le premier de sa liste.
+ */
+export function hasTenantAdminRole(u: { role?: string; roles?: string[] | null }): boolean {
+  const list = u.roles && u.roles.length > 0 ? u.roles : u.role ? [u.role] : [];
+  return list.some(isTenantAdmin);
+}
+
+/** Filtre MongoDB des comptes administrateurs (rôle principal ou cumulé). */
+export const TENANT_ADMIN_QUERY = { $or: [{ role: { $in: TENANT_ADMIN_ROLES } }, { roles: { $in: TENANT_ADMIN_ROLES } }] };

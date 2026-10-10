@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { connectDB } from "@/lib/db";
 import { authorize, tenantFilter } from "@/lib/api-helpers";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
@@ -9,6 +10,8 @@ export async function GET(req: NextRequest) {
   const gate = await authorize(req, "accountingEntries", "read");
   if (!gate.ok) return gate.response;
   const auth = gate.auth;
+  // Stagiaire : ni export ni envoi de fichier (règle commune).
+  if (isInternFor(auth, "accountingEntries")) return NextResponse.json({ success: false, error: INTERN_EXPORT_MESSAGE }, { status: 403 });
 
   await connectDB();
   const url = new URL(req.url);

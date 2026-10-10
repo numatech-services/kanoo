@@ -154,7 +154,7 @@ type SecurityCheck =
  * Coût : deux lectures indexées par requête, sur la connexion déjà ouverte.
  * C'est le prix d'une révocation qui révoque vraiment.
  */
-async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
+export async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
   const user = await UserModel.findById(auth.userId)
     .select("sessionVersion isActive role roles roleLevels siteIds accessUntil allowedResources tenantId")
     .lean<{

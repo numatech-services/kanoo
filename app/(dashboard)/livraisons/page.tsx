@@ -1,4 +1,7 @@
 "use client";
+import { IfCan } from "@/components/shared/IfCan";
+import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
+import { useUrlReady } from "@/lib/url-param";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -22,18 +25,22 @@ export default function LivraisonsPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
+  const [clientId, setClientId] = useState("");
+  const ready = useUrlReady(p => setClientId(p.get("clientId") ?? ""));
   const LIMIT = 20;
 
   const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (status) params.set("status", status);
+    if (clientId) params.set("clientId", clientId);
+    if (!ready) return;
     const res = await fetch(`/api/livraisons?${params}`, { credentials: "include" });
     const d = await res.json();
     setItems(d.data?.items || []);
     setTotal(d.data?.pagination?.total || 0);
     setLoading(false);
-  }, [page, status]);
+  }, [page, status, clientId, ready]);
 
   useEffect(() => { setMounted(true); load(); }, [load]);
 
@@ -100,9 +107,11 @@ export default function LivraisonsPage() {
           <h1 className="text-2xl font-bold text-ink">Bons de livraison</h1>
           <p className="text-sm text-ink2 mt-0.5">{total} bon{total > 1 ? "s" : ""}</p>
         </div>
+        <IfCan resource="livraisons">
         <Link href="/livraisons/new" className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors">
           + Nouveau BL
         </Link>
+        </IfCan>
       </div>
 
       <select
@@ -116,6 +125,7 @@ export default function LivraisonsPage() {
         ))}
       </select>
 
+      {clientId && <ClientFilterChip name={((items[0]?.clientId as { name?: string } | undefined)?.name)} onClear={() => { setClientId(""); setPage(1); }} />}
       <DataTable
         columns={columns}
         data={items}

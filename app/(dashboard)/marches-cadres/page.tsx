@@ -1,5 +1,7 @@
 "use client";
 
+import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
+import { useUrlReady } from "@/lib/url-param";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, PackageCheck, ArrowRight } from "lucide-react";
@@ -28,11 +30,14 @@ export default function MarchesCadresPage() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [clientId, setClientId] = useState("");
+  const ready = useUrlReady(p => setClientId(p.get("clientId") ?? ""));
   const load = useCallback(() => {
-    fetch("/api/marches-cadres?limit=100", { credentials: "include" })
+    if (!ready) return;
+    fetch(`/api/marches-cadres?limit=100${clientId ? `&clientId=${clientId}` : ""}`, { credentials: "include" })
       .then(r => r.json()).then(d => setOrders(d.data?.items || []))
       .catch(() => setError("Lecture impossible.")).finally(() => setLoading(false));
-  }, []);
+  }, [clientId, ready]);
   useEffect(() => { load(); }, [load]);
 
   const active = orders.filter(o => o.status === "active").length;
@@ -53,6 +58,7 @@ export default function MarchesCadresPage() {
         </button>
       </div>
 
+      {clientId && <ClientFilterChip name={((orders[0]?.clientId as { name?: string } | undefined)?.name)} onClear={() => setClientId("")} />}
       {error && <p className="px-4 py-3 bg-neg-50 border border-neg/25 rounded-xl text-sm text-neg">{error}</p>}
 
       {orders.length > 0 && (
@@ -123,7 +129,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
   useEffect(() => {
     if (!open) return;
-    fetch("/api/clients?limit=200", { credentials: "include" }).then(r => r.json()).then(d => setClients(d.data?.items || []));
+    fetch("/api/marches-cadres/clients", { credentials: "include" }).then(r => r.json()).then(d => setClients(d.data?.items || [])).catch(() => {});
     fetch("/api/products?limit=200", { credentials: "include" }).then(r => r.json()).then(d => setProducts(d.data?.items || [])).catch(() => {});
   }, [open]);
 

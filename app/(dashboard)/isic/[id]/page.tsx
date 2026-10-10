@@ -33,6 +33,9 @@ export default function IsicBatchPage() {
   const router = useRouter();
   const { resources } = useMe();
   const canFinance = meCan(resources, "isicFinance");
+  // Facturer l'université : droit de créer des factures (et de lire les clients),
+  // pas seulement le suivi financier ISIC.
+  const canInvoiceUni = meCan(resources, "invoices") && meCan(resources, "clients");
   // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
   const me = useMe();
   const canDelete = meCanDo(me, "isic", "delete");
@@ -93,10 +96,10 @@ export default function IsicBatchPage() {
     reader.readAsText(file);
   }
   useEffect(() => {
-    if (!canFinance) return;
+    if (!canInvoiceUni) return;
     fetch("/api/clients?limit=500", { credentials: "include" }).then(r => r.json())
       .then(d => setClients(Array.isArray(d.data) ? d.data : d.data?.items || [])).catch(() => {});
-  }, [canFinance]);
+  }, [canInvoiceUni]);
 
   async function generateInvoice() {
     const uniId = typeof b!.universityId === "object" ? b!.universityId?._id : b!.universityId;
@@ -338,7 +341,7 @@ export default function IsicBatchPage() {
             </div>
           </section>
 
-          <section className="surface-card p-5 space-y-3">
+          {canInvoiceUni ? <section className="surface-card p-5 space-y-3">
             <h2 className="font-semibold text-ink flex items-center gap-2"><FileText size={17} /> Facturation université</h2>
             <div>
               <label className="text-[11px] text-ink3">Client (université) à facturer</label>
@@ -355,7 +358,12 @@ export default function IsicBatchPage() {
               </button>
             )}
             {!b.unitSalePrice && <p className="text-[11px] text-warn">Renseignez le prix de revente pour facturer.</p>}
-          </section>
+          </section> : (
+            <section className="surface-card p-5 text-sm text-ink2">
+              <h2 className="font-semibold text-ink flex items-center gap-2 mb-1"><FileText size={17} /> Facturation université</h2>
+              {b.invoiceId ? "Facture émise par la comptabilité." : "La facture de revente est émise par la comptabilité."}
+            </section>
+          )}
         </div>
       )}
 

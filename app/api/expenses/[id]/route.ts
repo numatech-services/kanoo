@@ -17,6 +17,8 @@ import { logAudit } from "@/lib/audit";
 import { ledgerFor, treasuryKind } from "@/lib/treasury";
 import { checkImputations } from "@/lib/imputation";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
+import { paymentDate } from "@/lib/payment-date";
 
 export const dynamic = "force-dynamic";
 
@@ -122,13 +124,24 @@ export const GET = withAuth("expenses", "read", async (_req: NextRequest, auth: 
   });
 });
 
-export const PATCH = withAuth("expenses", "update", async (req: NextRequest, auth: TokenPayload, params) => {
+/**
+ * PATCH — chaque geste a son propre droit (et non « modifier les notes de
+ * frais » pour tout) : l'auteur saisit, modifie et soumet SA note avec le seul
+ * droit de créer ; le chef valide ou refuse (`canDecide`) ; la comptabilité
+ * rembourse. Exiger `update` partout bloquait la soumission et la validation
+ * pour tous les services.
+ */
+export const PATCH = withAuth("expenses", "read", async (req: NextRequest, auth: TokenPayload, params) => {
   const body = await req.json().catch(() => ({}));
   const report = await ExpenseReportModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!report) return notFound("Note de frais introuvable");
   if (!(await visible(auth, report as unknown as Report))) {
     return forbidden("Cette note ne vous est pas accessible.");
   }
+  const isAuthor = idOf(report.createdBy) === auth.userId;
+  const canEditOwn = (isAuthor && authCan(auth, "expenses", "create")) || authCan(auth, "expenses", "update");
+  const authorStep = !body.status || ["submitted", "draft"].includes(String(body.status));
+  if (authorStep && !canEditOwn) return forbidden("Seul l'auteur de la note (ou la comptabilité) la modifie ou la soumet.");
 
   // ── Changement d'état ────────────────────────────────────────────────────
   if (body.status) {
@@ -221,15 +234,19 @@ export const PATCH = withAuth("expenses", "update", async (req: NextRequest, aut
         );
       }
       const amount = report.totalTTC;
+      // Date réelle du remboursement ; compte de l'organisation seulement.
+      const paidAt = paymentDate(body.date);
+      const kind = await treasuryKind(auth.tenantId, accountId);
+      if (!kind) return badRequest("Compte de trésorerie introuvable.");
       // Caisse, banque ou mobile money : l'écriture crédite le compte réellement payé.
-      const ledger = ledgerFor(await treasuryKind(auth.tenantId, accountId));
+      const ledger = ledgerFor(kind);
       const entry = reimbursementEntry(amount, ledger);
 
       await withTransaction(async (session) => {
         await AccountingEntryModel.create([{
           tenantId: auth.tenantId,
           journalCode: ledger.journalCode,
-          entryDate: now,
+          entryDate: paidAt,
           reference: `${report.reference}-RGL`,
           label: `Remboursement note de frais ${report.reference}`,
           lines: entry,
@@ -243,7 +260,7 @@ export const PATCH = withAuth("expenses", "update", async (req: NextRequest, aut
         await TreasuryMovementModel.create([{
           tenantId: auth.tenantId,
           accountId,
-          date: now,
+          date: paidAt,
           amount: -amount,
           label: `Remboursement frais ${report.reference}`,
           source: "expense",
@@ -254,7 +271,7 @@ export const PATCH = withAuth("expenses", "update", async (req: NextRequest, aut
 
         await ExpenseReportModel.updateOne(
           { _id: report._id, ...tenantFilter(auth), status: "approved" },
-          { $set: { status: "reimbursed", reimbursedAt: now, treasuryAccountId: accountId } },
+          { $set: { status: "reimbursed", reimbursedAt: paidAt, treasuryAccountId: accountId } },
           { session }
         );
       });

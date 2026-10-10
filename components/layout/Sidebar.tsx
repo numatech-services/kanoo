@@ -1,14 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser } from "lucide-react";
 
-type ProfileType = "pme" | "association" | "administration" | "superadmin";
+/** Où mène la pastille d'une entrée : la liste filtrée sur ce qu'elle compte. */
+const BADGE_TARGET: Record<string, { href: string; title: string }> = {
+  "/invoices": { href: "/invoices?overdue=true", title: "Voir les factures en retard" },
+  "/relances": { href: "/invoices?overdue=true", title: "Voir les factures en retard" },
+  "/stock": { href: "/stock?alertOnly=true", title: "Voir les articles sous le seuil" },
+};
+
+export type ProfileType = "pme" | "association" | "administration" | "superadmin";
 
 interface NavItem { 
   label: string; 
@@ -184,13 +191,14 @@ const SUPERADMIN_NAV: NavGroup[] = [
   ]},
 ];
 
-const NAV_MAP: Record<ProfileType, NavGroup[]> = {
+export const NAV_MAP: Record<ProfileType, NavGroup[]> = {
   pme: PME_NAV, association: ASSO_NAV, administration: ADMIN_NAV, superadmin: SUPERADMIN_NAV,
 };
 
 
 export function Sidebar({ profile }: { profile: ProfileType }) {
   const pathname = usePathname();
+  const router = useRouter();
   const rawNav = NAV_MAP[profile] || PME_NAV;
   const { tenant, resources, loading } = useMe();
 
@@ -307,7 +315,12 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
                     </span>
                     <span className="flex-1">{item.label}</span>
                     {(counters[item.href] ?? item.badge) && (
-                      <span className={`num text-[10px] font-bold rounded-full px-1.5 min-w-[1.25rem] text-center ${
+                      // La pastille ouvre la liste filtrée sur ce qu'elle compte
+                      // (factures en retard, articles sous le seuil…).
+                      <span
+                        title={BADGE_TARGET[item.href] ? BADGE_TARGET[item.href].title : undefined}
+                        onClick={BADGE_TARGET[item.href] ? (e) => { e.preventDefault(); e.stopPropagation(); router.push(BADGE_TARGET[item.href].href); } : undefined}
+                        className={`num text-[10px] font-bold rounded-full px-1.5 min-w-[1.25rem] text-center ${BADGE_TARGET[item.href] ? "cursor-pointer hover:ring-1 hover:ring-chromefg/40" : ""} ${
                         active ? "bg-chromeactivefg/25 text-chromeactivefg" : "bg-chromefg/15 text-chromefg"
                       }`}>
                         {counters[item.href] ?? item.badge}

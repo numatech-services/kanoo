@@ -7,7 +7,7 @@ import { TokenPayload } from "@/lib/auth";
 import { errorMessage } from "@/lib/errors";
 
 // --- RÉCUPÉRATION (GET) ---
-export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, auth: TokenPayload) => {
+export const GET = withAuth("paymentOrders", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   
   try {
@@ -35,7 +35,7 @@ export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, a
 });
 
 // --- MISE À JOUR (PATCH) — émission du mandat de paiement ---
-export const PATCH = withAuth("budgetChapters", "update", async (req: NextRequest, auth: TokenPayload) => {
+export const PATCH = withAuth("paymentOrders", "update", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   
   try {

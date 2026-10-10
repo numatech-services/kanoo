@@ -14,8 +14,10 @@ export const GET = withAuth("cotisations", "read", async (req: NextRequest, auth
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   if (year) filter.year = parseInt(year);
   if (memberId) filter.memberId = memberId;
-  if (paid === "true") filter.paidAt = { $exists: true };
-  if (paid === "false") filter.paidAt = { $exists: false };
+  // `null` couvre aussi un champ absent : une cotisation enregistrée avec
+  // paidAt: null comptait « payée » pour $exists.
+  if (paid === "true") filter.paidAt = { $ne: null };
+  if (paid === "false") filter.paidAt = null;
   const [items, total] = await Promise.all([
     MembershipModel.find(filter).populate("memberId", "firstName lastName code").sort({ year: -1 }).skip(pagination.skip).limit(pagination.limit).lean(),
     MembershipModel.countDocuments(filter),

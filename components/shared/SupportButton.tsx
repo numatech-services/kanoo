@@ -9,20 +9,28 @@ export function SupportButton() {
   const [form, setForm] = useState({ subject: "", message: "", priority: "medium" });
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
 
   async function handleTicket(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
+    setFailed(null);
     const csrfRes = await fetch("/api/auth/csrf");
     const { csrfToken } = await csrfRes.json();
-    await fetch("/api/support/tickets", {
+    const res = await fetch("/api/support/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
       credentials: "include",
       body: JSON.stringify(form),
-    });
-    setSent(true);
+    }).catch(() => null);
     setSending(false);
+    // Un refus ne s'affiche plus comme un envoi réussi : le ticket serait perdu.
+    if (!res || !res.ok) {
+      const d = res ? await res.json().catch(() => ({})) : {};
+      setFailed((d as { error?: string }).error || "Ticket non envoyé. Écrivez-nous sur WhatsApp.");
+      return;
+    }
+    setSent(true);
     setTimeout(() => { setSent(false); setOpen(false); setForm({ subject: "", message: "", priority: "medium" }); }, 3000);
   }
 
@@ -88,6 +96,7 @@ export function SupportButton() {
               </div>
             ) : (
               <form onSubmit={handleTicket} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {failed && <p className="text-xs text-neg bg-neg-50 border border-neg/25 rounded-lg px-3 py-2">{failed}</p>}
                 <p style={{ fontSize: "12px", fontWeight: 500, color: "#374151", margin: 0 }}>Ou ouvrez un ticket :</p>
                 <input
                   className={inp}

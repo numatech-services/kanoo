@@ -6,6 +6,7 @@ import { allDesks } from "@/lib/comptoir";
 import { authCan } from "@/lib/role-resources";
 import { ProductModel } from "@/models/Product";
 import { WarehouseModel } from "@/models/Warehouse";
+import { ActivityModel } from "@/models/Activity";
 import { defaultWarehouse } from "@/lib/stock";
 
 export const dynamic = "force-dynamic";
@@ -32,5 +33,8 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
           .select("code name kind isDefault").sort({ isDefault: -1, name: 1 }).lean())
       : Promise.resolve([]),
   ]);
-  return ok({ products, warehouses, canSupply });
+  // Secteurs analytiques (noms seulement) pour rattacher un comptoir : le chef
+  // The Spot crée les comptoirs mais n'a pas accès à l'analytique.
+  const sectors = allDesks(auth) ? await ActivityModel.find({ ...tenantFilter(auth) }).select("name").sort({ name: 1 }).lean() : [];
+  return ok({ products, warehouses, canSupply, sectors });
 });

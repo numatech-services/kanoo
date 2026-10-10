@@ -7,6 +7,10 @@ import { withTransaction } from "@/lib/db";
 import { applyPaymentEffects } from "@/lib/payments";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { paymentDate } from "@/lib/payment-date";
+import { treasuryKind } from "@/lib/treasury";
+
+const METHODS = ["cash", "bank_transfer", "cheque", "mobile_money", "other"];
 
 export const GET = withAuth("payments", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
@@ -52,6 +56,8 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
   }
 
   const amount = Number(body.amount);
+  if (!(amount > 0)) return badRequest("Montant invalide.");
+  if (!METHODS.includes(body.method)) return badRequest("Mode de paiement invalide.");
   const remaining = invoice.totalTTC - invoice.paidAmount;
   if (amount > remaining + 1) {
     return badRequest(`Montant maximum payable : ${remaining} XOF (reste à payer)`);
@@ -60,10 +66,23 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
   // « pending » = promesse enregistrée, sans effet comptable ; « effective » =
   // encaissé, on solde la facture et on écrit compta + trésorerie.
   const status = body.status === "pending" ? "pending" : "effective";
+  // Date réelle de l'encaissement (passée ou du jour) ; un paiement en attente
+  // peut porter la date promise.
+  const date = status === "effective" ? paymentDate(body.date) : new Date(String(body.date));
+  if (isNaN(date.getTime())) return badRequest("Date invalide.");
+  // Compte encaisseur : un compte de l'organisation, jamais un identifiant quelconque.
+  const treasuryAccountId = body.treasuryAccountId ? String(body.treasuryAccountId) : undefined;
+  if (treasuryAccountId && !(await treasuryKind(auth.tenantId, treasuryAccountId))) return badRequest("Compte de trésorerie introuvable.");
 
   const result = await withTransaction(async (session) => {
     const [payment] = await PaymentModel.create(
-      [{ ...body, status, tenantId: auth.tenantId, createdBy: auth.userId }],
+      [{
+        invoiceId: invoice._id, amount, method: body.method, date, status,
+        reference: body.reference ? String(body.reference).slice(0, 120) : undefined,
+        notes: body.notes ? String(body.notes).slice(0, 1000) : undefined,
+        ...(treasuryAccountId ? { treasuryAccountId } : {}),
+        tenantId: auth.tenantId, createdBy: auth.userId,
+      }],
       { session }
     );
     if (status === "effective") await applyPaymentEffects(payment, invoice, auth, session);

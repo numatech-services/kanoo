@@ -35,6 +35,8 @@ export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  // « Nouveau client » depuis la recherche (⌘K) : /clients?new=1 ouvre le formulaire.
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("new") === "1") setModalOpen(true); }, []);
   const [editing, setEditing] = useState<Client | null>(null);
 
   const LIMIT = 20;

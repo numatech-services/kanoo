@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  UserPlus, KeyRound, LogOut, ShieldCheck, Copy, Check, Link2,
+  UserPlus, KeyRound, LogOut, ShieldCheck, Copy, Check, Link2, Trash2,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
@@ -28,6 +28,8 @@ interface User {
   isActive: boolean;
   lastLoginAt?: string;
   mustChangePassword?: boolean;
+  twoFactorEnabled?: boolean;
+  deletionRequestedAt?: string;
 }
 
 interface Employee { _id: string; firstName: string; lastName: string; code?: string; userId?: string }
@@ -49,6 +51,8 @@ export default function UsersPage() {
   const [tenantType, setTenantType] = useState("pme");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [reset, setReset] = useState<{ user: User; password: string } | null>(null);
+  const [resetFor, setResetFor] = useState<User | null>(null);
+  const [resetLink, setResetLink] = useState<{ user: User; link: string; message: string } | null>(null);
   const [editing, setEditing] = useState<User | null>(null);
   const [service, setService] = useState("");
   const LIMIT = 20;
@@ -100,24 +104,43 @@ export default function UsersPage() {
     }
   }
 
-  async function resetPassword(user: User) {
-    if (!window.confirm(
-      `Réinitialiser le mot de passe de ${user.firstName} ${user.lastName} ?\n\n`
-      + `Un mot de passe temporaire sera généré et toutes ses sessions seront fermées.`
-    )) return;
+  // Réinitialisation : mot de passe temporaire à dicter, ou lien (courriel /
+  // à transmettre) ; double authentification remise à zéro si besoin.
+  async function resetAccount(user: User, mode: "temporary" | "link", resetTwoFactor: boolean) {
     setError(null);
     try {
       const res = await fetch(`/api/users/${user._id}/password`, {
         method: "POST",
-        headers: { "x-csrf-token": await csrf() },
+        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
         credentials: "include",
+        body: JSON.stringify({ mode, resetTwoFactor }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Réinitialisation refusée");
-      setReset({ user, password: d.data.temporaryPassword });
+      setResetFor(null);
+      if (mode === "link") setResetLink({ user, link: d.data.link, message: d.data.message });
+      else setReset({ user, password: d.data.temporaryPassword });
       load();
     } catch (e) {
+      setResetFor(null);
       setError(e instanceof Error ? e.message : "Réinitialisation impossible");
+    }
+  }
+
+  async function removeUser(user: User) {
+    if (!window.confirm(
+      `Supprimer le compte de ${user.firstName} ${user.lastName} (${user.email}) ?\n\n`
+      + `Ses accès et ses données personnelles sont effacés ; ce qu'il a enregistré reste dans l'historique sous « Compte supprimé ». Action définitive.`
+    )) return;
+    setError(null); setNotice(null);
+    try {
+      const res = await fetch(`/api/users/${user._id}`, { method: "DELETE", headers: { "x-csrf-token": await csrf() }, credentials: "include" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Suppression refusée");
+      setNotice(d.data?.message || "Compte supprimé.");
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Suppression impossible");
     }
   }
 
@@ -303,12 +326,14 @@ export default function UsersPage() {
                           {user.mustChangePassword && (
                             <Pill tone="warn">Mot de passe temporaire</Pill>
                           )}
+                          {user.twoFactorEnabled && <Pill tone="info">Double authentification</Pill>}
+                          {user.deletionRequestedAt && <Pill tone="neg">Suppression demandée</Pill>}
                         </span>
                       </td>
                       <td>
                         <span className="flex items-center gap-1">
-                          <button onClick={() => resetPassword(user)}
-                            title="Réinitialiser le mot de passe"
+                          <button onClick={() => setResetFor(user)}
+                            title="Réinitialiser le compte (mot de passe, double authentification)"
                             className="p-1.5 rounded-lg text-ink3 hover:text-section hover:bg-section-soft">
                             <KeyRound size={14} />
                           </button>
@@ -325,6 +350,11 @@ export default function UsersPage() {
                                 : "text-pos hover:bg-pos-50"
                             }`}>
                             <ShieldCheck size={14} />
+                          </button>
+                          <button onClick={() => removeUser(user)}
+                            title="Supprimer le compte"
+                            className="p-1.5 rounded-lg text-ink3 hover:text-neg hover:bg-neg-50">
+                            <Trash2 size={14} />
                           </button>
                         </span>
                       </td>
@@ -351,6 +381,10 @@ export default function UsersPage() {
       {/* Le mot de passe temporaire n'est affiché qu'une fois. */}
       <Modal open={Boolean(reset)} onClose={() => setReset(null)} title="Mot de passe temporaire">
         {reset && <TemporaryPasswordPanel user={reset.user} password={reset.password} />}
+      </Modal>
+      {resetFor && <ResetDialog user={resetFor} onClose={() => setResetFor(null)} onConfirm={(mode, twoFa) => resetAccount(resetFor, mode, twoFa)} />}
+      <Modal open={Boolean(resetLink)} onClose={() => setResetLink(null)} title="Lien de réinitialisation">
+        {resetLink && <LinkPanel {...resetLink} />}
       </Modal>
     </div>
   );
@@ -524,5 +558,50 @@ function EditAccessDialog({ user, roles, onClose, onSaved }: {
         </div>
       </div>
     </Modal>
+  );
+}
+
+function ResetDialog({ user, onClose, onConfirm }: { user: User; onClose: () => void; onConfirm: (mode: "temporary" | "link", resetTwoFactor: boolean) => void }) {
+  const [mode, setMode] = useState<"temporary" | "link">("link");
+  const [twoFa, setTwoFa] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const opt = (value: "temporary" | "link", title: string, hint: string) => (
+    <label className={`flex gap-3 p-3 rounded-lg border cursor-pointer ${mode === value ? "border-section bg-section-soft" : "border-line2"}`}>
+      <input type="radio" className="accent-section mt-1" checked={mode === value} onChange={() => setMode(value)} />
+      <span><span className="block text-sm font-semibold text-ink">{title}</span><span className="block text-xs text-ink2">{hint}</span></span>
+    </label>
+  );
+  return (
+    <Modal open onClose={onClose} title={`Réinitialiser le compte — ${user.firstName} ${user.lastName}`} size="md">
+      <div className="space-y-3">
+        <p className="text-sm text-ink2">Ses sessions ouvertes sont fermées dans tous les cas.</p>
+        {opt("link", "Envoyer un lien", `Un lien (24 h) part à ${user.email} ; il vous est aussi affiché pour le transmettre par WhatsApp. La personne choisit elle-même son mot de passe.`)}
+        {opt("temporary", "Mot de passe temporaire", "Un mot de passe généré, à dicter ; il devra être changé à la première connexion.")}
+        <label className="flex items-start gap-2 text-sm pt-1">
+          <input type="checkbox" className="accent-section mt-1" checked={twoFa} onChange={e => setTwoFa(e.target.checked)} />
+          <span>Désactiver la double authentification<span className="block text-xs text-ink3">Téléphone perdu ou application supprimée : elle pourra la réactiver depuis son profil.</span></span>
+        </label>
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm hover:bg-surface2">Annuler</button>
+          <button disabled={busy} onClick={() => { setBusy(true); onConfirm(mode, twoFa); }} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">Réinitialiser</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function LinkPanel({ user, link, message }: { user: User; link: string; message: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-ink2">{message}</p>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 px-3 py-2 rounded-lg bg-surface2 border border-line2 font-mono text-xs text-ink break-all">{link}</code>
+        <button onClick={() => { navigator.clipboard?.writeText(link); setCopied(true); }} className="p-3 rounded-lg border border-line2 text-ink2 hover:bg-surface2" aria-label="Copier">
+          {copied ? <Check size={16} className="text-pos" /> : <Copy size={16} />}
+        </button>
+      </div>
+      <Inset tone="warn">Ce lien donne accès au compte de {user.firstName} : transmettez-le à cette personne seulement.</Inset>
+    </div>
   );
 }

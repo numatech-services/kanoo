@@ -1,5 +1,6 @@
 "use client";
 
+import { IfCan } from "@/components/shared/IfCan";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -122,10 +123,12 @@ export default function MarcheDetailPage() {
                           <FileText size={13} /> Facture
                         </Link>
                       ) : (
-                        <button onClick={() => invoiceLot(l)} disabled={busy === l._id}
-                          className="px-2.5 py-1 rounded bg-section text-white text-xs font-medium hover:brightness-95 disabled:opacity-50">
-                          {busy === l._id ? "…" : "Facturer"}
-                        </button>
+                        <IfCan resource="invoices">
+                          <button onClick={() => invoiceLot(l)} disabled={busy === l._id}
+                            className="px-2.5 py-1 rounded bg-section text-white text-xs font-medium hover:brightness-95 disabled:opacity-50">
+                            {busy === l._id ? "…" : "Facturer"}
+                          </button>
+                        </IfCan>
                       )}
                     </span>
                   </td>

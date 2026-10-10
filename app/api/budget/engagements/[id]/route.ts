@@ -6,7 +6,7 @@ import { errorMessage } from "@/lib/errors";
 import { TokenPayload } from "@/lib/auth";
 
 // --- RÉCUPÉRATION (GET) ---
-export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, auth: TokenPayload) => {
+export const GET = withAuth("commitmentOrders", "read", async (req: NextRequest, auth: TokenPayload) => {
   try {
     await connectDB();
     const segments = req.nextUrl.pathname.split('/');
@@ -31,7 +31,7 @@ export const GET = withAuth("budgetChapters", "read", async (req: NextRequest, a
 // Garde « update » (et non « read ») : approuver/rejeter/mandater est une
 // mutation, elle exige le droit d'écriture sur le budget.
 const ALLOWED_STATUS = ["en_attente", "approuve", "rejete", "mandate"];
-export const PATCH = withAuth("budgetChapters", "update", async (req: NextRequest, auth: TokenPayload) => {
+export const PATCH = withAuth("commitmentOrders", "update", async (req: NextRequest, auth: TokenPayload) => {
   try {
     await connectDB();
     const segments = req.nextUrl.pathname.split('/');

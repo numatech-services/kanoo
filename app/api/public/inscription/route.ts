@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { appBaseUrl } from "@/lib/app-url";
 import { connectDB } from "@/lib/db";
 import { badRequest, conflict, serverError } from "@/lib/api-helpers";
 import { TenantModel } from "@/models/Tenant";
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
       isActive: true,
     });
 
-    const baseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
+    const baseUrl = appBaseUrl();
     await sendEmail({ ...templateActivation(name, activationToken, baseUrl), to: adminEmail });
 
     return NextResponse.json({

@@ -6,12 +6,14 @@ import { TenantModel } from "@/models/Tenant";
 import { passwordErrors } from "@/lib/password-policy";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { hasTenantAdminRole } from "@/lib/roles-ui";
 import { assignableRoles } from "@/lib/roles-ui";
 import { parseAccess } from "@/lib/user-access";
 
 export const GET = withAuth("users", "read", async (req: NextRequest, auth: TokenPayload) => {
   const pagination = getPagination(req);
-  const filter: Record<string, unknown> = auth.role === "superadmin" ? {} : tenantFilter(auth);
+  // Comptes supprimés (anonymisés) : plus listés.
+  const filter: Record<string, unknown> = { ...(auth.role === "superadmin" ? {} : tenantFilter(auth)), deletedAt: { $exists: false } };
   const [items, total] = await Promise.all([
     UserModel.find(filter).select(USER_PUBLIC_SELECT).sort({ lastName: 1 }).skip(pagination.skip).limit(pagination.limit).lean(),
     UserModel.countDocuments(filter),
@@ -20,7 +22,7 @@ export const GET = withAuth("users", "read", async (req: NextRequest, auth: Toke
 });
 
 export const POST = withAuth("users", "create", async (req: NextRequest, auth: TokenPayload) => {
-  if (!["pme_admin", "asso_president", "admin_ordonnateur", "superadmin"].includes(auth.role)) {
+  if (!hasTenantAdminRole(auth)) {
     return forbidden("Seuls les administrateurs peuvent créer des utilisateurs");
   }
   const body = await req.json();

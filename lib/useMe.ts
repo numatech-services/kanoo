@@ -20,7 +20,9 @@ function fetchMe(): Promise<Me> {
   if (cache) return Promise.resolve(cache);
   if (!inflight) {
     inflight = fetch("/api/auth/me", { credentials: "include" })
-      .then((r) => r.json())
+      // Un refus (session expirée…) n'est pas mis en cache comme « aucun droit » :
+      // la lecture suivante réessaie.
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
       .then((d) => {
         cache = { user: d.data?.user ?? null, tenant: d.data?.tenant ?? null, resources: d.data?.resources ?? [] };
         return cache;

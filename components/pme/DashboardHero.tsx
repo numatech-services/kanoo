@@ -16,6 +16,7 @@ interface Hero {
   userName: string;
   tenantName: string;
   clientCount: number;
+  overdueClients: number;
   encaisseMois: number;
   restantDu: number;
   overdueCount: number;
@@ -46,7 +47,8 @@ async function getHero(auth: TokenPayload): Promise<Hero | null> {
       TenantModel.findById(auth.tenantId).select("name").lean<{ name?: string } | null>(),
       ClientModel.countDocuments({ ...tf, isActive: true }),
       PaymentModel.aggregate([
-        { $match: { ...tf, date: { $gte: startOfMonth } } },
+        // Encaissé = règlements effectifs (ni en attente, ni annulés).
+        { $match: { ...tf, date: { $gte: startOfMonth }, status: { $nin: ["pending", "cancelled"] } } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
       // Restant dû : le TTC diminué des règlements *et* des avoirs. Omettre
@@ -62,7 +64,7 @@ async function getHero(auth: TokenPayload): Promise<Hero | null> {
           ...tf, documentType: { $ne: "credit_note" },
           status: { $in: ["sent", "partial", "overdue"] }, dueDate: { $lt: now },
         } },
-        { $group: { _id: null, count: { $sum: 1 }, total: {
+        { $group: { _id: null, count: { $sum: 1 }, clients: { $addToSet: "$clientId" }, total: {
           $sum: { $subtract: ["$totalTTC", { $add: ["$paidAmount", { $ifNull: ["$creditedAmount", 0] }] }] },
         } } },
       ]),
@@ -78,6 +80,7 @@ async function getHero(auth: TokenPayload): Promise<Hero | null> {
       encaisseMois: encaisse[0]?.total || 0,
       restantDu: Math.max(0, outstanding[0]?.total || 0),
       overdueCount: overdue[0]?.count || 0,
+      overdueClients: overdue[0]?.clients?.length || 0,
       overdueAmount: Math.max(0, overdue[0]?.total || 0),
       facturesMois,
     };
@@ -148,7 +151,7 @@ export async function DashboardHero() {
   const overdue = hero.overdueCount > 0;
   const headline = overdue ? "à reprendre en main." : "sous contrôle.";
   const message = overdue
-    ? `${compactXof(hero.overdueAmount)} en retard chez ${hero.overdueCount} client${hero.overdueCount > 1 ? "s" : ""}.` +
+    ? `${compactXof(hero.overdueAmount)} en retard sur ${hero.overdueCount} facture${hero.overdueCount > 1 ? "s" : ""}, chez ${hero.overdueClients} client${hero.overdueClients > 1 ? "s" : ""}.` +
       (hero.restantDu > 0 ? ` Au total, ${compactXof(hero.restantDu)} restent à encaisser — une relance récupère l'essentiel.` : "")
     : hero.restantDu > 0
       ? `${compactXof(hero.restantDu)} restent à encaisser ce mois, rien en retard. Vous êtes à jour.`

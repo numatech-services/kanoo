@@ -176,6 +176,8 @@ export interface IUser {
   sessionVersion: number;
   lastActivityAt?: Date;
   revokedAt?: Date;
+  /** Compte supprimé (anonymisé) par un administrateur. */
+  deletedAt?: Date;
   lastLoginAt?: Date;
   passwordResetToken?: string;
   /** Mot de passe temporaire : remplacement exigé à la prochaine connexion. */

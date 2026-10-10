@@ -1,4 +1,5 @@
 "use client";
+import { IfCan } from "@/components/shared/IfCan";
 import { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -84,12 +85,14 @@ export default function MarchesPage() {
           <h1 className="text-2xl font-bold text-ink">Marchés fournisseurs</h1>
           <p className="text-sm text-ink2">Niger - Code des Marchés Publics</p>
         </div>
-        <button 
-          onClick={() => router.push("/marches/new")}
-          className="px-4 py-2 bg-section text-white rounded-xl text-sm font-bold hover:brightness-95 transition-all shadow-md"
-        >
-          + Nouveau marché
-        </button>
+        <IfCan resource="publicTenders">
+          <button
+            onClick={() => router.push("/marches/new")}
+            className="px-4 py-2 bg-section text-white rounded-xl text-sm font-bold hover:brightness-95 transition-all shadow-md"
+          >
+            + Nouveau marché
+          </button>
+        </IfCan>
       </div>
 
       <div className="bg-surface rounded-2xl border border-line shadow-sm overflow-hidden">

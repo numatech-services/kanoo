@@ -143,7 +143,8 @@ describe("Notifications — lien vers l'écran", () => {
   it("mène au bon écran selon le type", () => {
     expect(notificationHref({ type: "invoice_overdue", linkedId: "abc" })).toBe("/invoices/abc");
     expect(notificationHref({ type: "stock_alert", linkedTo: "comptoir" })).toBe("/comptoir");
-    expect(notificationHref({ type: "stock_alert", linkedTo: "stock" })).toBe("/stock");
+    expect(notificationHref({ type: "stock_alert", linkedTo: "stock" })).toBe("/stock?alertOnly=true");
+    expect(notificationHref({ type: "stock_alert", linkedTo: "stock_lots" })).toBe("/stock/lots");
     expect(notificationHref({ type: "courrier_due", linkedTo: "documents" })).toBe("/courriers");
     expect(notificationHref({ type: "inconnu" })).toBeNull();
   });

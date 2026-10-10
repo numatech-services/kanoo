@@ -6,11 +6,14 @@ import { Search, CornerDownLeft } from "lucide-react";
 import { SECTIONS, sectionForPath, type SectionKey } from "@/lib/sections";
 import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
+import { NAV_MAP, type ProfileType } from "@/components/layout/Sidebar";
 
 interface Command {
   label: string;
   href: string;
   section: SectionKey;
+  /** Libellé de groupe affiché (espaces association / administration, résultats de recherche). */
+  group?: string;
   /** Mots-clés supplémentaires : « avoir » doit trouver Factures. */
   keywords?: string;
 }
@@ -27,7 +30,7 @@ const COMMANDS: Command[] = [
   { label: "Activités", href: "/activites", section: "accueil", keywords: "événement billetterie" },
 
   { label: "Clients", href: "/clients", section: "ventes" },
-  { label: "Nouveau client", href: "/clients", section: "ventes", keywords: "créer ajouter" },
+  { label: "Nouveau client", href: "/clients?new=1", section: "ventes", keywords: "créer ajouter" },
   { label: "Devis", href: "/devis", section: "ventes" },
   { label: "Nouveau devis", href: "/devis/new", section: "ventes", keywords: "créer proforma" },
   { label: "Factures", href: "/invoices", section: "ventes", keywords: "avoir facturation" },
@@ -101,7 +104,7 @@ function normalize(value: string): string {
  * plus cher que taper trois lettres. C'est aussi ce qui rend le produit
  * utilisable au clavier de bout en bout.
  */
-export function CommandPalette() {
+export function CommandPalette({ profile = "pme" }: { profile?: ProfileType }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -112,10 +115,34 @@ export function CommandPalette() {
   // Même règle que la barre latérale : on ne propose pas un écran que le rôle
   // ne peut pas ouvrir. Tant que les droits ne sont pas chargés, on montre tout.
   const { resources, loading } = useMe();
-  const visible = useMemo(() => COMMANDS.filter(cmd => {
+  // Chaque espace a ses écrans : une association ou une administration ne doit
+  // pas se voir proposer le tableau de bord PME.
+  const commands = useMemo<Command[]>(() => profile === "pme" ? COMMANDS
+    : NAV_MAP[profile].flatMap(g => g.items.map(i => ({ label: i.label, href: i.href, section: "accueil" as SectionKey, group: g.section }))), [profile]);
+  const visible = useMemo(() => commands.filter(cmd => {
     const res = resourceForHref(cmd.href);
     return !res || loading || resources.length === 0 || meCan(resources, res);
-  }), [resources, loading]);
+  }), [resources, loading, commands]);
+
+  // Recherche de fiches (clients, factures) en plus des écrans : la barre du
+  // haut annonce « Rechercher une facture, un client… ».
+  const [found, setFound] = useState<Command[]>([]);
+  useEffect(() => {
+    const q = query.trim();
+    if (profile !== "pme" || q.length < 2) { setFound([]); return; }
+    const t = setTimeout(async () => {
+      const get = (url: string) => fetch(url, { credentials: "include" }).then(r => (r.ok ? r.json() : null)).catch(() => null);
+      const [c, i] = await Promise.all([
+        meCan(resources, "clients") ? get(`/api/clients?search=${encodeURIComponent(q)}&limit=4`) : null,
+        meCan(resources, "invoices") ? get(`/api/invoices?search=${encodeURIComponent(q)}&limit=4`) : null,
+      ]);
+      setFound([
+        ...((c?.data?.items ?? []) as Array<{ _id: string; name: string }>).map(x => ({ label: x.name, href: `/clients/${x._id}`, section: "ventes" as SectionKey, group: "Client" })),
+        ...((i?.data?.items ?? []) as Array<{ _id: string; number: string }>).map(x => ({ label: `Facture ${x.number}`, href: `/invoices/${x._id}`, section: "ventes" as SectionKey, group: "Facture" })),
+      ]);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query, profile, resources]);
 
   const results = useMemo(() => {
     const q = normalize(query.trim());
@@ -134,8 +161,9 @@ export function CommandPalette() {
       .filter((x): x is { cmd: Command; score: number } => x !== null)
       .sort((a, b) => a.score - b.score)
       .slice(0, 10)
-      .map(x => x.cmd);
-  }, [query, visible]);
+      .map(x => x.cmd)
+      .concat(found);
+  }, [query, visible, found]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -191,7 +219,7 @@ export function CommandPalette() {
               if (e.key === "ArrowUp") { e.preventDefault(); setActive(i => Math.max(i - 1, 0)); }
               if (e.key === "Enter" && results[active]) { e.preventDefault(); go(results[active].href); }
             }}
-            placeholder="Aller à…  facture, TVA, abonnement, paie"
+            placeholder={profile === "pme" ? "Aller à… ou chercher un client, une facture" : "Aller à…"}
             aria-label="Rechercher une page"
             className="flex-1 h-12 bg-transparent outline-none text-sm text-ink placeholder:text-ink3"
           />
@@ -200,7 +228,7 @@ export function CommandPalette() {
 
         {results.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-ink3">
-            Aucune page ne correspond à « {query} ».
+            Rien ne correspond à « {query} ».
           </p>
         ) : (
           <ul ref={listRef} className="max-h-80 overflow-y-auto py-1.5" role="listbox">
@@ -217,7 +245,7 @@ export function CommandPalette() {
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-section shrink-0" aria-hidden />
                   <span className="flex-1 truncate">{cmd.label}</span>
-                  <span className="text-[11px] text-ink3 shrink-0">{SECTIONS[cmd.section].label}</span>
+                  <span className="text-[11px] text-ink3 shrink-0">{cmd.group ?? SECTIONS[cmd.section].label}</span>
                   {i === active && <CornerDownLeft size={13} className="text-ink3 shrink-0" />}
                 </button>
               </li>

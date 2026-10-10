@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
-import { withAuth, notFound, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, notFound, tenantFilter, forbidden } from "@/lib/api-helpers";
 import { LetterModel } from "@/models/Letter";
 import { TenantModel } from "@/models/Tenant";
 import { generateLetterPdf, type LetterForPdf, type TenantIdentity } from "@/lib/pdf-document";
@@ -15,6 +16,8 @@ export const dynamic = "force-dynamic";
  * aux documents pouvait télécharger un courrier dont il connaissait le lien.
  */
 export const GET = withAuth("documents", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
+  // Stagiaire : ni export ni envoi de fichier (règle commune).
+  if (isInternFor(auth, "documents")) return forbidden(INTERN_EXPORT_MESSAGE);
   await connectDB();
   if (!Types.ObjectId.isValid(params.id)) return notFound("Courrier introuvable");
 

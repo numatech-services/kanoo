@@ -69,11 +69,16 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
     }
     setSaving(true);
     setError("");
-    await onSave({
-      invoiceId, amount, method, reference, date, notes, status,
-      ...(treasuryAccountId ? { treasuryAccountId } : {}),
-    });
-    setSaving(false);
+    try {
+      await onSave({
+        invoiceId, amount, method, reference, date, notes, status,
+        ...(treasuryAccountId ? { treasuryAccountId } : {}),
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Paiement refusé");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -98,13 +103,13 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
             {METHODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </FormField>
-        <FormField label="Date de réception" required>
-          <input type="date" className={inputCls} value={date} required
+        <FormField label={status === "pending" ? "Date prévue" : "Date réelle de réception"} required>
+          <input type="date" className={inputCls} value={date} required max={status === "pending" ? undefined : today}
             onChange={e => setDate(e.target.value)} />
         </FormField>
       </div>
 
-      <FormField label="Compte encaissé"
+      <FormField label="Compte bancaire / caisse crédité"
         hint="Ce qui alimente le solde de trésorerie et le rapprochement bancaire.">
         {accounts.length === 0 ? (
           <p className="text-xs text-ink2 px-3 py-2 border border-line2 rounded-lg bg-surface2">

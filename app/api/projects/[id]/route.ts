@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { projectScope } from "@/lib/project-scope";
 import { Types } from "mongoose";
 import { withAuth, ok, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { ProjectModel } from "@/models/Project";
@@ -21,7 +22,7 @@ export const GET = withAuth("projects", "read", async (_req: NextRequest, auth: 
   await connectDB();
   if (!Types.ObjectId.isValid(params.id)) return notFound();
 
-  const item = await ProjectModel.findOne({ _id: params.id, ...tenantFilter(auth) })
+  const item = await ProjectModel.findOne({ _id: params.id, ...tenantFilter(auth), ...projectScope(auth) })
     .populate(MEMBERS, "firstName lastName")
     .lean<Record<string, unknown> | null>();
   if (!item) return notFound();
@@ -49,7 +50,7 @@ export const PATCH = withAuth("projects", "update", async (req: NextRequest, aut
   }
   for (const k of ["clientId", "managerId"]) if (body[k] === "") body[k] = null;
 
-  const item = await ProjectModel.findOne({ _id: params.id, ...tenantFilter(auth) });
+  const item = await ProjectModel.findOne({ _id: params.id, ...tenantFilter(auth), ...projectScope(auth) });
   if (!item) return notFound();
   // Sans accès aux finances : les montants des jalons existants sont conservés.
   if (!hasFinanceAccess(auth) && Array.isArray(body.milestones)) {
@@ -72,7 +73,7 @@ export const DELETE = withAuth("projects", "delete", async (_req: NextRequest, a
   await connectDB();
   if (!Types.ObjectId.isValid(params.id)) return notFound();
 
-  const deleted = await ProjectModel.findOneAndDelete({ _id: params.id, ...tenantFilter(auth) });
+  const deleted = await ProjectModel.findOneAndDelete({ _id: params.id, ...tenantFilter(auth), ...projectScope(auth) });
   if (!deleted) return notFound();
 
   await logAudit(auth, "DELETE", "projects", { resourceId: params.id });

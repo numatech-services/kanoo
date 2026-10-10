@@ -1,4 +1,5 @@
 "use client";
+import { IfCan } from "@/components/shared/IfCan";
 import { useState, useEffect, useCallback } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
@@ -80,7 +81,9 @@ export default function CRMPage() {
           <h1 className="text-2xl font-bold text-ink">Pipeline commercial</h1>
           <p className="text-sm text-ink2">CRM · Suivez vos opportunités de la prospection à la signature</p>
         </div>
+        <IfCan resource="clients">
         <button onClick={() => setModalOpen(true)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouvelle opportunité</button>
+        </IfCan>
       </div>
 
       {/* KPIs */}

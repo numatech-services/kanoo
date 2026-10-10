@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 import { useMe, meCanDo } from "@/lib/useMe";
+import { Modal } from "@/components/ui/Modal";
+import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 interface Payment {
   _id: string;
@@ -28,6 +30,7 @@ export default function PaymentsPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<Payment | null>(null);
   const LIMIT = 20;
 
   const load = useCallback(async () => {
@@ -64,17 +67,7 @@ export default function PaymentsPage() {
     load();
   }, [load]);
 
-  async function confirmPayment(id: string) {
-    if (!confirm("Marquer ce paiement comme encaissé ? Il soldera la facture et impactera la comptabilité et la trésorerie.")) return;
-    const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
-    const res = await fetch(`/api/payments/${id}`, {
-      method: "PATCH", credentials: "include",
-      headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      body: JSON.stringify({ status: "effective" }),
-    });
-    if (res.ok) load();
-    else { const d = await res.json().catch(() => ({})); alert(d.error || "Confirmation impossible."); }
-  }
+  // L'encaissement d'un paiement en attente se confirme avec sa date réelle et le compte crédité.
 
   async function cancelPayment(id: string, pending: boolean) {
     const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
@@ -121,9 +114,12 @@ export default function PaymentsPage() {
         const methodes: Record<string, string> = {
           "cash": "Espèces",
           "bank_transfer": "Virement",
+          "cheque": "Chèque",
           "check": "Chèque",
+          "mobile_money": "Mobile Money",
           "orange_money": "OM / Moov",
-          "card": "Carte Bancaire"
+          "card": "Carte bancaire",
+          "other": "Autre"
         };
         return methodes[String(v).toLowerCase()] || String(v);
       }
@@ -146,7 +142,7 @@ export default function PaymentsPage() {
         ? (
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-warn-50 text-warn border border-warn/25">En attente</span>
-            <button onClick={() => confirmPayment(record._id)}
+            <button onClick={() => setConfirming(record)}
               className="text-[11px] font-semibold text-pos hover:underline">Marquer encaissé</button>
             {canDelete && <button onClick={() => cancelPayment(record._id, true)} className="text-[11px] text-neg hover:underline">Supprimer</button>}
           </div>
@@ -204,6 +200,57 @@ export default function PaymentsPage() {
         limit={LIMIT} 
         onPage={setPage} 
       />
+      {confirming && <ConfirmDialog payment={confirming} onClose={() => setConfirming(null)} onDone={() => { setConfirming(null); load(); }} />}
     </div>
+  );
+}
+
+function ConfirmDialog({ payment, onClose, onDone }: { payment: Payment; onClose: () => void; onDone: () => void }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const planned = payment.date ? String(payment.date).slice(0, 10) : today;
+  const [date, setDate] = useState(planned > today ? today : planned);
+  const [accounts, setAccounts] = useState<Array<{ _id: string; label: string }>>([]);
+  const [accountId, setAccountId] = useState((payment.treasuryAccountId as { _id?: string } | null)?._id ?? "");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    fetch("/api/treasury-accounts", { credentials: "include" }).then(r => r.json()).then(d => {
+      const list = d.data?.items || [];
+      setAccounts(list);
+      if (!accountId && list.length === 1) setAccountId(list[0]._id);
+    }).catch(() => {});
+  }, [accountId]);
+  async function submit() {
+    setSaving(true); setError("");
+    const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+    const res = await fetch(`/api/payments/${payment._id}`, {
+      method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+      body: JSON.stringify({ status: "effective", date, ...(accountId ? { treasuryAccountId: accountId } : {}) }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (!res.ok) { setError(d.error || "Confirmation impossible."); return; }
+    onDone();
+  }
+  return (
+    <Modal open onClose={onClose} title="Confirmer l'encaissement" size="md">
+      <div className="space-y-4">
+        {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
+        <p className="text-sm text-ink2">{Number(payment.amount).toLocaleString("fr-FR")} XOF{payment.invoiceId?.number ? ` — facture ${payment.invoiceId.number}` : ""}. La facture, la comptabilité et la trésorerie sont mises à jour à la date indiquée.</p>
+        <FormField label="Date réelle de l'encaissement" required>
+          <input type="date" className={inputCls} value={date} max={today} onChange={e => setDate(e.target.value)} />
+        </FormField>
+        <FormField label="Compte crédité" hint="Banque, caisse ou mobile money qui a reçu l'argent.">
+          <select className={selectCls} value={accountId} onChange={e => setAccountId(e.target.value)}>
+            <option value="">— Ne pas imputer —</option>
+            {accounts.map(a => <option key={a._id} value={a._id}>{a.label}</option>)}
+          </select>
+        </FormField>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm hover:bg-surface2">Annuler</button>
+          <button onClick={submit} disabled={saving || !date} className="px-5 h-10 rounded-lg bg-pos text-white text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Confirmer l'encaissement"}</button>
+        </div>
+      </div>
+    </Modal>
   );
 }

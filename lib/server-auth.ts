@@ -6,6 +6,8 @@ import { cookies } from "next/headers";
 import { verifyToken } from "./auth";
 import type { TokenPayload } from "./auth";
 import { effectiveRoles, rolesCanPerform } from "./role-resources";
+import { revalidate } from "./api-helpers";
+import { connectDB } from "./db";
 
 export async function getServerAuth(): Promise<TokenPayload | null> {
   const cookieStore = await cookies();
@@ -34,8 +36,15 @@ export async function getServerAccess(): Promise<{
   auth: TokenPayload;
   can: (resource: string, action?: "read" | "create" | "update" | "delete") => boolean;
 } | null> {
-  const auth = await getServerAuth();
-  if (!auth) return null;
+  const token = await getServerAuth();
+  if (!token) return null;
+  // Même relecture en base que l'API (rôles, niveaux, activation, révocation) :
+  // le jeton seul gardait les droits d'avant une rétrogradation jusqu'à son
+  // renouvellement, et le tableau de bord montrait encore les chiffres.
+  await connectDB();
+  const check = await revalidate(token);
+  if (!check.ok) return null;
+  const auth = check.auth;
   const roles = effectiveRoles(auth.role, auth.roles);
   return {
     auth,

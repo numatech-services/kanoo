@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { Types } from "mongoose";
 import { withTransaction } from "@/lib/db";
 import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
 import { DevisModel } from "@/models/Devis";
@@ -12,6 +13,9 @@ export const GET = withAuth("devis", "read", async (req: NextRequest, auth: Toke
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
+  // Raccourci « Voir les … » de la fiche client.
+  const clientId = url.searchParams.get("clientId");
+  if (clientId && Types.ObjectId.isValid(clientId)) filter.clientId = new Types.ObjectId(clientId);
   if (status) filter.status = status;
   const [items, total] = await Promise.all([
     DevisModel.find(filter).populate("clientId", "name code").sort({ issueDate: -1 }).skip(pagination.skip).limit(pagination.limit).lean(),

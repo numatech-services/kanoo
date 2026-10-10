@@ -15,13 +15,15 @@ export const NAV_RESOURCE: Record<string, string> = {
   "/suppliers": "suppliers", "/commandes": "commandes", "/stock": "products",
   "/inventaires": "products", "/marches": "publicTenders", "/marches-cadres": "commandes",
   // PME — Abonnements
-  "/abonnements": "subscriptions",
+  // Le portefeuille (marges, rapprochement) est financier ; contrats souscrits et
+  // reventes restent ouverts au service qui gère les abonnements.
+  "/abonnements": "accountingEntries", "/abonnements/achats": "subscriptions", "/abonnements/reventes": "subscriptions",
   // PME — Contrats & projets
   "/appels": "appels", "/contracts": "contracts", "/projects": "projects",
   "/documents": "documents", "/documents-administratifs": "documents", "/approbations": "approbations",
   // PME — Finance
   "/treasury": "treasuryAccounts", "/accounting": "accountingEntries", "/comptoir": "comptoir",
-  "/analytique": "analytics", "/analytics": "analytics", "/budget-previsionnel": "accountingEntries",
+  "/analytique": "analytics", "/analytics": "accountingEntries", "/budget-previsionnel": "accountingEntries",
   "/recurring-expenses": "recurringCharges", "/fiscalite": "fiscalDeclarations",
   "/fixed-assets": "fixedAssets", "/depenses": "purchases", "/accounting/plan": "ledgerAccounts",
   "/conges": "leaves",
@@ -37,7 +39,7 @@ export const NAV_RESOURCE: Record<string, string> = {
   "/associations/membres": "membres", "/associations/cotisations": "cotisations",
   "/associations/dons": "dons",
   // Administration
-  "/administration/budget": "budgetChapters", "/administration/marches-publics": "publicTenders",
+  "/administration/budget": "budgetChapters", "/administration/budget/engagements": "commitmentOrders", "/administration/budget/mandatements": "paymentOrders", "/administration/marches-publics": "publicTenders",
   "/administration/recettes": "publicRevenues", "/administration/services": "services",
   // Activités (billetterie) — largement accordé mais pas aux rôles ultra-étroits
   "/activites": "events",

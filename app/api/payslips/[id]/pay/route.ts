@@ -7,11 +7,14 @@ import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { paymentDate } from "@/lib/payment-date";
 
 export const POST = withAuth("payslips", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const body = await req.json().catch(() => ({}));
   const { treasuryAccountId } = body;
+  // Date réelle du versement (virement passé hier, salaire payé en fin de mois…).
+  const paidAt = paymentDate(body.date);
 
   const payslip = await PayslipModel.findOne({ _id: params.id, ...tenantFilter(auth) })
     .populate("employeeId", "firstName lastName code paymentTreasuryAccountId bankAccount");
@@ -25,7 +28,7 @@ export const POST = withAuth("payslips", "update", async (req: NextRequest, auth
 
   await withTransaction(async (session) => {
     payslip.isPaid = true;
-    payslip.paidAt = new Date();
+    payslip.paidAt = paidAt;
     await payslip.save({ session });
 
     if (accountId) {
@@ -42,7 +45,7 @@ export const POST = withAuth("payslips", "update", async (req: NextRequest, auth
       await recordMovement({
         tenantId: auth.tenantId,
         accountId: String(accountId),
-        date: new Date(),
+        date: paidAt,
         amount: -payslip.netSalary,
         label: `Salaire ${empForLabel.firstName ?? ""} ${empForLabel.lastName ?? ""} — ${payslip.month}/${payslip.year}`.trim(),
         source: "payroll",
@@ -55,7 +58,7 @@ export const POST = withAuth("payslips", "update", async (req: NextRequest, auth
       const ledger = ledgerFor(await treasuryKind(auth.tenantId, accountId, session));
       await AccountingEntryModel.create([{
         tenantId: auth.tenantId, journalCode: ledger.journalCode,
-        entryDate: new Date(),
+        entryDate: paidAt,
         reference: `PAIE-${payslip.year}${String(payslip.month).padStart(2,"0")}-${emp.code || ""}`,
         label: `Virement salaire ${emp.firstName} ${emp.lastName} — ${payslip.month}/${payslip.year}`,
         lines: [

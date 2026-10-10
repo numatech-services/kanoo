@@ -1,5 +1,6 @@
 "use client";
 
+import { useUrlReady } from "@/lib/url-param";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Receipt, Wallet, Clock, CheckCircle2 } from "lucide-react";
@@ -34,11 +35,14 @@ const FILTERS: Array<{ key: ExpenseStatus; label: string }> = [
 export default function NotesDeFraisPage() {
   const [items, setItems] = useState<Report[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  // Statut repris de l'adresse (carte « À rembourser » → ?status=approved).
   const [status, setStatus] = useState<string | null>(null);
+  const ready = useUrlReady(p => { const s = p.get("status"); if (s) setStatus(s); });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
+    if (!ready) return;
     const q = status ? `?status=${status}` : "";
     fetch(`/api/expenses${q}`, { credentials: "include" })
       .then(r => r.json())
@@ -50,7 +54,7 @@ export default function NotesDeFraisPage() {
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [status]);
+  }, [status, ready]);
 
   useEffect(() => { load(); }, [load]);
 

@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
+import { Types } from "mongoose";
+import { hasTenantAdminRole } from "@/lib/roles-ui";
 import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { ApprobationModel } from "@/models/Approbation";
 import { NotificationModel } from "@/models/Notification";
@@ -17,6 +19,12 @@ export const GET = withAuth("approbations", "read", async (req: NextRequest, aut
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   if (status) filter.status = status;
   if (resource) filter.resource = resource;
+  // Cloisonnement : hors administrateurs, chacun ne voit que les demandes qu'il
+  // a faites ou sur lesquelles il doit se prononcer (montants et demandeurs
+  // de toute l'organisation étaient lisibles par tous).
+  if (!hasTenantAdminRole(auth)) {
+    filter.$or = [{ requestedBy: new Types.ObjectId(auth.userId) }, { "approvers.userId": new Types.ObjectId(auth.userId) }];
+  }
   // Filtrer les approbations où l'utilisateur est approver en attente
   if (mine) {
     filter["approvers"] = {

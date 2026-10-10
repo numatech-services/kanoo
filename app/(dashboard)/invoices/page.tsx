@@ -1,11 +1,13 @@
 "use client";
 
+import { IfCan } from "@/components/shared/IfCan";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { FilterChips } from "@/components/ui/Primitives";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
+import { urlParam } from "@/lib/url-param";
 
 interface Invoice {
   _id: string;
@@ -27,6 +29,7 @@ const STATUS_OPTIONS = [
   { value: "draft", label: "Brouillon" },
   { value: "sent", label: "Émises" },
   { value: "partial", label: "Partiellement payées" },
+  { value: "unpaid", label: "Impayées (non soldées)" },
   { value: "paid", label: "Soldées" },
   { value: "overdue", label: "En retard" },
   { value: "cancelled", label: "Annulées" },
@@ -47,8 +50,11 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState("");
-  const [overdueOnly, setOverdueOnly] = useState(false);
+  // Filtres repris de l'adresse : les raccourcis (tableau de bord, menu, fiche
+  // client) ouvrent la liste déjà filtrée.
+  const [status, setStatus] = useState(() => urlParam("status"));
+  const [overdueOnly, setOverdueOnly] = useState(() => urlParam("overdue") === "true");
+  const [clientId, setClientId] = useState(() => urlParam("clientId"));
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{ firstName: string; lastName: string } | null>(null);
 
@@ -71,6 +77,7 @@ export default function InvoicesPage() {
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (status) params.set("status", status);
     if (overdueOnly) params.set("overdue", "true");
+    if (clientId) params.set("clientId", clientId);
 
     try {
       const res = await fetch(`/api/invoices?${params}`, { credentials: "include" });
@@ -84,7 +91,7 @@ export default function InvoicesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, status, overdueOnly]);
+  }, [page, status, overdueOnly, clientId]);
 
   useEffect(() => {
     setMounted(true);
@@ -211,12 +218,14 @@ export default function InvoicesPage() {
           <h1 className="text-2xl font-bold text-ink">Factures clients</h1>
           <p className="text-sm text-ink2 mt-0.5">{total} facture{total > 1 ? "s" : ""}</p>
         </div>
+        <IfCan resource="invoices">
         <Link
           href="/invoices/new"
           className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors"
         >
           + Nouvelle facture
         </Link>
+        </IfCan>
       </div>
 
       {/* Filtres — des chips plutôt qu'un menu déroulant : les états
@@ -233,6 +242,11 @@ export default function InvoicesPage() {
           onClick={() => { setOverdueOnly(!overdueOnly); setPage(1); }}>
           En retard uniquement
         </button>
+        {clientId && (
+          <button type="button" className="fchip" aria-pressed onClick={() => { setClientId(""); setPage(1); window.history.replaceState(null, "", "/invoices"); }}>
+            Client : {(invoices[0]?.clientId as { name?: string } | undefined)?.name ?? "sélectionné"} ✕
+          </button>
+        )}
       </div>
 
       {/* Table */}

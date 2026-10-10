@@ -540,8 +540,12 @@ describe("Pièces jointes — stockage et accès", () => {
     // Lire la pièce d'un contrat suppose de pouvoir lire les contrats : sans
     // ce contrôle, un droit « pièces jointes » générique ouvrirait tout.
     // Tous les rôles cumulés et leurs niveaux comptent (authCan), pas seulement le rôle principal.
-    expect(list!.src).toMatch(/authCan\(auth, host, "read"\)/);
-    expect(one!.src).toMatch(/authCan\(auth, doc\.host, "read"\)/);
+    // La règle vit dans lib/attachment-access (droit du porteur, ou auteur pour
+    // les notes de frais et congés) ; les deux routes la consultent.
+    expect(list!.src).toMatch(/attachmentAccess\(auth, host, hostId, "read"\)/);
+    expect(one!.src).toMatch(/attachmentAccess\(auth, doc\.host, doc\.hostId, "read"\)/);
+    const lib = readFileSync(join(process.cwd(), "lib/attachment-access.ts"), "utf-8");
+    expect(lib).toMatch(/authCan\(auth, host, "read"\)/);
   });
 
   it("force le téléchargement plutôt que l'affichage dans l'origine", () => {
@@ -656,7 +660,8 @@ describe("Comptes — ce qui manquait", () => {
   it("refuse de supprimer le dernier administrateur actif", () => {
     // Le verrouillage était irrattrapable depuis l'application.
     expect(usersOne.src).toMatch(/remaining === 0/);
-    expect(usersOne.src).toMatch(/TENANT_ADMIN_ROLES/);
+    // Rôle principal OU cumulé : un administrateur multi-rôle compte.
+    expect(usersOne.src).toMatch(/TENANT_ADMIN_QUERY/);
   });
 
   it("empêche de se retirer ses propres droits d'administration", () => {

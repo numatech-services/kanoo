@@ -1,5 +1,6 @@
 "use client";
 
+import { IfCan } from "@/components/shared/IfCan";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Megaphone, Plus, Clock } from "lucide-react";
@@ -55,9 +56,11 @@ export default function AppelsListPage() {
           <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><Megaphone size={22} /> Appels à candidatures</h1>
           <p className="text-sm text-ink2">Suivez les appels d'offres auxquels vous répondez : pièces à fournir, date limite, étapes.</p>
         </div>
+        <IfCan resource="appels">
         <button onClick={() => setOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
           <Plus size={16} /> Nouvel appel
         </button>
+        </IfCan>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">

@@ -68,7 +68,7 @@ export default function AdminDashboardPage() {
       .catch((e) => console.error(e))
       .finally(() => setLoadingEn(false));
 
-    fetch("/api/marches?limit=5&page=1", { credentials: "include" })
+    fetch("/api/marches?limit=100&page=1", { credentials: "include" })
       .then(r => r.json())
       .then(d => setMarches(extractArray(d)))
       .catch((e) => console.error(e))
@@ -198,7 +198,7 @@ export default function AdminDashboardPage() {
             <p className="text-sm text-ink2 text-center py-10">Aucun marché</p>
           ) : (
             <div className="divide-y divide-line">
-              {safeMarches.map(m => {
+              {safeMarches.slice(0, 5).map(m => {
                 if (!m) return null;
                 return (
                   <Link key={m._id} href={`/administration/marches-publics/${m._id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-surface2/40 transition-colors">

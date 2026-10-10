@@ -437,7 +437,7 @@ const SVC_SECU: ResourcePermissions = {
 /** Droits propres au chef de service, en plus de la carte de l'employé. */
 const CHEF_EXTRA: Partial<Record<UserRole, ResourcePermissions>> = {
   // Paie : chef comptable et gérant uniquement.
-  svc_compta: { payslips: CRUD, employees: ["read", "update"] },
+  svc_compta: { payslips: CRUD, employees: ["read", "update"], expenses: ["approve"], leaves: ["approve"] },
   // Chaque chef valide les notes de frais de son équipe (1er niveau).
   // … et les congés (le chef Administration, en charge du personnel, valide
   // ceux de toute l'organisation).
@@ -563,6 +563,25 @@ for (const perms of Object.values(ROLE_PERMISSIONS)) {
   perms.messages = MESSAGES_ALL;
 }
 
+/**
+ * Notifications : universelles, chacun lit et marque les siennes (l'API borne
+ * à l'utilisateur). Aucun rôle de service ne les avait : cloche, alertes du
+ * tableau de bord, pastilles du menu et changement de mot de passe (même
+ * ressource) répondaient 403, alors que le système leur en envoyait.
+ */
+for (const perms of Object.values(ROLE_PERMISSIONS)) {
+  perms.notifications = ["read", "update", "delete"];
+  // Pièces jointes : le droit réel est celui du document porteur, vérifié par
+  // lib/attachment-access (l'auteur d'une note de frais joint ses reçus).
+  perms.attachments = ["read", "create"];
+  // Approbations : chacun voit ses demandes et celles qu'on lui soumet (l'API
+  // borne la liste) ; décider suppose d'être désigné valideur.
+  // Tout le monde peut ouvrir un ticket d'assistance (bouton Support présent partout).
+  if (!perms.supportTickets) perms.supportTickets = ["create"];
+  if (!perms.approbations) perms.approbations = ["read"];
+  else if (!perms.approbations.includes("read")) perms.approbations = [...perms.approbations, "read"];
+}
+
 /** Appels à candidatures (réponse à appels d'offres) : accordé largement. */
 const APPELS_ALL: Action[] = ["create", "read", "update", "delete"];
 for (const [role, perms] of Object.entries(ROLE_PERMISSIONS)) {
@@ -648,7 +667,8 @@ for (const perms of Object.values(ROLE_PERMISSIONS)) {
 for (const perms of Object.values(ROLE_PERMISSIONS)) {
   if (perms.expenses) perms.leaves = [...perms.expenses.filter(a => a !== "approve" && a !== "delete"), "read"];
 }
-for (const role of ["pme_admin", "asso_president", "admin_ordonnateur", "pme_manager", "superadmin"] as UserRole[]) {
+// Les RH gèrent les congés de tout le personnel, comme la direction.
+for (const role of ["pme_admin", "asso_president", "admin_ordonnateur", "pme_manager", "pme_hr", "superadmin"] as UserRole[]) {
   const p = ROLE_PERMISSIONS[role];
   if (p) p.leaves = ["create", "read", "update", "delete", "approve"];
 }
