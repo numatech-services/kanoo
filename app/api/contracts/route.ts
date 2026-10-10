@@ -4,6 +4,7 @@ import { withAuth, created, badRequest, getPagination, paginatedResponse, tenant
 import { ContractModel } from "@/models/Contract";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { contractFields } from "@/lib/contract-input";
 
 export const GET = withAuth("contracts", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
@@ -42,7 +43,9 @@ export const POST = withAuth("contracts", "create", async (req: NextRequest, aut
     body.nextBillingDate = body.startDate;
   }
 
-  const contract = await ContractModel.create({ ...body, tenantId: auth.tenantId, createdBy: auth.userId });
+  const { data, error } = await contractFields(auth.tenantId, body);
+  if (error) return badRequest(error);
+  const contract = await ContractModel.create({ ...data, tenantId: auth.tenantId, createdBy: auth.userId });
   await logAudit(auth, "CREATE", "contracts", {
     resourceId: contract._id.toString(),
     after: { reference: contract.reference, title: body.title, type: body.type, isRecurring: body.isRecurring },

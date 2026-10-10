@@ -9,6 +9,7 @@ import { calculerTVA, calculerDTS, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal"
 import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { saleEntryLines } from "@/lib/invoice-entry";
 import { authCan } from "@/lib/role-resources";
 
 export const POST = withAuth("contracts", "update", async (_req: NextRequest, auth: TokenPayload, params) => {
@@ -66,14 +67,12 @@ export const POST = withAuth("contracts", "update", async (_req: NextRequest, au
     contract.nextBillingDate = nextDate;
     await contract.save({ session });
 
+    // Même écriture que toute facture : 411 = produits + TVA + droits de timbre (447),
+    // sinon l'écriture est déséquilibrée dès qu'il y a un timbre.
     await AccountingEntryModel.create([{
-      tenantId: auth.tenantId, journalCode: "VT", entryDate: new Date(),
+      tenantId: auth.tenantId, journalCode: "VT", entryDate: issueDate,
       reference: number, label: `Facture contrat ${contract.reference}`,
-      lines: [
-        { accountCode: "411000", accountLabel: "Clients", debit: totalTTC, credit: 0, thirdPartyId: contract.clientId },
-        { accountCode: "706000", accountLabel: "Prestations", debit: 0, credit: totalHT },
-        ...(totalTVA > 0 ? [{ accountCode: "443000", accountLabel: "TVA collectée", debit: 0, credit: totalTVA }] : []),
-      ],
+      lines: await saleEntryLines(auth.tenantId, { clientId: contract.clientId, lines: [{ totalHT }], totalTVA, totalDTS, totalTTC }, session),
       linkedDocType: "invoice", linkedDocId: invoice._id, createdBy: auth.userId,
     }], { session });
 

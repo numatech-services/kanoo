@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, notFound, noContent, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, badRequest, notFound, noContent, tenantFilter } from "@/lib/api-helpers";
 import { ContractModel } from "@/models/Contract";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { contractFields } from "@/lib/contract-input";
 import { authCan } from "@/lib/role-resources";
 
 // `withAuth` passe les paramètres de route en TROISIÈME argument, déjà résolus.
@@ -34,11 +35,14 @@ export const PATCH = withAuth("contracts", "update", async (req: NextRequest, au
   const id = params.id;
   if (!id) return notFound();
 
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
+  // Liste blanche : ni l'organisation, ni la référence, ni les factures liées ne se réécrivent.
+  const { data, error } = await contractFields(auth.tenantId, body);
+  if (error) return badRequest(error);
   const contract = await ContractModel.findOneAndUpdate(
-    { _id: id, ...tenantFilter(auth) }, 
-    body, 
-    { new: true }
+    { _id: id, ...tenantFilter(auth) },
+    { $set: data },
+    { new: true, runValidators: true },
   ).populate("clientId", "name code");
 
   if (!contract) return notFound();
