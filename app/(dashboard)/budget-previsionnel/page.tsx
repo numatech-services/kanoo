@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Target, TrendingUp, TrendingDown, Trash2 } from "lucide-react";
 import { KpiCard } from "@/components/ui/KpiCard";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { BarChart } from "@/components/ui/charts/BarChart";
 import { Pill, Inset, EmptyState, MiniBar } from "@/components/ui/Primitives";
 import { Modal } from "@/components/ui/Modal";
-import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { fullXof, compactXof } from "@/components/ui/charts/geometry";
 import {
   VERDICT_LABEL, isFavourable, TOLERANCE_PERCENT,
@@ -47,6 +47,7 @@ export default function BudgetPrevisionnelPage() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [flow, setFlow] = useState<"" | "in" | "out">("");
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -206,7 +207,9 @@ export default function BudgetPrevisionnelPage() {
             </section>
           )}
 
-          {[["Produits", revenues], ["Charges", expenses]].map(([title, rows]) => {
+          <SegmentedControl ariaLabel="Recettes ou dépenses" value={flow} onChange={setFlow}
+            segments={[{ value: "", label: "Tout" }, { value: "in", label: "Recettes", count: revenues.length }, { value: "out", label: "Dépenses", count: expenses.length }]} />
+          {([["Produits", revenues, "in"], ["Charges", expenses, "out"]] as const).filter(([, , k]) => !flow || flow === k).map(([title, rows]) => {
             const list = rows as Array<LineResult & { _id: string }>;
             if (list.length === 0) return null;
             return (

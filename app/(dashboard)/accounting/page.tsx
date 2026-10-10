@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, Fragment } from "react";
 import Link from "next/link";
+import { FlowFilterBar, useFlowFilter, type FlowTotals } from "@/components/ui/FlowFilterBar";
 import { Plus, Search, ChevronDown, ChevronRight, Undo2, Lock, FileSpreadsheet, Hash, Link2 } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
@@ -23,7 +24,9 @@ export default function AccountingPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [f, setF] = useState({ journal: "", from: "", to: "", lettered: "", search: "", account: "" });
+  const [f, setF] = useState({ journal: "", lettered: "", search: "", account: "" });
+  const flowFilter = useFlowFilter();
+  const [totals, setTotals] = useState<FlowTotals | null>(null);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [lock, setLock] = useState<{ lockedUntil: string | null; closedYears: number[] }>({ lockedUntil: null, closedYears: [] });
@@ -34,14 +37,16 @@ export default function AccountingPage() {
   const load = useCallback(async () => {
     const p = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     for (const [k, v] of Object.entries(f)) if (v) p.set(k, v);
+    new URLSearchParams(flowFilter.query).forEach((v, k) => p.set(k, v));
     const [d, l] = await Promise.all([
       fetch(`/api/accounting-entries?${p}`, { credentials: "include" }).then(r => r.json()).catch(() => null),
       fetch("/api/accounting/closing", { credentials: "include" }).then(r => r.json()).catch(() => null),
     ]);
-    setEntries(d?.data?.items ?? []); setTotal(d?.data?.pagination?.total ?? 0);
+    setEntries(d?.data?.items ?? []); setTotal(d?.data?.pagination?.total ?? 0); setTotals(d?.data?.totals ?? null);
     if (l?.data) setLock(l.data);
-  }, [page, f]);
+  }, [page, f, flowFilter.query]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setPage(1); }, [flowFilter.query]);
   useEffect(() => { const t = setTimeout(() => { setPage(1); setF(x => ({ ...x, search: q.trim() })); }, 300); return () => clearTimeout(t); }, [q]);
   const setFilter = (patch: Partial<typeof f>) => { setPage(1); setF(x => ({ ...x, ...patch })); };
   const toggle = (id: string) => setOpen(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -84,9 +89,9 @@ export default function AccountingPage() {
         <select className={`${selectCls} w-auto`} value={f.lettered} onChange={e => setFilter({ lettered: e.target.value })} aria-label="Lettrage">
           <option value="">Lettrées ou non</option><option value="true">Lettrées</option><option value="false">Non lettrées</option>
         </select>
-        <input type="date" className={`${inputCls} w-auto`} value={f.from} onChange={e => setFilter({ from: e.target.value })} aria-label="Du" />
-        <input type="date" className={`${inputCls} w-auto`} value={f.to} onChange={e => setFilter({ to: e.target.value })} aria-label="Au" />
       </div>
+      <FlowFilterBar state={flowFilter} totals={totals} />
+      <p className="text-[11px] text-ink3 -mt-2">Recettes : écritures de produits (classe 7) ; dépenses : écritures de charges (classe 6). Totaux sur la période et le journal choisis.</p>
 
       <div className="bg-surface rounded-xl border border-line overflow-x-auto">
         <table className="table-dense w-full">

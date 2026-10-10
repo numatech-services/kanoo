@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PieChart, Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
+import { FlowFilterBar, useFlowFilter, today, type FlowTotals } from "@/components/ui/FlowFilterBar";
 
 interface Activity { _id: string; name: string; color?: string }
 interface Sector { activityId: string; name: string; color?: string; revenue: number; expense: number; result: number; fromAccounting?: { revenue: number; expense: number } }
@@ -16,13 +17,24 @@ export default function AnalytiquePage() {
   const [report, setReport] = useState<Report | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [totals, setTotals] = useState<FlowTotals | null>(null);
+  const [sector, setSector] = useState("");
+  const filter = useFlowFilter({ from: `${new Date().getFullYear()}-01-01`, to: today() });
   const [form, setForm] = useState({ kind: "revenue", activityId: "", label: "", amount: 0, date: new Date().toISOString().slice(0, 10) });
 
   const load = useCallback(() => {
-    fetch("/api/analytics/report", { credentials: "include" }).then(r => r.json()).then(d => setReport(d.data || null));
+    // La période du filtre s'applique aussi à la rentabilité par secteur.
+    const period = new URLSearchParams();
+    if (filter.from) period.set("from", filter.from);
+    if (filter.to) period.set("to", filter.to);
+    fetch(`/api/analytics/report?${period}`, { credentials: "include" }).then(r => r.json()).then(d => setReport(d.data || null));
     fetch("/api/analytics/activities", { credentials: "include" }).then(r => r.json()).then(d => setActivities(d.data || []));
-    fetch("/api/analytics/entries?limit=25", { credentials: "include" }).then(r => r.json()).then(d => setEntries(d.data?.items || []));
-  }, []);
+    const q = new URLSearchParams(filter.query);
+    q.set("limit", "100");
+    if (sector) q.set("activityId", sector);
+    fetch(`/api/analytics/entries?${q}`, { credentials: "include" }).then(r => r.json())
+      .then(d => { setEntries(d.data?.items || []); setTotals(d.data?.totals ?? null); });
+  }, [filter.query, filter.from, filter.to, sector]);
   useEffect(() => { load(); }, [load]);
 
   async function addSector() {
@@ -109,10 +121,19 @@ export default function AnalytiquePage() {
         </div>
       </section>
 
-      {/* Écritures récentes */}
-      {entries.length > 0 && (
-        <section className="surface-card overflow-hidden">
-          <h2 className="font-semibold text-ink px-5 py-4 border-b border-line">Écritures récentes</h2>
+      {/* Écritures : filtre recettes / dépenses, secteur et période */}
+      <section className="surface-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-line space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold text-ink">Écritures</h2>
+            <select className={`${selectCls} w-auto`} value={sector} onChange={e => setSector(e.target.value)} aria-label="Secteur">
+              <option value="">Tous les secteurs</option><option value="general">Frais généraux</option>
+              {activities.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
+            </select>
+          </div>
+          <FlowFilterBar state={filter} totals={totals} size="sm" />
+        </div>
+        {entries.length === 0 ? <p className="px-5 py-6 text-sm text-ink3 text-center">Aucune écriture pour ce filtre.</p> : (
           <ul className="divide-y divide-line">
             {entries.map(e => (
               <li key={e._id} className="flex items-center justify-between px-5 py-2.5 text-sm">
@@ -125,8 +146,8 @@ export default function AnalytiquePage() {
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 }

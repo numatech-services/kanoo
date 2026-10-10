@@ -8,6 +8,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { MessageComposer } from "@/components/shared/MessageComposer";
 import { CheckCircle2, AlertCircle, Banknote, ClipboardList, Plus, Trash2, Edit3, Flag } from "lucide-react";
 import { useMe, meCanDo } from "@/lib/useMe";
+import { ImputedFlows } from "@/components/shared/ImputedFlows";
 import { ProjectEditForm, type ProjectEditValue } from "@/components/projects/ProjectEditForm";
 import { PROJECT_STATUS_FR, TASK_STATUS_FR, type ProjectVocabulary } from "@/lib/vocabulary";
 
@@ -297,6 +298,8 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
           </p>
         </div>
       )}
+
+      {money && <ImputedFlows projectId={String(project._id)} />}
 
       {/* TABS NAVIGATION */}
       <div className="flex gap-2 bg-surface2/30 p-1.5 rounded-2xl w-fit">

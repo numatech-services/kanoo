@@ -5,6 +5,7 @@ import { Store, Plus, Wallet, Package, AlertTriangle, ArrowDownLeft, ArrowUpRigh
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
+import { FlowFilterBar, useFlowFilter, monthStart, today, type FlowTotals } from "@/components/ui/FlowFilterBar";
 import { useMe, meCanDo } from "@/lib/useMe";
 import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
@@ -286,9 +287,10 @@ function ReportDialog({ deskId, onClose }: { deskId: string; onClose: () => void
   const now = new Date();
   const [from, setFrom] = useState(localDay(new Date(now.getFullYear(), now.getMonth(), 1)));
   const [to, setTo] = useState(localDay(now));
+  const [flow, setFlow] = useState<"" | "in" | "out">("");
   const invalid = !from || !to || from > to;
   function open() {
-    const q = new URLSearchParams({ deskId, from, to });
+    const q = new URLSearchParams({ deskId, from, to, ...(flow ? { flow } : {}) });
     window.open(`/api/comptoir/report?${q.toString()}`, "_blank", "noopener");
   }
   return (
@@ -299,6 +301,11 @@ function ReportDialog({ deskId, onClose }: { deskId: string; onClose: () => void
           <FormField label="Du"><input className={inputCls} type="date" value={from} onChange={e => setFrom(e.target.value)} /></FormField>
           <FormField label="Au"><input className={inputCls} type="date" value={to} onChange={e => setTo(e.target.value)} /></FormField>
         </div>
+        <FormField label="Journal de caisse" hint="Les totaux du rapport gardent toujours recettes et dépenses.">
+          <select className={selectCls} value={flow} onChange={e => setFlow(e.target.value as "" | "in" | "out")}>
+            <option value="">Recettes et dépenses</option><option value="in">Recettes seulement</option><option value="out">Dépenses seulement</option>
+          </select>
+        </FormField>
         {invalid && <p className="text-xs text-neg">La date de début doit précéder la date de fin.</p>}
         <div className="flex justify-end gap-3 pt-2">
           <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Fermer</button>
@@ -326,12 +333,14 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
   // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
   const canDelete = meCanDo(useMe(), "comptoir", "delete");
   const [entries, setEntries] = useState<CashEntry[]>([]);
+  const [totals, setTotals] = useState<FlowTotals | null>(null);
+  const filter = useFlowFilter({ from: monthStart(), to: today() });
   const [open, setOpen] = useState(false);
   const [arreteOpen, setArreteOpen] = useState(false);
   const load = useCallback(() => {
-    fetch(`/api/comptoir/cash?deskId=${deskId}`, { credentials: "include" })
-      .then(r => r.json()).then(d => setEntries(d.data || [])).catch(() => {});
-  }, [deskId]);
+    fetch(`/api/comptoir/cash?deskId=${deskId}${filter.query ? `&${filter.query}` : ""}`, { credentials: "include" })
+      .then(r => r.json()).then(d => { setEntries(d.data?.items || []); setTotals(d.data?.totals ?? null); }).catch(() => {});
+  }, [deskId, filter.query]);
   useEffect(() => { load(); }, [load]);
 
   async function del(id: string) {
@@ -346,17 +355,20 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
       new Date(e.date).toLocaleDateString("fr-FR"), e.label, METHOD_LABEL[e.method] || e.method,
       e.direction === "in" ? "Recette" : "Dépense", e.direction === "in" ? e.amount : -e.amount,
     ]);
-    downloadCsv(`caisse-comptoir-${localDay()}.csv`, rows);
+    const suffix = filter.flow === "in" ? "-recettes" : filter.flow === "out" ? "-depenses" : "";
+    downloadCsv(`caisse-comptoir${suffix}-${localDay()}.csv`, rows);
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <FlowFilterBar state={filter} totals={totals} />
+        <div className="flex gap-2">
+        <button onClick={() => setArreteOpen(true)} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+          <FileText size={15} /> Arrêté de caisse
+        </button>
         {entries.length > 0 && (
           <>
-            <button onClick={() => setArreteOpen(true)} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
-              <FileText size={15} /> Arrêté de caisse
-            </button>
             <button onClick={exportCsv} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
               <Download size={15} /> Export CSV
             </button>
@@ -365,9 +377,11 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
         <button onClick={() => setOpen(true)} className="px-4 h-9 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
           <Plus size={15} /> Écriture de caisse
         </button>
+        </div>
       </div>
       {entries.length === 0 ? (
-        <EmptyState icon={<Wallet size={20} />} title="Caisse vide" hint="Enregistrez une recette ou une dépense." />
+        <EmptyState icon={<Wallet size={20} />} title={filter.flow || filter.from || filter.to ? "Aucune écriture pour ce filtre" : "Caisse vide"}
+          hint={filter.flow || filter.from || filter.to ? "Changez le sens ou la période." : "Enregistrez une recette ou une dépense."} />
       ) : (
         <div className="surface-card overflow-hidden">
           <table className="table-dense">
@@ -394,18 +408,24 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
         </div>
       )}
       {open && <CashDialog deskId={deskId} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); load(); onChange(); }} />}
-      {arreteOpen && <ArreteDialog entries={entries} onClose={() => setArreteOpen(false)} />}
+      {arreteOpen && <ArreteDialog deskId={deskId} onClose={() => setArreteOpen(false)} />}
     </div>
   );
 }
 
 // Arrêté de caisse : totaux du jour, solde théorique et rapprochement des
 // espèces comptées, imprimable pour confier/contrôler la gestion du comptoir.
-function ArreteDialog({ entries, onClose }: { entries: CashEntry[]; onClose: () => void }) {
+function ArreteDialog({ deskId, onClose }: { deskId: string; onClose: () => void }) {
   const [day, setDay] = useState(localDay());
   const [counted, setCounted] = useState("");
+  // Toutes les écritures de la journée, indépendamment du filtre de la liste.
+  const [dayEntries, setDayEntries] = useState<CashEntry[]>([]);
+  useEffect(() => {
+    if (!day) return;
+    fetch(`/api/comptoir/cash?deskId=${deskId}&from=${day}&to=${day}`, { credentials: "include" })
+      .then(r => r.json()).then(d => setDayEntries(d.data?.items || [])).catch(() => setDayEntries([]));
+  }, [deskId, day]);
 
-  const dayEntries = entries.filter(e => localDay(e.date) === day);
   const sum = (pred: (e: CashEntry) => boolean) => dayEntries.filter(pred).reduce((s, e) => s + e.amount, 0);
   const recettes = sum(e => e.direction === "in");
   const depenses = sum(e => e.direction === "out");

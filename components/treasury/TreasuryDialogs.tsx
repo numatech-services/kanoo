@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
+import { FlowFilterBar, useFlowFilter, monthStart, type FlowTotals } from "@/components/ui/FlowFilterBar";
 
 export interface TreasuryAccountLite { _id: string; label: string; type: string; balance: number; openingBalance: number; movementCount: number; isActive: boolean; bankName?: string; accountNumber?: string }
 
@@ -146,31 +147,44 @@ export function ManualMovementDialog({ accounts, onClose, onDone }: { accounts: 
   );
 }
 
-interface Movement { _id: string; date: string; amount: number; label: string; reference?: string; source: string; statementLineId?: string }
+interface Movement { _id: string; date: string; amount: number; label: string; reference?: string; source: string; statementLineId?: string; accountId?: { label?: string } | string }
 
-export function MovementsDialog({ account, onClose }: { account: TreasuryAccountLite; onClose: () => void }) {
+/** Mouvements d'un compte, ou de tous les comptes (`account` absent), filtrables recettes / dépenses. */
+export function MovementsDialog({ account, onClose }: { account?: TreasuryAccountLite | null; onClose: () => void }) {
   const [items, setItems] = useState<Movement[]>([]);
+  const [totals, setTotals] = useState<FlowTotals | null>(null);
+  const [count, setCount] = useState(0);
+  const filter = useFlowFilter({ from: monthStart(), to: today() });
   useEffect(() => {
-    fetch(`/api/treasury-accounts/movements?accountId=${account._id}&limit=100`, { credentials: "include" }).then(r => r.json()).then(d => setItems(d.data?.items ?? [])).catch(() => {});
-  }, [account._id]);
+    const q = new URLSearchParams(filter.query);
+    q.set("limit", "100");
+    if (account) q.set("accountId", account._id);
+    fetch(`/api/treasury-accounts/movements?${q}`, { credentials: "include" }).then(r => r.json())
+      .then(d => { setItems(d.data?.items ?? []); setTotals(d.data?.totals ?? null); setCount(d.data?.pagination?.total ?? 0); }).catch(() => {});
+  }, [account, filter.query]);
   const SRC: Record<string, string> = { payment: "Encaissement", expense: "Dépense", payroll: "Salaire", transfer: "Virement", manual: "Manuel", import: "Import" };
   return (
-    <Modal open onClose={onClose} title={`Mouvements — ${account.label}`} size="lg">
-      <div className="max-h-[60vh] overflow-y-auto">
-        <table className="table-dense w-full">
-          <thead><tr className="text-left text-ink2"><th>Date</th><th>Libellé</th><th>Origine</th><th className="text-right">Montant</th></tr></thead>
-          <tbody>
-            {items.length === 0 && <tr><td colSpan={4} className="text-center text-ink3 py-6">Aucun mouvement</td></tr>}
-            {items.map(m => (
-              <tr key={m._id} className="border-t border-line">
-                <td className="text-xs whitespace-nowrap">{new Date(m.date).toLocaleDateString("fr-FR")}</td>
-                <td className="text-xs">{m.label}{m.reference && <span className="text-ink3"> · {m.reference}</span>}</td>
-                <td className="text-xs text-ink2">{SRC[m.source] ?? m.source}{m.statementLineId ? " · rapproché" : ""}</td>
-                <td className={`text-right font-mono ${m.amount >= 0 ? "text-pos" : "text-neg"}`}>{m.amount >= 0 ? "+" : ""}{fmt(m.amount)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <Modal open onClose={onClose} title={account ? `Mouvements — ${account.label}` : "Mouvements de tous les comptes"} size="lg">
+      <div className="space-y-3">
+        <FlowFilterBar state={filter} totals={totals} size="sm" />
+        <p className="text-[11px] text-ink3">Les virements internes ne sont comptés ni en recettes ni en dépenses.{count > items.length ? ` ${items.length} mouvements affichés sur ${count}.` : ""}</p>
+        <div className="max-h-[55vh] overflow-y-auto">
+          <table className="table-dense w-full">
+            <thead><tr className="text-left text-ink2"><th>Date</th>{!account && <th>Compte</th>}<th>Libellé</th><th>Origine</th><th className="text-right">Montant</th></tr></thead>
+            <tbody>
+              {items.length === 0 && <tr><td colSpan={account ? 4 : 5} className="text-center text-ink3 py-6">Aucun mouvement</td></tr>}
+              {items.map(m => (
+                <tr key={m._id} className="border-t border-line">
+                  <td className="text-xs whitespace-nowrap">{new Date(m.date).toLocaleDateString("fr-FR")}</td>
+                  {!account && <td className="text-xs text-ink2">{typeof m.accountId === "object" ? m.accountId?.label : ""}</td>}
+                  <td className="text-xs">{m.label}{m.reference && <span className="text-ink3"> · {m.reference}</span>}</td>
+                  <td className="text-xs text-ink2">{SRC[m.source] ?? m.source}{m.statementLineId ? " · rapproché" : ""}</td>
+                  <td className={`text-right font-mono ${m.amount >= 0 ? "text-pos" : "text-neg"}`}>{m.amount >= 0 ? "+" : ""}{fmt(m.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </Modal>
   );

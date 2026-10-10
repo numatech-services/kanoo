@@ -534,6 +534,8 @@ export interface DeskReportForPdf {
   periodLabel: string;
   cash: Array<{ date: Date | string; label: string; method: string; direction: "in" | "out"; amount: number }>;
   items: Array<{ name: string; unit: string; quantity: number; unitCost: number; threshold?: number }>;
+  /** Journal limité aux recettes ou aux dépenses (les cartes gardent les deux sens). */
+  journalFlow?: "in" | "out";
 }
 
 const METHOD_FR: Record<string, string> = {
@@ -614,10 +616,11 @@ export async function generateDeskReportPdf(r: DeskReportForPdf, tenant: TenantI
       y += 14;
     };
 
-    table("Journal de caisse", [
+    const journal = r.journalFlow ? r.cash.filter(e => e.direction === r.journalFlow) : r.cash;
+    table(r.journalFlow === "in" ? "Journal de caisse — recettes" : r.journalFlow === "out" ? "Journal de caisse — dépenses" : "Journal de caisse", [
       { h: "Date", w: 70 }, { h: "Libellé", w: 215 }, { h: "Moyen", w: 80 },
       { h: "Montant", w: 130, align: "right" },
-    ], r.cash.map(e => [
+    ], journal.map(e => [
       new Date(e.date).toLocaleDateString("fr-FR"), e.label, METHOD_FR[e.method] || e.method,
       `${e.direction === "in" ? "+" : "-"} ${fmt(e.amount)}`,
     ]));

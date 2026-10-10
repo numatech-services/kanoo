@@ -45,6 +45,7 @@ export default function TreasuryPage() {
   const [showInactive, setShowInactive] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [listing, setListing] = useState<Account | null>(null);
+  const [allMoves, setAllMoves] = useState(false);
   const [transfer, setTransfer] = useState(false);
   const [manual, setManual] = useState(false);
   const [version, setVersion] = useState(0);
@@ -101,6 +102,7 @@ export default function TreasuryPage() {
         </div>
         <div className="flex gap-2 flex-wrap items-center">
           <label className="flex items-center gap-2 text-sm text-ink2"><input type="checkbox" className="accent-section" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} /> Comptes désactivés</label>
+          {accounts.length > 0 && <button onClick={() => setAllMoves(true)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Recettes et dépenses</button>}
           {canEdit && active.length > 1 && <button onClick={() => setTransfer(true)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Virement interne</button>}
           {canEdit && active.length > 0 && <button onClick={() => setManual(true)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Opération</button>}
           <button onClick={() => setModalOpen(true)}
@@ -190,6 +192,7 @@ export default function TreasuryPage() {
       )}
 
       {editing && <EditAccountDialog account={editing as unknown as TreasuryAccountLite} onClose={() => setEditing(null)} onDone={() => { setEditing(null); reload(); }} />}
+      {allMoves && <MovementsDialog onClose={() => setAllMoves(false)} />}
       {listing && <MovementsDialog account={listing as unknown as TreasuryAccountLite} onClose={() => setListing(null)} />}
       {transfer && <TransferDialog accounts={active as unknown as TreasuryAccountLite[]} onClose={() => setTransfer(false)} onDone={() => { setTransfer(false); reload(); }} />}
       {manual && <ManualMovementDialog accounts={active as unknown as TreasuryAccountLite[]} onClose={() => setManual(false)} onDone={() => { setManual(false); reload(); }} />}

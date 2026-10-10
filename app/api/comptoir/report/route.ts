@@ -8,6 +8,7 @@ import { isId, ownDesk } from "@/lib/comptoir";
 import { syncLinkedItems } from "@/lib/comptoir-stock";
 import { generateDeskReportPdf, type DeskReportForPdf, type TenantIdentity } from "@/lib/pdf-document";
 import { TokenPayload } from "@/lib/auth";
+import { parseFlow } from "@/lib/flow-filter";
 import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +47,8 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   ]);
 
   const periodLabel = `${from.toLocaleDateString("fr-FR")} au ${toDay.toLocaleDateString("fr-FR")}`;
-  const buf = await generateDeskReportPdf({ deskName: desk.name, periodLabel, cash, items }, tenant ?? { name: "Organisation" });
+  const journalFlow = parseFlow(url.searchParams.get("flow")) ?? undefined;
+  const buf = await generateDeskReportPdf({ deskName: desk.name, periodLabel, cash, items, journalFlow }, tenant ?? { name: "Organisation" });
 
   const safe = desk.name.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 40) || "comptoir";
   return new NextResponse(new Uint8Array(buf), {

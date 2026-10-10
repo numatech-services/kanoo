@@ -5,21 +5,35 @@ import { isId, ownDesk } from "@/lib/comptoir";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { Types } from "mongoose";
+import { parseFlow, parsePeriod, periodMatch, flowTotals } from "@/lib/flow-filter";
 
 export const dynamic = "force-dynamic";
 
 const METHODS = ["cash", "bank_transfer", "orange_money", "card", "check", "other"];
 
-// Écritures de caisse d'un comptoir (comptabilité argent).
+/**
+ * Écritures de caisse d'un comptoir (comptabilité argent).
+ * Filtres communs : `flow=in|out` (recettes / dépenses), `from`, `to`.
+ * Renvoie `{ items, totals }` ; les totaux couvrent la période, tous sens confondus.
+ */
 export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const url = new URL(req.url);
   const deskId = url.searchParams.get("deskId");
   if (!isId(deskId)) return badRequest("Comptoir invalide");
   if (!(await ownDesk(auth, deskId))) return notFound("Comptoir introuvable");
-  const entries = await ActivityCashEntryModel.find({ ...tenantFilter(auth), deskId })
-    .sort({ date: -1, createdAt: -1 }).limit(300).lean();
-  return ok(entries);
+  const flow = parseFlow(url.searchParams.get("flow"));
+  const base = { ...tenantFilter(auth), deskId: new Types.ObjectId(deskId), ...periodMatch("date", parsePeriod(url)) };
+  const [items, sums] = await Promise.all([
+    ActivityCashEntryModel.find({ ...base, ...(flow ? { direction: flow } : {}) })
+      .sort({ date: -1, createdAt: -1 }).limit(500).lean(),
+    ActivityCashEntryModel.aggregate<{ _id: string; total: number }>([
+      { $match: base }, { $group: { _id: "$direction", total: { $sum: "$amount" } } },
+    ]),
+  ]);
+  const sum = (d: string) => sums.find(x => x._id === d)?.total ?? 0;
+  return ok({ items, totals: flowTotals(sum("in"), sum("out")) });
 });
 
 export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth: TokenPayload) => {

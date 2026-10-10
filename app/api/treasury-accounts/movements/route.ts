@@ -9,24 +9,33 @@ import { accountBalance, ledgerFor, treasuryKind } from "@/lib/treasury";
 import { unknownAccounts } from "@/lib/ledger";
 import { pickImputation, checkImputations } from "@/lib/imputation";
 import { logAudit } from "@/lib/audit";
+import { parseFlow, parsePeriod, periodMatch, flowTotals } from "@/lib/flow-filter";
 
 export const dynamic = "force-dynamic";
 
-/** GET ?accountId=&from=&to= — mouvements d'un compte (ou de tous). */
+/**
+ * GET ?accountId=&from=&to=&flow=in|out — mouvements d'un compte (ou de tous).
+ * Recettes = entrées, dépenses = sorties, hors virements internes (qui ne sont
+ * ni l'un ni l'autre) ; `totals` couvre la période, tous sens confondus.
+ */
 export const GET = withAuth("treasuryAccounts", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const url = new URL(req.url);
   const pagination = getPagination(req);
-  const filter: Record<string, unknown> = { ...tenantFilter(auth) };
+  const base: Record<string, unknown> = { ...tenantFilter(auth), ...periodMatch("date", parsePeriod(url)) };
   const accountId = url.searchParams.get("accountId");
-  if (accountId && Types.ObjectId.isValid(accountId)) filter.accountId = new Types.ObjectId(accountId);
-  const from = url.searchParams.get("from"), to = url.searchParams.get("to");
-  if (from || to) filter.date = { ...(from ? { $gte: new Date(from) } : {}), ...(to ? { $lte: new Date(`${to}T23:59:59`) } : {}) };
-  const [items, total] = await Promise.all([
+  if (accountId && Types.ObjectId.isValid(accountId)) base.accountId = new Types.ObjectId(accountId);
+  const flow = parseFlow(url.searchParams.get("flow"));
+  const filter = flow ? { ...base, source: { $ne: "transfer" }, amount: flow === "in" ? { $gt: 0 } : { $lt: 0 } } : base;
+  const [items, total, sums] = await Promise.all([
     TreasuryMovementModel.find(filter).sort({ date: -1, createdAt: -1 }).skip(pagination.skip).limit(pagination.limit).populate("accountId", "label type").lean(),
     TreasuryMovementModel.countDocuments(filter),
+    TreasuryMovementModel.aggregate<{ _id: null; inSum: number; outSum: number }>([
+      { $match: { ...base, source: { $ne: "transfer" } } },
+      { $group: { _id: null, inSum: { $sum: { $cond: [{ $gt: ["$amount", 0] }, "$amount", 0] } }, outSum: { $sum: { $cond: [{ $lt: ["$amount", 0] }, { $abs: "$amount" }, 0] } } } },
+    ]),
   ]);
-  return paginatedResponse(items, total, pagination);
+  return paginatedResponse(items, total, pagination, { totals: flowTotals(sums[0]?.inSum ?? 0, sums[0]?.outSum ?? 0) });
 });
 
 /**

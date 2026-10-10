@@ -3,6 +3,7 @@ import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { selectCls } from "@/components/ui/FormField";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
 interface Flow { label: string; amount: number; kind: "in" | "out"; source: string; date: string }
 interface Week { start: string; end: string; in: number; out: number; balance: number; flows: Flow[] }
@@ -15,6 +16,7 @@ export default function TreasuryForecastPage() {
   const [weeks, setWeeks] = useState(13);
   const [data, setData] = useState<Forecast | null>(null);
   const [open, setOpen] = useState<Set<number>>(new Set());
+  const [flow, setFlow] = useState<"" | "in" | "out">("");
   useEffect(() => {
     fetch(`/api/treasury-accounts/forecast?weeks=${weeks}`, { credentials: "include" }).then(r => r.json()).then(x => setData(x.data ?? null)).catch(() => {});
   }, [weeks]);
@@ -43,6 +45,30 @@ export default function TreasuryForecastPage() {
         <p className="p-3 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg flex items-center gap-2"><AlertTriangle size={16} /> Trésorerie négative prévue la semaine du {d(data.lowest.weekStart)} ({fmt(data.lowest.balance)} XOF) : relancez les clients ou décalez des paiements.</p>
       )}
 
+      <SegmentedControl ariaLabel="Vue" value={flow} onChange={setFlow}
+        segments={[{ value: "", label: "Semaine par semaine" }, { value: "in", label: "Recettes attendues" }, { value: "out", label: "Dépenses attendues" }]} />
+
+      {flow ? (() => {
+        const list = data.weeks.flatMap(w => w.flows).filter(f => f.kind === flow).sort((a, b) => a.date.localeCompare(b.date));
+        const sum = list.reduce((t, f) => t + f.amount, 0);
+        return (
+          <div className="bg-surface rounded-xl border border-line overflow-x-auto">
+            <table className="table-dense w-full">
+              <thead><tr className="bg-surface2/50 text-left"><th>Échéance</th><th>Origine</th><th>Libellé</th><th className="text-right">Montant</th></tr></thead>
+              <tbody>
+                {list.length === 0 && <tr><td colSpan={4} className="text-center text-ink3 py-6">Rien de prévu sur l&apos;horizon.</td></tr>}
+                {list.map((f, i) => (
+                  <tr key={i} className="border-t border-line text-xs">
+                    <td className="whitespace-nowrap">{d(f.date)}</td><td className="text-ink2">{f.source}</td><td>{f.label}</td>
+                    <td className={`text-right font-mono ${flow === "in" ? "text-pos" : "text-neg"}`}>{fmt(f.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              {list.length > 0 && <tfoot><tr className="border-t border-line font-semibold"><td colSpan={3}>Total {flow === "in" ? "des recettes" : "des dépenses"} attendues</td><td className="text-right font-mono">{fmt(sum)} XOF</td></tr></tfoot>}
+            </table>
+          </div>
+        );
+      })() : (
       <div className="bg-surface rounded-xl border border-line overflow-x-auto">
         <table className="table-dense w-full">
           <thead><tr className="bg-surface2/50 text-left"><th /><th>Semaine</th><th className="text-right">Entrées</th><th className="text-right">Sorties</th><th className="text-right">Solde fin de semaine</th><th className="w-1/4" /></tr></thead>
@@ -69,6 +95,7 @@ export default function TreasuryForecastPage() {
           </tbody>
         </table>
       </div>
+      )}
       <ul className="text-[11px] text-ink3 list-disc pl-5">{data.notes.map(n => <li key={n}>{n}</li>)}</ul>
     </div>
   );

@@ -1,29 +1,35 @@
 import { NextRequest } from "next/server";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { AnalyticEntryModel } from "@/models/AnalyticEntry";
 import { logAudit } from "@/lib/audit";
+import { parseFlow, parsePeriod, periodMatch, flowTotals } from "@/lib/flow-filter";
 
 export const dynamic = "force-dynamic";
 
+/** GET ?activityId=&flow=in|out (ou kind=revenue|expense)&from=&to= — écritures analytiques, avec totaux de la période. */
 export const GET = withAuth("analytics", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const url = new URL(req.url);
   const pagination = getPagination(req);
-  const filter: Record<string, unknown> = { ...tenantFilter(auth) };
+  const base: Record<string, unknown> = { ...tenantFilter(auth), ...periodMatch("date", parsePeriod(url)) };
   const activityId = url.searchParams.get("activityId");
-  if (activityId === "general") filter.activityId = { $exists: false };
-  else if (activityId && Types.ObjectId.isValid(activityId)) filter.activityId = activityId;
-  const kind = url.searchParams.get("kind");
-  if (kind === "revenue" || kind === "expense") filter.kind = kind;
+  if (activityId === "general") base.activityId = { $exists: false };
+  else if (activityId && Types.ObjectId.isValid(activityId)) base.activityId = new Types.ObjectId(activityId);
+  const flow = parseFlow(url.searchParams.get("flow"));
+  const kindParam = url.searchParams.get("kind");
+  const kind = flow === "in" ? "revenue" : flow === "out" ? "expense" : kindParam === "revenue" || kindParam === "expense" ? kindParam : null;
+  const filter = kind ? { ...base, kind } : base;
 
-  const [items, total] = await Promise.all([
+  const [items, total, sums] = await Promise.all([
     AnalyticEntryModel.find(filter).populate("activityId", "name color").sort({ date: -1 }).skip(pagination.skip).limit(pagination.limit).lean(),
     AnalyticEntryModel.countDocuments(filter),
+    AnalyticEntryModel.aggregate<{ _id: string; total: number }>([{ $match: base }, { $group: { _id: "$kind", total: { $sum: "$amount" } } }]),
   ]);
-  return paginatedResponse(items, total, pagination);
+  const sum = (k: string) => sums.find(x => x._id === k)?.total ?? 0;
+  return paginatedResponse(items, total, pagination, { totals: flowTotals(sum("revenue"), sum("expense")) });
 });
 
 export const POST = withAuth("analytics", "create", async (req: NextRequest, auth: TokenPayload) => {

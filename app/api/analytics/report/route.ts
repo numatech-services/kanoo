@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
+import { parsePeriod, periodMatch } from "@/lib/flow-filter";
 import { ActivityModel } from "@/models/Activity";
 import { AnalyticEntryModel } from "@/models/AnalyticEntry";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
@@ -23,13 +24,8 @@ export const GET = withAuth("analytics", "read", async (req: NextRequest, auth: 
   await connectDB();
   const url = new URL(req.url);
   const match: Record<string, unknown> = { ...tenantFilter(auth) };
-  const from = url.searchParams.get("from"); const to = url.searchParams.get("to");
-  if (from || to) {
-    const range: Record<string, Date> = {};
-    if (from) range.$gte = new Date(from);
-    if (to) range.$lt = new Date(to);
-    match.date = range;
-  }
+  // Même lecture de période que les listes (date de fin incluse).
+  Object.assign(match, periodMatch("date", parsePeriod(url)));
 
   // Écritures comptables imputées à un secteur (factures de vente, achats,
   // notes de frais, charges récurrentes…) : classe 7 = recette, classe 6 = charge.

@@ -7,6 +7,7 @@ import { withAuth, created, badRequest, getPagination, paginatedResponse, tenant
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { parseFlow, parsePeriod, periodMatch, flowTotals } from "@/lib/flow-filter";
 
 export const GET = withAuth("accountingEntries", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
@@ -21,11 +22,9 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   if (journal) filter.journalCode = journal;
   if (lettered !== null && lettered !== undefined) filter.isLettered = lettered === "true";
-  if (from || to) {
-    filter.entryDate = {};
-    if (from) (filter.entryDate as Record<string, unknown>).$gte = new Date(from);
-    if (to) (filter.entryDate as Record<string, unknown>).$lte = new Date(to + "T23:59:59");
-  }
+  if (from || to) Object.assign(filter, periodMatch("entryDate", parsePeriod(url)));
+  // Base des totaux recettes / dépenses : période, journal, projet (pas la recherche).
+  const base: Record<string, unknown> = { ...filter };
   if (search) {
     const rx = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
     filter.$or = [{ reference: rx }, { label: rx }, { "lines.accountLabel": rx }];
@@ -33,18 +32,28 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   const account = url.searchParams.get("account");
   if (account && /^\d{1,8}$/.test(account)) filter["lines.accountCode"] = { $regex: `^${account}` };
   const projectId = url.searchParams.get("projectId");
-  if (projectId && Types.ObjectId.isValid(projectId)) filter["lines.projectId"] = new Types.ObjectId(projectId);
+  const project = projectId && Types.ObjectId.isValid(projectId) ? new Types.ObjectId(projectId) : null;
+  if (project) { filter["lines.projectId"] = project; base["lines.projectId"] = project; }
+  // Recettes = écritures portant des produits (classe 7), dépenses = des charges (classe 6).
+  const flow = parseFlow(url.searchParams.get("flow"));
+  if (flow) filter.$and = [{ lines: { $elemMatch: { accountCode: { $regex: flow === "in" ? "^7" : "^6" }, ...(project ? { projectId: project } : {}) } } }];
 
-  const [items, total] = await Promise.all([
+  const [items, total, sums] = await Promise.all([
     AccountingEntryModel.find(filter)
       .sort({ entryDate: -1, createdAt: -1 })
       .skip(pagination.skip)
       .limit(pagination.limit)
       .lean(),
     AccountingEntryModel.countDocuments(filter),
+    AccountingEntryModel.aggregate<{ _id: string; net: number }>([
+      { $match: base },
+      { $unwind: "$lines" },
+      { $match: { "lines.accountCode": { $regex: "^[67]" }, ...(project ? { "lines.projectId": project } : {}) } },
+      { $group: { _id: { $substrCP: ["$lines.accountCode", 0, 1] }, net: { $sum: { $subtract: ["$lines.debit", "$lines.credit"] } } } },
+    ]),
   ]);
-
-  return paginatedResponse(items, total, pagination);
+  const net = (c: string) => sums.find(x => x._id === c)?.net ?? 0;
+  return paginatedResponse(items, total, pagination, { totals: flowTotals(-net("7"), net("6")) });
 });
 
 const JOURNALS = ["AC", "VT", "BQ", "CA", "OD"];
