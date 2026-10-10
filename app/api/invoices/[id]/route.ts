@@ -34,6 +34,9 @@ export const PATCH = withAuth("invoices", "update", async (req: NextRequest, aut
 
   const touchesContent = ["lines", "clientId", "issueDate"].some(k => k in body);
   if (touchesContent && !isDraft) return badRequest("Facture émise : son contenu ne se modifie plus. Émettez un avoir.");
+  // Facture de marché (acompte, échéance, déduction) : ses montants viennent du
+  // marché ; la retoucher ici fausserait acomptes et reste à facturer.
+  if (inv.contractId && ("lines" in body || "clientId" in body)) return badRequest("Facture de marché : faites un avoir puis refacturez depuis la fiche du marché.");
 
   if ("dueDate" in body && body.dueDate) inv.dueDate = new Date(body.dueDate);
   if ("notes" in body) inv.notes = String(body.notes ?? "").slice(0, 4000);

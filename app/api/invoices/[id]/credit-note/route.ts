@@ -6,6 +6,7 @@ import {
 import { InvoiceModel } from "@/models/Invoice";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { ClientModel } from "@/models/Client";
+import { releaseMarketInvoice } from "@/lib/market-invoice";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { buildCreditNote, reversalEntryLines, creditableAmount, type InvoiceLike } from "@/lib/credit-notes";
 import { logAudit } from "@/lib/audit";
@@ -47,7 +48,9 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
   const issueDate = body.issueDate ? new Date(body.issueDate) : new Date();
   if (Number.isNaN(issueDate.getTime())) return badRequest("Date d'émission invalide");
 
-  const entryLines = reversalEntryLines(draft, invoice.clientId);
+  // L'avoir porte l'imputation de la facture : il réduit les recettes du projet.
+  const tags = { ...(invoice.projectId ? { projectId: invoice.projectId } : {}), ...(invoice.activityId ? { activityId: invoice.activityId } : {}) };
+  const entryLines = reversalEntryLines(draft, invoice.clientId, { kind: invoice.kind, tags });
   const totalDebit = entryLines.reduce((sum, l) => sum + l.debit, 0);
   const totalCredit = entryLines.reduce((sum, l) => sum + l.credit, 0);
   if (totalDebit !== totalCredit) {
@@ -82,6 +85,9 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
       tenantId: auth.tenantId,
       documentType: "credit_note",
       originalInvoiceId: invoice._id,
+      ...tags,
+      ...(invoice.contractId ? { contractId: invoice.contractId } : {}),
+      kind: invoice.kind ?? "standard",
       creditReason: String(body.reason).trim(),
       number,
       clientId: invoice.clientId,
@@ -118,6 +124,9 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
         { $set: { status: "cancelled" } },
         { session }
       );
+      // Acomptes déduits sur cette facture : redevenus disponibles. Échéance du
+      // marché : de nouveau à facturer.
+      await releaseMarketInvoice(auth.tenantId, invoice, session);
     }
 
     return creditNote;

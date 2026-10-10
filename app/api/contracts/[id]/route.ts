@@ -23,6 +23,8 @@ export const GET = withAuth("contracts", "read", async (_req: NextRequest, auth:
     .populate("employeeId", "firstName lastName code position")
     // Montants facturés : visibles de la comptabilité et du gérant seulement.
     .populate("invoiceIds", authCan(auth, "invoices", "read") ? "number totalTTC status issueDate" : "number status issueDate")
+    .populate("projectId", "code name status")
+    .populate("devisId", "number status")
     .lean();
 
   if (!contract) return notFound();

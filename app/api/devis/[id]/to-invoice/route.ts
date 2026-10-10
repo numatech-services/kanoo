@@ -9,10 +9,11 @@ import { calculerDTS } from "@/lib/niger-fiscal";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { saleEntryLines } from "@/lib/invoice-entry";
 import { authCan } from "@/lib/role-resources";
 
 // POST /api/devis/:id/to-invoice
-// Transforme un devis accepté en facture (ou facture proforma si body.type=proforma)
+// Transforme un devis accepté en facture ; body.type=proforma rend le lien du PDF proforma (rien en base)
 export const POST = withAuth("devis", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   // Le devis accepté est transformé en facture par la comptabilité (ou le gérant) :
   // la facture engage le chiffre d'affaires et les encaissements.
@@ -25,7 +26,14 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
 
   const devis = await DevisModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!devis) return notFound("Devis introuvable");
-  if (!["accepted", "sent", "draft"].includes(devis.status) && invoiceType !== "proforma") {
+  // Proforma : un document d'engagement, pas une facture. Elle ne crée rien en
+  // base (elle prenait un numéro de facture, apparaissait comme une facture
+  // sans écriture et bloquait la vraie conversion du devis).
+  if (invoiceType === "proforma") {
+    return ok({ message: "Proforma prête : le PDF s'ouvre dans un nouvel onglet.", pdfUrl: `/api/devis/${devis._id}/pdf?proforma=1` });
+  }
+  if (devis.contractId) return conflict("Ce devis est devenu un marché : facturez-le depuis la fiche du marché (acomptes, échéances).");
+  if (!["accepted", "sent", "draft"].includes(devis.status)) {
     return badRequest("Seuls les devis acceptés, envoyés ou en brouillon peuvent être convertis");
   }
   if (devis.convertedToInvoiceId) return conflict("Ce devis a déjà été converti en facture");
@@ -55,8 +63,8 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
       status: "draft",
       issueDate,
       dueDate,
-      notes: `Convertie depuis devis ${devis.number}${invoiceType === "proforma" ? " (Proforma)" : ""}`,
-      isProforma: invoiceType === "proforma",
+      notes: `Convertie depuis devis ${devis.number}`,
+      ...(devis.projectId ? { projectId: devis.projectId } : {}),
       createdBy: auth.userId,
     }], { session });
 
@@ -65,25 +73,16 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
     devis.status = "accepted";
     await devis.save({ session });
 
-    // Écriture comptable seulement si facture définitive
-    if (invoiceType !== "proforma") {
-      await AccountingEntryModel.create([{
-        tenantId: auth.tenantId, journalCode: "VT", entryDate: new Date(),
-        reference: number, label: `Facture client — convertie du devis ${devis.number}`,
-        lines: [
-          { accountCode: "411000", accountLabel: "Clients", debit: invoice.totalTTC, credit: 0, thirdPartyId: devis.clientId },
-          { accountCode: "706000", accountLabel: "Prestations", debit: 0, credit: devis.totalHT },
-          ...(devis.totalTVA > 0 ? [{ accountCode: "443000", accountLabel: "TVA collectée", debit: 0, credit: devis.totalTVA }] : []),
-          // Le droit de timbre entre dans le TTC porté au débit du client : sans
-          // sa contrepartie au crédit (447), l'écriture était déséquilibrée de
-          // 500 XOF exactement, et la conversion échouait sur le contrôle
-          // d'équilibre. La création directe de facture, elle, portait déjà
-          // cette ligne — la conversion l'avait oubliée.
-          ...(totalDTS > 0 ? [{ accountCode: "447000", accountLabel: "Droits de timbre", debit: 0, credit: totalDTS }] : []),
-        ],
-        linkedDocType: "invoice", linkedDocId: invoice._id, createdBy: auth.userId,
-      }], { session });
-    }
+    // Écriture de vente commune (produits par article, TVA, timbre 447), imputée au projet du devis.
+    await AccountingEntryModel.create([{
+      tenantId: auth.tenantId, journalCode: "VT", entryDate: issueDate,
+      reference: number, label: `Facture client — convertie du devis ${devis.number}`,
+      lines: await saleEntryLines(auth.tenantId, {
+        clientId: devis.clientId, lines: devis.lines, totalTVA: devis.totalTVA, totalDTS, totalTTC: invoice.totalTTC,
+        ...(devis.projectId ? { projectId: devis.projectId } : {}),
+      }, session),
+      linkedDocType: "invoice", linkedDocId: invoice._id, createdBy: auth.userId,
+    }], { session });
 
     return invoice;
   });
@@ -95,8 +94,6 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
 
   return ok({
     invoice: result,
-    message: invoiceType === "proforma"
-      ? `Facture proforma ${result.number} créée depuis le devis ${devis.number}`
-      : `Facture définitive ${result.number} créée depuis le devis ${devis.number}`,
+    message: `Facture définitive ${result.number} créée depuis le devis ${devis.number}`,
   });
 });

@@ -9,9 +9,13 @@
  * un avoir calculé, soit un refus motivé. Aucun accès base, aucune horloge.
  */
 
+import { DEPOSIT_ACCOUNT } from "@/lib/deposit";
 import { calculerTVA, TVA_TAUX_STANDARD } from "./niger-fiscal";
 
 export interface InvoiceLineLike {
+  /** Ligne de déduction d'acompte (négative) : jamais créditée seule. */
+  kind?: string;
+  depositInvoiceId?: unknown;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -35,6 +39,9 @@ export interface InvoiceLike {
   totalTTC: number;
   creditedAmount?: number;
   secef?: { code?: string };
+  /** Facture d'acompte, et part déjà déduite sur des factures du marché. */
+  kind?: string;
+  depositUsedHT?: number;
 }
 
 /** Une ligne que l'utilisateur choisit d'avoir, en tout ou partie. */
@@ -107,6 +114,9 @@ export function buildCreditNote(
 ): CreditNoteResult {
   const eligibility = canCredit(invoice);
   if (!eligibility.ok) return { ok: false, error: eligibility.error };
+  if (invoice.kind === "deposit" && (invoice.depositUsedHT ?? 0) > 0) {
+    return { ok: false, error: "Cet acompte est déjà déduit sur une facture du marché : annulez d'abord cette facture (avoir total)." };
+  }
 
   // ── Avoir total ────────────────────────────────────────────────────────
   if (requested === "full") {
@@ -153,6 +163,9 @@ export function buildCreditNote(
     }
     seen.add(index);
 
+    if (source.kind === "deposit_deduction") {
+      return { ok: false, error: "La déduction d'acompte suit la facture : faites un avoir total pour l'annuler." };
+    }
     const quantity = Number(req.quantity);
     if (!Number.isFinite(quantity) || quantity <= 0) {
       return { ok: false, error: `Quantité invalide sur la ligne ${index + 1}.` };
@@ -220,10 +233,18 @@ export function buildCreditNote(
  */
 export function reversalEntryLines(
   draft: CreditNoteDraft,
-  clientId: unknown
-): Array<{ accountCode: string; accountLabel: string; debit: number; credit: number; thirdPartyId?: unknown }> {
+  clientId: unknown,
+  opts: { kind?: string; tags?: Record<string, unknown> } = {},
+): Array<{ accountCode: string; accountLabel: string; debit: number; credit: number; thirdPartyId?: unknown; projectId?: unknown; activityId?: unknown }> {
+  // Acompte déduit sur la facture d'origine : l'avoir le rend au client (419 au
+  // crédit) et retire tout le chiffre d'affaires du marché (produits au débit).
+  const deduction = -draft.lines.filter(l => l.kind === "deposit_deduction").reduce((t, l) => t + l.totalHT, 0);
+  const deposit = opts.kind === "deposit";
   return [
-    { accountCode: "706000", accountLabel: "Prestations de services", debit: draft.totalHT, credit: 0 },
+    deposit
+      ? { ...DEPOSIT_ACCOUNT, debit: draft.totalHT, credit: 0, thirdPartyId: clientId }
+      : { accountCode: "706000", accountLabel: "Prestations de services", debit: draft.totalHT + deduction, credit: 0, ...(opts.tags ?? {}) },
+    ...(deduction > 0 ? [{ ...DEPOSIT_ACCOUNT, debit: 0, credit: deduction, thirdPartyId: clientId }] : []),
     ...(draft.totalTVA > 0
       ? [{ accountCode: "443000", accountLabel: "TVA collectée", debit: draft.totalTVA, credit: 0 }]
       : []),

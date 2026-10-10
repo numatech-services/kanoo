@@ -3,13 +3,20 @@ import { ProductModel } from "@/models/Product";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { reverseEntry } from "@/lib/accounting-reversal";
 import { calculerTVA, calculerDTS, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
+import { DEPOSIT_ACCOUNT } from "@/lib/deposit";
 
-export interface InvoiceLineIn { description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; discount?: number; productId?: unknown }
+export interface InvoiceLineIn { description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; discount?: number; productId?: unknown; kind?: "deposit_deduction"; depositInvoiceId?: unknown }
 
-/** Totaux d'une facture : somme des lignes arrondies (jamais l'arrondi de la somme). */
-export function computeInvoiceLines(raw: InvoiceLineIn[]) {
+/**
+ * Totaux d'une facture : somme des lignes arrondies (jamais l'arrondi de la somme).
+ * Une ligne de déduction d'acompte (prix négatif) n'est admise que si
+ * l'appelant la construit lui-même (`allowDeduction`) : jamais depuis la saisie.
+ */
+export function computeInvoiceLines(raw: InvoiceLineIn[], opts: { allowDeduction?: boolean } = {}) {
   let totalHT = 0, totalTVA = 0;
-  const lines = raw.map(line => {
+  const lines = raw.map(input => {
+    const { kind, depositInvoiceId, ...rest } = input;
+    const line: InvoiceLineIn = opts.allowDeduction && kind === "deposit_deduction" ? { ...rest, kind, depositInvoiceId } : rest;
     const q = Number(line.quantity) || 0, pu = Number(line.unitPrice) || 0;
     const lineHT = Math.round(q * pu * (1 - (Number(line.discount) || 0) / 100));
     const lineTVA = calculerTVA(lineHT, line.tvaRate ?? TVA_TAUX_STANDARD);
@@ -20,6 +27,8 @@ export function computeInvoiceLines(raw: InvoiceLineIn[]) {
   return { lines, totalHT, totalTVA, totalDTS, totalTTC: totalHT + totalTVA + totalDTS };
 }
 
+export { DEPOSIT_ACCOUNT };
+
 /**
  * Lignes de l'écriture de vente (VT). Le chiffre d'affaires est ventilé par
  * compte de produit — celui de l'article (marchandises 701, services 706…) —
@@ -28,25 +37,34 @@ export function computeInvoiceLines(raw: InvoiceLineIn[]) {
  */
 export async function saleEntryLines(
   tenantId: string,
-  inv: { clientId: unknown; lines: Array<{ productId?: unknown; totalHT: number }>; totalTVA: number; totalDTS: number; totalTTC: number; projectId?: unknown; activityId?: unknown },
+  inv: { clientId: unknown; lines: Array<{ productId?: unknown; totalHT: number; kind?: string }>; totalTVA: number; totalDTS: number; totalTTC: number; projectId?: unknown; activityId?: unknown; kind?: string },
   session?: ClientSession,
 ) {
+  // Facture d'acompte : avance reçue (419), pas encore du chiffre d'affaires.
+  // Facture finale : l'acompte déduit solde 419 au débit ; les produits portent tout le marché.
+  const deduction = -inv.lines.filter(l => l.kind === "deposit_deduction").reduce((t, l) => t + l.totalHT, 0);
+  const sales = inv.lines.filter(l => l.kind !== "deposit_deduction");
   const ids = inv.lines.map(l => l.productId).filter(Boolean);
   const products = ids.length
     ? await ProductModel.find({ tenantId, _id: { $in: ids } }).select("accountCode isService").session(session ?? null).lean<Array<{ _id: unknown; accountCode?: string; isService?: boolean }>>()
     : [];
   const byId = new Map(products.map(p => [String(p._id), p]));
   const byAccount = new Map<string, number>();
-  for (const l of inv.lines) {
+  for (const l of sales) {
     const p = l.productId ? byId.get(String(l.productId)) : undefined;
-    const code = p?.accountCode && /^7\d{2,7}$/.test(p.accountCode) ? p.accountCode : p && !p.isService ? "701100" : "706000";
+    const code = inv.kind === "deposit" ? DEPOSIT_ACCOUNT.accountCode
+      : p?.accountCode && /^7\d{2,7}$/.test(p.accountCode) ? p.accountCode : p && !p.isService ? "701100" : "706000";
     byAccount.set(code, (byAccount.get(code) ?? 0) + l.totalHT);
   }
-  const LABELS: Record<string, string> = { "701100": "Ventes de marchandises", "706000": "Prestations de services" };
+  const LABELS: Record<string, string> = { "701100": "Ventes de marchandises", "706000": "Prestations de services", [DEPOSIT_ACCOUNT.accountCode]: DEPOSIT_ACCOUNT.accountLabel };
   const tags = { ...(inv.projectId ? { projectId: inv.projectId } : {}), ...(inv.activityId ? { activityId: inv.activityId } : {}) };
   return [
     { accountCode: "411000", accountLabel: "Clients", debit: inv.totalTTC, credit: 0, thirdPartyId: inv.clientId },
-    ...[...byAccount.entries()].filter(([, v]) => v !== 0).map(([code, v]) => ({ accountCode: code, accountLabel: LABELS[code] ?? "Ventes", debit: 0, credit: v, ...tags })),
+    ...(deduction > 0 ? [{ ...DEPOSIT_ACCOUNT, debit: deduction, credit: 0, thirdPartyId: inv.clientId }] : []),
+    ...[...byAccount.entries()].filter(([, v]) => v !== 0).map(([code, v]) => ({
+      accountCode: code, accountLabel: LABELS[code] ?? "Ventes", debit: 0, credit: v,
+      ...(code === DEPOSIT_ACCOUNT.accountCode ? { thirdPartyId: inv.clientId } : tags),
+    })),
     ...(inv.totalTVA > 0 ? [{ accountCode: "443000", accountLabel: "TVA collectée", debit: 0, credit: inv.totalTVA }] : []),
     ...(inv.totalDTS > 0 ? [{ accountCode: "447000", accountLabel: "Droits de timbre", debit: 0, credit: inv.totalDTS }] : []),
   ];

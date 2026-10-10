@@ -27,12 +27,13 @@ export async function GET(req: NextRequest, ctx: RouteParams) {
     ]);
     if (!devis) return NextResponse.json({ error: "Devis introuvable" }, { status: 404 });
 
-    const buf = await generateQuotePdf(devis, tenant ?? { name: "Organisation" });
+    const proforma = new URL(req.url).searchParams.get("proforma") === "1";
+    const buf = await generateQuotePdf(devis, tenant ?? { name: "Organisation" }, { proforma });
     return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${devis.number || "devis"}.pdf"`,
+        "Content-Disposition": `inline; filename="${proforma ? "proforma-" : ""}${devis.number || "devis"}.pdf"`,
         "Cache-Control": "no-store, max-age=0",
       },
     });

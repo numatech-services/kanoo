@@ -227,6 +227,8 @@ export interface InvoiceForPdf {
   _id?: unknown;
   number?: string;
   documentType?: string;
+  /** Facture d'acompte sur marché. */
+  kind?: string;
   issueDate?: Date | string;
   dueDate?: Date | string;
   status?: string;
@@ -262,7 +264,7 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
 
   return createPDFBuffer(async (doc) => {
     let y = drawBrandedHeader(doc, tenant, {
-      title: isCredit ? "Avoir" : "Facture",
+      title: isCredit ? "Avoir" : inv.kind === "deposit" ? "Facture d'acompte" : "Facture",
       number: inv.number || "—",
       partyLabel: isCredit ? "Avoir à" : "Facturé à",
       lines: [
@@ -423,14 +425,15 @@ function drawLinesAndTotals(
   return y + 32;
 }
 
-export async function generateQuotePdf(q: QuoteForPdf, tenant: TenantIdentity): Promise<Buffer> {
+export async function generateQuotePdf(q: QuoteForPdf, tenant: TenantIdentity, opts: { proforma?: boolean } = {}): Promise<Buffer> {
   const c = colors(tenant);
   const withQr = tenant.branding?.documentQr !== false;
   const date = q.issueDate ? new Date(q.issueDate).toLocaleDateString("fr-FR") : "";
 
   return createPDFBuffer(async (doc) => {
     let y = drawBrandedHeader(doc, tenant, {
-      title: "Devis", number: q.number || "—",
+      // Proforma : le devis présenté comme facture d'engagement, sans valeur comptable.
+      title: opts.proforma ? "Facture proforma" : "Devis", number: q.number || "—",
       lines: [
         ["Établi le", date],
         ...(q.validUntil ? [["Valable jusqu'au", new Date(q.validUntil).toLocaleDateString("fr-FR")] as [string, string]] : []),

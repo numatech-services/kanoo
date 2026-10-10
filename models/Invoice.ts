@@ -6,12 +6,18 @@ const InvoiceLineSchema = new Schema(
     productId: { type: Schema.Types.ObjectId, ref: "Product" },
     description: { type: String, required: true },
     quantity: { type: Number, required: true, min: 0 },
-    unitPrice: { type: Number, required: true, min: 0 },
+    // Négatif seulement sur une ligne de déduction d'acompte.
+    unitPrice: {
+      type: Number, required: true,
+      validate: { validator: function (this: { kind?: string }, v: number) { return v >= 0 || this.kind === "deposit_deduction"; }, message: "Prix unitaire négatif." },
+    },
     tvaRate: { type: Number, default: 0.19 },
     discount: { type: Number, default: 0, min: 0, max: 100 },
     totalHT: { type: Number, required: true },
     totalTVA: { type: Number, required: true },
     totalTTC: { type: Number, required: true },
+    kind: { type: String, enum: ["deposit_deduction"] },
+    depositInvoiceId: { type: Schema.Types.ObjectId, ref: "Invoice" },
   },
   { _id: false }
 );
@@ -54,6 +60,16 @@ const InvoiceSchema = new Schema<IInvoice>(
     projectId: { type: Schema.Types.ObjectId, ref: "Project" },
     activityId: { type: Schema.Types.ObjectId, ref: "Activity" },
     quoteId: { type: Schema.Types.ObjectId, ref: "Devis" },
+    /**
+     * Marché facturé. Une facture d'acompte (`kind: "deposit"`) est une avance :
+     * elle crédite 419 (clients, avances reçues), pas un compte de produits ;
+     * elle est déduite ensuite sur les factures du marché (ligne négative
+     * `deposit_deduction`), qui portent alors tout le chiffre d'affaires.
+     */
+    contractId: { type: Schema.Types.ObjectId, ref: "Contract", index: true },
+    milestoneId: { type: Schema.Types.ObjectId },
+    kind: { type: String, enum: ["standard", "deposit"], default: "standard" },
+    depositUsedHT: { type: Number, default: 0, min: 0 },
     lines: { type: [InvoiceLineSchema], required: true },
     totalHT: { type: Number, required: true },
     totalTVA: { type: Number, required: true },

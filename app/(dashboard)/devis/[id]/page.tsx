@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { useMe, meCanDo } from "@/lib/useMe";
+import { ToMarketDialog } from "@/components/devis/ToMarketDialog";
 
 function calcLine(l: any) {
   const qty = l.quantity || 0; 
@@ -35,6 +36,8 @@ export default function DevisDetailPage() {
   const me = useMe();
   const canDeleteDevis = meCanDo(me, "devis", "delete");
   const canEditDevis = meCanDo(me, "devis", "update");
+  const canMarket = meCanDo(me, "contracts", "create");
+  const [marketOpen, setMarketOpen] = useState(false);
   const [item, setItem] = useState<any>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -98,6 +101,9 @@ export default function DevisDetailPage() {
           <StatusBadge status={item.status} />
         </div>
         <div className="flex items-center gap-2">
+          {item.contractId
+            ? <a href={`/contracts/${item.contractId}`} className="px-5 py-2.5 border border-section/30 text-section rounded-2xl font-bold hover:bg-section-soft">Voir le marché</a>
+            : canMarket && !["rejected", "expired"].includes(item.status) && <button onClick={() => setMarketOpen(true)} className="px-5 py-2.5 bg-section text-white rounded-2xl font-bold hover:brightness-95">Créer le marché</button>}
           <a href={`/api/devis/${item._id}/pdf`} target="_blank" rel="noopener"
             className="px-5 py-2.5 border border-line2 rounded-2xl font-bold text-ink2 hover:bg-surface2 transition-all">
             PDF
@@ -198,6 +204,7 @@ export default function DevisDetailPage() {
           </div>
         </form>
       </Modal>
+      {marketOpen && <ToMarketDialog devis={item} onClose={() => setMarketOpen(false)} />}
     </div>
   );
 }

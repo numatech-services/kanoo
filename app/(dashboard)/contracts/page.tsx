@@ -4,6 +4,7 @@ import Link from "next/link";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
+import { useMe, meCanDo } from "@/lib/useMe";
 
 interface Contract { _id:string; reference:string; title:string; type:string; clientId:{name:string}|null; amount:number; paymentMode:string; isRecurring:boolean; billingFrequency:string; status:string; startDate?:string; endDate?:string; nextBillingDate?:string; invoiceIds:string[]; }
 
@@ -13,6 +14,8 @@ const PAYMENT_MODE_LABELS: Record<string,string> = {
 };
 
 export default function ContractsPage() {
+  // Marges : gérant et comptabilité (accès au journal).
+  const canSeeMargins = meCanDo(useMe(), "accountingEntries", "read");
   const [mounted,setMounted]=useState(false);
   const [contracts,setContracts]=useState<Contract[]>([]); const [total,setTotal]=useState(0); const [page,setPage]=useState(1); const [loading,setLoading]=useState(true);
   const [status,setStatus]=useState(""); const [type,setType]=useState(""); const [isRecurring,setIsRecurring]=useState(""); const LIMIT=20;
@@ -45,7 +48,10 @@ export default function ContractsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold text-ink">Contrats</h1><p className="text-sm text-ink2 mt-0.5">{total} contrat{total>1?"s":""}</p></div>
-        <Link href="/contracts/new" className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouveau contrat</Link>
+        <div className="flex gap-2">
+          {canSeeMargins && <Link href="/contracts/rentabilite" className="px-4 py-2 border border-line2 rounded-lg text-sm font-medium hover:bg-surface2">Rentabilité des marchés</Link>}
+          <Link href="/contracts/new" className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouveau contrat</Link>
+        </div>
       </div>
       <div className="flex flex-wrap gap-3">
         <select value={type} onChange={e=>{setType(e.target.value);setPage(1);}} className="px-3 py-2 border border-line rounded-lg text-sm">

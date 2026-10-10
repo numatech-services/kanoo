@@ -40,6 +40,9 @@ export const POST = withAuth("contracts", "update", async (_req: NextRequest, au
       tenantId: auth.tenantId,
       number,
       clientId: contract.clientId,
+      // Rattachée au marché et à son projet : recette visible dans la rentabilité.
+      contractId: contract._id,
+      ...(contract.projectId ? { projectId: contract.projectId } : {}),
       lines: [{
         description: `${contract.title} — ${contract.reference}`,
         quantity: 1, unitPrice: totalHT, tvaRate: TVA_TAUX_STANDARD, discount: 0,
@@ -72,7 +75,7 @@ export const POST = withAuth("contracts", "update", async (_req: NextRequest, au
     await AccountingEntryModel.create([{
       tenantId: auth.tenantId, journalCode: "VT", entryDate: issueDate,
       reference: number, label: `Facture contrat ${contract.reference}`,
-      lines: await saleEntryLines(auth.tenantId, { clientId: contract.clientId, lines: [{ totalHT }], totalTVA, totalDTS, totalTTC }, session),
+      lines: await saleEntryLines(auth.tenantId, { clientId: contract.clientId, lines: [{ totalHT }], totalTVA, totalDTS, totalTTC, ...(contract.projectId ? { projectId: contract.projectId } : {}) }, session),
       linkedDocType: "invoice", linkedDocId: invoice._id, createdBy: auth.userId,
     }], { session });
 

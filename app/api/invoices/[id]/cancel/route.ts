@@ -3,6 +3,7 @@ import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
 import { reverseSaleEntry } from "@/lib/invoice-entry";
+import { releaseMarketInvoice } from "@/lib/market-invoice";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -19,9 +20,12 @@ export const POST = withAuth("invoices", "update", async (_req: NextRequest, aut
   if (invoice.status === "paid") return badRequest("Impossible d'annuler une facture soldée");
   if (invoice.paidAmount > 0) return badRequest("Impossible d'annuler une facture partiellement payée");
   if (invoice.secef?.code) return badRequest("Facture certifiée : elle s'annule par un avoir.");
+  if (invoice.kind === "deposit" && (invoice.depositUsedHT ?? 0) > 0) return badRequest("Acompte déjà déduit sur une facture du marché : annulez d'abord celle-ci.");
   await withTransaction(async session => {
     invoice.status = "cancelled";
     await invoice.save({ session });
+    // Facture de marché : acomptes déduits libérés, échéance de nouveau à facturer.
+    await releaseMarketInvoice(auth.tenantId, invoice, session);
     await reverseSaleEntry({ tenantId: auth.tenantId, userId: auth.userId, invoiceId: invoice._id, reason: "facture annulée" }, session);
   });
   await logAudit(auth, "UPDATE", "invoices", { resourceId: params.id, after: { status: "cancelled" } });

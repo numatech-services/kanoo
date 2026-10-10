@@ -276,9 +276,14 @@ export interface IInvoiceLine {
   totalHT: number;
   totalTVA: number;
   totalTTC: number;
+  /** Ligne de déduction d'un acompte déjà facturé (montant négatif). */
+  kind?: "deposit_deduction";
+  depositInvoiceId?: Types.ObjectId;
 }
 
 export type InvoiceDocumentType = "invoice" | "credit_note";
+/** Facture ordinaire, ou facture d'acompte (avance sur un marché, compte 419). */
+export type InvoiceKind = "standard" | "deposit";
 
 export interface IInvoice {
   _id: Types.ObjectId;
@@ -294,6 +299,12 @@ export interface IInvoice {
   activityId?: Types.ObjectId;
   clientId: Types.ObjectId;
   quoteId?: Types.ObjectId;
+  /** Marché (contrat) facturé, et échéance de son échéancier. */
+  contractId?: Types.ObjectId;
+  milestoneId?: Types.ObjectId;
+  kind?: InvoiceKind;
+  /** Facture d'acompte : part HT déjà déduite sur des factures suivantes. */
+  depositUsedHT?: number;
   lines: IInvoiceLine[];
   totalHT: number;
   totalTVA: number;
@@ -342,6 +353,9 @@ export interface IDevis {
   convertedToInvoiceId?: Types.ObjectId;
   createdBy: Types.ObjectId;
   createdAt: Date;
+  /** Marché créé depuis ce devis accepté, et son projet d'exécution. */
+  contractId?: Types.ObjectId;
+  projectId?: Types.ObjectId;
 }
 
 export interface IPayment {

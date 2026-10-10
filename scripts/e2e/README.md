@@ -6,7 +6,8 @@ Chaque script joue un parcours complet contre une instance compilée et affiche
 - `e2e-complet.mjs` : trésorerie, achats, paie, congés, comptabilité, CRUD.
 - `e2e-org.mjs` : cloisonnement par services et niveaux, droits, fuites de données.
 - `e2e-stock.mjs` : entrepôts, transferts, lots / péremption, inventaire, comptoir.
-- `e2e-flux.mjs` : filtre commun recettes / dépenses / période.
+- `e2e-flux.mjs` : filtre commun recettes / dépenses / période, contrats.
+- `e2e-marche.mjs` : devis → marché → acomptes → dépenses par catégorie → marge, avoir.
 
 Lancement (base de test jetable, jamais la production) :
 

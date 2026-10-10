@@ -11,6 +11,8 @@ const MilestoneSchema = new Schema({
   dueDate: Date,
   invoiceId: { type: Schema.Types.ObjectId, ref: "Invoice" },
   status: { type: String, enum: ["pending", "invoiced", "paid"], default: "pending" },
+  /** Échéance d'acompte (avance) ou de facturation ordinaire. */
+  kind: { type: String, enum: ["deposit", "standard"], default: "standard" },
 }, { _id: true });
 
 const ContractSchema = new Schema({
@@ -52,6 +54,10 @@ const ContractSchema = new Schema({
   endDate: Date,
   signedDate: Date,
   renewalReminderDays: { type: Number, default: 30 },
+
+  // Exécution : devis accepté d'origine et projet qui porte les dépenses imputées.
+  devisId: { type: Schema.Types.ObjectId, ref: "Devis" },
+  projectId: { type: Schema.Types.ObjectId, ref: "Project" },
 
   // Factures liées
   invoiceIds: [{ type: Schema.Types.ObjectId, ref: "Invoice" }],
