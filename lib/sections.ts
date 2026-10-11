@@ -18,6 +18,7 @@ export type SectionKey =
   | "achats"
   | "abonnements"
   | "contrats"
+  | "documents"
   | "finance"
   | "rh"
   | "gouvernance"
@@ -33,17 +34,18 @@ export interface SectionMeta {
 }
 
 export const SECTIONS: Record<SectionKey, SectionMeta> = {
-  accueil:     { key: "accueil",     label: "Accueil" },
+  accueil:     { key: "accueil",     label: "Pilotage" },
   ventes:      { key: "ventes",      label: "Ventes" },
-  achats:      { key: "achats",      label: "Achats & Stock" },
-  abonnements: { key: "abonnements", label: "Abonnements" },
-  contrats:    { key: "contrats",    label: "Contrats & Projets" },
+  achats:      { key: "achats",      label: "Achats & stock" },
+  abonnements: { key: "abonnements", label: "Modules" },
+  contrats:    { key: "contrats",    label: "Appels d'offres & projets" },
+  documents:   { key: "documents",   label: "Documents" },
   finance:     { key: "finance",     label: "Finance" },
-  rh:          { key: "rh",          label: "Ressources humaines" },
+  rh:          { key: "rh",          label: "Équipe" },
   gouvernance: { key: "gouvernance", label: "Gouvernance" },
   membres:     { key: "membres",     label: "Membres" },
   budget:      { key: "budget",      label: "Budget public" },
-  parametres:  { key: "parametres",  label: "Paramètres" },
+  parametres:  { key: "parametres",  label: "Réglages" },
   plateforme:  { key: "plateforme",  label: "Plateforme" },
 };
 
@@ -52,50 +54,56 @@ export const SECTIONS: Record<SectionKey, SectionMeta> = {
  * correspond gagne, donc les chemins les plus spécifiques d'abord.
  */
 const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
-  // Abonnements — revente incluse
+  // Modules optionnels (comptoirs, ISIC, revente de licences, événements)
   ["/abonnements", "abonnements"],
+  ["/comptoir", "abonnements"],
+  ["/isic", "abonnements"],
+  ["/activites", "abonnements"],
 
-  // Ventes
+  // Ventes — du prospect à l'encaissement
   ["/clients", "ventes"],
+  ["/crm", "ventes"],
   ["/devis", "ventes"],
+  ["/contracts", "ventes"],
+  ["/marches-cadres", "ventes"],
   ["/invoices", "ventes"],
   ["/livraisons", "ventes"],
   ["/payments", "ventes"],
   ["/relances", "ventes"],
-  ["/crm", "ventes"],
-  ["/isic", "ventes"],
 
   // Achats & stock
   ["/suppliers", "achats"],
   ["/commandes", "achats"],
+  ["/depenses", "achats"],
+  ["/recurring-expenses", "achats"],
   ["/stock", "achats"],
   ["/inventaires", "achats"],
-  ["/marches", "achats"],
-  ["/marches-cadres", "achats"],
+  ["/marches", "contrats"],
 
-  // Contrats & projets
-  ["/contracts", "contrats"],
+  // Appels d'offres & projets
   ["/appels", "contrats"],
   ["/projects", "contrats"],
-  ["/documents-administratifs", "contrats"],
-  ["/documents", "contrats"],
   ["/approbations", "contrats"],
+
+  // Documents
+  ["/documents-administratifs", "documents"],
+  ["/documents", "documents"],
+  ["/courriers", "documents"],
 
   // Finance
   ["/treasury", "finance"],
-  ["/notes-de-frais", "finance"],
   ["/accounting", "finance"],
-  ["/budget-previsionnel", "finance"],
-  ["/recurring-expenses", "finance"],
   ["/fiscalite", "finance"],
+  ["/budget-previsionnel", "finance"],
   ["/fixed-assets", "finance"],
-  ["/analytics", "finance"],
   ["/analytique", "finance"],
-  ["/comptoir", "finance"],
+  ["/analytics", "finance"],
 
-  // RH
+  // Équipe
   ["/employees", "rh"],
   ["/payslips", "rh"],
+  ["/conges", "rh"],
+  ["/notes-de-frais", "rh"],
 
   // Associations
   ["/associations/bureau", "gouvernance"],
@@ -106,8 +114,9 @@ const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
   // Ces deux préfixes ne servent plus qu'aux redirections : les écrans ont été
   // unifiés sous /projects et /documents (voir lib/vocabulary.ts).
   ["/associations/projets", "contrats"],
-  ["/associations/documents", "contrats"],
+  ["/associations/documents", "documents"],
   ["/associations/dashboard", "accueil"],
+  ["/associations/agenda", "accueil"],
   ["/associations/profil", "parametres"],
 
   // Administration
@@ -118,23 +127,27 @@ const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
   ["/administration/personnel", "rh"],
   ["/administration/services", "parametres"],
   ["/administration/dashboard", "accueil"],
+  ["/administration/agenda", "accueil"],
 
   // Plateforme (superadmin)
   ["/saas", "plateforme"],
 
-  // Paramètres
+  // Réglages
   ["/settings", "parametres"],
+  ["/company", "parametres"],
   ["/users", "parametres"],
+  ["/data", "parametres"],
   ["/subscription", "parametres"],
   ["/support", "parametres"],
   ["/audit", "parametres"],
+  ["/profile", "parametres"],
 
-  // Accueil
+  // Pilotage
   ["/dashboard", "accueil"],
-  ["/activites", "accueil"],
+  ["/rapports", "accueil"],
+  ["/agenda", "accueil"],
   ["/notifications", "accueil"],
   ["/messages", "accueil"],
-  ["/courriers", "accueil"],
 ];
 
 /** Section d'un chemin. `accueil` par défaut, jamais `undefined`. */

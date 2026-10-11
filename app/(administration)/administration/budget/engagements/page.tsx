@@ -52,7 +52,7 @@ export default function EngagementsPage() {
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 rise">
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-2xl font-black text-ink uppercase tracking-tight">Engagements</h1>

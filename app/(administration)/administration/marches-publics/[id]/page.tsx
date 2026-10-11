@@ -7,6 +7,7 @@ import { toast } from "react-hot-toast";
 import { errorMessage } from "@/lib/errors";
 import { Plus, Trash2, Award, Ban, FileCheck, Landmark, Users } from "lucide-react";
 
+import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 interface Bid { _id?: string; bidderName: string; amount: number; compliant?: boolean; notes?: string }
 interface Tender {
   _id: string; reference: string; object: string; estimatedAmount: number;
@@ -83,7 +84,7 @@ export default function TenderDetailPage() {
   }
 
   async function del() {
-    if (!confirm("Supprimer ce marché ? Action irréversible.")) return;
+    if (!(await confirmDialog({ title: "Supprimer ce marché ?", message: "Action irréversible.", danger: true }))) return;
     const res = await fetch(`/api/marches/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
     if (res.ok) { toast.success("Marché supprimé"); router.push("/administration/marches-publics"); }
     else toast.error("Suppression impossible");
@@ -114,8 +115,8 @@ export default function TenderDetailPage() {
     } catch (err) { toast.error(errorMessage(err)); } finally { setLoading(false); }
   }
 
-  function cancel() {
-    const reason = prompt("Motif d'annulation du marché ?");
+  async function cancel() {
+    const reason = await promptDialog({ title: "Motif d'annulation du marché ?", multiline: true });
     if (reason === null) return;
     patch({ status: "cancelled", cancelReason: reason }, "Marché annulé");
   }

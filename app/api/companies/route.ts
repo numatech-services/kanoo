@@ -14,7 +14,7 @@ export const PATCH = withAuth("companies", "update", async (req: NextRequest, au
   const body = await req.json();
   // Le tenant modifie son identité, jamais son abonnement ni sa numérotation.
   const updates = sanitizeBody(body, [
-    "plan", "planModules", "subscriptionStatus", "slug", "type",
+    "plan", "planModules", "disabledModules", "subscriptionStatus", "slug", "type",
     "numberingConfig", "documentSequences", "paymentAttempts",
     "trialEndsAt", "subscriptionEndsAt", "activationToken", "activationTokenExpiry",
   ]);

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, Package, ArrowLeft, Save } from "lucide-react";
 import { useWarehouses } from "@/components/stock/useWarehouses";
 
+import { showToast } from "@/components/ui/Toast";
 export default function NewDeliveryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -51,7 +52,7 @@ export default function NewDeliveryPage() {
           }))
         }));
       } else {
-        alert(d.error || "Facture introuvable");
+        showToast(d.error || "Facture introuvable", "error");
       }
     } finally {
       setSearching(false);
@@ -61,7 +62,7 @@ export default function NewDeliveryPage() {
   // 2. Enregistrer le BL
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.invoiceId) return alert("Veuillez lier une facture");
+    if (!form.invoiceId) return showToast("Veuillez lier une facture", "warning");
 
     setLoading(true);
     try {
@@ -77,7 +78,7 @@ export default function NewDeliveryPage() {
         router.refresh();
       } else {
         const error = await res.json();
-        alert("Erreur : " + error.error);
+        showToast("Erreur : " + error.error, "error");
       }
     } finally {
       setLoading(false);

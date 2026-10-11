@@ -6,6 +6,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill } from "@/components/ui/Primitives";
 import { compressPhoto, collectPhotos } from "@/components/isic/image";
 
+import { showToast } from "@/components/ui/Toast";
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function send<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
   const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify(body) });
@@ -30,7 +31,7 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
   }, []);
   async function saveCode() {
     try { const r = await send<{ renewalRequestType: string }>("/api/isic/registry/settings", "PATCH", { renewalRequestType: renewalCode }); setCodeSaved(r.renewalRequestType); setRenewalCode(r.renewalRequestType); }
-    catch (e) { alert(e instanceof Error ? e.message : "Enregistrement impossible"); }
+    catch (e) { showToast(e instanceof Error ? e.message : "Enregistrement impossible", "error"); }
   }
 
   // ── Photos ────────────────────────────────────────────────────────────────
@@ -40,8 +41,8 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
   async function importPhotos(files: File[]) {
     setPhotoReport(null);
     let items: Array<{ name: string; blob: Blob }>;
-    try { items = await collectPhotos(files); } catch { alert("Archive illisible."); return; }
-    if (!items.length) { alert("Aucune photo (JPEG/PNG) trouvée."); return; }
+    try { items = await collectPhotos(files); } catch { showToast("Archive illisible.", "error"); return; }
+    if (!items.length) { showToast("Aucune photo (JPEG/PNG) trouvée.", "warning"); return; }
     const report = { attached: 0, unknown: [] as string[], ambiguous: [] as string[], failed: [] as string[] };
     setProgress({ done: 0, total: items.length });
     let next = 0, done = 0;
@@ -83,7 +84,7 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
       const r = await fetch(`/api/isic/registry/submission?${qs("check")}`, { credentials: "include" }).then(x => x.json());
       if (!r.success) throw new Error(r.error || "Contrôle impossible");
       setCheck(r.data);
-    } catch (e) { alert(e instanceof Error ? e.message : "Contrôle impossible"); } finally { setChecking(false); }
+    } catch (e) { showToast(e instanceof Error ? e.message : "Contrôle impossible", "error"); } finally { setChecking(false); }
   }
   useEffect(() => { setCheck(null); }, [year, school, scope]);
 

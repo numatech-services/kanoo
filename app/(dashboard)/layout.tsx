@@ -7,8 +7,13 @@ import { SupportButton } from "@/components/shared/SupportButton";
 import { SectionScope } from "@/components/layout/SectionScope";
 import { CommandPalette } from "@/components/shared/CommandPalette";
 import { IdleTimeout } from "@/components/shared/IdleTimeout";
+import { getServerTenantType } from "@/lib/server-auth";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // Les écrans partagés (projets, messages, utilisateurs…) servent aussi les
+  // associations et les administrations : la palette suit leur menu, pas celui
+  // d'une entreprise.
+  const profile = await getServerTenantType();
   return (
     <SectionScope space="pme">
     <div className="flex h-screen overflow-hidden bg-surface2">
@@ -19,7 +24,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <PageGuard>{children}</PageGuard>
         </main>
       </div>
-      <CommandPalette />
+      <CommandPalette profile={profile} />
       <MobileTabBar home="/dashboard" />
       <OfflineBanner />
       <SupportButton />

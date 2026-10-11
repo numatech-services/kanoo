@@ -6,6 +6,8 @@ import { ClipboardList, Plus, EyeOff, TrendingDown, TrendingUp, Target, Trash2 }
 import { KpiCard } from "@/components/ui/KpiCard";
 import { Pill, Inset, EmptyState } from "@/components/ui/Primitives";
 import { Modal } from "@/components/ui/Modal";
+import { confirmDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 import { fullXof } from "@/components/ui/charts/geometry";
 import { COUNT_STATUS_LABEL, type CountStatus } from "@/lib/inventory";
@@ -59,13 +61,13 @@ export default function InventairesPage() {
   useEffect(() => { load(); }, [load]);
 
   async function remove(id: string) {
-    if (!confirm("Supprimer cette session d'inventaire ?")) return;
+    if (!await confirmDialog({ title: "Supprimer cette session d'inventaire ?", danger: true, confirmLabel: "Supprimer" })) return;
     const res = await fetch(`/api/inventaires/${id}`, {
       method: "DELETE", credentials: "include",
       headers: { "x-csrf-token": await csrf() },
     });
     if (res.ok) load();
-    else { const d = await res.json().catch(() => ({})); alert(d.error || "Suppression impossible."); }
+    else { const d = await res.json().catch(() => ({})); showToast(d.error || "Suppression impossible.", "error"); }
   }
 
   const running = items.find(s => ["draft", "counting", "review"].includes(s.status));

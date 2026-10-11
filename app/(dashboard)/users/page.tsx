@@ -14,6 +14,7 @@ import { MIN_LENGTH } from "@/lib/password-policy";
 import type { UserRole } from "@/types";
 import { AccessEditor, accessPayload, accessChip, emptyAccess, type Access, type Level } from "@/components/users/AccessEditor";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
 interface User {
   _id: string;
   firstName: string;
@@ -128,10 +129,8 @@ export default function UsersPage() {
   }
 
   async function removeUser(user: User) {
-    if (!window.confirm(
-      `Supprimer le compte de ${user.firstName} ${user.lastName} (${user.email}) ?\n\n`
-      + `Ses accès et ses données personnelles sont effacés ; ce qu'il a enregistré reste dans l'historique sous « Compte supprimé ». Action définitive.`
-    )) return;
+    if (!(await confirmDialog({ title: `Supprimer le compte de ${user.firstName} ${user.lastName} (${user.email}) ?`, message: ``
+      + `Ses accès et ses données personnelles sont effacés ; ce qu'il a enregistré reste dans l'historique sous « Compte supprimé ». Action définitive.`, danger: true }))) return;
     setError(null); setNotice(null);
     try {
       const res = await fetch(`/api/users/${user._id}`, { method: "DELETE", headers: { "x-csrf-token": await csrf() }, credentials: "include" });
@@ -145,7 +144,7 @@ export default function UsersPage() {
   }
 
   async function revoke(user: User) {
-    if (!window.confirm(`Fermer les sessions de ${user.firstName} ${user.lastName} ?`)) return;
+    if (!(await confirmDialog({ title: `Fermer les sessions de ${user.firstName} ${user.lastName} ?` }))) return;
     try {
       const res = await fetch(`/api/users/${user._id}/revoke-session`, {
         method: "POST",

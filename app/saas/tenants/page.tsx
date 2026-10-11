@@ -6,6 +6,8 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import Link from "next/link";
 
+import { showToast } from "@/components/ui/Toast";
+import { alertDialog } from "@/components/ui/Dialogs";
 interface Tenant { _id: string; name: string; type: string; plan: string; subscriptionStatus: string; email?: string; userCount: number; createdAt: string; }
 
 export default function TenantsPage() {
@@ -36,8 +38,8 @@ export default function TenantsPage() {
     const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
     const res = await fetch("/api/superadmin/tenants", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, credentials: "include", body: JSON.stringify(form) });
     const d = await res.json();
-    if (res.ok) { setCreateModal(false); load(); alert(`Organisation créée. Token : ${d.data?.activationToken}`); }
-    else alert(d.error);
+    if (res.ok) { setCreateModal(false); load(); await alertDialog({ title: "Organisation créée", message: `Jeton d'activation à transmettre : ${d.data?.activationToken}` }); }
+    else showToast(d.error || "Création impossible.", "error");
     setSaving(false);
   }
 

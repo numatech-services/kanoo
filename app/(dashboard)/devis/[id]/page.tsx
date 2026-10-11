@@ -8,6 +8,8 @@ import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { useMe, meCanDo } from "@/lib/useMe";
 import { ToMarketDialog } from "@/components/devis/ToMarketDialog";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 function calcLine(l: any) {
   const qty = l.quantity || 0; 
   const price = l.unitPrice || 0; 
@@ -112,7 +114,7 @@ export default function DevisDetailPage() {
             <select value={item.status} onChange={async e => {
               const res = await fetch(`/api/devis/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrfTok() }, body: JSON.stringify({ status: e.target.value }) });
               const d = await res.json().catch(() => ({}));
-              if (res.ok) setItem(d.data); else alert(d.error || "Changement impossible");
+              if (res.ok) setItem(d.data); else showToast(d.error || "Changement impossible", "error");
             }} className="h-11 px-3 rounded-2xl border border-line2 text-sm font-semibold" aria-label="Statut du devis">
               <option value="draft">Brouillon</option><option value="sent">Envoyé</option><option value="accepted">Accepté</option>
               <option value="rejected">Refusé</option><option value="expired">Expiré</option>
@@ -120,9 +122,9 @@ export default function DevisDetailPage() {
           )}
           {canDeleteDevis && !item.convertedToInvoiceId && (
             <button onClick={async () => {
-              if (!confirm("Supprimer ce devis ?")) return;
+              if (!(await confirmDialog({ title: "Supprimer ce devis ?", danger: true }))) return;
               const res = await fetch(`/api/devis/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrfTok() } });
-              if (res.ok) router.push("/devis"); else { const d = await res.json().catch(() => ({})); alert(d.error || "Suppression impossible"); }
+              if (res.ok) router.push("/devis"); else { const d = await res.json().catch(() => ({})); showToast(d.error || "Suppression impossible", "error"); }
             }} className="px-5 py-2.5 border border-neg/25 text-neg rounded-2xl font-bold hover:bg-neg-50">Supprimer</button>
           )}
           <button onClick={() => setEditOpen(true)} className="px-6 py-2.5 bg-ink text-onink rounded-2xl font-bold shadow-lg hover:scale-105 transition-all">

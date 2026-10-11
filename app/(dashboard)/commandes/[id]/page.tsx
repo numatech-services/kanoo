@@ -10,6 +10,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { useWarehouses } from "@/components/stock/useWarehouses";
 import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
 interface Line {
   productId?: { _id: string; code: string; label: string; unit?: string; trackingMode?: string } | string;
   description: string; quantity: number; unitPrice: number; totalHT: number; receivedQty?: number;
@@ -88,10 +89,10 @@ export default function CommandeDetailPage() {
             <button onClick={() => setEditOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Edit3 size={16} /> Modifier</button>
           )}
           {canEdit && editable && !anyReceived && (
-            <button onClick={() => confirm("Annuler cette commande ?") && act(() => send(`/api/commandes/${id}`, "PATCH", { status: "cancelled" }))} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-warn/30 text-warn text-sm hover:bg-warn-50"><Ban size={16} /> Annuler</button>
+            <button onClick={async () => { if (await confirmDialog({ title: "Annuler cette commande ?", danger: true })) act(() => send(`/api/commandes/${id}`, "PATCH", { status: "cancelled" })); }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-warn/30 text-warn text-sm hover:bg-warn-50"><Ban size={16} /> Annuler</button>
           )}
           {canDelete && item.status === "draft" && (
-            <button onClick={async () => { if (!confirm("Supprimer ce brouillon ?")) return; try { await send(`/api/commandes/${id}`, "DELETE"); router.push("/commandes"); } catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); } }}
+            <button onClick={async () => { if (!(await confirmDialog({ title: "Supprimer ce brouillon ?", danger: true }))) return; try { await send(`/api/commandes/${id}`, "DELETE"); router.push("/commandes"); } catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); } }}
               className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Trash2 size={16} /> Supprimer</button>
           )}
         </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import "@/styles/globals.css";
 import { ToastProvider } from "@/components/ui/Toast";
+import { DialogHost } from "@/components/ui/Dialogs";
 import { CookieConsent } from "@/components/shared/CookieConsent";
 import { I18nProvider } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
@@ -70,6 +71,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <I18nProvider initialLocale={locale}>
           <ToastProvider>
             {children}
+            <DialogHost />
             <CookieConsent />
           </ToastProvider>
         </I18nProvider>

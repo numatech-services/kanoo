@@ -5,6 +5,8 @@ import { PieChart, Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { FlowFilterBar, useFlowFilter, today, type FlowTotals } from "@/components/ui/FlowFilterBar";
 
+import { promptDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 interface Activity { _id: string; name: string; color?: string }
 interface Sector { activityId: string; name: string; color?: string; revenue: number; expense: number; result: number; fromAccounting?: { revenue: number; expense: number } }
 interface Report { sectors: Sector[]; general: { revenue: number; expense: number }; consolidated: { revenue: number; expense: number; result: number } | null; isAdmin: boolean }
@@ -38,14 +40,14 @@ export default function AnalytiquePage() {
   useEffect(() => { load(); }, [load]);
 
   async function addSector() {
-    const name = prompt("Nom du secteur (ex. Vente mobilier, ISIC, Abonnements) :"); if (!name) return;
+    const name = await promptDialog({ title: "Nom du secteur (ex. Vente mobilier, ISIC, Abonnements) :" }); if (!name) return;
     const res = await fetch("/api/analytics/activities", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify({ name }) });
-    if (res.ok) load(); else alert((await res.json()).error || "Échec");
+    if (res.ok) load(); else showToast((await res.json()).error || "Échec", "error");
   }
   async function addEntry() {
-    if (!form.label.trim() || form.amount <= 0) { alert("Libellé et montant requis."); return; }
+    if (!form.label.trim() || form.amount <= 0) { showToast("Libellé et montant requis.", "warning"); return; }
     const res = await fetch("/api/analytics/entries", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify(form) });
-    if (res.ok) { setForm(f => ({ ...f, label: "", amount: 0 })); load(); } else alert((await res.json()).error || "Échec");
+    if (res.ok) { setForm(f => ({ ...f, label: "", amount: 0 })); load(); } else showToast((await res.json()).error || "Échec", "error");
   }
   async function delEntry(id: string) {
     const res = await fetch(`/api/analytics/entries/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });

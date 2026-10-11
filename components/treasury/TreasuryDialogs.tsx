@@ -5,6 +5,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 import { FlowFilterBar, useFlowFilter, monthStart, type FlowTotals } from "@/components/ui/FlowFilterBar";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
 export interface TreasuryAccountLite { _id: string; label: string; type: string; balance: number; openingBalance: number; movementCount: number; isActive: boolean; bankName?: string; accountNumber?: string }
 
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
@@ -32,7 +33,7 @@ export function EditAccountDialog({ account, onClose, onDone }: { account: Treas
     catch (e) { setError(e instanceof Error ? e.message : "Opération impossible"); }
   }
   async function remove() {
-    if (!confirm("Supprimer ce compte ?")) return;
+    if (!(await confirmDialog({ title: "Supprimer ce compte ?", danger: true }))) return;
     try { await send(`/api/treasury-accounts/${account._id}`, "DELETE"); onDone(); }
     catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); }
   }

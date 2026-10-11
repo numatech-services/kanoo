@@ -24,6 +24,8 @@ export interface ITenant {
   logo?: string;
   plan: PlanCode;
   planModules: string[];
+  /** Modules optionnels masqués par l'organisation (lib/modules.ts). */
+  disabledModules?: string[];
   subscriptionStatus: SubscriptionStatus;
   trialEndsAt?: Date;
   subscriptionEndsAt?: Date;

@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { MarcheForm } from "@/components/pme/MarcheForm";
 import { errorMessage } from "@/lib/errors";
 
+import { showToast } from "@/components/ui/Toast";
 export default function MarcheDetailPage() {
   const params = useParams(); // Récupération sécurisée des paramètres
   const id = params?.id;
@@ -52,7 +53,7 @@ export default function MarcheDetailPage() {
         setItem(d.data || d); 
         setEditOpen(false); 
       } else {
-        alert(d.error);
+        showToast(d.error, "error");
       }
     } catch (err) {
       console.error(err);

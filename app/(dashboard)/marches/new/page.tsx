@@ -4,6 +4,7 @@ import { MarcheForm } from "@/components/pme/MarcheForm";
 import { useState } from "react";
 import { errorMessage } from "@/lib/errors";
 
+import { showToast } from "@/components/ui/Toast";
 export default function NewMarchePage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,7 +43,7 @@ export default function NewMarchePage() {
 
     } catch (err) {
       console.error("Erreur création marché:", err);
-      alert(errorMessage(err)); // Pour que l'utilisateur sache pourquoi ça n'avance pas
+      showToast(errorMessage(err), "error"); // Pour que l'utilisateur sache pourquoi ça n'avance pas
     } finally {
       setIsSubmitting(false);
     }

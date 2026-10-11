@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 interface Line { accountCode: string; accountLabel: string; debit: number; credit: number; projectId?: string; activityId?: string; costCenter?: string }
 interface Entry {
   _id: string; journalCode: string; entryDate: string; reference: string; label: string; lines: Line[];
@@ -52,7 +53,7 @@ export default function AccountingPage() {
   const toggle = (id: string) => setOpen(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   async function reverse(e: Entry) {
-    const reason = prompt(`Extourner l'écriture ${e.reference} ? Motif :`);
+    const reason = await promptDialog({ title: `Extourner l'écriture ${e.reference} ? Motif :`, multiline: true });
     if (!reason) return;
     const res = await fetch(`/api/accounting-entries/${e._id}/reverse`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify({ reason }) });
     const d = await res.json().catch(() => ({}));
@@ -182,7 +183,7 @@ function ClosingDialog({ lock, onClose, onDone }: { lock: { lockedUntil: string 
           <p className="text-xs text-ink2">Génère les à-nouveaux au 1er janvier suivant (comptes de bilan et résultat en instance d&apos;affectation) et verrouille l&apos;exercice. Irréversible. Exercices clôturés : {lock.closedYears.length ? lock.closedYears.join(", ") : "aucun"}.</p>
           <div className="flex gap-2">
             <FormField label="Exercice"><input type="number" className={inputCls} value={year} onChange={e => setYear(Number(e.target.value))} /></FormField>
-            <button disabled={busy} onClick={() => confirm(`Clôturer définitivement l'exercice ${year} ?`) && post({ action: "close", year })} className="self-end px-4 h-10 rounded-lg border border-neg/30 text-neg text-sm font-semibold hover:bg-neg-50 disabled:opacity-60">Clôturer {year}</button>
+            <button disabled={busy} onClick={async () => { if (await confirmDialog({ title: `Clôturer définitivement l'exercice ${year} ?`, danger: true })) post({ action: "close", year }); }} className="self-end px-4 h-10 rounded-lg border border-neg/30 text-neg text-sm font-semibold hover:bg-neg-50 disabled:opacity-60">Clôturer {year}</button>
           </div>
         </div>
       </div>

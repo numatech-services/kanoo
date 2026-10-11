@@ -13,6 +13,7 @@ import { ImputedFlows } from "@/components/shared/ImputedFlows";
 import { useMe, meCanDo } from "@/lib/useMe";
 import type { MarketFinance } from "@/lib/market-finance";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function send(url: string, method: string, body?: unknown) {
   const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -135,7 +136,7 @@ export default function ContractDetailPage() {
                     <td className="text-xs">{m.status === "pending" ? "À facturer" : <>Facturée{m.invoiceId && invoiceNo.get(String(m.invoiceId)) ? <> · <Link href={`/invoices/${m.invoiceId}`} className="text-section hover:underline font-mono">{invoiceNo.get(String(m.invoiceId))}</Link></> : ""}</>}</td>
                     <td className="text-right whitespace-nowrap">
                       {m.status === "pending" && billable && canInvoice && <button disabled={busy} onClick={() => run(() => send(`/api/contracts/${id}/invoice`, "POST", { milestoneId: m._id }), `Facture de l'échéance « ${m.label} » créée (brouillon).`)} className="px-2 h-7 rounded border border-line2 text-xs font-semibold hover:bg-surface2">Facturer</button>}
-                      {m.status === "pending" && canEdit && <button disabled={busy} onClick={() => { if (confirm(`Retirer l'échéance « ${m.label} » ?`)) run(() => send(`/api/contracts/${id}/milestones/${m._id}`, "DELETE"), "Échéance retirée."); }} className="ml-1 p-1 text-ink3 hover:text-neg" aria-label="Retirer"><Trash2 size={14} /></button>}
+                      {m.status === "pending" && canEdit && <button disabled={busy} onClick={async () => { if (await confirmDialog({ title: `Retirer l'échéance « ${m.label} » ?`, danger: true })) run(() => send(`/api/contracts/${id}/milestones/${m._id}`, "DELETE"), "Échéance retirée."); }} className="ml-1 p-1 text-ink3 hover:text-neg" aria-label="Retirer"><Trash2 size={14} /></button>}
                     </td>
                   </tr>
                 ))}

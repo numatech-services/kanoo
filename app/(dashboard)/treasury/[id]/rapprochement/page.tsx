@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { fullXof } from "@/components/ui/charts/geometry";
 
+import { promptDialog } from "@/components/ui/Dialogs";
 interface Movement {
   _id: string; date: string; amount: number; label: string;
   reference?: string; statementLineId?: string; source?: string;
@@ -258,11 +259,9 @@ export default function RapprochementPage() {
                     <td>
                       <button
                         disabled={busy === l._id}
-                        onClick={() => {
-                          const reason = window.prompt(
-                            "Pourquoi écarter cette ligne du rapprochement ?\n"
-                            + "Sans motif, l'écart resterait inexpliqué."
-                          );
+                        onClick={async () => {
+                          const reason = await promptDialog({ title: "Pourquoi écarter cette ligne du rapprochement ?\n"
+                            + "Sans motif, l'écart resterait inexpliqué.", multiline: true });
                           if (reason?.trim()) act({ action: "ignore", lineId: l._id, reason }, l._id);
                         }}
                         title="Écarter du rapprochement"

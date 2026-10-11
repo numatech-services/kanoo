@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 interface EngagementData {
   _id: string;
   reference: string;
@@ -55,7 +57,7 @@ export default function MandatementActionPage() {
 
   const handleCreateMandat = async () => {
     if (!data?._id) return;
-    if (!confirm("Voulez-vous valider le mandatement de cette dépense ?")) return;
+    if (!(await confirmDialog({ title: "Voulez-vous valider le mandatement de cette dépense ?" }))) return;
     
     setSubmitting(true);
     try {
@@ -72,11 +74,11 @@ export default function MandatementActionPage() {
         router.refresh();
       } else {
         const errData = await res.json();
-        alert(errData.error || "Erreur lors du mandatement");
+        showToast(errData.error || "Erreur lors du mandatement", "error");
       }
     } catch (err) {
       console.error(err);
-      alert("Erreur de connexion au serveur");
+      showToast("Erreur de connexion au serveur", "error");
     } finally {
       setSubmitting(false);
     }
@@ -90,7 +92,7 @@ export default function MandatementActionPage() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 p-6">
+    <div className="max-w-4xl mx-auto space-y-8 rise p-6">
       
       <div className="flex justify-between items-center">
         <Link href="/administration/budget/mandatements" className="flex items-center gap-2 text-ink2 hover:text-ink transition-colors">

@@ -5,6 +5,7 @@ import { selectCls } from "@/components/ui/FormField";
 import { RequestDialog } from "@/components/hr/LeaveRequestDialog";
 import { LEAVE_TYPES } from "@/lib/leave-types";
 
+import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 interface Leave {
   _id: string; type: string; startDate: string; endDate: string; days: number; reason?: string; status: string;
   employeeId?: { _id: string; firstName: string; lastName: string } | null; decisionNote?: string;
@@ -41,7 +42,7 @@ export default function LeavesPage() {
   useEffect(() => { load(); }, [load]);
 
   async function act(id: string, action: string) {
-    const note = action === "reject" ? prompt("Motif du refus :") ?? undefined : undefined;
+    const note = action === "reject" ? await promptDialog({ title: "Motif du refus :", multiline: true }) ?? undefined : undefined;
     if (action === "reject" && !note) return;
     const res = await fetch(`/api/leaves/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify({ action, note }) });
     const x = await res.json().catch(() => ({}));
@@ -49,7 +50,7 @@ export default function LeavesPage() {
     load();
   }
   async function remove(id: string) {
-    if (!confirm("Supprimer cette demande ?")) return;
+    if (!(await confirmDialog({ title: "Supprimer cette demande ?", danger: true }))) return;
     const res = await fetch(`/api/leaves/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
     if (!res.ok) { const x = await res.json().catch(() => ({})); setMsg({ ok: false, text: x.error || "Suppression refusée" }); }
     load();
@@ -101,7 +102,7 @@ export default function LeavesPage() {
                     <button onClick={() => act(l._id, "approve")} className="p-1.5 text-pos hover:bg-pos-50 rounded" title="Approuver"><Check size={15} /></button>
                     <button onClick={() => act(l._id, "reject")} className="p-1.5 text-neg hover:bg-neg-50 rounded" title="Refuser"><X size={15} /></button>
                   </>}
-                  {["pending", "approved"].includes(l.status) && <button onClick={() => confirm("Annuler ce congé ?") && act(l._id, "cancel")} className="p-1.5 text-ink3 hover:text-warn" title="Annuler"><Ban size={14} /></button>}
+                  {["pending", "approved"].includes(l.status) && <button onClick={async () => { if (await confirmDialog({ title: "Annuler ce congé ?", danger: true })) act(l._id, "cancel"); }} className="p-1.5 text-ink3 hover:text-warn" title="Annuler"><Ban size={14} /></button>}
                   {l.status === "pending" && tab === "mine" && <button onClick={() => remove(l._id)} className="p-1.5 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>}
                 </td>
               </tr>

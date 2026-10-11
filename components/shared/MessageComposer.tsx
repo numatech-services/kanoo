@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Plus, Send, Search, Users, ArrowLeft } from "lucide-react";
 
+import { promptDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 interface Message {
   _id: string;
   content: string;
@@ -69,7 +71,7 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
       });
       const d = await res.json();
       if (res.ok) { setMessages(prev => [...prev, d.data]); setNewMessage(""); loadConversations(); setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 40); }
-      else alert(d.error || "Envoi impossible.");
+      else showToast(d.error || "Envoi impossible.", "error");
     } finally { setSending(false); }
   }
 
@@ -81,10 +83,10 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
     });
     const d = await res.json();
     if (res.ok) { setPicking(false); setDq(""); loadConversations(); setActiveConvId(d.data._id); }
-    else alert(d.error || "Impossible de démarrer la conversation.");
+    else showToast(d.error || "Impossible de démarrer la conversation.", "error");
   }
   async function createGroup() {
-    const name = prompt("Nom du groupe :"); if (!name) return;
+    const name = await promptDialog({ title: "Nom du groupe :" }); if (!name) return;
     const res = await fetch("/api/conversations", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },

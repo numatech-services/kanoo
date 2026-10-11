@@ -7,6 +7,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { KIND_LABEL, type WarehouseLite } from "@/components/stock/useWarehouses";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function send(url: string, method: string, body?: unknown) {
@@ -62,8 +63,8 @@ export default function WarehousesPage() {
               <Link href={`/stock?warehouseId=${w._id}`} className="px-2 h-8 inline-flex items-center rounded-md border border-line2 text-xs hover:bg-surface2">Voir le stock</Link>
               {canEdit && !w.isDefault && w.kind !== "comptoir" && w.isActive !== false && <button onClick={() => run(() => send(`/api/warehouses/${w._id}`, "PATCH", { isDefault: true }))} className="px-2 h-8 inline-flex items-center gap-1 rounded-md border border-line2 text-xs hover:bg-surface2"><Star size={12} /> Par défaut</button>}
               {canEdit && !w.isDefault && <button onClick={() => run(() => send(`/api/warehouses/${w._id}`, "PATCH", { isActive: w.isActive === false }))} className="px-2 h-8 inline-flex items-center gap-1 rounded-md border border-line2 text-xs hover:bg-surface2"><Power size={12} /> {w.isActive === false ? "Réactiver" : "Désactiver"}</button>}
-              {canEdit && <button onClick={() => { const name = prompt("Nom :", w.name); if (name) run(() => send(`/api/warehouses/${w._id}`, "PATCH", { name, address: prompt("Adresse :", w.address ?? "") ?? w.address })); }} className="px-2 h-8 inline-flex items-center rounded-md border border-line2 text-xs hover:bg-surface2">Renommer</button>}
-              {canDelete && !w.isDefault && w.kind !== "comptoir" && !(w.articles) && <button onClick={() => confirm(`Supprimer ${w.name} ?`) && run(() => send(`/api/warehouses/${w._id}`, "DELETE"))} className="p-1.5 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>}
+              {canEdit && <button onClick={async () => { const name = await promptDialog({ title: "Renommer l'entrepôt", label: "Nom", defaultValue: w.name, required: true }); if (!name) return; const address = await promptDialog({ title: "Adresse de l'entrepôt", label: "Adresse", defaultValue: w.address ?? "" }); run(() => send(`/api/warehouses/${w._id}`, "PATCH", { name, address: address ?? w.address })); }} className="px-2 h-8 inline-flex items-center rounded-md border border-line2 text-xs hover:bg-surface2">Renommer</button>}
+              {canDelete && !w.isDefault && w.kind !== "comptoir" && !(w.articles) && <button onClick={async () => { if (await confirmDialog({ title: `Supprimer ${w.name} ?`, danger: true })) run(() => send(`/api/warehouses/${w._id}`, "DELETE")); }} className="p-1.5 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>}
             </div>
           </div>
         ))}

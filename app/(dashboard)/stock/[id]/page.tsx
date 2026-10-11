@@ -11,6 +11,8 @@ import { ProductForm } from "@/components/stock/ProductForm";
 import { MovementDialog, MOVEMENT_OPTIONS } from "@/components/stock/MovementDialog";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 interface Product {
   _id: string; code: string; label: string; description?: string; unit?: string; category?: string; barcode?: string; location?: string;
   unitPrice: number; tvaRate: number; stockQty: number; stockMinAlert: number; stockMaxAlert?: number; purchaseCost?: number; lastPurchaseCost?: number;
@@ -73,12 +75,12 @@ export default function StockDetailPage() {
   ];
   async function saveThreshold(warehouseId: string, v: string) {
     const res = await fetch(`/api/products/${id}/stock`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify({ warehouseId, minAlert: v === "" ? null : Number(v) }) });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Seuil refusé"); }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.error || "Seuil refusé", "error"); }
     load();
   }
 
   async function reverse(m: Movement) {
-    const reason = prompt("Motif de l'annulation (un contre-mouvement sera enregistré) :");
+    const reason = await promptDialog({ title: "Motif de l'annulation (un contre-mouvement sera enregistré) :", multiline: true });
     if (reason === null) return;
     setError("");
     const res = await fetch(`/api/stock/movements/${m._id}?reason=${encodeURIComponent(reason)}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
@@ -93,7 +95,7 @@ export default function StockDetailPage() {
     setEditOpen(false); load();
   }
   async function deactivate() {
-    if (!confirm("Désactiver cet article ? Il disparaît des listes ; son historique est conservé.")) return;
+    if (!(await confirmDialog({ title: "Désactiver cet article ?", message: "Il disparaît des listes ; son historique est conservé.", danger: true }))) return;
     const res = await fetch(`/api/products/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
     if (res.ok) router.push("/stock"); else setError("Désactivation impossible");
   }

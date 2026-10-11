@@ -14,6 +14,8 @@ import { EnvoiIsic } from "@/components/isic/EnvoiIsic";
 import { compressPhoto } from "@/components/isic/image";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { showToast } from "@/components/ui/Toast";
+import { confirmDialog } from "@/components/ui/Dialogs";
 interface SchoolRow { school: string; students: number; withNumber: number; withoutPhoto: number; covered: number; fresh: number; renewed: number; toRenew: number }
 interface Stats {
   year: string;
@@ -98,13 +100,13 @@ function Dashboard({ stats, year, onChanged, openStudents, goImport }: {
   const prev = shiftAcademicYear(year, -1);
 
   async function renewAll() {
-    if (!confirm(`Ouvrir la licence ${year} pour les ${t.toRenew} étudiants couverts en ${prev} ? Ils gardent leur numéro ISIC.`)) return;
+    if (!(await confirmDialog({ title: `Ouvrir la licence ${year} pour les ${t.toRenew} étudiants couverts en ${prev} ?`, message: `Ils gardent leur numéro ISIC.` }))) return;
     setBusy(true);
     try {
       const r = await api<{ renewed: number }>("/api/isic/registry/renew", "POST", { toYear: year });
-      alert(`${r.renewed} licence(s) ${year} ouverte(s).`);
+      showToast(`${r.renewed} licence(s) ${year} ouverte(s).`, "success");
       onChanged();
-    } catch (e) { alert(e instanceof Error ? e.message : "Renouvellement impossible"); } finally { setBusy(false); }
+    } catch (e) { showToast(e instanceof Error ? e.message : "Renouvellement impossible", "error"); } finally { setBusy(false); }
   }
 
   if (t.students === 0) {
@@ -211,21 +213,21 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
 
   async function purgeSelected() {
-    if (!confirm(`Supprimer DÉFINITIVEMENT ${selected.size} fiche(s) saisie(s) par erreur ?\n\nFiches, photos et licences effacées ; les numéros ISIC redeviennent libres. Action irréversible.`)) return;
+    if (!(await confirmDialog({ title: `Supprimer DÉFINITIVEMENT ${selected.size} fiche(s) saisie(s) par erreur ?`, message: `Fiches, photos et licences effacées ; les numéros ISIC redeviennent libres. Action irréversible.`, danger: true }))) return;
     try {
       const r = await api<{ deleted: number; licenses: number }>("/api/isic/registry/students/delete", "POST", { studentIds: [...selected] });
       setSelected(new Set());
-      alert(`${r.deleted} fiche(s) supprimée(s)${r.licenses ? `, ${r.licenses} licence(s) effacée(s)` : ""}.`);
+      showToast(`${r.deleted} fiche(s) supprimée(s)${r.licenses ? `, ${r.licenses} licence(s) effacée(s)` : ""}.`, "success");
       load(); onChanged();
-    } catch (e) { alert(e instanceof Error ? e.message : "Suppression impossible"); }
+    } catch (e) { showToast(e instanceof Error ? e.message : "Suppression impossible", "error"); }
   }
   async function renewSelected() {
-    if (!confirm(`Ouvrir la licence ${year} pour ${selected.size} étudiant(s) ? Ils gardent leur numéro.`)) return;
+    if (!(await confirmDialog({ title: `Ouvrir la licence ${year} pour ${selected.size} étudiant(s) ?`, message: `Ils gardent leur numéro.` }))) return;
     try {
       const r = await api<{ renewed: number; alreadyCovered: number }>("/api/isic/registry/renew", "POST", { toYear: year, studentIds: [...selected] });
-      alert(`${r.renewed} licence(s) ouverte(s)${r.alreadyCovered ? `, ${r.alreadyCovered} déjà couvert(s)` : ""}.`);
+      showToast(`${r.renewed} licence(s) ouverte(s)${r.alreadyCovered ? `, ${r.alreadyCovered} déjà couvert(s)` : ""}.`, "success");
       setSelected(new Set()); load(); onChanged();
-    } catch (e) { alert(e instanceof Error ? e.message : "Renouvellement impossible"); }
+    } catch (e) { showToast(e instanceof Error ? e.message : "Renouvellement impossible", "error"); }
   }
   const toggle = (id: string) => setSelected(s => { const x = new Set(s); x.has(id) ? x.delete(id) : x.add(id); return x; });
 
@@ -316,7 +318,7 @@ function AddStudentDialog({ year, schools, onClose, onSaved }: { year: string; s
         fullName: f.fullName, matricule: f.matricule, schoolName: f.schoolName, isicNumber: f.isicNumber,
         email: f.email, phone: f.phone, academicYear: f.licence ? year : undefined,
       });
-      if (r?.warning) alert(`Étudiant ajouté, mais le numéro a été refusé : ${r.warning}`);
+      if (r?.warning) showToast(`Étudiant ajouté, mais le numéro a été refusé : ${r.warning}`, "warning");
       onSaved();
     } catch (e) { setError(e instanceof Error ? e.message : "Ajout impossible"); } finally { setSaving(false); }
   }
@@ -390,12 +392,12 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
     } catch (e) { setError(e instanceof Error ? e.message : "Enregistrement impossible"); } finally { setSaving(false); }
   }
   async function archive() {
-    if (!confirm("Archiver cet étudiant ? Son numéro reste réservé et son historique conservé.")) return;
+    if (!(await confirmDialog({ title: "Archiver cet étudiant ?", message: "Son numéro reste réservé et son historique conservé." }))) return;
     try { await api(`/api/isic/registry/students/${id}`, "DELETE"); onSaved(); onClose(); } catch (e) { setError(e instanceof Error ? e.message : "Archivage impossible"); }
   }
   // Fiche saisie par erreur (doublon, mauvais import) : effacée pour de bon, avec photo et licences.
   async function purge() {
-    if (!confirm("Supprimer DÉFINITIVEMENT cette fiche (saisie par erreur) ?\n\nLa fiche, sa photo et ses licences sont effacées ; le numéro ISIC redevient libre. Action irréversible.")) return;
+    if (!(await confirmDialog({ title: "Supprimer DÉFINITIVEMENT cette fiche (saisie par erreur) ?", message: "La fiche, sa photo et ses licences sont effacées ; le numéro ISIC redevient libre. Action irréversible.", danger: true }))) return;
     try { await api(`/api/isic/registry/students/${id}?purge=1`, "DELETE"); onSaved(); onClose(); } catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); }
   }
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF(x => ({ ...x, [k]: e.target.value }));
@@ -407,7 +409,7 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
     } catch (e) { setError(e instanceof Error ? e.message : "Photo refusée"); }
   }
   async function removePhoto() {
-    if (!confirm("Retirer la photo ?")) return;
+    if (!(await confirmDialog({ title: "Retirer la photo ?", danger: true }))) return;
     try { await api(`/api/isic/registry/photos?studentId=${id}`, "DELETE"); setPhotoV(v => v + 1); onSaved(); load(); }
     catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); }
   }
@@ -465,7 +467,7 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
                   <li key={l._id} className="flex items-center justify-between gap-2">
                     <span><Pill tone={l.status === "active" ? (l.academicYear === year ? "pos" : "mute") : "neg"}>{l.academicYear}</Pill>
                       <span className="text-xs text-ink3 ml-2">valable au {new Date(l.validUntil).toLocaleDateString("fr-FR")} · {l.source}</span></span>
-                    {l.status === "active" && <button onClick={() => { if (confirm(`Annuler la licence ${l.academicYear} ?`)) save({ cancelLicence: l.academicYear }); }} className="text-xs text-neg hover:underline">Annuler</button>}
+                    {l.status === "active" && <button onClick={async () => { if (await confirmDialog({ title: `Annuler la licence ${l.academicYear} ?`, danger: true })) save({ cancelLicence: l.academicYear }); }} className="text-xs text-neg hover:underline">Annuler</button>}
                   </li>
                 ))}
               </ul>
@@ -530,7 +532,7 @@ function ImportTab({ year, schools, onChanged }: { year: string; schools: string
           academicYear: mode !== "numbers" && withLicence ? year : undefined,
         });
         setReport({ title: `${title} — ${file.name}`, r }); onChanged();
-      } catch (e) { alert(e instanceof Error ? e.message : "Import impossible"); } finally { setBusy(null); }
+      } catch (e) { showToast(e instanceof Error ? e.message : "Import impossible", "error"); } finally { setBusy(null); }
     };
     if (isExcel) reader.readAsDataURL(file); else reader.readAsText(file, "utf-8");
   }

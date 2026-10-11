@@ -7,6 +7,7 @@ import {
   ArrowLeft, EyeOff, CheckCircle2, RefreshCw, AlertTriangle, XCircle, Search,
 } from "lucide-react";
 import { Pill, Inset, EmptyState } from "@/components/ui/Primitives";
+import { confirmDialog } from "@/components/ui/Dialogs";
 import { fullXof } from "@/components/ui/charts/geometry";
 import { COUNT_STATUS_LABEL, type CountStatus } from "@/lib/inventory";
 
@@ -151,8 +152,8 @@ export default function InventaireDetailPage() {
           )}
           {!done && (
             <button
-              onClick={() => {
-                if (window.confirm("Annuler cet inventaire ? Aucun stock ne sera modifié.")) {
+              onClick={async () => {
+                if (await confirmDialog({ title: "Annuler cet inventaire ?", message: "Aucun stock ne sera modifié.", danger: true, confirmLabel: "Annuler l'inventaire", cancelLabel: "Garder" })) {
                   patch({ status: "cancelled" }).then(() => router.push("/inventaires"));
                 }
               }}

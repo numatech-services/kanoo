@@ -1,10 +1,11 @@
 import Link from "next/link";
 
 const SETTINGS_ITEMS = [
-  { href:"/settings/numerotation", icon:"🔢", title:"Numérotation des documents", desc:"Personnalisez les préfixes FAC-, DEV-, BC-… pour chaque type de document. Migration depuis un logiciel existant." },
+  { href:"/settings/numbering", icon:"🔢", title:"Numérotation des documents", desc:"Personnalisez les préfixes FAC-, DEV-, BC-… pour chaque type de document. Migration depuis un logiciel existant." },
+  { href:"/settings/modules", icon:"🧩", title:"Modules", desc:"Activez les métiers que vous exercez : comptoirs, cartes ISIC, revente de licences, événements." },
   { href:"/company", icon:"🏢", title:"Mon organisation", desc:"Nom, NIF, RCCM, adresse, contacts et logo de votre organisation." },
   { href:"/users", icon:"👥", title:"Utilisateurs & Rôles", desc:"Gérez les accès, invitez de nouveaux utilisateurs, modifiez les rôles." },
-  { href:"/subscription", icon:"💎", title:"Abonnement", desc:"Plan actuel, dates de renouvellement, changement de plan." },
+  { href:"/subscription", icon:"💎", title:"Mon forfait Kanoo", desc:"Plan actuel, dates de renouvellement, changement de plan." },
   { href:"/company/branding", icon:"🎨", title:"Apparence des documents", desc:"Couleurs, mentions, instructions de paiement et QR de vos factures, devis et courriers." },
   { href:"/support", icon:"🎫", title:"Support", desc:"Ouvrez un ticket ou consultez l'historique de vos demandes." },
   { href:"/audit", icon:"🔍", title:"Journal d'audit", desc:"Toutes les actions effectuées dans votre espace, tracées et horodatées." },
@@ -14,7 +15,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-ink">Paramètres</h1>
+        <h1 className="page-title">Réglages</h1>
         <p className="text-sm text-ink2 mt-1">Configuration de votre espace Kanoo</p>
       </div>
       <div className="grid md:grid-cols-2 gap-4">

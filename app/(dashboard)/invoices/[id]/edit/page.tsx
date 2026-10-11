@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { InvoiceForm } from "@/components/pme/InvoiceForm";
+import { showToast } from "@/components/ui/Toast";
 
 export default function EditInvoicePage() {
   const { id } = useParams();
@@ -19,7 +20,7 @@ export default function EditInvoicePage() {
       
       if (invoice) {
         if (["paid", "cancelled"].includes(invoice.status)) {
-          alert("Une facture soldée ou annulée ne peut plus être modifiée.");
+          showToast("Une facture soldée ou annulée ne peut plus être modifiée.", "warning");
           router.push(`/invoices/${id}`);
           return;
         }

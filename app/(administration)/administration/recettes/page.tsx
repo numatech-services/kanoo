@@ -4,6 +4,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 
+import { showToast } from "@/components/ui/Toast";
 interface Revenue {
   _id: string;
   reference: string;
@@ -84,10 +85,10 @@ export default function RecettesPage() {
         setForm(initialForm);
         loadData();
       } else {
-        alert("Erreur lors de l'ajout : " + (result.error || result.message));
+        showToast("Erreur lors de l'ajout : " + (result.error || result.message), "error");
       }
     } catch (err) {
-      alert("Impossible de contacter le serveur.");
+      showToast("Impossible de contacter le serveur.", "error");
     } finally {
       setSaving(false);
     }

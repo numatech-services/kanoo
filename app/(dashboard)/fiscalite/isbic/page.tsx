@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { showToast } from "@/components/ui/Toast";
 export default function ISBICPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear() - 1);
@@ -21,7 +22,7 @@ export default function ISBICPage() {
     await fetch("/api/fiscal/isbic", { method:"POST", headers:{"Content-Type":"application/json","x-csrf-token":csrfToken}, credentials:"include",
       body: JSON.stringify({ annee: year, resultatFiscal: (data as {resultatFiscal?:number})?.resultatFiscal, montantDu: (data as {calcul?:{montantDu:number}})?.calcul?.montantDu }) });
     setSubmitting(false);
-    alert("✅ Déclaration IS/BIC soumise");
+    showToast("Déclaration IS/BIC soumise", "success");
   }
 
   const d = data as {

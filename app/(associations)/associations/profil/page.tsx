@@ -77,7 +77,7 @@ export default function ProfilPage() {
   if (loading) return <div className="p-10 text-ink2 animate-pulse font-medium">Récupération de vos informations...</div>;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-16">
+    <div className="max-w-4xl mx-auto space-y-6 rise pb-16">
       
       {/* Navigation & Status */}
       <div className="flex justify-between items-center">
@@ -85,7 +85,7 @@ export default function ProfilPage() {
           <ArrowLeft className="w-4 h-4" /> Retour
         </Link>
         {status && (
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold animate-in zoom-in-95 ${status.type === 'success' ? 'bg-pos-50 text-pos' : 'bg-neg-50 text-neg'}`}>
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold rise ${status.type === 'success' ? 'bg-pos-50 text-pos' : 'bg-neg-50 text-neg'}`}>
             {status.type === 'success' && <CheckCircle2 className="w-4 h-4" />}
             {status.msg}
           </div>

@@ -8,6 +8,7 @@ import { ImputationFields, type ImputationValue } from "@/components/shared/Impu
 import { EXPENSE_ACCOUNTS } from "@/lib/syscohada";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
 type Ref = { _id: string; label?: string; name?: string } | null;
 interface Expense {
   _id: string; label: string; category: string; amount: number; frequency: string; nextDueDate: string; accountCode?: string;
@@ -91,7 +92,7 @@ export default function RecurringExpensesPage() {
                     {canEdit && x.isActive && <button onClick={() => setPaying(x)} className="px-2 h-8 inline-flex items-center gap-1 rounded-md bg-pos text-white text-xs font-semibold"><Banknote size={13} /> Payer</button>}
                     {canEdit && <button onClick={() => setEditing(x)} className="ml-1 p-1.5 text-ink3 hover:text-ink" title="Modifier"><Edit3 size={14} /></button>}
                     {canEdit && <button onClick={() => run(() => send(`/api/recurring-expenses/${x._id}`, "PATCH", { isActive: !x.isActive }))} className="p-1.5 text-ink3 hover:text-warn" title={x.isActive ? "Désactiver" : "Réactiver"}><Power size={14} /></button>}
-                    {canDelete && <button onClick={() => confirm("Supprimer cette charge ? (déjà payée : elle sera seulement désactivée)") && run(() => send(`/api/recurring-expenses/${x._id}`, "DELETE"))} className="p-1.5 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>}
+                    {canDelete && <button onClick={async () => { if (await confirmDialog({ title: "Supprimer cette charge ?", message: "(déjà payée : elle sera seulement désactivée)", danger: true })) run(() => send(`/api/recurring-expenses/${x._id}`, "DELETE")); }} className="p-1.5 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>}
                   </td>
                 </tr>
               );

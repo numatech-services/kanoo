@@ -65,7 +65,7 @@ export default function NewEngagementPage() {
   const labelCls = "text-[10px] font-black uppercase tracking-[0.2em] text-ink2 mb-2 block ml-1";
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-700">
+    <div className="max-w-4xl mx-auto space-y-8 rise">
       
       {/* Navigation & Titre */}
       <div className="flex items-center justify-between">

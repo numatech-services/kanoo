@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { MarcheForm } from "@/components/pme/MarcheForm";
 import { errorMessage } from "@/lib/errors";
 
+import { showToast } from "@/components/ui/Toast";
 export default function NewMarchePublicPage() {
   const router = useRouter();
 
@@ -28,7 +29,7 @@ export default function NewMarchePublicPage() {
       router.push("/administration/marches-publics");
       router.refresh(); // Important pour voir le nouveau marché dans la liste
     } catch (err) {
-      alert(errorMessage(err));
+      showToast(errorMessage(err), "error");
     }
   }
 

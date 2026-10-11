@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { showToast } from "@/components/ui/Toast";
 interface Plan { id:string; label:string; price:number; priceYearly:number; features:string[]; popular?:boolean; }
 
 const PLANS: Plan[] = [
@@ -44,7 +45,7 @@ export default function SubscriptionPage() {
     if (d.data?.paymentUrl) {
       window.location.href = d.data.paymentUrl;
     } else {
-      alert(d.error || "Erreur lors de l'initiation du paiement");
+      showToast(d.error || "Erreur lors de l'initiation du paiement", "error");
     }
     setLoading(null);
   }

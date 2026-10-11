@@ -8,6 +8,7 @@ import {
 import { Pill, EmptyState } from "@/components/ui/Primitives";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
 export type AttachmentHost =
   | "contracts" | "subscriptions" | "invoices" | "devis" | "commandes" | "marches"
   | "expenses" | "projects" | "employees" | "clients" | "suppliers" | "payslips"
@@ -148,7 +149,7 @@ export function AttachmentPanel({
   }
 
   async function destroy(id: string, filename: string) {
-    if (!window.confirm(`Retirer « ${filename} » ? Le fichier sera supprimé.`)) return;
+    if (!(await confirmDialog({ title: `Retirer « ${filename} » ?`, message: `Le fichier sera supprimé.`, danger: true }))) return;
     setBusy(true);
     try {
       const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());

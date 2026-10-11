@@ -6,6 +6,8 @@ import { Pagination } from "@/components/ui/Pagination";
 import { useMe, meCanDo } from "@/lib/useMe";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
+import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 
 interface Payment {
   _id: string;
@@ -73,15 +75,22 @@ export default function PaymentsPage() {
     const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
     let res: Response;
     if (pending) {
-      if (!confirm("Supprimer ce paiement en attente ?")) return;
+      if (!(await confirmDialog({ title: "Supprimer ce paiement en attente ?", danger: true, confirmLabel: "Supprimer" }))) return;
       res = await fetch(`/api/payments/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": csrfToken } });
     } else {
-      const reason = prompt("Annuler cet encaissement (chèque impayé, erreur…) ? L'écriture sera extournée et la facture rouverte. Motif :");
+      const reason = await promptDialog({
+        title: "Annuler cet encaissement ?",
+        message: "Chèque impayé, erreur… L'écriture sera extournée et la facture rouverte.",
+        label: "Motif",
+        confirmLabel: "Annuler l'encaissement",
+        required: true,
+        multiline: true,
+      });
       if (!reason) return;
       res = await fetch(`/api/payments/${id}/cancel`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, body: JSON.stringify({ reason }) });
     }
     if (res.ok) load();
-    else { const d = await res.json().catch(() => ({})); alert(d.error || "Annulation impossible."); }
+    else { const d = await res.json().catch(() => ({})); showToast(d.error || "Annulation impossible.", "error"); }
   }
 
   if (!mounted) return null;

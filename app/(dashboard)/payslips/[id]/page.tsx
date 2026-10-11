@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Printer, Banknote, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
+import { confirmDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 interface Payslip {
@@ -42,9 +44,9 @@ export default function PayslipDetailPage() {
   useEffect(() => { if (id) load(); }, [id, load]);
 
   async function remove() {
-    if (!confirm("Supprimer ce bulletin ? Son écriture de paie sera extournée.")) return;
+    if (!(await confirmDialog({ title: "Supprimer ce bulletin ?", message: "Son écriture de paie sera extournée.", danger: true, confirmLabel: "Supprimer" }))) return;
     const res = await fetch(`/api/payslips/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Suppression impossible"); return; }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.error || "Suppression impossible", "error"); return; }
     router.push("/payslips");
   }
 

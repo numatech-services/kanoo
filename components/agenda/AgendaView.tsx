@@ -7,6 +7,7 @@ import { FormField, inputCls, textareaCls, selectCls } from "@/components/ui/For
 import { AgendaItem, AgendaType, TYPE_META, itemColor, ownerName } from "./types";
 import { MonthGrid, localDayKey } from "./CalendarGrid";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
 async function csrf() {
   const { csrfToken } = await fetch("/api/auth/csrf").then((r) => r.json());
   return csrfToken as string;
@@ -289,7 +290,7 @@ function EventDialog({ item, onClose, onSaved }: { item: Partial<AgendaItem>; on
   }
 
   async function remove() {
-    if (!id || !confirm("Supprimer cet événement ?")) return;
+    if (!id || !(await confirmDialog({ title: "Supprimer cet événement ?", danger: true }))) return;
     await fetch(`/api/agenda/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
     onSaved();
   }

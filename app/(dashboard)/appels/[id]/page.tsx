@@ -7,6 +7,8 @@ import { Clock, Upload, Download, Trash2, Plus, Check, ArrowRight, Ban, Trophy, 
 import { APPEL_STATUS, deadlineInfo } from "../page";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 interface ReqDoc { _id?: string; label: string; provided: boolean }
 interface Doc { _id: string; name?: string; dataUri?: string }
 interface Appel {
@@ -36,10 +38,10 @@ export default function AppelDetailPage() {
 
   async function patch(body: Record<string, unknown>) {
     const res = await fetch(`/api/appels/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify(body) });
-    if (res.ok) load(); else alert((await res.json()).error || "Échec");
+    if (res.ok) load(); else showToast((await res.json()).error || "Échec", "error");
   }
   async function del() {
-    if (!confirm("Supprimer cet appel ?")) return;
+    if (!(await confirmDialog({ title: "Supprimer cet appel ?", danger: true }))) return;
     const res = await fetch(`/api/appels/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
     if (res.ok) router.push("/appels");
   }
@@ -56,7 +58,7 @@ export default function AppelDetailPage() {
     patch({ requiredDocuments: a!.requiredDocuments.filter((_, idx) => idx !== i).map(d => ({ label: d.label, provided: d.provided })) });
   }
   function uploadDoc(file: File) {
-    if (file.size > 2_500_000) { alert("Fichier trop lourd (2,5 Mo max)."); return; }
+    if (file.size > 2_500_000) { showToast("Fichier trop lourd (2,5 Mo max).", "warning"); return; }
     const reader = new FileReader();
     reader.onload = () => patch({ documents: [...(a!.documents || []).map(d => ({ name: d.name, dataUri: d.dataUri })), { name: file.name, dataUri: String(reader.result) }] });
     reader.readAsDataURL(file);

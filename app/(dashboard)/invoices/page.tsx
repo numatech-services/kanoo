@@ -7,6 +7,7 @@ import { FilterChips } from "@/components/ui/Primitives";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
+import { showToast } from "@/components/ui/Toast";
 import { urlParam } from "@/lib/url-param";
 
 interface Invoice {
@@ -117,7 +118,7 @@ export default function InvoicesPage() {
       }, 150);
     } catch (err) {
       console.error("Erreur impression directe :", err);
-      alert("Impossible de charger le document pour l'impression.");
+      showToast("Impossible de charger le document pour l'impression.", "error");
       setPrintingId(null);
     }
   };

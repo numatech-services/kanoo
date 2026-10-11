@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
+import { showToast } from "@/components/ui/Toast";
 interface Devis { _id:string; number:string; clientId:{name:string}|null|string; totalHT:number; totalTTC:number; status:string; issueDate:string; validUntil:string; convertedToInvoiceId?:string; contractId?:string; }
 
 export default function DevisPage() {
@@ -43,8 +44,8 @@ export default function DevisPage() {
     const csrfRes=await fetch("/api/auth/csrf"); const {csrfToken}=await csrfRes.json();
     const res=await fetch(`/api/devis/${convertDialog.id}/to-invoice`,{method:"POST",headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},credentials:"include",body:JSON.stringify({type:convertDialog.type})});
     const d=await res.json();
-    if(res.ok){ alert(`✅ ${d.data?.message}`); setConvertDialog(null); load(); }
-    else alert(`❌ ${d.error}`);
+    if(res.ok){ showToast(d.data?.message ?? "Opération effectuée.", "success"); setConvertDialog(null); load(); }
+    else showToast(d.error ?? "Opération impossible.", "error");
     setConverting(false);
   }
 

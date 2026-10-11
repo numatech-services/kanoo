@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 export default function EngagementDetailsPage() {
   const params = useParams();
   const id = params?.id as string;
@@ -44,7 +46,7 @@ export default function EngagementDetailsPage() {
   }, [fetchEngagement]);
 
   const handleStatusUpdate = async (newStatus: 'approuve' | 'rejete' | 'mandate') => {
-    if (!confirm(`Confirmez-vous le passage au statut : ${newStatus}?`)) return;
+    if (!(await confirmDialog({ title: `Confirmez-vous le passage au statut : ${newStatus}?` }))) return;
 
     setUpdating(true);
     try {
@@ -61,7 +63,7 @@ export default function EngagementDetailsPage() {
         router.refresh();
       } else {
         const errData = await res.json();
-        alert(`Erreur : ${errData.message || "Mise à jour impossible"}`);
+        showToast(`Erreur : ${errData.message || "Mise à jour impossible"}`, "error");
       }
     } catch (err) {
       console.error(err);
@@ -93,7 +95,7 @@ export default function EngagementDetailsPage() {
   );
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="max-w-5xl mx-auto space-y-8 rise">
       
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <Link href="/administration/budget/engagements" className="flex items-center gap-2 text-ink2 hover:text-ink transition-colors group">

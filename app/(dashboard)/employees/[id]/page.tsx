@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Edit3, LogOut, UserCheck, Link2, CalendarClock, FileSpreadsheet, RotateCcw } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { confirmDialog } from "@/components/ui/Dialogs";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { EmployeeForm, type EmployeeFormData } from "@/components/pme/EmployeeForm";
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
@@ -90,7 +91,7 @@ export default function EmployeeDetailPage() {
             {canUsers && <button onClick={() => setLinkOpen(true)} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Link2 size={15} /> Compte utilisateur</button>}
             {e.isActive
               ? <button onClick={() => setExitOpen(true)} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-warn/30 text-warn text-sm hover:bg-warn-50"><LogOut size={15} /> Enregistrer le départ</button>
-              : <button onClick={() => confirm("Réintégrer ce collaborateur ?") && run(() => patch(String(id), { isActive: true, endDate: null, exitReason: null }))} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><RotateCcw size={15} /> Réintégrer</button>}
+              : <button onClick={async () => { if (await confirmDialog({ title: "Réintégrer ce collaborateur ?", confirmLabel: "Réintégrer" })) run(() => patch(String(id), { isActive: true, endDate: null, exitReason: null })); }} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><RotateCcw size={15} /> Réintégrer</button>}
             <button onClick={() => setEditOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><Edit3 size={15} /> Modifier</button>
           </div>
         )}

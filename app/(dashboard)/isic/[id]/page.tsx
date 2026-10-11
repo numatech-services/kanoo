@@ -8,6 +8,8 @@ import { Truck, Banknote, Upload, Download, Trash2, ArrowRight, Ban, FileText, B
 import { ISIC_STATUS, fmt, delivered as sumDelivered } from "../page";
 import { useMe, meCan, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 interface Delivery { _id: string; date: string; quantity: number; note?: string }
 interface Payment { _id: string; date: string; amount: number; method?: string; note?: string }
 interface Batch {
@@ -67,7 +69,7 @@ export default function IsicBatchPage() {
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Échec");
       loadCards();
-    } catch (e) { alert(e instanceof Error ? e.message : "Action impossible"); } finally { setBusy(false); }
+    } catch (e) { showToast(e instanceof Error ? e.message : "Action impossible", "error"); } finally { setBusy(false); }
   }
   // Synchronisation avec le registre ISIC (fiches étudiants, numéros, licences).
   const [sync, setSync] = useState<null | {
@@ -81,7 +83,7 @@ export default function IsicBatchPage() {
       let res = await fetch(`/api/isic/${id}/registry`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: "{}" });
       let d = await res.json();
       if (!res.ok && /année académique/i.test(d.error || "")) {
-        const y = prompt("Année académique du lot (format 2025-2026) :");
+        const y = await promptDialog({ title: "Année académique du lot (format 2025-2026) :" });
         if (!y) return;
         res = await fetch(`/api/isic/${id}/registry`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify({ academicYear: y.trim() }) });
         d = await res.json();
@@ -89,7 +91,7 @@ export default function IsicBatchPage() {
       if (!res.ok) throw new Error(d.error || "Synchronisation impossible");
       setSync(d.data);
       loadCards();
-    } catch (e) { alert(e instanceof Error ? e.message : "Synchronisation impossible"); } finally { setBusy(false); }
+    } catch (e) { showToast(e instanceof Error ? e.message : "Synchronisation impossible", "error"); } finally { setBusy(false); }
   }
 
   function importCsv(action: "import-students" | "import-numbers", file: File) {
@@ -105,7 +107,7 @@ export default function IsicBatchPage() {
 
   async function generateInvoice() {
     const uniId = typeof b!.universityId === "object" ? b!.universityId?._id : b!.universityId;
-    if (!uniId) { alert("Liez d'abord un client (université) pour facturer."); return; }
+    if (!uniId) { showToast("Liez d'abord un client (université) pour facturer.", "warning"); return; }
     setBusy(true);
     try {
       const token = await csrf();
@@ -121,29 +123,29 @@ export default function IsicBatchPage() {
       if (!res.ok) throw new Error(d.error || "Échec");
       const invId = d.data?._id || d.data?.id;
       await patch({ invoiceId: invId });
-      alert("Facture générée.");
-    } catch (e) { alert(e instanceof Error ? e.message : "Génération impossible"); } finally { setBusy(false); }
+      showToast("Facture générée.", "success");
+    } catch (e) { showToast(e instanceof Error ? e.message : "Génération impossible", "error"); } finally { setBusy(false); }
   }
 
   async function patch(body: Record<string, unknown>) {
     const res = await fetch(`/api/isic/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify(body) });
-    if (res.ok) load(); else alert((await res.json()).error || "Échec");
+    if (res.ok) load(); else showToast((await res.json()).error || "Échec", "error");
   }
   async function post(path: string, body: Record<string, unknown>, reset: () => void) {
     const res = await fetch(`/api/isic/${id}/${path}`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify(body) });
-    if (res.ok) { reset(); load(); } else alert((await res.json()).error || "Échec");
+    if (res.ok) { reset(); load(); } else showToast((await res.json()).error || "Échec", "error");
   }
   async function del(path: string, qs: string) {
     const res = await fetch(`/api/isic/${id}/${path}?${qs}`, { method: "DELETE", headers: { "x-csrf-token": await csrf() }, credentials: "include" });
     if (res.ok) load();
   }
   async function deleteBatch() {
-    if (!confirm("Supprimer ce lot ?")) return;
+    if (!(await confirmDialog({ title: "Supprimer ce lot ?", danger: true }))) return;
     const res = await fetch(`/api/isic/${id}`, { method: "DELETE", headers: { "x-csrf-token": await csrf() }, credentials: "include" });
-    if (res.ok) router.push("/isic"); else alert("Suppression impossible.");
+    if (res.ok) router.push("/isic"); else showToast("Suppression impossible.", "error");
   }
   function upload(field: "receivedFile" | "isicFile", file: File) {
-    if (file.size > 2_500_000) { alert("Fichier trop lourd (2,5 Mo max)."); return; }
+    if (file.size > 2_500_000) { showToast("Fichier trop lourd (2,5 Mo max).", "warning"); return; }
     const reader = new FileReader();
     reader.onload = () => patch({ [field]: { name: file.name, dataUri: String(reader.result) } });
     reader.readAsDataURL(file);
@@ -172,7 +174,7 @@ export default function IsicBatchPage() {
         </div>
         <div className="flex gap-2">
           {NEXT[b.status] && <button onClick={() => patch({ status: NEXT[b.status] })} className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 inline-flex items-center gap-1.5">Étape suivante <ArrowRight size={15} /></button>}
-          {!terminal && <button onClick={() => { if (confirm("Annuler ce lot ?")) patch({ status: "cancelled" }); }} className="px-3 h-10 rounded-lg border border-warn/25 text-warn text-sm hover:bg-warn-50 inline-flex items-center gap-1.5"><Ban size={15} /> Annuler</button>}
+          {!terminal && <button onClick={async () => { if (await confirmDialog({ title: "Annuler ce lot ?", danger: true })) patch({ status: "cancelled" }); }} className="px-3 h-10 rounded-lg border border-warn/25 text-warn text-sm hover:bg-warn-50 inline-flex items-center gap-1.5"><Ban size={15} /> Annuler</button>}
           {canDelete && <button onClick={deleteBatch} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50">Supprimer</button>}
         </div>
       </div>

@@ -6,6 +6,7 @@ import { useUrlReady } from "@/lib/url-param";
 import { CommandeForm } from "@/components/pme/CommandeForm";
 import { errorMessage } from "@/lib/errors";
 
+import { showToast } from "@/components/ui/Toast";
 export default function NewCommandePage() {
   const router = useRouter();
   const [supplierId, setSupplierId] = useState("");
@@ -43,7 +44,7 @@ export default function NewCommandePage() {
       
     } catch (err) {
       console.error("🔥 [BC New] Erreur critique:", errorMessage(err));
-      alert(`Erreur: ${errorMessage(err)}`);
+      showToast(`Erreur: ${errorMessage(err)}`, "error");
     }
   }
 

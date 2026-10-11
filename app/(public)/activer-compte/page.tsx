@@ -3,6 +3,8 @@ import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+import { promptDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 function ActivateForm() {
   const searchParams = useSearchParams();
   const tokenFromUrl = searchParams.get("token") || "";
@@ -37,7 +39,7 @@ function ActivateForm() {
       </div>
       {result && !result.success && <div className="p-3 bg-neg-50 border border-neg/25 rounded-lg text-neg text-sm">{result.message}</div>}
       <button type="submit" disabled={loading || !token} className="w-full py-3 bg-section text-white rounded-xl font-medium hover:brightness-95 transition-colors disabled:opacity-60">{loading ? "Activation…" : "Activer mon compte"}</button>
-      <div className="text-center"><button type="button" onClick={async () => { const email = prompt("Votre email pour renvoyer le lien :"); if (email) { await fetch("/api/public/activation/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) }); alert("Si votre email est enregistré, vous recevrez un nouveau lien."); } }} className="text-sm text-section hover:underline">Renvoyer le lien d'activation</button></div>
+      <div className="text-center"><button type="button" onClick={async () => { const email = await promptDialog({ title: "Votre email pour renvoyer le lien :" }); if (email) { await fetch("/api/public/activation/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) }); showToast("Si votre email est enregistré, vous recevrez un nouveau lien.", "success"); } }} className="text-sm text-section hover:underline">Renvoyer le lien d'activation</button></div>
     </form>
   );
 }

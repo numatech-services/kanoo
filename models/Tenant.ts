@@ -21,6 +21,12 @@ const TenantSchema = new Schema<ITenant>(
       default: "starter",
     },
     planModules: { type: [String], default: ["*"] },
+    /**
+     * Modules optionnels que l'organisation n'exerce pas (comptoir, isic,
+     * licences, evenements) : retirés du menu et de la recherche. Vide par
+     * défaut — tout est visible. Voir lib/modules.ts.
+     */
+    disabledModules: { type: [String], default: [] },
     subscriptionStatus: {
       type: String,
       enum: ["pending_activation", "trial", "active", "suspended", "cancelled", "none"],

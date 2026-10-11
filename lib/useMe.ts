@@ -8,7 +8,7 @@ export interface MeUser {
   firstName?: string; lastName?: string; role?: string; email?: string; phone?: string;
   roles?: string[]; roleLevels?: Record<string, string>; allowedResources?: string[];
 }
-export interface MeTenant { name?: string; logo?: string; type?: "pme" | "association" | "administration"; primaryColor?: string; }
+export interface MeTenant { name?: string; logo?: string; type?: "pme" | "association" | "administration"; primaryColor?: string; disabledModules?: string[]; }
 export interface Me { user: MeUser | null; tenant: MeTenant | null; resources: string[]; }
 
 // Cache au niveau module : /api/auth/me n'est lu qu'une fois par chargement,

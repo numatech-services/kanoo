@@ -11,6 +11,7 @@ import {
 import toast from "react-hot-toast";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
 interface Ev {
   _id: string; title: string; description?: string; startAt: string; endAt?: string;
   locationType: string; address?: string; meetingLink?: string; capacity: number;
@@ -122,7 +123,7 @@ export default function ActiviteDetailPage() {
   }
 
   async function refund(attendeeId: string) {
-    if (!confirm("Rembourser ce billet ? Il sera invalidé et la place libérée.")) return;
+    if (!(await confirmDialog({ title: "Rembourser ce billet ?", message: "Il sera invalidé et la place libérée." }))) return;
     const tid = toast.loading("Remboursement…");
     try {
       const res = await fetch(`/api/events/${id}/attendees/${attendeeId}/refund`, {

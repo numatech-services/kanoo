@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/Modal";
 
+import { showToast } from "@/components/ui/Toast";
 interface IServiceProduct {
   _id: string;
   code: string;
@@ -96,10 +97,10 @@ async function handleSubmit(e: React.FormEvent) {
       loadServices();
     } else {
       // Affiche l'erreur exacte du serveur (ex: code déjà existant)
-      alert("Erreur : " + (result.error || "Impossible d'enregistrer"));
+      showToast("Erreur : " + (result.error || "Impossible d'enregistrer"), "error");
     }
   } catch (err) {
-    alert("Erreur réseau");
+    showToast("Erreur réseau", "error");
   } finally {
     setSaving(false);
   }

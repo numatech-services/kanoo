@@ -6,6 +6,8 @@ import { Modal } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 type Client = ClientFormData & { _id: string; currentBalance: number; logo?: string };
 type Row = Record<string, unknown>;
 interface Section { count: number; items: Row[]; }
@@ -108,9 +110,9 @@ export default function ClientDetailPage() {
         <div className="flex gap-2 flex-wrap justify-end">
           <button onClick={() => setEditOpen(true)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Modifier</button>
           {canRemove && <button onClick={async () => {
-            if (!confirm("Désactiver ce client ? Il disparaît des listes ; ses documents restent.")) return;
+            if (!(await confirmDialog({ title: "Désactiver ce client ?", message: "Il disparaît des listes ; ses documents restent.", danger: true }))) return;
             const res = await fetch(`/api/clients/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrfTok() } });
-            if (res.ok) router.push("/clients"); else alert("Désactivation impossible");
+            if (res.ok) router.push("/clients"); else showToast("Désactivation impossible", "error");
           }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Désactiver</button>}
           {data.financials && <a href={`/clients/${id}/releve`} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Relevé</a>}
           {data.access?.createInvoice !== false && <a href={`/invoices/new?clientId=${id}`} className="px-4 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95">+ Facture</a>}

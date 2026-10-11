@@ -5,6 +5,8 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 interface Delivery {
   _id:string; number:string; status:string; deliveryDate:string; deliveryAddress?:string;
   signedAt?:string; signedBy?:string; notes?:string;
@@ -49,9 +51,9 @@ export default function LivraisonDetailPage() {
         <div className="flex gap-2 mt-2">
           <button onClick={()=>window.print()} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">🖨️ Imprimer</button>
           {canCancelBl && <button onClick={async()=>{
-            if(!confirm("Annuler ce bon de livraison ? Les articles sortis seront remis en stock.")) return;
+            if(!(await confirmDialog({ title: "Annuler ce bon de livraison ?", message: "Les articles sortis seront remis en stock.", danger: true }))) return;
             const res=await fetch(`/api/livraisons/${id}`,{method:"DELETE",credentials:"include",headers:{"x-csrf-token":await csrfTok()}});
-            if(res.ok) window.location.href="/livraisons"; else { const d=await res.json().catch(()=>({})); alert(d.error||"Annulation impossible"); }
+            if(res.ok) window.location.href="/livraisons"; else { const d=await res.json().catch(()=>({})); showToast(d.error||"Annulation impossible", "error"); }
           }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Annuler le BL</button>}
           {!delivery.signedAt && delivery.status!=="delivered" && <button onClick={()=>setShowSignForm(true)} className="px-4 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95">✍️ Signer la livraison</button>}
         </div>

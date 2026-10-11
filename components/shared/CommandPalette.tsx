@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, CornerDownLeft } from "lucide-react";
-import { SECTIONS, type SectionKey } from "@/lib/sections";
+import { SECTIONS, sectionForPath, type SectionKey } from "@/lib/sections";
+import { moduleEnabled } from "@/lib/modules";
 import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { NAV_MAP, type ProfileType } from "@/components/layout/Sidebar";
@@ -19,77 +20,86 @@ interface Command {
 }
 
 /**
- * Toutes les destinations, à plat. La table est écrite ici plutôt que dérivée
- * de la barre latérale : la palette doit aussi mener à des écrans profonds que
- * la navigation ne montre pas, et à des synonymes que l'utilisateur tape.
+ * Les écrans viennent du menu (NAV_MAP) : une seule liste, si bien qu'un écran
+ * ajouté au menu est aussitôt trouvable, sous le même nom. S'y ajoutent des
+ * synonymes que l'utilisateur tape (« avoir » doit trouver Factures) et des
+ * raccourcis vers des écrans profonds que le menu ne montre pas.
  */
-const COMMANDS: Command[] = [
-  { label: "Tableau de bord", href: "/dashboard", section: "accueil" },
-  { label: "Notifications", href: "/notifications", section: "accueil" },
-  { label: "Messages", href: "/messages", section: "accueil" },
-  { label: "Activités", href: "/activites", section: "accueil", keywords: "événement billetterie" },
+const KEYWORDS: Record<string, string> = {
+  "/dashboard": "accueil synthèse indicateurs",
+  "/rapports": "état export synthèse rapport",
+  "/agenda": "calendrier rendez-vous échéance",
+  "/clients": "client prospect université",
+  "/crm": "pipeline opportunité prospect",
+  "/devis": "proforma offre",
+  "/contracts": "marché contrat client exécution acompte échéancier marge",
+  "/marches-cadres": "livraison lot tranche reliquat isic marché cadre",
+  "/invoices": "avoir facturation",
+  "/livraisons": "BL expédition",
+  "/payments": "paiement encaissement règlement",
+  "/relances": "recouvrement impayés mise en demeure barème dso",
+  "/suppliers": "fournisseur",
+  "/commandes": "bon de commande achat BC",
+  "/depenses": "achat dépense facture fournisseur",
+  "/recurring-expenses": "abonnement charge fixe loyer",
+  "/stock": "inventaire article produit",
+  "/stock/lots": "péremption lot date limite fefo",
+  "/inventaires": "comptage stock écart régularisation aveugle",
+  "/appels": "appel d'offres candidature soumission veille",
+  "/projects": "projet tâche jalon ong",
+  "/approbations": "validation circuit",
+  "/treasury": "banque caisse solde",
+  "/treasury/prevision": "prévision trésorerie projection",
+  "/accounting": "écriture journal OHADA SYSCOHADA",
+  "/accounting/etats": "bilan compte de résultat balance grand livre",
+  "/fiscalite": "TVA impôt DGI",
+  "/fiscalite/isbic": "impôt société annuel",
+  "/budget-previsionnel": "prévision écart prorata projection exercice",
+  "/fixed-assets": "amortissement immobilisation",
+  "/analytique": "analytique secteur activité marge résultat rentabilité",
+  "/analytics": "analytique graphique tendance",
+  "/employees": "employé salarié personnel",
+  "/payslips": "salaire CNSS IR paie",
+  "/conges": "congé absence",
+  "/notes-de-frais": "frais remboursement justificatif reçu mission déplacement",
+  "/documents": "ged fichier pièce jointe",
+  "/courriers": "lettre correspondance rapport attestation",
+  "/documents-administratifs": "rccm nif attestation patente agrément assurance bail échéance renouvellement expiration",
+  "/comptoir": "the spot caisse stock matière arrêté bar vente",
+  "/isic": "carte étudiant lot impression",
+  "/isic/registre": "étudiant numéro licence renouvellement isic registre",
+  "/abonnements": "revente marge licence abonnement",
+  "/abonnements/achats": "éditeur compilatio abonnement",
+  "/abonnements/reventes": "client final licence abonnement",
+  "/activites": "événement billetterie activité",
+  "/settings/modules": "activer désactiver option",
+  "/users": "compte rôle droit",
+  "/settings/securite": "mot de passe authentification",
+  "/settings/facture-certifiee": "SECeF DGI MCF QR code impôts",
+  "/settings/numbering": "préfixe séquence numérotation",
+  "/settings/confidentialite": "RGPD données",
+  "/subscription": "facturation plan abonnement",
+  "/audit": "traçabilité historique",
+  "/support": "aide ticket",
+};
 
-  { label: "Clients", href: "/clients", section: "ventes" },
-  { label: "Nouveau client", href: "/clients?new=1", section: "ventes", keywords: "créer ajouter" },
-  { label: "Devis", href: "/devis", section: "ventes" },
-  { label: "Nouveau devis", href: "/devis/new", section: "ventes", keywords: "créer proforma" },
-  { label: "Factures", href: "/invoices", section: "ventes", keywords: "avoir facturation" },
-  { label: "Nouvelle facture", href: "/invoices/new", section: "ventes", keywords: "créer facturer" },
-  { label: "Factures impayées", href: "/invoices?overdue=true", section: "ventes", keywords: "retard relance échue" },
-  { label: "Relances", href: "/relances", section: "ventes", keywords: "recouvrement impayés mise en demeure barème dso" },
-  { label: "Courriers", href: "/courriers", section: "accueil", keywords: "lettre correspondance rapport attestation" },
-  { label: "Marchés-cadres", href: "/marches-cadres", section: "achats", keywords: "livraison lot tranche reliquat isic marché cadre" },
-  { label: "Notes de frais", href: "/notes-de-frais", section: "finance", keywords: "frais remboursement justificatif reçu mission déplacement" },
-  { label: "Documents administratifs", href: "/documents-administratifs", section: "contrats", keywords: "rccm nif attestation patente agrément assurance bail échéance renouvellement expiration" },
-  { label: "Inventaires physiques", href: "/inventaires", section: "achats", keywords: "comptage stock écart régularisation aveugle" },
-  { label: "Budget prévisionnel", href: "/budget-previsionnel", section: "finance", keywords: "prévision écart prorata projection exercice" },
-  { label: "Nouvelle note de frais", href: "/notes-de-frais/new", section: "finance", keywords: "créer saisir dépense" },
-  { label: "Bons de livraison", href: "/livraisons", section: "ventes", keywords: "BL expédition" },
-  { label: "Paiements", href: "/payments", section: "ventes", keywords: "encaissement règlement" },
-  { label: "CRM", href: "/crm", section: "ventes", keywords: "pipeline opportunité prospect" },
-
-  { label: "Fournisseurs", href: "/suppliers", section: "achats" },
-  { label: "Commandes", href: "/commandes", section: "achats", keywords: "bon de commande achat" },
-  { label: "Stock", href: "/stock", section: "achats", keywords: "inventaire article" },
-  { label: "Marchés publics", href: "/marches", section: "achats", keywords: "appel d'offres CMP" },
-
-  { label: "Portefeuille d'abonnements", href: "/abonnements", section: "abonnements", keywords: "revente marge licence" },
-  { label: "Contrats souscrits", href: "/abonnements/achats", section: "abonnements", keywords: "éditeur compilatio" },
-  { label: "Reventes d'abonnements", href: "/abonnements/reventes", section: "abonnements", keywords: "client final licence" },
-
-  { label: "Contrats", href: "/contracts", section: "contrats" },
-  { label: "Projets", href: "/projects", section: "contrats" },
-  { label: "Documents", href: "/documents", section: "contrats" },
-  { label: "Approbations", href: "/approbations", section: "contrats", keywords: "validation circuit" },
-
-  { label: "Trésorerie", href: "/treasury", section: "finance", keywords: "banque caisse solde" },
-  { label: "Comptabilité", href: "/accounting", section: "finance", keywords: "écriture journal OHADA" },
-  { label: "Lettrage", href: "/accounting/lettrage", section: "finance", keywords: "rapprochement" },
-  { label: "Dépenses récurrentes", href: "/recurring-expenses", section: "finance", keywords: "abonnement charge fixe" },
-  { label: "Fiscalité", href: "/fiscalite", section: "finance", keywords: "TVA impôt DGI" },
-  { label: "TVA", href: "/fiscalite/tva", section: "finance", keywords: "déclaration mensuelle" },
-  { label: "IS / BIC", href: "/fiscalite/isbic", section: "finance", keywords: "impôt société annuel" },
-  { label: "Retenues à la source", href: "/fiscalite/retenues", section: "finance" },
-  { label: "Immobilisations", href: "/fixed-assets", section: "finance", keywords: "amortissement" },
-  { label: "Analytique", href: "/analytics", section: "finance", keywords: "rapport graphique" },
-  { label: "Rentabilité par secteur", href: "/analytique", section: "finance", keywords: "analytique secteur activité marge résultat" },
-  { label: "Comptoir (The Spot)", href: "/comptoir", section: "finance", keywords: "the spot caisse stock matière arrêté bar vente" },
-  { label: "Cartes ISIC", href: "/isic", section: "ventes", keywords: "carte étudiant lot impression" },
-  { label: "Registre ISIC", href: "/isic/registre", section: "ventes", keywords: "étudiant numéro licence renouvellement isic registre" },
-  { label: "Appels à candidatures", href: "/appels", section: "contrats", keywords: "appel d'offres candidature soumission" },
-
-  { label: "Collaborateurs", href: "/employees", section: "rh", keywords: "employé salarié personnel" },
-  { label: "Bulletins de paie", href: "/payslips", section: "rh", keywords: "salaire CNSS IR" },
-
-  { label: "Utilisateurs", href: "/users", section: "parametres", keywords: "compte rôle droit" },
-  { label: "Sécurité et 2FA", href: "/settings/securite", section: "parametres", keywords: "mot de passe authentification" },
-  { label: "Facture certifiée SECeF", href: "/settings/facture-certifiee", section: "parametres", keywords: "DGI MCF QR code impôts" },
-  { label: "Numérotation", href: "/settings/numbering", section: "parametres", keywords: "préfixe séquence" },
-  { label: "Confidentialité", href: "/settings/confidentialite", section: "parametres", keywords: "RGPD données" },
-  { label: "Abonnement Kanoo", href: "/subscription", section: "parametres", keywords: "facturation plan" },
-  { label: "Journal d'audit", href: "/audit", section: "parametres", keywords: "traçabilité historique" },
-  { label: "Support", href: "/support", section: "parametres", keywords: "aide ticket" },
+const SHORTCUTS: Command[] = [
+  { label: "Nouveau client", href: "/clients?new=1", section: "ventes", group: "Raccourci", keywords: "créer ajouter" },
+  { label: "Nouveau devis", href: "/devis/new", section: "ventes", group: "Raccourci", keywords: "créer proforma" },
+  { label: "Nouvelle facture", href: "/invoices/new", section: "ventes", group: "Raccourci", keywords: "créer facturer" },
+  { label: "Factures impayées", href: "/invoices?overdue=true", section: "ventes", group: "Raccourci", keywords: "retard relance échue" },
+  { label: "Lettrage", href: "/accounting/lettrage", section: "finance", group: "Raccourci", keywords: "rapprochement" },
+  { label: "Déclaration de TVA", href: "/fiscalite/tva", section: "finance", group: "Raccourci", keywords: "déclaration mensuelle" },
+  { label: "Nouvelle note de frais", href: "/notes-de-frais/new", section: "rh", group: "Raccourci", keywords: "créer saisir dépense" },
+  { label: "Paramètres", href: "/settings", section: "parametres", group: "Raccourci", keywords: "réglages configuration" },
 ];
+
+function commandsFor(profile: ProfileType): Command[] {
+  const fromNav = NAV_MAP[profile].flatMap(g => g.items.map(i => ({
+    label: i.label, href: i.href, section: sectionForPath(i.href), group: g.section, keywords: KEYWORDS[i.href],
+  })));
+  return profile === "pme" ? [...fromNav, ...SHORTCUTS] : fromNav;
+}
 
 /** Retire accents et casse : « fiscalite » doit trouver « Fiscalité ». */
 function normalize(value: string): string {
@@ -114,15 +124,15 @@ export function CommandPalette({ profile = "pme" }: { profile?: ProfileType }) {
 
   // Même règle que la barre latérale : on ne propose pas un écran que le rôle
   // ne peut pas ouvrir. Tant que les droits ne sont pas chargés, on montre tout.
-  const { resources, loading } = useMe();
+  const { resources, loading, tenant } = useMe();
   // Chaque espace a ses écrans : une association ou une administration ne doit
   // pas se voir proposer le tableau de bord PME.
-  const commands = useMemo<Command[]>(() => profile === "pme" ? COMMANDS
-    : NAV_MAP[profile].flatMap(g => g.items.map(i => ({ label: i.label, href: i.href, section: "accueil" as SectionKey, group: g.section }))), [profile]);
+  const commands = useMemo<Command[]>(() => commandsFor(profile), [profile]);
   const visible = useMemo(() => commands.filter(cmd => {
+    if (!moduleEnabled(cmd.href, tenant?.disabledModules)) return false;
     const res = resourceForHref(cmd.href);
     return !res || loading || resources.length === 0 || meCan(resources, res);
-  }), [resources, loading, commands]);
+  }), [resources, loading, commands, tenant]);
 
   // Recherche de fiches (clients, factures) en plus des écrans : la barre du
   // haut annonce « Rechercher une facture, un client… ».

@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Inset, Avatar, Pill } from "@/components/ui/Primitives";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Modal } from "@/components/ui/Modal";
+import { promptDialog } from "@/components/ui/Dialogs";
 import { ReceiptCapture } from "@/components/expenses/ReceiptCapture";
 import { fullXof } from "@/components/ui/charts/geometry";
 import {
@@ -189,11 +190,15 @@ export default function NoteDeFraisPage() {
                 <Check size={15} /> Approuver
               </button>
               <button
-                onClick={() => {
-                  const reason = window.prompt(
-                    "Pourquoi cette note est-elle refusée ?\n"
-                    + "Sans motif, le salarié ne sait pas quoi corriger."
-                  );
+                onClick={async () => {
+                  const reason = await promptDialog({
+                    title: "Pourquoi cette note est-elle refusée ?",
+                    message: "Sans motif, le salarié ne sait pas quoi corriger.",
+                    label: "Motif du refus",
+                    confirmLabel: "Refuser",
+                    required: true,
+                    multiline: true,
+                  });
                   if (reason?.trim()) patch({ status: "rejected", reason });
                 }}
                 disabled={busy}

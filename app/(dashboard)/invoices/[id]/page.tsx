@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { PaymentForm } from "@/components/pme/PaymentForm";
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 
+import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 interface InvoiceLine { 
   description: string; 
   quantity: number; 
@@ -150,7 +151,7 @@ export default function InvoiceDetailPage() {
   async function toggleLitige() {
     const open = !invoice?.disputedAt;
     const reason = open
-      ? window.prompt("Que conteste le client ?\nSans motif, personne ne saura de quoi il s'agissait dans trois mois.")
+      ? await promptDialog({ title: "Que conteste le client ?\nSans motif, personne ne saura de quoi il s'agissait dans trois mois.", multiline: true })
       : null;
     if (open && !reason?.trim()) return;
 
@@ -170,7 +171,7 @@ export default function InvoiceDetailPage() {
   }
 
   async function sendInvoice() {
-    if (!confirm("Marquer cette facture comme émise ?")) return;
+    if (!(await confirmDialog({ title: "Marquer cette facture comme émise ?" }))) return;
     const csrfRes = await fetch("/api/auth/csrf");
     const { csrfToken } = await csrfRes.json();
     await fetch(`/api/invoices/${id}/send`, { method: "POST", headers: { "x-csrf-token": csrfToken }, credentials: "include" });
@@ -178,7 +179,7 @@ export default function InvoiceDetailPage() {
   }
 
   async function cancelInvoice() {
-    if (!confirm("Annuler cette facture ? Cette action est irréversible.")) return;
+    if (!(await confirmDialog({ title: "Annuler cette facture ?", message: "Cette action est irréversible.", danger: true }))) return;
     const csrfRes = await fetch("/api/auth/csrf");
     const { csrfToken } = await csrfRes.json();
     await fetch(`/api/invoices/${id}/cancel`, { method: "POST", headers: { "x-csrf-token": csrfToken }, credentials: "include" });

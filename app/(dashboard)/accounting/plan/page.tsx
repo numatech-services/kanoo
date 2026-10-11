@@ -6,6 +6,7 @@ import { inputCls, selectCls } from "@/components/ui/FormField";
 import { ACCOUNT_CLASS_LABEL } from "@/lib/syscohada";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
 interface Account { _id: string; code: string; label: string; accountClass: string; isActive: boolean; used: boolean }
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
@@ -79,7 +80,7 @@ export default function LedgerPlanPage() {
                 <td className="text-xs">{a.used ? <span className="text-pos">mouvementé</span> : <span className="text-ink3">—</span>}</td>
                 <td className="text-right whitespace-nowrap">
                   {canEdit && <button onClick={() => call(`/api/ledger-accounts/${a._id}`, "PATCH", { isActive: !a.isActive })} className="px-2 h-7 rounded-md border border-line2 text-xs hover:bg-surface2">{a.isActive ? "Désactiver" : "Réactiver"}</button>}
-                  {canDelete && !a.used && <button onClick={() => confirm(`Supprimer le compte ${a.code} ?`) && call(`/api/ledger-accounts/${a._id}`, "DELETE")} className="ml-1 p-1 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>}
+                  {canDelete && !a.used && <button onClick={async () => { if (await confirmDialog({ title: `Supprimer le compte ${a.code} ?`, danger: true })) call(`/api/ledger-accounts/${a._id}`, "DELETE"); }} className="ml-1 p-1 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>}
                 </td>
               </tr>
             ))}

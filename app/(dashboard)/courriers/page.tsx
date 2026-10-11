@@ -7,6 +7,8 @@ import { FormField, inputCls, textareaCls, selectCls } from "@/components/ui/For
 import { Pill, EmptyState } from "@/components/ui/Primitives";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 interface Letter {
   _id: string; reference?: string; kind: string; subject: string;
   recipient?: string; status: string; direction?: string; archived?: boolean;
@@ -75,7 +77,7 @@ export default function CourriersPage() {
   useEffect(() => { load(); }, [load]);
 
   async function del(id: string) {
-    if (!confirm("Supprimer ce courrier ?")) return;
+    if (!(await confirmDialog({ title: "Supprimer ce courrier ?", danger: true }))) return;
     await fetch(`/api/courriers/${id}`, {
       method: "DELETE", credentials: "include",
       headers: { "x-csrf-token": await csrf() },
@@ -97,7 +99,7 @@ export default function CourriersPage() {
   async function downloadAttachment(id: string) {
     const d = await fetch(`/api/courriers/${id}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
     const att = d?.data?.attachment;
-    if (!att?.dataUri) { alert("Pièce jointe introuvable."); return; }
+    if (!att?.dataUri) { showToast("Pièce jointe introuvable.", "error"); return; }
     const a = document.createElement("a");
     a.href = att.dataUri; a.download = att.name || "piece-jointe"; a.click();
   }
@@ -280,7 +282,7 @@ function ComposeDialog({
 
   async function generate() {
     if (!form.subject.trim()) { setError("Renseignez d'abord l'objet : l'IA en a besoin."); return; }
-    if (form.body.trim() && !confirm("Remplacer le corps actuel par le texte proposé par l'IA ?")) return;
+    if (form.body.trim() && !(await confirmDialog({ title: "Remplacer le corps actuel par le texte proposé par l'IA ?" }))) return;
     setAiLoading(true);
     setError(null);
     try {

@@ -93,7 +93,7 @@ export default function AssoDashboardPage() {
   ];
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto p-4 pb-20 animate-in fade-in duration-700">
+    <div className="space-y-8 max-w-7xl mx-auto p-4 pb-20 rise">
       
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-line pb-6">

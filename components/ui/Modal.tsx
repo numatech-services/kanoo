@@ -1,26 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 
 interface ModalProps {
   open: boolean;
   onClose: () => void;
   title: string;
+  /** Ligne d'explication sous le titre. */
+  description?: string;
   children: React.ReactNode;
+  /** Boutons d'action, alignés à droite dans un pied fixe. */
+  footer?: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
 }
 
-const SIZE_CLASSES = { 
-  sm: "max-w-sm", 
-  md: "max-w-lg", 
-  lg: "max-w-2xl", 
-  xl: "max-w-4xl" 
+const SIZE_CLASSES = {
+  sm: "max-w-sm",
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+  xl: "max-w-4xl",
 };
 
-export function Modal({ open, onClose, title, children, size = "md" }: ModalProps) {
-  // 1. Empêcher l'erreur d'hydratation au niveau de la modale
+export function Modal({ open, onClose, title, description, children, footer, size = "md" }: ModalProps) {
   const [mounted, setMounted] = useState(false);
+  const titleId = useId();
 
   useEffect(() => {
     setMounted(true);
@@ -30,50 +35,49 @@ export function Modal({ open, onClose, title, children, size = "md" }: ModalProp
       if (e.key === "Escape") onClose();
     }
 
-    // Bloquer le scroll du body quand la modale est ouverte
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleKey);
 
     return () => {
-      document.body.style.overflow = "unset";
+      document.body.style.overflow = "";
       document.removeEventListener("keydown", handleKey);
     };
   }, [open, onClose]);
 
   if (!mounted || !open) return null;
 
-  // 2. Utiliser un Portal pour injecter la modale hors de la hiérarchie DOM de la page
-  // Cela évite que les styles de la page parente n'interfèrent avec le z-index
+  // Portail : la fenêtre échappe aux styles et au z-index de la page parente.
+  // Sur téléphone, elle s'ancre en bas d'écran, à portée de pouce.
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-ink/60 backdrop-blur-md transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      
-      {/* Panel */}
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
+      <div className="fixed inset-0 bg-ink/50 backdrop-blur-sm fade" onClick={onClose} aria-hidden="true" />
+
       <div
         role="dialog"
         aria-modal="true"
-        className={`relative w-full ${SIZE_CLASSES[size]} bg-surface rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200`}
+        aria-labelledby={titleId}
+        className={`relative w-full ${SIZE_CLASSES[size]} bg-surface rounded-t-2xl sm:rounded-2xl shadow-soft border border-line overflow-hidden rise flex flex-col max-h-[92vh]`}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-8 py-5 border-b border-line bg-surface2/10">
-          <h2 className="text-xl font-black text-ink italic uppercase tracking-tight">{title}</h2>
+        <div className="flex items-start justify-between gap-4 px-5 sm:px-6 py-4 border-b border-line">
+          <div className="min-w-0">
+            <h2 id={titleId} className="text-lg font-semibold text-ink">{title}</h2>
+            {description && <p className="text-sm text-ink2 mt-0.5">{description}</p>}
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-ink2 hover:text-section transition-all w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface2 font-bold"
+            aria-label="Fermer"
+            className="text-ink3 hover:text-ink w-8 h-8 -mr-1 flex items-center justify-center rounded-lg hover:bg-surface2 shrink-0"
           >
-            ✕
+            <X size={18} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-8 overflow-y-auto max-h-[75vh]">
-          {children}
-        </div>
+        <div className="px-5 sm:px-6 py-5 overflow-y-auto">{children}</div>
+
+        {footer && (
+          <div className="flex flex-wrap justify-end gap-2 px-5 sm:px-6 py-3 border-t border-line bg-surface2/40">{footer}</div>
+        )}
       </div>
     </div>,
     document.body

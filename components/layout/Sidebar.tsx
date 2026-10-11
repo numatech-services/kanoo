@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser } from "lucide-react";
+import { moduleEnabled } from "@/lib/modules";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes } from "lucide-react";
 
 /** Où mène la pastille d'une entrée : la liste filtrée sur ce qu'elle compte. */
 const BADGE_TARGET: Record<string, { href: string; title: string }> = {
@@ -16,6 +17,10 @@ const BADGE_TARGET: Record<string, { href: string; title: string }> = {
 };
 
 export type ProfileType = "pme" | "association" | "administration" | "superadmin";
+
+const PROFILE_LABEL: Record<ProfileType, string> = {
+  pme: "Entreprise", association: "Association", administration: "Administration", superadmin: "Plateforme",
+};
 
 interface NavItem { 
   label: string; 
@@ -36,93 +41,100 @@ interface NavGroup {
   tone?: SectionKey;
 }
 
+// Sept espaces métier, puis les modules optionnels et les réglages. Chaque
+// écran n'apparaît qu'à un endroit, sous le nom qu'il porte dans sa page
+// (audit d'octobre 2026 : 61 entrées en 8 groupes, « Activité » y avait cinq
+// sens et les achats étaient rangés en Finance).
 const PME_NAV: NavGroup[] = [
-  { section: "Accueil", items: [
+  { section: "Pilotage", tone: "accueil", items: [
     { label: "Tableau de bord", href: "/dashboard", icon: <LayoutDashboard size={18} /> },
+    { label: "Rapports", href: "/rapports", icon: <FileSpreadsheet size={18} /> },
     { label: "Agenda", href: "/agenda", icon: <CalendarClock size={18} /> },
-    { label: "Activités", href: "/activites", icon: <Calendar size={18} /> },
     { label: "Notifications", href: "/notifications", icon: <Bell size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
-    { label: "Courriers", href: "/courriers", icon: <Mail size={18} /> },
   ]},
-  { section: "Ventes", items: [
+  { section: "Ventes", tone: "ventes", items: [
     { label: "Clients", href: "/clients", icon: <Users size={18} /> },
+    { label: "Pipeline commercial", href: "/crm", icon: <BarChart3 size={18} /> },
     { label: "Devis", href: "/devis", icon: <ClipboardList size={18} /> },
+    { label: "Marchés & contrats clients", href: "/contracts", icon: <PenTool size={18} /> },
+    { label: "Marchés-cadres", href: "/marches-cadres", icon: <PackageCheck size={18} /> },
     { label: "Factures", href: "/invoices", icon: <Receipt size={18} /> },
     { label: "Bons de livraison", href: "/livraisons", icon: <Truck size={18} /> },
-    { label: "Paiements", href: "/payments", icon: <CreditCard size={18} /> },
+    { label: "Encaissements", href: "/payments", icon: <CreditCard size={18} /> },
     { label: "Relances", href: "/relances", icon: <BellRing size={18} /> },
-    { label: "Notes de frais", href: "/notes-de-frais", icon: <ReceiptText size={18} /> },
-    { label: "Cartes ISIC", href: "/isic", icon: <CreditCard size={18} /> },
-    { label: "Registre ISIC", href: "/isic/registre", icon: <BookUser size={18} /> },
   ]},
-  { section: "Achats & Stock", items: [
+  { section: "Achats & stock", tone: "achats", items: [
     { label: "Fournisseurs", href: "/suppliers", icon: <Factory size={18} /> },
-    { label: "Commandes", href: "/commandes", icon: <Package size={18} /> },
+    { label: "Bons de commande", href: "/commandes", icon: <Package size={18} /> },
+    { label: "Factures & dépenses", href: "/depenses", icon: <ReceiptText size={18} /> },
+    { label: "Dépenses récurrentes", href: "/recurring-expenses", icon: <RefreshCw size={18} /> },
     { label: "Stock", href: "/stock", icon: <Warehouse size={18} /> },
     { label: "Entrepôts", href: "/stock/entrepots", icon: <Building2 size={18} /> },
-    { label: "Péremptions", href: "/stock/lots", icon: <CalendarClock size={18} /> },
+    { label: "Lots & péremptions", href: "/stock/lots", icon: <CalendarClock size={18} /> },
     { label: "Inventaires", href: "/inventaires", icon: <ClipboardCheck size={18} /> },
-    { label: "Marchés", href: "/marches", icon: <Scroll size={18} /> },
-    { label: "Marchés-cadres", href: "/marches-cadres", icon: <PackageCheck size={18} /> },
   ]},
-  { section: "Abonnements", items: [
-    { label: "Portefeuille", href: "/abonnements", icon: <Repeat size={18} /> },
-    { label: "Contrats souscrits", href: "/abonnements/achats", icon: <Layers size={18} /> },
-    { label: "Reventes", href: "/abonnements/reventes", icon: <Link2 size={18} /> },
-  ]},
-  { section: "Contrats & Projets", items: [
-    { label: "Appels à candidatures", href: "/appels", icon: <Megaphone size={18} /> },
-    { label: "Contrats", href: "/contracts", icon: <PenTool size={18} /> },
-    { label: "CRM Pipeline", href: "/crm", icon: <BarChart3 size={18} /> },
+  { section: "Appels d'offres & projets", tone: "contrats", items: [
+    { label: "Veille & offres", href: "/appels", icon: <Megaphone size={18} /> },
     { label: "Projets", href: "/projects", icon: <Folder size={18} /> },
-    { label: "Documents", href: "/documents", icon: <FolderTree size={18} /> },
-    { label: "Documents administratifs", href: "/documents-administratifs", icon: <FileClock size={18} /> },
     { label: "Approbations", href: "/approbations", icon: <CheckCircle2 size={18} /> },
   ]},
-  { section: "Finance", items: [
-    { label: "Achats & dépenses", href: "/depenses", icon: <Receipt size={18} /> },
+  { section: "Finance", tone: "finance", items: [
     { label: "Trésorerie", href: "/treasury", icon: <Landmark size={18} /> },
     { label: "Prévision de trésorerie", href: "/treasury/prevision", icon: <TrendingUp size={18} /> },
     { label: "Comptabilité", href: "/accounting", icon: <BookOpen size={18} /> },
     { label: "États comptables", href: "/accounting/etats", icon: <FileSpreadsheet size={18} /> },
     { label: "Plan comptable", href: "/accounting/plan", icon: <Hash size={18} /> },
-    { label: "Comptoir (The Spot)", href: "/comptoir", icon: <Store size={18} /> },
-    { label: "Rentabilité par secteur", href: "/analytique", icon: <PieChart size={18} /> },
+    { label: "Fiscalité", href: "/fiscalite", icon: <Scale size={18} /> },
+    { label: "IS / BIC annuel", href: "/fiscalite/isbic", icon: <Landmark size={18} /> },
+    { label: "Retenues à la source", href: "/fiscalite/retenues", icon: <Scissors size={18} /> },
     { label: "Budget prévisionnel", href: "/budget-previsionnel", icon: <PieChart size={18} /> },
-    { label: "Dépenses récurrentes", href: "/recurring-expenses", icon: <RefreshCw size={18} /> },
-    { label: "Fiscalité", href: "/fiscalite", icon: <BarChart3 size={18} /> },
-    { label: "IS/BIC annuel", href: "/fiscalite/isbic", icon: <Landmark size={18} /> },
-    { label: "Retenues / source", href: "/fiscalite/retenues", icon: <Scissors size={18} /> },
-    { label: "Immobilisations", href: "/fixed-assets", icon: <Warehouse size={18} /> },
-    { label: "Analytique 12 mois", href: "/analytics", icon: <TrendingUp size={18} /> },
+    { label: "Immobilisations", href: "/fixed-assets", icon: <Boxes size={18} /> },
+    { label: "Secteurs", href: "/analytique", icon: <Layers size={18} /> },
+    { label: "Évolution sur 12 mois", href: "/analytics", icon: <TrendingUp size={18} /> },
   ]},
-  { section: "RH", items: [
+  { section: "Équipe", tone: "rh", items: [
     { label: "Collaborateurs", href: "/employees", icon: <User size={18} /> },
     { label: "Bulletins de paie", href: "/payslips", icon: <FileSpreadsheet size={18} /> },
     { label: "Congés", href: "/conges", icon: <CalendarClock size={18} /> },
+    { label: "Notes de frais", href: "/notes-de-frais", icon: <ReceiptText size={18} /> },
   ]},
-  { section: "Paramètres", items: [
-    { label: "Utilisateurs", href: "/users", icon: <Settings size={18} /> },
+  { section: "Documents", tone: "documents", items: [
+    { label: "Documents", href: "/documents", icon: <FolderTree size={18} /> },
+    { label: "Courriers", href: "/courriers", icon: <Mail size={18} /> },
+    { label: "Coffre administratif", href: "/documents-administratifs", icon: <FileClock size={18} /> },
+  ]},
+  { section: "Modules", tone: "abonnements", items: [
+    { label: "Comptoirs", href: "/comptoir", icon: <Store size={18} /> },
+    { label: "Cartes ISIC", href: "/isic", icon: <CreditCard size={18} /> },
+    { label: "Registre ISIC", href: "/isic/registre", icon: <BookUser size={18} /> },
+    { label: "Licences : portefeuille", href: "/abonnements", icon: <Repeat size={18} /> },
+    { label: "Licences : contrats éditeurs", href: "/abonnements/achats", icon: <Layers size={18} /> },
+    { label: "Licences : reventes", href: "/abonnements/reventes", icon: <Link2 size={18} /> },
+    { label: "Événements", href: "/activites", icon: <Calendar size={18} /> },
+  ]},
+  { section: "Réglages", tone: "parametres", items: [
+    { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
+    { label: "Modules", href: "/settings/modules", icon: <Boxes size={18} /> },
+    { label: "Utilisateurs", href: "/users", icon: <Users size={18} /> },
     { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
     { label: "Confidentialité", href: "/settings/confidentialite", icon: <FileText size={18} /> },
     { label: "Numérotation", href: "/settings/numbering", icon: <Hash size={18} /> },
-    { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
     { label: "Facture certifiée", href: "/settings/facture-certifiee", icon: <ShieldCheck size={18} /> },
-    { label: "Abonnement", href: "/subscription", icon: <Diamond size={18} /> },
+    { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
+    { label: "Mon forfait Kanoo", href: "/subscription", icon: <Diamond size={18} /> },
     { label: "Support", href: "/support", icon: <Ticket size={18} /> },
     { label: "Journal d'audit", href: "/audit", icon: <History size={18} /> },
   ]},
 ];
 
 const ASSO_NAV: NavGroup[] = [
-  { section: "Accueil", items: [
+  { section: "Pilotage", tone: "accueil", items: [
     { label: "Tableau de bord", href: "/associations/dashboard", icon: <LayoutDashboard size={18} /> },
     { label: "Agenda", href: "/associations/agenda", icon: <CalendarClock size={18} /> },
-    { label: "Activités", href: "/activites", icon: <Calendar size={18} /> },
+    { label: "Événements", href: "/activites", icon: <Calendar size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
-    { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
   ]},
   { section: "Gouvernance", items: [
     { label: "Bureau", href: "/associations/bureau", icon: <Building2 size={18} /> },
@@ -136,23 +148,23 @@ const ASSO_NAV: NavGroup[] = [
   { section: "Projets", items: [
     { label: "Projets / ONG", href: "/projects", icon: <Folder size={18} /> },
   ]},
-  { section: "Paramètres", items: [
+  { section: "Réglages", tone: "parametres", items: [
     { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
     { label: "Apparence des documents", href: "/company/branding", icon: <FileText size={18} /> },
     { label: "Utilisateurs", href: "/users", icon: <Users size={18} /> },
     { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
+    { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
     { label: "Mon profil", href: "/associations/profil", icon: <UserCircle size={18} /> },
   ]},
 ];
 
 const ADMIN_NAV: NavGroup[] = [
-  { section: "Accueil", items: [
+  { section: "Pilotage", tone: "accueil", items: [
     { label: "Tableau de bord", href: "/administration/dashboard", icon: <LayoutDashboard size={18} /> },
     { label: "Agenda", href: "/administration/agenda", icon: <CalendarClock size={18} /> },
-    { label: "Activités", href: "/activites", icon: <Calendar size={18} /> },
+    { label: "Événements", href: "/activites", icon: <Calendar size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
-    { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
   ]},
   { section: "Budget", items: [
     { label: "Chapitres budgétaires", href: "/administration/budget", icon: <PieChart size={18} /> },
@@ -169,12 +181,13 @@ const ADMIN_NAV: NavGroup[] = [
     { label: "Recettes publiques", href: "/administration/recettes", icon: <Banknote size={18} /> },
     { label: "Services citoyens", href: "/administration/services", icon: <Globe size={18} /> },
   ]},
-  { section: "Paramètres", items: [
+  { section: "Réglages", tone: "parametres", items: [
     { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
     { label: "Apparence des documents", href: "/company/branding", icon: <FileText size={18} /> },
     { label: "Utilisateurs", href: "/users", icon: <Users size={18} /> },
     { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
+    { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
     { label: "Mon profil", href: "/profile", icon: <UserCircle size={18} /> },
   ]},
 ];
@@ -216,6 +229,7 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   // n'ampute rien — pas de menu qui « clignote » vide au chargement. Superadmin
   // porte « * » et voit tout. Un groupe sans entrée visible disparaît.
   const canSee = (href: string) => {
+    if (!moduleEnabled(href, tenant?.disabledModules)) return false;
     const res = resourceForHref(href);
     if (!res) return true;
     if (loading || resources.length === 0) return true;
@@ -282,7 +296,7 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
             {tenant?.name || "Kanoo"}
           </span>
         </div>
-        <p className="text-[10px] font-bold text-chromefg/40 mt-2 uppercase tracking-widest">{profile}</p>
+        <p className="text-[10px] font-bold text-chromefg/40 mt-2 uppercase tracking-widest">{PROFILE_LABEL[profile]}</p>
         {tenant?.name ? <p className="text-[9px] text-chromefg/25 mt-0.5">propulsé par Kanoo</p> : null}
       </div>
 

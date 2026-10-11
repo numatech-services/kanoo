@@ -9,6 +9,7 @@ import { FlowFilterBar, useFlowFilter, monthStart, today, type FlowTotals } from
 import { useMe, meCanDo } from "@/lib/useMe";
 import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
 interface Desk { _id: string; name: string; description?: string; activityId?: string }
 interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
 interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string }
@@ -220,7 +221,7 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
           </FormField>
         )}
         <div className="flex justify-between items-center gap-3 pt-2">
-          <button onClick={() => { if (confirm("Archiver ce comptoir ? Ses données restent conservées.")) save({ archived: true }); }}
+          <button onClick={async () => { if (await confirmDialog({ title: "Archiver ce comptoir ?", message: "Ses données restent conservées." })) save({ archived: true }); }}
             disabled={saving} className="text-sm text-neg hover:underline disabled:opacity-50">Archiver le comptoir</button>
           <div className="flex gap-3">
             <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
@@ -344,7 +345,7 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
   useEffect(() => { load(); }, [load]);
 
   async function del(id: string) {
-    if (!confirm("Supprimer cette écriture de caisse ?")) return;
+    if (!(await confirmDialog({ title: "Supprimer cette écriture de caisse ?", danger: true }))) return;
     await post(`/api/comptoir/cash/${id}`, null, "DELETE");
     load(); onChange();
   }
@@ -568,7 +569,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
   useEffect(() => { load(); }, [load]);
 
   async function del(id: string) {
-    if (!confirm("Supprimer cet article ? Son historique de mouvements reste conservé.")) return;
+    if (!(await confirmDialog({ title: "Supprimer cet article ?", message: "Son historique de mouvements reste conservé.", danger: true }))) return;
     await post(`/api/comptoir/items/${id}`, null, "DELETE");
     load(); onChange();
   }

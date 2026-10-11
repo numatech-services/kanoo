@@ -10,6 +10,7 @@ import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 import { PurchaseForm, type PurchaseFormValue } from "@/components/achats/PurchaseForm";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 type Ref = { _id: string; code?: string; name?: string; label?: string; type?: string } | null | undefined;
 interface Purchase {
   _id: string; number: string; kind: "invoice" | "cash"; date: string; dueDate?: string; payee?: string; supplierRef?: string; notes?: string;
@@ -67,8 +68,8 @@ export default function PurchaseDetailPage() {
           {canUpdate && p.status === "draft" && <button onClick={() => setEditOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Edit3 size={16} /> Modifier</button>}
           {canUpdate && p.status === "draft" && <button onClick={() => act(() => send(`/api/achats/${id}/validate`, "POST"))} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><CheckCircle2 size={16} /> Valider</button>}
           {canUpdate && ["validated", "partial"].includes(p.status) && <button onClick={() => setPayOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-white text-sm font-semibold"><Banknote size={16} /> Enregistrer un règlement</button>}
-          {canDelete && p.status === "draft" && <button onClick={async () => { if (!confirm("Supprimer ce brouillon ?")) return; try { await send(`/api/achats/${id}`, "DELETE"); router.push("/depenses"); } catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); } }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Trash2 size={16} /> Supprimer</button>}
-          {canDelete && p.status === "validated" && <button onClick={() => { const reason = prompt("Motif de l'annulation (l'écriture sera extournée) :"); if (reason) act(() => send(`/api/achats/${id}/cancel`, "POST", { reason })); }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Ban size={16} /> Annuler</button>}
+          {canDelete && p.status === "draft" && <button onClick={async () => { if (!(await confirmDialog({ title: "Supprimer ce brouillon ?", danger: true }))) return; try { await send(`/api/achats/${id}`, "DELETE"); router.push("/depenses"); } catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); } }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Trash2 size={16} /> Supprimer</button>}
+          {canDelete && p.status === "validated" && <button onClick={async () => { const reason = await promptDialog({ title: "Motif de l'annulation (l'écriture sera extournée) :", multiline: true }); if (reason) act(() => send(`/api/achats/${id}/cancel`, "POST", { reason })); }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Ban size={16} /> Annuler</button>}
         </div>
       </div>
       {error && <p className="px-4 py-3 bg-neg-50 border border-neg/25 rounded-xl text-sm text-neg">{error}</p>}
@@ -107,7 +108,7 @@ export default function PurchaseDetailPage() {
                 <span>{new Date(x.date).toLocaleDateString("fr-FR")} · {x.treasuryAccountId?.label ?? "compte"}{x.reference ? ` · ${x.reference}` : ""}</span>
                 <span className="flex items-center gap-2">
                   <b className="font-mono">{fmt(x.amount)} XOF</b>
-                  {canDelete && !x.cancelledAt && <button title="Annuler ce règlement" onClick={() => confirm("Annuler ce règlement ? L'écriture sera extournée et la trésorerie recréditée.") && act(() => send(`/api/achats/${id}/payments/${x._id}`, "DELETE"))} className="p-1 text-ink3 hover:text-neg"><Undo2 size={14} /></button>}
+                  {canDelete && !x.cancelledAt && <button title="Annuler ce règlement" onClick={async () => { if (await confirmDialog({ title: "Annuler ce règlement ?", message: "L'écriture sera extournée et la trésorerie recréditée.", danger: true })) act(() => send(`/api/achats/${id}/payments/${x._id}`, "DELETE")); }} className="p-1 text-ink3 hover:text-neg"><Undo2 size={14} /></button>}
                 </span>
               </li>
             ))}

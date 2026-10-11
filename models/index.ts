@@ -14,7 +14,6 @@ export { TreasuryAccountModel } from "./TreasuryAccount";
 export { AccountingEntryModel } from "./AccountingEntry";
 export { FiscalDeclarationModel } from "./FiscalDeclaration";
 export { AuditLogModel } from "./AuditLog";
-export { DocumentModel } from "./Document";
 export { ApprobationModel } from "./Approbation";
 export { NotificationModel } from "./Notification";
 // Associations
@@ -38,5 +37,3 @@ export { MessageModel } from "./Message";
 export { BureauMemberModel } from "./BureauMember";
 export { FixedAssetModel } from "./FixedAsset";
 export { CRMOpportunityModel } from "./CRMOpportunity";
-export { CRMDealModel } from "./CRMDeal";
-export { CRMActivityModel } from "./CRMActivity";

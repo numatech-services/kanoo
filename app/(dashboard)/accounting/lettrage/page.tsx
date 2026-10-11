@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Link2, Unlink } from "lucide-react";
 import { selectCls } from "@/components/ui/FormField";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
 interface Row { entryId: string; date: string; reference: string; label: string; account: string; debit: number; credit: number; thirdParty: string | null; thirdPartyId: string | null; isLettered: boolean; letterRef: string | null }
 const fmt = (n: number) => n.toLocaleString("fr-FR");
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
@@ -36,7 +37,7 @@ export default function LettragePage() {
     if (res.ok) load();
   }
   async function unletter(ref: string) {
-    if (!confirm(`Délettrer ${ref} ?`)) return;
+    if (!(await confirmDialog({ title: `Délettrer ${ref} ?` }))) return;
     const res = await fetch(`/api/accounting-entries/lettrage?ref=${encodeURIComponent(ref)}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
     const d = await res.json().catch(() => ({}));
     setMsg({ ok: res.ok, text: res.ok ? d.data.message : d.error });

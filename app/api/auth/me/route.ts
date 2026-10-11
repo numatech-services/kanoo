@@ -18,12 +18,12 @@ export async function GET(req: NextRequest) {
 
   // Marque de l'organisation, pour habiller l'interface (barre latérale, thème
   // d'espace, accent). Un superadmin n'est rattaché à aucune organisation.
-  let tenant: { name?: string; logo?: string; type?: string; primaryColor?: string } | null = null;
+  let tenant: { name?: string; logo?: string; type?: string; primaryColor?: string; disabledModules?: string[] } | null = null;
   if (auth.tenantId) {
     const t = await TenantModel.findById(auth.tenantId)
-      .select("name logo type branding.primaryColor")
-      .lean<{ name?: string; logo?: string; type?: string; branding?: { primaryColor?: string } } | null>();
-    if (t) tenant = { name: t.name, logo: t.logo, type: t.type, primaryColor: t.branding?.primaryColor };
+      .select("name logo type branding.primaryColor disabledModules")
+      .lean<{ name?: string; logo?: string; type?: string; branding?: { primaryColor?: string }; disabledModules?: string[] } | null>();
+    if (t) tenant = { name: t.name, logo: t.logo, type: t.type, primaryColor: t.branding?.primaryColor, disabledModules: t.disabledModules ?? [] };
   }
 
   // Ressources auxquelles l'utilisateur a droit (selon ses rôles + liste

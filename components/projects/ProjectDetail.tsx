@@ -12,6 +12,8 @@ import { ImputedFlows } from "@/components/shared/ImputedFlows";
 import { ProjectEditForm, type ProjectEditValue } from "@/components/projects/ProjectEditForm";
 import { PROJECT_STATUS_FR, TASK_STATUS_FR, type ProjectVocabulary } from "@/lib/vocabulary";
 
+import { confirmDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 // ── Interfaces ────────────────────────────────────────────────────
 interface Task { _id: string; label: string; status: string; weight: number; }
 interface Milestone { _id?: string; label: string; dueDate?: string; completedAt?: string; amount?: number; description?: string; }
@@ -158,15 +160,15 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
   };
 
   const deleteTask = async (taskId: string) => {
-    if (!confirm("Supprimer cette tâche ?")) return;
+    if (!(await confirmDialog({ title: "Supprimer cette tâche ?", danger: true }))) return;
     await patchProject({ tasks: project.tasks.filter(t => t._id !== taskId) });
   };
 
   const deleteProject = async () => {
-    if (!confirm("Supprimer définitivement ce projet ? Ses tâches et documents disparaissent ; les écritures comptables imputées restent.")) return;
+    if (!(await confirmDialog({ title: "Supprimer définitivement ce projet ?", message: "Ses tâches et documents disparaissent ; les écritures comptables imputées restent.", danger: true }))) return;
     const csrf = await getCsrf();
     const res = await fetch(`/api/projects/${id}`, { method: "DELETE", headers: { "x-csrf-token": csrf }, credentials: "include" });
-    if (res.ok) router.push("/projects"); else alert("Suppression impossible");
+    if (res.ok) router.push("/projects"); else showToast("Suppression impossible", "error");
   };
 
   const saveMilestones = (milestones: Milestone[]) => patchProject({ milestones });
@@ -367,7 +369,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
                     <div className="flex items-center gap-1">
                       <button onClick={() => saveMilestones((project.milestones ?? []).map((x, j) => j === i ? { ...x, completedAt: x.completedAt ? undefined : new Date().toISOString() } : x))}
                         className="px-2 h-8 rounded-md border border-line2 text-xs hover:bg-surface2">{m.completedAt ? "Rouvrir" : "Atteint"}</button>
-                      <button onClick={() => confirm("Supprimer ce jalon ?") && saveMilestones((project.milestones ?? []).filter((_, j) => j !== i))} className="p-1.5 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>
+                      <button onClick={async () => { if (await confirmDialog({ title: "Supprimer ce jalon ?", danger: true })) saveMilestones((project.milestones ?? []).filter((_, j) => j !== i)); }} className="p-1.5 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>
                     </div>
                   )}
                 </div>

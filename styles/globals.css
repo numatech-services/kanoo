@@ -87,6 +87,7 @@
 [data-section="achats"]      { --s-accent:  13 116 128; --s-soft: 216 238 240; }
 [data-section="abonnements"] { --s-accent: 124  58 173; --s-soft: 238 228 248; }
 [data-section="contrats"]    { --s-accent: 158  75 128; --s-soft: 247 228 240; }
+[data-section="documents"]   { --s-accent:  96  84  64; --s-soft: 239 234 225; }
 [data-section="finance"]     { --s-accent:  28  93  76; --s-soft: 222 238 232; }
 [data-section="rh"]          { --s-accent: 176  74  60; --s-soft: 250 229 224; }
 [data-section="gouvernance"] { --s-accent:  74  86 142; --s-soft: 228 232 245; }
@@ -105,6 +106,7 @@
   [data-section="achats"]      { --s-accent:  91 197 208; --s-soft: 16 36 39; }
   [data-section="abonnements"] { --s-accent: 190 143 235; --s-soft: 33 24 45; }
   [data-section="contrats"]    { --s-accent: 226 148 194; --s-soft: 44 26 38; }
+  [data-section="documents"]   { --s-accent: 201 186 160; --s-soft: 38 34 28; }
   [data-section="finance"]     { --s-accent:  79 183 154; --s-soft: 18 34 29; }
   [data-section="rh"]          { --s-accent: 233 143 128; --s-soft: 45 26 22; }
   [data-section="gouvernance"] { --s-accent: 152 165 224; --s-soft: 25 28 44; }
@@ -682,6 +684,10 @@
     @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-neg text-white rounded-md
            text-sm font-semibold hover:brightness-95 transition-colors;
   }
+
+  /* Utilitaires employés dans les écrans mais jamais définis jusqu'ici. */
+  .card-p { @apply p-5; }
+  .custom-scrollbar { scrollbar-width: thin; scrollbar-color: rgb(var(--c-chrome-fg) / 0.2) transparent; }
 
   .card {
     @apply bg-surface rounded-lg border border-line shadow-sm p-5;
