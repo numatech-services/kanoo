@@ -63,6 +63,10 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (status === "effective" && !treasuryAccountId) {
+      setError("Choisissez le compte qui a reçu l'argent : il alimente le solde de trésorerie.");
+      return;
+    }
     if (amount <= 0 || amount > remainingAmount + 1) {
       setError(`Montant entre 1 et ${remainingAmount.toLocaleString("fr-FR")} XOF`);
       return;
@@ -114,13 +118,13 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
         {accounts.length === 0 ? (
           <p className="text-xs text-ink2 px-3 py-2 border border-line2 rounded-lg bg-surface2">
             Aucun compte de trésorerie.{" "}
-            <Link href="/treasury" className="text-section hover:underline">En créer un</Link>{" "}
-            — sans compte, le règlement est enregistré mais n&apos;apparaît sur aucun solde.
+            <Link href="/treasury" className="text-section hover:underline">Créez votre banque, caisse ou compte mobile money</Link>{" "}
+            pour enregistrer un encaissement (ou notez-le « en attente »).
           </p>
         ) : (
           <select className={selectCls} value={treasuryAccountId}
             onChange={e => setTreasuryAccountId(e.target.value)}>
-            <option value="">— Ne pas imputer —</option>
+            <option value="">{status === "pending" ? "— À préciser à l'encaissement —" : "— Choisir le compte —"}</option>
             {sorted.map(a => (
               <option key={a._id} value={a._id}>{a.label}</option>
             ))}
@@ -128,12 +132,7 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
         )}
       </FormField>
 
-      {accounts.length > 0 && !treasuryAccountId && (
-        <p className="text-xs text-warn">
-          Sans compte désigné, ce règlement ne remontera dans aucun solde et
-          restera introuvable au rapprochement.
-        </p>
-      )}
+
 
       <FormField label="État du règlement"
         hint="« En attente » n'impacte ni la facture ni la comptabilité tant qu'il n'est pas confirmé encaissé.">

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { VAT_LINES_MATCH, vatFromEntries } from "@/lib/vat";
 import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { connectDB } from "@/lib/db";
 import { authorize, tenantFilter } from "@/lib/api-helpers";
@@ -41,15 +42,18 @@ export async function GET(req: NextRequest) {
   let reportData: Record<string, unknown> = {};
 
   if (type === "tva") {
-    const invoices = await InvoiceModel.find({
-      ...tenantFilter(auth),
-      issueDate: { $gte: start, $lte: end },
-      status: { $ne: "cancelled" },
-    }).lean();
-
-    const baseHT = invoices.reduce((s, i) => s + i.totalHT, 0);
-    const tvaCollectee = invoices.reduce((s, i) => s + i.totalTVA, 0);
-    const tvaDeductible = 0; // Simplification MVP (à enrichir avec factures fournisseurs)
+    const [invoices, entries] = await Promise.all([
+      InvoiceModel.find({ ...tenantFilter(auth), issueDate: { $gte: start, $lte: end }, status: { $ne: "cancelled" } })
+        .select("totalHT documentType").lean<Array<{ totalHT: number; documentType?: string }>>(),
+      AccountingEntryModel.find({ ...tenantFilter(auth), entryDate: { $gte: start, $lte: end }, ...VAT_LINES_MATCH })
+        .lean<Array<{ lines: Array<{ accountCode: string; debit?: number; credit?: number }> }>>(),
+    ]);
+    // Base : factures moins avoirs. TVA : lue en comptabilité (collectée 443, déductible 445),
+    // la même source que l'état de TVA.
+    const baseHT = invoices.reduce((s, i) => s + (i.documentType === "credit_note" ? -i.totalHT : i.totalHT), 0);
+    const vat = vatFromEntries(entries);
+    const tvaCollectee = vat.collected;
+    const tvaDeductible = vat.deductible;
 
     reportData = {
       title: "Déclaration TVA",
@@ -57,8 +61,8 @@ export async function GET(req: NextRequest) {
       baseHT: Math.round(baseHT),
       tvaCollectee: Math.round(tvaCollectee),
       tvaDeductible,
-      tvaAVerser: Math.round(tvaCollectee - tvaDeductible),
-      nbFactures: invoices.length,
+      tvaAVerser: Math.max(0, Math.round(tvaCollectee - tvaDeductible)),
+      nbFactures: invoices.filter(i => i.documentType !== "credit_note").length,
       taux: TVA_TAUX_STANDARD * 100,
     };
   } else if (type === "grandlivre") {

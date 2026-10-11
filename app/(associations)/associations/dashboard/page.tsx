@@ -179,7 +179,7 @@ export default function AssoDashboardPage() {
 
         {/* GOUVERNANCE & ACTIONS */}
         <div className="space-y-6">
-          <div className="bg-ink text-white rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
+          <div className="bg-ink text-onink rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
             <div className="relative z-10">
                 <h2 className="text-[10px] font-black uppercase tracking-[0.2em] mb-8 flex items-center gap-2 text-white/60">
                 <AlertCircle className="w-4 h-4 text-white" /> Centre de Contrôle

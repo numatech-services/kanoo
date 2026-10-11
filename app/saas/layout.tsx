@@ -23,7 +23,7 @@ export default function SaasLayout({ children }: { children: React.ReactNode }) 
         <TopBar />
 
         {/* Zone de contenu principal */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           {/* On enveloppe children pour stabiliser l'hydratation */}
           <div className="h-full w-full">
             {children}

@@ -235,7 +235,7 @@ export default function TenderDetailPage() {
                   <input type="number" className="p-2 bg-surface2 rounded-lg text-sm border border-line w-32" placeholder="Montant"
                     value={newBid.amount || ""} onChange={(e) => setNewBid({ ...newBid, amount: Number(e.target.value) })} />
                   <label className="flex items-center gap-1 text-xs text-ink2"><input type="checkbox" className="accent-section" checked={newBid.compliant !== false} onChange={(e) => setNewBid({ ...newBid, compliant: e.target.checked })} /> Conforme</label>
-                  <button onClick={addBid} disabled={loading} className="bg-ink text-white px-3 h-9 rounded-lg text-sm font-bold inline-flex items-center gap-1"><Plus size={14} /> Ajouter</button>
+                  <button onClick={addBid} disabled={loading} className="bg-ink text-onink px-3 h-9 rounded-lg text-sm font-bold inline-flex items-center gap-1"><Plus size={14} /> Ajouter</button>
                 </div>
               )}
             </div>
@@ -260,7 +260,7 @@ export default function TenderDetailPage() {
                   <p className="text-sm text-pos flex items-center gap-1.5"><FileCheck size={15} /> Engagement budgétaire créé.</p>
                 ) : tender.budgetChapterId ? (
                   <button onClick={createEngagement} disabled={loading}
-                    className="w-full py-2.5 rounded-xl bg-ink text-white text-sm font-bold hover:bg-section inline-flex items-center justify-center gap-2"><Landmark size={15} /> Créer l'engagement budgétaire</button>
+                    className="w-full py-2.5 rounded-xl bg-ink text-onink text-sm font-bold hover:bg-section inline-flex items-center justify-center gap-2"><Landmark size={15} /> Créer l'engagement budgétaire</button>
                 ) : (
                   <p className="text-xs text-ink3 italic">Rattachez un chapitre budgétaire pour générer l'engagement.</p>
                 )}

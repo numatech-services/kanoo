@@ -125,7 +125,7 @@ export default function DevisDetailPage() {
               if (res.ok) router.push("/devis"); else { const d = await res.json().catch(() => ({})); alert(d.error || "Suppression impossible"); }
             }} className="px-5 py-2.5 border border-neg/25 text-neg rounded-2xl font-bold hover:bg-neg-50">Supprimer</button>
           )}
-          <button onClick={() => setEditOpen(true)} className="px-6 py-2.5 bg-ink text-white rounded-2xl font-bold shadow-lg hover:scale-105 transition-all">
+          <button onClick={() => setEditOpen(true)} className="px-6 py-2.5 bg-ink text-onink rounded-2xl font-bold shadow-lg hover:scale-105 transition-all">
             Modifier le devis
           </button>
         </div>
@@ -190,7 +190,7 @@ export default function DevisDetailPage() {
               <span className="text-ink2">TVA (19%)</span>
               <span className="font-semibold">{totalTVA.toLocaleString()} F CFA</span>
             </div>
-            <div className="bg-ink text-white p-4 rounded-2xl flex justify-between items-center mt-2">
+            <div className="bg-ink text-onink p-4 rounded-2xl flex justify-between items-center mt-2">
               <span className="text-xs font-bold uppercase tracking-wider">Nouveau Total TTC</span>
               <span className="text-2xl font-black">{totalTTC.toLocaleString()} F CFA</span>
             </div>

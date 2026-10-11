@@ -90,6 +90,25 @@ const id = r => D(r)?._id;
   const deb = vt?.lines?.reduce((t, l) => t + l.debit, 0), cred = vt?.lines?.reduce((t, l) => t + l.credit, 0);
   check("facture depuis un contrat : écriture équilibrée, timbre en 447", gen.status === 200 && vt && deb === cred && deb === inv.totalTTC && (inv.totalDTS === 0 || vt.lines.some(l => l.accountCode === "447000")), `${gen.status} ${deb}/${cred} TTC ${inv?.totalTTC} DTS ${inv?.totalDTS}`);
 
+  console.log("\n▶ Étape 1 : TVA, marché-cadre, reste à payer, trésorerie obligatoire");
+  const supT = id(await g.req("POST", "/api/suppliers", { code: "F-TVA", name: "Fournisseur TVA" }));
+  await g.req("POST", "/api/achats", { kind: "invoice", supplierId: supT, date: today, validate: true, lines: [{ description: "Fournitures", accountCode: "604000", quantity: 1, unitPrice: 100000, tvaRate: 0.19 }] });
+  const now = new Date();
+  const tva = D(await g.req("GET", `/api/fiscal/tva?annee=${now.getFullYear()}&mois=${now.getMonth() + 1}`));
+  check("TVA déductible des achats reprise dans l'état de TVA", tva.tvaDeductible >= 19000, J(tva));
+  const cliF = id(await g.req("POST", "/api/clients", { code: "C-MCF", name: "Client marché-cadre" }));
+  const fo = id(await g.req("POST", "/api/marches-cadres", { clientId: cliF, title: "Fourniture annuelle", totalQuantity: 100, unitPrice: 5000 }));
+  const lot = D(await g.req("POST", `/api/marches-cadres/${fo}/lots`, { quantity: 10 }));
+  const lotId = lot._id ?? (D(await g.req("GET", `/api/marches-cadres/${fo}/lots`)).items ?? [])[0]?._id;
+  const fac = await g.req("POST", `/api/marches-cadres/${fo}/lots/${lotId}/facturer`, {});
+  const facInv = D(fac);
+  const vtF = (D(await g.req("GET", `/api/accounting-entries?search=${encodeURIComponent(facInv.number ?? "x")}`)).items ?? [])[0];
+  check("facture de lot : timbre et écriture de vente équilibrée", fac.status === 201 && facInv.totalDTS > 0 && vtF && vtF.lines.reduce((t, l) => t + l.debit, 0) === vtF.lines.reduce((t, l) => t + l.credit, 0), `${fac.status} ${J(facInv).slice(0, 120)}`);
+  check("encaissement effectif sans compte de trésorerie : refusé", (await g.req("POST", "/api/payments", { invoiceId: facInv._id, amount: 1000, method: "cash", date: today })).status === 400);
+  await g.req("POST", `/api/invoices/${facInv._id}/credit-note`, { reason: "Remise", lines: [{ lineIndex: 0, quantity: 2 }] });
+  const over = await g.req("POST", "/api/payments", { invoiceId: facInv._id, amount: facInv.totalTTC, method: "bank_transfer", date: today, treasuryAccountId: bank });
+  check("après un avoir partiel, payer le TTC d'origine est refusé", over.status === 400, `${over.status} ${J(over.data)}`);
+
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

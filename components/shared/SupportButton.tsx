@@ -41,14 +41,15 @@ export function SupportButton() {
       {/* Bouton flottant */}
       <button
         onClick={() => setOpen(!open)}
+        className="support-fab"
         style={{
-          position: "fixed", bottom: "24px", right: "24px", zIndex: 40,
+          position: "fixed", right: "24px", zIndex: 40,
           width: "52px", height: "52px", borderRadius: "50%",
           background: "#2F3E46", border: "none", cursor: "pointer",
           display: "flex", alignItems: "center", justifyContent: "center",
           boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
         }}
-        aria-label="Support"
+        aria-label="Aide et support"
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -57,9 +58,9 @@ export function SupportButton() {
 
       {/* Panneau support */}
       {open && (
-        <div style={{
-          position: "fixed", bottom: "84px", right: "24px", zIndex: 40,
-          width: "320px", background: "#fff", borderRadius: "16px",
+        <div className="support-panel" style={{
+          position: "fixed", right: "16px", zIndex: 40,
+          width: "min(320px, calc(100vw - 32px))", background: "#fff", borderRadius: "16px",
           border: "0.5px solid rgba(0,0,0,0.12)", overflow: "hidden",
         }}>
           {/* Header */}

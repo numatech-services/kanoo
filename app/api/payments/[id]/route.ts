@@ -4,7 +4,7 @@ import { withAuth, ok, badRequest, notFound, conflict, noContent, tenantFilter }
 import { TokenPayload } from "@/lib/auth";
 import { PaymentModel } from "@/models/Payment";
 import { InvoiceModel } from "@/models/Invoice";
-import { applyPaymentEffects } from "@/lib/payments";
+import { applyPaymentEffects, invoiceDue } from "@/lib/payments";
 import { logAudit } from "@/lib/audit";
 import { paymentDate } from "@/lib/payment-date";
 import { treasuryKind } from "@/lib/treasury";
@@ -32,7 +32,7 @@ export const PATCH = withAuth("payments", "update", async (req: NextRequest, aut
   if (invoice.status === "paid" || invoice.status === "cancelled") {
     return badRequest(`Cette facture est déjà ${invoice.status === "paid" ? "soldée" : "annulée"}.`);
   }
-  const remaining = invoice.totalTTC - invoice.paidAmount;
+  const remaining = invoiceDue(invoice);
   if (payment.amount > remaining + 1) return badRequest(`Montant supérieur au reste à payer (${remaining} XOF).`);
   // À l'encaissement : date réelle (saisie, sinon la date prévue si elle est passée,
   // sinon aujourd'hui) et compte réellement crédité.
@@ -41,6 +41,7 @@ export const PATCH = withAuth("payments", "update", async (req: NextRequest, aut
     if (!(await treasuryKind(auth.tenantId, String(body.treasuryAccountId)))) return badRequest("Compte de trésorerie introuvable.");
     payment.treasuryAccountId = body.treasuryAccountId;
   }
+  if (!payment.treasuryAccountId) return badRequest("Choisissez le compte (banque, caisse, mobile money) qui a reçu l'argent.");
 
   await withTransaction(async (session) => {
     await applyPaymentEffects(payment, invoice, auth, session);

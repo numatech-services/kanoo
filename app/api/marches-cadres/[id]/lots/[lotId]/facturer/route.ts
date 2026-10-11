@@ -5,7 +5,10 @@ import { FrameworkOrderModel } from "@/models/FrameworkOrder";
 import { DeliveryLotModel } from "@/models/DeliveryLot";
 import { InvoiceModel } from "@/models/Invoice";
 import { nextDocumentNumber } from "@/lib/numbering";
-import { canInvoice, lotTotals, isFullyCompleted } from "@/lib/framework-order";
+import { canInvoice, isFullyCompleted } from "@/lib/framework-order";
+import { computeInvoiceLines, saleEntryLines } from "@/lib/invoice-entry";
+import { AccountingEntryModel } from "@/models/AccountingEntry";
+import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -32,7 +35,14 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
   const check = canInvoice(order, lot.quantity);
   if (!check.ok) return badRequest(check.message);
 
-  const t = lotTotals(lot.quantity, order.unitPrice, order.tvaRate);
+  // Même calcul et même écriture que toute facture : lignes arrondies, droit de
+  // timbre, écriture de vente (411 / 70x / 443 / 447). La facture de lot n'avait
+  // ni timbre ni écriture : le règlement du client creusait le compte 411.
+  const { lines, totalHT, totalTVA, totalDTS, totalTTC } = computeInvoiceLines([{
+    description: `${order.title} — lot ${lot.reference} (${lot.quantity} ${order.unit})`,
+    quantity: lot.quantity, unitPrice: order.unitPrice, tvaRate: order.tvaRate, discount: 0,
+    ...(order.productId ? { productId: order.productId } : {}),
+  }]);
   const issueDate = body.issueDate ? new Date(body.issueDate) : new Date();
   const dueDate = body.dueDate ? new Date(body.dueDate) : new Date(issueDate.getTime() + 30 * 86400000);
 
@@ -44,7 +54,7 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
       { $inc: { invoicedQuantity: lot.quantity } },
       { session }
     );
-    if (guard.modifiedCount === 0) throw new Error("Le livré facturable a changé entre-temps. Rechargez.");
+    if (guard.modifiedCount === 0) throw new BusinessRuleError("Le livré facturable a changé entre-temps. Rechargez.");
 
     const number = await nextDocumentNumber(auth.tenantId, "invoice", { issueDate, session });
     const [inv] = await InvoiceModel.create([{
@@ -53,15 +63,17 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
       clientId: order.clientId,
       documentType: "invoice",
       issueDate, dueDate,
-      lines: [{
-        description: `${order.title} — lot ${lot.reference} (${lot.quantity} ${order.unit})`,
-        quantity: lot.quantity, unitPrice: order.unitPrice, tvaRate: order.tvaRate, discount: 0,
-        totalHT: t.ht, totalTVA: t.tva, totalTTC: t.ttc,
-      }],
-      totalHT: t.ht, totalTVA: t.tva, totalTTC: t.ttc, totalDTS: 0,
+      lines, totalHT, totalTVA, totalDTS, totalTTC,
       paidAmount: 0, status: "sent",
       notes: `Facturation du lot ${lot.reference} au titre du marché ${order.reference}.`,
       createdBy: auth.userId,
+    }], { session });
+
+    await AccountingEntryModel.create([{
+      tenantId: auth.tenantId, journalCode: "VT", entryDate: issueDate, reference: number,
+      label: `Facture lot ${lot.reference} — marché ${order.reference}`,
+      lines: await saleEntryLines(auth.tenantId, { clientId: order.clientId, lines, totalTVA, totalDTS, totalTTC }, session),
+      linkedDocType: "invoice", linkedDocId: inv._id, createdBy: auth.userId,
     }], { session });
 
     await DeliveryLotModel.updateOne({ _id: lot._id },

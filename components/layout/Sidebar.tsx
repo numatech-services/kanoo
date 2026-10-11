@@ -199,6 +199,15 @@ export const NAV_MAP: Record<ProfileType, NavGroup[]> = {
 export function Sidebar({ profile }: { profile: ProfileType }) {
   const pathname = usePathname();
   const router = useRouter();
+  // Téléphone et tablette : le menu est un tiroir, ouvert depuis la barre du
+  // haut ou la barre du bas (événement « kanoo:nav »), refermé à chaque page.
+  const [mobileOpen, setMobileOpen] = useState(false);
+  useEffect(() => {
+    const toggle = () => setMobileOpen(v => !v);
+    window.addEventListener("kanoo:nav", toggle);
+    return () => window.removeEventListener("kanoo:nav", toggle);
+  }, []);
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
   const rawNav = NAV_MAP[profile] || PME_NAV;
   const { tenant, resources, loading } = useMe();
 
@@ -258,7 +267,10 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   const isOpen = (section: string) => section === activeSection || openGroups.has(section);
 
   return (
-    <aside className="w-64 bg-chrome text-chromefg border-r border-chromefg/10 flex flex-col h-full overflow-hidden flex-shrink-0">
+    <>
+    {mobileOpen && <div className="fixed inset-0 z-40 bg-ink/40 lg:hidden" onClick={() => setMobileOpen(false)} aria-hidden />}
+    <aside aria-label="Menu principal" className={`w-64 bg-chrome text-chromefg border-r border-chromefg/10 flex-col h-full overflow-hidden flex-shrink-0 ${
+      mobileOpen ? "flex fixed inset-y-0 left-0 z-50 shadow-xl" : "hidden"} lg:flex lg:static lg:z-auto lg:shadow-none`}>
       <div className="px-6 py-5 border-b border-chromefg/10">
         <div className="flex items-center gap-2.5">
           {tenant?.logo ? (
@@ -348,5 +360,6 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
         </button>
       </div>
     </aside>
+    </>
   );
 }

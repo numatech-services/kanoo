@@ -25,6 +25,7 @@ const config: Config = {
       colors: {
         // ── Neutres ──
         ink: c("--c-ink"),
+        onink: c("--c-on-ink"),
         bg: c("--c-bg"),
         surface: c("--c-surface"),
         surface2: c("--c-surface2"),

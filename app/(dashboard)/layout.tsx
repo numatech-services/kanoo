@@ -1,4 +1,5 @@
 import { SidebarWrapper } from "@/components/layout/SidebarWrapper";
+import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { PageGuard } from "@/components/layout/PageGuard";
 import { TopBar } from "@/components/layout/TopBar";
 import { OfflineBanner } from "@/components/shared/OfflineBanner";
@@ -14,11 +15,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <SidebarWrapper />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <TopBar />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 lg:pb-6">
             <PageGuard>{children}</PageGuard>
         </main>
       </div>
       <CommandPalette />
+      <MobileTabBar home="/dashboard" />
       <OfflineBanner />
       <SupportButton />
       <IdleTimeout />

@@ -9,11 +9,19 @@ import { ledgerFor, treasuryKind } from "@/lib/treasury";
  * est désigné. Réutilisé à la création (paiement effectif) et à la confirmation
  * d'un paiement en attente. Un paiement « pending » n'appelle jamais ceci.
  */
+/**
+ * Reste à payer d'une facture : TTC, moins les avoirs déjà émis, moins les
+ * règlements. Sans les avoirs, un client pouvait payer ce qui lui avait été crédité.
+ */
+export function invoiceDue(inv: { totalTTC: number; paidAmount?: number; creditedAmount?: number }): number {
+  return Math.max(0, Math.round(inv.totalTTC - (inv.creditedAmount || 0) - (inv.paidAmount || 0)));
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function applyPaymentEffects(payment: any, invoice: any, auth: TokenPayload, session: any) {
   const amount = payment.amount;
   invoice.paidAmount += amount;
-  invoice.status = invoice.paidAmount >= invoice.totalTTC - 1 ? "paid" : "partial";
+  invoice.status = invoiceDue(invoice) <= 1 ? "paid" : "partial";
   await invoice.save({ session });
 
   // Le compte encaisseur fait foi (caisse, banque, mobile money) ; à défaut, le

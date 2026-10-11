@@ -49,7 +49,8 @@ export const CATEGORIES: Record<ExpenseCategory, CategorySpec> = {
 
 /** Compte de dette envers le salarié, entre l'approbation et le remboursement. */
 export const STAFF_PAYABLE = { account: "422000", label: "Personnel — frais à rembourser" };
-export const VAT_RECOVERABLE = { account: "445100", label: "TVA récupérable" };
+// Même compte que les achats (4452, TVA récupérable sur achats) ; 4451 est réservé aux immobilisations.
+export const VAT_RECOVERABLE = { account: "445200", label: "TVA récupérable sur achats" };
 
 export interface ExpensePolicy {
   /**

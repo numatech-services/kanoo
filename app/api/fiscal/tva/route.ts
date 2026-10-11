@@ -4,6 +4,7 @@ import { withAuth, ok, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { FiscalDeclarationModel } from "@/models/FiscalDeclaration";
 import { TokenPayload } from "@/lib/auth";
+import { VAT_LINES_MATCH, vatFromEntries } from "@/lib/vat";
 
 // GET /api/fiscal/tva?annee=2025&mois=12
 // Calcule et retourne la déclaration TVA mensuelle Niger
@@ -24,24 +25,11 @@ export const GET = withAuth("fiscalDeclarations", "read", async (req: NextReques
   const entries = await AccountingEntryModel.find({
     ...tenantFilter(auth),
     entryDate: { $gte: startDate, $lte: endDate },
-    "lines.accountCode": { $in: ["443000", "445000"] },
-  }).lean();
+    ...VAT_LINES_MATCH,
+  }).lean<Array<{ lines: Array<{ accountCode: string; debit?: number; credit?: number }> }>>();
 
-  let tvaCollectee = 0;
-  let tvaDeductible = 0;
-
-  for (const entry of entries) {
-    for (const line of entry.lines) {
-      if (line.accountCode === "443000") {
-        tvaCollectee += line.credit - line.debit;
-      }
-      if (line.accountCode === "445000") {
-        tvaDeductible += line.debit - line.credit;
-      }
-    }
-  }
-
-  const tvaNette = tvaCollectee - tvaDeductible;
+  const vat = vatFromEntries(entries);
+  const tvaCollectee = vat.collected, tvaDeductible = vat.deductible, tvaNette = vat.net;
 
   // Récupérer la déclaration si elle existe déjà
   const declaration = await FiscalDeclarationModel.findOne({

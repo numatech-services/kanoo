@@ -22,7 +22,10 @@
   --c-line: 234 225 208;
   --c-line2: 216 202 176;
   --c-ink2: 90 82 69;        /* texte secondaire lisible */
-  --c-ink3: 132 121 102;
+  /* Texte tertiaire : ≥ 4,5:1 sur blanc et sur surface2 (il était à 3,6:1). */
+  --c-ink3: 110 100 82;
+  /* Texte posé SUR l'encre (puce active, bouton sombre) : s'inverse avec elle. */
+  --c-on-ink: 255 255 255;
   --c-accent: 194 98 14;     /* soleil d'harmattan (ambre) */
   --c-accent600: 168 82 10;
   --c-accent700: 138 67 8;
@@ -47,7 +50,8 @@
     --c-line: 52 43 32;
     --c-line2: 71 59 44;
     --c-ink2: 185 174 156;
-    --c-ink3: 139 128 105;
+    --c-ink3: 162 151 128;
+    --c-on-ink: 22 18 13;
     --c-accent: 214 121 31;
     --c-accent600: 194 98 14;
     --c-accent700: 233 164 92;
@@ -244,15 +248,16 @@
            transition-colors hover:bg-surface2;
   }
   .fchip[aria-pressed="true"] {
-    @apply text-white border-transparent;
+    @apply border-transparent;
     background: rgb(var(--c-ink));
+    color: rgb(var(--c-on-ink));
   }
   .fchip-count {
     @apply inline-grid place-items-center min-w-[1.125rem] h-[1.125rem] px-1
            rounded-full text-[10px] font-bold bg-surface2 text-ink2;
   }
   .fchip[aria-pressed="true"] .fchip-count {
-    background: rgb(255 255 255 / .22); color: #fff;
+    background: rgb(var(--c-on-ink) / .22); color: rgb(var(--c-on-ink));
   }
 
   /* ── Micro-barre de tableau ──────────────────────────────────────────
@@ -407,6 +412,7 @@
   --c-line2: 210 215 230;
   --c-ink: 24 28 40;
   --c-ink2: 92 99 116;
+  --c-ink3: 100 108 126;   /* neutre froid, comme ink2 (il héritait du brun chaud) */
 
   --r-sm: .5rem; --r-md: .625rem; --r-lg: .875rem;
   --gutter: 1rem;
@@ -426,7 +432,7 @@
   --c-line2: 205 195 178;
   --c-ink: 26 30 26;          /* encre légèrement verte, pas noire */
   --c-ink2: 82 92 82;
-  --c-ink3: 128 138 126;
+  --c-ink3: 104 114 102;
   --c-accent: 28 106 82;      /* acacia */
   --c-accent600: 22 88 68;
   --c-accent700: 17 70 54;
@@ -453,7 +459,7 @@
   --c-line2: 198 206 219;
   --c-ink: 17 22 33;
   --c-ink2: 79 88 105;
-  --c-ink3: 122 132 150;
+  --c-ink3: 100 110 128;
   --c-accent: 38 62 128;      /* indigo d'encre officielle */
   --c-accent600: 30 50 105;
   --c-accent700: 23 39 84;
@@ -483,13 +489,13 @@
     --c-accent050: 20 27 44; --c-accent100: 27 37 59;
     --c-bg: 17 20 28; --c-surface2: 27 31 42;
     --c-line: 37 44 58; --c-line2: 54 64 84;
-    --c-ink: 226 231 243; --c-ink2: 158 170 192;
+    --c-ink: 226 231 243; --c-ink2: 158 170 192; --c-ink3: 134 146 168;
   }
   [data-space="association"] {
     --c-chrome: 10 24 19;
     --c-bg: 17 22 19; --c-surface2: 31 39 34;
     --c-line: 43 53 46; --c-line2: 60 74 64;
-    --c-ink: 231 238 232; --c-ink2: 168 184 172; --c-ink3: 124 140 128;
+    --c-ink: 231 238 232; --c-ink2: 168 184 172; --c-ink3: 140 156 144;
     --c-accent: 82 186 148; --c-accent600: 62 164 128; --c-accent700: 130 208 178;
     --c-accent050: 18 36 29; --c-accent100: 24 50 40;
   }
@@ -497,7 +503,7 @@
     --c-chrome: 9 14 26;
     --c-bg: 14 17 24; --c-surface2: 26 31 42;
     --c-line: 37 44 58; --c-line2: 54 64 84;
-    --c-ink: 228 233 243; --c-ink2: 158 170 192; --c-ink3: 118 130 152;
+    --c-ink: 228 233 243; --c-ink2: 158 170 192; --c-ink3: 136 148 170;
     --c-accent: 124 155 232; --c-accent600: 100 133 216; --c-accent700: 160 184 244;
     --c-accent050: 20 27 44; --c-accent100: 27 37 59;
   }
@@ -839,3 +845,23 @@
 .print-only { display: none !important; }
 @media print { .print-only { display: block !important; } }
 @media print { .screen-only { display: none !important; } }
+
+/* Bouton d'aide : au-dessus de la barre de navigation du bas sur téléphone. */
+.support-fab { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+.support-panel { bottom: calc(136px + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 1024px) {
+  .support-fab { bottom: 24px; }
+  .support-panel { bottom: 84px; }
+}
+
+/* Contrôles natifs et champs : suivent le thème (sans cela, un champ sans classe
+   de fond gardait le fond clair du navigateur avec un texte clair en mode sombre). */
+:root { color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { color-scheme: dark; } }
+@layer base {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select, textarea {
+    background-color: rgb(var(--c-surface));
+    color: rgb(var(--c-ink));
+  }
+}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { VAT_LINES_MATCH, vatFromEntries } from "@/lib/vat";
 import { connectDB } from "@/lib/db";
 import { authorize, tenantFilter } from "@/lib/api-helpers";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
@@ -18,17 +19,11 @@ export async function GET(req: NextRequest) {
 
   const entries = await AccountingEntryModel.find({
     ...tenantFilter(auth), entryDate: { $gte: start, $lte: end },
-    "lines.accountCode": { $in: ["443000", "445000"] },
-  }).lean();
+    ...VAT_LINES_MATCH,
+  }).lean<Array<{ lines: Array<{ accountCode: string; debit?: number; credit?: number }> }>>();
 
-  let tvaCollectee = 0, tvaDeductible = 0;
-  for (const e of entries) {
-    for (const l of e.lines) {
-      if (l.accountCode === "443000") tvaCollectee += l.credit - l.debit;
-      if (l.accountCode === "445000") tvaDeductible += l.debit - l.credit;
-    }
-  }
-  const tvaNette = tvaCollectee - tvaDeductible;
+  const vat = vatFromEntries(entries);
+  const tvaCollectee = vat.collected, tvaDeductible = vat.deductible, tvaNette = vat.net;
 
   const PDFDocument = (await import("pdfkit")).default;
   const buffers: Buffer[] = [];

@@ -234,7 +234,7 @@ export interface InvoiceForPdf {
   status?: string;
   lines?: Array<{ description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; totalTTC?: number }>;
   totalHT?: number; totalTVA?: number; totalDTS?: number; totalTTC?: number;
-  paidAmount?: number; notes?: string;
+  paidAmount?: number; creditedAmount?: number; notes?: string;
   clientId?: { name?: string; nif?: string; rccm?: string; code?: string; address?: string; phone?: string } | null;
   secef?: { code?: string; qrPayload?: string };
 }
@@ -326,7 +326,7 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
     if (!isCredit && (inv.paidAmount ?? 0) > 0) {
       doc.fillColor("#1C5D4C").font("Helvetica").fontSize(9);
       doc.text("Encaissé", 330, y); doc.text(XOF(inv.paidAmount!), 430, y, { width: 115, align: "right" });
-      const remaining = (inv.totalTTC ?? 0) - (inv.paidAmount ?? 0);
+      const remaining = (inv.totalTTC ?? 0) - (inv.creditedAmount ?? 0) - (inv.paidAmount ?? 0);
       if (remaining > 0) {
         y += 14;
         doc.fillColor("#B23B2E").font("Helvetica-Bold");

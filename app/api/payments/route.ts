@@ -4,7 +4,7 @@ import { withAuth, created, badRequest, notFound, getPagination, paginatedRespon
 import { PaymentModel } from "@/models/Payment";
 import { InvoiceModel } from "@/models/Invoice";
 import { withTransaction } from "@/lib/db";
-import { applyPaymentEffects } from "@/lib/payments";
+import { applyPaymentEffects, invoiceDue } from "@/lib/payments";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { paymentDate } from "@/lib/payment-date";
@@ -58,7 +58,7 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
   const amount = Number(body.amount);
   if (!(amount > 0)) return badRequest("Montant invalide.");
   if (!METHODS.includes(body.method)) return badRequest("Mode de paiement invalide.");
-  const remaining = invoice.totalTTC - invoice.paidAmount;
+  const remaining = invoiceDue(invoice);
   if (amount > remaining + 1) {
     return badRequest(`Montant maximum payable : ${remaining} XOF (reste à payer)`);
   }
@@ -72,6 +72,9 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
   if (isNaN(date.getTime())) return badRequest("Date invalide.");
   // Compte encaisseur : un compte de l'organisation, jamais un identifiant quelconque.
   const treasuryAccountId = body.treasuryAccountId ? String(body.treasuryAccountId) : undefined;
+  // Un encaissement effectif crédite un compte réel : sans lui, l'écriture partait
+  // en banque mais le solde de trésorerie ne bougeait pas (grand livre ≠ trésorerie).
+  if (status === "effective" && !treasuryAccountId) return badRequest("Choisissez le compte (banque, caisse, mobile money) qui a reçu l'argent.");
   if (treasuryAccountId && !(await treasuryKind(auth.tenantId, treasuryAccountId))) return badRequest("Compte de trésorerie introuvable.");
 
   const result = await withTransaction(async (session) => {

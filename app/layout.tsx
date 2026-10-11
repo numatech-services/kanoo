@@ -24,7 +24,7 @@ export const viewport = {
   themeColor: "#C2620E",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // Pas de maximumScale : bloquer le zoom empêche de grossir le texte (WCAG 1.4.4).
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -32,9 +32,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const cookieStore = await cookies();
   const localeCookie = cookieStore.get("NEXT_LOCALE")?.value;
   const locale: Locale = localeCookie === "en" ? "en" : "fr";
+  // La page reste déclarée en français (lang="fr") : l'interface n'est rédigée
+  // qu'en français ; annoncer « en » trompait les lecteurs d'écran.
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang="fr" suppressHydrationWarning>
       <head>
         {/*
           CSP posée en balise <meta>, et non seulement par en-tête HTTP.

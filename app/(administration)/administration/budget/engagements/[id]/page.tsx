@@ -118,7 +118,7 @@ export default function EngagementDetailsPage() {
               <button
                 disabled={updating}
                 onClick={() => handleStatusUpdate('approuve')}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-ink text-white text-[10px] font-black uppercase hover:bg-section transition-all shadow-lg shadow-ink/10 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-ink text-onink text-[10px] font-black uppercase hover:bg-section transition-all shadow-lg shadow-ink/10 disabled:opacity-50"
               >
                 <CheckCircle size={14} /> {updating ? "..." : "Approuver"}
               </button>
@@ -189,7 +189,7 @@ export default function EngagementDetailsPage() {
         </div>
 
         <div className="space-y-8">
-          <div className="bg-ink text-white rounded-[2.5rem] p-10 shadow-xl shadow-ink/20 relative overflow-hidden">
+          <div className="bg-ink text-onink rounded-[2.5rem] p-10 shadow-xl shadow-ink/20 relative overflow-hidden">
             <Wallet className="absolute -bottom-4 -right-4 text-white/5" size={120} />
             <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] mb-2">Montant à engager</p>
             <h3 className="text-4xl font-black tracking-tighter">

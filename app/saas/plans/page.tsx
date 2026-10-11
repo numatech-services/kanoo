@@ -147,7 +147,7 @@ export default function PlansPage() {
                   Modifier
                 </button>
                 <button 
-                  className="flex-1 py-2 bg-ink text-white rounded-xl text-xs font-bold shadow-md hover:opacity-90"
+                  className="flex-1 py-2 bg-ink text-onink rounded-xl text-xs font-bold shadow-md hover:opacity-90"
                 >
                   Assigner
                 </button>

@@ -58,7 +58,7 @@ export default function EngagementsPage() {
           <h1 className="text-2xl font-black text-ink uppercase tracking-tight">Engagements</h1>
           <p className="text-xs text-ink2 font-bold italic">Réservation des crédits budgétaires</p>
         </div>
-        <Link href="/administration/budget/engagements/new" className="bg-ink text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-section transition-all flex items-center gap-2">
+        <Link href="/administration/budget/engagements/new" className="bg-ink text-onink px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-section transition-all flex items-center gap-2">
           <Plus size={14} /> Nouvel Engagement
         </Link>
       </div>

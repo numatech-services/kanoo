@@ -104,7 +104,7 @@ export default function MandatementActionPage() {
       </div>
 
       <div className="bg-surface rounded-[2.5rem] border border-line shadow-xl overflow-hidden">
-        <div className="bg-ink p-8 text-white flex justify-between items-center">
+        <div className="bg-ink p-8 text-onink flex justify-between items-center">
           <div>
             <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] mb-1">Dossier de Mandatement</p>
             <h1 className="text-2xl font-black tracking-tighter uppercase">Ordre de Paiement</h1>
@@ -154,7 +154,7 @@ export default function MandatementActionPage() {
             <button 
               onClick={handleCreateMandat}
               disabled={submitting || !data}
-              className="w-full max-w-md flex items-center justify-center gap-3 bg-ink text-white py-4 rounded-2xl font-black uppercase text-xs tracking-[0.2em] hover:bg-section transition-all shadow-xl shadow-ink/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full max-w-md flex items-center justify-center gap-3 bg-ink text-onink py-4 rounded-2xl font-black uppercase text-xs tracking-[0.2em] hover:bg-section transition-all shadow-xl shadow-ink/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? (
                 <Loader2 className="animate-spin" size={18} />

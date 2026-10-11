@@ -182,7 +182,7 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
           <label className="text-[10px] font-bold text-ink2 uppercase mb-1 block">Notes / Observations</label>
           <textarea className={inputCls+" resize-none"} rows={2} value={notes} onChange={e=>setNotes(e.target.value)} />
         </div>
-        <div className="w-72 space-y-1 text-sm bg-ink text-white rounded-2xl p-5 shadow-xl border border-white/5">
+        <div className="w-72 space-y-1 text-sm bg-ink text-onink rounded-2xl p-5 shadow-xl border border-white/5">
            <div className="flex justify-between opacity-60 text-xs"><span>Total HT</span><span>{totalHT.toLocaleString("fr-FR")} XOF</span></div>
            <div className="flex justify-between opacity-60 text-xs"><span>TVA (19%)</span><span>{totalTVA.toLocaleString("fr-FR")} XOF</span></div>
            <div className="flex justify-between font-bold border-t border-white/10 pt-3 mt-2 text-xl">

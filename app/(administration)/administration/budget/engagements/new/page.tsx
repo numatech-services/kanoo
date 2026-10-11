@@ -180,7 +180,7 @@ export default function NewEngagementPage() {
           </button>
           <button 
             disabled={loading || !formData.chapterId}
-            className="bg-ink text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-section transition-all shadow-xl shadow-ink/10 flex items-center gap-3 disabled:opacity-50"
+            className="bg-ink text-onink px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-section transition-all shadow-xl shadow-ink/10 flex items-center gap-3 disabled:opacity-50"
           >
             {loading ? "Traitement..." : <><Save size={16} /> Enregistrer l'engagement</>}
           </button>

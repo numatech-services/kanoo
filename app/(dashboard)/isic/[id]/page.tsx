@@ -214,7 +214,7 @@ export default function IsicBatchPage() {
               <BookUser size={14} /> Synchroniser avec le registre
             </button>
           )}
-          {(counts.numbered || 0) > 0 && <button disabled={busy} onClick={() => cardsAction({ action: "advance", from: "numbered", to: "printed" })} className="px-3 h-9 rounded-lg bg-ink text-white text-sm font-semibold">Marquer imprimées</button>}
+          {(counts.numbered || 0) > 0 && <button disabled={busy} onClick={() => cardsAction({ action: "advance", from: "numbered", to: "printed" })} className="px-3 h-9 rounded-lg bg-ink text-onink text-sm font-semibold">Marquer imprimées</button>}
           {(counts.printed || 0) > 0 && <button disabled={busy} onClick={() => cardsAction({ action: "advance", from: "printed", to: "delivered" })} className="px-3 h-9 rounded-lg bg-section text-white text-sm font-semibold">Marquer livrées</button>}
         </div>
         {sync && (
@@ -294,7 +294,7 @@ export default function IsicBatchPage() {
             <div className="flex items-end gap-2">
               <div className="flex-1"><label className="text-[11px] text-ink3">Quantité livrée</label><input type="number" min={1} max={remaining} className="w-full p-2 border border-line rounded-lg text-sm" value={delivery.quantity || ""} onChange={e => setDelivery(d => ({ ...d, quantity: Number(e.target.value) }))} /></div>
               <input placeholder="Note (bordereau…)" className="flex-1 p-2 border border-line rounded-lg text-sm" value={delivery.note} onChange={e => setDelivery(d => ({ ...d, note: e.target.value }))} />
-              <button onClick={() => post("delivery", delivery, () => setDelivery({ quantity: 0, note: "" }))} className="px-3 h-9 rounded-lg bg-ink text-white text-sm font-semibold">Livrer</button>
+              <button onClick={() => post("delivery", delivery, () => setDelivery({ quantity: 0, note: "" }))} className="px-3 h-9 rounded-lg bg-ink text-onink text-sm font-semibold">Livrer</button>
             </div>
           )}
         </section>
@@ -319,7 +319,7 @@ export default function IsicBatchPage() {
           <div className="flex items-end gap-2">
             <div className="flex-1"><label className="text-[11px] text-ink3">Montant (XOF)</label><input type="number" min={1} className="w-full p-2 border border-line rounded-lg text-sm" value={payment.amount || ""} onChange={e => setPayment(p => ({ ...p, amount: Number(e.target.value) }))} /></div>
             <input placeholder="Mode (virement…)" className="flex-1 p-2 border border-line rounded-lg text-sm" value={payment.method} onChange={e => setPayment(p => ({ ...p, method: e.target.value }))} />
-            <button onClick={() => post("payment", payment, () => setPayment({ amount: 0, method: "", note: "" }))} className="px-3 h-9 rounded-lg bg-ink text-white text-sm font-semibold">Ajouter</button>
+            <button onClick={() => post("payment", payment, () => setPayment({ amount: 0, method: "", note: "" }))} className="px-3 h-9 rounded-lg bg-ink text-onink text-sm font-semibold">Ajouter</button>
           </div>
         </section>
         )}
@@ -345,7 +345,7 @@ export default function IsicBatchPage() {
             )}
             <div className="flex items-end gap-2">
               <div className="flex-1"><label className="text-[11px] text-ink3">Montant versé à ISIC (XOF)</label><input type="number" min={1} className="w-full p-2 border border-line rounded-lg text-sm" value={licPay.amount || ""} onChange={e => setLicPay(p => ({ ...p, amount: Number(e.target.value) }))} /></div>
-              <button onClick={() => post("license-payment", licPay, () => setLicPay({ amount: 0, note: "" }))} className="px-3 h-9 rounded-lg bg-ink text-white text-sm font-semibold">Enregistrer</button>
+              <button onClick={() => post("license-payment", licPay, () => setLicPay({ amount: 0, note: "" }))} className="px-3 h-9 rounded-lg bg-ink text-onink text-sm font-semibold">Enregistrer</button>
             </div>
           </section>
 
@@ -484,7 +484,7 @@ function IsicCostsPanel({ batch, fin, canEdit, canDelete, onPatch, onAdd, onDele
           <label className="text-[11px] text-ink3">Quantité<input type="number" min={0} className="w-full p-2 border border-line rounded-lg text-sm" value={f.quantity} onChange={e => setF(x => ({ ...x, quantity: e.target.value }))} /></label>
           <label className="text-[11px] text-ink3">Coût unitaire<input type="number" min={0} className="w-full p-2 border border-line rounded-lg text-sm" value={f.unitCost} onChange={e => setF(x => ({ ...x, unitCost: e.target.value }))} /></label>
           <label className="text-[11px] text-ink3">Montant{computed ? ` (= ${fmt(computed)})` : ""}<input type="number" min={0} className="w-full p-2 border border-line rounded-lg text-sm" value={f.amount} placeholder={computed ? String(computed) : ""} onChange={e => setF(x => ({ ...x, amount: e.target.value }))} /></label>
-          <button onClick={() => onAdd({ ...f, amount: f.amount || (computed || "") }, () => setF(empty))} className="h-9 rounded-lg bg-ink text-white text-sm font-semibold">Ajouter</button>
+          <button onClick={() => onAdd({ ...f, amount: f.amount || (computed || "") }, () => setF(empty))} className="h-9 rounded-lg bg-ink text-onink text-sm font-semibold">Ajouter</button>
           <label className="text-[11px] text-ink3 col-span-2 lg:col-span-2">Fournisseur<input className="w-full p-2 border border-line rounded-lg text-sm" value={f.supplier} onChange={e => setF(x => ({ ...x, supplier: e.target.value }))} /></label>
           <label className="text-[11px] text-ink3">Date<input type="date" className="w-full p-2 border border-line rounded-lg text-sm" value={f.date} onChange={e => setF(x => ({ ...x, date: e.target.value }))} /></label>
         </div>

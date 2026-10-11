@@ -242,13 +242,13 @@ function ConfirmDialog({ payment, onClose, onDone }: { payment: Payment; onClose
         </FormField>
         <FormField label="Compte crédité" hint="Banque, caisse ou mobile money qui a reçu l'argent.">
           <select className={selectCls} value={accountId} onChange={e => setAccountId(e.target.value)}>
-            <option value="">— Ne pas imputer —</option>
+            <option value="">— Choisir le compte —</option>
             {accounts.map(a => <option key={a._id} value={a._id}>{a.label}</option>)}
           </select>
         </FormField>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm hover:bg-surface2">Annuler</button>
-          <button onClick={submit} disabled={saving || !date} className="px-5 h-10 rounded-lg bg-pos text-white text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Confirmer l'encaissement"}</button>
+          <button onClick={submit} disabled={saving || !date || !accountId} className="px-5 h-10 rounded-lg bg-pos text-white text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Confirmer l'encaissement"}</button>
         </div>
       </div>
     </Modal>

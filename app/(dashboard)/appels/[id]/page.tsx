@@ -117,7 +117,7 @@ export default function AppelDetailPage() {
         </ul>
         <div className="flex gap-2">
           <input className="flex-1 p-2 border border-line rounded-lg text-sm" placeholder="Ajouter une pièce…" value={newDoc} onChange={e => setNewDoc(e.target.value)} onKeyDown={e => e.key === "Enter" && addReq()} />
-          <button onClick={addReq} className="px-3 h-9 rounded-lg bg-ink text-white text-sm inline-flex items-center gap-1"><Plus size={14} /> Ajouter</button>
+          <button onClick={addReq} className="px-3 h-9 rounded-lg bg-ink text-onink text-sm inline-flex items-center gap-1"><Plus size={14} /> Ajouter</button>
         </div>
       </section>
 

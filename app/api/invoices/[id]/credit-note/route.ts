@@ -127,6 +127,9 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
       // Acomptes déduits sur cette facture : redevenus disponibles. Échéance du
       // marché : de nouveau à facturer.
       await releaseMarketInvoice(auth.tenantId, invoice, session);
+    } else if ((invoice.paidAmount || 0) > 0 && (invoice.paidAmount || 0) >= invoice.totalTTC - ((invoice.creditedAmount || 0) + draft.totalTTC) - 1) {
+      // Avoir partiel qui couvre le reste dû : la facture est soldée.
+      await InvoiceModel.updateOne({ _id: invoice._id, ...tenantFilter(auth) }, { $set: { status: "paid" } }, { session });
     }
 
     return creditNote;

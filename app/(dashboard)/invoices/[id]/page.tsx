@@ -188,7 +188,8 @@ export default function InvoiceDetailPage() {
   if (loading) return <div className="p-6"><div className="h-64 bg-surface rounded-xl animate-pulse border border-line" /></div>;
   if (!invoice) return <div className="p-6 text-ink2">Facture introuvable</div>;
 
-  const remaining = Math.max(0, invoice.totalTTC - invoice.paidAmount);
+  // Reste à payer net des avoirs déjà émis.
+  const remaining = Math.max(0, invoice.totalTTC - (invoice.creditedAmount || 0) - invoice.paidAmount);
   const credited = invoice.creditedAmount || 0;
   const isCreditNote = invoice.documentType === "credit_note";
 
