@@ -8,6 +8,7 @@ import { AgendaItem, AgendaType, TYPE_META, itemColor, ownerName } from "./types
 import { MonthGrid, localDayKey } from "./CalendarGrid";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
 async function csrf() {
   const { csrfToken } = await fetch("/api/auth/csrf").then((r) => r.json());
   return csrfToken as string;
@@ -112,7 +113,7 @@ export function AgendaView() {
     <div className="space-y-5 max-w-6xl">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><CalendarDays size={22} /> Agenda</h1>
+          <h1 className="page-title flex items-center gap-2"><CalendarDays size={22} /> Agenda</h1>
           <p className="text-sm text-ink2">Vos réunions et activités, plus les agendas partagés de l'organisation.</p>
         </div>
         <button onClick={() => setEditing({ type: "reunion", visibility: "personal", startAt: new Date().toISOString() })}
@@ -378,7 +379,7 @@ function EventDialog({ item, onClose, onSaved }: { item: Partial<AgendaItem>; on
             <>
               <div className="flex items-center gap-2">
                 <input readOnly value={shareUrl} className={`${inputCls} text-xs`} onFocus={(e) => e.currentTarget.select()} />
-                <button type="button" onClick={copy} className="shrink-0 h-9 px-3 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2 inline-flex items-center gap-1">
+                <button type="button" onClick={copy} className={buttonClass("secondary", "md", "shrink-0")}>
                   {copied ? <><Check size={14} className="text-pos" /> Copié</> : <><Copy size={14} /> Copier</>}
                 </button>
               </div>
@@ -386,7 +387,7 @@ function EventDialog({ item, onClose, onSaved }: { item: Partial<AgendaItem>; on
             </>
           ) : (
             <button type="button" onClick={share} disabled={sharing}
-              className="h-9 px-3 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60 inline-flex items-center gap-1.5">
+              className={buttonClass("primary", "md")}>
               <Link2 size={14} /> {sharing ? "Génération…" : "Générer un lien partageable"}
             </button>
           )}
@@ -398,8 +399,8 @@ function EventDialog({ item, onClose, onSaved }: { item: Partial<AgendaItem>; on
             ? <button onClick={remove} className="text-sm text-neg hover:underline inline-flex items-center gap-1.5"><Trash2 size={15} /> Supprimer</button>
             : <span />}
           <div className="flex gap-3">
-            <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-            <button onClick={save} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+            <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+            <button onClick={save} disabled={saving} className={buttonClass("primary", "md")}>
               {saving ? "Enregistrement…" : "Enregistrer"}
             </button>
           </div>

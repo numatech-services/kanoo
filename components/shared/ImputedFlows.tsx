@@ -2,10 +2,10 @@
 import { useEffect, useState } from "react";
 import { FlowFilterBar, useFlowFilter, type FlowTotals } from "@/components/ui/FlowFilterBar";
 
+import { formatMoney } from "@/lib/format";
 interface Line { accountCode: string; accountLabel?: string; debit: number; credit: number; projectId?: string }
 interface Entry { _id: string; entryDate: string; journalCode: string; reference: string; label: string; lines: Line[] }
 
-const fmt = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} XOF`;
 
 /**
  * Recettes et dépenses imputées à un projet (lignes de produits 7 / charges 6
@@ -51,7 +51,7 @@ export function ImputedFlows({ projectId }: { projectId: string }) {
                   <td className="text-xs font-mono">{e.reference}</td>
                   <td className="text-xs">{e.label}</td>
                   <td className="text-xs text-ink2">{l.accountCode} {l.accountLabel ?? ""}</td>
-                  <td className={`text-right font-mono text-xs ${amount >= 0 ? "text-pos" : "text-neg"}`}>{amount >= 0 ? "+" : "−"}{fmt(Math.abs(amount))}</td>
+                  <td className={`text-right font-mono text-xs ${amount >= 0 ? "text-pos" : "text-neg"}`}>{amount >= 0 ? "+" : "−"}{formatMoney(Math.abs(amount))}</td>
                 </tr>
               ))}
             </tbody>

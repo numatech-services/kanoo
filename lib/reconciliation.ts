@@ -305,7 +305,7 @@ export function parseAmount(raw: string): number | null {
 
   const value = Number(text);
   if (!Number.isFinite(value)) return null;
-  // Le XOF n'a pas de décimale : on arrondit au franc.
+  // Le FCFA n'a pas de décimale : on arrondit au franc.
   return Math.round(value);
 }
 

@@ -224,7 +224,7 @@ export const PATCH = withAuth("expenses", "read", async (req: NextRequest, auth:
         resourceId: String(params.id),
         metadata: { action: "approve", reference: report.reference, totalTTC: t.totalTTC },
       });
-      return ok({ status: "approved", message: `Note approuvée. ${t.totalTTC.toLocaleString("fr-FR")} XOF à rembourser.` });
+      return ok({ status: "approved", message: `Note approuvée. ${t.totalTTC.toLocaleString("fr-FR")} FCFA à rembourser.` });
     } else if (to === "reimbursed") {
       const accountId = body.treasuryAccountId ? String(body.treasuryAccountId) : null;
       if (!accountId) {
@@ -280,7 +280,7 @@ export const PATCH = withAuth("expenses", "read", async (req: NextRequest, auth:
         resourceId: String(params.id),
         metadata: { action: "reimburse", reference: report.reference, amount, accountId },
       });
-      return ok({ status: "reimbursed", message: `${amount.toLocaleString("fr-FR")} XOF remboursés.` });
+      return ok({ status: "reimbursed", message: `${amount.toLocaleString("fr-FR")} FCFA remboursés.` });
     }
 
     await report.save();

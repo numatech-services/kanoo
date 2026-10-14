@@ -54,7 +54,7 @@ export const VAT_RECOVERABLE = { account: "445200", label: "TVA récupérable su
 
 export interface ExpensePolicy {
   /**
-   * Plafond par nature, en XOF. `undefined` = pas de plafond.
+   * Plafond par nature, en FCFA. `undefined` = pas de plafond.
    * Un dépassement n'interdit pas la saisie : il la signale à l'approbateur.
    * Bloquer obligerait le salarié à mentir sur la nature pour se faire
    * rembourser un repas légitimement plus cher.
@@ -105,7 +105,7 @@ export interface ExpenseLine {
 }
 
 export interface LineComputation {
-  /** Montant retenu en XOF, après conversion éventuelle. */
+  /** Montant retenu en FCFA, après conversion éventuelle. */
   amountTTC: number;
   vatAmount: number;
   /** Base hors taxe imputée au compte de charge. */
@@ -232,8 +232,8 @@ export function checkLines(
     const cap = policy.caps[line.category];
     if (cap !== undefined && c.amountTTC > cap) {
       add("warn",
-        `${c.amountTTC.toLocaleString("fr-FR")} XOF pour un plafond de `
-        + `${cap.toLocaleString("fr-FR")} XOF. À justifier auprès de l'approbateur.`);
+        `${c.amountTTC.toLocaleString("fr-FR")} FCFA pour un plafond de `
+        + `${cap.toLocaleString("fr-FR")} FCFA. À justifier auprès de l'approbateur.`);
     }
 
     if (line.distanceKm && !policy.mileageRate) {

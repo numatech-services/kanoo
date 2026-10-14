@@ -12,6 +12,7 @@ import Link from "next/link";
 import { compactXof } from "@/components/ui/charts/geometry";
 import { Send, Plus, ArrowRight, Store, CreditCard, Megaphone, CalendarClock, ShieldCheck, Users, FileText, Package, Folder, LifeBuoy } from "lucide-react";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Hero {
   userName: string;
   tenantName: string;
@@ -117,7 +118,7 @@ async function NeutralHero({ auth, can }: { auth: TokenPayload; can: (r: string,
   return (
     <div className="rounded-3xl border border-line bg-section-soft/40 p-7 sm:p-9">
       <p className="text-[11px] font-bold uppercase tracking-widest text-section">{salut}{user?.firstName ? `, ${user.firstName}` : ""}</p>
-      <h1 className="mt-2.5 text-3xl sm:text-4xl font-black text-ink leading-[1.06] tracking-tight">Votre espace de travail</h1>
+      <h1 className="page-title mt-2.5">Votre espace de travail</h1>
       <p className="mt-3 text-sm text-ink2 max-w-xl">Accédez directement aux modules qui vous sont confiés.</p>
       <div className="mt-5 flex flex-wrap items-center gap-3">
         {shortcuts.map((x, i) => (
@@ -160,17 +161,17 @@ export async function DashboardHero() {
   return (
     <div className="rounded-3xl border border-line bg-section-soft/40 p-7 sm:p-9">
       <p className="text-[11px] font-bold uppercase tracking-widest text-section">{salut}, {firstName}</p>
-      <h1 className="mt-2.5 text-3xl sm:text-4xl font-black text-ink leading-[1.06] tracking-tight">
+      <h1 className="page-title mt-2.5">
         Votre trésorerie,<br /><span className="text-section">{headline}</span>
       </h1>
       <p className="mt-3 text-sm text-ink2 max-w-xl">{message}</p>
       <div className="mt-5 flex flex-wrap items-center gap-3">
         {overdue && (
-          <Link href="/relances" className="px-5 h-11 rounded-xl bg-section text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-95 shadow-sm">
+          <Link href="/relances" className={buttonClass("primary", "md")}>
             <Send size={16} /> Relancer les retards
           </Link>
         )}
-        <Link href="/invoices/new" className="px-5 h-11 rounded-xl border border-line2 bg-surface text-sm font-semibold text-ink inline-flex items-center gap-2 hover:bg-surface2">
+        <Link href="/invoices/new" className={buttonClass("secondary", "md")}>
           <Plus size={16} /> Nouvelle facture
         </Link>
         <Link href="/payments" className="text-sm font-medium text-ink2 hover:text-ink inline-flex items-center gap-1">

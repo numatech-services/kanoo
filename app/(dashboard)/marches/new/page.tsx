@@ -58,7 +58,7 @@ export default function NewMarchePage() {
         >
           ← Retour aux marchés
         </button>
-        <h1 className="text-2xl font-bold text-ink mt-1">Nouveau marché</h1>
+        <h1 className="page-title mt-1">Nouveau marché</h1>
       </div>
 
       <div className={`bg-surface rounded-2xl border border-line p-6 ${isSubmitting ? 'opacity-50 pointer-events-none' : ''}`}>

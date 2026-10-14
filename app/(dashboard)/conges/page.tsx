@@ -60,7 +60,7 @@ export default function LeavesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><CalendarClock size={22} className="text-section" /> Congés et absences</h1>
+          <h1 className="page-title flex items-center gap-2"><CalendarClock size={22} className="text-section" /> Congés et absences</h1>
           <p className="text-sm text-ink2">30 jours ouvrables par an (2,5 par mois de service). Validation par le chef de service.</p>
         </div>
         {hasEmployee && <button onClick={() => setOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><Plus size={16} /> Demander un congé</button>}

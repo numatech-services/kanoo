@@ -1,12 +1,14 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Search } from "lucide-react";
+import { Download, Search } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import { inputCls, selectCls } from "@/components/ui/FormField";
 import { MOVEMENT_OPTIONS } from "@/components/stock/MovementDialog";
 import { useWarehouses } from "@/components/stock/useWarehouses";
 
+import { buttonClass } from "@/components/ui/button-class";
+import { StockTabs } from "@/components/stock/StockTabs";
 interface Movement {
   _id: string; type: string; quantity: number; quantityBefore: number; quantityAfter: number; unitCost?: number;
   reason: string; linkedDocNumber?: string; createdAt: string; reversedBy?: string; reverses?: string;
@@ -39,13 +41,13 @@ export default function StockMovementsPage() {
 
   return (
     <div className="space-y-5">
+      <StockTabs />
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <Link href="/stock" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Stock</Link>
-          <h1 className="text-2xl font-bold text-ink mt-1">Journal des mouvements</h1>
+          <h1 className="page-title mt-1">Journal des mouvements</h1>
           <p className="text-sm text-ink2">{total} mouvement{total > 1 ? "s" : ""}</p>
         </div>
-        <a href={`/api/stock/movements?${params({ format: "csv" })}`} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2"><Download size={16} /> Exporter (CSV)</a>
+        <a href={`/api/stock/movements?${params({ format: "csv" })}`} className={buttonClass("secondary", "md")}><Download size={16} /> Exporter (CSV)</a>
       </div>
       <div className="flex gap-2 flex-wrap">
         <label className="relative flex-1 min-w-[14rem]">

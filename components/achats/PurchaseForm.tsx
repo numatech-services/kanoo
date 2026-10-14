@@ -156,7 +156,7 @@ export function PurchaseForm({ initial, onSubmit, submitLabel }: {
       <FormField label="Notes"><textarea className={textareaCls} rows={2} value={f.notes} onChange={e => u("notes", e.target.value)} /></FormField>
 
       <div className="flex items-center justify-between flex-wrap gap-3 pt-2 border-t border-line">
-        <p className="text-sm text-ink2">HT {fmt(totals.ht)} · TVA {fmt(totals.tva)} · <b className="text-ink">TTC {fmt(totals.ttc)} XOF</b></p>
+        <p className="text-sm text-ink2">HT {fmt(totals.ht)} · TVA {fmt(totals.tva)} · <b className="text-ink">TTC {fmt(totals.ttc)} FCFA</b></p>
         <div className="flex gap-2">
           <button type="button" disabled={saving} onClick={() => submit(false)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2 disabled:opacity-60">Enregistrer en brouillon</button>
           <button type="button" disabled={saving} onClick={() => submit(true)} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">

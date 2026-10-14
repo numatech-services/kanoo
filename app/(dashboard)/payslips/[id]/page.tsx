@@ -73,7 +73,7 @@ export default function PayslipDetailPage() {
       <div className="flex items-center justify-between flex-wrap gap-3 print:hidden">
         <div>
           <Link href="/payslips" className="text-xs font-semibold text-ink2 hover:text-section">← Bulletins de paie</Link>
-          <h1 className="text-2xl font-bold text-ink mt-1">{emp ? `${emp.firstName} ${emp.lastName}` : "Bulletin"} — {MONTHS[p.month]} {p.year}</h1>
+          <h1 className="page-title mt-1">{emp ? `${emp.firstName} ${emp.lastName}` : "Bulletin"} — {MONTHS[p.month]} {p.year}</h1>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button onClick={() => window.print()} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2">
@@ -145,14 +145,14 @@ export default function PayslipDetailPage() {
         </table>
 
         <div className="p-6 grid sm:grid-cols-3 gap-4 border-t border-line">
-          <div><p className="text-xs text-ink3">Net imposable</p><p className="font-mono font-semibold">{fmt(p.netImposable ?? (p.grossTotal ?? p.grossSalary) - p.cnssEmployee)} XOF</p></div>
-          <div><p className="text-xs text-ink3">Charges patronales (CNSS)</p><p className="font-mono font-semibold">{fmt(p.cnssEmployer)} XOF</p></div>
+          <div><p className="text-xs text-ink3">Net imposable</p><p className="font-mono font-semibold">{fmt(p.netImposable ?? (p.grossTotal ?? p.grossSalary) - p.cnssEmployee)} FCFA</p></div>
+          <div><p className="text-xs text-ink3">Charges patronales (CNSS)</p><p className="font-mono font-semibold">{fmt(p.cnssEmployer)} FCFA</p></div>
           <div className="rounded-xl bg-pos-50 border border-pos/25 p-3 text-right">
             <p className="text-xs text-pos font-semibold uppercase">Net à payer</p>
-            <p className="text-2xl font-bold text-pos font-mono">{fmt(p.netSalary)} XOF</p>
+            <p className="text-2xl font-bold text-pos font-mono">{fmt(p.netSalary)} FCFA</p>
           </div>
         </div>
-        <p className="px-6 pb-6 text-[11px] text-ink3">Coût total employeur : {fmt(p.employerCost ?? (p.grossTotal ?? p.grossSalary) + p.cnssEmployer)} XOF. Pour faire valoir ce que de droit — à conserver sans limitation de durée.</p>
+        <p className="px-6 pb-6 text-[11px] text-ink3">Coût total employeur : {fmt(p.employerCost ?? (p.grossTotal ?? p.grossSalary) + p.cnssEmployer)} FCFA. Pour faire valoir ce que de droit — à conserver sans limitation de durée.</p>
       </div>
 
       {payOpen && <PayDialog id={String(id)} net={p.netSalary} onClose={() => setPayOpen(false)} onPaid={() => { setPayOpen(false); load(); }} />}
@@ -188,7 +188,7 @@ function PayDialog({ id, net, onClose, onPaid }: { id: string; net: number; onCl
   return (
     <Modal open onClose={onClose} title="Payer le salaire">
       <div className="space-y-4">
-        <p className="text-sm text-ink2">Net à payer : <b className="text-ink">{fmt(net)} XOF</b>. Le décaissement et l&apos;écriture comptable sont enregistrés sur le compte choisi.</p>
+        <p className="text-sm text-ink2">Net à payer : <b className="text-ink">{fmt(net)} FCFA</b>. Le décaissement et l&apos;écriture comptable sont enregistrés sur le compte choisi.</p>
         {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
         <FormField label="Compte de trésorerie" required>
           <select className={selectCls} value={accountId} onChange={e => setAccountId(e.target.value)}>

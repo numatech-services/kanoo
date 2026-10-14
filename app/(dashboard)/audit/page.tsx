@@ -39,7 +39,7 @@ export default function AuditPage() {
 
   return (
     <div className="space-y-5">
-      <div><h1 className="text-2xl font-bold text-ink">Journal d'audit</h1><p className="text-sm text-ink2 mt-0.5">{total} entrée{total > 1 ? "s" : ""}</p></div>
+      <div><h1 className="page-title">Journal d'audit</h1><p className="text-sm text-ink2 mt-0.5">{total} entrée{total > 1 ? "s" : ""}</p></div>
       <div className="flex flex-wrap gap-3">
         <input placeholder="Filtrer par ressource…" value={resource} onChange={e => { setResource(e.target.value); setPage(1); }} className={inp} />
         <input type="date" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }} className={inp} />

@@ -5,6 +5,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { useWarehouses } from "@/components/stock/useWarehouses";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Product { _id: string; code: string; label: string; unit?: string; trackingMode?: string }
 interface Line { productId: string; quantity: number; lotNumber: string }
 interface Lot { lotNumber: string; qty: number; expiryDate?: string; warehouseId?: { _id: string } | string }
@@ -93,7 +94,7 @@ export function TransferDialog({ onClose, onDone, product, fromWarehouseId }: {
           {!product && <button type="button" onClick={() => setLines(ls => [...ls, { productId: "", quantity: 1, lotNumber: "" }])} className="text-xs text-section font-semibold hover:underline">+ Ajouter un article</button>}
         </div>
         <FormField label="Motif"><input className={inputCls} value={reason} onChange={e => setReason(e.target.value)} placeholder="Réassort boutique, dotation véhicule…" /></FormField>
-        <button onClick={submit} disabled={saving} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Transfert…" : "Transférer"}</button>
+        <button onClick={submit} disabled={saving} className={buttonClass("primary", "md", "w-full")}>{saving ? "Transfert…" : "Transférer"}</button>
       </div>
     </Modal>
   );

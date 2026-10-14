@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
+import { buttonClass } from "@/components/ui/button-class";
 const ROLES: Array<[string, string]> = [
   ["president", "Président(e)"],
   ["vice_president", "Vice-Président(e)"],
@@ -85,7 +86,7 @@ export default function NewBureauMemberPage() {
         <button onClick={() => router.back()} className="text-xs text-ink2 hover:underline mb-3">
           ← Retour
         </button>
-        <h1 className="text-2xl font-bold">Ajouter un membre du bureau</h1>
+        <h1 className="page-title">Ajouter un membre du bureau</h1>
       </div>
 
       {error && (
@@ -136,7 +137,7 @@ export default function NewBureauMemberPage() {
 
         <div className="flex justify-end gap-3 pt-4 border-t">
           <button type="button" onClick={() => router.back()} className="px-4 py-2 border rounded-xl">Annuler</button>
-          <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl disabled:opacity-50">
+          <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>
             {saving ? "Enregistrement..." : "Ajouter le membre"}
           </button>
         </div>

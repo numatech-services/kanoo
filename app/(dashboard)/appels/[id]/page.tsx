@@ -78,7 +78,7 @@ export default function AppelDetailPage() {
         <div>
           <Link href="/appels" className="text-xs text-ink2 hover:text-ink">← Appels à candidatures</Link>
           <div className="flex items-center gap-3 mt-1">
-            <h1 className="text-2xl font-bold text-ink">{a.title}</h1>
+            <h1 className="page-title">{a.title}</h1>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>
           </div>
           <p className="text-sm text-ink2">{a.organism || "—"}{a.reference ? ` · ${a.reference}` : ""}</p>

@@ -67,7 +67,7 @@ export default function ActivitesPage() {
     <div className="space-y-5 max-w-6xl">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="page-title">Activités</h1>
+          <h1 className="page-title">Événements</h1>
           <p className="text-sm text-ink2 mt-0.5">Événements, réunions et billetterie de votre organisation.</p>
         </div>
         <IfCan resource="events">

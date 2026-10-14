@@ -14,6 +14,7 @@ import {
 } from "@/lib/budget";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
 interface Profile { label: string; weights: number[] }
 
 interface Payload {
@@ -85,7 +86,7 @@ export default function BudgetPrevisionnelPage() {
     <div className="space-y-6">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Budget prévisionnel</h1>
+          <h1 className="page-title">Budget prévisionnel</h1>
           <p className="text-sm text-ink2">
             Le réalisé se compare à la part du budget correspondant au temps écoulé —
             pas au budget annuel.
@@ -455,7 +456,7 @@ function CreateDialog({
 
         <div className="flex justify-end gap-3 pt-3 border-t border-line">
           <button type="button" onClick={onClose}
-            className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+            className={buttonClass("secondary", "md")}>
             Annuler
           </button>
           <button type="submit" disabled={saving || lines.every(l => l.annualAmount === 0)}

@@ -92,7 +92,7 @@ export function SupportButton() {
             {/* Formulaire ticket */}
             {sent ? (
               <div style={{ textAlign: "center", padding: "16px", background: "#EAF3DE", borderRadius: "10px" }}>
-                <p style={{ color: "#3B6D11", fontSize: "13px", fontWeight: 500, margin: 0 }}>✅ Ticket envoyé !</p>
+                <p style={{ color: "#3B6D11", fontSize: "13px", fontWeight: 500, margin: 0 }}>Ticket envoyé !</p>
                 <p style={{ color: "#639922", fontSize: "11px", margin: "4px 0 0" }}>Réponse sous 24h par email</p>
               </div>
             ) : (

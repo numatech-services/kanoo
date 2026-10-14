@@ -5,6 +5,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { useWarehouses } from "@/components/stock/useWarehouses";
 import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
+import { buttonClass } from "@/components/ui/button-class";
 export const MOVEMENT_OPTIONS = [
   { value: "entry", label: "Entrée (achat, réception)" },
   { value: "exit", label: "Sortie (vente, consommation)" },
@@ -74,7 +75,7 @@ export function MovementDialog({ product, onClose, onDone, defaultWarehouseId }:
       <form onSubmit={submit} className="space-y-4">
         <p className="text-sm text-ink2">Stock total : <b className="text-ink">{product.stockQty ?? 0} {product.unit ?? ""}</b>
           {f.warehouseId && whQty[f.warehouseId] !== undefined ? <> · dans cet entrepôt : <b className="text-ink">{whQty[f.warehouseId]}</b></> : null}
-          {product.purchaseCost ? ` · coût moyen ${Number(product.purchaseCost).toLocaleString("fr-FR")} XOF` : ""}
+          {product.purchaseCost ? ` · coût moyen ${Number(product.purchaseCost).toLocaleString("fr-FR")} FCFA` : ""}
           {tracked ? ` · suivi par ${serial ? "numéro de série" : "lot"}` : ""}</p>
         {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
         <div className="grid sm:grid-cols-2 gap-3">
@@ -109,7 +110,7 @@ export function MovementDialog({ product, onClose, onDone, defaultWarehouseId }:
         )}
         <FormField label="Motif" required><input className={inputCls} value={f.reason} onChange={e => setF(p => ({ ...p, reason: e.target.value }))} placeholder="Ex. achat au comptant, consommation atelier…" required /></FormField>
         <FormField label="Référence du document"><input className={inputCls} value={f.reference} onChange={e => setF(p => ({ ...p, reference: e.target.value }))} placeholder="N° de bon, de facture…" /></FormField>
-        <button type="submit" disabled={saving} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer le mouvement"}</button>
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md", "w-full")}>{saving ? "Enregistrement…" : "Enregistrer le mouvement"}</button>
       </form>
     </Modal>
   );

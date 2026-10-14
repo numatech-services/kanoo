@@ -11,6 +11,7 @@ import { useWarehouses } from "@/components/stock/useWarehouses";
 import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
 interface Line {
   productId?: { _id: string; code: string; label: string; unit?: string; trackingMode?: string } | string;
   description: string; quantity: number; unitPrice: number; totalHT: number; receivedQty?: number;
@@ -69,7 +70,7 @@ export default function CommandeDetailPage() {
         <div>
           <Link href="/commandes" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Bons de commande</Link>
           <div className="flex items-center gap-3 mt-1">
-            <h1 className="text-2xl font-bold text-ink">BC {item.number}</h1>
+            <h1 className="page-title">BC {item.number}</h1>
             <StatusBadge status={item.status} />
           </div>
         </div>
@@ -82,9 +83,9 @@ export default function CommandeDetailPage() {
             <button onClick={() => setReceiveOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95"><PackageCheck size={16} /> Réceptionner</button>
           )}
           {canPurchase && ["confirmed", "partially_received", "received"].includes(item.status) && !item.purchaseId && (
-            <Link href={`/depenses/nouvelle?commandeId=${item._id}`} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2"><FileText size={16} /> Saisir la facture fournisseur</Link>
+            <Link href={`/depenses/nouvelle?commandeId=${item._id}`} className={buttonClass("secondary", "md")}><FileText size={16} /> Saisir la facture fournisseur</Link>
           )}
-          {item.purchaseId && <Link href={`/depenses/${item.purchaseId}`} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><FileText size={16} /> Facture fournisseur</Link>}
+          {item.purchaseId && <Link href={`/depenses/${item.purchaseId}`} className={buttonClass("secondary", "md")}><FileText size={16} /> Facture fournisseur</Link>}
           {canEdit && editable && (
             <button onClick={() => setEditOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Edit3 size={16} /> Modifier</button>
           )}
@@ -136,7 +137,7 @@ export default function CommandeDetailPage() {
           <div className="bg-surface rounded-2xl border border-line p-5 text-sm space-y-1">
             <div className="flex justify-between"><span className="text-ink2">Total HT</span><span className="font-mono">{fmt(item.totalHT)}</span></div>
             <div className="flex justify-between"><span className="text-ink2">TVA</span><span className="font-mono">{fmt(item.totalTVA)}</span></div>
-            <div className="flex justify-between font-bold text-lg pt-2 border-t border-line"><span>Total TTC</span><span className="font-mono">{fmt(item.totalTTC)} XOF</span></div>
+            <div className="flex justify-between font-bold text-lg pt-2 border-t border-line"><span>Total TTC</span><span className="font-mono">{fmt(item.totalTTC)} FCFA</span></div>
           </div>
           {item.notes && <p className="text-xs text-ink2 whitespace-pre-wrap">{item.notes}</p>}
         </div>
@@ -200,7 +201,7 @@ function ReceiveDialog({ cmd, onClose, onDone }: { cmd: Commande; onClose: () =>
             })}
           </tbody>
         </table>
-        <button onClick={submit} disabled={saving} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Valider la réception"}</button>
+        <button onClick={submit} disabled={saving} className={buttonClass("primary", "md", "w-full")}>{saving ? "Enregistrement…" : "Valider la réception"}</button>
       </div>
     </Modal>
   );

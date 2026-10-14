@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ArrowLeft, Download } from "lucide-react";
 import { inputCls } from "@/components/ui/FormField";
 
+import { buttonClass } from "@/components/ui/button-class";
+import { ScreenTabs } from "@/components/shared/ScreenTabs";
 type Tab = "balance" | "ledger" | "pl" | "bs";
 const TABS: Array<[Tab, string]> = [["balance", "Balance générale"], ["ledger", "Grand livre"], ["pl", "Compte de résultat"], ["bs", "Bilan"]];
 const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
@@ -40,9 +42,10 @@ export default function StatementsPage() {
 
   return (
     <div className="space-y-5">
+      <ScreenTabs group="accounting" />
       <div>
         <Link href="/accounting" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Comptabilité</Link>
-        <h1 className="text-2xl font-bold text-ink mt-1">États comptables</h1>
+        <h1 className="page-title mt-1">États comptables</h1>
       </div>
       <div className="flex gap-1 flex-wrap">
         {TABS.map(([k, l]) => (
@@ -56,7 +59,7 @@ export default function StatementsPage() {
           <label className="block"><span className="block text-xs text-ink2 mb-1">{tab === "ledger" ? "Compte ou racine (obligatoire)" : "Racine de compte"}</span>
             <input className={`${inputCls} w-40`} value={account} onChange={e => setAccount(e.target.value.replace(/\D/g, ""))} placeholder="Ex. 411, 521000" /></label>
         )}
-        {data != null && <a href={`/api/accounting/reports?${qs({ format: "csv" })}`} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Download size={15} /> CSV</a>}
+        {data != null && <a href={`/api/accounting/reports?${qs({ format: "csv" })}`} className={buttonClass("secondary", "md")}><Download size={15} /> CSV</a>}
       </div>
       {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
       {tab === "ledger" && !account && <p className="text-sm text-ink3">Saisissez un compte (ex. 411 pour tous les clients, 521000 pour la banque).</p>}
@@ -123,7 +126,7 @@ export default function StatementsPage() {
               </div>
             ))}
             <div className={`md:col-span-2 rounded-xl p-4 text-center font-bold text-lg ${d.resultat >= 0 ? "bg-pos-50 text-pos" : "bg-neg-50 text-neg"}`}>
-              {d.resultat >= 0 ? "Bénéfice" : "Perte"} de la période : {fmt(d.resultat)} XOF
+              {d.resultat >= 0 ? "Bénéfice" : "Perte"} de la période : {fmt(d.resultat)} FCFA
             </div>
           </div>
         );
@@ -144,7 +147,7 @@ export default function StatementsPage() {
           <div className="grid md:grid-cols-2 gap-4">
             <div className="bg-surface rounded-xl border border-line p-4 space-y-2"><h2 className="font-semibold">Actif</h2>{block(d.actif)}<p className="flex justify-between font-bold border-t border-line pt-2"><span>Total actif</span><span className="font-mono">{fmt(d.totalActif)}</span></p></div>
             <div className="bg-surface rounded-xl border border-line p-4 space-y-2"><h2 className="font-semibold">Passif</h2>{block(d.passif)}<p className="flex justify-between font-bold border-t border-line pt-2"><span>Total passif</span><span className="font-mono">{fmt(d.totalPassif)}</span></p></div>
-            {Math.abs(d.totalActif - d.totalPassif) > 1 && <p className="md:col-span-2 text-sm text-warn">Écart actif / passif : {fmt(d.totalActif - d.totalPassif)} XOF — vérifiez les écritures non équilibrées ou les comptes hors classes 1 à 7.</p>}
+            {Math.abs(d.totalActif - d.totalPassif) > 1 && <p className="md:col-span-2 text-sm text-warn">Écart actif / passif : {fmt(d.totalActif - d.totalPassif)} FCFA — vérifiez les écritures non équilibrées ou les comptes hors classes 1 à 7.</p>}
           </div>
         );
       })()}

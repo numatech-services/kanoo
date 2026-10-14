@@ -5,6 +5,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 
+import { buttonClass } from "@/components/ui/button-class";
 export type UnitType = "unité" | "m³" | "L" | "kg" | "m²" | "Année" | "Mois";
 
 interface InvoiceLine {
@@ -228,9 +229,9 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
       <div className="flex justify-end">
         <div className="w-64 space-y-2 bg-surface rounded-xl border border-line p-4">
           {[
-            ["Total HT", `${totalHT.toLocaleString("fr-FR")} XOF`, "text-ink2"],
-            ["TVA", `${totalTVA.toLocaleString("fr-FR")} XOF`, "text-ink2"],
-            ["Total TTC", `${totalTTC.toLocaleString("fr-FR")} XOF`, "text-ink font-bold text-base"],
+            ["Total HT", `${totalHT.toLocaleString("fr-FR")} FCFA`, "text-ink2"],
+            ["TVA", `${totalTVA.toLocaleString("fr-FR")} FCFA`, "text-ink2"],
+            ["Total TTC", `${totalTTC.toLocaleString("fr-FR")} FCFA`, "text-ink font-bold text-base"],
           ].map(([label, value, cls]) => (
             <div key={label} className="flex justify-between text-sm border-b border-line pb-1.5 last:border-0 last:pt-1">
               <span className="text-ink2">{label}</span>
@@ -250,8 +251,8 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
       </FormField>
 
       <div className="flex justify-end gap-3 pt-4 border-t border-line">
-        <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 transition-colors">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2.5 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 transition-colors disabled:opacity-60">
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>Annuler</button>
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>
           {saving ? "Enregistrement..." : "Enregistrer la facture"}
         </button>
       </div>

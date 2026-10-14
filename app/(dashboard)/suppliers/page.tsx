@@ -62,7 +62,7 @@ export default function SuppliersPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Fournisseurs</h1><p className="text-sm text-ink2 mt-0.5">{total} fournisseur{total > 1 ? "s" : ""}</p></div>
+        <div><h1 className="page-title">Fournisseurs</h1><p className="text-sm text-ink2 mt-0.5">{total} fournisseur{total > 1 ? "s" : ""}</p></div>
         <IfCan resource="suppliers">
         <button onClick={() => { setEditing(null); setModalOpen(true); }} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors">+ Nouveau fournisseur</button>
         </IfCan>

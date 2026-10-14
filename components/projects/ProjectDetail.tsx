@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { MessageComposer } from "@/components/shared/MessageComposer";
-import { CheckCircle2, AlertCircle, Banknote, ClipboardList, Plus, Trash2, Edit3, Flag } from "lucide-react";
+import { CheckCircle2, AlertCircle, Banknote, ClipboardList, Plus, Trash2, Edit3, Flag, FileText } from "lucide-react";
 import { useMe, meCanDo } from "@/lib/useMe";
 import { ImputedFlows } from "@/components/shared/ImputedFlows";
 import { ProjectEditForm, type ProjectEditValue } from "@/components/projects/ProjectEditForm";
@@ -14,6 +14,7 @@ import { PROJECT_STATUS_FR, TASK_STATUS_FR, type ProjectVocabulary } from "@/lib
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { buttonClass } from "@/components/ui/button-class";
 // ── Interfaces ────────────────────────────────────────────────────
 interface Task { _id: string; label: string; status: string; weight: number; }
 interface Milestone { _id?: string; label: string; dueDate?: string; completedAt?: string; amount?: number; description?: string; }
@@ -242,7 +243,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
       <div className="flex justify-between items-end border-b border-line pb-4">
         <div>
           <Link href="/projects" className="text-xs font-bold text-ink2 hover:text-section transition-colors">← {vocabulary.plural.toUpperCase()}</Link>
-          <h1 className="text-3xl font-bold text-ink mt-2">{project.name}</h1>
+          <h1 className="page-title mt-2">{project.name}</h1>
           <p className="text-ink2 font-mono text-xs opacity-70">{project.code}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -258,7 +259,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="surface-card p-5">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-[10px] font-bold uppercase text-ink2 flex items-center gap-1 italic">
+            <span className="text-[10px] font-bold uppercase text-ink2 flex items-center gap-1">
               <ClipboardList size={14} /> Avancement Physique
             </span>
             <span className="font-mono font-bold text-ink">{currentExecRate}%</span>
@@ -270,7 +271,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
 
         {money && <div className="surface-card p-5">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-[10px] font-bold uppercase text-ink2 flex items-center gap-1 italic">
+            <span className="text-[10px] font-bold uppercase text-ink2 flex items-center gap-1">
               <Banknote size={14} /> Consommation Budget
             </span>
             <span className="font-mono font-bold text-ink">{currentBudgetRate}%</span>
@@ -285,7 +286,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
             <p className="flex justify-between"><span className="text-ink2">Budget</span><span className="font-mono">{(project.budget || 0).toLocaleString("fr-FR")}</span></p>
             <p className="flex justify-between"><span className="text-ink2">Coût réel</span><span className="font-mono">{realCost.toLocaleString("fr-FR")}</span></p>
             <p className="flex justify-between"><span className="text-ink2">Recettes facturées</span><span className="font-mono">{(project.finance?.revenue ?? 0).toLocaleString("fr-FR")}</span></p>
-            <p className={`flex justify-between font-bold ${(project.finance?.revenue ?? 0) - realCost < 0 ? "text-neg" : "text-pos"}`}><span>Marge</span><span className="font-mono">{((project.finance?.revenue ?? 0) - realCost).toLocaleString("fr-FR")} XOF</span></p>
+            <p className={`flex justify-between font-bold ${(project.finance?.revenue ?? 0) - realCost < 0 ? "text-neg" : "text-pos"}`}><span>Marge</span><span className="font-mono">{((project.finance?.revenue ?? 0) - realCost).toLocaleString("fr-FR")} FCFA</span></p>
             {project.spentAmount > 0 && <p className="text-[10px] text-ink3">dont {project.spentAmount.toLocaleString("fr-FR")} saisis à la main (avant l&apos;imputation comptable)</p>}
             {canBuy && <Link href={`/depenses/nouvelle?projectId=${project._id}`} className="mt-2 text-[11px] font-bold text-section inline-flex items-center gap-1 hover:underline"><Plus size={11} /> Imputer une dépense à ce projet</Link>}
         </div>}
@@ -360,7 +361,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
                       <p className={`text-sm font-semibold ${m.completedAt ? "text-ink2 line-through" : "text-ink"}`}>{m.label}</p>
                       <p className="text-[11px] text-ink3">
                         {m.dueDate ? `Échéance ${new Date(m.dueDate).toLocaleDateString("fr-FR")}` : "Sans échéance"}
-                        {money && m.amount ? ` · ${m.amount.toLocaleString("fr-FR")} XOF à facturer` : ""}
+                        {money && m.amount ? ` · ${m.amount.toLocaleString("fr-FR")} FCFA à facturer` : ""}
                         {m.completedAt ? ` · atteint le ${new Date(m.completedAt).toLocaleDateString("fr-FR")}` : ""}
                       </p>
                     </div>
@@ -417,7 +418,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
                 {project.documents.map(doc => (
                   <div key={doc._id} className="flex items-center justify-between p-4 bg-surface2/10 rounded-2xl border border-line hover:bg-surface2/20 transition-colors">
                     <div className="flex items-center gap-3">
-                      <span className="text-xl">📄</span>
+                      <span className="inline-flex" aria-hidden><FileText size={20} /></span>
                       <div>
                         <p className="font-bold text-ink text-sm">{doc.name}</p>
                         <p className="text-[10px] text-ink2 font-black uppercase">{doc.type}</p>
@@ -463,8 +464,8 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
         <form onSubmit={async e => { e.preventDefault(); if (!newMs.label.trim()) return; await saveMilestones([...(project.milestones ?? []), { label: newMs.label.trim(), dueDate: newMs.dueDate || undefined, ...(money ? { amount: Number(newMs.amount) || 0 } : {}) }]); setMsModal(false); setNewMs({ label: "", dueDate: "", amount: 0 }); }} className="space-y-4">
           <FormField label="Libellé" required><input className={inputCls} value={newMs.label} onChange={e => setNewMs({ ...newMs, label: e.target.value })} required /></FormField>
           <FormField label="Échéance"><input type="date" className={inputCls} value={newMs.dueDate ?? ""} onChange={e => setNewMs({ ...newMs, dueDate: e.target.value })} /></FormField>
-          {money && <FormField label="Montant à facturer (XOF)"><input type="number" min={0} className={inputCls} value={newMs.amount ?? 0} onChange={e => setNewMs({ ...newMs, amount: Number(e.target.value) })} /></FormField>}
-          <button type="submit" className="w-full bg-section text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest">Ajouter</button>
+          {money && <FormField label="Montant à facturer (FCFA)"><input type="number" min={0} className={inputCls} value={newMs.amount ?? 0} onChange={e => setNewMs({ ...newMs, amount: Number(e.target.value) })} /></FormField>}
+          <button type="submit" className={buttonClass("primary", "sm", "w-full")}>Ajouter</button>
         </form>
       </Modal>
 
@@ -489,7 +490,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
               <option value="in_progress">En cours</option>
             </select>
           </FormField>
-          <button type="submit" className="w-full bg-section text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Créer</button>
+          <button type="submit" className={buttonClass("primary", "sm", "w-full")}>Créer</button>
         </form>
       </Modal>
 
@@ -510,7 +511,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
               <option value="autre">Autre</option>
             </select>
           </FormField>
-          <button type="submit" className="w-full bg-section text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Envoyer</button>
+          <button type="submit" className={buttonClass("primary", "sm", "w-full")}>Envoyer</button>
         </form>
       </Modal>
 
@@ -532,7 +533,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
               <option value="lead">Chef de projet</option>
             </select>
           </FormField>
-          <button type="submit" className="w-full bg-section text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Ajouter au projet</button>
+          <button type="submit" className={buttonClass("primary", "sm", "w-full")}>Ajouter au projet</button>
         </form>
       </Modal>
     </div>

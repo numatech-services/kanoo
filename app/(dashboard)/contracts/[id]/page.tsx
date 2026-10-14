@@ -14,6 +14,8 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import type { MarketFinance } from "@/lib/market-finance";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
+import { formatMoney } from "@/lib/format";
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function send(url: string, method: string, body?: unknown) {
   const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -21,7 +23,6 @@ async function send(url: string, method: string, body?: unknown) {
   if (!res.ok) throw new Error(d.error || "Action refusée");
   return d.data;
 }
-const xof = (n?: number | null) => `${Math.round(n || 0).toLocaleString("fr-FR")} XOF`;
 const pct = (n?: number | null) => (n === null || n === undefined ? "—" : `${n.toLocaleString("fr-FR")} %`);
 
 interface Milestone { _id: string; label: string; amount: number; kind?: "deposit" | "standard"; dueDate?: string; status: string; invoiceId?: string }
@@ -83,7 +84,7 @@ export default function ContractDetailPage() {
       <div className="flex justify-between items-start gap-4 flex-wrap">
         <div>
           <Link href="/contracts" className="text-xs text-ink2 hover:text-ink">← Contrats</Link>
-          <h1 className="text-2xl font-bold text-ink">{contract.title}</h1>
+          <h1 className="page-title">{contract.title}</h1>
           <p className="text-sm text-ink2"><span className="font-mono">{contract.reference}</span>{contract.clientId?.name ? ` · ${contract.clientId.name}` : ""}
             {contract.devisId && <> · devis <Link href={`/devis/${contract.devisId._id}`} className="text-section hover:underline font-mono">{contract.devisId.number}</Link></>}
             {contract.projectId && <> · projet <Link href={`/projects/${contract.projectId._id}`} className="text-section hover:underline font-mono">{contract.projectId.code}</Link></>}
@@ -100,7 +101,7 @@ export default function ContractDetailPage() {
               className="px-4 h-9 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2 inline-flex items-center gap-1.5"><FolderKanban size={15} /> Créer le projet d&apos;exécution</button>
           )}
           {isMarket && contract.projectId && canBuy && (
-            <Link href={`/depenses/nouvelle?projectId=${contract.projectId._id}`} className="px-4 h-9 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2 inline-flex items-center gap-1.5"><Wallet size={15} /> Imputer une dépense</Link>
+            <Link href={`/depenses/nouvelle?projectId=${contract.projectId._id}`} className={buttonClass("secondary", "md")}><Wallet size={15} /> Imputer une dépense</Link>
           )}
           {isMarket && billable && canInvoice && (
             <>
@@ -132,7 +133,7 @@ export default function ContractDetailPage() {
                     <td className="text-sm">{m.label}</td>
                     <td>{m.kind === "deposit" ? <Pill tone="info">Acompte</Pill> : <Pill tone="mute">Facture</Pill>}</td>
                     <td className="text-xs text-ink2">{m.dueDate ? new Date(m.dueDate).toLocaleDateString("fr-FR") : "—"}</td>
-                    <td className="text-right font-mono">{xof(m.amount)}</td>
+                    <td className="text-right font-mono">{formatMoney(m.amount)}</td>
                     <td className="text-xs">{m.status === "pending" ? "À facturer" : <>Facturée{m.invoiceId && invoiceNo.get(String(m.invoiceId)) ? <> · <Link href={`/invoices/${m.invoiceId}`} className="text-section hover:underline font-mono">{invoiceNo.get(String(m.invoiceId))}</Link></> : ""}</>}</td>
                     <td className="text-right whitespace-nowrap">
                       {m.status === "pending" && billable && canInvoice && <button disabled={busy} onClick={() => run(() => send(`/api/contracts/${id}/invoice`, "POST", { milestoneId: m._id }), `Facture de l'échéance « ${m.label} » créée (brouillon).`)} className="px-2 h-7 rounded border border-line2 text-xs font-semibold hover:bg-surface2">Facturer</button>}
@@ -157,9 +158,9 @@ export default function ContractDetailPage() {
                   <td><Link href={`/invoices/${i._id}`} className="font-mono text-section hover:underline">{i.number}</Link></td>
                   <td>{i.documentType === "credit_note" ? <Pill tone="warn">Avoir</Pill> : i.kind === "deposit" ? <Pill tone="info">Acompte</Pill> : <Pill tone="mute">Facture</Pill>}</td>
                   <td className="text-xs text-ink2">{new Date(i.issueDate).toLocaleDateString("fr-FR")}</td>
-                  <td className="text-right font-mono">{xof(i.totalHT)}</td>
-                  <td className="text-right font-mono">{xof(i.totalTTC)}</td>
-                  <td className="text-right font-mono">{i.documentType === "credit_note" ? "—" : xof(i.paidAmount)}</td>
+                  <td className="text-right font-mono">{formatMoney(i.totalHT)}</td>
+                  <td className="text-right font-mono">{formatMoney(i.totalTTC)}</td>
+                  <td className="text-right font-mono">{i.documentType === "credit_note" ? "—" : formatMoney(i.paidAmount)}</td>
                   <td><StatusBadge status={i.status} /></td>
                 </tr>
               ))}
@@ -173,7 +174,7 @@ export default function ContractDetailPage() {
       <div className="bg-surface rounded-xl border border-line p-6">
         <h2 className="font-semibold mb-4">Informations générales</h2>
         <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="text-ink2">Montant du marché (HT)</div><div className="font-medium">{xof(contract.amount)}</div>
+          <div className="text-ink2">Montant du marché (HT)</div><div className="font-medium">{formatMoney(contract.amount)}</div>
           <div className="text-ink2">Client</div><div className="font-medium">{contract.clientId?.name || "—"}</div>
           {contract.isRecurring && <><div className="text-ink2">Facturation</div><div className="font-medium">Récurrente
             {canInvoice && billable && <button onClick={() => run(() => send(`/api/contracts/${id}/generate-invoice`, "POST"), "Facture de la période générée.")} disabled={busy} className="ml-2 text-section text-xs font-semibold hover:underline">Générer la facture de la période</button>}
@@ -221,23 +222,23 @@ function MarketPanel({ f, hasProject }: { f: MarketFinance; hasProject: boolean 
   return (
     <div className="space-y-4">
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <Kpi label="Devis (HT)" value={f.quote ? xof(f.quote.totalHT) : "—"} sub={f.quote ? `Devis ${f.quote.number}` : "Pas de devis lié"} />
-        <Kpi label="Marché (HT)" value={xof(f.contractHT)} sub={f.quote && f.quote.totalHT !== f.contractHT ? `Écart avec le devis : ${xof(f.contractHT - f.quote.totalHT)}` : "Montant contractuel"} />
-        <Kpi label="Dépenses réalisées" value={xof(f.costs.actual)} sub={f.costs.committed ? `+ ${xof(f.costs.committed)} engagées` : "Imputées au projet"} />
-        <Kpi label="Marge à terminaison" value={xof(m.atCompletion)} sub={`${pct(m.atCompletionRate)} du marché`} tone={m.atCompletion < 0 ? "neg" : "pos"} />
+        <Kpi label="Devis (HT)" value={f.quote ? formatMoney(f.quote.totalHT) : "—"} sub={f.quote ? `Devis ${f.quote.number}` : "Pas de devis lié"} />
+        <Kpi label="Marché (HT)" value={formatMoney(f.contractHT)} sub={f.quote && f.quote.totalHT !== f.contractHT ? `Écart avec le devis : ${formatMoney(f.contractHT - f.quote.totalHT)}` : "Montant contractuel"} />
+        <Kpi label="Dépenses réalisées" value={formatMoney(f.costs.actual)} sub={f.costs.committed ? `+ ${formatMoney(f.costs.committed)} engagées` : "Imputées au projet"} />
+        <Kpi label="Marge à terminaison" value={formatMoney(m.atCompletion)} sub={`${pct(m.atCompletionRate)} du marché`} tone={m.atCompletion < 0 ? "neg" : "pos"} />
       </div>
       <div className="grid lg:grid-cols-3 gap-4">
         <section className="surface-card p-5">
           <h2 className="font-semibold text-ink mb-2">Facturation et encaissements</h2>
           <div className="divide-y divide-line">
-            <Row label="Montant du marché" value={xof(f.contractHT)} strong />
-            <Row label="Acomptes facturés" value={xof(b.depositsHT)} hint={b.depositsDeductedHT ? `dont ${xof(b.depositsDeductedHT)} déduits des factures` : undefined} />
-            <Row label="Acomptes restant à déduire" value={xof(b.depositsOutstandingHT)} />
-            <Row label="Travaux facturés (HT)" value={xof(b.workHT)} hint="Chiffre d'affaires reconnu" />
-            <Row label="Reste à facturer (HT)" value={xof(b.toInvoiceHT)} strong />
-            <Row label="Facturé TTC" value={xof(b.invoicedTTC)} />
-            <Row label="Encaissé" value={xof(b.collectedTTC)} />
-            <Row label="Reste à encaisser" value={xof(b.dueTTC)} strong />
+            <Row label="Montant du marché" value={formatMoney(f.contractHT)} strong />
+            <Row label="Acomptes facturés" value={formatMoney(b.depositsHT)} hint={b.depositsDeductedHT ? `dont ${formatMoney(b.depositsDeductedHT)} déduits des factures` : undefined} />
+            <Row label="Acomptes restant à déduire" value={formatMoney(b.depositsOutstandingHT)} />
+            <Row label="Travaux facturés (HT)" value={formatMoney(b.workHT)} hint="Chiffre d'affaires reconnu" />
+            <Row label="Reste à facturer (HT)" value={formatMoney(b.toInvoiceHT)} strong />
+            <Row label="Facturé TTC" value={formatMoney(b.invoicedTTC)} />
+            <Row label="Encaissé" value={formatMoney(b.collectedTTC)} />
+            <Row label="Reste à encaisser" value={formatMoney(b.dueTTC)} strong />
           </div>
         </section>
         <section className="surface-card p-5 lg:col-span-2">
@@ -251,15 +252,15 @@ function MarketPanel({ f, hasProject }: { f: MarketFinance; hasProject: boolean 
                   {f.costs.categories.map(c => (
                     <tr key={c.key} className="border-t border-line">
                       <td className="text-sm">{c.label}<span className="block text-[11px] text-ink3">{c.hint}</span></td>
-                      <td className="text-right font-mono">{c.committed ? xof(c.committed) : "—"}</td>
-                      <td className="text-right font-mono">{c.actual ? xof(c.actual) : "—"}</td>
-                      <td className="text-right font-mono font-semibold">{c.committed + c.actual ? xof(c.committed + c.actual) : "—"}</td>
+                      <td className="text-right font-mono">{c.committed ? formatMoney(c.committed) : "—"}</td>
+                      <td className="text-right font-mono">{c.actual ? formatMoney(c.actual) : "—"}</td>
+                      <td className="text-right font-mono font-semibold">{c.committed + c.actual ? formatMoney(c.committed + c.actual) : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
-                <tfoot><tr className="border-t border-line font-semibold"><td>Total</td><td className="text-right font-mono">{xof(f.costs.committed)}</td><td className="text-right font-mono">{xof(f.costs.actual)}</td><td className="text-right font-mono">{xof(f.costs.committed + f.costs.actual)}</td></tr></tfoot>
+                <tfoot><tr className="border-t border-line font-semibold"><td>Total</td><td className="text-right font-mono">{formatMoney(f.costs.committed)}</td><td className="text-right font-mono">{formatMoney(f.costs.actual)}</td><td className="text-right font-mono">{formatMoney(f.costs.committed + f.costs.actual)}</td></tr></tfoot>
               </table>
-              {f.costs.supplierDueTTC > 0 && <p className="text-xs text-ink2 mt-2">Reste à payer aux fournisseurs : <b className="font-mono">{xof(f.costs.supplierDueTTC)}</b></p>}
+              {f.costs.supplierDueTTC > 0 && <p className="text-xs text-ink2 mt-2">Reste à payer aux fournisseurs : <b className="font-mono">{formatMoney(f.costs.supplierDueTTC)}</b></p>}
             </>
           )}
         </section>
@@ -268,8 +269,8 @@ function MarketPanel({ f, hasProject }: { f: MarketFinance; hasProject: boolean 
         <h2 className="font-semibold text-ink mb-2">Marges</h2>
         <div className="grid sm:grid-cols-3 gap-4">
           <div><p className="text-xs text-ink2">Marge prévue au devis</p><p className="text-sm text-ink3 mt-1">À venir : coût estimé par ligne de devis.</p></div>
-          <div><p className="text-xs text-ink2">Marge réelle (travaux facturés − dépenses réalisées)</p><p className={`text-xl font-bold ${m.actual < 0 ? "text-neg" : "text-pos"}`}>{xof(m.actual)} <span className="text-sm font-normal text-ink2">{pct(m.actualRate)}</span></p></div>
-          <div><p className="text-xs text-ink2">Marge à terminaison (marché − réalisé − engagé)</p><p className={`text-xl font-bold ${m.atCompletion < 0 ? "text-neg" : "text-pos"}`}>{xof(m.atCompletion)} <span className="text-sm font-normal text-ink2">{pct(m.atCompletionRate)}</span></p></div>
+          <div><p className="text-xs text-ink2">Marge réelle (travaux facturés − dépenses réalisées)</p><p className={`text-xl font-bold ${m.actual < 0 ? "text-neg" : "text-pos"}`}>{formatMoney(m.actual)} <span className="text-sm font-normal text-ink2">{pct(m.actualRate)}</span></p></div>
+          <div><p className="text-xs text-ink2">Marge à terminaison (marché − réalisé − engagé)</p><p className={`text-xl font-bold ${m.atCompletion < 0 ? "text-neg" : "text-pos"}`}>{formatMoney(m.atCompletion)} <span className="text-sm font-normal text-ink2">{pct(m.atCompletionRate)}</span></p></div>
         </div>
       </section>
     </div>
@@ -305,22 +306,22 @@ function InvoiceDialog({ contractId, mode, f, onClose, onDone }: { contractId: s
           <FormField label="Base">
             <select className={selectCls} value={by} onChange={e => setBy(e.target.value as "rate" | "amount")}><option value="rate">% du marché</option><option value="amount">Montant HT</option></select>
           </FormField>
-          <FormField label={by === "rate" ? "Pourcentage" : "Montant HT (XOF)"}>
+          <FormField label={by === "rate" ? "Pourcentage" : "Montant HT (FCFA)"}>
             <input type="number" min={0} className={inputCls} value={value} onChange={e => setValue(e.target.value)} />
           </FormField>
         </div>
         {!deposit && f.billing.depositsOutstandingHT > 0 && (
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-section" checked={deduct} onChange={e => setDeduct(e.target.checked)} /> Déduire les acomptes ({xof(f.billing.depositsOutstandingHT)} disponibles)</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-section" checked={deduct} onChange={e => setDeduct(e.target.checked)} /> Déduire les acomptes ({formatMoney(f.billing.depositsOutstandingHT)} disponibles)</label>
         )}
         <FormField label="Libellé (facultatif)"><input className={inputCls} value={description} onChange={e => setDescription(e.target.value)} placeholder={deposit ? "Acompte à la commande" : "Situation n°1, solde…"} /></FormField>
         <div className="surface-card p-3 text-sm divide-y divide-line">
-          <Row label="Montant HT" value={xof(amount)} />
-          {deduction > 0 && <Row label="Acompte déduit (HT)" value={`− ${xof(deduction)}`} />}
-          <Row label="Net HT à facturer" value={xof(amount - deduction)} strong />
+          <Row label="Montant HT" value={formatMoney(amount)} />
+          {deduction > 0 && <Row label="Acompte déduit (HT)" value={`− ${formatMoney(deduction)}`} />}
+          <Row label="Net HT à facturer" value={formatMoney(amount - deduction)} strong />
         </div>
         <p className="text-[11px] text-ink3 flex items-center gap-1"><FileText size={12} /> La facture est créée en brouillon ; TVA et timbre sont calculés comme sur toute facture.</p>
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm hover:bg-surface2">Annuler</button>
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
           <button onClick={submit} disabled={saving || !(amount > 0)} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Création…" : "Créer la facture"}</button>
         </div>
       </div>
@@ -354,12 +355,12 @@ function MilestoneDialog({ contractId, amount, onClose, onDone }: { contractId: 
           <FormField label="Base">
             <select className={selectCls} value={f.by} onChange={e => setF(x => ({ ...x, by: e.target.value }))}><option value="rate">% du marché</option><option value="amount">Montant HT</option></select>
           </FormField>
-          <FormField label={f.by === "rate" ? "Pourcentage" : "Montant HT"} hint={f.by === "rate" ? `= ${xof(ht)} HT` : undefined}>
+          <FormField label={f.by === "rate" ? "Pourcentage" : "Montant HT"} hint={f.by === "rate" ? `= ${formatMoney(ht)} HT` : undefined}>
             <input type="number" min={0} className={inputCls} value={f.value} onChange={e => setF(x => ({ ...x, value: e.target.value }))} />
           </FormField>
         </div>
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm hover:bg-surface2">Annuler</button>
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
           <button onClick={submit} disabled={saving || !f.label.trim() || !(ht > 0)} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">Ajouter</button>
         </div>
       </div>

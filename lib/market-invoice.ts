@@ -82,7 +82,7 @@ export async function invoiceMarket(auth: TokenPayload, contract: MarketContract
   const deducting = mode === "standard" && input.deductDeposits !== false && input.deductDeposits !== "false";
   const ceiling = contract.amount - billing.workHT - (deducting ? 0 : outstanding);
   if (amountHT > ceiling) {
-    throw new MarketError(`Le montant dépasse le reste à facturer du marché (${Math.max(0, ceiling).toLocaleString("fr-FR")} XOF HT).`);
+    throw new MarketError(`Le montant dépasse le reste à facturer du marché (${Math.max(0, ceiling).toLocaleString("fr-FR")} FCFA HT).`);
   }
   const tvaRate = input.tvaRate !== undefined && input.tvaRate !== "" ? Number(input.tvaRate) : TVA_TAUX_STANDARD;
   if (!(tvaRate >= 0 && tvaRate < 1)) throw new MarketError("Taux de TVA invalide.");

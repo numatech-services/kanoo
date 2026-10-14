@@ -55,7 +55,7 @@ export default function MembreDetailPage() {
     <div className="space-y-5 max-w-2xl">
       <div>
         <Link href="/associations/membres" className="text-xs text-ink2 hover:text-ink">← Adhérents</Link>
-        <h1 className="text-2xl font-bold text-ink mt-1">{member.firstName} {member.lastName}</h1>
+        <h1 className="page-title mt-1">{member.firstName} {member.lastName}</h1>
         <div className="flex items-center gap-2 mt-1">
           <span className="font-mono text-xs text-ink2">{member.code}</span>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[member.status]||""}`}>{STATUS_FR[member.status]||member.status}</span>
@@ -90,7 +90,7 @@ export default function MembreDetailPage() {
         {codeStatus?.hasCode ? (
           <div className="flex items-center justify-between p-3 bg-pos-50 border border-pos/25 rounded-xl mb-3">
             <div>
-              <p className="text-sm font-medium text-pos">✅ Code actif</p>
+              <p className="text-sm font-medium text-pos">Code actif</p>
               {codeStatus.generatedAt && <p className="text-xs text-pos">Généré le {new Date(codeStatus.generatedAt).toLocaleDateString("fr-FR")}</p>}
               {codeStatus.sentAt && <p className="text-xs text-pos">Envoyé le {new Date(codeStatus.sentAt).toLocaleDateString("fr-FR")}</p>}
             </div>
@@ -102,7 +102,7 @@ export default function MembreDetailPage() {
         ) : (
           <div className="flex items-center justify-between p-3 bg-warn-50 border border-warn/25 rounded-xl mb-3">
             <div>
-              <p className="text-sm font-medium text-warn">⚠ Aucun code généré</p>
+              <p className="text-sm font-medium text-warn">Aucun code généré</p>
               <p className="text-xs text-warn">L'adhérent ne peut pas encore accéder au portail</p>
             </div>
             <button onClick={handleGenerateCode} disabled={sendingCode}
@@ -122,10 +122,10 @@ export default function MembreDetailPage() {
             </div>
             <div className="flex gap-4 text-xs">
               <span className={codeResult.sentSMS ? "text-pos" : "text-ink3"}>
-                {codeResult.sentSMS ? "✅" : "○"} SMS {!member.phone && "(pas de téléphone)"}
+                SMS : {codeResult.sentSMS ? "envoyé" : "non envoyé"} {!member.phone && "(pas de téléphone)"}
               </span>
               <span className={codeResult.sentEmail ? "text-pos" : "text-ink3"}>
-                {codeResult.sentEmail ? "✅" : "○"} Email {!member.email && "(pas d'email)"}
+                E-mail : {codeResult.sentEmail ? "envoyé" : "non envoyé"} {!member.email && "(pas d'e-mail)"}
               </span>
             </div>
             <p className="text-xs text-info mt-2">Ce code ne sera plus affiché. Conservez-le si vous devez le communiquer manuellement.</p>
@@ -134,7 +134,7 @@ export default function MembreDetailPage() {
 
         {!member.phone && !member.email && (
           <p className="text-xs text-warn bg-warn-50 border border-warn/25 rounded-lg px-3 py-2 mt-2">
-            ⚠ Aucun email ni téléphone enregistré — le code ne pourra pas être envoyé automatiquement.
+            Aucun email ni téléphone enregistré — le code ne pourra pas être envoyé automatiquement.
           </p>
         )}
       </div>

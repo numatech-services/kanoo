@@ -10,6 +10,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
 interface Desk { _id: string; name: string; description?: string; activityId?: string }
 interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
 interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string }
@@ -23,7 +24,7 @@ function localDay(d: Date | string = new Date()): string {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
 }
 
-const MONEY = (n: number) => `${Number(n || 0).toLocaleString("fr-FR")} XOF`;
+const MONEY = (n: number) => `${Number(n || 0).toLocaleString("fr-FR")} FCFA`;
 const METHOD_LABEL: Record<string, string> = {
   cash: "Espèces", bank_transfer: "Virement", orange_money: "OM / Moov", card: "Carte", check: "Chèque", other: "Autre",
 };
@@ -79,7 +80,7 @@ export default function ComptoirPage() {
     <div className="space-y-6">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><Store size={22} /> Comptoir d&apos;activité</h1>
+          <h1 className="page-title flex items-center gap-2"><Store size={22} /> Comptoir d&apos;activité</h1>
           <p className="text-sm text-ink2">
             Comptabilité matière (stock d&apos;articles) et caisse (recettes / dépenses) d&apos;un point d&apos;activité — The Spot et autres.
           </p>
@@ -158,8 +159,8 @@ function NewDeskDialog({ onClose, onSaved }: { onClose: () => void; onSaved: (id
           </FormField>
         )}
         <div className="flex justify-end gap-3 pt-2">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-          <button onClick={save} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button onClick={save} disabled={saving} className={buttonClass("primary", "md")}>
             {saving ? "Création…" : "Lancer le comptoir"}
           </button>
         </div>
@@ -224,7 +225,7 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
           <button onClick={async () => { if (await confirmDialog({ title: "Archiver ce comptoir ?", message: "Ses données restent conservées." })) save({ archived: true }); }}
             disabled={saving} className="text-sm text-neg hover:underline disabled:opacity-50">Archiver le comptoir</button>
           <div className="flex gap-3">
-            <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
+            <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
             <button onClick={() => save()} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
               {saving ? "Enregistrement…" : "Enregistrer"}
             </button>
@@ -309,8 +310,8 @@ function ReportDialog({ deskId, onClose }: { deskId: string; onClose: () => void
         </FormField>
         {invalid && <p className="text-xs text-neg">La date de début doit précéder la date de fin.</p>}
         <div className="flex justify-end gap-3 pt-2">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Fermer</button>
-          <button onClick={open} disabled={invalid} className="px-5 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Fermer</button>
+          <button onClick={open} disabled={invalid} className={buttonClass("primary", "md")}>
             <FileText size={15} /> Ouvrir le PDF
           </button>
         </div>
@@ -351,7 +352,7 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
   }
 
   function exportCsv() {
-    const rows: (string | number)[][] = [["Date", "Libellé", "Moyen", "Sens", "Montant (XOF)"]];
+    const rows: (string | number)[][] = [["Date", "Libellé", "Moyen", "Sens", "Montant (FCFA)"]];
     for (const e of entries) rows.push([
       new Date(e.date).toLocaleDateString("fr-FR"), e.label, METHOD_LABEL[e.method] || e.method,
       e.direction === "in" ? "Recette" : "Dépense", e.direction === "in" ? e.amount : -e.amount,
@@ -370,7 +371,7 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
         </button>
         {entries.length > 0 && (
           <>
-            <button onClick={exportCsv} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+            <button onClick={exportCsv} className={buttonClass("secondary", "md")}>
               <Download size={15} /> Export CSV
             </button>
           </>
@@ -478,7 +479,7 @@ function ArreteDialog({ deskId, onClose }: { deskId: string; onClose: () => void
           <Line label="Solde du jour" value={MONEY(recettes - depenses)} strong />
           <Line label="Solde théorique espèces" value={MONEY(soldeEspeces)} />
         </div>
-        <FormField label="Espèces comptées (XOF)" hint="Pour contrôler la caisse physique.">
+        <FormField label="Espèces comptées (FCFA)" hint="Pour contrôler la caisse physique.">
           <input className={inputCls} type="number" min="0" value={counted} onChange={e => setCounted(e.target.value)} />
         </FormField>
         {ecart !== null && (
@@ -487,8 +488,8 @@ function ArreteDialog({ deskId, onClose }: { deskId: string; onClose: () => void
           </div>
         )}
         <div className="flex justify-end gap-3 pt-2">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Fermer</button>
-          <button onClick={print} className="px-5 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Fermer</button>
+          <button onClick={print} className={buttonClass("primary", "md")}>
             <FileText size={15} /> Imprimer l&apos;arrêté
           </button>
         </div>
@@ -529,7 +530,7 @@ function CashDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
           <input className={inputCls} value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder="Ex. Vente boissons, achat glace…" />
         </FormField>
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Montant (XOF)" required>
+          <FormField label="Montant (FCFA)" required>
             <input className={inputCls} type="number" min="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
           </FormField>
           <FormField label="Moyen">
@@ -542,8 +543,8 @@ function CashDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
           <input className={inputCls} type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
         </FormField>
         <div className="flex justify-end gap-3 pt-2">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-          <button onClick={save} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button onClick={save} disabled={saving} className={buttonClass("primary", "md")}>
             {saving ? "Enregistrement…" : "Enregistrer"}
           </button>
         </div>
@@ -584,7 +585,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
     <div className="space-y-5">
       <div className="flex justify-end gap-2">
         {items.length > 0 && (
-          <button onClick={exportCsv} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+          <button onClick={exportCsv} className={buttonClass("secondary", "md")}>
             <Download size={15} /> Export CSV
           </button>
         )}
@@ -703,13 +704,13 @@ function ItemDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Unité"><input className={inputCls} value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} /></FormField>
           {!form.productId && <FormField label="Stock initial"><input className={inputCls} type="number" min="0" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></FormField>}
-          {!form.productId && <FormField label="Coût unitaire (XOF)"><input className={inputCls} type="number" min="0" value={form.unitCost} onChange={e => setForm(f => ({ ...f, unitCost: e.target.value }))} /></FormField>}
-          <FormField label="Prix de vente (XOF)" hint="Indicatif"><input className={inputCls} type="number" min="0" value={form.salePrice} onChange={e => setForm(f => ({ ...f, salePrice: e.target.value }))} /></FormField>
+          {!form.productId && <FormField label="Coût unitaire (FCFA)"><input className={inputCls} type="number" min="0" value={form.unitCost} onChange={e => setForm(f => ({ ...f, unitCost: e.target.value }))} /></FormField>}
+          <FormField label="Prix de vente (FCFA)" hint="Indicatif"><input className={inputCls} type="number" min="0" value={form.salePrice} onChange={e => setForm(f => ({ ...f, salePrice: e.target.value }))} /></FormField>
           <FormField label="Seuil d'alerte" hint="Facultatif"><input className={inputCls} type="number" min="0" value={form.threshold} onChange={e => setForm(f => ({ ...f, threshold: e.target.value }))} /></FormField>
         </div>
         <div className="flex justify-end gap-3 pt-2">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-          <button onClick={save} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button onClick={save} disabled={saving} className={buttonClass("primary", "md")}>
             {saving ? "Enregistrement…" : "Ajouter"}
           </button>
         </div>
@@ -776,7 +777,7 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
               Encaisser la vente en caisse
             </label>
             {withCash && (
-              <FormField label="Montant encaissé (XOF)">
+              <FormField label="Montant encaissé (FCFA)">
                 <input className={inputCls} type="number" min="0" value={cashAmount} onChange={e => setCashAmount(e.target.value)} />
               </FormField>
             )}
@@ -786,8 +787,8 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
           <input className={inputCls} value={reason} onChange={e => setReason(e.target.value)} placeholder="Réapprovisionnement, vente, casse…" />
         </FormField>
         <div className="flex justify-end gap-3 pt-2">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-          <button onClick={save} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button onClick={save} disabled={saving} className={buttonClass("primary", "md")}>
             {saving ? "Enregistrement…" : "Valider le mouvement"}
           </button>
         </div>
@@ -824,7 +825,7 @@ function LinkDialog({ item, onClose, onSaved }: { item: Item; onClose: () => voi
         <select className={selectCls} value={productId} onChange={e => setProductId(e.target.value)} aria-label="Article du catalogue">
           <option value="">— Choisir —</option>{catalog.map(p => <option key={p._id} value={p._id}>{p.code} — {p.label}</option>)}
         </select>
-        <button onClick={save} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold">Relier</button>
+        <button onClick={save} className={buttonClass("primary", "md", "w-full")}>Relier</button>
       </div>
     </Modal>
   );
@@ -882,7 +883,7 @@ function SupplyDialog({ deskId, items, onClose, onSaved }: { deskId: string; ite
             </div>
           ))}
         </div>
-        <button onClick={save} disabled={saving} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Transfert…" : back ? "Renvoyer au magasin" : "Approvisionner"}</button>
+        <button onClick={save} disabled={saving} className={buttonClass("primary", "md", "w-full")}>{saving ? "Transfert…" : back ? "Renvoyer au magasin" : "Approvisionner"}</button>
       </div>
     </Modal>
   );

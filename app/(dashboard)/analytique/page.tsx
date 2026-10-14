@@ -7,12 +7,13 @@ import { FlowFilterBar, useFlowFilter, today, type FlowTotals } from "@/componen
 
 import { promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { buttonClass } from "@/components/ui/button-class";
+import { formatMoney } from "@/lib/format";
 interface Activity { _id: string; name: string; color?: string }
 interface Sector { activityId: string; name: string; color?: string; revenue: number; expense: number; result: number; fromAccounting?: { revenue: number; expense: number } }
 interface Report { sectors: Sector[]; general: { revenue: number; expense: number }; consolidated: { revenue: number; expense: number; result: number } | null; isAdmin: boolean }
 interface Entry { _id: string; kind: string; label: string; amount: number; date: string; activityId?: { name?: string } | null }
 
-const fmt = (n?: number) => `${Math.round(n || 0).toLocaleString("fr-FR")} XOF`;
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function AnalytiquePage() {
@@ -58,10 +59,10 @@ export default function AnalytiquePage() {
     <div className="space-y-6 max-w-5xl">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><PieChart size={22} /> Comptabilité analytique</h1>
+          <h1 className="page-title flex items-center gap-2"><PieChart size={22} /> Secteurs</h1>
           <p className="text-sm text-ink2">Rentabilité par secteur : recettes − dépenses imputées = résultat de chaque activité.</p>
         </div>
-        <button onClick={addSector} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2"><Plus size={16} /> Secteur</button>
+        <button onClick={addSector} className={buttonClass("secondary", "md")}><Plus size={16} /> Secteur</button>
       </div>
 
       {/* Consolidé — administrateur seulement */}
@@ -69,9 +70,9 @@ export default function AnalytiquePage() {
         <div className="rounded-2xl border border-line bg-section-soft/40 p-5">
           <p className="text-[11px] font-bold uppercase tracking-widest text-section">Santé financière de l'entreprise · réservé à la direction</p>
           <div className="mt-3 grid grid-cols-3 gap-4">
-            <div><p className="text-xs text-ink2">Recettes totales</p><p className="text-xl font-bold text-ink">{fmt(report.consolidated.revenue)}</p></div>
-            <div><p className="text-xs text-ink2">Dépenses totales</p><p className="text-xl font-bold text-ink">{fmt(report.consolidated.expense)}</p></div>
-            <div><p className="text-xs text-ink2">Résultat net</p><p className={`text-xl font-bold ${report.consolidated.result >= 0 ? "text-pos" : "text-neg"}`}>{fmt(report.consolidated.result)}</p></div>
+            <div><p className="text-xs text-ink2">Recettes totales</p><p className="text-xl font-bold text-ink">{formatMoney(report.consolidated.revenue)}</p></div>
+            <div><p className="text-xs text-ink2">Dépenses totales</p><p className="text-xl font-bold text-ink">{formatMoney(report.consolidated.expense)}</p></div>
+            <div><p className="text-xs text-ink2">Résultat net</p><p className={`text-xl font-bold ${report.consolidated.result >= 0 ? "text-pos" : "text-neg"}`}>{formatMoney(report.consolidated.result)}</p></div>
           </div>
         </div>
       )}
@@ -89,20 +90,20 @@ export default function AnalytiquePage() {
                 <tr key={s.activityId} className="border-t border-line">
                   <td className="px-4 py-2.5 font-medium text-ink">{s.name}
                     {s.fromAccounting && (s.fromAccounting.revenue !== 0 || s.fromAccounting.expense !== 0) && (
-                      <span className="block text-[11px] text-ink3 font-normal">dont comptabilité : +{fmt(s.fromAccounting.revenue)} / −{fmt(s.fromAccounting.expense)}</span>
+                      <span className="block text-[11px] text-ink3 font-normal">dont comptabilité : +{formatMoney(s.fromAccounting.revenue)} / −{formatMoney(s.fromAccounting.expense)}</span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-right">{fmt(s.revenue)}</td>
-                  <td className="px-4 py-2.5 text-right text-ink2">{fmt(s.expense)}</td>
-                  <td className={`px-4 py-2.5 text-right font-bold ${s.result >= 0 ? "text-pos" : "text-neg"}`}>{fmt(s.result)}</td>
+                  <td className="px-4 py-2.5 text-right">{formatMoney(s.revenue)}</td>
+                  <td className="px-4 py-2.5 text-right text-ink2">{formatMoney(s.expense)}</td>
+                  <td className={`px-4 py-2.5 text-right font-bold ${s.result >= 0 ? "text-pos" : "text-neg"}`}>{formatMoney(s.result)}</td>
                   <td className="px-4 py-2.5 text-right">{s.result >= 0 ? <TrendingUp size={15} className="text-pos inline" /> : <TrendingDown size={15} className="text-neg inline" />}</td>
                 </tr>
               ))}
               {(report.general.revenue > 0 || report.general.expense > 0) && (
                 <tr className="border-t border-line bg-surface2/30">
                   <td className="px-4 py-2.5 italic text-ink2">Frais généraux (non imputés)</td>
-                  <td className="px-4 py-2.5 text-right">{report.general.revenue ? fmt(report.general.revenue) : "—"}</td>
-                  <td className="px-4 py-2.5 text-right text-ink2">{fmt(report.general.expense)}</td>
+                  <td className="px-4 py-2.5 text-right">{report.general.revenue ? formatMoney(report.general.revenue) : "—"}</td>
+                  <td className="px-4 py-2.5 text-right text-ink2">{formatMoney(report.general.expense)}</td>
                   <td className="px-4 py-2.5 text-right text-ink3">—</td><td />
                 </tr>
               )}
@@ -118,8 +119,8 @@ export default function AnalytiquePage() {
           <FormField label="Type"><select className={selectCls} value={form.kind} onChange={e => setForm(f => ({ ...f, kind: e.target.value }))}><option value="revenue">Recette</option><option value="expense">Dépense</option></select></FormField>
           <FormField label="Secteur"><select className={selectCls} value={form.activityId} onChange={e => setForm(f => ({ ...f, activityId: e.target.value }))}><option value="">Frais généraux</option>{activities.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}</select></FormField>
           <FormField label="Libellé"><input className={inputCls} value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder="Ex. Licences ISIC nov." /></FormField>
-          <FormField label="Montant (XOF)"><input type="number" min={1} className={inputCls} value={form.amount || ""} onChange={e => setForm(f => ({ ...f, amount: Number(e.target.value) }))} /></FormField>
-          <button onClick={addEntry} className="h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">Enregistrer</button>
+          <FormField label="Montant (FCFA)"><input type="number" min={1} className={inputCls} value={form.amount || ""} onChange={e => setForm(f => ({ ...f, amount: Number(e.target.value) }))} /></FormField>
+          <button onClick={addEntry} className={buttonClass("primary", "md")}>Enregistrer</button>
         </div>
       </section>
 
@@ -140,7 +141,7 @@ export default function AnalytiquePage() {
             {entries.map(e => (
               <li key={e._id} className="flex items-center justify-between px-5 py-2.5 text-sm">
                 <span className="min-w-0">
-                  <span className={`font-semibold ${e.kind === "revenue" ? "text-pos" : "text-neg"}`}>{e.kind === "revenue" ? "+" : "−"} {fmt(e.amount)}</span>
+                  <span className={`font-semibold ${e.kind === "revenue" ? "text-pos" : "text-neg"}`}>{e.kind === "revenue" ? "+" : "−"} {formatMoney(e.amount)}</span>
                   <span className="text-ink"> · {e.label}</span>
                   <span className="text-ink3"> · {e.activityId?.name || "Frais généraux"} · {new Date(e.date).toLocaleDateString("fr-FR")}</span>
                 </span>

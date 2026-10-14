@@ -14,6 +14,8 @@ import { COUNT_STATUS_LABEL, type CountStatus } from "@/lib/inventory";
 import { useMe, meCanDo } from "@/lib/useMe";
 import { useWarehouses } from "@/components/stock/useWarehouses";
 
+import { buttonClass } from "@/components/ui/button-class";
+import { StockTabs } from "@/components/stock/StockTabs";
 interface Session {
   _id: string;
   reference: string;
@@ -76,9 +78,10 @@ export default function InventairesPage() {
 
   return (
     <div className="space-y-6">
+      <StockTabs />
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Inventaires physiques</h1>
+          <h1 className="page-title">Inventaires physiques</h1>
           <p className="text-sm text-ink2">
             Compter ce qu&apos;il y a réellement, expliquer l&apos;écart, le porter en
             comptabilité.
@@ -268,7 +271,7 @@ function OpenDialog({
             <input type="number" min={1} className={inputCls} value={form.recountThresholdQty}
               onChange={e => setForm(f => ({ ...f, recountThresholdQty: Number(e.target.value) }))} />
           </FormField>
-          <FormField label="Motif exigé au-delà de (XOF)"
+          <FormField label="Motif exigé au-delà de (FCFA)"
             hint="Une régularisation sans explication est incontestable le jour où l'on en a besoin.">
             <input type="number" min={0} className={inputCls} value={form.reasonThresholdValue}
               onChange={e => setForm(f => ({ ...f, reasonThresholdValue: Number(e.target.value) }))} />
@@ -301,11 +304,11 @@ function OpenDialog({
 
         <div className="flex justify-end gap-3 pt-3 border-t border-line">
           <button type="button" onClick={onClose}
-            className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+            className={buttonClass("secondary", "md")}>
             Fermer
           </button>
           <button type="submit" disabled={saving || !form.label.trim()}
-            className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+            className={buttonClass("primary", "md")}>
             {saving ? "Ouverture…" : "Ouvrir et photographier le stock"}
           </button>
         </div>

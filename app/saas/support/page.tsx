@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
+import { buttonClass } from "@/components/ui/button-class";
 interface Ticket { _id:string; subject:string; priority:string; status:string; userId:string; createdAt:string; }
 export default function SupportPage() {
   const [mounted, setMounted] = useState(false);
@@ -13,12 +14,12 @@ export default function SupportPage() {
     { key:"priority", label:"Priorité", render:(v)=><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PRIO[String(v)]||""}`}>{String(v)}</span> },
     { key:"status", label:"Statut", render:(v)=><span className={`text-xs px-2 py-0.5 rounded-full ${v==="open"?"bg-pos-50 text-pos":v==="resolved"?"bg-surface2 text-ink3":"bg-warn-50 text-warn"}`}>{String(v)}</span> },
     { key:"createdAt", label:"Date", render:(v)=>new Date(String(v)).toLocaleDateString("fr-FR") },
-    { key:"_id", label:"", render:()=><button className="px-2 py-1 bg-section text-white text-xs rounded">Traiter</button> },
+    { key:"_id", label:"", render:()=><button className={buttonClass("primary", "sm")}>Traiter</button> },
   ];
   if (!mounted) return null;
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold text-ink">Tickets support</h1>
+      <h1 className="page-title">Tickets support</h1>
       <DataTable columns={columns} data={tickets} loading={loading} keyExtractor={t=>t._id} emptyMessage="Aucun ticket" />
     </div>
   );

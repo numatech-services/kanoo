@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
 
+import { BarChart3, CheckCircle2, FileEdit, ScrollText } from "lucide-react";
+import { formatMoney } from "@/lib/format";
 interface BudgetChapter { _id: string; code: string; label: string; allocatedAmount: number; engagedAmount: number; paidAmount: number; }
 interface Engagement { _id: string; reference: string; description: string; amount: number; status: string; createdAt: string; }
 interface Marche { _id: string; reference: string; title: string; status: string; estimatedAmount: number; publishDate: string; }
@@ -27,7 +29,6 @@ function StatusPill({ status }: { status: string }) {
   return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.cls}`}>{s.label}</span>;
 }
 
-function fmt(n: number) { return (n || 0).toLocaleString("fr-FR") + " XOF"; }
 function pct(engaged: number, total: number) { return total > 0 ? Math.min(100, Math.round((engaged / total) * 100)) : 0; }
 
 export default function AdminDashboardPage() {
@@ -95,16 +96,16 @@ export default function AdminDashboardPage() {
   const marchesEnCours = safeMarches.filter(m => m && !["cancelled","awarded"].includes(m.status)).length;
 
   const kpis = [
-    { label: "Budget alloué",       value: loadingCh ? "—" : fmt(totalAlloue),  icon: "📊", color: "bg-info-50 text-info",   href: "/administration/budget" },
-    { label: "Crédits engagés",     value: loadingCh ? "—" : fmt(totalEngage),  icon: "📝", color: "bg-warn-50 text-warn", href: "/administration/budget/engagements" },
-    { label: "Mandatements payés",  value: loadingCh ? "—" : fmt(totalPaye),    icon: "✅", color: "bg-pos-50 text-pos",  href: "/administration/budget/mandatements" },
-    { label: "Marchés en cours",    value: loadingMa ? "—" : String(marchesEnCours), icon: "📜", color: "bg-section-soft text-section", href: "/administration/marches-publics" },
+    { label: "Budget alloué",       value: loadingCh ? "—" : formatMoney(totalAlloue),  icon: <BarChart3 size={20} />, color: "bg-info-50 text-info",   href: "/administration/budget" },
+    { label: "Crédits engagés",     value: loadingCh ? "—" : formatMoney(totalEngage),  icon: <FileEdit size={20} />, color: "bg-warn-50 text-warn", href: "/administration/budget/engagements" },
+    { label: "Mandatements payés",  value: loadingCh ? "—" : formatMoney(totalPaye),    icon: <CheckCircle2 size={20} />, color: "bg-pos-50 text-pos",  href: "/administration/budget/mandatements" },
+    { label: "Marchés en cours",    value: loadingMa ? "—" : String(marchesEnCours), icon: <ScrollText size={20} />, color: "bg-section-soft text-section", href: "/administration/marches-publics" },
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-ink">Tableau de bord — Administration</h1>
+        <h1 className="page-title">Tableau de bord — Administration</h1>
         <p className="text-sm text-ink2 mt-0.5">Exercice {new Date().getFullYear()}</p>
       </div>
 
@@ -144,7 +145,7 @@ export default function AdminDashboardPage() {
                 <div key={ch._id}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-ink font-medium truncate max-w-xs">{ch.code} — {ch.label}</span>
-                    <span className="text-ink2 ml-2 shrink-0">{p}% <span className="text-xs">({fmt(ch.engagedAmount)} / {fmt(ch.allocatedAmount)})</span></span>
+                    <span className="text-ink2 ml-2 shrink-0">{p}% <span className="text-xs">({formatMoney(ch.engagedAmount)} / {formatMoney(ch.allocatedAmount)})</span></span>
                   </div>
                   <div className="h-2 bg-surface2 rounded-full">
                     <div className={`h-2 rounded-full transition-all ${p > 90 ? "bg-neg" : p > 70 ? "bg-warn" : "bg-section"}`} style={{ width: `${p}%` }} />
@@ -177,7 +178,7 @@ export default function AdminDashboardPage() {
                       <p className="text-sm font-medium text-ink truncate">{e.description || e.reference}</p>
                       <p className="text-xs font-mono text-ink2">{e.reference}</p>
                     </div>
-                    <span className="font-mono text-sm font-semibold shrink-0">{fmt(e.amount)}</span>
+                    <span className="font-mono text-sm font-semibold shrink-0">{formatMoney(e.amount)}</span>
                     <StatusPill status={e.status} />
                   </div>
                 );
@@ -206,7 +207,7 @@ export default function AdminDashboardPage() {
                       <p className="text-sm font-medium text-ink truncate">{m.title}</p>
                       <p className="text-xs font-mono text-ink2">{m.reference}</p>
                     </div>
-                    <span className="font-mono text-sm text-ink2 shrink-0">{fmt(m.estimatedAmount)}</span>
+                    <span className="font-mono text-sm text-ink2 shrink-0">{formatMoney(m.estimatedAmount)}</span>
                     <StatusPill status={m.status} />
                   </Link>
                 );
@@ -239,7 +240,7 @@ export default function AdminDashboardPage() {
                     <tr key={m._id} className="border-b border-line last:border-0">
                       <td className="px-4 py-3 font-mono text-xs text-section">{m.reference}</td>
                       <td className="px-4 py-3 text-ink">{m.description}</td>
-                      <td className="px-4 py-3 font-mono font-semibold">{fmt(m.amount)}</td>
+                      <td className="px-4 py-3 font-mono font-semibold">{formatMoney(m.amount)}</td>
                       <td className="px-4 py-3"><StatusPill status={m.status} /></td>
                     </tr>
                   );

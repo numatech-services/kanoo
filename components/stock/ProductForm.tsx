@@ -4,6 +4,7 @@ import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/For
 import { useWarehouses } from "@/components/stock/useWarehouses";
 import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
+import { buttonClass } from "@/components/ui/button-class";
 export interface ProductFormValue {
   code: string; label: string; description: string; unit: string; category: string; barcode: string; location: string;
   unitPrice: number; tvaRate: number; stockMinAlert: number; stockMaxAlert: number; preferredSupplierId: string;
@@ -81,7 +82,7 @@ export function ProductForm({ initial, onSave, onCancel, creating }: {
         <FormField label="Code-barres / réf. fabricant"><input className={inputCls} value={f.barcode} onChange={e => u("barcode", e.target.value)} /></FormField>
       </div>
       <div className="grid sm:grid-cols-3 gap-3">
-        <FormField label="Prix de vente HT (XOF)" required><input type="number" min={0} className={inputCls} value={f.unitPrice} onChange={e => u("unitPrice", Number(e.target.value))} /></FormField>
+        <FormField label="Prix de vente HT (FCFA)" required><input type="number" min={0} className={inputCls} value={f.unitPrice} onChange={e => u("unitPrice", Number(e.target.value))} /></FormField>
         <FormField label="TVA">
           <select className={selectCls} value={String(f.tvaRate)} onChange={e => u("tvaRate", Number(e.target.value))}>
             <option value="0.19">19 %</option><option value="0.1">10 %</option><option value="0.05">5 %</option><option value="0">Exonéré</option>
@@ -118,7 +119,7 @@ export function ProductForm({ initial, onSave, onCancel, creating }: {
                 </select>
               </FormField>
               <FormField label="Stock initial" hint="Enregistré comme une entrée"><input type="number" min={0} className={inputCls} value={f.initialQty} onChange={e => u("initialQty", Number(e.target.value))} /></FormField>
-              <FormField label="Coût d'achat unitaire (XOF)" hint="Fixe le coût moyen (CMUP)"><input type="number" min={0} className={inputCls} value={f.initialCost} onChange={e => u("initialCost", Number(e.target.value))} /></FormField>
+              <FormField label="Coût d'achat unitaire (FCFA)" hint="Fixe le coût moyen (CMUP)"><input type="number" min={0} className={inputCls} value={f.initialCost} onChange={e => u("initialCost", Number(e.target.value))} /></FormField>
               {f.trackingMode !== "none" && f.initialQty > 0 && (
                 <div className="sm:col-span-3">
                   <LotsEditor mode={f.trackingMode === "serial" ? "serial" : "lot"} quantity={f.initialQty} value={initialLots} onChange={setInitialLots} />
@@ -130,8 +131,8 @@ export function ProductForm({ initial, onSave, onCancel, creating }: {
       )}
       <FormField label="Description"><textarea className={textareaCls} rows={2} value={f.description} onChange={e => u("description", e.target.value)} /></FormField>
       <div className="flex justify-end gap-2 pt-2">
-        <button type="button" onClick={onCancel} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-        <button type="submit" disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer"}</button>
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>Annuler</button>
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving ? "Enregistrement…" : "Enregistrer"}</button>
       </div>
     </form>
   );

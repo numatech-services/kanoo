@@ -92,7 +92,7 @@ export const CRON_JOBS: CronJob[] = [
         const admins = await getAdmins(inv.tenantId, ["pme_admin", "pme_accountant", "pme_manager", "svc_compta"]);
         for (const admin of admins) {
           await notify(inv.tenantId, admin._id, "invoice_overdue", "Facture en retard",
-            `Facture ${inv.number} — ${inv.totalTTC.toLocaleString("fr-FR")} XOF échue`, "invoices", inv._id);
+            `Facture ${inv.number} — ${inv.totalTTC.toLocaleString("fr-FR")} FCFA échue`, "invoices", inv._id);
         }
       }
       return `${overdue.length} facture(s) traitée(s)`;
@@ -282,7 +282,7 @@ export const CRON_JOBS: CronJob[] = [
         const admins = await getAdmins(expense.tenantId, ["pme_admin", "pme_accountant", "svc_compta"]);
         for (const admin of admins) {
           await notify(expense.tenantId, admin._id, "expense_due", "Dépense récurrente à payer",
-            `${expense.label} — ${expense.amount.toLocaleString("fr-FR")} XOF`, "recurring-expenses", expense._id);
+            `${expense.label} — ${expense.amount.toLocaleString("fr-FR")} FCFA`, "recurring-expenses", expense._id);
         }
       }
       return `${due.length} dépense(s) notifiée(s)`;

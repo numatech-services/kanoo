@@ -9,6 +9,7 @@ import { Pill, Avatar } from "@/components/ui/Primitives";
 import { fullXof, compactXof } from "@/components/ui/charts/geometry";
 import { KIND_LABEL, type Statement, type StatementKind } from "@/lib/statement";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Payload {
   client: { name: string; code?: string; email?: string; nif?: string; address?: string };
   statement: Statement;
@@ -72,7 +73,7 @@ export default function RelevePage() {
           <Link href={`/clients/${id}`} className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1">
             <ArrowLeft size={13} /> Fiche client
           </Link>
-          <h1 className="text-2xl font-bold text-ink mt-1 flex items-center gap-2">
+          <h1 className="page-title mt-1 flex items-center gap-2">
             <Avatar name={client.name} /> Relevé — {client.name}
           </h1>
           <p className="text-sm text-ink2">
@@ -82,12 +83,12 @@ export default function RelevePage() {
         </div>
         <div className="flex items-center gap-2">
           <a href={pdfUrl}
-            className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+            className={buttonClass("secondary", "md")}>
             <Download size={15} /> PDF
           </a>
           {client.email && (
             <a href={`mailto:${client.email}?subject=${encodeURIComponent(`Relevé de compte au ${new Date(to).toLocaleDateString("fr-FR")}`)}&body=${encodeURIComponent(summary)}`}
-              className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+              className={buttonClass("primary", "md")}>
               <Mail size={15} /> Envoyer
             </a>
           )}

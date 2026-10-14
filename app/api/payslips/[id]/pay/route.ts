@@ -38,7 +38,7 @@ export const POST = withAuth("payslips", "update", async (req: NextRequest, auth
       const account = await accountBalance(auth.tenantId, String(accountId), session);
       if (!account) throw new Error("Compte de trésorerie introuvable");
       if (account.balance < payslip.netSalary) {
-        throw new Error(`Solde insuffisant (${account.balance.toLocaleString("fr-FR")} XOF). Net à payer : ${payslip.netSalary.toLocaleString("fr-FR")} XOF`);
+        throw new Error(`Solde insuffisant (${account.balance.toLocaleString("fr-FR")} FCFA). Net à payer : ${payslip.netSalary.toLocaleString("fr-FR")} FCFA`);
       }
 
       const empForLabel = payslip.employeeId as { firstName?: string; lastName?: string };
@@ -75,5 +75,5 @@ export const POST = withAuth("payslips", "update", async (req: NextRequest, auth
     after: { isPaid: true, netSalary: payslip.netSalary },
   });
 
-  return ok({ message: `Salaire de ${payslip.netSalary.toLocaleString("fr-FR")} XOF payé et déduit de la trésorerie`, payslip });
+  return ok({ message: `Salaire de ${payslip.netSalary.toLocaleString("fr-FR")} FCFA payé et déduit de la trésorerie`, payslip });
 });

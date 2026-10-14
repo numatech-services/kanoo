@@ -60,7 +60,7 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
   if (!METHODS.includes(body.method)) return badRequest("Mode de paiement invalide.");
   const remaining = invoiceDue(invoice);
   if (amount > remaining + 1) {
-    return badRequest(`Montant maximum payable : ${remaining} XOF (reste à payer)`);
+    return badRequest(`Montant maximum payable : ${remaining} FCFA (reste à payer)`);
   }
 
   // « pending » = promesse enregistrée, sans effet comptable ; « effective » =

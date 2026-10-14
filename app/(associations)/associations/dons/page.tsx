@@ -21,7 +21,7 @@ export default function DonsPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Dons</h1><p className="text-sm text-ink2">{total} don{total>1?"s":" reçu"} · Total XOF : {totalXOF.toLocaleString("fr-FR")}</p></div>
+        <div><h1 className="page-title">Dons</h1><p className="text-sm text-ink2">{total} don{total>1?"s":" reçu"} · Total FCFA : {totalXOF.toLocaleString("fr-FR")}</p></div>
         <button onClick={() => window.location.href = "/associations/dons/new"} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Enregistrer un don</button>
       </div>
       <DataTable columns={columns} data={items} loading={loading} keyExtractor={d=>d._id} emptyMessage="Aucun don enregistré"/>

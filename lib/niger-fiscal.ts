@@ -78,7 +78,7 @@ export function calculerDTS(montantTTC: number): number {
 // ─── Code des Marchés Publics Niger 2017 ─────────────────────────────────────
 
 export const SEUILS_MARCHES = {
-  ACHAT_DIRECT: 5_000_000,          // < 5M XOF : achat direct
+  ACHAT_DIRECT: 5_000_000,          // < 5M FCFA : achat direct
   CONSULTATION_RESTREINTE: 30_000_000, // 5M - 30M : consultation ≥ 3 fournisseurs
   APPEL_OFFRES_OUVERT: 100_000_000, // 30M - 100M : AO ouvert
   PUBLICITE_NATIONALE: 100_000_001,  // > 100M : publicité nationale obligatoire
@@ -98,10 +98,10 @@ export function determineProcedureMarche(montantEstime: number): ProcedureMarche
 }
 
 export const LIBELLES_PROCEDURES: Record<ProcedureMarche, string> = {
-  achat_direct: "Achat direct (< 5 millions XOF)",
-  consultation_restreinte: "Consultation restreinte (3 fournisseurs min) — 5M à 30M XOF",
-  appel_offres_ouvert: "Appel d'offres ouvert — 30M à 100M XOF",
-  appel_offres_international: "Appel d'offres ouvert avec publicité nationale — > 100M XOF",
+  achat_direct: "Achat direct (< 5 millions FCFA)",
+  consultation_restreinte: "Consultation restreinte (3 fournisseurs min) — 5M à 30M FCFA",
+  appel_offres_ouvert: "Appel d'offres ouvert — 30M à 100M FCFA",
+  appel_offres_international: "Appel d'offres ouvert avec publicité nationale — > 100M FCFA",
 };
 
 // ─── Exercice fiscal ──────────────────────────────────────────────────────────
@@ -144,7 +144,7 @@ export function genererNumeroMarche(annee: number, sequence: number): string {
 
 // ─── IS/BIC ──────────────────────────────────────────────────────────────────
 
-export const IS_MINIMUM_FORFAITAIRE = 1_000_000; // 1 000 000 XOF minimum IS
+export const IS_MINIMUM_FORFAITAIRE = 1_000_000; // 1 000 000 FCFA minimum IS
 export const IS_TAUX_PME = 0.30; // 30% taux normal
 export const IS_TAUX_REDUIT_AGRI = 0.15; // 15% secteur agricole
 
@@ -224,7 +224,7 @@ export function calculerIR(salaireNetImposable: number): number {
 
 // ─── SMIG Niger ───────────────────────────────────────────────────────────────
 
-export const SMIG_MENSUEL = 41_000; // XOF/mois — arrêté 2023
+export const SMIG_MENSUEL = 41_000; // FCFA/mois — arrêté 2023
 export const SMIG_JOURNALIER = Math.round(SMIG_MENSUEL / 26); // base 26 jours ouvrables
 
 /**
@@ -238,8 +238,8 @@ export function verifierSMIG(salaireBrut: number): { conforme: boolean; ecart: n
     conforme,
     ecart,
     message: conforme
-      ? `Conforme SMIG (${ecart >= 0 ? "+" : ""}${ecart.toLocaleString("fr-FR")} XOF au-dessus du minimum)`
-      : `⚠ Inférieur au SMIG de ${Math.abs(ecart).toLocaleString("fr-FR")} XOF — risque légal`,
+      ? `Conforme SMIG (${ecart >= 0 ? "+" : ""}${ecart.toLocaleString("fr-FR")} FCFA au-dessus du minimum)`
+      : `⚠ Inférieur au SMIG de ${Math.abs(ecart).toLocaleString("fr-FR")} FCFA — risque légal`,
   };
 }
 

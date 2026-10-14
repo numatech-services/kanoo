@@ -163,7 +163,7 @@ export default function NoteDeFraisPage() {
           <Link href="/notes-de-frais" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1">
             <ArrowLeft size={13} /> Notes de frais
           </Link>
-          <h1 className="text-2xl font-bold text-ink mt-1">{report.title}</h1>
+          <h1 className="page-title mt-1">{report.title}</h1>
           <p className="text-sm text-ink2 flex items-center gap-2 mt-0.5">
             <span className="font-mono text-xs">{report.reference}</span>
             <span className="text-ink3">·</span>

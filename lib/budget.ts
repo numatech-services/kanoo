@@ -232,7 +232,7 @@ export function summarize(results: LineResult[], throughMonth: number): BudgetSu
  * lignes demande cinq minutes qu'on ne prend pas.
  */
 export function headline(summary: BudgetSummary, monthNames: string[]): string {
-  const xof = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} XOF`;
+  const xof = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} FCFA`;
   const month = monthNames[Math.min(11, Math.max(0, summary.throughMonth))];
   const gap = summary.actualResult - summary.plannedResult;
 

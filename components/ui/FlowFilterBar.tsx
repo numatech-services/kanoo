@@ -2,12 +2,12 @@
 import { useMemo, useState } from "react";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
+import { formatMoney } from "@/lib/format";
 export type FlowValue = "" | "in" | "out";
 export interface FlowTotals { in: number; out: number; balance: number }
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const money = (n: number) => `${Math.round(n || 0).toLocaleString("fr-FR")} XOF`;
 
 /**
  * État du filtre commun (sens + période) et sa chaîne de requête.
@@ -52,7 +52,7 @@ export function FlowFilterBar({ state, totals, labels, size = "md" }: {
     <button type="button" onClick={() => setFlow(flow === value ? "" : value)} aria-pressed={flow === value}
       className={`text-left rounded-lg border px-3 py-2 transition-colors ${flow === value ? "border-section bg-section-soft" : "border-line bg-surface hover:bg-surface2"}`}>
       <span className="block text-[11px] font-semibold uppercase tracking-wide text-ink2">{label}</span>
-      <span className={`block font-mono font-bold ${tone}`}>{money(amount)}</span>
+      <span className={`block font-mono font-bold ${tone}`}>{formatMoney(amount)}</span>
     </button>
   );
   return (
@@ -75,7 +75,7 @@ export function FlowFilterBar({ state, totals, labels, size = "md" }: {
           {tile("out", L.out, totals.out, "text-neg")}
           <div className="rounded-lg border border-line bg-surface px-3 py-2">
             <span className="block text-[11px] font-semibold uppercase tracking-wide text-ink2">Solde</span>
-            <span className={`block font-mono font-bold ${totals.balance < 0 ? "text-neg" : "text-ink"}`}>{money(totals.balance)}</span>
+            <span className={`block font-mono font-bold ${totals.balance < 0 ? "text-neg" : "text-ink"}`}>{formatMoney(totals.balance)}</span>
           </div>
         </div>
       )}

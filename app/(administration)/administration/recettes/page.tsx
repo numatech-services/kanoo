@@ -109,7 +109,7 @@ export default function RecettesPage() {
     },
     { 
       key: "amount", 
-      label: "Montant (XOF)", 
+      label: "Montant (FCFA)", 
       className: "text-right font-mono font-bold",
       render: (v) => Number(v || 0).toLocaleString("fr-FR") 
     },
@@ -125,7 +125,7 @@ export default function RecettesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink tracking-tight">Recettes & Taxes</h1>
+          <h1 className="page-title">Recettes & Taxes</h1>
           <p className="text-sm text-ink2 mt-0.5 font-medium italic text-pos tracking-wide">
             Trésorerie Public — Gestion des encaissements
           </p>
@@ -143,7 +143,7 @@ export default function RecettesPage() {
         <div className="bg-surface p-5 rounded-2xl border border-line shadow-sm">
           <p className={labelClass}>Total Collecté</p>
           <p className="text-3xl font-black text-pos">
-            {totalCollecte.toLocaleString("fr-FR")} <span className="text-xs">XOF</span>
+            {totalCollecte.toLocaleString("fr-FR")} <span className="text-xs">FCFA</span>
           </p>
         </div>
       </div>
@@ -189,7 +189,7 @@ export default function RecettesPage() {
             </div>
 
             <div>
-              <label className={labelClass}>Montant à percevoir (XOF) *</label>
+              <label className={labelClass}>Montant à percevoir (FCFA) *</label>
               <input 
                 type="number" className={`${inputClass} font-mono font-bold text-pos text-lg`}
                 value={form.amount} onChange={e => setForm({...form, amount: Number(e.target.value)})} required 

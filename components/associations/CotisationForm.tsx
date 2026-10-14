@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
+import { buttonClass } from "@/components/ui/button-class";
 interface Member { _id: string; firstName: string; lastName: string; code: string; }
 interface CotisationFormProps { onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
 export function CotisationForm({ onSave, onCancel }: CotisationFormProps) {
@@ -21,7 +22,7 @@ export function CotisationForm({ onSave, onCancel }: CotisationFormProps) {
       </FormField>
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Année" required><input type="number" className={inputCls} value={form.year} onChange={e=>u("year",Number(e.target.value))} required /></FormField>
-        <FormField label="Montant (XOF)" required><input type="number" className={inputCls} value={form.amount} onChange={e=>u("amount",Number(e.target.value))} min={0} required /></FormField>
+        <FormField label="Montant (FCFA)" required><input type="number" className={inputCls} value={form.amount} onChange={e=>u("amount",Number(e.target.value))} min={0} required /></FormField>
       </div>
       <FormField label="Mode de paiement">
         <select className={selectCls} value={form.paymentMethod} onChange={e=>u("paymentMethod",e.target.value)}>
@@ -33,8 +34,8 @@ export function CotisationForm({ onSave, onCancel }: CotisationFormProps) {
         <span className="text-sm text-ink">Paiement reçu (génère le reçu)</span>
       </label>
       <div className="flex justify-end gap-3 pt-3 border-t border-line">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"…":"Enregistrer"}</button>
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>Annuler</button>
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving?"…":"Enregistrer"}</button>
       </div>
     </form>
   );

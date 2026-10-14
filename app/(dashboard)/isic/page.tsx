@@ -9,6 +9,8 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls } from "@/components/ui/FormField";
 import { useMe, meCan } from "@/lib/useMe";
 
+import { buttonClass } from "@/components/ui/button-class";
+import { formatMoney } from "@/lib/format";
 export interface Batch {
   _id: string; reference: string; universityName: string; academicYear?: string;
   status: string; totalCards: number; unitLicenseFee: number; unitSalePrice: number;
@@ -28,7 +30,7 @@ export const ISIC_STATUS: Record<string, { label: string; cls: string }> = {
   cancelled: { label: "Annulé", cls: "bg-neg-50 text-neg border-neg/25" },
 };
 
-export const fmt = (n?: number) => `${(n || 0).toLocaleString("fr-FR")} XOF`;
+export const fmt = (n?: number) => formatMoney(n ?? 0);
 export const delivered = (b: { deliveries: { quantity: number }[] }) => b.deliveries.reduce((s, d) => s + d.quantity, 0);
 
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
@@ -55,11 +57,11 @@ export default function IsicListPage() {
     <div className="space-y-6 max-w-5xl">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><CreditCard size={22} /> Cartes ISIC</h1>
+          <h1 className="page-title flex items-center gap-2"><CreditCard size={22} /> Cartes ISIC</h1>
           <p className="text-sm text-ink2">Production, envoi à ISIC, impression et livraison au fur et à mesure aux universités.</p>
         </div>
         <div className="flex gap-2">
-          <Link href="/isic/registre" className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+          <Link href="/isic/registre" className={buttonClass("secondary", "md")}>
             <BookUser size={16} /> Registre &amp; numéros
           </Link>
           <button onClick={() => setOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
@@ -143,15 +145,15 @@ function NewBatch({ canFinance, onClose, onCreated }: { canFinance: boolean; onC
         </div>
         {canFinance && (
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Coût licence / carte (XOF)" hint="Ce que vous payez à ISIC."><input type="number" min={0} className={inputCls} value={form.unitLicenseFee || ""} onChange={e => setForm(f => ({ ...f, unitLicenseFee: Number(e.target.value) }))} /></FormField>
-            <FormField label="Prix de revente / carte (XOF)" hint="Facturé à l'université."><input type="number" min={0} className={inputCls} value={form.unitSalePrice || ""} onChange={e => setForm(f => ({ ...f, unitSalePrice: Number(e.target.value) }))} /></FormField>
-            <FormField label="Impression / carte (XOF)" hint="Coût prévu d'impression."><input type="number" min={0} className={inputCls} value={form.unitPrintCost || ""} onChange={e => setForm(f => ({ ...f, unitPrintCost: Number(e.target.value) }))} /></FormField>
-            <FormField label="Tour de cou / carte (XOF)" hint="Coût prévu du tour de cou personnalisé."><input type="number" min={0} className={inputCls} value={form.unitLanyardCost || ""} onChange={e => setForm(f => ({ ...f, unitLanyardCost: Number(e.target.value) }))} /></FormField>
+            <FormField label="Coût licence / carte (FCFA)" hint="Ce que vous payez à ISIC."><input type="number" min={0} className={inputCls} value={form.unitLicenseFee || ""} onChange={e => setForm(f => ({ ...f, unitLicenseFee: Number(e.target.value) }))} /></FormField>
+            <FormField label="Prix de revente / carte (FCFA)" hint="Facturé à l'université."><input type="number" min={0} className={inputCls} value={form.unitSalePrice || ""} onChange={e => setForm(f => ({ ...f, unitSalePrice: Number(e.target.value) }))} /></FormField>
+            <FormField label="Impression / carte (FCFA)" hint="Coût prévu d'impression."><input type="number" min={0} className={inputCls} value={form.unitPrintCost || ""} onChange={e => setForm(f => ({ ...f, unitPrintCost: Number(e.target.value) }))} /></FormField>
+            <FormField label="Tour de cou / carte (FCFA)" hint="Coût prévu du tour de cou personnalisé."><input type="number" min={0} className={inputCls} value={form.unitLanyardCost || ""} onChange={e => setForm(f => ({ ...f, unitLanyardCost: Number(e.target.value) }))} /></FormField>
           </div>
         )}
         <div className="flex justify-end gap-3 pt-3 border-t border-line">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-          <button onClick={save} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">{saving ? "Création…" : "Créer le lot"}</button>
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button onClick={save} disabled={saving} className={buttonClass("primary", "md")}>{saving ? "Création…" : "Créer le lot"}</button>
         </div>
       </div>
     </Modal>

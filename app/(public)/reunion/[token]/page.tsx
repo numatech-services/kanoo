@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { CalendarClock, MapPin, Video, User, AlertCircle } from "lucide-react";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Meeting {
   title: string; description?: string; type: string;
   startAt: string; endAt?: string; allDay?: boolean;
@@ -74,7 +75,7 @@ export default function PublicMeetingPage() {
               {m.description && <p className="text-ink2 whitespace-pre-wrap border-t border-line pt-4">{m.description}</p>}
               {m.meetingLink && m.status !== "cancelled" && (
                 <a href={m.meetingLink} target="_blank" rel="noopener noreferrer"
-                  className="mt-2 w-full h-11 inline-flex items-center justify-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+                  className={buttonClass("primary", "md", "mt-2 w-full justify-center")}>
                   <Video size={16} /> Rejoindre la réunion
                 </a>
               )}

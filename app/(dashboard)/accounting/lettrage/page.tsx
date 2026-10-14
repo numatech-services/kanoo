@@ -5,6 +5,8 @@ import { ArrowLeft, Link2, Unlink } from "lucide-react";
 import { selectCls } from "@/components/ui/FormField";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
+import { ScreenTabs } from "@/components/shared/ScreenTabs";
 interface Row { entryId: string; date: string; reference: string; label: string; account: string; debit: number; credit: number; thirdParty: string | null; thirdPartyId: string | null; isLettered: boolean; letterRef: string | null }
 const fmt = (n: number) => n.toLocaleString("fr-FR");
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
@@ -46,9 +48,10 @@ export default function LettragePage() {
 
   return (
     <div className="space-y-5">
+      <ScreenTabs group="accounting" />
       <div>
         <Link href="/accounting" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Comptabilité</Link>
-        <h1 className="text-2xl font-bold text-ink mt-1">Lettrage</h1>
+        <h1 className="page-title mt-1">Lettrage</h1>
         <p className="text-sm text-ink2">Cochez les factures et les règlements d&apos;un même tiers : quand débits et crédits s&apos;équilibrent, lettrez-les.</p>
       </div>
       <div className="flex gap-2 flex-wrap">
@@ -69,7 +72,7 @@ export default function LettragePage() {
       {state === "open" && (
         <div className="sticky top-0 z-10 bg-surface rounded-xl border border-line p-3 flex items-center justify-between flex-wrap gap-2">
           <p className="text-sm">{selected.size} sélectionnée(s) · Débit <b className="font-mono">{fmt(sumD)}</b> · Crédit <b className="font-mono">{fmt(sumC)}</b> · Écart <b className={`font-mono ${sumD === sumC ? "text-pos" : "text-neg"}`}>{fmt(sumD - sumC)}</b></p>
-          <button onClick={letter} disabled={selected.size < 2 || sumD !== sumC} className="px-4 h-9 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-50"><Link2 size={15} /> Lettrer</button>
+          <button onClick={letter} disabled={selected.size < 2 || sumD !== sumC} className={buttonClass("primary", "md")}><Link2 size={15} /> Lettrer</button>
         </div>
       )}
       <div className="bg-surface rounded-xl border border-line overflow-x-auto">

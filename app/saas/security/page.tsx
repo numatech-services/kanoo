@@ -46,7 +46,7 @@ export default function SecurityPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-ink">Posture de sécurité</h1>
+        <h1 className="page-title">Posture de sécurité</h1>
         <p className="text-ink2 text-sm mt-1">
           État relevé sur cette instance à l&apos;instant de la consultation. Seuls les
           contrôles réellement observables à l&apos;exécution sont affichés.

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
+import { buttonClass } from "@/components/ui/button-class";
 interface DonFormProps { onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
 export function DonForm({ onSave, onCancel }: DonFormProps) {
   const today = new Date().toISOString().slice(0, 10);
@@ -19,7 +20,7 @@ export function DonForm({ onSave, onCancel }: DonFormProps) {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Montant" required><input type="number" className={inputCls} value={form.amount} onChange={e=>u("amount",Number(e.target.value))} min={1} required /></FormField>
-        <FormField label="Devise"><select className={selectCls} value={form.currency} onChange={e=>u("currency",e.target.value)}><option value="XOF">XOF</option><option value="EUR">EUR</option><option value="USD">USD</option></select></FormField>
+        <FormField label="Devise"><select className={selectCls} value={form.currency} onChange={e=>u("currency",e.target.value)}><option value="XOF">FCFA</option><option value="EUR">EUR</option><option value="USD">USD</option></select></FormField>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Date du don" required><input type="date" className={inputCls} value={form.date} onChange={e=>u("date",e.target.value)} required /></FormField>
@@ -28,8 +29,8 @@ export function DonForm({ onSave, onCancel }: DonFormProps) {
       <FormField label="Campagne / Projet"><input className={inputCls} value={form.campaign} onChange={e=>u("campaign",e.target.value)} placeholder="Ex: Fonds d'urgence 2025" /></FormField>
       <FormField label="Notes"><textarea className={textareaCls} rows={2} value={form.notes} onChange={e=>u("notes",e.target.value)} /></FormField>
       <div className="flex justify-end gap-3 pt-3 border-t border-line">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"…":"Enregistrer le don"}</button>
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>Annuler</button>
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving?"…":"Enregistrer le don"}</button>
       </div>
     </form>
   );

@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 import { Inset } from "@/components/ui/Primitives";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Employee { _id: string; firstName: string; lastName: string; code?: string }
 
 const MOIS = [
@@ -76,7 +77,7 @@ export default function NouvelleNotePage() {
         <Link href="/notes-de-frais" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1">
           <ArrowLeft size={13} /> Notes de frais
         </Link>
-        <h1 className="text-2xl font-bold text-ink mt-1">Nouvelle note de frais</h1>
+        <h1 className="page-title mt-1">Nouvelle note de frais</h1>
         <p className="text-sm text-ink2">
           L&apos;en-tête d&apos;abord, les dépenses ensuite — avec leurs justificatifs.
         </p>
@@ -135,11 +136,11 @@ export default function NouvelleNotePage() {
 
         <div className="flex justify-end gap-3 pt-3 border-t border-line">
           <Link href="/notes-de-frais"
-            className="px-4 h-10 inline-flex items-center rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+            className={buttonClass("secondary", "md")}>
             Annuler
           </Link>
           <button type="submit" disabled={saving || !form.title.trim()}
-            className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+            className={buttonClass("primary", "md")}>
             {saving ? "Création…" : "Créer et saisir les dépenses"}
           </button>
         </div>

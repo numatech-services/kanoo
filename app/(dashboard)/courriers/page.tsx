@@ -9,6 +9,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { buttonClass } from "@/components/ui/button-class";
 interface Letter {
   _id: string; reference?: string; kind: string; subject: string;
   recipient?: string; status: string; direction?: string; archived?: boolean;
@@ -122,7 +123,7 @@ export default function CourriersPage() {
     <div className="space-y-6">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Courriers & correspondances</h1>
+          <h1 className="page-title">Courriers & correspondances</h1>
           <p className="text-sm text-ink2">
             Numérotation automatique, sens entrant / sortant, import et archivage — au format et à la marque de votre organisation.
           </p>
@@ -420,7 +421,7 @@ function ComposeDialog({
                   : "L'objet, le destinataire et vos consignes sont transmis à l'IA. Le texte proposé reste modifiable."}
               </p>
               <button type="button" onClick={generate} disabled={aiLoading || ai.remaining <= 0}
-                className="shrink-0 px-3 h-9 inline-flex items-center gap-1.5 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+                className={buttonClass("primary", "md", "shrink-0")}>
                 <Sparkles size={14} /> {aiLoading ? "Rédaction…" : form.body.trim() ? "Régénérer" : "Proposer un jet"}
               </button>
             </div>
@@ -443,8 +444,8 @@ function ComposeDialog({
             ? <a href={`/api/courriers/${id}/pdf`} target="_blank" rel="noopener" className="text-sm text-section hover:underline inline-flex items-center gap-1.5"><Download size={15} /> Aperçu PDF</a>
             : <span className="text-xs text-ink3">Enregistrez pour générer le PDF.</span>}
           <div className="flex gap-3">
-            <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Fermer</button>
-            <button onClick={save} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+            <button onClick={onClose} className={buttonClass("secondary", "md")}>Fermer</button>
+            <button onClick={save} disabled={saving} className={buttonClass("primary", "md")}>
               {saving ? "Enregistrement…" : "Enregistrer"}
             </button>
           </div>

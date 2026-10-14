@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 
+import { BarChart3 } from "lucide-react";
 interface AnalyticsSeries {
   data: number[];
   label: string;
@@ -164,7 +165,7 @@ export default function AnalyticsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Tableau de bord analytique</h1>
+          <h1 className="page-title">Évolution sur 12 mois</h1>
           <p className="text-sm text-ink2 mt-0.5">Analyse de performance sur {months} mois</p>
         </div>
         <div className="flex gap-2">
@@ -196,7 +197,7 @@ export default function AnalyticsPage() {
             <div className="bg-surface rounded-xl border border-line p-4">
               <p className="text-xs text-ink2 uppercase tracking-wide">Encaissé</p>
               <p className="text-xl font-bold text-pos mt-1 font-mono">{(kpi.totalEncaisse / 1_000_000).toFixed(1)}M</p>
-              <p className="text-xs text-ink2 mt-1">XOF reçus</p>
+              <p className="text-xs text-ink2 mt-1">FCFA reçus</p>
             </div>
             <div className={`rounded-xl border p-4 ${kpi.tauxRecouvrement >= 80 ? "bg-surface border-line" : "bg-warn-50 border-warn/25"}`}>
               <p className="text-xs text-ink2 uppercase tracking-wide">Taux recouvrement</p>
@@ -216,7 +217,7 @@ export default function AnalyticsPage() {
             <div className={`rounded-xl border p-4 ${kpi.facInRetard > 0 ? "bg-neg-50 border-neg/25" : "bg-surface border-line"}`}>
               <p className="text-xs text-ink2 uppercase tracking-wide">Factures en retard</p>
               <p className={`text-xl font-bold mt-1 ${kpi.facInRetard > 0 ? "text-neg" : "text-pos"}`}>{kpi.facInRetard}</p>
-              <p className="text-xs text-ink2 mt-1">{kpi.facInRetard === 0 ? "Aucun retard ✅" : "à relancer"}</p>
+              <p className="text-xs text-ink2 mt-1">{kpi.facInRetard === 0 ? "Aucun retard" : "à relancer"}</p>
             </div>
           </div>
 
@@ -247,7 +248,7 @@ export default function AnalyticsPage() {
           {/* CA mensuel en barres + top clients */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="bg-surface rounded-xl border border-line p-5">
-              <h2 className="font-semibold text-ink mb-3">CA mensuel (k XOF)</h2>
+              <h2 className="font-semibold text-ink mb-3">CA mensuel (k FCFA)</h2>
               <BarChart data={data.series.ca.data} labels={labels} color="#2F3E46" />
             </div>
 
@@ -283,14 +284,14 @@ export default function AnalyticsPage() {
 
           {/* Marge brute */}
           <div className="bg-surface rounded-xl border border-line p-5">
-            <h2 className="font-semibold text-ink mb-3">Marge brute mensuelle (k XOF)</h2>
+            <h2 className="font-semibold text-ink mb-3">Marge brute mensuelle (k FCFA)</h2>
             <div className="flex items-end gap-1" style={{ height: "80px" }}>
               {data.series.margeBrute.data.map((v, i) => {
                 const maxV = Math.max(...data.series.margeBrute.data.map(Math.abs), 1);
                 const h = Math.round((Math.abs(v) / maxV) * 70);
                 const isNeg = v < 0;
                 return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-0.5" title={`${labels[i]}: ${v}k XOF`}>
+                  <div key={i} className="flex-1 flex flex-col items-center gap-0.5" title={`${labels[i]}: ${v}k FCFA`}>
                     {!isNeg && <div className="rounded-sm w-full" style={{ height: `${h}px`, background: "#97C459", marginTop: `${70 - h}px` }} />}
                     {isNeg && <div className="rounded-sm w-full" style={{ height: `${h}px`, background: "#F09595", marginTop: `${70}px` }} />}
                   </div>
@@ -306,7 +307,7 @@ export default function AnalyticsPage() {
         </>
       ) : (
         <div className="bg-surface rounded-xl border border-line p-12 text-center">
-          <p className="text-3xl mb-3">📊</p>
+          <p className="mb-3 text-ink3 flex justify-center" aria-hidden><BarChart3 size={30} /></p>
           <p className="text-ink2">Aucune donnée disponible pour cette période.</p>
         </div>
       )}

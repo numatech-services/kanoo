@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, Upload, Database, Check, AlertTriangle, Loader2 } from "lucide-react";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Entity { key: string; label: string; canExport: boolean; canImport: boolean; importable: boolean; columns: string[] }
 interface ImportResult { total: number; created: number; updated: number; failed: number; errors: { line: number; message: string }[] }
 
@@ -22,7 +23,7 @@ export default function DataPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><Database size={22} /> Import / Export</h1>
+        <h1 className="page-title flex items-center gap-2"><Database size={22} /> Import / Export</h1>
         <p className="text-sm text-ink2">
           Exportez vos données en CSV (ouvrable dans Excel), ou importez-en depuis un fichier CSV.
           Vous ne voyez que ce que votre rôle autorise.
@@ -82,7 +83,7 @@ function EntityRow({ entity }: { entity: Entity }) {
         <div className="flex items-center gap-2 shrink-0">
           {entity.canExport && (
             <a href={`/api/data/${entity.key}/export`}
-              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+              className={buttonClass("secondary", "md")}>
               <Download size={15} /> Exporter
             </a>
           )}

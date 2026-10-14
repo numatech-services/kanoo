@@ -71,8 +71,8 @@ export async function RecentInvoices() {
                 </span>
                 <span className="font-mono text-sm font-semibold shrink-0 w-36 text-right">
                   {remaining > 0
-                    ? <span className="text-neg">{remaining.toLocaleString("fr-FR")} XOF dû</span>
-                    : <span className="text-pos">{inv.totalTTC.toLocaleString("fr-FR")} XOF</span>
+                    ? <span className="text-neg">{remaining.toLocaleString("fr-FR")} FCFA dû</span>
+                    : <span className="text-pos">{inv.totalTTC.toLocaleString("fr-FR")} FCFA</span>
                   }
                 </span>
                 <StatusPill status={displayStatus} />

@@ -4,6 +4,7 @@ import { ImputationFields, type ImputationValue } from "@/components/shared/Impu
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { errorMessage } from "@/lib/errors";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Line extends ImputationValue { accountCode: string; accountLabel: string; debit: number; credit: number; }
 interface AccountingEntryFormProps { onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
 
@@ -123,17 +124,17 @@ export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormPro
           <span className={totalDebit>0?"text-ink font-bold":"text-ink2"}>Total Débits : {totalDebit.toLocaleString("fr-FR", {minimumFractionDigits: 2})}</span>
           <span className={totalCredit>0?"text-ink font-bold":"text-ink2"}>Total Crédits : {totalCredit.toLocaleString("fr-FR", {minimumFractionDigits: 2})}</span>
           <span className={balanced && allLinesFilled ?"text-pos font-bold":"text-neg font-bold"}>
-            {balanced && allLinesFilled ? "✅ Prêt à saisir" : !allLinesFilled ? "❌ Infos manquantes" : "❌ Déséquilibrée"}
+            {balanced && allLinesFilled ? "Prêt à saisir" : !allLinesFilled ? "Infos manquantes" : "Déséquilibrée"}
           </span>
         </div>
       </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t border-line">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 transition-colors">Annuler</button>
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>Annuler</button>
         <button 
           type="submit" 
           disabled={saving || !balanced || !allLinesFilled} 
-          className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          className={buttonClass("primary", "md")}
         >
           {saving ? "Enregistrement..." : "Saisir l'écriture"}
         </button>

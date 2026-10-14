@@ -26,8 +26,8 @@ export default function MarketsProfitabilityPage() {
     <div className="space-y-5">
       <div>
         <Link href="/contracts" className="text-xs text-ink2 hover:text-ink">← Contrats</Link>
-        <h1 className="text-2xl font-bold text-ink mt-1">Rentabilité des marchés</h1>
-        <p className="text-sm text-ink2">Montants HT, en XOF. Marge réelle : travaux facturés − dépenses réalisées. À terminaison : marché − réalisé − engagé.</p>
+        <h1 className="page-title mt-1">Rentabilité des marchés</h1>
+        <p className="text-sm text-ink2">Montants HT, en FCFA. Marge réelle : travaux facturés − dépenses réalisées. À terminaison : marché − réalisé − engagé.</p>
       </div>
       {error && <p className="p-3 rounded-lg bg-neg-50 text-neg text-sm">{error}</p>}
       {rows && rows.length > 0 && (

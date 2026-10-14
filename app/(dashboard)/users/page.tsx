@@ -15,6 +15,7 @@ import type { UserRole } from "@/types";
 import { AccessEditor, accessPayload, accessChip, emptyAccess, type Access, type Level } from "@/components/users/AccessEditor";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
 interface User {
   _id: string;
   firstName: string;
@@ -193,7 +194,7 @@ export default function UsersPage() {
     <div className="space-y-5">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Comptes &amp; droits</h1>
+          <h1 className="page-title">Comptes &amp; droits</h1>
           <p className="text-sm text-ink2">
             {total} compte{total > 1 ? "s" : ""} · {activeAdmins} administrateur{activeAdmins > 1 ? "s" : ""} actif{activeAdmins > 1 ? "s" : ""}
           </p>
@@ -492,11 +493,11 @@ function InviteDialog({
 
         <div className="flex justify-end gap-3 pt-3 border-t border-line">
           <button type="button" onClick={onClose}
-            className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+            className={buttonClass("secondary", "md")}>
             Annuler
           </button>
           <button type="submit" disabled={saving}
-            className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+            className={buttonClass("primary", "md")}>
             {saving ? "Création…" : "Créer le compte"}
           </button>
         </div>
@@ -550,8 +551,8 @@ function EditAccessDialog({ user, roles, onClose, onSaved }: {
         <AccessEditor value={access} onChange={setAccess} assignable={roles} />
         {error && <p className="px-3 py-2 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg">{error}</p>}
         <div className="flex justify-end gap-3 pt-3 border-t border-line">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-          <button onClick={save} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button onClick={save} disabled={saving} className={buttonClass("primary", "md")}>
             {saving ? "Enregistrement…" : "Enregistrer l'accès"}
           </button>
         </div>
@@ -581,7 +582,7 @@ function ResetDialog({ user, onClose, onConfirm }: { user: User; onClose: () => 
           <span>Désactiver la double authentification<span className="block text-xs text-ink3">Téléphone perdu ou application supprimée : elle pourra la réactiver depuis son profil.</span></span>
         </label>
         <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm hover:bg-surface2">Annuler</button>
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
           <button disabled={busy} onClick={() => { setBusy(true); onConfirm(mode, twoFa); }} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">Réinitialiser</button>
         </div>
       </div>

@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { buttonClass } from "@/components/ui/button-class";
 interface Ticket { _id:string; subject:string; message:string; priority:string; status:string; createdAt:string; }
 export default function SupportPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -21,7 +23,7 @@ export default function SupportPage() {
   return (
     <div className="space-y-5 max-w-2xl">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-ink">Support</h1>
+        <h1 className="page-title">Support</h1>
         <button onClick={()=>setShowForm(!showForm)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouveau ticket</button>
       </div>
       {showForm && (
@@ -29,7 +31,7 @@ export default function SupportPage() {
           <div><label className="block text-xs font-medium text-ink2 mb-1">Sujet *</label><input className={inp} value={form.subject} onChange={e=>setForm(p=>({...p,subject:e.target.value}))} required /></div>
           <div><label className="block text-xs font-medium text-ink2 mb-1">Priorité</label><select className={inp} value={form.priority} onChange={e=>setForm(p=>({...p,priority:e.target.value}))}><option value="low">Faible</option><option value="medium">Moyenne</option><option value="high">Haute</option><option value="critical">Critique</option></select></div>
           <div><label className="block text-xs font-medium text-ink2 mb-1">Description *</label><textarea className={inp} rows={4} value={form.message} onChange={e=>setForm(p=>({...p,message:e.target.value}))} required /></div>
-          <div className="flex justify-end gap-3"><button type="button" onClick={()=>setShowForm(false)} className="px-4 py-2 text-sm border border-line rounded-lg text-ink2">Annuler</button><button type="submit" disabled={creating} className="px-5 py-2 bg-section text-white rounded-lg text-sm font-medium disabled:opacity-60">{creating?"Envoi…":"Envoyer"}</button></div>
+          <div className="flex justify-end gap-3"><button type="button" onClick={()=>setShowForm(false)} className="px-4 py-2 text-sm border border-line rounded-lg text-ink2">Annuler</button><button type="submit" disabled={creating} className={buttonClass("primary", "md")}>{creating?"Envoi…":"Envoyer"}</button></div>
         </form>
       )}
       {loading ? <div className="h-24 bg-surface2 animate-pulse rounded-xl"/> :
@@ -41,7 +43,7 @@ export default function SupportPage() {
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${PRIO[t.priority]||""}`}>{t.priority}</span>
             </div>
             <p className="text-xs text-ink2 mt-1 line-clamp-2">{t.message}</p>
-            <div className="flex items-center justify-between mt-3"><span className={`text-xs px-2 py-0.5 rounded-full ${t.status==="open"?"bg-pos-50 text-pos":"bg-surface2 text-ink3"}`}>{t.status}</span><span className="text-xs text-ink2">{new Date(t.createdAt).toLocaleDateString("fr-FR")}</span></div>
+            <div className="flex items-center justify-between mt-3"><StatusBadge status={t.status} /><span className="text-xs text-ink2">{new Date(t.createdAt).toLocaleDateString("fr-FR")}</span></div>
           </div>
         ))
       }

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { User, Mail, Shield, Camera, Save, Lock, ArrowLeft, Phone, Loader2, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
+import { buttonClass } from "@/components/ui/button-class";
 export default function ProfilPage() {
   // 1. État complet du formulaire pour correspondre à ton UserModel
   const [formData, setFormData] = useState({
@@ -103,7 +104,7 @@ export default function ProfilPage() {
           </button>
         </div>
         <div className="space-y-1">
-          <h1 className="text-2xl font-black text-ink leading-tight">
+          <h1 className="page-title">
             {formData.firstName} {formData.lastName}
           </h1>
           <div className="flex items-center gap-3">
@@ -190,7 +191,7 @@ export default function ProfilPage() {
             <button 
               onClick={handleUpdate}
               disabled={saving}
-              className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-section text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest hover:brightness-95 transition-all active:scale-[0.98] shadow-lg shadow-section/10 disabled:opacity-50"
+              className={buttonClass("primary", "md", "w-full sm:w-auto justify-center")}
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {saving ? "Mise à jour en cours..." : "Enregistrer les modifications"}

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 import { COST_CENTERS } from "@/lib/cost-centers";
 
+import { buttonClass } from "@/components/ui/button-class";
 export interface EmployeeFormData {
   code: string; firstName: string; lastName: string; position: string; department: string; costCenter?: string;
   employeeType: string; contractNature: string;
@@ -118,7 +119,7 @@ export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { in
         </legend>
         {isEmployee ? (
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Salaire brut (XOF)" required hint="Base calcul CNSS">
+            <FormField label="Salaire brut (FCFA)" required hint="Base calcul CNSS">
               <input type="number" className={inputCls} value={form.grossSalary} onChange={e=>u("grossSalary",Number(e.target.value))} min={0} required/>
             </FormField>
             <div className="space-y-2">
@@ -140,18 +141,18 @@ export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { in
         )}
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Libellé autre retenue"><input className={inputCls} value={form.otherDeductionLabel} onChange={e=>u("otherDeductionLabel",e.target.value)} placeholder="Ex: Avance sur salaire"/></FormField>
-          <FormField label="Montant retenue (XOF)"><input type="number" className={inputCls} value={form.otherDeductionAmount} onChange={e=>u("otherDeductionAmount",Number(e.target.value))} min={0}/></FormField>
+          <FormField label="Montant retenue (FCFA)"><input type="number" className={inputCls} value={form.otherDeductionAmount} onChange={e=>u("otherDeductionAmount",Number(e.target.value))} min={0}/></FormField>
         </div>
 
         {/* Simulation paie */}
         {(isEmployee ? form.grossSalary : form.indemnity) > 0 && (
           <div className="bg-info-50 border border-info/25 rounded-xl p-3 grid grid-cols-4 gap-3 text-xs">
             {isEmployee && form.includeCnss && <>
-              <div className="text-center"><p className="font-semibold text-info">{cnssEmployee.toLocaleString("fr-FR")} XOF</p><p className="text-info mt-0.5">CNSS salarié</p></div>
-              <div className="text-center"><p className="font-semibold text-info">{cnssEmployer.toLocaleString("fr-FR")} XOF</p><p className="text-info mt-0.5">CNSS patronal</p></div>
+              <div className="text-center"><p className="font-semibold text-info">{cnssEmployee.toLocaleString("fr-FR")} FCFA</p><p className="text-info mt-0.5">CNSS salarié</p></div>
+              <div className="text-center"><p className="font-semibold text-info">{cnssEmployer.toLocaleString("fr-FR")} FCFA</p><p className="text-info mt-0.5">CNSS patronal</p></div>
             </>}
-            {form.otherDeductionAmount > 0 && <div className="text-center"><p className="font-semibold text-warn">{form.otherDeductionAmount.toLocaleString("fr-FR")} XOF</p><p className="text-warn mt-0.5">Autre retenue</p></div>}
-            <div className="text-center"><p className="font-bold text-pos">{Math.max(0,netSalary).toLocaleString("fr-FR")} XOF</p><p className="text-pos mt-0.5">{isEmployee?"Net avant IR (estimation)":"Montant net"}</p></div>
+            {form.otherDeductionAmount > 0 && <div className="text-center"><p className="font-semibold text-warn">{form.otherDeductionAmount.toLocaleString("fr-FR")} FCFA</p><p className="text-warn mt-0.5">Autre retenue</p></div>}
+            <div className="text-center"><p className="font-bold text-pos">{Math.max(0,netSalary).toLocaleString("fr-FR")} FCFA</p><p className="text-pos mt-0.5">{isEmployee?"Net avant IR (estimation)":"Montant net"}</p></div>
           </div>
         )}
       </fieldset>}
@@ -191,8 +192,8 @@ export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { in
       </label>
 
       <div className="flex justify-end gap-3 pt-4 border-t border-line">
-        <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2.5 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>Annuler</button>
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>
           {saving?"Enregistrement…":"Enregistrer"}
         </button>
       </div>

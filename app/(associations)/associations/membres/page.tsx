@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Member {
   _id: string;
   code: string;
@@ -80,7 +81,7 @@ export default function MembresPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Adhérents</h1>
+          <h1 className="page-title">Adhérents</h1>
           <p className="text-sm text-ink2 mt-0.5">{total} adhérent{total > 1 ? "s" : ""}</p>
         </div>
         <button
@@ -191,8 +192,8 @@ function MemberForm({ initial, onSave, onCancel }: {
         </div>
       </div>
       <div className="flex justify-end gap-3 pt-2 border-t border-line">
-        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm border border-line rounded-lg text-ink2 hover:bg-surface2">Annuler</button>
-        <button type="submit" disabled={saving} className="px-5 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 disabled:opacity-60">
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>Annuler</button>
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>
           {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
       </div>

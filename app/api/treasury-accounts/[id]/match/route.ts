@@ -93,8 +93,8 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
   // ferait disparaître un écart réel de l'écran.
   if (movement.amount !== line.amount) {
     return badRequest(
-      `Montants différents : ${movement.amount.toLocaleString("fr-FR")} XOF au mouvement, `
-      + `${line.amount.toLocaleString("fr-FR")} XOF au relevé. Corrigez le mouvement ou écartez la ligne.`
+      `Montants différents : ${movement.amount.toLocaleString("fr-FR")} FCFA au mouvement, `
+      + `${line.amount.toLocaleString("fr-FR")} FCFA au relevé. Corrigez le mouvement ou écartez la ligne.`
     );
   }
 

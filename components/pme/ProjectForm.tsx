@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
+import { buttonClass } from "@/components/ui/button-class";
 interface ProjectFormProps { initial?: Record<string, unknown>; onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; defaultType?: string; }
 export function ProjectForm({ initial, onSave, onCancel, defaultType = "internal" }: ProjectFormProps) {
   // `defaultType` était accepté en propriété puis jamais transmis : le type de
@@ -12,7 +13,7 @@ export function ProjectForm({ initial, onSave, onCancel, defaultType = "internal
     <form onSubmit={async(e)=>{e.preventDefault();setSaving(true);await onSave(form);setSaving(false);}} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Code" required><input className={inputCls} value={form.code} onChange={e=>u("code",e.target.value)} placeholder="PRJ-001" required /></FormField>
-        <FormField label="Budget (XOF)"><input type="number" className={inputCls} value={form.budget} onChange={e=>u("budget",Number(e.target.value))} min={0} /></FormField>
+        <FormField label="Budget (FCFA)"><input type="number" className={inputCls} value={form.budget} onChange={e=>u("budget",Number(e.target.value))} min={0} /></FormField>
       </div>
       <FormField label="Nom du projet" required><input className={inputCls} value={form.name} onChange={e=>u("name",e.target.value)} required /></FormField>
       <div className="grid grid-cols-2 gap-4">
@@ -21,8 +22,8 @@ export function ProjectForm({ initial, onSave, onCancel, defaultType = "internal
       </div>
       <FormField label="Description"><textarea className={textareaCls} rows={3} value={form.description} onChange={e=>u("description",e.target.value)} /></FormField>
       <div className="flex justify-end gap-3 pt-3 border-t border-line">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"…":"Enregistrer"}</button>
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>Annuler</button>
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving?"…":"Enregistrer"}</button>
       </div>
     </form>
   );

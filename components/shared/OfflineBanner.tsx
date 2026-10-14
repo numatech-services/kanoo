@@ -6,6 +6,7 @@ import {
   type FailedSyncItem, type SyncResult,
 } from "@/lib/offline/sync-queue";
 
+import { AlertTriangle, CheckCircle2, Lock, RefreshCw, WifiOff } from "lucide-react";
 /**
  * Bandeau d'état hors-ligne.
  *
@@ -115,7 +116,7 @@ export function OfflineBanner() {
     return (
       <div className={`${shell} bg-neg text-white`}>
         <div className="flex items-center gap-3">
-          <span aria-hidden>⚠</span>
+          <span className="inline-flex" aria-hidden><AlertTriangle size={16} /></span>
           <div className="flex-1">
             <p>
               {failedCount} écriture{failedCount > 1 ? "s" : ""} n&apos;{failedCount > 1 ? "ont" : "a"} pas pu être enregistrée{failedCount > 1 ? "s" : ""}
@@ -154,7 +155,7 @@ export function OfflineBanner() {
   if (needsAuth) {
     return (
       <div className={`${shell} bg-warn text-white flex items-center gap-3`}>
-        <span aria-hidden>🔒</span>
+        <span className="inline-flex" aria-hidden><Lock size={16} /></span>
         <div className="flex-1">
           <p>Session expirée pendant la coupure</p>
           <p className="text-white/80 text-xs">
@@ -171,7 +172,7 @@ export function OfflineBanner() {
   if (!isOnline) {
     return (
       <div className={`${shell} bg-warn text-white flex items-center gap-3`}>
-        <span className="animate-pulse" aria-hidden>📡</span>
+        <span className="animate-pulse inline-flex" aria-hidden><WifiOff size={16} /></span>
         <div>
           <p>Vous êtes hors-ligne</p>
           {pendingCount > 0 && (
@@ -187,7 +188,7 @@ export function OfflineBanner() {
   if (syncing) {
     return (
       <div className={`${shell} bg-info text-white flex items-center gap-3`}>
-        <span className="animate-spin" aria-hidden>🔄</span>
+        <span className="animate-spin inline-flex" aria-hidden><RefreshCw size={16} /></span>
         <span>Synchronisation en cours…</span>
       </div>
     );
@@ -197,7 +198,7 @@ export function OfflineBanner() {
   if (justSynced > 0) {
     return (
       <div className={`${shell} bg-pos text-white flex items-center gap-3`}>
-        <span aria-hidden>✅</span>
+        <span className="inline-flex" aria-hidden><CheckCircle2 size={16} /></span>
         <span>
           {justSynced} action{justSynced > 1 ? "s" : ""} synchronisée{justSynced > 1 ? "s" : ""}
         </span>

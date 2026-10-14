@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface DashboardStats {
   activeMembers: number;
   totalContributions: number | null;
@@ -98,7 +99,7 @@ export default function AssoDashboardPage() {
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-line pb-6">
         <div>
-          <h1 className="text-3xl font-black text-ink tracking-tighter uppercase italic">Tableau de bord</h1>
+          <h1 className="page-title">Tableau de bord</h1>
           <p className="text-xs font-bold text-ink2 uppercase tracking-[0.2em] mt-1">Gestion Association & Gouvernance</p>
         </div>
         <div className="text-[10px] font-black text-ink uppercase tracking-widest bg-surface2 px-4 py-2 rounded-full border border-line shadow-sm">
@@ -212,7 +213,7 @@ export default function AssoDashboardPage() {
                 <div className="mt-8 pt-6 border-t border-white/10">
                     {/* Bilan de l'exercice (actif / passif) au format tableur. */}
                     <a href={`/api/accounting/reports?type=bs&format=csv&to=${new Date().toISOString().slice(0, 10)}`}
-                      className="block text-center w-full py-4 bg-section text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-surface hover:text-ink transition-all shadow-lg active:scale-95">
+                      className={buttonClass("primary", "md", "w-full")}>
                         Exporter le bilan financier (CSV)
                     </a>
                 </div>
@@ -221,7 +222,7 @@ export default function AssoDashboardPage() {
 
           {/* LIENS RAPIDES VERS BUREAU & MESSAGES */}
           <div className="bg-surface2/30 rounded-[2.5rem] border border-line p-8">
-             <p className="text-[10px] font-black text-ink2 uppercase tracking-widest mb-6 italic">Accès Gouvernance</p>
+             <p className="text-[10px] font-semibold text-ink2 uppercase tracking-widest mb-6">Accès Gouvernance</p>
              <div className="space-y-3">
                 <Link href="/associations/bureau" className="flex items-center justify-between p-4 bg-surface rounded-2xl border border-line hover:border-section transition-all group">
                     <div className="flex items-center gap-3">

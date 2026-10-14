@@ -24,14 +24,14 @@ export default function CotisationsPage() {
   const columns: Column<Cotisation>[] = [
     {key:"memberId",label:"Adhérent",render:(v)=>typeof v==="object"&&v?`${(v as {firstName:string;lastName:string}).firstName} ${(v as {firstName:string;lastName:string}).lastName}`:"—"},
     {key:"year",label:"Année",className:"text-ink2"},
-    {key:"amount",label:"Montant (XOF)",className:"text-right font-mono",render:(v)=>Number(v).toLocaleString("fr-FR")},
+    {key:"amount",label:"Montant (FCFA)",className:"text-right font-mono",render:(v)=>Number(v).toLocaleString("fr-FR")},
     {key:"paidAt",label:"Date paiement",render:(v)=>v?new Date(String(v)).toLocaleDateString("fr-FR"):<span className="text-warn font-medium">Non payée</span>},
     {key:"receiptNumber",label:"N° reçu",className:"font-mono text-xs text-section"},
   ];
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Cotisations</h1><p className="text-sm text-ink2">{paid}/{counts.all} payées pour {year}</p></div>
+        <div><h1 className="page-title">Cotisations</h1><p className="text-sm text-ink2">{paid}/{counts.all} payées pour {year}</p></div>
         <div className="flex gap-3">
           <select value={year} onChange={e=>{setYear(Number(e.target.value));setPage(1);}} className="px-3 py-2 border border-line rounded-lg text-sm">{[year-1,year,year+1].map(y=><option key={y} value={y}>{y}</option>)}</select>
           <button onClick={() => window.location.href = "/associations/cotisations/new"} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Enregistrer paiement</button>

@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import { buttonClass } from "@/components/ui/button-class";
+import { ScreenTabs } from "@/components/shared/ScreenTabs";
 export default function CNSSPage() {
   const now = new Date();
   const currentQ = Math.ceil((now.getMonth()+1)/3);
@@ -8,9 +10,10 @@ export default function CNSSPage() {
   const inp = "px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
   return (
     <div className="space-y-6 max-w-2xl">
+      <ScreenTabs group="fiscalite" />
       <div>
         <div className="flex items-center gap-2 text-sm text-ink2 mb-2"><a href="/fiscalite" className="hover:text-ink">Fiscalité</a><span>→</span><span className="text-ink font-medium">CNSS</span></div>
-        <h1 className="text-2xl font-bold text-ink">Déclaration CNSS</h1>
+        <h1 className="page-title">Déclaration CNSS</h1>
         <p className="text-sm text-ink2 mt-1">CNSS salarié 3,6% + patronal 16,4% = 20% total</p>
       </div>
       <div className="flex gap-3">
@@ -20,9 +23,9 @@ export default function CNSSPage() {
       <div className="bg-surface rounded-xl border border-line p-5">
         <h2 className="font-semibold text-ink mb-4">Bordereau CNSS — T{quarter}/{year}</h2>
         <p className="text-sm text-ink2 text-center py-8">Généré automatiquement depuis les bulletins de paie. Générez des bulletins pour ce trimestre d'abord.</p>
-        <button className="w-full py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 mt-2">Générer le bordereau PDF</button>
+        <button className={buttonClass("primary", "md", "w-full mt-2")}>Générer le bordereau PDF</button>
       </div>
-      <div className="bg-info-50 border border-info/25 rounded-xl p-3 text-xs text-info">📅 Date limite CNSS : 10 jours après la fin du trimestre (10/{[3,6,9,12][quarter-1]+1 > 12 ? "01" : String([3,6,9,12][quarter-1]+1).padStart(2,"0")}/{[3,6,9,12][quarter-1]===12?year+1:year})</div>
+      <div className="bg-info-50 border border-info/25 rounded-xl p-3 text-xs text-info">Date limite CNSS : 10 jours après la fin du trimestre (10/{[3,6,9,12][quarter-1]+1 > 12 ? "01" : String([3,6,9,12][quarter-1]+1).padStart(2,"0")}/{[3,6,9,12][quarter-1]===12?year+1:year})</div>
     </div>
   );
 }

@@ -11,6 +11,8 @@ import { MovementDialog } from "@/components/stock/MovementDialog";
 import { useMe, meCanDo } from "@/lib/useMe";
 import { useUrlReady } from "@/lib/url-param";
 
+import { buttonClass } from "@/components/ui/button-class";
+import { StockTabs } from "@/components/stock/StockTabs";
 interface StockItem {
   _id: string; code: string; label: string; unit?: string; category?: string; location?: string;
   stockQty: number; totalQty?: number; stockMinAlert: number; trackingMode?: string; stockMaxAlert?: number; purchaseCost?: number; unitPrice: number;
@@ -91,28 +93,29 @@ export default function StockPage() {
 
   return (
     <div className="space-y-5">
+      <StockTabs />
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Stock</h1>
+          <h1 className="page-title">Stock</h1>
           <p className="text-sm text-ink2">{total} article{total > 1 ? "s" : ""} stocké{total > 1 ? "s" : ""}</p>
         </div>
         <div className="flex gap-2">
-          <Link href="/stock/entrepots" className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2"><Warehouse size={16} /> Entrepôts</Link>
-          <Link href="/stock/mouvements" className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2"><History size={16} /> Mouvements</Link>
+          <Link href="/stock/entrepots" className={buttonClass("secondary", "md")}><Warehouse size={16} /> Entrepôts</Link>
+          <Link href="/stock/mouvements" className={buttonClass("secondary", "md")}><History size={16} /> Mouvements</Link>
           {canMove && warehouses.length > 1 && <button onClick={() => setTransfer(true)} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2"><Truck size={16} /> Transfert</button>}
-          {canCreate && <Link href="/stock/new" className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95"><Plus size={16} /> Nouvel article</Link>}
+          {canCreate && <Link href="/stock/new" className={buttonClass("primary", "md")}><Plus size={16} /> Nouvel article</Link>}
         </div>
       </div>
 
       <div className="grid sm:grid-cols-3 gap-4">
         <div className="bg-surface rounded-xl border border-line p-4">
           <p className="text-[11px] font-semibold text-ink2 uppercase">Valeur du stock (coût moyen)</p>
-          <p className="text-xl font-bold text-ink mt-1">{fmt(meta.totalStockValue)} XOF</p>
+          <p className="text-xl font-bold text-ink mt-1">{fmt(meta.totalStockValue)} FCFA</p>
           {meta.uncostedCount > 0 && <p className="text-[11px] text-warn mt-1">{meta.uncostedCount} article(s) sans coût d&apos;achat</p>}
         </div>
         <div className="bg-surface rounded-xl border border-line p-4">
           <p className="text-[11px] font-semibold text-ink2 uppercase">Valeur au prix de vente</p>
-          <p className="text-xl font-bold text-ink mt-1">{fmt(meta.totalStockValueAtPrice)} XOF</p>
+          <p className="text-xl font-bold text-ink mt-1">{fmt(meta.totalStockValueAtPrice)} FCFA</p>
         </div>
         <button onClick={() => { setPage(1); setFilters(f => ({ ...f, alertOnly: !f.alertOnly })); }}
           className={`text-left rounded-xl border p-4 ${filters.alertOnly ? "border-neg/40 bg-neg-50" : "border-line bg-surface hover:bg-surface2"}`}>

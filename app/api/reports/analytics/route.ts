@@ -76,7 +76,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
     return monthKeys.map(key => {
       const [y, m] = key.split("-").map(Number);
       const found = data.find(d => d._id.year === y && d._id.month === m);
-      return found ? Math.round(Number(found[valueKey]) / 1000) : 0; // En milliers XOF
+      return found ? Math.round(Number(found[valueKey]) / 1000) : 0; // En milliers FCFA
     });
   }
 
@@ -131,10 +131,10 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   return ok({
     period: { months, startDate, endDate: now, labels: monthLabels },
     series: {
-      ca:         { data: caData,      label: "CA TTC (k XOF)",      color: "#2F3E46" },
-      encaissements: { data: encaissData, label: "Encaissements (k XOF)", color: "#97C459" },
-      charges:    { data: chargesData, label: "Charges (k XOF)",     color: "#F09595" },
-      margeBrute: { data: margeBrute,  label: "Marge brute (k XOF)", color: "#378ADD" },
+      ca:         { data: caData,      label: "CA TTC (k FCFA)",      color: "#2F3E46" },
+      encaissements: { data: encaissData, label: "Encaissements (k FCFA)", color: "#97C459" },
+      charges:    { data: chargesData, label: "Charges (k FCFA)",     color: "#F09595" },
+      margeBrute: { data: margeBrute,  label: "Marge brute (k FCFA)", color: "#378ADD" },
     },
     kpis: {
       totalCA, totalEncaisse, tauxRecouvrement,

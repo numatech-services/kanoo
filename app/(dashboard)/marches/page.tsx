@@ -62,7 +62,7 @@ export default function MarchesPage() {
     { key: "object", label: "Objet", className: "max-w-md truncate" },
     { 
       key: "estimatedAmount", 
-      label: "Montant (XOF)", 
+      label: "Montant (FCFA)", 
       className: "text-right font-mono", 
       render: (v) => Number(v).toLocaleString("fr-FR") 
     },
@@ -82,7 +82,7 @@ export default function MarchesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Marchés fournisseurs</h1>
+          <h1 className="page-title">Marchés fournisseurs</h1>
           <p className="text-sm text-ink2">Niger - Code des Marchés Publics</p>
         </div>
         <IfCan resource="publicTenders">

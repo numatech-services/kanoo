@@ -2,6 +2,9 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { Factory } from "lucide-react";
+import { buttonClass } from "@/components/ui/button-class";
 interface TenderData {
   _id:string; reference:string; object:string; estimatedAmount:number; bidsDeadline?:string; status:string; procedure:string;
 }
@@ -28,10 +31,10 @@ export default function PortailFournisseurPage() {
 
   if (error) return (
     <div className="text-center py-20">
-      <p className="text-3xl mb-4">🏭</p>
-      <h1 className="text-xl font-bold text-ink mb-2">Espace fournisseur</h1>
+      <p className="mb-4 text-ink3 flex justify-center" aria-hidden><Factory size={30} /></p>
+      <h1 className="page-title mb-2">Espace fournisseur</h1>
       <p className="text-ink2 mb-6">{error}</p>
-      <Link href="/portail/fournisseur/connexion" className="px-6 py-3 bg-section text-white rounded-xl font-medium hover:brightness-95">Se connecter</Link>
+      <Link href="/portail/fournisseur/connexion" className={buttonClass("primary", "md")}>Se connecter</Link>
     </div>
   );
 
@@ -41,7 +44,7 @@ export default function PortailFournisseurPage() {
     <div className="space-y-6">
       <div className="bg-section text-white rounded-2xl p-6">
         <p className="text-white/60 text-sm">Espace fournisseur</p>
-        <h1 className="text-2xl font-bold mt-1">{data.supplier.name}</h1>
+        <h1 className="page-title mt-1">{data.supplier.name}</h1>
         <p className="text-white/70 text-sm">{data.supplier.code}{data.supplier.nif&&` · NIF ${data.supplier.nif}`}</p>
         <div className="flex gap-3 mt-4">
           <Link href="/portail/fournisseur/appels-offres" className="px-4 py-2 bg-white/15 rounded-lg text-sm hover:bg-white/25">Appels d'offres</Link>
@@ -66,13 +69,13 @@ export default function PortailFournisseurPage() {
                   <p className="text-xs text-ink2 mt-1">{PROCEDURE_LABELS[t.procedure]||t.procedure}</p>
                 </div>
                 <div className="text-right ml-4 flex-shrink-0">
-                  <p className="font-mono font-bold text-sm">{t.estimatedAmount?.toLocaleString("fr-FR")} XOF</p>
+                  <p className="font-mono font-bold text-sm">{t.estimatedAmount?.toLocaleString("fr-FR")} FCFA</p>
                   {t.bidsDeadline && <p className="text-xs text-ink2 mt-0.5">Clôture : {new Date(t.bidsDeadline).toLocaleDateString("fr-FR")}</p>}
                 </div>
               </div>
               <div className="mt-3 flex gap-2">
-                <button className="px-4 py-1.5 bg-section text-white text-xs rounded-lg hover:brightness-95">Télécharger le DAO</button>
-                <button className="px-4 py-1.5 border border-line text-ink2 text-xs rounded-lg hover:bg-surface2">Déposer une offre</button>
+                <button className={buttonClass("primary", "sm")}>Télécharger le DAO</button>
+                <button className={buttonClass("secondary", "sm")}>Déposer une offre</button>
               </div>
             </div>
           ))
@@ -86,7 +89,7 @@ export default function PortailFournisseurPage() {
           {data.contracts.map(c => (
             <div key={c._id} className="flex items-center justify-between px-5 py-3 border-b border-line last:border-0">
               <div><p className="font-mono text-xs text-section">{c.reference}</p><p className="text-sm font-medium text-ink">{c.title}</p></div>
-              <div className="text-right"><p className="font-mono text-sm">{c.amount?.toLocaleString("fr-FR")} XOF</p><span className="text-xs bg-pos-50 text-pos px-2 py-0.5 rounded-full">{c.status}</span></div>
+              <div className="text-right"><p className="font-mono text-sm">{c.amount?.toLocaleString("fr-FR")} FCFA</p><StatusBadge status={c.status} /></div>
             </div>
           ))}
         </div>

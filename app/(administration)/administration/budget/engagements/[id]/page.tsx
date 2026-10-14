@@ -84,7 +84,7 @@ export default function EngagementDetailsPage() {
     <div className="flex flex-col items-center justify-center p-20 gap-6">
         <div className="bg-neg-50 text-neg p-8 rounded-[2rem] border border-neg/25 text-center max-w-md">
             <XCircle size={40} className="mx-auto mb-4 opacity-20" />
-            <p className="font-black italic uppercase text-xs">Engagement introuvable</p>
+            <p className="font-semibold uppercase text-xs">Engagement introuvable</p>
             <p className="text-[10px] opacity-60 font-mono mt-2 break-all">ID: {id}</p>
             <p className="text-[11px] mt-4 font-bold bg-white/50 p-2 rounded-lg">{errorMsg || "Aucune donnée disponible"}</p>
         </div>
@@ -195,7 +195,7 @@ export default function EngagementDetailsPage() {
             <Wallet className="absolute -bottom-4 -right-4 text-white/5" size={120} />
             <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] mb-2">Montant à engager</p>
             <h3 className="text-4xl font-black tracking-tighter">
-              {(data.amount || 0).toLocaleString('fr-FR')} <span className="text-sm font-bold text-white/40">XOF</span>
+              {(data.amount || 0).toLocaleString('fr-FR')} <span className="text-sm font-bold text-white/40">FCFA</span>
             </h3>
             <div className="mt-8 pt-6 border-t border-white/10 flex items-center gap-2">
                 <Calendar size={14} className="text-white/40" />

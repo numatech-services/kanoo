@@ -1,4 +1,5 @@
 "use client";
+import { buttonClass } from "@/components/ui/button-class";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -30,7 +31,7 @@ export function ConfirmDialog({
         <p className="text-sm text-ink2 mt-2">{message}</p>
         <div className="flex gap-3 mt-6">
           <button onClick={onCancel} disabled={busy}
-            className="flex-1 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 transition-colors disabled:opacity-50">
+            className={buttonClass("secondary", "md", "flex-1")}>
             {cancelLabel}
           </button>
           <button

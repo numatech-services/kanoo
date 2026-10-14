@@ -37,7 +37,7 @@ export interface DunningSettings {
   enabled: boolean;
   steps: DunningStep[];
   /**
-   * Montant restant dû en dessous duquel on ne relance pas. Relancer 800 XOF
+   * Montant restant dû en dessous duquel on ne relance pas. Relancer 800 FCFA
    * coûte plus cher en irritation qu'il ne rapporte.
    */
   minAmount: number;
@@ -294,8 +294,8 @@ export function planRun(
     }
     if (outstanding < settings.minAmount) {
       skip("below_min_amount",
-        `Restant dû ${outstanding.toLocaleString("fr-FR")} XOF, sous le seuil de `
-        + `${settings.minAmount.toLocaleString("fr-FR")} XOF.`);
+        `Restant dû ${outstanding.toLocaleString("fr-FR")} FCFA, sous le seuil de `
+        + `${settings.minAmount.toLocaleString("fr-FR")} FCFA.`);
       continue;
     }
     if (settings.respectDisputes && invoice.disputedAt) {
@@ -390,7 +390,7 @@ export interface MessageContext {
 }
 
 const FR_DATE = (d: Date) => new Date(d).toLocaleDateString("fr-FR");
-const FR_XOF = (n: number) => `${n.toLocaleString("fr-FR")} XOF`;
+const FR_XOF = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
 
 /**
  * Objet et corps selon le ton.

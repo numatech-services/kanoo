@@ -33,7 +33,7 @@ export const PATCH = withAuth("payments", "update", async (req: NextRequest, aut
     return badRequest(`Cette facture est déjà ${invoice.status === "paid" ? "soldée" : "annulée"}.`);
   }
   const remaining = invoiceDue(invoice);
-  if (payment.amount > remaining + 1) return badRequest(`Montant supérieur au reste à payer (${remaining} XOF).`);
+  if (payment.amount > remaining + 1) return badRequest(`Montant supérieur au reste à payer (${remaining} FCFA).`);
   // À l'encaissement : date réelle (saisie, sinon la date prévue si elle est passée,
   // sinon aujourd'hui) et compte réellement crédité.
   payment.date = paymentDate(body.date ?? (payment.date && payment.date <= new Date() ? payment.date.toISOString() : undefined));

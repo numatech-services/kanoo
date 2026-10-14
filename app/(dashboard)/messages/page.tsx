@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { MessageComposer } from "@/components/shared/MessageComposer";
 
+import { Lightbulb } from "lucide-react";
 interface UserInfo {
   _id: string;
   firstName: string;
@@ -44,14 +45,14 @@ export default function MessagesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-ink">{labels.title}</h1>
+        <h1 className="page-title">{labels.title}</h1>
         <p className="text-sm text-ink2 mt-0.5">{labels.subtitle}</p>
       </div>
 
       {/* Onglets contextuels selon le profil */}
       {profile === "association" && (
         <div className="flex gap-2 text-xs text-ink2 bg-warn-50 border border-warn/25 rounded-xl px-4 py-2.5">
-          <span>💡</span>
+          <span className="inline-flex" aria-hidden><Lightbulb size={16} /></span>
           <span>Les conversations sont partagées avec les membres du bureau et les adhérents ayant un compte.</span>
         </div>
       )}

@@ -94,7 +94,7 @@ export const POST = withAuth("recurringCharges", "update", async (req: NextReque
   });
 
   await logAudit(auth, "PAYMENT", "recurringCharges", { resourceId: params.id, after: { amount } });
-  return ok({ message: `Charge de ${amount.toLocaleString("fr-FR")} XOF payée et déduite de la trésorerie`, expense });
+  return ok({ message: `Charge de ${amount.toLocaleString("fr-FR")} FCFA payée et déduite de la trésorerie`, expense });
 });
 
 /**

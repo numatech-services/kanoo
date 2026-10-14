@@ -6,6 +6,7 @@ import { Search, Package, ArrowLeft, Save } from "lucide-react";
 import { useWarehouses } from "@/components/stock/useWarehouses";
 
 import { showToast } from "@/components/ui/Toast";
+import { buttonClass } from "@/components/ui/button-class";
 export default function NewDeliveryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -93,7 +94,7 @@ export default function NewDeliveryPage() {
 
       <div className="bg-surface rounded-2xl border border-line shadow-sm overflow-hidden">
         <div className="p-6 border-b border-line bg-surface2/5">
-          <h1 className="text-xl font-bold text-ink">Nouveau Bon de Livraison</h1>
+          <h1 className="page-title">Nouveau Bon de Livraison</h1>
           <p className="text-sm text-ink2">Créez un BL à partir d'une facture existante</p>
         </div>
 
@@ -193,7 +194,7 @@ export default function NewDeliveryPage() {
             <button
               type="submit"
               disabled={loading || !form.invoiceId}
-              className="flex items-center gap-2 px-8 py-3 bg-section text-white rounded-xl font-bold hover:brightness-95 disabled:opacity-50 transition-all shadow-lg"
+              className={buttonClass("primary", "md")}
             >
               <Save className="w-4 h-4" />
               {loading ? "Création..." : "Générer le Bon de Livraison"}

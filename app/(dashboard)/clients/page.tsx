@@ -82,7 +82,7 @@ export default function ClientsPage() {
     { key: "phone", label: "Téléphone" },
     ...(!seeBalance ? [] : [{
       key: "currentBalance",
-      label: "Solde (XOF)",
+      label: "Solde (FCFA)",
       sortable: true,
       className: "text-right font-mono",
       render: (v) => {
@@ -132,7 +132,7 @@ export default function ClientsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Clients</h1>
+          <h1 className="page-title">Clients</h1>
           <p className="text-sm text-ink2 mt-0.5">{total} client{total > 1 ? "s" : ""}</p>
         </div>
         <button

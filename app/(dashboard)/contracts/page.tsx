@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Contract { _id:string; reference:string; title:string; type:string; clientId:{name:string}|null; amount:number; paymentMode:string; isRecurring:boolean; billingFrequency:string; status:string; startDate?:string; endDate?:string; nextBillingDate?:string; invoiceIds:string[]; }
 
 const PAYMENT_MODE_LABELS: Record<string,string> = {
@@ -43,7 +44,7 @@ export default function ContractsPage() {
     {key:"reference",label:"Réf.",className:"font-mono text-xs text-section",sortable:true},
     {key:"title",label:"Titre",render:(v,r)=><Link href={`/contracts/${r._id}`} className="text-ink hover:text-section hover:underline font-medium">{String(v)}</Link>},
     {key:"clientId",label:"Client",render:(v)=>typeof v==="object"&&v?(v as {name:string}).name:<span className="text-ink2">—</span>},
-    {key:"amount",label:"Montant (XOF)",className:"text-right font-mono",render:(v)=>Number(v)>0?Number(v).toLocaleString("fr-FR"):"—"},
+    {key:"amount",label:"Montant (FCFA)",className:"text-right font-mono",render:(v)=>Number(v)>0?Number(v).toLocaleString("fr-FR"):"—"},
     {key:"paymentMode",label:"Mode paiement",render:(v)=><span className="text-xs text-ink2">{PAYMENT_MODE_LABELS[String(v)]||String(v)}</span>},
     {key:"isRecurring",label:"Type",render:(v,r)=>v?<span className="text-xs bg-section-soft text-section px-2 py-0.5 rounded-full">{r.billingFrequency}</span>:<span className="text-xs bg-surface2 text-ink2 px-2 py-0.5 rounded-full">Ponctuel</span>},
     {key:"invoiceIds",label:"Factures",render:(v)=>{const arr=v as string[];return arr.length>0?<span className="text-xs bg-info-50 text-info px-2 py-0.5 rounded-full">{arr.length} facture{arr.length>1?"s":""}</span>:<span className="text-xs text-ink2">0</span>;}},
@@ -53,10 +54,10 @@ export default function ContractsPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Contrats</h1><p className="text-sm text-ink2 mt-0.5">{total} contrat{total>1?"s":""}</p></div>
+        <div><h1 className="page-title">Marchés & contrats clients</h1><p className="text-sm text-ink2 mt-0.5">{total} contrat{total>1?"s":""}</p></div>
         <div className="flex gap-2">
-          {canSeeMargins && <Link href="/contracts/rentabilite" className="px-4 py-2 border border-line2 rounded-lg text-sm font-medium hover:bg-surface2">Rentabilité des marchés</Link>}
-          <Link href="/contracts/new" className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouveau contrat</Link>
+          {canSeeMargins && <Link href="/contracts/rentabilite" className={buttonClass("secondary", "md")}>Rentabilité des marchés</Link>}
+          <Link href="/contracts/new" className={buttonClass("primary", "md")}>+ Nouveau contrat</Link>
         </div>
       </div>
       <div className="flex flex-wrap gap-3">

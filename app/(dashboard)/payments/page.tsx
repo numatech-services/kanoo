@@ -9,6 +9,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Payment {
   _id: string;
   invoiceId: { 
@@ -137,7 +138,7 @@ export default function PaymentsPage() {
       key: "amount", 
       label: "Montant", 
       className: "font-mono font-bold text-pos text-right",
-      render: (v) => `${Number(v).toLocaleString("fr-FR")} XOF` 
+      render: (v) => `${Number(v).toLocaleString("fr-FR")} FCFA` 
     },
     {
       key: "treasuryAccountId",
@@ -176,7 +177,7 @@ export default function PaymentsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Historique des Paiements</h1>
+          <h1 className="page-title">Encaissements</h1>
           <p className="text-sm text-ink2 mt-0.5">
             {total} encaissement{total > 1 ? "s" : ""} enregistré{total > 1 ? "s" : ""}
           </p>
@@ -245,7 +246,7 @@ function ConfirmDialog({ payment, onClose, onDone }: { payment: Payment; onClose
     <Modal open onClose={onClose} title="Confirmer l'encaissement" size="md">
       <div className="space-y-4">
         {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
-        <p className="text-sm text-ink2">{Number(payment.amount).toLocaleString("fr-FR")} XOF{payment.invoiceId?.number ? ` — facture ${payment.invoiceId.number}` : ""}. La facture, la comptabilité et la trésorerie sont mises à jour à la date indiquée.</p>
+        <p className="text-sm text-ink2">{Number(payment.amount).toLocaleString("fr-FR")} FCFA{payment.invoiceId?.number ? ` — facture ${payment.invoiceId.number}` : ""}. La facture, la comptabilité et la trésorerie sont mises à jour à la date indiquée.</p>
         <FormField label="Date réelle de l'encaissement" required>
           <input type="date" className={inputCls} value={date} max={today} onChange={e => setDate(e.target.value)} />
         </FormField>
@@ -256,7 +257,7 @@ function ConfirmDialog({ payment, onClose, onDone }: { payment: Payment; onClose
           </select>
         </FormField>
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm hover:bg-surface2">Annuler</button>
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
           <button onClick={submit} disabled={saving || !date || !accountId} className="px-5 h-10 rounded-lg bg-pos text-white text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Confirmer l'encaissement"}</button>
         </div>
       </div>

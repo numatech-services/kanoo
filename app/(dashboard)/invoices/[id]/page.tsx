@@ -10,6 +10,7 @@ import { PaymentForm } from "@/components/pme/PaymentForm";
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
 interface InvoiceLine { 
   description: string; 
   quantity: number; 
@@ -205,7 +206,7 @@ export default function InvoiceDetailPage() {
       )}
       {!isCreditNote && credited > 0 && (
         <p className="px-4 py-3 rounded-xl bg-warn-50 border border-warn/25 text-sm text-warn">
-          <strong className="num">{credited.toLocaleString("fr-FR")} XOF</strong> déjà
+          <strong className="num">{credited.toLocaleString("fr-FR")} FCFA</strong> déjà
           couverts par un ou plusieurs avoirs
           {credited >= invoice.totalTTC ? " — cette facture est intégralement créditée." : "."}
         </p>
@@ -230,7 +231,7 @@ export default function InvoiceDetailPage() {
           <button onClick={() => router.push("/invoices")} className="text-xs text-ink2 hover:text-ink">
             Retour aux factures
           </button>
-          <h1 className="text-2xl font-bold text-ink mt-1">{invoice.number}</h1>
+          <h1 className="page-title mt-1">{invoice.number}</h1>
         </div>
         <div className="flex gap-2 mt-2 flex-wrap">
           <button
@@ -244,7 +245,7 @@ export default function InvoiceDetailPage() {
           <button
             onClick={handlePrintDirect}
             disabled={isPrinting}
-            className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 transition-colors disabled:opacity-50"
+            className={buttonClass("secondary", "md")}
           >
             {isPrinting ? "Préparation..." : "Imprimer"}
           </button>
@@ -262,7 +263,7 @@ export default function InvoiceDetailPage() {
           {!isCreditNote && ["sent", "partial", "overdue"].includes(invoice.status) && remaining > 0 && (
             <>
               <button onClick={relancer} disabled={dunningBusy}
-                className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 disabled:opacity-50">
+                className={buttonClass("secondary", "md")}>
                 {dunningBusy ? "Envoi…" : "Relancer"}
               </button>
               <button onClick={toggleLitige} disabled={dunningBusy}
@@ -301,9 +302,9 @@ export default function InvoiceDetailPage() {
             {new Date(invoice.dueDate).toLocaleDateString("fr-FR")}
           </p>
         </div>
-        <div><p className="text-xs text-ink2">Total TTC</p><p className="font-mono font-bold text-ink mt-1">{invoice.totalTTC.toLocaleString("fr-FR")} XOF</p></div>
-        <div><p className="text-xs text-ink2">Encaissé</p><p className="font-mono font-bold text-pos mt-1">{invoice.paidAmount.toLocaleString("fr-FR")} XOF</p></div>
-        {remaining > 0 && <div><p className="text-xs text-ink2">Reste dû</p><p className="font-mono font-bold text-neg mt-1">{remaining.toLocaleString("fr-FR")} XOF</p></div>}
+        <div><p className="text-xs text-ink2">Total TTC</p><p className="font-mono font-bold text-ink mt-1">{invoice.totalTTC.toLocaleString("fr-FR")} FCFA</p></div>
+        <div><p className="text-xs text-ink2">Encaissé</p><p className="font-mono font-bold text-pos mt-1">{invoice.paidAmount.toLocaleString("fr-FR")} FCFA</p></div>
+        {remaining > 0 && <div><p className="text-xs text-ink2">Reste dû</p><p className="font-mono font-bold text-neg mt-1">{remaining.toLocaleString("fr-FR")} FCFA</p></div>}
       </div>
 
       {invoice.clientId && (
@@ -341,17 +342,17 @@ export default function InvoiceDetailPage() {
           <div className="w-56 space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-ink2">Sous-total HT</span>
-              <span className="font-mono">{invoice.totalHT.toLocaleString("fr-FR")} XOF</span>
+              <span className="font-mono">{invoice.totalHT.toLocaleString("fr-FR")} FCFA</span>
             </div>
             {invoice.totalTVA > 0 && (
               <div className="flex justify-between">
                 <span className="text-ink2">TVA</span>
-                <span className="font-mono">{invoice.totalTVA.toLocaleString("fr-FR")} XOF</span>
+                <span className="font-mono">{invoice.totalTVA.toLocaleString("fr-FR")} FCFA</span>
               </div>
             )}
             <div className="flex justify-between font-bold border-t border-line pt-2 text-base">
               <span>Total TTC</span>
-              <span className="font-mono text-section">{invoice.totalTTC.toLocaleString("fr-FR")} XOF</span>
+              <span className="font-mono text-section">{invoice.totalTTC.toLocaleString("fr-FR")} FCFA</span>
             </div>
           </div>
         </div>
@@ -449,7 +450,7 @@ export default function InvoiceDetailPage() {
                   <td style={{ padding: "10px 12px" }}>{line.description}</td>
                   <td style={{ padding: "10px 12px", textAlign: "center" }}>{line.quantity}</td>
                   <td style={{ padding: "10px 12px", textAlign: "right" }}>{line.unitPrice.toLocaleString("fr-FR")}</td>
-                  <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: "bold" }}>{line.totalTTC.toLocaleString("fr-FR")} XOF</td>
+                  <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: "bold" }}>{line.totalTTC.toLocaleString("fr-FR")} FCFA</td>
                 </tr>
               ))}
             </tbody>
@@ -460,17 +461,17 @@ export default function InvoiceDetailPage() {
             <div style={{ width: "260px", gap: "8px", display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", justifyContent: "space-between", color: "#555" }}>
                 <span>Sous-total HT :</span>
-                <span>{invoice.totalHT.toLocaleString("fr-FR")} XOF</span>
+                <span>{invoice.totalHT.toLocaleString("fr-FR")} FCFA</span>
               </div>
               {invoice.totalTVA > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", color: "#555" }}>
                   <span>TVA :</span>
-                  <span>{invoice.totalTVA.toLocaleString("fr-FR")} XOF</span>
+                  <span>{invoice.totalTVA.toLocaleString("fr-FR")} FCFA</span>
                 </div>
               )}
               <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px solid #333", paddingTop: "8px", fontSize: "14px", fontWeight: "bold", color: "#000" }}>
                 <span>TOTAL TTC :</span>
-                <span>{invoice.totalTTC.toLocaleString("fr-FR")} XOF</span>
+                <span>{invoice.totalTTC.toLocaleString("fr-FR")} FCFA</span>
               </div>
             </div>
           </div>

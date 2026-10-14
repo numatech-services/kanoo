@@ -17,7 +17,7 @@ export default function NewProductPage() {
   return (
     <div className="max-w-3xl space-y-5">
       <button onClick={() => router.back()} className="flex items-center gap-2 text-sm text-ink2 hover:text-ink"><ArrowLeft size={16} /> Retour au stock</button>
-      <h1 className="text-2xl font-bold text-ink">Nouvel article</h1>
+      <h1 className="page-title">Nouvel article</h1>
       <div className="bg-surface rounded-2xl border border-line p-6">
         <ProductForm creating onSave={save} onCancel={() => router.push("/stock")} />
       </div>

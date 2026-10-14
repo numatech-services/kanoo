@@ -43,7 +43,7 @@ export default function MandatementsPage() {
     <div className="space-y-6 rise">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-2xl font-black text-ink uppercase tracking-tight">Mandatements</h1>
+          <h1 className="page-title">Mandatements</h1>
           <p className="text-xs text-ink2 font-bold italic">Ordres de paiement et mise en règlement</p>
         </div>
         <div className="flex gap-2">
@@ -108,7 +108,7 @@ export default function MandatementsPage() {
                 <div className="flex items-center gap-8">
                     <div className="text-right">
                         <p className="text-lg font-black text-ink font-mono tracking-tighter">
-                            {item.amount.toLocaleString()} <span className="text-[10px] text-ink2/40">XOF</span>
+                            {item.amount.toLocaleString("fr-FR")} <span className="text-[10px] text-ink2/40">FCFA</span>
                         </p>
                         <p className="text-[9px] font-black text-pos uppercase flex items-center justify-end gap-1">
                             <span className="w-1.5 h-1.5 bg-pos rounded-full animate-pulse"></span>
@@ -127,7 +127,7 @@ export default function MandatementsPage() {
             <div className="w-16 h-16 bg-surface2/50 rounded-full flex items-center justify-center mx-auto text-ink2/30">
                 <Printer size={32} />
             </div>
-            <p className="text-[10px] font-black text-ink2/40 uppercase tracking-[0.3em] italic">
+            <p className="text-[10px] font-semibold text-ink2/40 uppercase tracking-[0.3em]">
                 Aucun mandat émis pour le moment
             </p>
           </div>

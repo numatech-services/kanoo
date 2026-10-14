@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
+import { buttonClass } from "@/components/ui/button-class";
 interface AssembleeFormProps { onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
 export function AssembleeForm({ onSave, onCancel }: AssembleeFormProps) {
   const [form, setForm] = useState({ title:"", type:"ordinary", date:"", location:"", quorumRequired:0, notes:"" });
@@ -19,8 +20,8 @@ export function AssembleeForm({ onSave, onCancel }: AssembleeFormProps) {
       <FormField label="Quorum requis (nb membres)"><input type="number" className={inputCls} value={form.quorumRequired} onChange={e=>u("quorumRequired",Number(e.target.value))} min={0} /></FormField>
       <FormField label="Notes préparatoires"><textarea className={textareaCls} rows={2} value={form.notes} onChange={e=>u("notes",e.target.value)} /></FormField>
       <div className="flex justify-end gap-3 pt-3 border-t border-line">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"…":"Créer l'assemblée"}</button>
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>Annuler</button>
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving?"…":"Créer l'assemblée"}</button>
       </div>
     </form>
   );

@@ -61,7 +61,7 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
     if (!fromKind || !toKind) return badRequest("Compte de trésorerie introuvable.");
     if (String(body.fromAccountId) === String(body.toAccountId)) return badRequest("Choisissez deux comptes différents.");
     const bal = await accountBalance(auth.tenantId, String(body.fromAccountId));
-    if (bal && bal.balance < amount && !body.allowOverdraft) return badRequest(`Solde insuffisant sur le compte débité (${bal.balance.toLocaleString("fr-FR")} XOF).`);
+    if (bal && bal.balance < amount && !body.allowOverdraft) return badRequest(`Solde insuffisant sur le compte débité (${bal.balance.toLocaleString("fr-FR")} FCFA).`);
     const src = ledgerFor(fromKind), dst = ledgerFor(toKind);
     const label = String(body.label || "Virement interne").slice(0, 200);
     const result = await withTransaction(async session => {
@@ -99,7 +99,7 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
     if (e) return badRequest(e);
     if (direction === "out") {
       const bal = await accountBalance(auth.tenantId, String(body.accountId));
-      if (bal && bal.balance < amount && !body.allowOverdraft) return badRequest(`Solde insuffisant (${bal.balance.toLocaleString("fr-FR")} XOF).`);
+      if (bal && bal.balance < amount && !body.allowOverdraft) return badRequest(`Solde insuffisant (${bal.balance.toLocaleString("fr-FR")} FCFA).`);
     }
     const ledger = ledgerFor(kind);
     const result = await withTransaction(async session => {

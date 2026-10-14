@@ -6,6 +6,7 @@ import { ArrowLeft, Upload, Check, QrCode } from "lucide-react";
 import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
 import { Inset } from "@/components/ui/Primitives";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Branding {
   primaryColor?: string; secondaryColor?: string;
   showLogo?: boolean; tagline?: string; legalFooter?: string;
@@ -90,7 +91,7 @@ export default function BrandingPage() {
         <Link href="/settings" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1">
           <ArrowLeft size={13} /> Réglages
         </Link>
-        <h1 className="text-2xl font-bold text-ink mt-1">Apparence des documents</h1>
+        <h1 className="page-title mt-1">Apparence des documents</h1>
         <p className="text-sm text-ink2">
           Logo, couleurs, mentions et QR de vos factures, devis et courriers. Chaque
           organisation a la sienne.
@@ -200,7 +201,7 @@ export default function BrandingPage() {
 
       <div className="flex justify-end">
         <button onClick={save} disabled={saving}
-          className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60 inline-flex items-center gap-2">
+          className={buttonClass("primary", "md")}>
           <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
       </div>

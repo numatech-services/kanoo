@@ -215,8 +215,8 @@ export function buildCreditNote(
     return {
       ok: false,
       error:
-        `L'avoir demandé (${totalTTC.toLocaleString("fr-FR")} XOF) dépasse le montant `
-        + `encore créditable (${remaining.toLocaleString("fr-FR")} XOF).`,
+        `L'avoir demandé (${totalTTC.toLocaleString("fr-FR")} FCFA) dépasse le montant `
+        + `encore créditable (${remaining.toLocaleString("fr-FR")} FCFA).`,
     };
   }
 

@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { EmployeeForm, type EmployeeFormData } from "@/components/pme/EmployeeForm";
 import { useMe, meCan } from "@/lib/useMe";
 
+import { AlertTriangle } from "lucide-react";
 interface Employee {
   _id:string; code:string; firstName:string; lastName:string; position:string; department?:string;
   employeeType:string; contractNature:string;
@@ -66,7 +67,7 @@ export default function EmployeesPage() {
     {key:"employeeType",label:"Type",render:(v)=><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[String(v)]||""}`}>{TYPE_LABELS[String(v)]||String(v)}</span>},
     {key:"contractNature",label:"Contrat",render:(v)=><span className="text-xs text-ink2">{CONTRACT_LABELS[String(v)]||String(v)}</span>},
     {key:"position",label:"Poste",sortable:true},
-    ...(!payroll ? [] : [{key:"grossSalary",label:"Rémunération (XOF)",className:"text-right font-mono",render:(v,r)=>{
+    ...(!payroll ? [] : [{key:"grossSalary",label:"Rémunération (FCFA)",className:"text-right font-mono",render:(v,r)=>{
       const amount = r.employeeType==="employee" ? r.grossSalary : r.indemnity;
       const label = r.employeeType==="employee" ? "brut" : r.indemnityPeriod==="monthly"?"mois":r.indemnityPeriod;
       return amount>0?`${amount.toLocaleString("fr-FR")} / ${label}`:"—";
@@ -74,7 +75,7 @@ export default function EmployeesPage() {
     {key:"contractEndDate",label:"Fin de contrat",render:(v)=>{
       if(!v) return <span className="text-ink2 text-xs">CDI / Sans fin</span>;
       const expiring = isExpiringSoon(String(v));
-      return <span className={`text-sm ${expiring?"text-warn font-semibold":"text-ink2"}`}>{new Date(String(v)).toLocaleDateString("fr-FR")}{expiring?" ⚠":""}</span>;
+      return <span className={`text-sm ${expiring?"text-warn font-semibold":"text-ink2"}`}>{new Date(String(v)).toLocaleDateString("fr-FR")}{expiring?" (bientôt)":""}</span>;
     }},
     {key:"isActive",label:"",render:(v)=><StatusBadge status={v?"active":"inactive"}/>},
   ];
@@ -85,7 +86,7 @@ export default function EmployeesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Ressources humaines</h1>
+          <h1 className="page-title">Ressources humaines</h1>
           <p className="text-sm text-ink2 mt-0.5">{total} collaborateur{total>1?"s":""}</p>
         </div>
         <button onClick={()=>{setEditing(null);setModalOpen(true);}} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouveau collaborateur</button>
@@ -93,7 +94,7 @@ export default function EmployeesPage() {
 
       {alertCount > 0 && (
         <div className="bg-warn-50 border border-warn/25 rounded-xl p-3 flex items-center gap-3">
-          <span className="text-warn font-bold">⚠</span>
+          <span className="text-warn font-bold inline-flex" aria-hidden><AlertTriangle size={16} /></span>
           <p className="text-sm text-warn">{alertCount} contrat{alertCount>1?"s":""} expire{alertCount===1?"":"nt"} dans les 30 prochains jours.</p>
         </div>
       )}

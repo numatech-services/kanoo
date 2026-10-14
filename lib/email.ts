@@ -209,7 +209,7 @@ export function templateInvoiceReminder(invoiceNumber: string, amount: number, d
     subject: `Rappel — Facture ${invoiceNumber} en attente de règlement`,
     html: emailWrapper(`
       <h2 style="color:#2F3E46;font-size:20px;margin:0 0 12px;">Rappel de paiement</h2>
-      <p>La facture <strong>${invoiceNumber}</strong> d'un montant de <strong style="color:#2F3E46;">${amount.toLocaleString("fr-FR")} XOF</strong> est en attente de règlement.</p>
+      <p>La facture <strong>${invoiceNumber}</strong> d'un montant de <strong style="color:#2F3E46;">${amount.toLocaleString("fr-FR")} FCFA</strong> est en attente de règlement.</p>
       <div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:12px 16px;margin:16px 0;">
         <p style="margin:0;color:#92400E;">⏰ Date d'échéance : <strong>${dueDate.toLocaleDateString("fr-FR")}</strong></p>
       </div>
@@ -248,7 +248,7 @@ export function templatePaymentConfirmation(tenantName: string, amount: number, 
       <div style="background:#F0FDF4;border:1px solid #86EFAC;border-radius:8px;padding:16px;margin:16px 0;">
         <table style="width:100%;font-size:13px;border-collapse:collapse;">
           <tr><td style="color:#6B7280;padding:4px 0;">Plan</td><td style="text-align:right;font-weight:600;color:#2F3E46;">${plan}</td></tr>
-          <tr><td style="color:#6B7280;padding:4px 0;">Montant</td><td style="text-align:right;font-weight:600;color:#2F3E46;">${amount.toLocaleString("fr-FR")} XOF</td></tr>
+          <tr><td style="color:#6B7280;padding:4px 0;">Montant</td><td style="text-align:right;font-weight:600;color:#2F3E46;">${amount.toLocaleString("fr-FR")} FCFA</td></tr>
           <tr><td style="color:#6B7280;padding:4px 0;">Référence</td><td style="text-align:right;font-family:monospace;color:#2F3E46;">${reference}</td></tr>
         </table>
       </div>

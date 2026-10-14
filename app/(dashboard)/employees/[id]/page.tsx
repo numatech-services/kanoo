@@ -81,7 +81,7 @@ export default function EmployeeDetailPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <Link href="/employees" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Collaborateurs</Link>
-          <h1 className="text-2xl font-bold text-ink mt-1">{e.firstName} {e.lastName}</h1>
+          <h1 className="page-title mt-1">{e.firstName} {e.lastName}</h1>
           <p className="text-sm text-ink2">{e.position} · {TYPE[e.employeeType] ?? e.employeeType} · <span className="font-mono">{e.code}</span>
             {" · "}<span className={e.isActive ? "text-pos" : "text-neg"}>{e.isActive ? "en poste" : `sorti le ${d(e.endDate)}`}</span></p>
         </div>
@@ -110,9 +110,9 @@ export default function EmployeeDetailPage() {
         </section>
         {payroll && !e.payrollHidden && (
           <section className="bg-surface rounded-xl border border-line p-4"><h2 className="font-semibold text-ink mb-2">Rémunération</h2>
-            {rows([[e.employeeType === "employee" ? "Salaire de base" : "Indemnité", `${fmt(e.employeeType === "employee" ? e.grossSalary : e.indemnity)} XOF${e.employeeType !== "employee" && e.indemnityPeriod ? ` / ${e.indemnityPeriod}` : ""}`],
+            {rows([[e.employeeType === "employee" ? "Salaire de base" : "Indemnité", `${fmt(e.employeeType === "employee" ? e.grossSalary : e.indemnity)} FCFA${e.employeeType !== "employee" && e.indemnityPeriod ? ` / ${e.indemnityPeriod}` : ""}`],
               ["CNSS / IR", `${e.includeCnss !== false ? "CNSS" : "sans CNSS"} · ${e.includeIr !== false ? "IR" : "sans IR"}`],
-              ["Retenue permanente", e.otherDeductionAmount ? `${e.otherDeductionLabel ?? "Retenue"} : ${fmt(e.otherDeductionAmount)} XOF` : "—"],
+              ["Retenue permanente", e.otherDeductionAmount ? `${e.otherDeductionLabel ?? "Retenue"} : ${fmt(e.otherDeductionAmount)} FCFA` : "—"],
               ["Paiement", [e.bankName, e.bankAccount].filter(Boolean).join(" · ")]])}
           </section>
         )}

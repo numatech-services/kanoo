@@ -6,6 +6,17 @@ import { sectionForPath } from "@/lib/sections";
 const root = path.resolve(__dirname, "../..");
 const read = (p: string) => fs.readFileSync(path.join(root, p), "utf8");
 
+const files: string[] = [];
+const walk = (dir: string) => {
+  for (const e of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walk(p);
+    else if (/\.tsx?$/.test(e.name)) files.push(p);
+  }
+};
+walk("app");
+walk("components");
+
 describe("Modules optionnels", () => {
   it("rattache chaque écran optionnel à son module, et le socle à aucun", () => {
     expect(moduleForHref("/comptoir")).toBe("comptoir");
@@ -63,17 +74,6 @@ describe("Menu en espaces", () => {
 });
 
 describe("Dialogues de l'application", () => {
-  const files: string[] = [];
-  const walk = (dir: string) => {
-    for (const e of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (/\.tsx?$/.test(e.name)) files.push(p);
-    }
-  };
-  walk("app");
-  walk("components");
-
   it("n'emploie plus alert / confirm / prompt du navigateur", () => {
     const offenders = files
       .filter(f => !f.endsWith(path.join("ui", "Dialogs.tsx")))
@@ -83,5 +83,27 @@ describe("Dialogues de l'application", () => {
 
   it("monte l'hôte des dialogues une fois, à la racine", () => {
     expect(read("app/layout.tsx")).toMatch(/<DialogHost \/>/);
+  });
+});
+
+describe("Glossaire", () => {
+  it("écrit les montants en FCFA, entiers, séparés à la française", () => {
+    const { formatMoney, formatMoneyShort, formatDate } = jest.requireActual("@/lib/format") as typeof import("@/lib/format");
+    expect(formatMoney(1250000).replace(/\s/g, " ")).toBe("1 250 000 FCFA");
+    expect(formatMoney(null, { dash: true })).toBe("—");
+    expect(formatMoneyShort(2_500_000).replace(/\s/g, " ")).toBe("2,5 M FCFA");
+    expect(formatDate(undefined)).toBe("—");
+  });
+
+  it("n'affiche plus XOF à l'écran (le code ISO reste en base)", () => {
+    const shown = files.filter(f => /(^|[^A-Za-z_"'])XOF([^A-Za-z_"']|$)/m.test(read(f)));
+    expect(shown).toEqual([]);
+  });
+
+  it("donne un libellé français à chaque statut des modèles", () => {
+    const badge = read("components/ui/StatusBadge.tsx");
+    for (const s of ["accepted", "invoiced", "delivered", "in_progress", "won", "printed", "validated", "effective"]) {
+      expect(badge).toMatch(new RegExp(`\\b${s}:\\s*\\{`));
+    }
   });
 });

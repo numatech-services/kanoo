@@ -11,6 +11,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 import { showToast } from "@/components/ui/Toast";
+import { buttonClass } from "@/components/ui/button-class";
 interface Devis { _id:string; number:string; clientId:{name:string}|null|string; totalHT:number; totalTTC:number; status:string; issueDate:string; validUntil:string; convertedToInvoiceId?:string; contractId?:string; }
 
 export default function DevisPage() {
@@ -54,8 +55,8 @@ export default function DevisPage() {
     {key:"clientId",label:"Client",render:(v)=>typeof v==="object"&&v?(v as {name:string}).name:"—"},
     {key:"issueDate",label:"Date",render:(v)=>new Date(String(v)).toLocaleDateString("fr-FR")},
     {key:"validUntil",label:"Validité",render:(v)=>{const d=new Date(String(v));const expired=d<new Date();return<span className={expired?"text-neg text-sm":"text-ink2 text-sm"}>{d.toLocaleDateString("fr-FR")}</span>;}},
-    {key:"totalHT",label:"HT (XOF)",className:"text-right font-mono",render:(v)=>Number(v).toLocaleString("fr-FR")},
-    {key:"totalTTC",label:"TTC (XOF)",className:"text-right font-mono font-semibold",render:(v)=>Number(v).toLocaleString("fr-FR")},
+    {key:"totalHT",label:"HT (FCFA)",className:"text-right font-mono",render:(v)=>Number(v).toLocaleString("fr-FR")},
+    {key:"totalTTC",label:"TTC (FCFA)",className:"text-right font-mono font-semibold",render:(v)=>Number(v).toLocaleString("fr-FR")},
     {key:"status",label:"Statut",render:(v)=><StatusBadge status={String(v)}/>},
     {key:"_id",label:"Actions",render:(v,row)=>row.contractId
       ? <Link href={`/contracts/${row.contractId}`} className="text-xs text-section font-semibold hover:underline">Marché →</Link>
@@ -77,8 +78,8 @@ export default function DevisPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Devis</h1><p className="text-sm text-ink2">{total} devis</p></div>
-        <Link href="/devis/new" className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouveau devis</Link>
+        <div><h1 className="page-title">Devis</h1><p className="text-sm text-ink2">{total} devis</p></div>
+        <Link href="/devis/new" className={buttonClass("primary", "md")}>+ Nouveau devis</Link>
       </div>
 
       <div className="bg-warn-50 border border-warn/25 rounded-xl p-3 text-xs text-warn">

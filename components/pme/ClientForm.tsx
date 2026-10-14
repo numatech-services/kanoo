@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { LogoPicker } from "@/components/ui/LogoPicker";
 
+import { buttonClass } from "@/components/ui/button-class";
 export interface ClientFormData {
   code: string;
   name: string;
@@ -137,7 +138,7 @@ export function ClientForm({ initial, onSave, onCancel }: ClientFormProps) {
         </legend>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className={labelCls}>Limite de crédit (XOF)</label>
+            <label className={labelCls}>Limite de crédit (FCFA)</label>
             <input type="number" className={inputCls} value={form.creditLimit} onChange={(e) => update("creditLimit", Number(e.target.value))} min={0} />
           </div>
           <div>
@@ -167,10 +168,10 @@ export function ClientForm({ initial, onSave, onCancel }: ClientFormProps) {
 
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-2 border-t border-line">
-        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm border border-line rounded-lg text-ink2 hover:bg-surface2 transition-colors">
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>
           Annuler
         </button>
-        <button type="submit" disabled={saving} className="px-5 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors disabled:opacity-60">
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>
           {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
       </div>

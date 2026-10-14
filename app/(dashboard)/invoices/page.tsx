@@ -10,6 +10,8 @@ import { Pagination } from "@/components/ui/Pagination";
 import { showToast } from "@/components/ui/Toast";
 import { urlParam } from "@/lib/url-param";
 
+import { buttonClass } from "@/components/ui/button-class";
+import { formatMoney } from "@/lib/format";
 interface Invoice {
   _id: string;
   number: string;
@@ -36,10 +38,6 @@ const STATUS_OPTIONS = [
   { value: "cancelled", label: "Annulées" },
 ];
 
-function formatXOF(n: number) {
-  if (n === undefined || n === null) return "0 XOF";
-  return n.toLocaleString("fr-FR") + " XOF";
-}
 
 function formatDate(d: string) {
   if (!d) return "—";
@@ -165,13 +163,13 @@ export default function InvoicesPage() {
       label: "Montant TTC",
       sortable: true,
       className: "text-right font-mono font-semibold",
-      render: (v) => formatXOF(Number(v || 0)),
+      render: (v) => formatMoney(Number(v || 0)),
     },
     {
       key: "paidAmount",
       label: "Payé",
       className: "text-right font-mono text-pos",
-      render: (v) => <span>{Number(v) > 0 ? formatXOF(Number(v)) : "—"}</span>,
+      render: (v) => <span>{Number(v) > 0 ? formatMoney(Number(v)) : "—"}</span>,
     },
     {
       key: "status",
@@ -185,7 +183,7 @@ export default function InvoicesPage() {
         <div className="flex items-center gap-2">
           <Link
             href={`/invoices/${row._id}`}
-            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-line rounded-lg text-ink2 hover:bg-surface2 hover:text-ink transition-colors"
+            className={buttonClass("secondary", "sm")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-3.5 h-3.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
@@ -216,13 +214,13 @@ export default function InvoicesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Factures clients</h1>
+          <h1 className="page-title">Factures clients</h1>
           <p className="text-sm text-ink2 mt-0.5">{total} facture{total > 1 ? "s" : ""}</p>
         </div>
         <IfCan resource="invoices">
         <Link
           href="/invoices/new"
-          className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors"
+          className={buttonClass("primary", "md")}
         >
           + Nouvelle facture
         </Link>
@@ -351,7 +349,7 @@ export default function InvoicesPage() {
                 <td style={{ padding: "10px 12px" }}>{line.description}</td>
                 <td style={{ padding: "10px 12px", textAlign: "center" }}>{line.quantity}</td>
                 <td style={{ padding: "10px 12px", textAlign: "right" }}>{(line.unitPrice || line.price || 0).toLocaleString("fr-FR")}</td>
-                <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: "bold" }}>{formatXOF(line.totalTTC || 0)}</td>
+                <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: "bold" }}>{formatMoney(line.totalTTC || 0)}</td>
               </tr>
             ))
           ) : (
@@ -359,7 +357,7 @@ export default function InvoicesPage() {
               <td style={{ padding: "10px 12px" }}>Prestation de services (Global)</td>
               <td style={{ padding: "10px 12px", textAlign: "center" }}>1</td>
               <td style={{ padding: "10px 12px", textAlign: "right" }}>{(invoiceToPrint.totalHT || 0).toLocaleString("fr-FR")}</td>
-              <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: "bold" }}>{formatXOF(invoiceToPrint.totalTTC || 0)}</td>
+              <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: "bold" }}>{formatMoney(invoiceToPrint.totalTTC || 0)}</td>
             </tr>
           )}
         </tbody>
@@ -370,15 +368,15 @@ export default function InvoicesPage() {
         <div style={{ width: "260px", gap: "8px", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", justifyContent: "space-between", color: "#555" }}>
             <span>Sous-total HT :</span>
-            <span>{formatXOF(invoiceToPrint.totalHT || 0)}</span>
+            <span>{formatMoney(invoiceToPrint.totalHT || 0)}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", color: "#555" }}>
             <span>TVA :</span>
-            <span>{formatXOF(invoiceToPrint.totalTVA || 0)}</span>
+            <span>{formatMoney(invoiceToPrint.totalTVA || 0)}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px solid #333", paddingTop: "8px", fontSize: "14px", fontWeight: "bold", color: "#000" }}>
             <span>TOTAL TTC :</span>
-            <span>{formatXOF(invoiceToPrint.totalTTC || 0)}</span>
+            <span>{formatMoney(invoiceToPrint.totalTTC || 0)}</span>
           </div>
         </div>
       </div>

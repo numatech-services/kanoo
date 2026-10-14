@@ -1,13 +1,15 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Star, Power, Trash2, Warehouse } from "lucide-react";
+import { Plus, Star, Power, Trash2, Warehouse } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { KIND_LABEL, type WarehouseLite } from "@/components/stock/useWarehouses";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
+import { StockTabs } from "@/components/stock/StockTabs";
 const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function send(url: string, method: string, body?: unknown) {
@@ -36,10 +38,10 @@ export default function WarehousesPage() {
 
   return (
     <div className="space-y-5 max-w-5xl">
+      <StockTabs />
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <Link href="/stock" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Stock</Link>
-          <h1 className="text-2xl font-bold text-ink mt-1 flex items-center gap-2"><Warehouse size={22} className="text-section" /> Entrepôts</h1>
+          <h1 className="page-title mt-1 flex items-center gap-2"><Warehouse size={22} className="text-section" /> Entrepôts</h1>
           <p className="text-sm text-ink2">Le stock de chaque article est tenu par entrepôt. Chaque comptoir The Spot a sa réserve.</p>
         </div>
         <div className="flex gap-2 items-center">
@@ -58,9 +60,9 @@ export default function WarehousesPage() {
               </div>
             </div>
             {w.address && <p className="text-xs text-ink2">{w.address}</p>}
-            <p className="text-sm">{w.articles ?? 0} article(s) · {fmt(w.units ?? 0)} unité(s) · <b>{fmt(w.value ?? 0)} XOF</b></p>
+            <p className="text-sm">{w.articles ?? 0} article(s) · {fmt(w.units ?? 0)} unité(s) · <b>{fmt(w.value ?? 0)} FCFA</b></p>
             <div className="flex gap-2 pt-1 flex-wrap">
-              <Link href={`/stock?warehouseId=${w._id}`} className="px-2 h-8 inline-flex items-center rounded-md border border-line2 text-xs hover:bg-surface2">Voir le stock</Link>
+              <Link href={`/stock?warehouseId=${w._id}`} className={buttonClass("secondary", "sm")}>Voir le stock</Link>
               {canEdit && !w.isDefault && w.kind !== "comptoir" && w.isActive !== false && <button onClick={() => run(() => send(`/api/warehouses/${w._id}`, "PATCH", { isDefault: true }))} className="px-2 h-8 inline-flex items-center gap-1 rounded-md border border-line2 text-xs hover:bg-surface2"><Star size={12} /> Par défaut</button>}
               {canEdit && !w.isDefault && <button onClick={() => run(() => send(`/api/warehouses/${w._id}`, "PATCH", { isActive: w.isActive === false }))} className="px-2 h-8 inline-flex items-center gap-1 rounded-md border border-line2 text-xs hover:bg-surface2"><Power size={12} /> {w.isActive === false ? "Réactiver" : "Désactiver"}</button>}
               {canEdit && <button onClick={async () => { const name = await promptDialog({ title: "Renommer l'entrepôt", label: "Nom", defaultValue: w.name, required: true }); if (!name) return; const address = await promptDialog({ title: "Adresse de l'entrepôt", label: "Adresse", defaultValue: w.address ?? "" }); run(() => send(`/api/warehouses/${w._id}`, "PATCH", { name, address: address ?? w.address })); }} className="px-2 h-8 inline-flex items-center rounded-md border border-line2 text-xs hover:bg-surface2">Renommer</button>}

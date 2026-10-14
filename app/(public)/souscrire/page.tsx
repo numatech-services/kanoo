@@ -3,6 +3,8 @@ import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+import { Building2, Handshake, Landmark, PartyPopper } from "lucide-react";
+import { buttonClass } from "@/components/ui/button-class";
 function SouscrireForm() {
   const searchParams = useSearchParams();
   const planFromUrl = searchParams.get("plan") || "starter";
@@ -31,10 +33,10 @@ function SouscrireForm() {
 
   if (success) return (
     <div className="text-center py-8 space-y-4">
-      <span className="text-5xl">🎉</span>
+      <span className="text-ink3 inline-flex" aria-hidden><PartyPopper size={44} /></span>
       <h2 className="text-2xl font-bold text-ink">Inscription réussie !</h2>
       <p className="text-ink2">Vérifiez votre email pour activer votre compte. Votre essai gratuit de 30 jours commence dès l'activation.</p>
-      <Link href="/login" className="inline-block px-6 py-3 bg-section text-white rounded-xl font-medium hover:brightness-95 transition-colors">Aller à la connexion</Link>
+      <Link href="/login" className={buttonClass("primary", "md")}>Aller à la connexion</Link>
     </div>
   );
 
@@ -48,14 +50,14 @@ function SouscrireForm() {
           <div><label className={lbl}>Nom de l'organisation *</label><input className={inp} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Ex: SARL Maison des Idées" required /></div>
           <div><label className={lbl}>Profil *</label>
             <div className="grid grid-cols-3 gap-3 mt-1">
-              {[{v:"pme",l:"PME",i:"🏢"},{v:"association",l:"Association",i:"🤝"},{v:"administration",l:"Administration",i:"🏛️"}].map(opt=>(
+              {[{v:"pme",l:"PME",i: <Building2 size={20} />},{v:"association",l:"Association",i: <Handshake size={20} />},{v:"administration",l:"Administration",i: <Landmark size={20} />}].map(opt=>(
                 <button key={opt.v} type="button" onClick={()=>setForm(p=>({...p,type:opt.v}))} className={`py-3 rounded-xl border-2 text-sm font-medium transition-all ${form.type===opt.v?"border-section bg-section/5 text-section":"border-line text-ink2 hover:border-section/30"}`}>{opt.i}<br/>{opt.l}</button>
               ))}
             </div>
           </div>
           <div><label className={lbl}>Email de l'organisation *</label><input type="email" className={inp} value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} required /></div>
           <div><label className={lbl}>Téléphone</label><input className={inp} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))} placeholder="+227 XX XX XX XX" /></div>
-          <button type="submit" className="w-full py-3 bg-section text-white rounded-xl font-medium hover:brightness-95 transition-colors">Continuer →</button>
+          <button type="submit" className={buttonClass("primary", "md", "w-full")}>Continuer →</button>
         </>
       )}
 
@@ -68,10 +70,10 @@ function SouscrireForm() {
           </div>
           <div><label className={lbl}>Email de connexion *</label><input type="email" className={inp} value={form.adminEmail} onChange={e=>setForm(p=>({...p,adminEmail:e.target.value}))} required /></div>
           <div><label className={lbl}>Mot de passe *</label><input type="password" className={inp} value={form.adminPassword} onChange={e=>setForm(p=>({...p,adminPassword:e.target.value}))} placeholder="Minimum 8 caractères" required minLength={8} /></div>
-          <div className="bg-pos-50 border border-pos/25 rounded-xl p-3 text-xs text-pos">✅ 30 jours d'essai gratuit — Aucune carte bancaire requise</div>
+          <div className="bg-pos-50 border border-pos/25 rounded-xl p-3 text-xs text-pos">30 jours d'essai gratuit — Aucune carte bancaire requise</div>
           <div className="flex gap-3">
             <button type="button" onClick={()=>setStep(1)} className="px-4 py-3 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">← Retour</button>
-            <button type="submit" disabled={loading} className="flex-1 py-3 bg-section text-white rounded-xl font-medium hover:brightness-95 transition-colors disabled:opacity-60">{loading?"Création…":"Créer mon compte gratuit"}</button>
+            <button type="submit" disabled={loading} className={buttonClass("primary", "md", "flex-1")}>{loading?"Création…":"Créer mon compte gratuit"}</button>
           </div>
         </>
       )}

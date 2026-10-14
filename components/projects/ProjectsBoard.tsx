@@ -96,7 +96,7 @@ export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary })
             <span className="h-8 w-8 rounded-xl bg-section-soft text-section flex items-center justify-center">
               <FolderKanban size={17} />
             </span>
-            <h1 className="text-2xl font-bold text-ink">{vocabulary.plural}</h1>
+            <h1 className="page-title">{vocabulary.plural}</h1>
           </div>
           <p className="text-sm text-ink2 mt-1">
             {projects.length} {projects.length > 1 ? "projets" : "projet"}
@@ -208,7 +208,7 @@ export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary })
                     style={{ width: `${Math.min(budgetRate, 100)}%` }} />
                 </div>
                 <p className="text-[10px] text-right mt-1 text-ink3 num">
-                  {cost.toLocaleString("fr-FR")} / {(p.budget || 0).toLocaleString("fr-FR")} XOF
+                  {cost.toLocaleString("fr-FR")} / {(p.budget || 0).toLocaleString("fr-FR")} FCFA
                 </p>
               </div>}
 

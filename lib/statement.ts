@@ -194,7 +194,7 @@ export function withOpenItems(statement: Statement, openItems: OpenItem[], asOf:
  * en trente. Un relevé qu'on n'a pas le temps de lire ne se paie pas.
  */
 export function summarySentence(totals: StatementTotals): string {
-  const xof = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} XOF`;
+  const xof = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} FCFA`;
 
   if (totals.closingBalance <= 0) {
     return totals.closingBalance < 0

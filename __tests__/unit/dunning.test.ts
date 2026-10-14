@@ -151,7 +151,7 @@ describe("Plan d'exécution", () => {
     const plan = planRun([invoice({ totalTTC: 3_000 })], CLIENTS, settings(), [], MONDAY);
     expect(plan.actions).toHaveLength(0);
     expect(plan.skipped[0].reason).toBe("below_min_amount");
-    expect(flat(plan.skipped[0].message)).toContain("3 000 XOF, sous le seuil de 5 000");
+    expect(flat(plan.skipped[0].message)).toContain("3 000 FCFA, sous le seuil de 5 000");
   });
 
   it("suspend la relance d'une facture en litige", () => {
@@ -289,7 +289,7 @@ describe("Rédaction", () => {
     for (const step of DEFAULT_DUNNING_STEPS) {
       const body = composeBody(step.tone, ctx);
       expect(body).toContain("FA-2026-0001");
-      expect(flat(body)).toContain("1 200 000 XOF");
+      expect(flat(body)).toContain("1 200 000 FCFA");
       expect(composeSubject(step.tone, ctx)).toContain("FA-2026-0001");
     }
   });

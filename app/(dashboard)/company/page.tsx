@@ -8,6 +8,7 @@ import { LogoPicker } from "@/components/ui/LogoPicker";
 import { Inset } from "@/components/ui/Primitives";
 import { invalidateMe } from "@/lib/useMe";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Company {
   name?: string; type?: string; nif?: string; rccm?: string;
   address?: string; phone?: string; email?: string; logo?: string;
@@ -62,7 +63,7 @@ export default function CompanyPage() {
     <div className="space-y-6 max-w-3xl">
       <div>
         <Link href="/settings" className="text-xs text-ink2 hover:text-ink">← Réglages</Link>
-        <h1 className="text-2xl font-bold text-ink mt-1 flex items-center gap-2"><Building2 size={22} /> Mon organisation</h1>
+        <h1 className="page-title mt-1 flex items-center gap-2"><Building2 size={22} /> Mon organisation</h1>
         <p className="text-sm text-ink2">
           Identité légale et logo de votre organisation
           {form.type ? ` — ${TYPE_LABEL[form.type] || form.type}` : ""}.
@@ -111,7 +112,7 @@ export default function CompanyPage() {
 
       <div className="flex justify-end">
         <button onClick={save} disabled={saving}
-          className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60 inline-flex items-center gap-2">
+          className={buttonClass("primary", "md")}>
           <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
       </div>

@@ -28,7 +28,7 @@ export interface ReportContext {
 }
 
 function fmtCfa(n: number): string {
-  return `${Math.round(n).toLocaleString("fr-FR").replace(/ | /g, " ")} F CFA`;
+  return `${Math.round(n).toLocaleString("fr-FR").replace(/ | /g, " ")} FCFA`;
 }
 
 async function safe<T>(op: () => Promise<T>, fallback: T): Promise<T> {

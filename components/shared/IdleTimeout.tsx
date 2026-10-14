@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { buttonClass } from "@/components/ui/button-class";
 /**
  * Déconnexion automatique après une période d'inactivité.
  *
@@ -116,7 +117,7 @@ export function IdleTimeout() {
           <span className="font-bold text-ink tabular-nums">{remaining}</span> seconde{remaining > 1 ? "s" : ""}.
         </p>
         <button onClick={stayConnected}
-          className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+          className={buttonClass("primary", "md", "w-full")}>
           Rester connecté
         </button>
       </div>

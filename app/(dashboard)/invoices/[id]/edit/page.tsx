@@ -92,7 +92,7 @@ export default function EditInvoicePage() {
         <button onClick={() => router.push(`/invoices/${id}`)} className="text-xs text-ink2 hover:text-ink">
           Retour au détail
         </button>
-        <h1 className="text-2xl font-bold text-ink mt-1">Modifier la facture</h1>
+        <h1 className="page-title mt-1">Modifier la facture</h1>
       </div>
 
       <div className="bg-surface rounded-2xl border border-line p-6">

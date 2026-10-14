@@ -112,14 +112,14 @@ export async function payPurchase(
   const rest = p.totalTTC - p.paidAmount;
   const amount = input.amount === undefined || input.amount === "" ? rest : Math.round(Number(input.amount));
   if (!(amount > 0)) throw new PurchaseError("Montant du règlement invalide.");
-  if (amount > rest) throw new PurchaseError(`Le règlement dépasse le reste à payer (${rest.toLocaleString("fr-FR")} XOF).`);
+  if (amount > rest) throw new PurchaseError(`Le règlement dépasse le reste à payer (${rest.toLocaleString("fr-FR")} FCFA).`);
   const accountId = input.treasuryAccountId;
   if (!accountId || !Types.ObjectId.isValid(String(accountId))) throw new PurchaseError("Choisissez le compte de trésorerie qui paie.");
   const kind = await treasuryKind(auth.tenantId, accountId, session);
   if (!kind) throw new PurchaseError("Compte de trésorerie introuvable.");
   if (!input.allowOverdraft) {
     const bal = await accountBalance(auth.tenantId, String(accountId), session);
-    if (bal && bal.balance < amount) throw new PurchaseError(`Solde insuffisant sur ce compte (${bal.balance.toLocaleString("fr-FR")} XOF).`);
+    if (bal && bal.balance < amount) throw new PurchaseError(`Solde insuffisant sur ce compte (${bal.balance.toLocaleString("fr-FR")} FCFA).`);
   }
   const date = input.date ? new Date(String(input.date)) : new Date();
   if (isNaN(date.getTime())) throw new PurchaseError("Date de règlement invalide.");

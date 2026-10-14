@@ -12,6 +12,7 @@ import { BarChart } from "@/components/ui/charts/BarChart";
 import { DonutChart } from "@/components/ui/charts/DonutChart";
 import { compactXof, fullXof } from "@/components/ui/charts/geometry";
 
+import { buttonClass } from "@/components/ui/button-class";
 const MONTHS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jui", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 
 interface Reconciliation {
@@ -127,7 +128,7 @@ export default function AbonnementsPage() {
             <span className="h-8 w-8 rounded-xl bg-section-soft text-section flex items-center justify-center">
               <Repeat size={17} />
             </span>
-            <h1 className="text-2xl font-bold text-ink">Abonnements</h1>
+            <h1 className="page-title">Abonnements</h1>
           </div>
           <p className="text-sm text-ink2 mt-1">
             {totals.purchaseCount} contrat(s) souscrit(s) · {totals.saleCount} revente(s) ·{" "}
@@ -148,11 +149,11 @@ export default function AbonnementsPage() {
             size="sm"
           />
           <Link href="/abonnements/achats"
-            className="px-3 h-9 inline-flex items-center rounded-lg border border-line2 text-sm font-medium text-ink2 hover:bg-surface2">
+            className={buttonClass("secondary", "md")}>
             Contrats souscrits
           </Link>
           <Link href="/abonnements/reventes"
-            className="px-3 h-9 inline-flex items-center rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+            className={buttonClass("primary", "md")}>
             Reventes
           </Link>
         </div>

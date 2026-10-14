@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 import { PROJECT_STATUS_FR } from "@/lib/vocabulary";
 
+import { buttonClass } from "@/components/ui/button-class";
 export interface ProjectEditValue {
   name: string; description?: string; status: string; projectType?: string;
   clientId?: string | null; managerId?: string | null; startDate?: string; endDate?: string;
@@ -81,13 +82,13 @@ export function ProjectEditForm({ initial, showBudget, onSave, onCancel }: {
         </FormField>
         <FormField label="Début"><input type="date" className={inputCls} value={f.startDate} onChange={e => u("startDate", e.target.value)} /></FormField>
         <FormField label="Fin prévue"><input type="date" className={inputCls} value={f.endDate} onChange={e => u("endDate", e.target.value)} /></FormField>
-        {showBudget && <FormField label="Budget (XOF)"><input type="number" min={0} className={inputCls} value={f.budget} onChange={e => u("budget", Number(e.target.value))} /></FormField>}
+        {showBudget && <FormField label="Budget (FCFA)"><input type="number" min={0} className={inputCls} value={f.budget} onChange={e => u("budget", Number(e.target.value))} /></FormField>}
         <FormField label="Bailleur / financeur"><input className={inputCls} value={f.bailleurName} onChange={e => u("bailleurName", e.target.value)} /></FormField>
       </div>
       <FormField label="Description"><textarea className={textareaCls} rows={3} value={f.description} onChange={e => u("description", e.target.value)} /></FormField>
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-        <button type="submit" disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer"}</button>
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>Annuler</button>
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving ? "Enregistrement…" : "Enregistrer"}</button>
       </div>
     </form>
   );

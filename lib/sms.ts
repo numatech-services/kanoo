@@ -96,7 +96,7 @@ async function sendAfricasTalkingSMS(to: string, message: string): Promise<boole
 // ─── Templates SMS ────────────────────────────────────────────────────────────
 
 export function smsFactureRelance(invoiceNumber: string, amount: number): string {
-  return `Kanoo: Facture ${invoiceNumber} de ${amount.toLocaleString("fr-FR")} XOF en attente. Merci de régler.`;
+  return `Kanoo: Facture ${invoiceNumber} de ${amount.toLocaleString("fr-FR")} FCFA en attente. Merci de régler.`;
 }
 
 export function smsActivationCode(token: string): string {
@@ -104,5 +104,5 @@ export function smsActivationCode(token: string): string {
 }
 
 export function smsCotisationRappel(year: number, amount: number): string {
-  return `Kanoo Asso: Votre cotisation ${year} de ${amount.toLocaleString("fr-FR")} XOF est en attente. Merci.`;
+  return `Kanoo Asso: Votre cotisation ${year} de ${amount.toLocaleString("fr-FR")} FCFA est en attente. Merci.`;
 }

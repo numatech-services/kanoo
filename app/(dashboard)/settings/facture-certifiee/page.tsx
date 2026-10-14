@@ -5,6 +5,7 @@ import { ShieldCheck, ExternalLink, Check, X, AlertTriangle } from "lucide-react
 import { FormField, inputCls } from "@/components/ui/FormField";
 import { DonutChart } from "@/components/ui/charts/DonutChart";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Status {
   identity: { nif?: string; isf?: string; mcfId?: string; certifiedSince: string | null };
   activeDriver: string;
@@ -83,7 +84,7 @@ export default function FactureCertifieePage() {
           <span className="h-8 w-8 rounded-xl bg-section-soft text-section flex items-center justify-center">
             <ShieldCheck size={17} />
           </span>
-          <h1 className="text-2xl font-bold text-ink">Facture certifiée — SECeF</h1>
+          <h1 className="page-title">Facture certifiée — SECeF</h1>
         </div>
         <p className="text-sm text-ink2 mt-1">
           Depuis le 1<sup>er</sup> septembre 2021, tout assujetti à la TVA au Niger émet
@@ -225,7 +226,7 @@ export default function FactureCertifieePage() {
 
           <div className="flex justify-end">
             <button type="submit" disabled={saving}
-              className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+              className={buttonClass("primary", "md")}>
               {saving ? "Enregistrement…" : "Enregistrer"}
             </button>
           </div>

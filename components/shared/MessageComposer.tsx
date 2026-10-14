@@ -5,6 +5,7 @@ import { Plus, Send, Search, Users, ArrowLeft } from "lucide-react";
 
 import { promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { buttonClass } from "@/components/ui/button-class";
 interface Message {
   _id: string;
   content: string;
@@ -127,7 +128,7 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
       <form onSubmit={sendMessage} className="p-3 border-t border-line flex gap-2">
         <input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Écrire un message…"
           className="flex-1 px-3.5 h-10 rounded-full border border-line bg-surface2 text-sm text-ink outline-none focus:border-section" />
-        <button type="submit" disabled={sending || !newMessage.trim()} className="w-10 h-10 rounded-full bg-section text-white grid place-items-center disabled:opacity-40 shrink-0"><Send size={15} /></button>
+        <button type="submit" disabled={sending || !newMessage.trim()} className={buttonClass("primary", "md", "shrink-0")}><Send size={15} /></button>
       </form>
     </>
   );

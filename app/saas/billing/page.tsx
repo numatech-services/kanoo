@@ -117,7 +117,7 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold text-ink">Facturation &amp; Abonnements</h1>
+      <h1 className="page-title">Facturation &amp; Abonnements</h1>
 
       {error && (
         <p className="px-4 py-3 bg-neg-50 border border-neg/25 rounded-xl text-sm text-neg">

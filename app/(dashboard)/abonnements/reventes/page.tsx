@@ -9,6 +9,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { fullXof } from "@/components/ui/charts/geometry";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Sale {
   _id: string;
   reference: string;
@@ -130,7 +131,7 @@ export default function ReventesPage() {
           <Link href="/abonnements" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1">
             <ArrowLeft size={13} /> Abonnements
           </Link>
-          <h1 className="text-2xl font-bold text-ink mt-1">Reventes</h1>
+          <h1 className="page-title mt-1">Reventes</h1>
           <p className="text-sm text-ink2">
             Ce qui est placé chez les clients finaux, adossé aux contrats souscrits.
           </p>
@@ -294,7 +295,7 @@ export default function ReventesPage() {
                 <option value="0">0 % — exonéré</option>
               </select>
             </FormField>
-            <FormField label="Retenue à la source (XOF)" hint="Opérée par le client, le cas échéant">
+            <FormField label="Retenue à la source (FCFA)" hint="Opérée par le client, le cas échéant">
               <input type="number" min={0} className={inputCls} value={form.withholdingAmount}
                 onChange={e => update("withholdingAmount", Number(e.target.value))} />
             </FormField>
@@ -313,7 +314,7 @@ export default function ReventesPage() {
               Annuler
             </button>
             <button type="submit" disabled={saving}
-              className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+              className={buttonClass("primary", "md")}>
               {saving ? "Enregistrement…" : "Enregistrer"}
             </button>
           </div>

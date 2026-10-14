@@ -9,6 +9,7 @@ import { EXPENSE_ACCOUNTS } from "@/lib/syscohada";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
 type Ref = { _id: string; label?: string; name?: string } | null;
 interface Expense {
   _id: string; label: string; category: string; amount: number; frequency: string; nextDueDate: string; accountCode?: string;
@@ -63,8 +64,8 @@ export default function RecurringExpensesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Charges récurrentes</h1>
-          <p className="text-sm text-ink2">Engagement mensuel estimé : <b className="text-ink">{fmt(monthlyTotal)} XOF</b></p>
+          <h1 className="page-title">Charges récurrentes</h1>
+          <p className="text-sm text-ink2">Engagement mensuel estimé : <b className="text-ink">{fmt(monthlyTotal)} FCFA</b></p>
         </div>
         <div className="flex gap-2 items-center">
           <label className="flex items-center gap-2 text-sm text-ink2"><input type="checkbox" className="accent-section" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} /> Désactivées</label>
@@ -139,7 +140,7 @@ function ChargeDialog({ charge, accounts, onClose, onDone }: { charge: Expense |
               {Object.entries(CATEGORIES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
           </FormField>
-          <FormField label="Montant (XOF)" required><input type="number" min={1} className={inputCls} value={f.amount || ""} onChange={e => u("amount", Number(e.target.value))} /></FormField>
+          <FormField label="Montant (FCFA)" required><input type="number" min={1} className={inputCls} value={f.amount || ""} onChange={e => u("amount", Number(e.target.value))} /></FormField>
           <FormField label="Fréquence">
             <select className={selectCls} value={f.frequency} onChange={e => u("frequency", e.target.value)}>{Object.entries(FREQ).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
           </FormField>
@@ -163,7 +164,7 @@ function ChargeDialog({ charge, accounts, onClose, onDone }: { charge: Expense |
           </FormField>
         </div>
         <div><p className="text-sm font-semibold text-ink mb-1">Imputation</p><ImputationFields value={imp} onChange={setImp} /></div>
-        <button type="submit" className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold">Enregistrer</button>
+        <button type="submit" className={buttonClass("primary", "md", "w-full")}>Enregistrer</button>
       </form>
     </Modal>
   );

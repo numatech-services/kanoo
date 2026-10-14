@@ -6,6 +6,7 @@ import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { fullXof } from "@/components/ui/charts/geometry";
 
+import { buttonClass } from "@/components/ui/button-class";
 export interface CreditableLine {
   description: string;
   quantity: number;
@@ -139,7 +140,7 @@ export function CreditNoteDialog({
                     <td className="px-3 py-2">
                       <p className="text-ink">{line.description}</p>
                       <p className="text-[11px] text-ink3 num">
-                        {line.unitPrice.toLocaleString("fr-FR")} XOF l&apos;unité
+                        {line.unitPrice.toLocaleString("fr-FR")} FCFA l&apos;unité
                       </p>
                     </td>
                     <td className="px-3 py-2 text-right num text-ink2">{line.quantity}</td>
@@ -180,11 +181,11 @@ export function CreditNoteDialog({
 
         <div className="flex justify-end gap-3 pt-2 border-t border-line">
           <button type="button" onClick={onClose}
-            className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+            className={buttonClass("secondary", "md")}>
             Annuler
           </button>
           <button type="submit" disabled={saving || !reason.trim()}
-            className="px-5 h-10 rounded-lg bg-neg text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+            className={buttonClass("danger", "md")}>
             {saving ? "Émission…" : "Émettre l'avoir"}
           </button>
         </div>

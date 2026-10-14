@@ -12,6 +12,8 @@ import toast from "react-hot-toast";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { buttonClass } from "@/components/ui/button-class";
 interface Ev {
   _id: string; title: string; description?: string; startAt: string; endAt?: string;
   locationType: string; address?: string; meetingLink?: string; capacity: number;
@@ -167,7 +169,7 @@ export default function ActiviteDetailPage() {
       <div className="card card-p flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className={`badge ${A_STATUS[ev.status]?.cls || "badge-draft"}`}>{ev.status}</span>
+            <StatusBadge status={ev.status} />
             {ev.isPaid && <span className="badge badge-warn"><Ticket size={11} /> Payant</span>}
             <span className="text-xs text-ink3">{ev.visibility === "private" ? "Sur invitation" : "Public"}</span>
           </div>
@@ -239,7 +241,7 @@ export default function ActiviteDetailPage() {
                       {canManage && ev.isPaid && a.status === "registered" && (
                         <button onClick={() => pay(a._id)} title="Payer en ligne (mobile money / carte)" className="w-8 h-8 grid place-items-center rounded-md border border-line2 text-accent-700 hover:bg-accent-50"><CreditCard size={14} /></button>
                       )}
-                      <a href={`/api/events/${id}/attendees/${a._id}/ticket`} title="Télécharger le billet PDF" className="w-8 h-8 grid place-items-center rounded-md border border-line2 text-ink2 hover:bg-surface2"><FileDown size={14} /></a>
+                      <a href={`/api/events/${id}/attendees/${a._id}/ticket`} title="Télécharger le billet PDF" className={buttonClass("secondary", "sm")}><FileDown size={14} /></a>
                       <button onClick={() => resend(a._id)} disabled={!a.email || !canManage} title={a.email ? "Renvoyer par email" : "Pas d'email"} className="w-8 h-8 grid place-items-center rounded-md border border-line2 text-ink2 hover:bg-surface2 disabled:opacity-40"><Mail size={14} /></button>
                       {canManage && ["paid", "present"].includes(a.status) && (
                         <button onClick={() => refund(a._id)} title="Rembourser" className="w-8 h-8 grid place-items-center rounded-md border border-line2 text-neg hover:bg-neg-50"><RotateCcw size={14} /></button>

@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
+import { buttonClass } from "@/components/ui/button-class";
+import { ScreenTabs } from "@/components/shared/ScreenTabs";
 export default function TVAPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -14,9 +16,10 @@ export default function TVAPage() {
   const MONTHS = ["","Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
   return (
     <div className="space-y-6 max-w-2xl">
+      <ScreenTabs group="fiscalite" />
       <div>
         <div className="flex items-center gap-2 text-sm text-ink2 mb-2"><a href="/fiscalite" className="hover:text-ink">Fiscalité</a><span>→</span><span className="text-ink font-medium">TVA</span></div>
-        <h1 className="text-2xl font-bold text-ink">Déclaration TVA</h1>
+        <h1 className="page-title">Déclaration TVA</h1>
       </div>
       <div className="flex gap-3">
         <select value={month} onChange={e=>setMonth(Number(e.target.value))} className={inp}>{MONTHS.slice(1).map((m,i)=><option key={m} value={i+1}>{m}</option>)}</select>
@@ -27,16 +30,16 @@ export default function TVAPage() {
           <div className="bg-surface rounded-xl border border-line p-5 space-y-3">
             {[["TVA collectée (ventes)",data.tvaCollectee,"text-neg"],["TVA déductible (achats)",data.tvaDeductible,"text-pos"],["TVA nette",data.tvaNette,data.tvaNette>=0?"text-warn":"text-pos"]].map(([l,v,c])=>(
               <div key={String(l)} className="flex justify-between text-sm border-b border-line pb-3 last:border-0 last:pb-0">
-                <span className="text-ink2">{l}</span><span className={`font-mono font-bold ${c}`}>{Number(v).toLocaleString("fr-FR")} XOF</span>
+                <span className="text-ink2">{l}</span><span className={`font-mono font-bold ${c}`}>{Number(v).toLocaleString("fr-FR")} FCFA</span>
               </div>
             ))}
           </div>
           <div className={`rounded-xl p-5 ${data.aVerser>0?"bg-warn-50 border border-warn/25":"bg-pos-50 border border-pos/25"}`}>
             <p className="text-sm font-semibold text-ink">{data.aVerser>0?"Montant à verser à la DGI":"Crédit de TVA à reporter"}</p>
-            <p className={`text-3xl font-bold font-mono mt-1 ${data.aVerser>0?"text-warn":"text-pos"}`}>{(data.aVerser||data.creditReporte).toLocaleString("fr-FR")} XOF</p>
+            <p className={`text-3xl font-bold font-mono mt-1 ${data.aVerser>0?"text-warn":"text-pos"}`}>{(data.aVerser||data.creditReporte).toLocaleString("fr-FR")} FCFA</p>
           </div>
-          <div className="bg-info-50 border border-info/25 rounded-xl p-3 text-xs text-info">📅 Date limite de dépôt : le 20/{String(month+1).padStart(2,"0")}/{month===12?year+1:year}</div>
-          <button className="w-full py-3 bg-section text-white rounded-xl font-medium hover:brightness-95 transition-colors">Soumettre la déclaration</button>
+          <div className="bg-info-50 border border-info/25 rounded-xl p-3 text-xs text-info">Date limite de dépôt : le 20/{String(month+1).padStart(2,"0")}/{month===12?year+1:year}</div>
+          <button className={buttonClass("primary", "md", "w-full")}>Soumettre la déclaration</button>
         </div>
       )}
     </div>

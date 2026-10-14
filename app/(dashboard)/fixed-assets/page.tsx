@@ -5,6 +5,7 @@ import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface DepreciationEntry { year: number; annuity: number; cumulative: number; netValue: number; posted: boolean; }
 interface FixedAsset {
   _id: string; code: string; name: string; category: string;
@@ -79,16 +80,16 @@ export default function FixedAssetsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Immobilisations</h1>
+          <h1 className="page-title">Immobilisations</h1>
           <p className="text-sm text-ink2">Plan d'amortissement OHADA · Méthode linéaire et dégressive</p>
         </div>
         <button onClick={() => setModalOpen(true)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouvelle immobilisation</button>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Valeur d'acquisition</p><p className="text-xl font-bold font-mono text-ink mt-1">{((stats.totalAcquisitionCost||0)/1_000_000).toFixed(1)}M XOF</p></div>
-        <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Valeur nette comptable</p><p className="text-xl font-bold font-mono text-pos mt-1">{((stats.totalNetValue||0)/1_000_000).toFixed(1)}M XOF</p></div>
-        <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Amortissements cumulés</p><p className="text-xl font-bold font-mono text-warn mt-1">{(totalDepreciation/1_000_000).toFixed(1)}M XOF</p><div className="mt-2 h-1.5 bg-surface2 rounded-full"><div className="h-1.5 bg-warn rounded-full" style={{width:`${depRate}%`}}/></div></div>
+        <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Valeur d'acquisition</p><p className="text-xl font-bold font-mono text-ink mt-1">{((stats.totalAcquisitionCost||0)/1_000_000).toFixed(1)}M FCFA</p></div>
+        <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Valeur nette comptable</p><p className="text-xl font-bold font-mono text-pos mt-1">{((stats.totalNetValue||0)/1_000_000).toFixed(1)}M FCFA</p></div>
+        <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Amortissements cumulés</p><p className="text-xl font-bold font-mono text-warn mt-1">{(totalDepreciation/1_000_000).toFixed(1)}M FCFA</p><div className="mt-2 h-1.5 bg-surface2 rounded-full"><div className="h-1.5 bg-warn rounded-full" style={{width:`${depRate}%`}}/></div></div>
         <div className="bg-surface rounded-xl border border-line p-4"><p className="text-xs text-ink2">Immobilisations actives</p><p className="text-xl font-bold text-ink mt-1">{stats.count || 0}</p></div>
       </div>
 
@@ -98,7 +99,7 @@ export default function FixedAssetsPage() {
             <p className="font-semibold text-ink text-sm">Liste des immobilisations</p>
           </div>
           <table className="w-full border-collapse text-sm" style={{tableLayout:"fixed"}}>
-            <thead><tr className="bg-surface2 text-left"><th className="px-4 py-2 text-xs text-ink2 font-medium uppercase w-24">Code</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase">Désignation</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase w-24">Catégorie</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase text-right w-32">V. acq. (XOF)</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase text-right w-28">VNC</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase w-20">Statut</th></tr></thead>
+            <thead><tr className="bg-surface2 text-left"><th className="px-4 py-2 text-xs text-ink2 font-medium uppercase w-24">Code</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase">Désignation</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase w-24">Catégorie</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase text-right w-32">V. acq. (FCFA)</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase text-right w-28">VNC</th><th className="px-3 py-2 text-xs text-ink2 font-medium uppercase w-20">Statut</th></tr></thead>
             <tbody>
               {assets.length === 0 && <tr><td colSpan={6} className="text-center text-ink2 py-10">Aucune immobilisation enregistrée</td></tr>}
               {assets.map(a => (
@@ -122,7 +123,7 @@ export default function FixedAssetsPage() {
           <div className="px-5 py-3 border-b border-line bg-surface2 flex items-start justify-between gap-3 flex-wrap">
             <div>
               <p className="font-semibold text-ink text-sm">{selectedAsset.name} — Plan d'amortissement ({selectedAsset.depreciationMethod === "linear" ? "Linéaire" : "Dégressif"})</p>
-              <p className="text-xs text-ink2">{selectedAsset.acquisitionCost.toLocaleString("fr-FR")} XOF · {selectedAsset.usefulLifeYears} ans</p>
+              <p className="text-xs text-ink2">{selectedAsset.acquisitionCost.toLocaleString("fr-FR")} FCFA · {selectedAsset.usefulLifeYears} ans</p>
             </div>
             <div className="flex gap-2">
               <button onClick={async () => {
@@ -134,7 +135,7 @@ export default function FixedAssetsPage() {
               }} className="px-3 h-8 rounded-lg border border-line2 text-xs hover:bg-surface">Modifier</button>
               {selectedAsset.status !== "disposed" && <button onClick={async () => {
                 const sale = await confirmDialog({ title: "Cession (vente) ou mise au rebut ?", message: "Une vente demande un prix de cession ; une mise au rebut sort le bien sans prix.", confirmLabel: "Vente", cancelLabel: "Mise au rebut" });
-                const price = sale ? Number(await promptDialog({ title: "Prix de cession", label: "Prix de cession (XOF)", defaultValue: "0", type: "number" })) || 0 : 0;
+                const price = sale ? Number(await promptDialog({ title: "Prix de cession", label: "Prix de cession (FCFA)", defaultValue: "0", type: "number" })) || 0 : 0;
                 if (!await confirmDialog({ title: `Sortir « ${selectedAsset.name} » de l'actif ?`, message: "L'écriture de sortie sera passée.", danger: true, confirmLabel: "Sortir de l'actif" })) return;
                 const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
                 const res = await fetch(`/api/fixed-assets/${selectedAsset._id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, body: JSON.stringify({ action: "dispose", reason: sale ? "sale" : "scrap", price }) });
@@ -154,7 +155,7 @@ export default function FixedAssetsPage() {
                   <td className="px-4 py-2.5 text-right font-mono font-medium">{entry.netValue.toLocaleString("fr-FR")}</td>
                   <td className="px-4 py-2.5 text-center">
                     {entry.posted
-                      ? <span className="text-xs text-pos">✅ Comptabilisé</span>
+                      ? <span className="text-xs text-pos">Comptabilisé</span>
                       : entry.year <= currentYear
                       ? <button onClick={() => handlePostDepreciation(selectedAsset._id, entry.year)} disabled={postingYear === entry.year}
                           className="text-xs bg-section text-white px-3 py-1 rounded-lg hover:brightness-95 disabled:opacity-60">
@@ -185,8 +186,8 @@ export default function FixedAssetsPage() {
             <FormField label="Date d'acquisition" required><input type="date" className={inputCls} value={form.acquisitionDate} onChange={e=>u("acquisitionDate",e.target.value)} required/></FormField>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <FormField label="Valeur d'acquisition (XOF)" required><input type="number" className={inputCls} value={form.acquisitionCost} onChange={e=>u("acquisitionCost",Number(e.target.value))} min={0} required/></FormField>
-            <FormField label="Valeur résiduelle (XOF)"><input type="number" className={inputCls} value={form.residualValue} onChange={e=>u("residualValue",Number(e.target.value))} min={0}/></FormField>
+            <FormField label="Valeur d'acquisition (FCFA)" required><input type="number" className={inputCls} value={form.acquisitionCost} onChange={e=>u("acquisitionCost",Number(e.target.value))} min={0} required/></FormField>
+            <FormField label="Valeur résiduelle (FCFA)"><input type="number" className={inputCls} value={form.residualValue} onChange={e=>u("residualValue",Number(e.target.value))} min={0}/></FormField>
             <FormField label="Durée de vie (ans)"><input type="number" className={inputCls} value={form.usefulLifeYears} onChange={e=>u("usefulLifeYears",Number(e.target.value))} min={1} max={50}/></FormField>
           </div>
           <FormField label="Méthode d'amortissement">
@@ -198,7 +199,7 @@ export default function FixedAssetsPage() {
           </FormField>
           {form.depreciationMethod !== "none" && form.usefulLifeYears > 0 && form.acquisitionCost > 0 && (
             <div className="p-3 bg-surface2 rounded-xl text-xs text-ink2">
-              Dotation annuelle estimée : <strong className="text-ink font-mono">{Math.round((form.acquisitionCost - form.residualValue) / form.usefulLifeYears).toLocaleString("fr-FR")} XOF/an</strong>
+              Dotation annuelle estimée : <strong className="text-ink font-mono">{Math.round((form.acquisitionCost - form.residualValue) / form.usefulLifeYears).toLocaleString("fr-FR")} FCFA/an</strong>
               {" "}· Taux : <strong>{(100 / form.usefulLifeYears).toFixed(1)}%</strong>
             </div>
           )}
@@ -208,7 +209,7 @@ export default function FixedAssetsPage() {
           </div>
           <div className="flex justify-end gap-3 pt-3 border-t border-line">
             <button type="button" onClick={()=>setModalOpen(false)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
-            <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"Création…":"Créer + plan d'amortissement"}</button>
+            <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving?"Création…":"Créer + plan d'amortissement"}</button>
           </div>
         </form>
       </Modal>

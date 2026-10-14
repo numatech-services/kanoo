@@ -4,6 +4,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 import { LEAVE_TYPES } from "@/lib/leave-types";
 
+import { buttonClass } from "@/components/ui/button-class";
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 /** Demande (ou saisie pour un salarié, depuis sa fiche) d'un congé / absence. */
@@ -36,7 +37,7 @@ export function RequestDialog({ onClose, onDone, employeeId }: { onClose: () => 
           <label className="flex items-center gap-2"><input type="checkbox" className="accent-section" checked={f.halfDayEnd} onChange={e => setF(p => ({ ...p, halfDayEnd: e.target.checked }))} /> Demi-journée le dernier jour</label>
         </div>
         <FormField label="Motif / commentaire"><textarea className={textareaCls} rows={2} value={f.reason} onChange={e => setF(p => ({ ...p, reason: e.target.value }))} /></FormField>
-        <button type="submit" className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold">Envoyer la demande</button>
+        <button type="submit" className={buttonClass("primary", "md", "w-full")}>Envoyer la demande</button>
       </form>
     </Modal>
   );

@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { inputCls, selectCls } from "@/components/ui/FormField";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Purchase {
   _id: string; number: string; kind: "invoice" | "cash"; date: string; dueDate?: string; payee?: string; supplierRef?: string;
   supplierId?: { name: string } | null; totalTTC: number; paidAmount: number; status: string;
@@ -40,20 +41,20 @@ export default function PurchasesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><Receipt size={22} className="text-section" /> Achats & dépenses</h1>
+          <h1 className="page-title flex items-center gap-2"><Receipt size={22} className="text-section" /> Factures & dépenses</h1>
           <p className="text-sm text-ink2">Factures fournisseurs, dépenses au comptant, imputées aux projets, secteurs et services.</p>
         </div>
         {canCreate && (
           <div className="flex gap-2">
-            <Link href="/depenses/nouvelle?kind=cash" className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Dépense au comptant</Link>
-            <Link href="/depenses/nouvelle" className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><Plus size={16} /> Facture fournisseur</Link>
+            <Link href="/depenses/nouvelle?kind=cash" className={buttonClass("secondary", "md")}>Dépense au comptant</Link>
+            <Link href="/depenses/nouvelle" className={buttonClass("primary", "md")}><Plus size={16} /> Facture fournisseur</Link>
           </div>
         )}
       </div>
 
       <div className="grid sm:grid-cols-3 gap-4">
         {[["Total (sélection)", totals.totalTTC, "text-ink"], ["Payé", totals.paid, "text-pos"], ["Reste à payer", totals.remaining, "text-neg"]].map(([k, v, c]) => (
-          <div key={String(k)} className="bg-surface rounded-xl border border-line p-4"><p className="text-[11px] font-semibold text-ink2 uppercase">{k}</p><p className={`text-xl font-bold mt-1 ${c}`}>{fmt(v)} XOF</p></div>
+          <div key={String(k)} className="bg-surface rounded-xl border border-line p-4"><p className="text-[11px] font-semibold text-ink2 uppercase">{k}</p><p className={`text-xl font-bold mt-1 ${c}`}>{fmt(v)} FCFA</p></div>
         ))}
       </div>
 

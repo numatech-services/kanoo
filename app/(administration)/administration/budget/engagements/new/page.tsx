@@ -75,7 +75,7 @@ export default function NewEngagementPage() {
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest">Retour</span>
         </Link>
-        <h1 className="text-xl font-black text-ink uppercase tracking-tighter">Nouvel Engagement Budgétaire</h1>
+        <h1 className="page-title">Nouvel Engagement Budgétaire</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-surface rounded-[2.5rem] border border-line p-10 shadow-sm space-y-10">
@@ -101,7 +101,7 @@ export default function NewEngagementPage() {
                 <option value="">Sélectionner un chapitre...</option>
                 {chapters.map((c: any) => (
                   <option key={c._id} value={c._id}>
-                    {c.code} - {c.label} (Disp: {(c.allocatedAmount - c.engagedAmount).toLocaleString()} XOF)
+                    {c.code} - {c.label} (Disp: {(c.allocatedAmount - c.engagedAmount).toLocaleString("fr-FR")} FCFA)
                   </option>
                 ))}
               </select>
@@ -142,7 +142,7 @@ export default function NewEngagementPage() {
               />
             </div>
             <div>
-              <label className={labelCls}>Montant TTC (XOF)</label>
+              <label className={labelCls}>Montant TTC (FCFA)</label>
               <div className="relative">
                 <input 
                   required
@@ -152,7 +152,7 @@ export default function NewEngagementPage() {
                   value={formData.montant}
                   onChange={e => setFormData({...formData, montant: e.target.value})}
                 />
-                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-ink2/40">XOF</span>
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-ink2/40">FCFA</span>
               </div>
             </div>
           </div>

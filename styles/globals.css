@@ -672,17 +672,19 @@
 @layer components {
   /* Boutons — mêmes noms, rendu fintech v2 */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-accent text-white rounded-md
-           text-sm font-semibold hover:bg-accent-600 transition-colors
+    @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-section text-onink rounded-lg shadow-sm
+           text-sm font-semibold hover:brightness-95 transition-colors
            disabled:opacity-60 disabled:cursor-not-allowed;
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-surface text-ink border border-line2
-           rounded-md text-sm font-semibold hover:bg-surface2 transition-colors;
+           rounded-lg text-sm font-semibold hover:bg-surface2 transition-colors
+           disabled:opacity-60 disabled:cursor-not-allowed;
   }
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-neg text-white rounded-md
-           text-sm font-semibold hover:brightness-95 transition-colors;
+    @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-neg text-onink rounded-lg shadow-sm
+           text-sm font-semibold hover:brightness-95 transition-colors
+           disabled:opacity-60 disabled:cursor-not-allowed;
   }
 
   /* Utilitaires employés dans les écrans mais jamais définis jusqu'ici. */

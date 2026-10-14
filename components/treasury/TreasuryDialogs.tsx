@@ -6,6 +6,7 @@ import { ImputationFields, type ImputationValue } from "@/components/shared/Impu
 import { FlowFilterBar, useFlowFilter, monthStart, type FlowTotals } from "@/components/ui/FlowFilterBar";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
 export interface TreasuryAccountLite { _id: string; label: string; type: string; balance: number; openingBalance: number; movementCount: number; isActive: boolean; bankName?: string; accountNumber?: string }
 
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
@@ -59,10 +60,10 @@ export function EditAccountDialog({ account, onClose, onDone }: { account: Treas
         {locked && <p className="text-xs text-ink3">Des mouvements existent : type et solde d&apos;ouverture sont figés.</p>}
         <div className="flex justify-between gap-2 pt-2 border-t border-line">
           <div className="flex gap-2">
-            <button onClick={toggle} className="px-3 h-10 rounded-lg border border-line2 text-sm hover:bg-surface2">{account.isActive ? "Désactiver" : "Réactiver"}</button>
+            <button onClick={toggle} className={buttonClass("secondary", "md")}>{account.isActive ? "Désactiver" : "Réactiver"}</button>
             {!locked && <button onClick={remove} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50">Supprimer</button>}
           </div>
-          <button onClick={save} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold">Enregistrer</button>
+          <button onClick={save} className={buttonClass("primary", "md")}>Enregistrer</button>
         </div>
       </div>
     </Modal>
@@ -97,7 +98,7 @@ export function TransferDialog({ accounts, onClose, onDone }: { accounts: Treasu
         </div>
         <FormField label="Libellé"><input className={inputCls} value={f.label} onChange={e => setF(p => ({ ...p, label: e.target.value }))} placeholder="Retrait pour la caisse" /></FormField>
         <FormField label="Référence (bordereau, chèque…)"><input className={inputCls} value={f.reference} onChange={e => setF(p => ({ ...p, reference: e.target.value }))} /></FormField>
-        <button onClick={submit} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold">Enregistrer le virement</button>
+        <button onClick={submit} className={buttonClass("primary", "md", "w-full")}>Enregistrer le virement</button>
       </div>
     </Modal>
   );
@@ -142,7 +143,7 @@ export function ManualMovementDialog({ accounts, onClose, onDone }: { accounts: 
         </FormField>
         {/^[67]/.test(f.counterAccount) && <ImputationFields value={imp} onChange={setImp} />}
         <FormField label="Référence"><input className={inputCls} value={f.reference} onChange={e => setF(p => ({ ...p, reference: e.target.value }))} /></FormField>
-        <button onClick={submit} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold">Enregistrer</button>
+        <button onClick={submit} className={buttonClass("primary", "md", "w-full")}>Enregistrer</button>
       </div>
     </Modal>
   );

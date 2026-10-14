@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/Modal";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Plan {
   _id?: string;
   code: string;
@@ -91,7 +92,7 @@ export default function PlansPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-black text-ink uppercase italic tracking-tighter">
+        <h1 className="page-title">
           Plans Tarifaires
         </h1>
         <button 
@@ -122,12 +123,12 @@ export default function PlansPage() {
                     <h3 className="text-xl font-bold text-ink italic leading-none">{p.label}</h3>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-black text-section">{p.priceMonthly.toLocaleString()} <span className="text-xs">F</span></p>
+                    <p className="text-2xl font-black text-section">{p.priceMonthly.toLocaleString("fr-FR")} <span className="text-xs">F</span></p>
                   </div>
                 </div>
                 
                 <p className="text-[11px] font-bold text-ink2 mb-4 py-1 px-3 bg-surface2/50 rounded-full w-fit">
-                  👥 {p.maxUsers} utilisateurs max
+                  {p.maxUsers} utilisateurs max
                 </p>
 
                 <ul className="space-y-2 mb-6">
@@ -177,7 +178,7 @@ export default function PlansPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase text-ink2 ml-1">Prix mensuel (XOF)</label>
+              <label className="text-[10px] font-bold uppercase text-ink2 ml-1">Prix mensuel (FCFA)</label>
               <input type="number" name="priceMonthly" defaultValue={selectedPlan?.priceMonthly} className="w-full p-3 border rounded-xl text-sm" required />
             </div>
             <div className="space-y-1">
@@ -228,7 +229,7 @@ export default function PlansPage() {
             </button>
             <button 
               type="submit" 
-              className="px-8 py-2 bg-section text-white rounded-xl font-black shadow-lg hover:brightness-95 transition-colors"
+              className={buttonClass("primary", "md")}
             >
               Enregistrer
             </button>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Opp {
   _id: string; reference: string; title: string; stage: string;
   estimatedAmount: number; probability: number; expectedCloseDate?: string;
@@ -78,7 +79,7 @@ export default function CRMPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Pipeline commercial</h1>
+          <h1 className="page-title">Pipeline commercial</h1>
           <p className="text-sm text-ink2">CRM · Suivez vos opportunités de la prospection à la signature</p>
         </div>
         <IfCan resource="clients">
@@ -90,11 +91,11 @@ export default function CRMPage() {
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-surface rounded-xl border border-line p-4">
           <p className="text-xs text-ink2">Valeur totale pipeline</p>
-          <p className="text-xl font-bold font-mono text-ink mt-1">{((stats.totalPipelineValue||0)/1_000_000).toFixed(1)}M XOF</p>
+          <p className="text-xl font-bold font-mono text-ink mt-1">{((stats.totalPipelineValue||0)/1_000_000).toFixed(1)}M FCFA</p>
         </div>
         <div className="bg-surface rounded-xl border border-line p-4">
           <p className="text-xs text-ink2">Valeur pondérée (probabilités)</p>
-          <p className="text-xl font-bold font-mono text-pos mt-1">{((stats.weightedValue||0)/1_000_000).toFixed(1)}M XOF</p>
+          <p className="text-xl font-bold font-mono text-pos mt-1">{((stats.weightedValue||0)/1_000_000).toFixed(1)}M FCFA</p>
         </div>
         <div className="bg-surface rounded-xl border border-line p-4">
           <p className="text-xs text-ink2">Opportunités actives</p>
@@ -121,7 +122,7 @@ export default function CRMPage() {
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${stage.bg} ${stage.color}`}>{stage.label}</span>
                     <span className="text-xs text-ink2 font-medium">{opps.length}</span>
                   </div>
-                  {stageValue > 0 && <p className="text-xs font-mono text-ink2">{(stageValue/1_000_000).toFixed(1)}M XOF</p>}
+                  {stageValue > 0 && <p className="text-xs font-mono text-ink2">{(stageValue/1_000_000).toFixed(1)}M FCFA</p>}
                 </div>
                 <div className="p-2 flex flex-col gap-2">
                   {opps.map(opp => (
@@ -134,7 +135,7 @@ export default function CRMPage() {
                       <p className="font-medium text-ink text-xs leading-tight">{opp.title}</p>
                       <p className="text-xs text-ink2 mt-0.5 truncate">{opp.clientId?.name || opp.companyName || "—"}</p>
                       {opp.estimatedAmount > 0 && (
-                        <p className="text-xs font-mono font-medium text-section mt-1.5">{opp.estimatedAmount.toLocaleString("fr-FR")} XOF</p>
+                        <p className="text-xs font-mono font-medium text-section mt-1.5">{opp.estimatedAmount.toLocaleString("fr-FR")} FCFA</p>
                       )}
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex-1 h-1 bg-surface2 rounded-full">
@@ -198,7 +199,7 @@ export default function CRMPage() {
             </FormField>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <FormField label="Montant estimé (XOF)">
+            <FormField label="Montant estimé (FCFA)">
               <input type="number" className={inputCls} value={form.estimatedAmount} onChange={e=>u("estimatedAmount",Number(e.target.value))} min={0}/>
             </FormField>
             <FormField label="Probabilité (%)">
@@ -210,7 +211,7 @@ export default function CRMPage() {
           </div>
           <div className="flex justify-end gap-3 pt-3 border-t border-line">
             <button type="button" onClick={()=>setModalOpen(false)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
-            <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"Création…":"Ajouter au pipeline"}</button>
+            <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving?"Création…":"Ajouter au pipeline"}</button>
           </div>
         </form>
       </Modal>

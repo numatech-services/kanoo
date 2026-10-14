@@ -14,6 +14,7 @@ import { Inset } from "@/components/ui/Primitives";
 import { fullXof } from "@/components/ui/charts/geometry";
 import { orderProgress, canDeliver, lotTotals } from "@/lib/framework-order";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Order {
   _id: string; reference: string; title: string; unit: string; status: string;
   totalQuantity: number; deliveredQuantity?: number; invoicedQuantity?: number;
@@ -77,7 +78,7 @@ export default function MarcheDetailPage() {
           <Link href="/marches-cadres" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1">
             <ArrowLeft size={13} /> Marchés-cadres
           </Link>
-          <h1 className="text-2xl font-bold text-ink mt-1">{order.title}</h1>
+          <h1 className="page-title mt-1">{order.title}</h1>
           <p className="text-sm text-ink2">{order.reference} · {order.clientId?.name} · <StatusBadge status={order.status} /></p>
         </div>
         <button onClick={() => setDeliverOpen(true)} disabled={p.toDeliver <= 0}
@@ -201,8 +202,8 @@ function DeliverDialog({ open, onClose, order, onDone }: { open: boolean; onClos
         )}
         <FormField label="Note"><input className={inputCls} value={notes} onChange={e => setNotes(e.target.value)} /></FormField>
         <div className="flex justify-end gap-3 pt-2 border-t border-line">
-          <button type="button" onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-          <button type="submit" disabled={saving || !!(check && !check.ok)} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+          <button type="button" onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button type="submit" disabled={saving || !!(check && !check.ok)} className={buttonClass("primary", "md")}>
             {saving ? "Enregistrement…" : "Enregistrer la livraison"}
           </button>
         </div>

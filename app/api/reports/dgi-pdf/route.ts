@@ -123,10 +123,10 @@ export async function GET(req: NextRequest) {
         doc.moveDown(0.4);
 
         const rows: Array<[string, string, boolean?]> = [
-          ["Chiffre d'affaires HT (base TVA)", `${d.baseHT.toLocaleString("fr-FR")} XOF`],
-          [`TVA collectée (taux ${d.taux}%)`, `${d.tvaCollectee.toLocaleString("fr-FR")} XOF`],
-          ["TVA déductible sur achats", `${d.tvaDeductible.toLocaleString("fr-FR")} XOF`],
-          ["TVA nette à verser à la DGI", `${d.tvaAVerser.toLocaleString("fr-FR")} XOF`, true],
+          ["Chiffre d'affaires HT (base TVA)", `${d.baseHT.toLocaleString("fr-FR")} FCFA`],
+          [`TVA collectée (taux ${d.taux}%)`, `${d.tvaCollectee.toLocaleString("fr-FR")} FCFA`],
+          ["TVA déductible sur achats", `${d.tvaDeductible.toLocaleString("fr-FR")} FCFA`],
+          ["TVA nette à verser à la DGI", `${d.tvaAVerser.toLocaleString("fr-FR")} FCFA`, true],
           ["Nombre de factures émises", String(d.nbFactures)],
         ];
 
@@ -151,7 +151,7 @@ export async function GET(req: NextRequest) {
         doc.moveDown(0.5);
         // En-tête tableau
         const cols = [60, 160, 360, 450, pageW + 50 - 8];
-        ["Code", "Libellé", "Débit (XOF)", "Crédit (XOF)", "Solde (XOF)"].forEach((h, i) => {
+        ["Code", "Libellé", "Débit (FCFA)", "Crédit (FCFA)", "Solde (FCFA)"].forEach((h, i) => {
           doc.fontSize(8).font("Helvetica-Bold").fillColor("#fff");
           doc.rect(cols[i], doc.y - 2, (cols[i + 1] || cols[i] + 80) - cols[i] - 2, 14).fill("#2F3E46");
           doc.fillColor("#fff").text(h, cols[i] + 2, doc.y - 1);

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface TreasuryAccountOption { _id: string; label: string; type: string }
 
 interface PaymentFormProps {
@@ -68,7 +69,7 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
       return;
     }
     if (amount <= 0 || amount > remainingAmount + 1) {
-      setError(`Montant entre 1 et ${remainingAmount.toLocaleString("fr-FR")} XOF`);
+      setError(`Montant entre 1 et ${remainingAmount.toLocaleString("fr-FR")} FCFA`);
       return;
     }
     setSaving(true);
@@ -93,10 +94,10 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
 
       <div className="bg-warn-50 border border-warn/25 rounded-xl p-3 text-sm">
         <span className="font-semibold text-warn">Reste à payer&nbsp;: </span>
-        <span className="num font-bold text-warn">{remainingAmount.toLocaleString("fr-FR")} XOF</span>
+        <span className="num font-bold text-warn">{remainingAmount.toLocaleString("fr-FR")} FCFA</span>
       </div>
 
-      <FormField label="Montant encaissé (XOF)" required>
+      <FormField label="Montant encaissé (FCFA)" required>
         <input type="number" className={inputCls} value={amount} min={1} max={remainingAmount} required
           onChange={e => setAmount(parseFloat(e.target.value) || 0)} />
       </FormField>
@@ -154,7 +155,7 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
 
       <div className="flex justify-end gap-3 pt-3 border-t border-line">
         <button type="button" onClick={onCancel}
-          className="px-4 py-2 border border-line2 rounded-xl text-sm text-ink2 hover:bg-surface2">
+          className={buttonClass("secondary", "md")}>
           Annuler
         </button>
         <button type="submit" disabled={saving}

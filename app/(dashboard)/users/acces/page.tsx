@@ -47,7 +47,7 @@ export default function AccessSummaryPage() {
     <div className="space-y-6 max-w-5xl">
       <div>
         <Link href="/users" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={13} /> Utilisateurs</Link>
-        <h1 className="text-2xl font-bold text-ink flex items-center gap-2 mt-1"><ShieldCheck size={22} /> Synthèse des accès</h1>
+        <h1 className="page-title flex items-center gap-2 mt-1"><ShieldCheck size={22} /> Synthèse des accès</h1>
         <p className="text-sm text-ink2">Qui accède à quoi. Les domaines découlent des rôles assignés ; pour les modifier, changez les rôles de la personne sur l'écran Utilisateurs.</p>
       </div>
 

@@ -47,15 +47,15 @@ export default function LivraisonDetailPage() {
   return (
     <div className="space-y-5 max-w-3xl">
       <div className="flex items-start justify-between">
-        <div><Link href="/livraisons" className="text-xs text-ink2 hover:text-ink">← Bons de livraison</Link><h1 className="text-2xl font-bold text-ink mt-1">{delivery.number}</h1></div>
+        <div><Link href="/livraisons" className="text-xs text-ink2 hover:text-ink">← Bons de livraison</Link><h1 className="page-title mt-1">{delivery.number}</h1></div>
         <div className="flex gap-2 mt-2">
-          <button onClick={()=>window.print()} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">🖨️ Imprimer</button>
+          <button onClick={()=>window.print()} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Imprimer</button>
           {canCancelBl && <button onClick={async()=>{
             if(!(await confirmDialog({ title: "Annuler ce bon de livraison ?", message: "Les articles sortis seront remis en stock.", danger: true }))) return;
             const res=await fetch(`/api/livraisons/${id}`,{method:"DELETE",credentials:"include",headers:{"x-csrf-token":await csrfTok()}});
             if(res.ok) window.location.href="/livraisons"; else { const d=await res.json().catch(()=>({})); showToast(d.error||"Annulation impossible", "error"); }
           }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Annuler le BL</button>}
-          {!delivery.signedAt && delivery.status!=="delivered" && <button onClick={()=>setShowSignForm(true)} className="px-4 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95">✍️ Signer la livraison</button>}
+          {!delivery.signedAt && delivery.status!=="delivered" && <button onClick={()=>setShowSignForm(true)} className="px-4 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95">Signer la livraison</button>}
         </div>
       </div>
 
@@ -72,7 +72,7 @@ export default function LivraisonDetailPage() {
           </div>
           <div>
             <p className="text-xs text-ink2 uppercase font-semibold mb-2">Facture liée</p>
-            {delivery.invoiceId && <><p className="font-mono text-section">{delivery.invoiceId.number}</p><p className="text-sm text-ink2">{delivery.invoiceId.totalTTC.toLocaleString("fr-FR")} XOF</p></>}
+            {delivery.invoiceId && <><p className="font-mono text-section">{delivery.invoiceId.number}</p><p className="text-sm text-ink2">{delivery.invoiceId.totalTTC.toLocaleString("fr-FR")} FCFA</p></>}
             {delivery.deliveryAddress && <><p className="text-xs text-ink2 mt-2 font-semibold">Adresse de livraison</p><p className="text-sm text-ink2">{delivery.deliveryAddress}</p></>}
           </div>
         </div>
@@ -96,7 +96,7 @@ export default function LivraisonDetailPage() {
           <div>
             <p className="text-xs text-ink2 font-semibold uppercase mb-2">Reçu par le client</p>
             {delivery.signedBy
-              ? <div className="h-16 border border-pos/25 bg-pos-50 rounded-xl flex items-center justify-center"><p className="text-pos font-medium text-sm">✅ {delivery.signedBy} — {delivery.signedAt?new Date(delivery.signedAt).toLocaleDateString("fr-FR"):""}</p></div>
+              ? <div className="h-16 border border-pos/25 bg-pos-50 rounded-xl flex items-center justify-center"><p className="text-pos font-medium text-sm">{delivery.signedBy} — {delivery.signedAt?new Date(delivery.signedAt).toLocaleDateString("fr-FR"):""}</p></div>
               : <div className="h-16 border border-line rounded-xl flex items-center justify-center text-xs text-ink2">Non signé</div>
             }
           </div>

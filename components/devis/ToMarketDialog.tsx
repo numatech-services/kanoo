@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls } from "@/components/ui/FormField";
 
+import { buttonClass } from "@/components/ui/button-class";
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 /**
@@ -36,7 +37,7 @@ export function ToMarketDialog({ devis, onClose }: { devis: { _id: string; numbe
     <Modal open onClose={onClose} title={`Créer le marché — devis ${devis.number}`} size="md">
       <div className="space-y-4">
         {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
-        <p className="text-sm text-ink2">Le devis passe en « accepté » et devient un marché de <b>{Math.round(devis.totalHT).toLocaleString("fr-FR")} XOF HT</b>. Vous suivrez ensuite séparément le devis, le facturé, les acomptes, les dépenses et la marge.</p>
+        <p className="text-sm text-ink2">Le devis passe en « accepté » et devient un marché de <b>{Math.round(devis.totalHT).toLocaleString("fr-FR")} FCFA HT</b>. Vous suivrez ensuite séparément le devis, le facturé, les acomptes, les dépenses et la marge.</p>
         <FormField label="Intitulé du marché" required><input className={inputCls} value={title} onChange={e => setTitle(e.target.value)} /></FormField>
         <FormField label="Acompte à la commande (%)" hint="0 : pas d'acompte. Le solde est prévu à la livraison ; l'échéancier reste modifiable.">
           <input type="number" min={0} max={99} className={inputCls} value={deposit} onChange={e => setDeposit(e.target.value)} />
@@ -44,8 +45,8 @@ export function ToMarketDialog({ devis, onClose }: { devis: { _id: string; numbe
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="accent-section mt-1" checked={project} onChange={e => setProject(e.target.checked)} />
           <span>Créer le projet d&apos;exécution<span className="block text-xs text-ink3">Achats, commandes, notes de frais et charges s&apos;y imputent : ce sont les dépenses du marché.</span></span></label>
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm hover:bg-surface2">Annuler</button>
-          <button onClick={submit} disabled={saving || !title.trim()} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Création…" : "Créer le marché"}</button>
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button onClick={submit} disabled={saving || !title.trim()} className={buttonClass("primary", "md")}>{saving ? "Création…" : "Créer le marché"}</button>
         </div>
       </div>
     </Modal>

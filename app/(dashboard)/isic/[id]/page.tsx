@@ -10,6 +10,7 @@ import { useMe, meCan, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { buttonClass } from "@/components/ui/button-class";
 interface Delivery { _id: string; date: string; quantity: number; note?: string }
 interface Payment { _id: string; date: string; amount: number; method?: string; note?: string }
 interface Batch {
@@ -167,7 +168,7 @@ export default function IsicBatchPage() {
         <div>
           <Link href="/isic" className="text-xs text-ink2 hover:text-ink">← Cartes ISIC</Link>
           <div className="flex items-center gap-3 mt-1">
-            <h1 className="text-2xl font-bold text-ink">{b.universityName}</h1>
+            <h1 className="page-title">{b.universityName}</h1>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>
           </div>
           <p className="text-sm text-ink2 font-mono">{b.reference}{b.academicYear ? ` · ${b.academicYear}` : ""}</p>
@@ -319,7 +320,7 @@ export default function IsicBatchPage() {
             </ul>
           )}
           <div className="flex items-end gap-2">
-            <div className="flex-1"><label className="text-[11px] text-ink3">Montant (XOF)</label><input type="number" min={1} className="w-full p-2 border border-line rounded-lg text-sm" value={payment.amount || ""} onChange={e => setPayment(p => ({ ...p, amount: Number(e.target.value) }))} /></div>
+            <div className="flex-1"><label className="text-[11px] text-ink3">Montant (FCFA)</label><input type="number" min={1} className="w-full p-2 border border-line rounded-lg text-sm" value={payment.amount || ""} onChange={e => setPayment(p => ({ ...p, amount: Number(e.target.value) }))} /></div>
             <input placeholder="Mode (virement…)" className="flex-1 p-2 border border-line rounded-lg text-sm" value={payment.method} onChange={e => setPayment(p => ({ ...p, method: e.target.value }))} />
             <button onClick={() => post("payment", payment, () => setPayment({ amount: 0, method: "", note: "" }))} className="px-3 h-9 rounded-lg bg-ink text-onink text-sm font-semibold">Ajouter</button>
           </div>
@@ -346,7 +347,7 @@ export default function IsicBatchPage() {
               </ul>
             )}
             <div className="flex items-end gap-2">
-              <div className="flex-1"><label className="text-[11px] text-ink3">Montant versé à ISIC (XOF)</label><input type="number" min={1} className="w-full p-2 border border-line rounded-lg text-sm" value={licPay.amount || ""} onChange={e => setLicPay(p => ({ ...p, amount: Number(e.target.value) }))} /></div>
+              <div className="flex-1"><label className="text-[11px] text-ink3">Montant versé à ISIC (FCFA)</label><input type="number" min={1} className="w-full p-2 border border-line rounded-lg text-sm" value={licPay.amount || ""} onChange={e => setLicPay(p => ({ ...p, amount: Number(e.target.value) }))} /></div>
               <button onClick={() => post("license-payment", licPay, () => setLicPay({ amount: 0, note: "" }))} className="px-3 h-9 rounded-lg bg-ink text-onink text-sm font-semibold">Enregistrer</button>
             </div>
           </section>
@@ -363,7 +364,7 @@ export default function IsicBatchPage() {
             {b.invoiceId ? (
               <Link href={`/invoices/${b.invoiceId}`} className="inline-flex items-center gap-1.5 text-sm text-pos hover:underline">Facture générée — l&apos;ouvrir →</Link>
             ) : (
-              <button onClick={generateInvoice} disabled={busy || !b.unitSalePrice} className="w-full py-2.5 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+              <button onClick={generateInvoice} disabled={busy || !b.unitSalePrice} className={buttonClass("primary", "md", "w-full")}>
                 {busy ? "Génération…" : "Générer la facture de revente"}
               </button>
             )}

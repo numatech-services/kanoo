@@ -50,7 +50,7 @@ export default function ServicesPage() {
       key: "unitPrice", 
       label: "Prix Unitaire (HT)", 
       className: "text-right font-mono",
-      render: (v) => Number(v).toLocaleString("fr-FR") + " XOF"
+      render: (v) => Number(v).toLocaleString("fr-FR") + " FCFA"
     },
     { 
       key: "tvaRate", 
@@ -113,7 +113,7 @@ async function handleSubmit(e: React.FormEvent) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Catalogue des Services</h1>
+          <h1 className="page-title">Catalogue des Services</h1>
           <p className="text-sm text-pos italic font-medium">Gestion des prestations et tarifs de l'entité</p>
         </div>
         <button 

@@ -10,6 +10,7 @@ import { ToMarketDialog } from "@/components/devis/ToMarketDialog";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { buttonClass } from "@/components/ui/button-class";
 function calcLine(l: any) {
   const qty = l.quantity || 0; 
   const price = l.unitPrice || 0; 
@@ -99,7 +100,7 @@ export default function DevisDetailPage() {
       <div className="flex items-center justify-between">
         <div>
           <button onClick={() => router.back()} className="text-xs text-ink2 hover:underline italic">← Retour</button>
-          <h1 className="text-3xl font-black text-ink mt-1 uppercase tracking-tighter italic">{item.number}</h1>
+          <h1 className="page-title mt-1">{item.number}</h1>
           <StatusBadge status={item.status} />
         </div>
         <div className="flex items-center gap-2">
@@ -107,7 +108,7 @@ export default function DevisDetailPage() {
             ? <a href={`/contracts/${item.contractId}`} className="px-5 py-2.5 border border-section/30 text-section rounded-2xl font-bold hover:bg-section-soft">Voir le marché</a>
             : canMarket && !["rejected", "expired"].includes(item.status) && <button onClick={() => setMarketOpen(true)} className="px-5 py-2.5 bg-section text-white rounded-2xl font-bold hover:brightness-95">Créer le marché</button>}
           <a href={`/api/devis/${item._id}/pdf`} target="_blank" rel="noopener"
-            className="px-5 py-2.5 border border-line2 rounded-2xl font-bold text-ink2 hover:bg-surface2 transition-all">
+            className={buttonClass("secondary", "md")}>
             PDF
           </a>
           {canEditDevis && !item.convertedToInvoiceId && (
@@ -142,15 +143,15 @@ export default function DevisDetailPage() {
           </div>
           <div>
             <p className="text-[10px] font-black text-ink2 uppercase tracking-widest mb-1">Total Hors Taxe</p>
-            <p className="text-lg font-semibold text-ink">{item.totalHT?.toLocaleString()} F CFA</p>
+            <p className="text-lg font-semibold text-ink">{item.totalHT?.toLocaleString("fr-FR")} FCFA</p>
           </div>
           <div>
             <p className="text-[10px] font-black text-ink2 uppercase tracking-widest mb-1">Total TVA (19%)</p>
-            <p className="text-lg font-semibold text-ink2">{item.totalTVA?.toLocaleString()} F CFA</p>
+            <p className="text-lg font-semibold text-ink2">{item.totalTVA?.toLocaleString("fr-FR")} FCFA</p>
           </div>
           <div>
             <p className="text-[10px] font-black text-ink2 uppercase tracking-widest mb-1">Total TTC</p>
-            <p className="text-2xl font-black text-section">{item.totalTTC?.toLocaleString()} F CFA</p>
+            <p className="text-2xl font-black text-section">{item.totalTTC?.toLocaleString("fr-FR")} FCFA</p>
           </div>
         </div>
       </div>
@@ -176,7 +177,7 @@ export default function DevisDetailPage() {
                 <input className="col-span-5 p-2 border rounded-lg text-sm" value={line.description} onChange={e => updateLine(i, "description", e.target.value)} placeholder="Description" />
                 <input type="number" className="col-span-2 p-2 border rounded-lg text-sm text-center" value={line.quantity} onChange={e => updateLine(i, "quantity", parseFloat(e.target.value))} />
                 <input type="number" className="col-span-3 p-2 border rounded-lg text-sm" value={line.unitPrice} onChange={e => updateLine(i, "unitPrice", parseFloat(e.target.value))} placeholder="P.U." />
-                <div className="col-span-2 text-right font-bold text-xs text-ink">{line.totalTTC?.toLocaleString()}</div>
+                <div className="col-span-2 text-right font-bold text-xs text-ink">{line.totalTTC?.toLocaleString("fr-FR")}</div>
               </div>
             ))}
             <button type="button" onClick={() => setEditLines([...editLines, calcLine({ quantity: 1, unitPrice: 0 })])} className="text-xs text-ink font-bold hover:underline">+ Ajouter une ligne</button>
@@ -186,21 +187,21 @@ export default function DevisDetailPage() {
           <div className="border-t border-line pt-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-ink2">Sous-total HT</span>
-              <span className="font-semibold">{totalHT.toLocaleString()} F CFA</span>
+              <span className="font-semibold">{totalHT.toLocaleString("fr-FR")} FCFA</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-ink2">TVA (19%)</span>
-              <span className="font-semibold">{totalTVA.toLocaleString()} F CFA</span>
+              <span className="font-semibold">{totalTVA.toLocaleString("fr-FR")} FCFA</span>
             </div>
             <div className="bg-ink text-onink p-4 rounded-2xl flex justify-between items-center mt-2">
               <span className="text-xs font-bold uppercase tracking-wider">Nouveau Total TTC</span>
-              <span className="text-2xl font-black">{totalTTC.toLocaleString()} F CFA</span>
+              <span className="text-2xl font-black">{totalTTC.toLocaleString("fr-FR")} FCFA</span>
             </div>
           </div>
 
           <div className="flex justify-end gap-3">
             <button type="button" onClick={() => setEditOpen(false)} className="px-6 py-2 text-sm font-bold text-ink2">Annuler</button>
-            <button type="submit" className="px-10 py-2 bg-section text-white rounded-xl font-black shadow-xl hover:brightness-95 transition-colors">
+            <button type="submit" className={buttonClass("primary", "md")}>
               Enregistrer
             </button>
           </div>

@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/Toast";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface NumberingConfig {
   invoicePrefix: string; quotePrefix: string; orderPrefix: string;
   deliveryPrefix: string; contractPrefix: string;
@@ -67,7 +68,7 @@ export default function NumberingPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <a href="/settings" className="text-xs text-ink2 hover:text-ink">← Paramètres</a>
-        <h1 className="text-2xl font-bold text-ink mt-1">Numérotation des documents</h1>
+        <h1 className="page-title mt-1">Numérotation des documents</h1>
         <p className="text-sm text-ink2 mt-1">
           Personnalisez les préfixes de vos factures, devis et autres documents.
         </p>
@@ -186,7 +187,7 @@ export default function NumberingPage() {
           <button
             type="submit"
             disabled={saving}
-            className="px-6 py-2.5 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60 transition-colors"
+            className={buttonClass("primary", "md")}
           >
             {saving ? "Enregistrement…" : "Enregistrer la configuration"}
           </button>

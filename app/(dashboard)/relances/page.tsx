@@ -12,6 +12,7 @@ import { FormField, inputCls } from "@/components/ui/FormField";
 import { fullXof, compactXof } from "@/components/ui/charts/geometry";
 import type { DunningPlan, DunningSettings, AgingBucket } from "@/lib/dunning";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Payload {
   asOf: string;
   enabled: boolean;
@@ -129,7 +130,7 @@ export default function RelancesPage() {
     <div className="space-y-6">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Relances</h1>
+          <h1 className="page-title">Relances</h1>
           <p className="text-sm text-ink2">
             Ce que le traitement de 10 h enverra ce matin — et pourquoi les autres factures
             n&apos;y sont pas.
@@ -467,7 +468,7 @@ function SettingsDialog({
         </p>
 
         <div className="grid sm:grid-cols-2 gap-4">
-          <FormField label="Seuil de relance (XOF)"
+          <FormField label="Seuil de relance (FCFA)"
             hint="En dessous, on ne relance pas : l'irritation coûte plus que la créance.">
             <input type="number" min={0} className={inputCls} value={form.minAmount}
               onChange={e => setForm(f => ({ ...f, minAmount: Number(e.target.value) }))} />
@@ -521,11 +522,11 @@ function SettingsDialog({
 
         <div className="flex justify-end gap-3 pt-3 border-t border-line">
           <button type="button" onClick={onClose}
-            className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+            className={buttonClass("secondary", "md")}>
             Annuler
           </button>
           <button type="submit" disabled={saving}
-            className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60 inline-flex items-center gap-2">
+            className={buttonClass("primary", "md")}>
             <CheckCircle2 size={15} /> {saving ? "Enregistrement…" : "Enregistrer"}
           </button>
         </div>

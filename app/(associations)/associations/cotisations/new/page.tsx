@@ -45,7 +45,7 @@ export default function NewCotisationPage() {
         <div className="max-w-lg space-y-5">
           <div>
             <a href="/associations/cotisations" className="text-xs text-ink2 hover:text-ink">← Cotisations</a>
-            <h1 className="text-2xl font-bold text-ink mt-1">Enregistrer un paiement</h1>
+            <h1 className="page-title mt-1">Enregistrer un paiement</h1>
           </div>
           {error && (
             <div className="bg-neg-50 border border-neg/25 rounded-lg p-4 text-sm text-neg">

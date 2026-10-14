@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Megaphone, Users, Check, Plus, Trash2, Gavel, FileText, Upload, Download } from "lucide-react";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Decision { text: string; votes: { for: number; against: number; abstain: number }; passed: boolean }
 interface AG {
   _id: string; title: string; type: string; date: string; location?: string;
@@ -87,7 +88,7 @@ export default function AGDetailPage() {
       <div>
         <Link href="/associations/assemblee" className="text-xs text-ink2 hover:text-ink">← Assemblées générales</Link>
         <div className="flex items-center gap-3 mt-1">
-          <h1 className="text-2xl font-bold text-ink">{ag.title}</h1>
+          <h1 className="page-title">{ag.title}</h1>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ag.type === "ordinary" ? "bg-info-50 text-info" : "bg-warn-50 text-warn"}`}>{ag.type === "ordinary" ? "Ordinaire" : "Extraordinaire"}</span>
         </div>
         <p className="text-sm text-ink2">{new Date(ag.date).toLocaleDateString("fr-FR", { dateStyle: "long" })}{ag.location ? ` · ${ag.location}` : ""}</p>
@@ -189,7 +190,7 @@ export default function AGDetailPage() {
 
       <div className="flex justify-end">
         <button onClick={saveAll} disabled={saving}
-          className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60 inline-flex items-center gap-2">
+          className={buttonClass("primary", "md")}>
           <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer présences & résolutions"}
         </button>
       </div>

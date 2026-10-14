@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getPendingCount, triggerSync } from "@/lib/offline/sync-queue";
 
+import { WifiOff } from "lucide-react";
+import { buttonClass } from "@/components/ui/button-class";
 export default function OfflinePage() {
   const [mounted, setMounted] = useState(false);
   const [pending, setPending] = useState(0);
@@ -29,8 +31,8 @@ export default function OfflinePage() {
   return (
     <div className="min-h-screen bg-surface2 flex items-center justify-center px-6">
       <div className="text-center max-w-sm">
-        <p className="text-7xl mb-6">📡</p>
-        <h1 className="text-2xl font-bold text-ink">
+        <p className="mb-6 text-ink3 flex justify-center" aria-hidden><WifiOff size={60} /></p>
+        <h1 className="page-title">
           {online ? "Connexion rétablie" : "Vous êtes hors-ligne"}
         </h1>
         <p className="text-ink2 mt-3 leading-relaxed">
@@ -47,7 +49,7 @@ export default function OfflinePage() {
         <div className="flex flex-col gap-3 mt-8">
           {online && (
             <button onClick={handleSync}
-              className="px-6 py-3 bg-section text-white rounded-xl font-medium hover:brightness-95 transition-colors">
+              className={buttonClass("primary", "md")}>
               Synchroniser maintenant
             </button>
           )}

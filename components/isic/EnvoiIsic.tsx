@@ -7,6 +7,7 @@ import { Pill } from "@/components/ui/Primitives";
 import { compressPhoto, collectPhotos } from "@/components/isic/image";
 
 import { showToast } from "@/components/ui/Toast";
+import { buttonClass } from "@/components/ui/button-class";
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function send<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
   const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify(body) });
@@ -204,7 +205,7 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
           <FormField label="Request Type (renouvellement)">
             <input className={`${inputCls} font-mono uppercase`} value={renewalCode} onChange={e => setRenewalCode(e.target.value)} placeholder="À confirmer auprès d'ISIC" />
           </FormField>
-          <button onClick={saveCode} disabled={renewalCode.trim().toUpperCase() === codeSaved} className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-40">Enregistrer</button>
+          <button onClick={saveCode} disabled={renewalCode.trim().toUpperCase() === codeSaved} className={buttonClass("primary", "md")}>Enregistrer</button>
         </div>
       </section>
     </div>

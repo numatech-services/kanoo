@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { fullXof } from "@/components/ui/charts/geometry";
 import { STATUS_LABEL, type ExpenseStatus } from "@/lib/expenses";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Report {
   _id: string;
   reference: string;
@@ -69,14 +70,14 @@ export default function NotesDeFraisPage() {
     <div className="space-y-6">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Notes de frais</h1>
+          <h1 className="page-title">Notes de frais</h1>
           <p className="text-sm text-ink2">
             Une dépense avancée par quelqu&apos;un, un justificatif, un remboursement.
             Sans la pièce, la charge n&apos;est pas déductible.
           </p>
         </div>
         <Link href="/notes-de-frais/new"
-          className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+          className={buttonClass("primary", "md")}>
           <Plus size={16} /> Nouvelle note
         </Link>
       </div>

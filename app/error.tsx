@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 
+import { AlertTriangle } from "lucide-react";
+import { buttonClass } from "@/components/ui/button-class";
 interface ErrorProps {
   error: Error & { digest?: string };
   reset: () => void;
@@ -19,8 +21,8 @@ export default function GlobalError({ error, reset }: ErrorProps) {
   return (
     <div className="min-h-screen bg-surface2 flex items-center justify-center px-6">
       <div className="text-center max-w-md">
-        <p className="text-6xl mb-4">⚠️</p>
-        <h1 className="text-2xl font-bold text-ink">Une erreur est survenue</h1>
+        <p className="mb-4 text-ink3 flex justify-center" aria-hidden><AlertTriangle size={52} /></p>
+        <h1 className="page-title">Une erreur est survenue</h1>
         <p className="text-ink2 mt-3 leading-relaxed">
           Une erreur inattendue s'est produite. Nos équipes ont été notifiées.
         </p>
@@ -32,7 +34,7 @@ export default function GlobalError({ error, reset }: ErrorProps) {
         <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
           <button
             onClick={reset}
-            className="px-6 py-3 bg-section text-white rounded-xl font-medium hover:brightness-95 transition-colors"
+            className={buttonClass("primary", "md")}
           >
             Réessayer
           </button>

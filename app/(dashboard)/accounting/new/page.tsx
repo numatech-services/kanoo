@@ -47,7 +47,7 @@ export default function NewAccountingEntryPage() {
     <div className="max-w-3xl space-y-5">
       <div>
         <a href="/accounting" className="text-xs text-ink2 hover:text-ink">← Comptabilité</a>
-        <h1 className="text-2xl font-bold text-ink mt-1">Saisie manuelle</h1>
+        <h1 className="page-title mt-1">Saisie manuelle</h1>
       </div>
 
       {error && (

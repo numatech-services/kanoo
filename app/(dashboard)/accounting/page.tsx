@@ -9,6 +9,8 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
+import { ScreenTabs } from "@/components/shared/ScreenTabs";
 interface Line { accountCode: string; accountLabel: string; debit: number; credit: number; projectId?: string; activityId?: string; costCenter?: string }
 interface Entry {
   _id: string; journalCode: string; entryDate: string; reference: string; label: string; lines: Line[];
@@ -63,17 +65,18 @@ export default function AccountingPage() {
 
   return (
     <div className="space-y-5">
+      <ScreenTabs group="accounting" />
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Comptabilité — journal</h1>
+          <h1 className="page-title">Comptabilité — journal</h1>
           <p className="text-sm text-ink2">{total} écriture{total > 1 ? "s" : ""}{lock.lockedUntil ? ` · période verrouillée jusqu'au ${new Date(lock.lockedUntil).toLocaleDateString("fr-FR")}` : ""}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Link href="/accounting/etats" className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><FileSpreadsheet size={15} /> États</Link>
-          <Link href="/accounting/plan" className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Hash size={15} /> Plan comptable</Link>
-          <Link href="/accounting/lettrage" className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Link2 size={15} /> Lettrage</Link>
+          <Link href="/accounting/etats" className={buttonClass("secondary", "md")}><FileSpreadsheet size={15} /> États</Link>
+          <Link href="/accounting/plan" className={buttonClass("secondary", "md")}><Hash size={15} /> Plan comptable</Link>
+          <Link href="/accounting/lettrage" className={buttonClass("secondary", "md")}><Link2 size={15} /> Lettrage</Link>
           {canReverse && <button onClick={() => setClosingOpen(true)} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Lock size={15} /> Clôture</button>}
-          {canCreate && <Link href="/accounting/new" className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><Plus size={16} /> Écriture</Link>}
+          {canCreate && <Link href="/accounting/new" className={buttonClass("primary", "md")}><Plus size={16} /> Écriture</Link>}
         </div>
       </div>
       {msg && <p className={`p-3 rounded-lg text-sm ${msg.ok ? "bg-pos-50 text-pos" : "bg-neg-50 text-neg"}`}>{msg.text}</p>}

@@ -8,6 +8,8 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { buttonClass } from "@/components/ui/button-class";
+import { formatMoney } from "@/lib/format";
 type Supplier = SupplierFormData & { _id: string; logo?: string; bankName?: string };
 type Row = Record<string, unknown>;
 interface Section { count: number; items: Row[]; }
@@ -18,7 +20,6 @@ interface Overview {
   access?: Partial<Record<keyof Overview["sections"], boolean>>;
 }
 
-const fmt = (n: unknown) => `${Number(n || 0).toLocaleString("fr-FR")} F CFA`;
 const date = (d: unknown) => (d ? new Date(String(d)).toLocaleDateString("fr-FR") : "—");
 
 const FREQ: Record<string, string> = { monthly: "Mensuel", quarterly: "Trimestriel", biannual: "Semestriel", annual: "Annuel", weekly: "Hebdo" };
@@ -34,17 +35,17 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { key: "commandes", label: "Commandes", cols: ["N°", "Date", "TTC", "Statut"],
-    row: r => [r.number as string, date(r.orderDate), fmt(r.totalTTC), <StatusBadge key="s" status={String(r.status)} />],
+    row: r => [r.number as string, date(r.orderDate), formatMoney(r.totalTTC), <StatusBadge key="s" status={String(r.status)} />],
     href: "/commandes", rowHref: r => `/commandes/${r._id}` },
   { key: "contracts", label: "Contrats", cols: ["Référence", "Objet", "Montant", "Échéance", "Statut"],
-    row: r => [r.reference as string || "—", r.title as string, fmt(r.amount), date(r.endDate), <StatusBadge key="s" status={String(r.status)} />],
+    row: r => [r.reference as string || "—", r.title as string, formatMoney(r.amount), date(r.endDate), <StatusBadge key="s" status={String(r.status)} />],
     href: "/contracts", rowHref: r => `/contracts/${r._id}` },
   { key: "receipts", label: "Réceptions", cols: ["N°", "Date"],
     row: r => [r.number as string, date(r.receiptDate)] },
   { key: "commitments", label: "Engagements", cols: ["N°", "Objet", "Date", "Montant", "Statut"],
-    row: r => [r.number as string, r.label as string, date(r.date), fmt(r.amount), <StatusBadge key="s" status={String(r.status)} />] },
+    row: r => [r.number as string, r.label as string, date(r.date), formatMoney(r.amount), <StatusBadge key="s" status={String(r.status)} />] },
   { key: "recurring", label: "Dépenses récurrentes", cols: ["Réf", "Objet", "Montant", "Fréquence", "Prochaine"],
-    row: r => [r.reference as string || "—", r.label as string, fmt(r.amount), FREQ[String(r.frequency)] || String(r.frequency || "—"), date(r.nextDueDate)],
+    row: r => [r.reference as string || "—", r.label as string, formatMoney(r.amount), FREQ[String(r.frequency)] || String(r.frequency || "—"), date(r.nextDueDate)],
     href: "/recurring-expenses" },
 ];
 
@@ -94,7 +95,7 @@ export default function SupplierDetailPage() {
           </div>
           <div>
             <a href="/suppliers" className="text-xs text-ink2 hover:text-ink">← Fournisseurs</a>
-            <h1 className="text-2xl font-bold text-ink mt-0.5">{s.name}</h1>
+            <h1 className="page-title mt-0.5">{s.name}</h1>
             <p className="text-ink2 text-sm">{s.code} · <StatusBadge status={s.isActive ? "active" : "inactive"} /></p>
           </div>
         </div>
@@ -105,7 +106,7 @@ export default function SupplierDetailPage() {
             const res = await fetch(`/api/suppliers/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrfTok() } });
             if (res.ok) router.push("/suppliers"); else showToast("Désactivation impossible", "error");
           }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Désactiver</button>}
-          {data.access?.commandes !== false && <a href={`/commandes/new?supplierId=${id}`} className="px-4 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95">+ Commande</a>}
+          {data.access?.commandes !== false && <a href={`/commandes/new?supplierId=${id}`} className={buttonClass("primary", "md")}>+ Commande</a>}
         </div>
       </div>
 
@@ -113,7 +114,7 @@ export default function SupplierDetailPage() {
         {figures.map(([k, v]) => (
           <div key={k} className="bg-surface rounded-xl border border-line p-4">
             <p className="text-[11px] font-semibold text-ink2 uppercase tracking-wide">{k}</p>
-            <p className="text-xl font-bold mt-1 text-ink">{fmt(v)}</p>
+            <p className="text-xl font-bold mt-1 text-ink">{formatMoney(v)}</p>
           </div>
         ))}
       </div>}

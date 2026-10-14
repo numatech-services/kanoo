@@ -55,7 +55,7 @@ export default function BureauPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Bureau de l'association</h1>
+          <h1 className="page-title">Bureau de l'association</h1>
           <p className="text-sm text-ink2">{members.filter(m => m.isActive).length} membres actifs</p>
         </div>
         <button onClick={() => window.location.href = "/associations/bureau/new"} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Ajouter un membre</button>
@@ -86,8 +86,8 @@ export default function BureauPage() {
                         : <span className="text-xs bg-surface2 text-ink3 px-2 py-0.5 rounded-full">Inactif</span>
                       }
                     </div>
-                    {m.email && <p className="text-xs text-ink2 mb-1">✉ {m.email}</p>}
-                    {m.phone && <p className="text-xs text-ink2 mb-2">📞 {m.phone}</p>}
+                    {m.email && <p className="text-xs text-ink2 mb-1">{m.email}</p>}
+                    {m.phone && <p className="text-xs text-ink2 mb-2">{m.phone}</p>}
                     <p className="text-xs text-ink2 border-t border-line pt-2">
                       Mandat depuis le {new Date(m.mandateStart).toLocaleDateString("fr-FR")}
                       {m.mandateEnd && ` → ${new Date(m.mandateEnd).toLocaleDateString("fr-FR")}`}

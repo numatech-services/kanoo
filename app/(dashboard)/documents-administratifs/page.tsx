@@ -14,6 +14,7 @@ import {
   type DocumentType, type DocumentStatus, type DocumentAlert,
 } from "@/lib/admin-documents";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Row {
   _id: string;
   label: string;
@@ -102,7 +103,7 @@ export default function DocumentsAdministratifsPage() {
     <div className="space-y-6">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Documents administratifs</h1>
+          <h1 className="page-title">Coffre administratif</h1>
           <p className="text-sm text-ink2">
             Ce qui compte n&apos;est pas la date d&apos;expiration, c&apos;est celle à
             laquelle il faut s&apos;y prendre.
@@ -434,11 +435,11 @@ function AddDialog({
 
         <div className="flex justify-end gap-3 pt-3 border-t border-line">
           <button type="button" onClick={onClose}
-            className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+            className={buttonClass("secondary", "md")}>
             Annuler
           </button>
           <button type="submit" disabled={saving || !form.label.trim()}
-            className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+            className={buttonClass("primary", "md")}>
             {saving ? "Ajout…" : "Ajouter"}
           </button>
         </div>

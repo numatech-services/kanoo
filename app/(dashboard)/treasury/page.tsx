@@ -10,6 +10,7 @@ import { fullXof } from "@/components/ui/charts/geometry";
 import { EditAccountDialog, TransferDialog, ManualMovementDialog, MovementsDialog, type TreasuryAccountLite } from "@/components/treasury/TreasuryDialogs";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Account {
   _id: string;
   type: string;
@@ -95,7 +96,7 @@ export default function TreasuryPage() {
     <div className="space-y-6">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Trésorerie</h1>
+          <h1 className="page-title">Trésorerie</h1>
           <p className="text-sm text-ink2">
             Chaque solde est calculé&nbsp;: solde d&apos;ouverture, plus les mouvements enregistrés.
           </p>
@@ -159,7 +160,7 @@ export default function TreasuryPage() {
                 <p className="font-semibold text-ink">{a.label}</p>
                 <p className={`text-2xl font-bold mt-1 num ${a.balance >= 0 ? "text-pos" : "text-neg"}`}>
                   {a.balance.toLocaleString("fr-FR")}
-                  <span className="text-sm font-normal text-ink2 ml-1">{a.currency || "XOF"}</span>
+                  <span className="text-sm font-normal text-ink2 ml-1">{!a.currency || a.currency === "XOF" ? "FCFA" : a.currency}</span>
                 </p>
 
                 <p className="text-[11px] text-ink3 mt-1">
@@ -221,7 +222,7 @@ export default function TreasuryPage() {
           )}
 
           <div className="grid sm:grid-cols-2 gap-3">
-            <FormField label="Solde d'ouverture (XOF)"
+            <FormField label="Solde d'ouverture (FCFA)"
               hint="Le solde réel à la date ci-contre.">
               <input type="number" className={inputCls} value={form.openingBalance}
                 onChange={e => setForm(p => ({ ...p, openingBalance: Number(e.target.value) }))} />
@@ -244,7 +245,7 @@ export default function TreasuryPage() {
               Annuler
             </button>
             <button type="submit" disabled={saving}
-              className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+              className={buttonClass("primary", "md")}>
               {saving ? "Création…" : "Créer"}
             </button>
           </div>

@@ -197,7 +197,7 @@ async function notifyTeam(tenantId: string, action: DunningAction) {
     type: "invoice_dunning",
     title: action.step.tone === "formal_notice" ? "Mise en demeure envoyée" : "Relance ferme envoyée",
     message: `${action.clientName} — facture ${action.invoiceNumber}, `
-      + `${action.outstanding.toLocaleString("fr-FR")} XOF impayés depuis ${action.daysPastDue} jours.`,
+      + `${action.outstanding.toLocaleString("fr-FR")} FCFA impayés depuis ${action.daysPastDue} jours.`,
     linkedTo: "invoices",
     linkedId: action.invoiceId,
   })));

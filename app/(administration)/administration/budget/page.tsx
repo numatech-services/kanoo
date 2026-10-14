@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+import { buttonClass } from "@/components/ui/button-class";
+import { formatMoney } from "@/lib/format";
 interface BudgetChapter {
   _id: string;
   code: string;
@@ -15,9 +17,6 @@ interface BudgetChapter {
   children?: BudgetChapter[];
 }
 
-function formatXOF(n: number) {
-  return n.toLocaleString("fr-FR") + " XOF";
-}
 
 function taux(num: number, denom: number) {
   if (!denom) return 0;
@@ -46,14 +45,14 @@ function ChapterRow({ chapter, depth = 0 }: { chapter: BudgetChapter; depth?: nu
           </div>
         </td>
         <td className="px-4 py-3 text-sm">{chapter.label}</td>
-        <td className="px-4 py-3 text-right font-mono text-sm">{formatXOF(chapter.allocatedAmount)}</td>
-        <td className="px-4 py-3 text-right font-mono text-sm text-warn">{formatXOF(chapter.engagedAmount)}</td>
+        <td className="px-4 py-3 text-right font-mono text-sm">{formatMoney(chapter.allocatedAmount)}</td>
+        <td className="px-4 py-3 text-right font-mono text-sm text-warn">{formatMoney(chapter.engagedAmount)}</td>
         <td className="px-4 py-3 text-right">
           <span className={`font-mono text-sm ${isOverEngaged ? "text-neg font-bold" : "text-pos"}`}>
-            {formatXOF(available)}
+            {formatMoney(available)}
           </span>
         </td>
-        <td className="px-4 py-3 text-right font-mono text-sm text-ink2">{formatXOF(chapter.paidAmount)}</td>
+        <td className="px-4 py-3 text-right font-mono text-sm text-ink2">{formatMoney(chapter.paidAmount)}</td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="flex-1 h-2 bg-surface2 rounded-full w-20">
@@ -92,7 +91,7 @@ export default function BudgetPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Budget — Exercice {year}</h1>
+          <h1 className="page-title">Budget — Exercice {year}</h1>
           <p className="text-sm text-ink2 mt-0.5">Structure budgétaire et exécution</p>
         </div>
         <div className="flex items-center gap-3">
@@ -105,7 +104,7 @@ export default function BudgetPage() {
           </select>
           <Link
             href="/administration/budget/new"
-            className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors"
+            className={buttonClass("primary", "md")}
           >
             + Nouveau chapitre
           </Link>
@@ -122,7 +121,7 @@ export default function BudgetPage() {
           ].map((item) => (
             <div key={item.label} className="bg-surface rounded-xl border border-line p-5">
               <p className="text-xs text-ink2 font-medium uppercase tracking-wide">{item.label}</p>
-              <p className={`text-xl font-bold mt-1 font-mono ${item.color}`}>{formatXOF(item.value)}</p>
+              <p className={`text-xl font-bold mt-1 font-mono ${item.color}`}>{formatMoney(item.value)}</p>
             </div>
           ))}
         </div>

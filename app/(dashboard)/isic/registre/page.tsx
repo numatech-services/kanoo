@@ -16,6 +16,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { showToast } from "@/components/ui/Toast";
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
 interface SchoolRow { school: string; students: number; withNumber: number; withoutPhoto: number; covered: number; fresh: number; renewed: number; toRenew: number }
 interface Stats {
   year: string;
@@ -64,7 +65,7 @@ export default function RegistrePage() {
       <div className="page-head">
         <div>
           <Link href="/isic" className="text-xs text-ink2 hover:text-ink">← Cartes ISIC</Link>
-          <h1 className="text-2xl font-bold text-ink flex items-center gap-2 mt-1"><BookUser size={22} /> Registre ISIC</h1>
+          <h1 className="page-title flex items-center gap-2 mt-1"><BookUser size={22} /> Registre ISIC</h1>
           <p className="text-sm text-ink2">Une fiche par étudiant, son numéro ISIC (qu&apos;il garde d&apos;une année à l&apos;autre) et ses licences annuelles.</p>
         </div>
         <FormField label="Année académique">
@@ -114,7 +115,7 @@ function Dashboard({ stats, year, onChanged, openStudents, goImport }: {
       <div className="space-y-3">
         <EmptyState icon={<BookUser size={20} />} title="Registre vide"
           hint="Commencez par reprendre vos étudiants existants avec leur numéro — par exemple les fichiers reçus d'ISIC des années passées (.xlsx)." />
-        <div className="text-center"><button onClick={goImport} className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold">Importer les étudiants existants</button></div>
+        <div className="text-center"><button onClick={goImport} className={buttonClass("primary", "md")}>Importer les étudiants existants</button></div>
       </div>
     );
   }
@@ -138,14 +139,14 @@ function Dashboard({ stats, year, onChanged, openStudents, goImport }: {
           sub={`Couverts en ${prev}, pas encore en ${year}`}
           action={t.toRenew > 0 && (
             <div className="flex gap-3 items-center">
-              <button disabled={busy} onClick={renewAll} className="px-3 h-8 rounded-lg bg-section text-white text-xs font-semibold disabled:opacity-50">Renouveler tous</button>
+              <button disabled={busy} onClick={renewAll} className={buttonClass("primary", "sm")}>Renouveler tous</button>
               <button onClick={() => openStudents("", "torenew")} className="text-xs font-semibold text-section hover:underline">Choisir →</button>
             </div>
           )} />
         <Card icon={<Hourglass size={14} />} label="En attente de numéro" value={t.coveredWithoutNumber} tone={t.coveredWithoutNumber ? "text-warn" : undefined}
           sub={`Couverts en ${year} sans numéro ISIC`}
           action={t.coveredWithoutNumber > 0 && (
-            <a href={`/api/isic/registry/export?filter=pending&year=${year}`} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-line2 text-xs font-semibold text-ink2 hover:bg-surface2">
+            <a href={`/api/isic/registry/export?filter=pending&year=${year}`} className={buttonClass("secondary", "sm")}>
               <Download size={13} /> Liste à envoyer à ISIC
             </a>
           )} />
@@ -269,7 +270,7 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
           <div className="flex gap-2">
             <button onClick={() => setSelected(new Set())} className="px-3 h-8 rounded-lg border border-line2 text-xs text-ink2">Désélectionner</button>
             {canPurge && <button onClick={purgeSelected} className="px-3 h-8 rounded-lg border border-neg/40 text-neg text-xs font-semibold hover:bg-neg-50">Supprimer</button>}
-            <button onClick={renewSelected} className="px-3 h-8 rounded-lg bg-section text-white text-xs font-semibold">Ouvrir la licence {year}</button>
+            <button onClick={renewSelected} className={buttonClass("primary", "sm")}>Ouvrir la licence {year}</button>
           </div>
         </div>
       )}
@@ -340,8 +341,8 @@ function AddStudentDialog({ year, schools, onClose, onSaved }: { year: string; s
         <FormField label="Email"><input className={inputCls} type="email" value={f.email} onChange={set("email")} /></FormField>
         <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={f.licence} onChange={set("licence")} /> Ouvrir la licence {year}</label>
         <div className="flex justify-end gap-3 pt-2">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-          <button onClick={save} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Ajout…" : "Ajouter"}</button>
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button onClick={save} disabled={saving} className={buttonClass("primary", "md")}>{saving ? "Ajout…" : "Ajouter"}</button>
         </div>
       </div>
     </Modal>
@@ -498,7 +499,7 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
               <button onClick={purge} className="text-sm text-neg hover:underline">Supprimer (erreur)</button>
             </span> : <span />}
             <div className="flex gap-3">
-              <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Fermer</button>
+              <button onClick={onClose} className={buttonClass("secondary", "md")}>Fermer</button>
               <button onClick={() => save()} disabled={saving || (numberChanged && !!d.student.isicNumber && !f.numberReason.trim())}
                 className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-50">{saving ? "Enregistrement…" : "Enregistrer"}</button>
             </div>
@@ -561,7 +562,7 @@ function ImportTab({ year, schools, onChanged }: { year: string; schools: string
           <datalist id="isic-schools-import">{schools.map(s => <option key={s} value={s} />)}</datalist>
         </FormField>
         <label className="flex items-center gap-2 text-sm text-ink pb-2"><input type="checkbox" checked={withLicence} onChange={e => setWithLicence(e.target.checked)} /> Ouvrir la licence {year} pour les étudiants importés</label>
-        <button onClick={template} className="ml-auto mb-0.5 inline-flex items-center gap-2 px-3 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+        <button onClick={template} className={buttonClass("secondary", "md", "ml-auto mb-0.5")}>
           <FileSpreadsheet size={15} /> Modèle CSV simplifié
         </button>
       </div>
@@ -577,9 +578,9 @@ function ImportTab({ year, schools, onChanged }: { year: string; schools: string
 
       <div className="surface-card p-4 flex flex-wrap items-center gap-3">
         <span className="text-sm font-semibold text-ink mr-2">Exports</span>
-        <a href={`/api/isic/registry/export?filter=pending&year=${year}`} className="inline-flex items-center gap-2 px-3 h-9 rounded-lg bg-section text-white text-sm font-semibold"><Download size={15} /> À numéroter par ISIC ({year})</a>
-        <a href="/api/isic/registry/export?filter=pending" className="inline-flex items-center gap-2 px-3 h-9 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2"><Download size={15} /> Tous les étudiants sans numéro</a>
-        <a href="/api/isic/registry/export?filter=all" className="inline-flex items-center gap-2 px-3 h-9 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2"><Download size={15} /> Registre complet</a>
+        <a href={`/api/isic/registry/export?filter=pending&year=${year}`} className={buttonClass("primary", "md")}><Download size={15} /> À numéroter par ISIC ({year})</a>
+        <a href="/api/isic/registry/export?filter=pending" className={buttonClass("secondary", "md")}><Download size={15} /> Tous les étudiants sans numéro</a>
+        <a href="/api/isic/registry/export?filter=all" className={buttonClass("secondary", "md")}><Download size={15} /> Registre complet</a>
       </div>
 
       {report && (

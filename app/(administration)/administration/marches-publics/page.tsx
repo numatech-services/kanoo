@@ -7,6 +7,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { LIBELLES_PROCEDURES, determineProcedureMarche } from "@/lib/niger-fiscal";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Tender { 
   _id: string; 
   reference: string; 
@@ -101,7 +102,7 @@ export default function MarchesPublicsPage() {
     { key: "object", label: "Objet du marché" },
     { 
         key: "estimatedAmount", 
-        label: "Montant (XOF)", 
+        label: "Montant (FCFA)", 
         className: "text-right font-mono", 
         render: (v) => Number(v).toLocaleString("fr-FR") 
     },
@@ -133,7 +134,7 @@ export default function MarchesPublicsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-            <h1 className="text-2xl font-bold text-ink">Marchés Publics</h1>
+            <h1 className="page-title">Marchés Publics</h1>
             <p className="text-sm text-ink2 mt-0.5">Code des Marchés Publics Niger 2017</p>
         </div>
         <button 
@@ -182,7 +183,7 @@ export default function MarchesPublicsPage() {
           </div>
           
           <div>
-            <label className="block text-xs font-bold text-ink2 uppercase mb-1">Montant estimé (XOF) *</label>
+            <label className="block text-xs font-bold text-ink2 uppercase mb-1">Montant estimé (FCFA) *</label>
             <input type="number" className="w-full px-3 py-2 border border-line rounded-lg text-sm font-mono outline-none focus:ring-2 focus:ring-section/20" value={form.estimatedAmount} onChange={e=>setForm(p=>({...p,estimatedAmount:Number(e.target.value)}))} min={0} required />
             {detectedProcedure && (
               <p className="mt-2 text-[11px] text-section font-bold italic">→ Procédure : {LIBELLES_PROCEDURES[detectedProcedure]}</p>
@@ -191,7 +192,7 @@ export default function MarchesPublicsPage() {
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm text-ink2 font-medium hover:underline">Annuler</button>
-            <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-bold shadow-md hover:brightness-95 disabled:opacity-50 transition-all">
+            <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>
                 {saving ? "Création..." : "Créer le marché"}
             </button>
           </div>

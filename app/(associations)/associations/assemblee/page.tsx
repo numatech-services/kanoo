@@ -20,7 +20,7 @@ export default function AssembleePage() {
   if (!mounted) return null;
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between"><h1 className="text-2xl font-bold text-ink">Assemblées générales</h1><button onClick={() => window.location.href = "/associations/assemblee/new"} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Convoquer une AG</button></div>
+      <div className="flex items-center justify-between"><h1 className="page-title">Assemblées générales</h1><button onClick={() => window.location.href = "/associations/assemblee/new"} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Convoquer une AG</button></div>
       <DataTable columns={columns} data={items} loading={loading} keyExtractor={a=>a._id} emptyMessage="Aucune assemblée générale" onRowClick={a=>router.push(`/associations/assemblee/${a._id}`)}/>
     </div>
   );

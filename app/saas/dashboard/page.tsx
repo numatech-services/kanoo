@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+import { Building2, CheckCircle2, Users } from "lucide-react";
 interface Stats { totalTenants: number; activeTenants: number; trialTenants: number; totalUsers: number; byType: Array<{_id: string; count: number}>; }
 
 export default function SuperadminDashboard() {
@@ -14,15 +15,15 @@ export default function SuperadminDashboard() {
   }, []);
 
   const kpis = stats ? [
-    { label: "Organisations totales", value: stats.totalTenants, icon: "🏢", color: "bg-info-50 text-info" },
-    { label: "Abonnements actifs", value: stats.activeTenants, icon: "✅", color: "bg-pos-50 text-pos" },
+    { label: "Organisations totales", value: stats.totalTenants, icon: <Building2 size={20} />, color: "bg-info-50 text-info" },
+    { label: "Abonnements actifs", value: stats.activeTenants, icon: <CheckCircle2 size={20} />, color: "bg-pos-50 text-pos" },
     { label: "Périodes d'essai", value: stats.trialTenants, icon: "⏱️", color: "bg-warn-50 text-warn" },
-    { label: "Utilisateurs actifs", value: stats.totalUsers, icon: "👥", color: "bg-section-soft text-section" },
+    { label: "Utilisateurs actifs", value: stats.totalUsers, icon: <Users size={20} />, color: "bg-section-soft text-section" },
   ] : [];
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold text-ink">Plateforme Kanoo</h1><p className="text-sm text-ink2 mt-0.5">Vue superadmin — toutes les organisations</p></div>
+      <div><h1 className="page-title">Plateforme Kanoo</h1><p className="text-sm text-ink2 mt-0.5">Vue superadmin — toutes les organisations</p></div>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {loading ? [...Array(4)].map((_,i)=><div key={i} className="h-24 bg-surface rounded-xl border border-line animate-pulse"/>) :
           kpis.map(k => (
@@ -44,11 +45,11 @@ export default function SuperadminDashboard() {
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Link href="/saas/tenants" className="bg-surface rounded-xl border border-line p-5 hover:shadow-soft transition-shadow">
-          <h3 className="font-semibold text-ink mb-1">🏢 Gérer les organisations</h3>
+          <h3 className="font-semibold text-ink mb-1">Gérer les organisations</h3>
           <p className="text-sm text-ink2">Voir, créer, suspendre des tenants</p>
         </Link>
         <Link href="/saas/security" className="bg-surface rounded-xl border border-line p-5 hover:shadow-soft transition-shadow">
-          <h3 className="font-semibold text-ink mb-1">🔐 Sécurité & Accès</h3>
+          <h3 className="font-semibold text-ink mb-1">Sécurité & Accès</h3>
           <p className="text-sm text-ink2">Matrice d'accès API, logs de sécurité</p>
         </Link>
       </div>

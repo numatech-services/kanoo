@@ -10,6 +10,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Employee {
   _id: string; firstName: string; lastName: string; code: string;
   employeeType?: string; indemnityPeriod?: string; grossSalary?: number;
@@ -105,8 +106,8 @@ export default function PayslipsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Bulletins de paie</h1>
-          <p className="text-sm text-ink2">{total} bulletin{total > 1 ? "s" : ""} · net affiché : {fmt(pageNet)} XOF</p>
+          <h1 className="page-title">Bulletins de paie</h1>
+          <p className="text-sm text-ink2">{total} bulletin{total > 1 ? "s" : ""} · net affiché : {fmt(pageNet)} FCFA</p>
         </div>
         {canCreate && (
           <div className="flex gap-2">
@@ -200,7 +201,7 @@ function SingleDialog({ employees, onClose, onDone }: { employees: Employee[]; o
         <div className="space-y-3">
           <p className="text-sm text-ink">Bulletin généré, avec des points à vérifier :</p>
           <ul className="list-disc pl-5 text-sm text-warn">{alerts.map(a => <li key={a}>{a}</li>)}</ul>
-          <button onClick={onDone} className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold">Fermer</button>
+          <button onClick={onDone} className={buttonClass("primary", "md")}>Fermer</button>
         </div>
       ) : (
         <form onSubmit={submit} className="space-y-4">
@@ -220,7 +221,7 @@ function SingleDialog({ employees, onClose, onDone }: { employees: Employee[]; o
             <FormField label="Année"><input type="number" className={inputCls} value={f.year} onChange={e => setF(p => ({ ...p, year: Number(e.target.value) }))} /></FormField>
           </div>
           {emp?.employeeType === "employee" && (
-            <FormField label="Salaire de base du mois" hint={`Laisser vide : salaire de la fiche (${fmt(emp.grossSalary)} XOF)`}>
+            <FormField label="Salaire de base du mois" hint={`Laisser vide : salaire de la fiche (${fmt(emp.grossSalary)} FCFA)`}>
               <input type="number" min={0} className={inputCls} value={f.grossSalary || ""} onChange={e => setF(p => ({ ...p, grossSalary: Number(e.target.value) }))} />
             </FormField>
           )}
@@ -231,7 +232,7 @@ function SingleDialog({ employees, onClose, onDone }: { employees: Employee[]; o
           )}
           <ItemsEditor items={items} onChange={setItems} />
           <p className="text-[11px] text-ink3">CNSS, IR, ancienneté et retenue permanente sont calculés d&apos;après la fiche du salarié.</p>
-          <button type="submit" disabled={saving} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">
+          <button type="submit" disabled={saving} className={buttonClass("primary", "md", "w-full")}>
             {saving ? "Génération…" : "Générer le bulletin"}
           </button>
         </form>
@@ -263,7 +264,7 @@ function BatchDialog({ onClose }: { onClose: () => void }) {
     <Modal open onClose={onClose} title="Paie du mois — tous les salariés actifs" size="lg">
       {result ? (
         <div className="space-y-4">
-          <p className="text-sm text-ink"><b>{result.created.length}</b> bulletin(s) générés · net total <b>{fmt(result.totalNet)} XOF</b></p>
+          <p className="text-sm text-ink"><b>{result.created.length}</b> bulletin(s) générés · net total <b>{fmt(result.totalNet)} FCFA</b></p>
           {result.created.some(c => c.alerts.length) && (
             <ul className="text-xs text-warn list-disc pl-5">
               {result.created.filter(c => c.alerts.length).map(c => <li key={c.name}>{c.name} : {c.alerts.join(" ; ")}</li>)}
@@ -275,7 +276,7 @@ function BatchDialog({ onClose }: { onClose: () => void }) {
               <ul className="text-xs text-ink2 space-y-0.5">{result.skipped.map(s => <li key={s.name}>{s.name} — {s.reason}</li>)}</ul>
             </div>
           )}
-          <button onClick={onClose} className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold">Fermer</button>
+          <button onClick={onClose} className={buttonClass("primary", "md")}>Fermer</button>
         </div>
       ) : (
         <div className="space-y-4">
@@ -289,7 +290,7 @@ function BatchDialog({ onClose }: { onClose: () => void }) {
             </FormField>
             <FormField label="Année"><input type="number" className={inputCls} value={f.year} onChange={e => setF(p => ({ ...p, year: Number(e.target.value) }))} /></FormField>
           </div>
-          <button onClick={run} disabled={saving} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">
+          <button onClick={run} disabled={saving} className={buttonClass("primary", "md", "w-full")}>
             {saving ? "Calcul en cours…" : `Générer la paie de ${MONTHS[f.month]} ${f.year}`}
           </button>
         </div>

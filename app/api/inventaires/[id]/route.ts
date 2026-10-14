@@ -231,8 +231,8 @@ export const PATCH = withAuth("products", "update", async (req: NextRequest, aut
       message: summary.withVariance === 0
         ? "Inventaire validé : aucun écart, le stock était juste."
         : `Inventaire validé. ${summary.withVariance} écart(s) régularisé(s), `
-          + `${summary.shortageValue.toLocaleString("fr-FR")} XOF de manquants et `
-          + `${summary.surplusValue.toLocaleString("fr-FR")} XOF d'excédents.`,
+          + `${summary.shortageValue.toLocaleString("fr-FR")} FCFA de manquants et `
+          + `${summary.surplusValue.toLocaleString("fr-FR")} FCFA d'excédents.`,
     });
   }
 

@@ -5,6 +5,7 @@ import { User, Check } from "lucide-react";
 import { FormField, inputCls } from "@/components/ui/FormField";
 import { invalidateMe } from "@/lib/useMe";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Profile { firstName?: string; lastName?: string; phone?: string; email?: string; role?: string; }
 
 export default function ProfilePage() {
@@ -48,7 +49,7 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6 max-w-xl">
       <div>
-        <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><User size={22} /> Mon profil</h1>
+        <h1 className="page-title flex items-center gap-2"><User size={22} /> Mon profil</h1>
         <p className="text-sm text-ink2">Vos informations personnelles et votre rôle.</p>
       </div>
 
@@ -79,7 +80,7 @@ export default function ProfilePage() {
 
       <div className="flex justify-end">
         <button onClick={save} disabled={saving}
-          className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60 inline-flex items-center gap-2">
+          className={buttonClass("primary", "md")}>
           <Check size={16} /> {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
       </div>

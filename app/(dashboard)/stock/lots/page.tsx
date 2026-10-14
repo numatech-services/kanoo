@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { selectCls } from "@/components/ui/FormField";
 
+import { StockTabs } from "@/components/stock/StockTabs";
 interface Lot { _id: string; lotNumber: string; qty: number; expiryDate: string; productId?: { _id: string; code: string; label: string; unit?: string } | null; warehouseId?: { name: string } | null }
 
 /** Lots périmés et à péremption : ce qu'il faut écouler ou sortir du stock. */
@@ -37,10 +38,10 @@ export default function LotsExpiryPage() {
   );
   return (
     <div className="space-y-5 max-w-5xl">
+      <StockTabs />
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <Link href="/stock" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Stock</Link>
-          <h1 className="text-2xl font-bold text-ink mt-1">Péremptions</h1>
+          <h1 className="page-title mt-1">Lots & péremptions</h1>
           <p className="text-sm text-ink2">Les sorties prélèvent d&apos;office le lot qui périme le plus tôt. Un lot périmé se sort par une « perte ».</p>
         </div>
         <select className={`${selectCls} w-auto`} value={days} onChange={e => setDays(Number(e.target.value))} aria-label="Horizon">

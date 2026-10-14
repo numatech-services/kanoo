@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
+import { buttonClass } from "@/components/ui/button-class";
 export const metadata = {
   title: "Fonctionnalités | Kanoo",
   description: "Facturation DGI, comptabilité OHADA, paie CNSS/IR, caisse, mobile money, marchés publics, adhérents, dons et billetterie d'événements — par profil.",
@@ -19,7 +20,7 @@ const SECTIONS = [
   {
     id: "associations", space: "association", tag: "Associations & ONG", title: "Animer une communauté et rendre des comptes.",
     groups: [
-      { h: "Membres & dons", items: ["Adhérents, cotisations, reçus fiscaux automatiques", "Dons multi-devises (XOF/EUR/USD), reçus bailleurs", "Rapports par campagne et par projet"] },
+      { h: "Membres & dons", items: ["Adhérents, cotisations, reçus fiscaux automatiques", "Dons multi-devises (FCFA/EUR/USD), reçus bailleurs", "Rapports par campagne et par projet"] },
       { h: "Gouvernance", items: ["Assemblées générales, conseils, PV", "Convocations email / SMS, calcul de quorum", "Rapports bailleurs (AFD, UE, USAID)"] },
       { h: "Activités & billetterie", items: ["Événements : billets, jauge, tarifs multiples", "Paiement mobile money, billet par courriel et WhatsApp", "Pointage au QR, présences en temps réel, même sans réseau"] },
       { h: "Pièces & justificatifs", items: ["Contrats et conventions de financement rattachés à leur dossier", "Notes de frais des animateurs, justificatif photographié", "Aucun document en accès libre : chaque téléchargement est contrôlé"] },
@@ -47,7 +48,7 @@ export default function FeaturesPage() {
         <p className="text-ink2 text-lg mt-4 max-w-[52ch]">Une plateforme unique qui s'adapte à votre profil. Voici, en détail, ce que Kanoo fait pour chacun.</p>
         <nav className="flex flex-wrap gap-2 mt-6">
           {SECTIONS.map((s) => (
-            <a key={s.id} href={`#${s.id}`} className="text-sm font-semibold px-3.5 h-9 inline-flex items-center rounded-full border border-line2 text-ink2 hover:bg-surface2">{s.tag}</a>
+            <a key={s.id} href={`#${s.id}`} className={buttonClass("secondary", "md")}>{s.tag}</a>
           ))}
         </nav>
       </section>
@@ -90,7 +91,7 @@ export default function FeaturesPage() {
         <h2 className="font-display font-semibold text-ink text-[clamp(1.7rem,4vw,2.4rem)]">Voir Kanoo sur vos propres données.</h2>
         <div className="flex justify-center gap-3 mt-6">
           <Link href="/souscrire" className="inline-flex items-center gap-2 h-12 px-6 rounded-full bg-accent text-white font-semibold hover:bg-accent-600 transition-colors">Essai gratuit <ArrowRight size={17} /></Link>
-          <Link href="/tarifs" className="inline-flex items-center h-12 px-6 rounded-full border border-line2 text-ink font-semibold hover:bg-surface2 transition-colors">Voir les tarifs</Link>
+          <Link href="/tarifs" className={buttonClass("secondary", "md")}>Voir les tarifs</Link>
         </div>
       </section>
     </>

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface DevisLine { description: string; quantity: number; unitPrice: number; tvaRate: number; discount: number; totalHT: number; totalTVA: number; totalTTC: number; }
 interface Client { _id: string; name: string; code: string; }
 interface DevisFormProps { initial?: Record<string, unknown> & { _id?: string }; onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
@@ -75,9 +76,9 @@ export function DevisForm({ initial, onSave, onCancel }: DevisFormProps) {
 
       <div className="flex justify-end">
         <div className="w-56 space-y-1.5 bg-surface2 rounded-xl p-3 text-sm">
-          <div className="flex justify-between"><span className="text-ink2">HT</span><span className="font-mono">{totalHT.toLocaleString("fr-FR")} XOF</span></div>
-          <div className="flex justify-between"><span className="text-ink2">TVA</span><span className="font-mono">{totalTVA.toLocaleString("fr-FR")} XOF</span></div>
-          <div className="flex justify-between font-bold border-t border-line pt-1.5"><span>TTC</span><span className="font-mono text-section">{totalTTC.toLocaleString("fr-FR")} XOF</span></div>
+          <div className="flex justify-between"><span className="text-ink2">HT</span><span className="font-mono">{totalHT.toLocaleString("fr-FR")} FCFA</span></div>
+          <div className="flex justify-between"><span className="text-ink2">TVA</span><span className="font-mono">{totalTVA.toLocaleString("fr-FR")} FCFA</span></div>
+          <div className="flex justify-between font-bold border-t border-line pt-1.5"><span>TTC</span><span className="font-mono text-section">{totalTTC.toLocaleString("fr-FR")} FCFA</span></div>
         </div>
       </div>
 
@@ -86,8 +87,8 @@ export function DevisForm({ initial, onSave, onCancel }: DevisFormProps) {
       </FormField>
 
       <div className="flex justify-end gap-3 pt-3 border-t border-line">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"Enregistrement…":"Enregistrer le devis"}</button>
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>Annuler</button>
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving?"Enregistrement…":"Enregistrer le devis"}</button>
       </div>
     </form>
   );

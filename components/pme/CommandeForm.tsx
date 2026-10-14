@@ -4,6 +4,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 
+import { buttonClass } from "@/components/ui/button-class";
 // On ajoute productId dans l'interface pour faire le lien avec le stock
 interface CmdLine { 
   productId?: string; // CRUCIAL pour le stock
@@ -183,8 +184,8 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
           <textarea className={inputCls+" resize-none"} rows={2} value={notes} onChange={e=>setNotes(e.target.value)} />
         </div>
         <div className="w-72 space-y-1 text-sm bg-ink text-onink rounded-2xl p-5 shadow-xl border border-white/5">
-           <div className="flex justify-between opacity-60 text-xs"><span>Total HT</span><span>{totalHT.toLocaleString("fr-FR")} XOF</span></div>
-           <div className="flex justify-between opacity-60 text-xs"><span>TVA (19%)</span><span>{totalTVA.toLocaleString("fr-FR")} XOF</span></div>
+           <div className="flex justify-between opacity-60 text-xs"><span>Total HT</span><span>{totalHT.toLocaleString("fr-FR")} FCFA</span></div>
+           <div className="flex justify-between opacity-60 text-xs"><span>TVA (19%)</span><span>{totalTVA.toLocaleString("fr-FR")} FCFA</span></div>
            <div className="flex justify-between font-bold border-t border-white/10 pt-3 mt-2 text-xl">
              <span className="text-white">TOTAL TTC</span>
              <span className="text-white">{totalTTC.toLocaleString("fr-FR")}</span>
@@ -194,7 +195,7 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
 
       <div className="flex justify-end gap-3 pt-5">
         <button type="button" onClick={onCancel} className="px-6 py-2.5 text-sm font-bold text-ink2 hover:bg-surface2 rounded-xl">Annuler</button>
-        <button type="submit" disabled={saving} className="px-10 py-2.5 bg-section text-white rounded-xl text-sm font-bold hover:brightness-95 disabled:opacity-50 shadow-xl transition-transform active:scale-95">
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>
           {saving ? "Envoi..." : "Enregistrer la commande"}
         </button>
       </div>

@@ -39,7 +39,7 @@ export default function NewMarchePublicPage() {
         <a href="/administration/marches-publics" className="text-xs text-ink2 hover:text-ink">
           ← Retour aux marchés publics
         </a>
-        <h1 className="text-2xl font-bold text-ink mt-1">Nouveau marché public</h1>
+        <h1 className="page-title mt-1">Nouveau marché public</h1>
       </div>
       
       <div className="bg-surface rounded-2xl border border-line p-6">

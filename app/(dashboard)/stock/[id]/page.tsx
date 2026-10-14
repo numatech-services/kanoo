@@ -13,6 +13,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { buttonClass } from "@/components/ui/button-class";
 interface Product {
   _id: string; code: string; label: string; description?: string; unit?: string; category?: string; barcode?: string; location?: string;
   unitPrice: number; tvaRate: number; stockQty: number; stockMinAlert: number; stockMaxAlert?: number; purchaseCost?: number; lastPurchaseCost?: number;
@@ -108,7 +109,7 @@ export default function StockDetailPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <Link href="/stock" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Stock</Link>
-          <h1 className="text-2xl font-bold text-ink mt-1">{p.label}</h1>
+          <h1 className="page-title mt-1">{p.label}</h1>
           <p className="text-sm text-ink2 font-mono">{p.code}{p.barcode ? ` · ${p.barcode}` : ""}{!p.isActive ? " · désactivé" : ""}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -123,9 +124,9 @@ export default function StockDetailPage() {
       <div className="grid sm:grid-cols-4 gap-4">
         {[
           ["En stock", `${fmt(p.stockQty)} ${p.unit ?? ""}`, p.stockMinAlert > 0 && p.stockQty <= p.stockMinAlert ? "text-neg" : "text-ink"],
-          ["Coût moyen (CMUP)", p.purchaseCost ? `${fmt(p.purchaseCost)} XOF` : "à valoriser", p.purchaseCost ? "text-ink" : "text-warn"],
-          ["Valeur au coût", `${fmt(p.stockQty * (p.purchaseCost || 0))} XOF`, "text-ink"],
-          ["Prix de vente HT", `${fmt(p.unitPrice)} XOF`, "text-ink"],
+          ["Coût moyen (CMUP)", p.purchaseCost ? `${fmt(p.purchaseCost)} FCFA` : "à valoriser", p.purchaseCost ? "text-ink" : "text-warn"],
+          ["Valeur au coût", `${fmt(p.stockQty * (p.purchaseCost || 0))} FCFA`, "text-ink"],
+          ["Prix de vente HT", `${fmt(p.unitPrice)} FCFA`, "text-ink"],
         ].map(([k, v, c]) => (
           <div key={k} className="bg-surface rounded-xl border border-line p-4"><p className="text-[11px] font-semibold text-ink2 uppercase">{k}</p><p className={`text-lg font-bold mt-1 ${c}`}>{v}</p></div>
         ))}
@@ -136,7 +137,7 @@ export default function StockDetailPage() {
         <p><span className="text-ink3">Fournisseur habituel :</span> {p.preferredSupplierId?.name || "—"}</p>
         <p><span className="text-ink3">Seuil d&apos;alerte :</span> {fmt(p.stockMinAlert)}</p>
         <p><span className="text-ink3">Stock maximal :</span> {fmt(p.stockMaxAlert)}</p>
-        <p><span className="text-ink3">Dernier prix d&apos;achat :</span> {p.lastPurchaseCost ? `${fmt(p.lastPurchaseCost)} XOF` : "—"}</p>
+        <p><span className="text-ink3">Dernier prix d&apos;achat :</span> {p.lastPurchaseCost ? `${fmt(p.lastPurchaseCost)} FCFA` : "—"}</p>
       </div>
 
       {!p.isService && (
@@ -202,7 +203,7 @@ export default function StockDetailPage() {
             </select>
             <input type="date" className={`${inputCls} w-auto h-9 text-sm`} value={filter.from} onChange={e => setFilter(f => ({ ...f, from: e.target.value }))} aria-label="Du" />
             <input type="date" className={`${inputCls} w-auto h-9 text-sm`} value={filter.to} onChange={e => setFilter(f => ({ ...f, to: e.target.value }))} aria-label="Au" />
-            <a href={`/api/stock/movements?${csvParams}`} className="px-3 h-9 inline-flex items-center gap-1 rounded-lg border border-line2 text-sm hover:bg-surface2"><Download size={14} /> CSV</a>
+            <a href={`/api/stock/movements?${csvParams}`} className={buttonClass("secondary", "md")}><Download size={14} /> CSV</a>
           </div>
         </div>
         <table className="table-dense w-full">

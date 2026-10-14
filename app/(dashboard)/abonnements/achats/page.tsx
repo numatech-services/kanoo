@@ -11,6 +11,7 @@ import { RETENUES_DETAILLEES } from "@/lib/niger-fiscal";
 import { Paperclip } from "lucide-react";
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Purchase {
   _id: string;
   reference: string;
@@ -126,7 +127,7 @@ export default function AchatsAbonnementsPage() {
           <Link href="/abonnements" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1">
             <ArrowLeft size={13} /> Abonnements
           </Link>
-          <h1 className="text-2xl font-bold text-ink mt-1">Contrats souscrits</h1>
+          <h1 className="page-title mt-1">Contrats souscrits</h1>
           <p className="text-sm text-ink2">
             Ce que l&apos;organisation achète aux éditeurs, et qui alimente les reventes.
           </p>
@@ -156,7 +157,7 @@ export default function AchatsAbonnementsPage() {
           <table className="table-dense min-w-[54rem]">
             <thead>
               <tr>
-                {["Référence", "Produit", "Fournisseur", "Période", "Quantité", "Coût (XOF)", "Statut", ""].map((h, i) => (
+                {["Référence", "Produit", "Fournisseur", "Période", "Quantité", "Coût (FCFA)", "Statut", ""].map((h, i) => (
                   <th key={h || i}>{h}</th>
                 ))}
               </tr>
@@ -290,7 +291,7 @@ export default function AchatsAbonnementsPage() {
                   update("currency", e.target.value);
                   if (e.target.value === "XOF") update("exchangeRate", 1);
                 }}>
-                <option value="XOF">XOF</option>
+                <option value="XOF">FCFA</option>
                 <option value="EUR">EUR</option>
                 <option value="USD">USD</option>
               </select>
@@ -320,17 +321,17 @@ export default function AchatsAbonnementsPage() {
           </div>
 
           <div className="grid sm:grid-cols-3 gap-4">
-            <FormField label="Retenue à la source (XOF)"
+            <FormField label="Retenue à la source (FCFA)"
               hint={suggestedWithholding > 0 ? "Vide = valeur suggérée" : "Le cas échéant"}>
               <input type="number" min={0} className={inputCls} value={form.withholdingAmount}
                 placeholder={suggestedWithholding ? String(suggestedWithholding) : "0"}
                 onChange={e => update("withholdingAmount", e.target.value)} />
             </FormField>
-            <FormField label="TVA supportée (XOF)" hint="Déductible, hors coût de revient">
+            <FormField label="TVA supportée (FCFA)" hint="Déductible, hors coût de revient">
               <input type="number" min={0} className={inputCls} value={form.purchaseVatAmount}
                 onChange={e => update("purchaseVatAmount", Number(e.target.value))} />
             </FormField>
-            <FormField label="Frais bancaires (XOF)" hint="Transfert international">
+            <FormField label="Frais bancaires (FCFA)" hint="Transfert international">
               <input type="number" min={0} className={inputCls} value={form.bankFeesAmount}
                 onChange={e => update("bankFeesAmount", Number(e.target.value))} />
             </FormField>
@@ -364,7 +365,7 @@ export default function AchatsAbonnementsPage() {
               Annuler
             </button>
             <button type="submit" disabled={saving}
-              className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+              className={buttonClass("primary", "md")}>
               {saving ? "Enregistrement…" : "Enregistrer"}
             </button>
           </div>

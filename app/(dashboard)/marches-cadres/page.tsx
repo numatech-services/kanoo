@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { fullXof, compactXof } from "@/components/ui/charts/geometry";
 import { orderProgress } from "@/lib/framework-order";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface Order {
   _id: string; reference: string; title: string; unit: string;
   clientId?: { name?: string }; totalQuantity: number; deliveredQuantity?: number;
@@ -47,7 +48,7 @@ export default function MarchesCadresPage() {
     <div className="space-y-6">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Marchés-cadres</h1>
+          <h1 className="page-title">Marchés-cadres</h1>
           <p className="text-sm text-ink2">
             Une quantité commandée, livrée par lots au fil de l&apos;année, facturée à chaque livraison.
           </p>
@@ -178,7 +179,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           <FormField label="Unité">
             <input className={inputCls} value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} />
           </FormField>
-          <FormField label="Prix unitaire (XOF)" required>
+          <FormField label="Prix unitaire (FCFA)" required>
             <input type="number" min={0} className={inputCls} value={form.unitPrice} required
               onChange={e => setForm(f => ({ ...f, unitPrice: e.target.value }))} />
           </FormField>
@@ -205,8 +206,8 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </FormField>
         </div>
         <div className="flex justify-end gap-3 pt-2 border-t border-line">
-          <button type="button" onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-          <button type="submit" disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+          <button type="button" onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>
             {saving ? "Création…" : "Créer le marché"}
           </button>
         </div>

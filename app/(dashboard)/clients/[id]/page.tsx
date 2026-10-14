@@ -8,6 +8,8 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { buttonClass } from "@/components/ui/button-class";
+import { formatMoney } from "@/lib/format";
 type Client = ClientFormData & { _id: string; currentBalance: number; logo?: string };
 type Row = Record<string, unknown>;
 interface Section { count: number; items: Row[]; }
@@ -22,7 +24,6 @@ interface Overview {
   access?: Partial<Record<keyof Overview["sections"] | "createInvoice", boolean>>;
 }
 
-const fmt = (n: unknown) => `${Number(n || 0).toLocaleString("fr-FR")} F CFA`;
 const date = (d: unknown) => (d ? new Date(String(d)).toLocaleDateString("fr-FR") : "—");
 
 /** Une rubrique = un onglet : colonnes + rendu de ligne + lien « voir tout ». */
@@ -37,13 +38,13 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { key: "invoices", label: "Factures", cols: ["N°", "Date", "TTC", "Statut"],
-    row: r => [r.number as string, date(r.issueDate), fmt(r.totalTTC), <StatusBadge key="s" status={String(r.status)} />],
+    row: r => [r.number as string, date(r.issueDate), formatMoney(r.totalTTC), <StatusBadge key="s" status={String(r.status)} />],
     href: id => `/invoices?clientId=${id}`, rowHref: r => `/invoices/${r._id}` },
   { key: "devis", label: "Devis", cols: ["N°", "Date", "TTC", "Statut"],
-    row: r => [r.number as string, date(r.issueDate), fmt(r.totalTTC), <StatusBadge key="s" status={String(r.status)} />],
+    row: r => [r.number as string, date(r.issueDate), formatMoney(r.totalTTC), <StatusBadge key="s" status={String(r.status)} />],
     href: id => `/devis?clientId=${id}`, rowHref: r => `/devis/${r._id}` },
   { key: "contracts", label: "Contrats", cols: ["Référence", "Objet", "Montant", "Échéance", "Statut"],
-    row: r => [r.reference as string || "—", r.title as string, fmt(r.amount), date(r.endDate), <StatusBadge key="s" status={String(r.status)} />],
+    row: r => [r.reference as string || "—", r.title as string, formatMoney(r.amount), date(r.endDate), <StatusBadge key="s" status={String(r.status)} />],
     href: id => `/contracts?clientId=${id}`, rowHref: r => `/contracts/${r._id}` },
   { key: "marches", label: "Marchés-cadres", cols: ["Référence", "Objet", "Avancement", "Statut"],
     row: r => [r.reference as string, r.title as string,
@@ -54,7 +55,7 @@ const TABS: TabDef[] = [
     row: r => [r.number as string, date(r.deliveryDate), <StatusBadge key="s" status={String(r.status)} />],
     href: id => `/livraisons?clientId=${id}` },
   { key: "projects", label: "Projets", cols: ["Intitulé", "Échéance", "Montant", "Statut"],
-    row: r => [r.label as string, date(r.dueDate), fmt(r.amount), <StatusBadge key="s" status={String(r.status)} />],
+    row: r => [r.label as string, date(r.dueDate), formatMoney(r.amount), <StatusBadge key="s" status={String(r.status)} />],
     href: id => `/projects?clientId=${id}` },
   { key: "dunning", label: "Relances", cols: ["Date", "Canaux", "Facture"],
     row: r => [date(r.sentAt), Array.isArray(r.channels) ? (r.channels as string[]).join(", ") : "—", r.invoiceNumber as string || "—"] },
@@ -103,7 +104,7 @@ export default function ClientDetailPage() {
           </div>
           <div>
             <a href="/clients" className="text-xs text-ink2 hover:text-ink">← Clients</a>
-            <h1 className="text-2xl font-bold text-ink mt-0.5">{c.name}</h1>
+            <h1 className="page-title mt-0.5">{c.name}</h1>
             <p className="text-ink2 text-sm">{c.code} · {c.type === "company" ? "Entreprise" : "Particulier"} · <StatusBadge status={c.isActive ? "active" : "inactive"} /></p>
           </div>
         </div>
@@ -114,8 +115,8 @@ export default function ClientDetailPage() {
             const res = await fetch(`/api/clients/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrfTok() } });
             if (res.ok) router.push("/clients"); else showToast("Désactivation impossible", "error");
           }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Désactiver</button>}
-          {data.financials && <a href={`/clients/${id}/releve`} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Relevé</a>}
-          {data.access?.createInvoice !== false && <a href={`/invoices/new?clientId=${id}`} className="px-4 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95">+ Facture</a>}
+          {data.financials && <a href={`/clients/${id}/releve`} className={buttonClass("secondary", "md")}>Relevé</a>}
+          {data.access?.createInvoice !== false && <a href={`/invoices/new?clientId=${id}`} className={buttonClass("primary", "md")}>+ Facture</a>}
         </div>
       </div>
 
@@ -124,7 +125,7 @@ export default function ClientDetailPage() {
         {([["Facturé", data.financials.invoiced, "text-ink"], ["Encaissé", data.financials.paid, "text-pos"], ["Restant dû", data.financials.outstanding, "text-neg"]] as [string, number, string][]).map(([k, v, cls]) => (
           <div key={k} className="bg-surface rounded-xl border border-line p-4">
             <p className="text-[11px] font-semibold text-ink2 uppercase tracking-wide">{k}</p>
-            <p className={`text-xl font-bold mt-1 ${cls}`}>{fmt(v)}</p>
+            <p className={`text-xl font-bold mt-1 ${cls}`}>{formatMoney(v)}</p>
           </div>
         ))}
       </div>}
@@ -139,7 +140,7 @@ export default function ClientDetailPage() {
         </div>
         <div className="bg-surface rounded-xl border border-line p-5">
           <h2 className="font-semibold text-ink mb-3">Conditions commerciales</h2>
-          {([["Limite de crédit", `${(c.creditLimit || 0).toLocaleString("fr-FR")} F CFA`], ["Délai de paiement", `${c.paymentTermDays} jours`]] as [string, string][]).map(([k, v]) => (
+          {([["Limite de crédit", `${(c.creditLimit || 0).toLocaleString("fr-FR")} FCFA`], ["Délai de paiement", `${c.paymentTermDays} jours`]] as [string, string][]).map(([k, v]) => (
             <div key={k} className="flex justify-between py-2 border-b border-line last:border-0 text-sm"><span className="text-ink2">{k}</span><span className="font-mono font-medium text-ink">{v}</span></div>
           ))}
           {c.notes ? <p className="text-xs text-ink2 mt-3 whitespace-pre-wrap">{c.notes}</p> : null}

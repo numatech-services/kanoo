@@ -53,7 +53,7 @@ function NewPurchase() {
   return (
     <div className="max-w-4xl space-y-5">
       <Link href="/depenses" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Achats & dépenses</Link>
-      <h1 className="text-2xl font-bold text-ink">Nouvel achat / dépense</h1>
+      <h1 className="page-title">Nouvel achat / dépense</h1>
       <div className="bg-surface rounded-2xl border border-line p-6">
         {initial ? <PurchaseForm initial={initial} onSubmit={submit} /> : <div className="h-40 animate-pulse bg-surface2 rounded-xl" />}
       </div>

@@ -8,6 +8,7 @@ import Link from "next/link";
 
 import { showToast } from "@/components/ui/Toast";
 import { alertDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
 interface Tenant { _id: string; name: string; type: string; plan: string; subscriptionStatus: string; email?: string; userCount: number; createdAt: string; }
 
 export default function TenantsPage() {
@@ -73,7 +74,7 @@ export default function TenantsPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-ink">Organisations</h1><p className="text-sm text-ink2 mt-0.5">{total} tenant{total > 1 ? "s" : ""}</p></div>
+        <div><h1 className="page-title">Organisations</h1><p className="text-sm text-ink2 mt-0.5">{total} tenant{total > 1 ? "s" : ""}</p></div>
         <button onClick={() => setCreateModal(true)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors">+ Créer une organisation</button>
       </div>
       <div className="flex flex-wrap gap-3">
@@ -102,7 +103,7 @@ export default function TenantsPage() {
           <div><label className={lbl}>Mot de passe admin *</label><input type="password" className={inp} value={form.adminPassword} onChange={e=>setForm(p=>({...p,adminPassword:e.target.value}))} required /></div>
           <div className="flex justify-end gap-3 pt-2 border-t border-line">
             <button type="button" onClick={() => setCreateModal(false)} className="px-4 py-2 text-sm border border-line rounded-lg text-ink2 hover:bg-surface2">Annuler</button>
-            <button type="submit" disabled={saving} className="px-5 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"Création…":"Créer"}</button>
+            <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving?"Création…":"Créer"}</button>
           </div>
         </form>
       </Modal>

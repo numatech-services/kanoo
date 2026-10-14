@@ -50,7 +50,7 @@ export function NewProjectForm({ vocabulary }: { vocabulary: ProjectVocabulary }
         <Link href="/projects" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1">
           <ArrowLeft size={13} /> {vocabulary.plural}
         </Link>
-        <h1 className="text-2xl font-bold text-ink mt-1">{vocabulary.createLabel}</h1>
+        <h1 className="page-title mt-1">{vocabulary.createLabel}</h1>
       </div>
 
       {error && (

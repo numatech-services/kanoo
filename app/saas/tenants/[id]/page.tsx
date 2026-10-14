@@ -16,7 +16,7 @@ export default function TenantDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><Link href="/saas/tenants" className="text-xs text-ink2 hover:text-ink">← Organisations</Link><h1 className="text-2xl font-bold text-ink mt-1">{tenant.name}</h1></div>
+        <div><Link href="/saas/tenants" className="text-xs text-ink2 hover:text-ink">← Organisations</Link><h1 className="page-title mt-1">{tenant.name}</h1></div>
         <div className="flex gap-2">
           <button className="px-4 py-2 bg-warn text-white rounded-lg text-sm font-medium hover:brightness-95">Suspendre</button>
           <button className="px-4 py-2 bg-pos text-white rounded-lg text-sm font-medium hover:brightness-95">Activer</button>

@@ -7,6 +7,7 @@ import { Megaphone, Plus, Clock } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
 
+import { buttonClass } from "@/components/ui/button-class";
 export interface Appel {
   _id: string; title: string; organism?: string; reference?: string;
   submissionDeadline?: string; status: string; estimatedAmount: number;
@@ -53,7 +54,7 @@ export default function AppelsListPage() {
     <div className="space-y-6 max-w-4xl">
       <div className="page-head">
         <div>
-          <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><Megaphone size={22} /> Appels à candidatures</h1>
+          <h1 className="page-title flex items-center gap-2"><Megaphone size={22} /> Veille & offres</h1>
           <p className="text-sm text-ink2">Suivez les appels d'offres auxquels vous répondez : pièces à fournir, date limite, étapes.</p>
         </div>
         <IfCan resource="appels">
@@ -135,14 +136,14 @@ function NewAppel({ onClose, onCreated }: { onClose: () => void; onCreated: (id:
         </div>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Date limite de dépôt"><input type="date" className={inputCls} value={form.submissionDeadline} onChange={e => setForm(f => ({ ...f, submissionDeadline: e.target.value }))} /></FormField>
-          <FormField label="Montant estimé (XOF)"><input type="number" min={0} className={inputCls} value={form.estimatedAmount || ""} onChange={e => setForm(f => ({ ...f, estimatedAmount: Number(e.target.value) }))} /></FormField>
+          <FormField label="Montant estimé (FCFA)"><input type="number" min={0} className={inputCls} value={form.estimatedAmount || ""} onChange={e => setForm(f => ({ ...f, estimatedAmount: Number(e.target.value) }))} /></FormField>
         </div>
         <FormField label="Pièces exigées" hint="Une par ligne — elles deviendront une check-list.">
           <textarea className={textareaCls} rows={4} value={form.docs} onChange={e => setForm(f => ({ ...f, docs: e.target.value }))} placeholder={"Attestation fiscale\nRCCM\nCatalogue produits\nCaution de soumission"} />
         </FormField>
         <div className="flex justify-end gap-3 pt-3 border-t border-line">
-          <button onClick={onClose} className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">Annuler</button>
-          <button onClick={save} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">{saving ? "Création…" : "Créer"}</button>
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button onClick={save} disabled={saving} className={buttonClass("primary", "md")}>{saving ? "Création…" : "Créer"}</button>
         </div>
       </div>
     </Modal>

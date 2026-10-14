@@ -116,7 +116,7 @@ export default function InventaireDetailPage() {
           <Link href="/inventaires" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1">
             <ArrowLeft size={13} /> Inventaires
           </Link>
-          <h1 className="text-2xl font-bold text-ink mt-1">{session.label}</h1>
+          <h1 className="page-title mt-1">{session.label}</h1>
           <p className="text-sm text-ink2 flex items-center gap-2">
             <span className="font-mono text-xs">{session.reference}</span>
             <Pill tone={session.status === "validated" ? "pos" : counting ? "info" : "warn"}>

@@ -130,7 +130,7 @@ export function calculerBulletinDePaie(input: PayslipInput): PayslipResult {
 
   // 8. Net à payer
   const netAPayer = netImposable - ir - totalManualDeductions;
-  if (netAPayer < 0) alerts.push(`⚠ Net à payer négatif (${netAPayer.toLocaleString("fr-FR")} XOF) — vérifier les retenues`);
+  if (netAPayer < 0) alerts.push(`⚠ Net à payer négatif (${netAPayer.toLocaleString("fr-FR")} FCFA) — vérifier les retenues`);
 
   // 9. Coût total employeur
   const totalEmployerCost = grossTotal + cnssEmployer;

@@ -7,6 +7,8 @@ import { ACCOUNT_CLASS_LABEL } from "@/lib/syscohada";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
+import { ScreenTabs } from "@/components/shared/ScreenTabs";
 interface Account { _id: string; code: string; label: string; accountClass: string; isActive: boolean; used: boolean }
 async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
@@ -42,9 +44,10 @@ export default function LedgerPlanPage() {
 
   return (
     <div className="space-y-5 max-w-5xl">
+      <ScreenTabs group="accounting" />
       <div>
         <Link href="/accounting" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Comptabilité</Link>
-        <h1 className="text-2xl font-bold text-ink mt-1">Plan comptable</h1>
+        <h1 className="page-title mt-1">Plan comptable</h1>
         <p className="text-sm text-ink2">SYSCOHADA révisé. Les saisies manuelles n&apos;acceptent que les comptes actifs de ce plan.</p>
       </div>
       {msg && <p className="p-3 rounded-lg text-sm bg-neg-50 text-neg">{msg.text}</p>}
@@ -52,7 +55,7 @@ export default function LedgerPlanPage() {
         <form onSubmit={async e => { e.preventDefault(); if (await call("/api/ledger-accounts", "POST", add)) setAdd({ code: "", label: "" }); }} className="bg-surface rounded-xl border border-line p-4 flex gap-2 flex-wrap items-end">
           <label className="block"><span className="block text-xs text-ink2 mb-1">Numéro</span><input className={`${inputCls} w-36`} value={add.code} onChange={e => setAdd(a => ({ ...a, code: e.target.value.replace(/\D/g, "") }))} placeholder="Ex. 521100" /></label>
           <label className="block flex-1 min-w-[14rem]"><span className="block text-xs text-ink2 mb-1">Intitulé</span><input className={inputCls} value={add.label} onChange={e => setAdd(a => ({ ...a, label: e.target.value }))} placeholder="Ex. Banque BIA Niger" /></label>
-          <button type="submit" className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><Plus size={15} /> Ajouter</button>
+          <button type="submit" className={buttonClass("primary", "md")}><Plus size={15} /> Ajouter</button>
         </form>
       )}
       <div className="flex gap-2 flex-wrap items-center">

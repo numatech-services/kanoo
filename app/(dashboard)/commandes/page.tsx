@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
+import { buttonClass } from "@/components/ui/button-class";
 import Link from "next/link"; // Import indispensable
 
 interface Commande { _id:string; number:string; supplierId:{name:string}|string; totalTTC:number; status:string; orderDate:string; expectedDeliveryDate?:string; }
@@ -64,7 +65,7 @@ const columns: Column<Commande>[] = [
     },
     {
       key: "totalTTC",
-      label: "Total TTC (XOF)",
+      label: "Total TTC (FCFA)",
       className: "text-right font-mono",
       render: (v) => Number(v).toLocaleString("fr-FR")
     },
@@ -79,12 +80,12 @@ const columns: Column<Commande>[] = [
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-            <h1 className="text-2xl font-bold text-ink">Bons de commande</h1>
+            <h1 className="page-title">Bons de commande</h1>
             <p className="text-sm text-ink2 mt-0.5">{total} commande{total>1?"s":""}</p>
         </div>
         <IfCan resource="commandes">
           <Link href="/commandes/new"
-            className="relative z-50 px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors">
+            className={buttonClass("primary", "md", "relative")}>
             + Nouveau BC
           </Link>
         </IfCan>

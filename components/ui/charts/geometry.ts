@@ -106,7 +106,7 @@ export function compactXof(value: number): string {
 
 /** Montant complet, pour les infobulles et les valeurs mises en avant. */
 export function fullXof(value: number): string {
-  return `${Math.round(value).toLocaleString("fr-FR")} XOF`;
+  return `${Math.round(value).toLocaleString("fr-FR")} FCFA`;
 }
 
 /**

@@ -44,7 +44,7 @@ export const PATCH = withAuth("fixedAssets", "update", async (req: NextRequest, 
     );
 
     await logAudit(auth, "UPDATE", "fixedAssets", { resourceId: params.id, after: { action: "depreciation_posted", year, amount: entry.annuity } });
-    return ok({ message: `Dotation ${entry.annuity.toLocaleString("fr-FR")} XOF passée en comptabilité`, entry: acEntry });
+    return ok({ message: `Dotation ${entry.annuity.toLocaleString("fr-FR")} FCFA passée en comptabilité`, entry: acEntry });
   }
 
   // Cession / mise au rebut : sortie de l'actif en comptabilité.
@@ -87,7 +87,7 @@ export const PATCH = withAuth("fixedAssets", "update", async (req: NextRequest, 
       await asset.save({ session });
     });
     await logAudit(auth, "UPDATE", "fixedAssets", { resourceId: params.id, after: { action: "disposed", price, vnc } });
-    return ok({ message: `Immobilisation sortie de l'actif (VNC ${vnc.toLocaleString("fr-FR")} XOF, prix ${price.toLocaleString("fr-FR")} XOF)` });
+    return ok({ message: `Immobilisation sortie de l'actif (VNC ${vnc.toLocaleString("fr-FR")} FCFA, prix ${price.toLocaleString("fr-FR")} FCFA)` });
   }
 
   // Fiche : descriptif seulement — valeur, durée et plan d'amortissement ne se

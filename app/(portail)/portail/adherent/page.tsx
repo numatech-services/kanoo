@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+import { Lock } from "lucide-react";
+import { buttonClass } from "@/components/ui/button-class";
 interface PortailData {
   member: { firstName:string; lastName:string; code:string; membershipType:string; status:string; joinDate:string; };
   cotisations: Array<{ year:number; amount:number; paidAt?:string; receiptNumber:string; }>;
@@ -30,10 +32,10 @@ export default function PortailAdherentPage() {
 
   if (error) return (
     <div className="text-center py-20">
-      <p className="text-2xl mb-4">🔒</p>
-      <h1 className="text-xl font-bold text-ink mb-2">Accès requis</h1>
+      <p className="mb-4 text-ink3 flex justify-center" aria-hidden><Lock size={24} /></p>
+      <h1 className="page-title mb-2">Accès requis</h1>
       <p className="text-ink2 mb-6">{error}</p>
-      <Link href="/portail/adherent/connexion" className="px-6 py-3 bg-section text-white rounded-xl font-medium hover:brightness-95">Se connecter</Link>
+      <Link href="/portail/adherent/connexion" className={buttonClass("primary", "md")}>Se connecter</Link>
     </div>
   );
 
@@ -44,7 +46,7 @@ export default function PortailAdherentPage() {
       {/* En-tête */}
       <div className="bg-section text-white rounded-2xl p-6">
         <p className="text-white/60 text-sm">Espace adhérent</p>
-        <h1 className="text-2xl font-bold mt-1">{data.member.firstName} {data.member.lastName}</h1>
+        <h1 className="page-title mt-1">{data.member.firstName} {data.member.lastName}</h1>
         <p className="text-white/70 text-sm mt-0.5">{data.member.code} · {data.member.membershipType}</p>
         <div className="flex gap-3 mt-4">
           <Link href="/portail/adherent/cotisations" className="px-4 py-2 bg-white/15 rounded-lg text-sm hover:bg-white/25 transition-colors">Mes cotisations</Link>
@@ -74,9 +76,9 @@ export default function PortailAdherentPage() {
           <div key={c.receiptNumber} className="flex items-center justify-between px-5 py-3 border-b border-line last:border-0 text-sm">
             <div><p className="font-medium text-ink">Cotisation {c.year}</p><p className="text-xs text-ink2 font-mono">{c.receiptNumber}</p></div>
             <div className="text-right">
-              <p className="font-mono font-bold">{c.amount.toLocaleString("fr-FR")} XOF</p>
+              <p className="font-mono font-bold">{c.amount.toLocaleString("fr-FR")} FCFA</p>
               {c.paidAt
-                ? <span className="text-xs text-pos">✅ Payée le {new Date(c.paidAt).toLocaleDateString("fr-FR")}</span>
+                ? <span className="text-xs text-pos">Payée le {new Date(c.paidAt).toLocaleDateString("fr-FR")}</span>
                 : <span className="text-xs text-warn">⏳ En attente</span>
               }
             </div>

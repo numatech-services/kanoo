@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
 import { LogoPicker } from "@/components/ui/LogoPicker";
 
+import { buttonClass } from "@/components/ui/button-class";
 export interface SupplierFormData {
   code: string;
   name: string;
@@ -133,11 +134,11 @@ export function SupplierForm({ initial, onSave, onCancel }: SupplierFormProps) {
 
       <div className="flex justify-end gap-3 pt-2 border-t border-line">
         <button type="button" onClick={onCancel}
-          className="px-4 py-2 text-sm border border-line rounded-lg text-ink2 hover:bg-surface2">
+          className={buttonClass("secondary", "md")}>
           Annuler
         </button>
         <button type="submit" disabled={saving}
-          className="px-5 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 disabled:opacity-60">
+          className={buttonClass("primary", "md")}>
           {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
       </div>

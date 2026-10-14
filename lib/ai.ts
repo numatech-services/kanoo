@@ -89,7 +89,7 @@ function systemPrompt(req: DraftRequest): string {
     "- N'invente aucun chiffre, montant, date ou fait. N'emploie que les éléments fournis. Si une donnée manque, laisse un repère entre crochets (ex. [montant à compléter]).",
     "- Rends UNIQUEMENT le corps du document : pas d'en-tête, pas de logo, pas de date en tête, pas de bloc signature final (ils sont ajoutés automatiquement à la mise en page).",
     "- Sépare les paragraphes par une ligne vide. N'utilise pas de Markdown (#, *, -) ni de balises ; du texte simple, éventuellement avec des sous-titres en clair pour un rapport.",
-    "- Montants en francs CFA (F CFA). Ton respectueux, sans flagornerie.",
+    "- Montants en francs CFA (FCFA). Ton respectueux, sans flagornerie.",
   ].join("\n");
 }
 

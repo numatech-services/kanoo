@@ -10,6 +10,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { fullXof } from "@/components/ui/charts/geometry";
 
 import { promptDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
 interface Movement {
   _id: string; date: string; amount: number; label: string;
   reference?: string; statementLineId?: string; source?: string;
@@ -102,7 +103,7 @@ export default function RapprochementPage() {
           <Link href="/treasury" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1">
             <ArrowLeft size={13} /> Trésorerie
           </Link>
-          <h1 className="text-2xl font-bold text-ink mt-1">Rapprochement — {account.label}</h1>
+          <h1 className="page-title mt-1">Rapprochement — {account.label}</h1>
           <p className="text-sm text-ink2">
             Ce que Kanoo a enregistré, face à ce que la banque déclare. L&apos;écart est l&apos;information utile.
           </p>
@@ -488,11 +489,11 @@ function ImportDialog({
 
         <div className="flex justify-end gap-3 pt-2 border-t border-line">
           <button type="button" onClick={onClose}
-            className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+            className={buttonClass("secondary", "md")}>
             Fermer
           </button>
           <button type="submit" disabled={busy || !content}
-            className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+            className={buttonClass("primary", "md")}>
             {busy ? "Import…" : "Importer"}
           </button>
         </div>

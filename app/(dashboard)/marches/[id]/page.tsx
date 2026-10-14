@@ -71,7 +71,7 @@ export default function MarcheDetailPage() {
           <button onClick={() => router.push("/marches")} className="text-xs text-ink2 hover:text-ink">
             ← Retour aux marchés
           </button>
-          <h1 className="text-2xl font-bold text-ink mt-1">
+          <h1 className="page-title mt-1">
             {String(item.reference || item.object || "Détail du marché")}
           </h1>
         </div>

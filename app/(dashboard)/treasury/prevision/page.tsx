@@ -28,7 +28,7 @@ export default function TreasuryForecastPage() {
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
           <Link href="/treasury" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Trésorerie</Link>
-          <h1 className="text-2xl font-bold text-ink mt-1">Prévision de trésorerie</h1>
+          <h1 className="page-title mt-1">Prévision de trésorerie</h1>
           <p className="text-sm text-ink2">Soldes d&apos;aujourd&apos;hui + ce qui doit rentrer − ce qui doit sortir.</p>
         </div>
         <select className={`${selectCls} w-auto`} value={weeks} onChange={e => setWeeks(Number(e.target.value))} aria-label="Horizon">
@@ -38,11 +38,11 @@ export default function TreasuryForecastPage() {
 
       <div className="grid sm:grid-cols-4 gap-4">
         {[["Solde actuel", data.opening, "text-ink"], ["Encaissements attendus", data.totals.in, "text-pos"], ["Décaissements attendus", data.totals.out, "text-neg"], ["Solde final prévu", data.opening + data.totals.in - data.totals.out, data.opening + data.totals.in - data.totals.out >= 0 ? "text-pos" : "text-neg"]].map(([k, v, c]) => (
-          <div key={String(k)} className="bg-surface rounded-xl border border-line p-4"><p className="text-[11px] font-semibold text-ink2 uppercase">{k}</p><p className={`text-xl font-bold mt-1 ${c}`}>{fmt(Number(v))} XOF</p></div>
+          <div key={String(k)} className="bg-surface rounded-xl border border-line p-4"><p className="text-[11px] font-semibold text-ink2 uppercase">{k}</p><p className={`text-xl font-bold mt-1 ${c}`}>{fmt(Number(v))} FCFA</p></div>
         ))}
       </div>
       {data.lowest && data.lowest.balance < 0 && (
-        <p className="p-3 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg flex items-center gap-2"><AlertTriangle size={16} /> Trésorerie négative prévue la semaine du {d(data.lowest.weekStart)} ({fmt(data.lowest.balance)} XOF) : relancez les clients ou décalez des paiements.</p>
+        <p className="p-3 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg flex items-center gap-2"><AlertTriangle size={16} /> Trésorerie négative prévue la semaine du {d(data.lowest.weekStart)} ({fmt(data.lowest.balance)} FCFA) : relancez les clients ou décalez des paiements.</p>
       )}
 
       <SegmentedControl ariaLabel="Vue" value={flow} onChange={setFlow}
@@ -64,7 +64,7 @@ export default function TreasuryForecastPage() {
                   </tr>
                 ))}
               </tbody>
-              {list.length > 0 && <tfoot><tr className="border-t border-line font-semibold"><td colSpan={3}>Total {flow === "in" ? "des recettes" : "des dépenses"} attendues</td><td className="text-right font-mono">{fmt(sum)} XOF</td></tr></tfoot>}
+              {list.length > 0 && <tfoot><tr className="border-t border-line font-semibold"><td colSpan={3}>Total {flow === "in" ? "des recettes" : "des dépenses"} attendues</td><td className="text-right font-mono">{fmt(sum)} FCFA</td></tr></tfoot>}
             </table>
           </div>
         );

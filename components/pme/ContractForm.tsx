@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 
+import { buttonClass } from "@/components/ui/button-class";
 export interface ContractFormData {
   title: string; type: string; amount: number; paymentMode: string;
   isRecurring: boolean; billingFrequency: string; autoGenerateInvoice: boolean;
@@ -69,7 +70,7 @@ export function ContractForm({ initial, onSave, onCancel }: ContractFormProps) {
       <fieldset className="space-y-4">
         <legend className="text-sm font-semibold text-ink border-b border-line pb-2 w-full">Conditions financières</legend>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Montant (XOF)">
+          <FormField label="Montant (FCFA)">
             <input type="number" className={inputCls} value={form.amount} onChange={e=>u("amount",Number(e.target.value))} min={0}/>
           </FormField>
           <FormField label="Mode de paiement">
@@ -121,8 +122,8 @@ export function ContractForm({ initial, onSave, onCancel }: ContractFormProps) {
       <FormField label="Notes internes"><textarea className={textareaCls} rows={2} value={form.notes} onChange={e=>u("notes",e.target.value)}/></FormField>
 
       <div className="flex justify-end gap-3 pt-3 border-t border-line">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
-        <button type="submit" disabled={saving} className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{saving?"Enregistrement…":"Enregistrer"}</button>
+        <button type="button" onClick={onCancel} className={buttonClass("secondary", "md")}>Annuler</button>
+        <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving?"Enregistrement…":"Enregistrer"}</button>
       </div>
     </form>
   );

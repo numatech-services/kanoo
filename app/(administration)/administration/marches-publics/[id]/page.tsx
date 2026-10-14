@@ -8,6 +8,8 @@ import { errorMessage } from "@/lib/errors";
 import { Plus, Trash2, Award, Ban, FileCheck, Landmark, Users } from "lucide-react";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
+import { buttonClass } from "@/components/ui/button-class";
+import { formatMoney } from "@/lib/format";
 interface Bid { _id?: string; bidderName: string; amount: number; compliant?: boolean; notes?: string }
 interface Tender {
   _id: string; reference: string; object: string; estimatedAmount: number;
@@ -20,7 +22,6 @@ interface Tender {
 interface Chapter { _id: string; code: string; label: string }
 interface DirUser { _id: string; firstName?: string; lastName?: string }
 
-const fmt = (n?: number) => `${(n || 0).toLocaleString("fr-FR")} XOF`;
 const dt = (d?: string) => (d ? new Date(d).toLocaleDateString("fr-FR") : "—");
 
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -144,7 +145,7 @@ export default function TenderDetailPage() {
         <div>
           <Link href="/administration/marches-publics" className="text-xs text-ink2 hover:text-ink">← Retour aux marchés publics</Link>
           <div className="flex items-center gap-3 mt-1">
-            <h1 className="text-3xl font-bold text-ink">{tender.reference}</h1>
+            <h1 className="page-title">{tender.reference}</h1>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${s.cls}`}>{s.label}</span>
           </div>
         </div>
@@ -170,7 +171,7 @@ export default function TenderDetailPage() {
           <div className="bg-surface rounded-2xl border border-line p-6">
             <h2 className="text-lg font-bold text-ink mb-4 border-b border-line pb-2">Détails techniques</h2>
             <div className="space-y-3 text-sm">
-              {([["Objet", tender.object], ["Montant estimé", fmt(tender.estimatedAmount)], ["Procédure", tender.procedure],
+              {([["Objet", tender.object], ["Montant estimé", formatMoney(tender.estimatedAmount)], ["Procédure", tender.procedure],
                 ["Publication", dt(tender.publishDate)], ["Date limite de dépôt", dt(tender.bidsDeadline)],
                 ["Ouverture des plis", dt(tender.openingDate)]] as [string, string][]).map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3 border-b border-line pb-2 last:border-0"><span className="text-ink3">{k}</span><span className="text-ink font-semibold text-right">{v}</span></div>
@@ -221,7 +222,7 @@ export default function TenderDetailPage() {
                     {tender.bids.map((b, i) => (
                       <tr key={b._id || i} className="border-t border-line">
                         <td className="px-3 py-2 text-ink font-medium">{b.bidderName}</td>
-                        <td className="px-3 py-2 text-right">{fmt(b.amount)}</td>
+                        <td className="px-3 py-2 text-right">{formatMoney(b.amount)}</td>
                         <td className="px-3 py-2">{b.compliant !== false ? "✓" : <span className="text-neg">non</span>}</td>
                         <td className="px-3 py-2 text-right">{canBid && <button onClick={() => removeBid(i)} className="text-ink3 hover:text-neg"><Trash2 size={14} /></button>}</td>
                       </tr>
@@ -253,7 +254,7 @@ export default function TenderDetailPage() {
                   <p className="text-[10px] font-bold text-pos uppercase flex items-center gap-1"><Award size={13} /> Titulaire</p>
                   <p className="font-bold text-ink mt-1">{tender.winnerName || "—"}</p>
                   <p className="text-xs text-ink3 mt-2">Montant d'attribution</p>
-                  <p className="font-bold text-ink text-lg">{fmt(tender.winnerAmount)}</p>
+                  <p className="font-bold text-ink text-lg">{formatMoney(tender.winnerAmount)}</p>
                   <p className="text-[11px] text-ink3 mt-1">le {dt(tender.attributionDate)}</p>
                 </div>
                 {/* Pont budgétaire */}
@@ -272,10 +273,10 @@ export default function TenderDetailPage() {
                 <select value={winnerBidId} onChange={(e) => setWinnerBidId(e.target.value)} className="w-full p-2 bg-surface rounded-lg text-sm border border-line">
                   <option value="">— Choisir —</option>
                   {(tender.bids || []).filter((b) => b.compliant !== false).map((b, i) => (
-                    <option key={b._id || i} value={b._id || ""}>{b.bidderName} — {fmt(b.amount)}</option>
+                    <option key={b._id || i} value={b._id || ""}>{b.bidderName} — {formatMoney(b.amount)}</option>
                   ))}
                 </select>
-                <button onClick={attribute} disabled={loading || !winnerBidId} className="w-full py-3 rounded-xl bg-section text-white text-sm font-bold disabled:opacity-50 inline-flex items-center justify-center gap-2"><Award size={15} /> Attribuer le marché</button>
+                <button onClick={attribute} disabled={loading || !winnerBidId} className={buttonClass("primary", "md", "w-full justify-center")}><Award size={15} /> Attribuer le marché</button>
                 {(tender.bids || []).length === 0 && <p className="text-[11px] text-warn">Enregistrez d'abord les soumissions.</p>}
               </div>
             ) : (

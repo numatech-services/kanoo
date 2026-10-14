@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     const rows = [["TVA collectée (ventes)",tvaCollectee],["TVA déductible (achats)",tvaDeductible],["TVA nette",tvaNette],["Montant à verser DGI",Math.max(0,tvaNette)]];
     for (const [l, v] of rows) {
       doc.fontSize(11).font(l === "Montant à verser DGI" ? "Helvetica-Bold" : "Helvetica");
-      doc.text(String(l), 80).text(`${Math.round(Number(v)).toLocaleString("fr-FR")} XOF`, 400, doc.y - 15);
+      doc.text(String(l), 80).text(`${Math.round(Number(v)).toLocaleString("fr-FR")} FCFA`, 400, doc.y - 15);
       doc.moveDown(0.5);
     }
     doc.moveDown(2).fontSize(9).font("Helvetica").text("Généré par Kanoo — Niamey, Niger", { align: "center" });

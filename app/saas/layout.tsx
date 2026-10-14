@@ -4,7 +4,7 @@ import { SectionScope } from "@/components/layout/SectionScope";
 import { CommandPalette } from "@/components/shared/CommandPalette";
 import { IdleTimeout } from "@/components/shared/IdleTimeout";
 
-// CONFIGURATION DES VIEWPORTS (Pour supprimer les warnings ⚠ dans tes logs)
+// CONFIGURATION DES VIEWPORTS (Pour supprimer les avertissements dans les journaux)
 export const viewport = {
   themeColor: "#0F172A", // Remplace par la couleur de ta marque (ex: Cedar ou Ink)
   width: "device-width",

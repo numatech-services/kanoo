@@ -16,7 +16,7 @@ export const POST = withAuth("contracts", "update", async (req: NextRequest, aut
   const r = parseMilestone(await req.json().catch(() => ({})), contract.amount);
   if (r.error) return badRequest(r.error);
   const planned = (contract.milestones as Array<{ amount: number }>).reduce((t, m) => t + m.amount, 0);
-  if (planned + r.data!.amount > contract.amount) return badRequest(`L'échéancier dépasserait le montant du marché (reste ${(contract.amount - planned).toLocaleString("fr-FR")} XOF HT).`);
+  if (planned + r.data!.amount > contract.amount) return badRequest(`L'échéancier dépasserait le montant du marché (reste ${(contract.amount - planned).toLocaleString("fr-FR")} FCFA HT).`);
   contract.milestones.push(r.data);
   await contract.save();
   await logAudit(auth, "UPDATE", "contracts", { resourceId: String(contract._id), after: { milestone: r.data!.label } });

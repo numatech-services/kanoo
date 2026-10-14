@@ -185,7 +185,7 @@ export async function drawDocumentQr(
 // toLocaleString("fr-FR") comme séparateur de milliers, et la rend « / ». On la
 // remplace par une espace ordinaire.
 const num = (n: number) => (n || 0).toLocaleString("fr-FR").replace(/[\u202f\u00a0]/g, " ");
-const XOF = (n: number) => `${num(n)} XOF`;
+const FCFA = (n: number) => `${num(n)} FCFA`;
 
 /** Montant entier en toutes lettres (fran\u00e7ais) \u2014 pour l'\u00ab arr\u00eat\u00e9 \u00bb des documents. */
 function amountInWordsFr(n: number): string {
@@ -249,7 +249,7 @@ function invoiceQrPayload(inv: InvoiceForPdf, tenant: TenantIdentity): string {
   if (inv.secef?.qrPayload) return inv.secef.qrPayload;
   const date = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString("fr-FR") : "";
   const kind = inv.documentType === "credit_note" ? "Avoir" : "Facture";
-  return `Kanoo | ${kind} ${inv.number ?? ""} | ${tenant.name ?? ""} | ${XOF(inv.totalTTC ?? 0)} | ${date}`;
+  return `Kanoo | ${kind} ${inv.number ?? ""} | ${tenant.name ?? ""} | ${FCFA(inv.totalTTC ?? 0)} | ${date}`;
 }
 
 /**
@@ -296,7 +296,7 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
       doc.text(String(line.quantity ?? 0), 300, y + 5, { width: 34, align: "center" });
       doc.text(num(line.unitPrice || 0), 340, y + 5, { width: 62, align: "right" });
       doc.text(`${Math.round((line.tvaRate || 0) * 100)} %`, 408, y + 5, { width: 38, align: "center" });
-      doc.text(XOF(line.totalTTC || 0), 452, y + 5, { width: 88, align: "right" });
+      doc.text(FCFA(line.totalTTC || 0), 452, y + 5, { width: 88, align: "right" });
       y += 20;
     }
 
@@ -309,14 +309,14 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
       y += 15;
     };
     doc.moveTo(330, y - 4).lineTo(545, y - 4).strokeColor(c.line).stroke();
-    if ((inv.totalHT ?? 0) > 0) totalRow("Sous-total HT", XOF(inv.totalHT!));
-    if ((inv.totalTVA ?? 0) > 0) totalRow("TVA", XOF(inv.totalTVA!));
-    if ((inv.totalDTS ?? 0) > 0) totalRow("Droit de timbre", XOF(inv.totalDTS!));
+    if ((inv.totalHT ?? 0) > 0) totalRow("Sous-total HT", FCFA(inv.totalHT!));
+    if ((inv.totalTVA ?? 0) > 0) totalRow("TVA", FCFA(inv.totalTVA!));
+    if ((inv.totalDTS ?? 0) > 0) totalRow("Droit de timbre", FCFA(inv.totalDTS!));
 
     doc.rect(330, y, 215, 24).fill(c.primary);
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10);
     doc.text(isCredit ? "TOTAL AVOIR" : "TOTAL TTC", 340, y + 7);
-    doc.text(XOF(inv.totalTTC ?? 0), 430, y + 7, { width: 105, align: "right" });
+    doc.text(FCFA(inv.totalTTC ?? 0), 430, y + 7, { width: 105, align: "right" });
 
     // Montant arrêté en toutes lettres (à gauche, en regard du total).
     doc.fillColor(c.ink).font("Helvetica-Oblique").fontSize(8.5)
@@ -325,12 +325,12 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
 
     if (!isCredit && (inv.paidAmount ?? 0) > 0) {
       doc.fillColor("#1C5D4C").font("Helvetica").fontSize(9);
-      doc.text("Encaissé", 330, y); doc.text(XOF(inv.paidAmount!), 430, y, { width: 115, align: "right" });
+      doc.text("Encaissé", 330, y); doc.text(FCFA(inv.paidAmount!), 430, y, { width: 115, align: "right" });
       const remaining = (inv.totalTTC ?? 0) - (inv.creditedAmount ?? 0) - (inv.paidAmount ?? 0);
       if (remaining > 0) {
         y += 14;
         doc.fillColor("#B23B2E").font("Helvetica-Bold");
-        doc.text("Reste dû", 330, y); doc.text(XOF(remaining), 430, y, { width: 115, align: "right" });
+        doc.text("Reste dû", 330, y); doc.text(FCFA(remaining), 430, y, { width: 115, align: "right" });
       }
     }
 
@@ -402,7 +402,7 @@ function drawLinesAndTotals(
     doc.text(String(line.quantity ?? 0), 300, y + 5, { width: 34, align: "center" });
     doc.text(num(line.unitPrice || 0), 340, y + 5, { width: 62, align: "right" });
     doc.text(`${Math.round((line.tvaRate || 0) * 100)} %`, 408, y + 5, { width: 38, align: "center" });
-    doc.text(XOF(line.totalTTC || 0), 452, y + 5, { width: 88, align: "right" });
+    doc.text(FCFA(line.totalTTC || 0), 452, y + 5, { width: 88, align: "right" });
     y += 20;
   }
 
@@ -414,14 +414,14 @@ function drawLinesAndTotals(
     doc.text(label, 330, y); doc.text(value, 430, y, { width: 115, align: "right" });
     y += 15;
   };
-  if ((totals.ht ?? 0) > 0) row("Sous-total HT", XOF(totals.ht!));
-  if ((totals.tva ?? 0) > 0) row("TVA", XOF(totals.tva!));
-  if ((totals.dts ?? 0) > 0) row("Droit de timbre", XOF(totals.dts!));
+  if ((totals.ht ?? 0) > 0) row("Sous-total HT", FCFA(totals.ht!));
+  if ((totals.tva ?? 0) > 0) row("TVA", FCFA(totals.tva!));
+  if ((totals.dts ?? 0) > 0) row("Droit de timbre", FCFA(totals.dts!));
 
   doc.rect(330, y, 215, 24).fill(c.primary);
   doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10);
   doc.text(totals.totalLabel, 340, y + 7);
-  doc.text(XOF(totals.ttc ?? 0), 430, y + 7, { width: 105, align: "right" });
+  doc.text(FCFA(totals.ttc ?? 0), 430, y + 7, { width: 105, align: "right" });
   return y + 32;
 }
 
@@ -459,7 +459,7 @@ export async function generateQuotePdf(q: QuoteForPdf, tenant: TenantIdentity, o
     }
 
     if (withQr) {
-      await drawDocumentQr(doc, `Kanoo | Devis ${q.number ?? ""} | ${tenant.name ?? ""} | ${XOF(q.totalTTC ?? 0)} | ${date}`,
+      await drawDocumentQr(doc, `Kanoo | Devis ${q.number ?? ""} | ${tenant.name ?? ""} | ${FCFA(q.totalTTC ?? 0)} | ${date}`,
         { x: 470, y: 700, size: 74, caption: "Vérification" });
     }
     drawBrandedFooter(doc, tenant);
@@ -554,7 +554,7 @@ export async function generateDeskReportPdf(r: DeskReportForPdf, tenant: TenantI
   const c = colors(tenant);
   const M = 50;
   const W = 495;
-  const fmt = (n: number) => `${Math.round(n).toLocaleString("fr-FR").replace(/ | /g, " ")} XOF`;
+  const fmt = (n: number) => `${Math.round(n).toLocaleString("fr-FR").replace(/ | /g, " ")} FCFA`;
 
   const recettes = r.cash.filter(e => e.direction === "in").reduce((s, e) => s + e.amount, 0);
   const depenses = r.cash.filter(e => e.direction === "out").reduce((s, e) => s + e.amount, 0);

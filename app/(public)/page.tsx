@@ -4,6 +4,7 @@ import {
   BellRing, Scale, ReceiptText, ShieldCheck, WifiOff,
 } from "lucide-react";
 
+import { buttonClass } from "@/components/ui/button-class";
 export const metadata = {
   title: "Kanoo — Gestion tout-en-un pour le Niger",
   description: "Facturation certifiée DGI, comptabilité OHADA, paie CNSS/IR, trésorerie et rapprochement bancaire, relances clients, notes de frais et billetterie. Une plateforme, trois métiers — PME, associations et administrations au Niger.",
@@ -119,7 +120,7 @@ export default function HomePage() {
             <Link href="/souscrire" className="inline-flex items-center gap-2 h-12 px-6 rounded-full bg-accent text-white font-semibold hover:bg-accent-600 transition-colors shadow-[0_10px_24px_-8px_rgba(194,98,14,.65)]">
               Démarrer gratuitement <ArrowRight size={17} />
             </Link>
-            <Link href="/demo" className="inline-flex items-center h-12 px-6 rounded-full border border-line2 text-ink font-semibold hover:bg-surface2 transition-colors">
+            <Link href="/demo" className={buttonClass("secondary", "md")}>
               Voir une démo
             </Link>
             <span className="text-sm text-ink3">30 jours · sans carte</span>

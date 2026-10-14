@@ -109,7 +109,7 @@ export default function MandatementActionPage() {
         <div className="bg-ink p-8 text-onink flex justify-between items-center">
           <div>
             <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] mb-1">Dossier de Mandatement</p>
-            <h1 className="text-2xl font-black tracking-tighter uppercase">Ordre de Paiement</h1>
+            <h1 className="page-title">Ordre de Paiement</h1>
           </div>
           <Landmark size={40} className="text-white/10" />
         </div>
@@ -131,7 +131,7 @@ export default function MandatementActionPage() {
                 <Wallet size={16} />
               </div>
               <p className="text-3xl font-black text-section pl-6">
-                {data?.amount?.toLocaleString('fr-FR') || "0"} <span className="text-sm">XOF</span>
+                {data?.amount?.toLocaleString('fr-FR') || "0"} <span className="text-sm">FCFA</span>
               </p>
             </div>
           </div>

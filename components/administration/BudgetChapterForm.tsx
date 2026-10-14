@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
+import { buttonClass } from "@/components/ui/button-class";
 interface BudgetChapterFormProps { 
   onSave: (d: Record<string, any>) => Promise<void>; 
   onCancel: () => void; 
@@ -86,7 +87,7 @@ export function BudgetChapterForm({ onSave, onCancel }: BudgetChapterFormProps) 
             required 
           />
         </FormField>
-        <FormField label="Crédit alloué (XOF)" required>
+        <FormField label="Crédit alloué (FCFA)" required>
           <input 
             type="number" 
             className={inputCls} 
@@ -104,14 +105,14 @@ export function BudgetChapterForm({ onSave, onCancel }: BudgetChapterFormProps) 
         <button 
           type="button" 
           onClick={onCancel} 
-          className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2 transition-colors"
+          className={buttonClass("secondary", "md")}
         >
           Annuler
         </button>
         <button 
           type="submit" 
           disabled={saving} 
-          className="px-6 py-2 bg-section text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60 transition-all active:scale-95"
+          className={buttonClass("primary", "md")}
         >
           {saving ? "Création..." : "Créer le chapitre"}
         </button>

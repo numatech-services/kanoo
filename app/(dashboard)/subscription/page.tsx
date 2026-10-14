@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { showToast } from "@/components/ui/Toast";
+import { CheckCircle2, Lock } from "lucide-react";
 interface Plan { id:string; label:string; price:number; priceYearly:number; features:string[]; popular?:boolean; }
 
 const PLANS: Plan[] = [
@@ -53,13 +54,13 @@ export default function SubscriptionPage() {
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
-        <h1 className="text-2xl font-bold text-ink">Abonnement</h1>
+        <h1 className="page-title">Mon forfait Kanoo</h1>
         <p className="text-sm text-ink2 mt-0.5">Paiement sécurisé via Orange Money, Airtel Money et carte bancaire</p>
       </div>
 
       {status === "success" && (
         <div className="bg-pos-50 border border-pos/25 rounded-xl p-4 flex items-center gap-3">
-          <span className="text-pos text-xl">✅</span>
+          <span className="text-pos inline-flex" aria-hidden><CheckCircle2 size={20} /></span>
           <div>
             <p className="font-semibold text-pos">Paiement confirmé !</p>
             <p className="text-sm text-pos">Votre abonnement a été activé. Un email de confirmation vous a été envoyé.</p>
@@ -99,10 +100,10 @@ export default function SubscriptionPage() {
               <p className="text-xs text-ink2 uppercase tracking-wide">{plan.label}</p>
               <p className="text-2xl font-bold text-ink mt-1 font-mono">
                 {price.toLocaleString("fr-FR")}
-                <span className="text-xs font-normal text-ink2"> XOF/{period==="yearly"?"an":"mois"}</span>
+                <span className="text-xs font-normal text-ink2"> FCFA/{period==="yearly"?"an":"mois"}</span>
               </p>
               {period === "yearly" && (
-                <p className="text-xs text-pos mt-0.5">= {Math.round(plan.priceYearly/12/1000)}k XOF/mois</p>
+                <p className="text-xs text-pos mt-0.5">= {Math.round(plan.priceYearly/12/1000)}k FCFA/mois</p>
               )}
               <ul className="mt-4 space-y-1.5 flex-1">
                 {plan.features.map(f => (
@@ -120,7 +121,7 @@ export default function SubscriptionPage() {
                   : "border border-line text-ink2 hover:bg-surface2"
                 }`}
               >
-                {isActive ? "✅ Plan actuel"
+                {isActive ? "Plan actuel"
                  : loading === plan.id ? "Redirection…"
                  : "Payer via Orange Money / Carte"}
               </button>
@@ -130,7 +131,7 @@ export default function SubscriptionPage() {
       </div>
 
       <div className="bg-surface2 rounded-xl p-4 flex items-start gap-3">
-        <span className="text-lg flex-shrink-0">🔒</span>
+        <span className="flex-shrink-0 inline-flex" aria-hidden><Lock size={18} /></span>
         <div>
           <p className="text-sm font-medium text-ink">Paiement sécurisé par PayDunya</p>
           <p className="text-xs text-ink2 mt-0.5">Orange Money Niger · Airtel Money · Moov Money · Carte bancaire Visa/Mastercard. Vos données bancaires ne transitent jamais par Kanoo.</p>

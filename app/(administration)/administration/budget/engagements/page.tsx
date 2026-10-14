@@ -55,7 +55,7 @@ export default function EngagementsPage() {
     <div className="space-y-6 rise">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-2xl font-black text-ink uppercase tracking-tight">Engagements</h1>
+          <h1 className="page-title">Engagements</h1>
           <p className="text-xs text-ink2 font-bold italic">Réservation des crédits budgétaires</p>
         </div>
         <Link href="/administration/budget/engagements/new" className="bg-ink text-onink px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-section transition-all flex items-center gap-2">
@@ -79,7 +79,7 @@ export default function EngagementsPage() {
             <tr className="bg-surface2/10 border-b border-line">
               <th className="p-5 text-[10px] font-black text-ink2 uppercase tracking-widest">Référence & Date</th>
               <th className="p-5 text-[10px] font-black text-ink2 uppercase tracking-widest">Objet & Bénéficiaire</th>
-              <th className="p-5 text-[10px] font-black text-ink2 uppercase tracking-widest text-right">Montant (XOF)</th>
+              <th className="p-5 text-[10px] font-black text-ink2 uppercase tracking-widest text-right">Montant (FCFA)</th>
               <th className="p-5 text-[10px] font-black text-ink2 uppercase tracking-widest text-center">Statut</th>
               <th className="p-5"></th>
             </tr>
@@ -106,7 +106,7 @@ export default function EngagementsPage() {
                       <p className="text-[10px] text-ink2 font-medium uppercase tracking-tight">{item.provider}</p>
                     </td>
                     <td className="p-5 text-right font-mono text-sm font-black text-section">
-                      {item.amount.toLocaleString()}
+                      {item.amount.toLocaleString("fr-FR")}
                     </td>
                     <td className="p-5">
                       <div className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-full border w-fit mx-auto ${style.cls}`}>
@@ -124,7 +124,7 @@ export default function EngagementsPage() {
               })
             ) : (
               <tr>
-                <td colSpan={5} className="p-20 text-center text-ink2/40 text-[10px] font-black uppercase tracking-[0.2em] italic">
+                <td colSpan={5} className="p-20 text-center text-ink2/40 text-[10px] font-semibold uppercase tracking-[0.2em]">
                   Aucun engagement trouvé
                 </td>
               </tr>

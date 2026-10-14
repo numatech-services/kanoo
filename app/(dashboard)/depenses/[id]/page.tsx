@@ -59,7 +59,7 @@ export default function PurchaseDetailPage() {
         <div>
           <Link href="/depenses" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Achats & dépenses</Link>
           <div className="flex items-center gap-3 mt-1">
-            <h1 className="text-2xl font-bold text-ink">{p.kind === "cash" ? "Dépense" : "Facture fournisseur"} {p.number}</h1>
+            <h1 className="page-title">{p.kind === "cash" ? "Dépense" : "Facture fournisseur"} {p.number}</h1>
             <StatusBadge status={p.status} label={STATUS[p.status]} />
           </div>
           <p className="text-sm text-ink2">{p.supplierId?.name ?? p.payee}{p.supplierRef ? ` · réf. ${p.supplierRef}` : ""}{p.commandeId ? <> · <Link href={`/commandes/${p.commandeId._id}`} className="text-section hover:underline">BC {p.commandeId.number}</Link></> : null}</p>
@@ -76,7 +76,7 @@ export default function PurchaseDetailPage() {
       {p.status === "cancelled" && p.cancelReason && <p className="px-4 py-3 bg-surface2 rounded-xl text-sm text-ink2">Annulé : {p.cancelReason}</p>}
 
       <div className="grid sm:grid-cols-4 gap-4">
-        {[["Date", new Date(p.date).toLocaleDateString("fr-FR")], ["Échéance", p.dueDate ? new Date(p.dueDate).toLocaleDateString("fr-FR") : "—"], ["Total TTC", `${fmt(p.totalTTC)} XOF`], ["Reste à payer", p.status === "cancelled" ? "—" : `${fmt(rest)} XOF`]].map(([k, v]) => (
+        {[["Date", new Date(p.date).toLocaleDateString("fr-FR")], ["Échéance", p.dueDate ? new Date(p.dueDate).toLocaleDateString("fr-FR") : "—"], ["Total TTC", `${fmt(p.totalTTC)} FCFA`], ["Reste à payer", p.status === "cancelled" ? "—" : `${fmt(rest)} FCFA`]].map(([k, v]) => (
           <div key={k} className="bg-surface rounded-xl border border-line p-4"><p className="text-[11px] font-semibold text-ink2 uppercase">{k}</p><p className="text-lg font-bold mt-1 text-ink">{v}</p></div>
         ))}
       </div>
@@ -107,7 +107,7 @@ export default function PurchaseDetailPage() {
               <li key={x._id} className={`py-2 flex items-center justify-between gap-2 text-sm ${x.cancelledAt ? "opacity-50 line-through" : ""}`}>
                 <span>{new Date(x.date).toLocaleDateString("fr-FR")} · {x.treasuryAccountId?.label ?? "compte"}{x.reference ? ` · ${x.reference}` : ""}</span>
                 <span className="flex items-center gap-2">
-                  <b className="font-mono">{fmt(x.amount)} XOF</b>
+                  <b className="font-mono">{fmt(x.amount)} FCFA</b>
                   {canDelete && !x.cancelledAt && <button title="Annuler ce règlement" onClick={async () => { if (await confirmDialog({ title: "Annuler ce règlement ?", message: "L'écriture sera extournée et la trésorerie recréditée.", danger: true })) act(() => send(`/api/achats/${id}/payments/${x._id}`, "DELETE")); }} className="p-1 text-ink3 hover:text-neg"><Undo2 size={14} /></button>}
                 </span>
               </li>
@@ -158,7 +158,7 @@ function PayDialog({ id, rest, onClose, onDone }: { id: string; rest: number; on
       <div className="space-y-4">
         {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Montant (XOF)" hint={`Reste : ${fmt(rest)}`}><input type="number" min={1} max={rest} className={inputCls} value={f.amount} onChange={e => setF(p => ({ ...p, amount: Number(e.target.value) }))} /></FormField>
+          <FormField label="Montant (FCFA)" hint={`Reste : ${fmt(rest)}`}><input type="number" min={1} max={rest} className={inputCls} value={f.amount} onChange={e => setF(p => ({ ...p, amount: Number(e.target.value) }))} /></FormField>
           <FormField label="Date"><input type="date" className={inputCls} value={f.date} onChange={e => setF(p => ({ ...p, date: e.target.value }))} /></FormField>
         </div>
         <FormField label="Compte qui paie" required>
