@@ -5,7 +5,8 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, api, apiErrorMessage  } from "@/lib/api-client";
+import { showToast } from "@/components/ui/Toast";
 interface Opp {
   _id: string; reference: string; title: string; stage: string;
   estimatedAmount: number; probability: number; expectedCloseDate?: string;
@@ -40,8 +41,7 @@ export default function CRMPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/crm/opportunities?view=pipeline", { credentials: "include" });
-    const d = await res.json();
+    const d = await apiJson("/api/crm/opportunities?view=pipeline");
     setPipeline(d.data?.pipeline || {});
     setStats(d.data?.stats || {});
     setLoading(false);
@@ -54,20 +54,14 @@ export default function CRMPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
-    const csrfToken = await getCsrfToken();
-    await fetch("/api/crm/opportunities", {
-      method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      credentials: "include", body: JSON.stringify(form),
-    });
-    setModalOpen(false); setSaving(false); load();
+    try { await api.post("/api/crm/opportunities", form); setModalOpen(false); load(); }
+    catch (err) { showToast(apiErrorMessage(err, "Création impossible."), "error"); }
+    finally { setSaving(false); }
   }
 
   async function moveStage(oppId: string, newStage: string) {
-    const csrfToken = await getCsrfToken();
-    await fetch(`/api/crm/opportunities/${oppId}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      credentials: "include", body: JSON.stringify({ stage: newStage }),
-    });
+    try { await api.patch(`/api/crm/opportunities/${oppId}`, { stage: newStage }); }
+    catch (e) { showToast(apiErrorMessage(e, "Changement d'étape impossible."), "error"); }
     load();
   }
 

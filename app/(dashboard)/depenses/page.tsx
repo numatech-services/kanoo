@@ -8,6 +8,7 @@ import { inputCls, selectCls } from "@/components/ui/FormField";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface Purchase {
   _id: string; number: string; kind: "invoice" | "cash"; date: string; dueDate?: string; payee?: string; supplierRef?: string;
   supplierId?: { name: string } | null; totalTTC: number; paidAmount: number; status: string;
@@ -30,7 +31,7 @@ export default function PurchasesPage() {
   const load = useCallback(async () => {
     const p = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     for (const [k, v] of Object.entries(f)) if (v) p.set(k, v);
-    const d = await fetch(`/api/achats?${p}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const d = await apiJson(`/api/achats?${p}`).catch(() => null);
     setItems(d?.data?.items ?? []); setTotal(d?.data?.pagination?.total ?? 0); setTotals(d?.data?.totals ?? { totalTTC: 0, paid: 0, remaining: 0 });
   }, [page, f]);
   useEffect(() => { load(); }, [load]);

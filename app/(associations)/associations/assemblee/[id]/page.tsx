@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Megaphone, Users, Check, Plus, Trash2, Gavel, FileText, Upload, Download } from "lucide-react";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Decision { text: string; votes: { for: number; against: number; abstain: number }; passed: boolean }
 interface AG {
   _id: string; title: string; type: string; date: string; location?: string;
@@ -16,10 +16,6 @@ interface AG {
 }
 interface Member { _id: string; firstName?: string; lastName?: string; code?: string }
 
-async function csrf() {
-  const csrfToken = await getCsrfToken();
-  return csrfToken as string;
-}
 
 export default function AGDetailPage() {
   const { id } = useParams();
@@ -32,7 +28,7 @@ export default function AGDetailPage() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    fetch(`/api/assemblee/${id}`, { credentials: "include" }).then((r) => r.json()).then((d) => {
+    apiJson(`/api/assemblee/${id}`).then((d) => {
       const a: AG = d.data || d;
       setAg(a); setQuorumRequired(a.quorumRequired || 0);
       setAttendees((a.attendees || []).map(String)); setDecisions(a.decisions || []);
@@ -40,19 +36,15 @@ export default function AGDetailPage() {
   }, [id]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    fetch("/api/membres?limit=1000", { credentials: "include" }).then((r) => r.json())
+    apiJson("/api/membres?limit=1000")
       .then((d) => setMembers(Array.isArray(d.data) ? d.data : d.data?.items || [])).catch(() => {});
   }, []);
 
   async function patch(body: Partial<AG>, msg: string) {
     setSaving(true); setNotice(null);
     try {
-      const res = await fetch(`/api/assemblee/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include", body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error((await res.json()).error || "Échec");
+      const res = await apiSend("PATCH", `/api/assemblee/${id}`, body);
+      if (!res.ok) throw new Error((res.data).error || "Échec");
       setNotice(msg); load();
     } catch (e) { setNotice(e instanceof Error ? e.message : "Enregistrement impossible"); } finally { setSaving(false); }
   }

@@ -11,7 +11,7 @@ import { fullXof } from "@/components/ui/charts/geometry";
 
 import { promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Movement {
   _id: string; date: string; amount: number; label: string;
   reference?: string; statementLineId?: string; source?: string;
@@ -47,8 +47,7 @@ export default function RapprochementPage() {
   const [importOpen, setImportOpen] = useState(false);
 
   const load = useCallback(() => {
-    fetch(`/api/treasury-accounts/${id}/reconciliation`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/treasury-accounts/${id}/reconciliation`)
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
         setData(d.data);
@@ -64,14 +63,8 @@ export default function RapprochementPage() {
     setBusy(key);
     setError(null);
     try {
-      const csrfToken = await getCsrfToken();
-      const res = await fetch(`/api/treasury-accounts/${id}/match`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/treasury-accounts/${id}/match`, payload);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Action refusée");
       load();
     } catch (e) {
@@ -355,19 +348,13 @@ function ImportDialog({
     setBusy(true);
     setResult(null);
     try {
-      const csrfToken = await getCsrfToken();
       const mapping: Record<string, unknown> = {
         separator, skipRows, date: cols.date, label: cols.label,
         ...(cols.reference >= 0 ? { reference: cols.reference } : {}),
         ...(mode === "single" ? { amount: cols.amount } : { debit: cols.debit, credit: cols.credit }),
       };
-      const res = await fetch(`/api/treasury-accounts/${accountId}/import`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify({ content, mapping }),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/treasury-accounts/${accountId}/import`, { content, mapping });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Import refusé");
 
       const rejected = d.data.rejected as Array<{ row: number; reason: string }>;

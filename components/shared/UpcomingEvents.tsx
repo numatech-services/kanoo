@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Calendar, ArrowRight } from "lucide-react";
 
+import { apiJson } from "@/lib/api-client";
 interface Ev { _id: string; title: string; startAt: string; registered: number; capacity: number; }
 
 export function UpcomingEvents() {
@@ -11,8 +12,7 @@ export function UpcomingEvents() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/events?upcoming=1&limit=5", { credentials: "include" })
-      .then((r) => r.json())
+    apiJson("/api/events?upcoming=1&limit=5")
       .then((d) => setEvents(d.data?.items || []))
       .catch(() => {})
       .finally(() => setLoading(false));

@@ -6,6 +6,7 @@ import { BarChart } from "@/components/ui/charts/BarChart";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { fullXof } from "@/components/ui/charts/geometry";
 
+import { apiJson } from "@/lib/api-client";
 interface MonthData {
   mois: string;
   encaissements: number;
@@ -32,8 +33,7 @@ export function CashflowChart() {
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch(`/api/reports/cashflow?months=${range}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/reports/cashflow?months=${range}`)
       .then(d => { setData(d.data?.months || []); setError(false); })
       .catch(() => setError(true))
       .finally(() => setLoading(false));

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiSend } from "@/lib/api-client";
 /**
  * Déconnexion automatique après une période d'inactivité.
  *
@@ -55,7 +56,7 @@ export function IdleTimeout() {
         if (reason === "idle") localStorage.setItem(LOGOUT_KEY, String(now()));
       } catch { /* ignore */ }
       try {
-        await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+        await apiSend("POST", "/api/auth/logout");
       } catch { /* on redirige quand même */ }
       window.location.href = reason === "idle" ? "/login?reason=idle" : "/login";
     }

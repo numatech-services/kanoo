@@ -13,7 +13,7 @@ import { fullXof, compactXof } from "@/components/ui/charts/geometry";
 import { orderProgress } from "@/lib/framework-order";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Order {
   _id: string; reference: string; title: string; unit: string;
   clientId?: { name?: string }; totalQuantity: number; deliveredQuantity?: number;
@@ -21,10 +21,6 @@ interface Order {
 }
 interface Client { _id: string; name: string }
 
-async function csrf() {
-  const csrfToken = await getCsrfToken();
-  return csrfToken as string;
-}
 
 export default function MarchesCadresPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -131,25 +127,21 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
   useEffect(() => {
     if (!open) return;
-    fetch("/api/marches-cadres/clients", { credentials: "include" }).then(r => r.json()).then(d => setClients(d.data?.items || [])).catch(() => {});
-    fetch("/api/products?limit=200", { credentials: "include" }).then(r => r.json()).then(d => setProducts(d.data?.items || [])).catch(() => {});
+    apiJson("/api/marches-cadres/clients").then(d => setClients(d.data?.items || [])).catch(() => {});
+    apiJson("/api/products?limit=200").then(d => setProducts(d.data?.items || [])).catch(() => {});
   }, [open]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true); setError(null);
     try {
-      const res = await fetch("/api/marches-cadres", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify({
+      const res = await apiSend("POST", "/api/marches-cadres", {
           ...form,
           totalQuantity: Number(form.totalQuantity), unitPrice: Number(form.unitPrice),
           tvaRate: Number(form.tvaRate), inputPerUnit: Number(form.inputPerUnit),
           inputProductId: form.inputProductId || undefined,
-        }),
-      });
-      const d = await res.json();
+        });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Création refusée");
       onCreated();
     } catch (e) { setError(e instanceof Error ? e.message : "Création impossible"); }

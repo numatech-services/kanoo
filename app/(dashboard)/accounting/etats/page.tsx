@@ -6,6 +6,7 @@ import { inputCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
+import { apiJson } from "@/lib/api-client";
 type Tab = "balance" | "ledger" | "pl" | "bs";
 const TABS: Array<[Tab, string]> = [["balance", "Balance générale"], ["ledger", "Grand livre"], ["pl", "Compte de résultat"], ["bs", "Bilan"]];
 const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
@@ -35,7 +36,7 @@ export default function StatementsPage() {
   useEffect(() => {
     if (tab === "ledger" && !account) { setData(null); return; }
     setError("");
-    fetch(`/api/accounting/reports?${qs()}`, { credentials: "include" }).then(r => r.json())
+    apiJson(`/api/accounting/reports?${qs()}`)
       .then(d => { if (d.success) setData(d.data); else { setError(d.error ?? "Chargement impossible"); setData(null); } })
       .catch(() => setError("Chargement impossible"));
   }, [qs, tab, account]);

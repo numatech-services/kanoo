@@ -9,7 +9,7 @@ import { Pill, EmptyState } from "@/components/ui/Primitives";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 export type AttachmentHost =
   | "contracts" | "subscriptions" | "invoices" | "devis" | "commandes" | "marches"
   | "expenses" | "projects" | "employees" | "clients" | "suppliers" | "payslips"
@@ -94,8 +94,7 @@ export function AttachmentPanel({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
-    fetch(`/api/attachments?host=${host}&hostId=${hostId}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/attachments?host=${host}&hostId=${hostId}`)
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
         setItems(d.data.items || []);
@@ -116,7 +115,6 @@ export function AttachmentPanel({
     setError(null);
     setNotice(null);
 
-    const csrfToken = await getCsrfToken();
     const messages: string[] = [];
 
     // Séquentiel, pas en parallèle : sur une connexion faible, quatre
@@ -129,13 +127,8 @@ export function AttachmentPanel({
       body.append("category", category);
 
       try {
-        const res = await fetch("/api/attachments", {
-          method: "POST",
-          headers: { "x-csrf-token": csrfToken },
-          credentials: "include",
-          body,
-        });
-        const d = await res.json();
+        const res = await apiSend("POST", "/api/attachments", body);
+        const d = res.data;
         if (!res.ok) throw new Error(d.error || "Téléversement refusé");
         if (d.data?.duplicate) messages.push(d.data.message);
       } catch (e) {
@@ -153,13 +146,8 @@ export function AttachmentPanel({
     if (!(await confirmDialog({ title: `Retirer « ${filename} » ?`, message: `Le fichier sera supprimé.`, danger: true }))) return;
     setBusy(true);
     try {
-      const csrfToken = await getCsrfToken();
-      const res = await fetch(`/api/attachments/${id}`, {
-        method: "DELETE",
-        headers: { "x-csrf-token": csrfToken },
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error((await res.json()).error || "Suppression refusée");
+      const res = await apiSend("DELETE", `/api/attachments/${id}`);
+      if (!res.ok) throw new Error((res.data).error || "Suppression refusée");
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Suppression impossible");

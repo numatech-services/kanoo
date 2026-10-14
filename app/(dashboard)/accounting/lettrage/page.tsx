@@ -7,7 +7,7 @@ import { selectCls } from "@/components/ui/FormField";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 interface Row { entryId: string; date: string; reference: string; label: string; account: string; debit: number; credit: number; thirdParty: string | null; thirdPartyId: string | null; isLettered: boolean; letterRef: string | null }
 const fmt = (n: number) => n.toLocaleString("fr-FR");
 
@@ -21,7 +21,7 @@ export default function LettragePage() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const load = useCallback(async () => {
-    const d = await fetch(`/api/accounting-entries/lettrage?account=${account}&state=${state}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const d = await apiJson(`/api/accounting-entries/lettrage?account=${account}&state=${state}`).catch(() => null);
     setRows(d?.data ?? []); setSelected(new Set());
   }, [account, state]);
   useEffect(() => { load(); }, [load]);
@@ -33,15 +33,15 @@ export default function LettragePage() {
   const toggle = (id: string) => setSelected(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   async function letter() {
-    const res = await fetch("/api/accounting-entries/lettrage", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify({ entryIds: [...selected], account }) });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("POST", "/api/accounting-entries/lettrage", { entryIds: [...selected], account });
+    const d = res.data;
     setMsg({ ok: res.ok, text: res.ok ? d.data.message : d.error });
     if (res.ok) load();
   }
   async function unletter(ref: string) {
     if (!(await confirmDialog({ title: `Délettrer ${ref} ?` }))) return;
-    const res = await fetch(`/api/accounting-entries/lettrage?ref=${encodeURIComponent(ref)}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("DELETE", `/api/accounting-entries/lettrage?ref=${encodeURIComponent(ref)}`);
+    const d = res.data;
     setMsg({ ok: res.ok, text: res.ok ? d.data.message : d.error });
     if (res.ok) load();
   }

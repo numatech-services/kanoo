@@ -2,12 +2,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/ui/DataTable";
+import { apiJson } from "@/lib/api-client";
 interface AG { _id:string; title:string; type:string; date:string; location:string; quorumRequired:number; quorumAchieved:number; decisions:Array<{text:string;passed:boolean}>; }
 export default function AssembleePage() {
   const router=useRouter();
   const [mounted,setMounted]=useState(false);
   const [items,setItems]=useState<AG[]>([]); const [loading,setLoading]=useState(true);
-  const load=useCallback(async()=>{setLoading(true);const res=await fetch("/api/assemblee",{credentials:"include"});const d=await res.json();setItems(d.data?.items||[]);setLoading(false);},[]);
+  const load=useCallback(async()=>{setLoading(true);const d = await apiJson("/api/assemblee");setItems(d.data?.items||[]);setLoading(false);},[]);
   useEffect(()=>{setMounted(true);load();},[load]);
   const columns: Column<AG>[] = [
     {key:"title",label:"Intitulé"},

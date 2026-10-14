@@ -7,6 +7,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { useRouter } from "next/navigation";
 import { LIBELLES_PROCEDURES } from "@/lib/niger-fiscal";
 
+import { apiJson } from "@/lib/api-client";
 interface Tender { 
   _id: string; 
   reference: string; 
@@ -30,8 +31,7 @@ export default function MarchesPage() {
     setLoading(true);
     try {
       // L'API utilise withAuth("publicTenders", "read")
-      const res = await fetch(`/api/marches?page=${page}&limit=${LIMIT}`, { credentials: "include" });
-      const d = await res.json();
+      const d = await apiJson(`/api/marches?page=${page}&limit=${LIMIT}`);
       setTenders(d.data?.items || []);
       setTotal(d.data?.pagination?.total || 0);
     } catch (err) {

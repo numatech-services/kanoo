@@ -3,15 +3,12 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ProductForm } from "@/components/stock/ProductForm";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 export default function NewProductPage() {
   const router = useRouter();
   async function save(body: Record<string, unknown>) {
-    const csrfToken = await getCsrfToken();
-    const res = await fetch("/api/products", {
-      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, body: JSON.stringify(body),
-    });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("POST", "/api/products", body);
+    const d = res.data;
     if (!res.ok) throw new Error(d.error || "Création impossible");
     router.push(`/stock/${d.data._id}`);
   }

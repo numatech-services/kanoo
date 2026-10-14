@@ -9,7 +9,7 @@ import { EmployeeForm, type EmployeeFormData } from "@/components/pme/EmployeeFo
 import { useMe, meCan } from "@/lib/useMe";
 
 import { AlertTriangle } from "lucide-react";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 interface Employee {
   _id:string; code:string; firstName:string; lastName:string; position:string; department?:string;
   employeeType:string; contractNature:string;
@@ -36,8 +36,7 @@ export default function EmployeesPage() {
     const params=new URLSearchParams({page:String(page),limit:String(LIMIT)});
     if(search) params.set("search",search);
     if(employeeType) params.set("employeeType",employeeType);
-    const res=await fetch(`/api/employees?${params}`,{credentials:"include"});
-    const d=await res.json(); setEmployees(d.data?.items||[]); setTotal(d.data?.pagination?.total||0); setAlertCount(d.data?.alertCount||0); setLoading(false);
+    const d = await apiJson(`/api/employees?${params}`); setEmployees(d.data?.items||[]); setTotal(d.data?.pagination?.total||0); setAlertCount(d.data?.alertCount||0); setLoading(false);
   },[page,search,employeeType]);
   useEffect(()=>{setMounted(true);load();},[load]);
 
@@ -87,7 +86,7 @@ export default function EmployeesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="page-title">Ressources humaines</h1>
+          <h1 className="page-title">Collaborateurs</h1>
           <p className="text-sm text-ink2 mt-0.5">{total} collaborateur{total>1?"s":""}</p>
         </div>
         <button onClick={()=>{setEditing(null);setModalOpen(true);}} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouveau collaborateur</button>

@@ -12,7 +12,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Devis { _id:string; number:string; clientId:{name:string}|null|string; totalHT:number; totalTTC:number; status:string; issueDate:string; validUntil:string; convertedToInvoiceId?:string; contractId?:string; }
 
 export default function DevisPage() {
@@ -33,8 +33,7 @@ export default function DevisPage() {
     if(status) params.set("status",status);
     if(clientId) params.set("clientId",clientId);
     if(!ready) return;
-    const res=await fetch(`/api/devis?${params}`,{credentials:"include"});
-    const d=await res.json(); setDevis(d.data?.items||[]); setTotal(d.data?.pagination?.total||0); setLoading(false);
+    const d = await apiJson(`/api/devis?${params}`); setDevis(d.data?.items||[]); setTotal(d.data?.pagination?.total||0); setLoading(false);
   },[page,status,clientId,ready]);
   useEffect(()=>{load();},[load]);
 
@@ -43,9 +42,8 @@ export default function DevisPage() {
     // Proforma : le PDF du devis titré « Facture proforma », rien n'est créé.
     if(convertDialog.type==="proforma"){ window.open(`/api/devis/${convertDialog.id}/pdf?proforma=1`,"_blank","noopener"); setConvertDialog(null); return; }
     setConverting(true);
-    const csrfToken = await getCsrfToken();
-    const res=await fetch(`/api/devis/${convertDialog.id}/to-invoice`,{method:"POST",headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},credentials:"include",body:JSON.stringify({type:convertDialog.type})});
-    const d=await res.json();
+    const res=await apiSend("POST", `/api/devis/${convertDialog.id}/to-invoice`, {type:convertDialog.type});
+    const d= res.data;
     if(res.ok){ showToast(d.data?.message ?? "Opération effectuée.", "success"); setConvertDialog(null); load(); }
     else showToast(d.error ?? "Opération impossible.", "error");
     setConverting(false);

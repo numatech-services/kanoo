@@ -10,7 +10,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
 interface Letter {
   _id: string; reference?: string; kind: string; subject: string;
   recipient?: string; status: string; direction?: string; archived?: boolean;
@@ -80,26 +80,19 @@ export default function CourriersPage() {
 
   async function del(id: string) {
     if (!(await confirmDialog({ title: "Supprimer ce courrier ?", danger: true }))) return;
-    await fetch(`/api/courriers/${id}`, {
-      method: "DELETE", credentials: "include",
-      headers: { "x-csrf-token": await csrf() },
-    });
+    await apiSend("DELETE", `/api/courriers/${id}`);
     load();
   }
 
   async function toggleArchive(l: Letter) {
-    await fetch(`/api/courriers/${l._id}`, {
-      method: "PATCH", credentials: "include",
-      headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-      body: JSON.stringify({ archived: !l.archived }),
-    });
+    await apiSend("PATCH", `/api/courriers/${l._id}`, { archived: !l.archived });
     load();
   }
 
   // La liste ne porte que le nom de la pièce jointe : on charge le courrier
   // complet au moment du téléchargement.
   async function downloadAttachment(id: string) {
-    const d = await fetch(`/api/courriers/${id}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const d = await apiJson(`/api/courriers/${id}`).catch(() => null);
     const att = d?.data?.attachment;
     if (!att?.dataUri) { showToast("Pièce jointe introuvable.", "error"); return; }
     const a = document.createElement("a");
@@ -107,11 +100,8 @@ export default function CourriersPage() {
   }
 
   async function toggleHandled(l: Letter) {
-    await fetch(`/api/courriers/${l._id}`, {
-      method: "PATCH", credentials: "include",
-      headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-      body: JSON.stringify({ handled: !l.handled }),
-    });
+    try { await api.patch(`/api/courriers/${l._id}`, { handled: !l.handled }); }
+    catch (e) { showToast(apiErrorMessage(e, "Mise à jour impossible."), "error"); }
     load();
   }
 
@@ -169,7 +159,7 @@ export default function CourriersPage() {
                 <tr key={l._id}>
                   <td className="text-ink2 font-mono text-xs whitespace-nowrap">{l.reference || "—"}</td>
                   <td>
-                    <button onClick={() => fetch(`/api/courriers/${l._id}`, { credentials: "include" }).then(r => r.json()).then(d => setEditing(d.data))}
+                    <button onClick={() => apiJson(`/api/courriers/${l._id}`).then(d => setEditing(d.data))}
                       className="text-ink font-medium hover:text-section text-left inline-flex items-center gap-1.5">
                       {l.subject}
                       {l.attachment?.name && <Paperclip size={12} className="text-ink3" />}
@@ -269,8 +259,7 @@ function ComposeDialog({
   const [ai, setAi] = useState<{ configured: boolean; remaining: number; quota: number } | null>(null);
 
   useEffect(() => {
-    fetch("/api/ai/redaction", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/ai/redaction")
       .then(d => d.success && setAi({ configured: d.data.configured, remaining: d.data.quota.remaining, quota: d.data.quota.quota }))
       .catch(() => {});
   }, []);
@@ -289,16 +278,11 @@ function ComposeDialog({
     setAiLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/ai/redaction", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify({
+      const res = await apiSend("POST", "/api/ai/redaction", {
           kind: form.kind, subject: form.subject, recipient: form.recipient,
           place: form.place, signatory: form.signatory, instructions: aiInstructions,
-        }),
-      });
-      const d = await res.json();
+        });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Génération refusée");
       setForm(f => ({ ...f, body: d.data.body }));
       setAiUsed(true);

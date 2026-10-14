@@ -5,6 +5,7 @@ import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/For
 import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 import { EXPENSE_ACCOUNTS } from "@/lib/syscohada";
 
+import { apiJson } from "@/lib/api-client";
 export interface PurchaseLine extends ImputationValue {
   description: string; accountCode: string; quantity: number; unitPrice: number; tvaRate: number;
 }
@@ -43,8 +44,8 @@ export function PurchaseForm({ initial, onSubmit, submitLabel }: {
   });
 
   useEffect(() => {
-    fetch("/api/suppliers?limit=100", { credentials: "include" }).then(r => r.json()).then(d => setSuppliers(d.data?.items ?? [])).catch(() => {});
-    fetch("/api/treasury-accounts", { credentials: "include" }).then(r => r.json()).then(d => {
+    apiJson("/api/suppliers?limit=100").then(d => setSuppliers(d.data?.items ?? [])).catch(() => {});
+    apiJson("/api/treasury-accounts").then(d => {
       const list = d.data?.items ?? [];
       setAccounts(list);
       if (list.length === 1) setF(p => ({ ...p, treasuryAccountId: p.treasuryAccountId || list[0]._id }));

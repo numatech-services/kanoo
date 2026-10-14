@@ -11,7 +11,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 import { StockVariationDialog } from "@/components/accounting/StockVariationDialog";
 interface Line { accountCode: string; accountLabel: string; debit: number; credit: number; projectId?: string; activityId?: string; costCenter?: string }
 interface Entry {
@@ -44,8 +44,8 @@ export default function AccountingPage() {
     for (const [k, v] of Object.entries(f)) if (v) p.set(k, v);
     new URLSearchParams(flowFilter.query).forEach((v, k) => p.set(k, v));
     const [d, l] = await Promise.all([
-      fetch(`/api/accounting-entries?${p}`, { credentials: "include" }).then(r => r.json()).catch(() => null),
-      fetch("/api/accounting/closing", { credentials: "include" }).then(r => r.json()).catch(() => null),
+      apiJson(`/api/accounting-entries?${p}`).catch(() => null),
+      apiJson("/api/accounting/closing").catch(() => null),
     ]);
     setEntries(d?.data?.items ?? []); setTotal(d?.data?.pagination?.total ?? 0); setTotals(d?.data?.totals ?? null);
     if (l?.data) setLock(l.data);
@@ -59,8 +59,8 @@ export default function AccountingPage() {
   async function reverse(e: Entry) {
     const reason = await promptDialog({ title: `Extourner l'écriture ${e.reference} ? Motif :`, multiline: true });
     if (!reason) return;
-    const res = await fetch(`/api/accounting-entries/${e._id}/reverse`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify({ reason }) });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("POST", `/api/accounting-entries/${e._id}/reverse`, { reason });
+    const d = res.data;
     setMsg({ ok: res.ok, text: res.ok ? `Écriture ${e.reference} extournée.` : d.error });
     if (res.ok) load();
   }
@@ -168,8 +168,8 @@ function ClosingDialog({ lock, onClose, onDone }: { lock: { lockedUntil: string 
   const [busy, setBusy] = useState(false);
   async function post(body: unknown) {
     setBusy(true); setError("");
-    const res = await fetch("/api/accounting/closing", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify(body) });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("POST", "/api/accounting/closing", body);
+    const d = res.data;
     setBusy(false);
     if (!res.ok) { setError(d.error || "Opération refusée"); return; }
     onDone();

@@ -6,7 +6,7 @@ import { useWarehouses } from "@/components/stock/useWarehouses";
 import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 export const MOVEMENT_OPTIONS = [
   { value: "entry", label: "Entrée (achat, réception)" },
   { value: "exit", label: "Sortie (vente, consommation)" },
@@ -39,7 +39,7 @@ export function MovementDialog({ product, onClose, onDone, defaultWarehouseId }:
     if (!f.warehouseId && warehouses.length) setF(p => ({ ...p, warehouseId: (warehouses.find(w => w.isDefault) ?? warehouses[0])._id }));
   }, [warehouses, f.warehouseId]);
   useEffect(() => {
-    fetch(`/api/products/${product._id}/stock`, { credentials: "include" }).then(r => r.json()).then(d => {
+    apiJson(`/api/products/${product._id}/stock`).then(d => {
       setAvail(d.data?.lots ?? []);
       setWhQty(Object.fromEntries((d.data?.warehouses ?? []).map((w: { warehouseId: { _id: string }; qty: number }) => [w.warehouseId?._id, w.qty])));
     }).catch(() => {});
@@ -60,11 +60,8 @@ export function MovementDialog({ product, onClose, onDone, defaultWarehouseId }:
       } else if (lotOut) lots = [{ lotNumber: lotOut, qty: f.quantity }];
     }
     setSaving(true); setError("");
-    const res = await fetch("/api/stock/movements", {
-      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
-      body: JSON.stringify({ productId: product._id, type: f.type, quantity: f.quantity, reason: f.reason, reference: f.reference || undefined, warehouseId: f.warehouseId || undefined, lots, ...(f.type === "entry" ? { unitCost: f.unitCost } : {}) }),
-    });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("POST", "/api/stock/movements", { productId: product._id, type: f.type, quantity: f.quantity, reason: f.reason, reference: f.reference || undefined, warehouseId: f.warehouseId || undefined, lots, ...(f.type === "entry" ? { unitCost: f.unitCost } : {}) });
+    const d = res.data;
     setSaving(false);
     if (!res.ok) { setError(d.error || "Mouvement refusé"); return; }
     onDone();

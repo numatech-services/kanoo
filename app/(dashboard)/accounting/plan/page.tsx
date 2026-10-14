@@ -9,7 +9,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 interface Account { _id: string; code: string; label: string; accountClass: string; isActive: boolean; used: boolean }
 
 /** Plan comptable : SYSCOHADA par défaut, comptes et sous-comptes ajoutés par l'organisation. */
@@ -29,7 +29,7 @@ export default function LedgerPlanPage() {
     const p = new URLSearchParams({ all: String(showInactive) });
     if (cls) p.set("class", cls);
     if (q.trim()) p.set("q", q.trim());
-    const d = await fetch(`/api/ledger-accounts?${p}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const d = await apiJson(`/api/ledger-accounts?${p}`).catch(() => null);
     setItems(d?.data ?? []);
   }, [cls, q, showInactive]);
   useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [load]);

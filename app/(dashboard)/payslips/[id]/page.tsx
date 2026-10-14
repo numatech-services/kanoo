@@ -9,7 +9,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { useMe, meCanDo } from "@/lib/useMe";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 interface Payslip {
   _id: string; month: number; year: number;
   grossSalary: number; grossTotal?: number; seniorityRate?: number; seniorityAmount?: number;
@@ -37,7 +37,7 @@ export default function PayslipDetailPage() {
   const [payOpen, setPayOpen] = useState(false);
 
   const load = useCallback(async () => {
-    const d = await fetch(`/api/payslips/${id}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const d = await apiJson(`/api/payslips/${id}`).catch(() => null);
     setP(d?.data ?? null);
     setLoading(false);
   }, [id]);
@@ -45,8 +45,8 @@ export default function PayslipDetailPage() {
 
   async function remove() {
     if (!(await confirmDialog({ title: "Supprimer ce bulletin ?", message: "Son écriture de paie sera extournée.", danger: true, confirmLabel: "Supprimer" }))) return;
-    const res = await fetch(`/api/payslips/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.error || "Suppression impossible", "error"); return; }
+    const res = await apiSend("DELETE", `/api/payslips/${id}`);
+    if (!res.ok) { const d = res.data; showToast(d.error || "Suppression impossible", "error"); return; }
     router.push("/payslips");
   }
 
@@ -168,7 +168,7 @@ function PayDialog({ id, net, onClose, onPaid }: { id: string; net: number; onCl
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    fetch("/api/treasury-accounts", { credentials: "include" }).then(r => r.json()).then(d => {
+    apiJson("/api/treasury-accounts").then(d => {
       const list = d.data?.items || [];
       setAccounts(list);
       if (list.length === 1) setAccountId(list[0]._id);
@@ -177,11 +177,8 @@ function PayDialog({ id, net, onClose, onPaid }: { id: string; net: number; onCl
   async function pay() {
     if (!accountId) { setError("Choisissez le compte qui paie."); return; }
     setSaving(true); setError("");
-    const res = await fetch(`/api/payslips/${id}/pay`, {
-      method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include",
-      body: JSON.stringify({ treasuryAccountId: accountId, date }),
-    });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("POST", `/api/payslips/${id}/pay`, { treasuryAccountId: accountId, date });
+    const d = res.data;
     setSaving(false);
     if (!res.ok) { setError(d.error || "Paiement impossible"); return; }
     onPaid();

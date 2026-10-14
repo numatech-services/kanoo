@@ -8,7 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 export interface Appel {
   _id: string; title: string; organism?: string; reference?: string;
   submissionDeadline?: string; status: string; estimatedAmount: number;
@@ -43,7 +43,7 @@ export default function AppelsListPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch("/api/appels", { credentials: "include" }).then(r => r.json())
+    apiJson("/api/appels")
       .then(d => setItems(d.data?.items || [])).finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -113,11 +113,8 @@ function NewAppel({ onClose, onCreated }: { onClose: () => void; onCreated: (id:
     if (!form.title.trim()) { setError("Intitulé requis."); return; }
     setSaving(true); setError(null);
     try {
-      const res = await fetch("/api/appels", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include",
-        body: JSON.stringify({ ...form, requiredDocuments: form.docs.split("\n").map(s => s.trim()).filter(Boolean) }),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/appels", { ...form, requiredDocuments: form.docs.split("\n").map(s => s.trim()).filter(Boolean) });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Échec");
       onCreated(d.data._id);
     } catch (e) { setError(e instanceof Error ? e.message : "Création impossible"); } finally { setSaving(false); }

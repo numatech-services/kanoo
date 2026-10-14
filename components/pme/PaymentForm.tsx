@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface TreasuryAccountOption { _id: string; label: string; type: string }
 
 interface PaymentFormProps {
@@ -44,8 +45,7 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/treasury-accounts", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/treasury-accounts")
       .then(d => {
         const items: TreasuryAccountOption[] = d.data?.items || [];
         setAccounts(items);

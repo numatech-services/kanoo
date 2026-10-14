@@ -19,7 +19,7 @@ import {
 } from "@/lib/expenses";
 import { ImputationFields } from "@/components/shared/ImputationFields";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Line {
   _id: string;
   date: string;
@@ -67,10 +67,6 @@ const EMPTY_LINE = () => ({
   vatRecoverable: CATEGORIES.transport.vatRecoverableByDefault,
 });
 
-async function csrf() {
-  const csrfToken = await getCsrfToken();
-  return csrfToken as string;
-}
 
 export default function NoteDeFraisPage() {
   const { id } = useParams();
@@ -86,8 +82,7 @@ export default function NoteDeFraisPage() {
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
 
   const load = useCallback(() => {
-    fetch(`/api/expenses/${id}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/expenses/${id}`)
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
         setData(d.data);
@@ -99,8 +94,7 @@ export default function NoteDeFraisPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    fetch("/api/treasury-accounts", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/treasury-accounts")
       .then(d => {
         const list: TreasuryAccount[] = d.data?.items || [];
         setAccounts(list);
@@ -114,13 +108,8 @@ export default function NoteDeFraisPage() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch(`/api/expenses/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-      const d = await res.json();
+      const res = await apiSend("PATCH", `/api/expenses/${id}`, body);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Action refusée");
       if (d.data?.[successKey]) setNotice(d.data[successKey]);
       load();

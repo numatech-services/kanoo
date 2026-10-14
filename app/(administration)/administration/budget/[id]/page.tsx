@@ -2,11 +2,12 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { apiJson } from "@/lib/api-client";
 interface Chapter { _id:string; code:string; label:string; level:string; allocatedAmount:number; engagedAmount:number; paidAmount:number; year:number; }
 export default function ChapterDetailPage() {
   const { id } = useParams();
   const [chapter,setChapter]=useState<Chapter|null>(null);
-  useEffect(()=>{ fetch(`/api/budget/${id}`,{credentials:"include"}).then(r=>r.json()).then(d=>setChapter(d.data)); },[id]);
+  useEffect(()=>{ apiJson(`/api/budget/${id}`).then(d=>setChapter(d.data)); },[id]);
   if (!chapter) return <div className="p-6"><div className="h-32 bg-surface rounded-xl animate-pulse"/></div>;
   const available = chapter.allocatedAmount - chapter.engagedAmount;
   return (

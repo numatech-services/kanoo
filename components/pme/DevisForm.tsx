@@ -4,6 +4,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface DevisLine { description: string; quantity: number; unitPrice: number; tvaRate: number; discount: number; totalHT: number; totalTVA: number; totalTTC: number; }
 interface Client { _id: string; name: string; code: string; }
 interface DevisFormProps { initial?: Record<string, unknown> & { _id?: string }; onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
@@ -26,7 +27,7 @@ export function DevisForm({ initial, onSave, onCancel }: DevisFormProps) {
   const [lines, setLines] = useState<DevisLine[]>([calcLine({ description: "", quantity: 1, unitPrice: 0 })]);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { setMounted(true); fetch("/api/clients?limit=100&isActive=true",{credentials:"include"}).then(r=>r.json()).then(d=>setClients(d.data?.items||[])); }, []);
+  useEffect(() => { setMounted(true); apiJson("/api/clients?limit=100&isActive=true").then(d=>setClients(d.data?.items||[])); }, []);
 
   if (!mounted) return null;
 

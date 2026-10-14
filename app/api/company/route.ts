@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, badRequest, notFound } from "@/lib/api-helpers";
 import { TenantModel } from "@/models/Tenant";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -21,7 +21,9 @@ const EDITABLE = ["name", "nif", "rccm", "address", "phone", "email"] as const;
 
 export const GET = withAuth("companies", "read", async (_req: NextRequest, auth: TokenPayload) => {
   await connectDB();
-  const t = await TenantModel.findOne(tenantFilter(auth))
+  // L'organisation est le document Tenant lui-même : son identifiant est _id
+  // (filtrer sur un champ tenantId, qu'il n'a pas, ne trouvait jamais rien).
+  const t = await TenantModel.findById(auth.tenantId)
     .select("name type nif rccm address phone email logo slug plan subscriptionStatus")
     .lean();
   if (!t) return notFound("Organisation introuvable");
@@ -45,7 +47,7 @@ export const PATCH = withAuth("companies", "update", async (req: NextRequest, au
     set.logo = logo || undefined;
   }
 
-  const t = await TenantModel.findOneAndUpdate(tenantFilter(auth), { $set: set }, { new: true, runValidators: true })
+  const t = await TenantModel.findByIdAndUpdate(auth.tenantId, { $set: set }, { new: true, runValidators: true })
     .select("name type nif rccm address phone email logo").lean();
   if (!t) return notFound("Organisation introuvable");
   await logAudit(auth, "UPDATE", "companies", { metadata: { fields: Object.keys(set) } });

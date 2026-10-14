@@ -18,6 +18,7 @@ import Link from "next/link";
 import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface DashboardStats {
   activeMembers: number;
   totalContributions: number | null;
@@ -39,8 +40,7 @@ export default function AssoDashboardPage() {
     setMounted(true);
     const fetchDashboard = async () => {
       try {
-        const res = await fetch("/api/stats/dashboard", { credentials: "include" });
-        const d = await res.json();
+        const d = await apiJson("/api/stats/dashboard");
         if (d.success) setStats(d.data);
       } catch (err) {
         console.error("Erreur stats dashboard:", err);

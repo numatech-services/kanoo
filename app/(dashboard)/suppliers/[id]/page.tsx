@@ -10,7 +10,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 type Supplier = SupplierFormData & { _id: string; logo?: string; bankName?: string };
 type Row = Record<string, unknown>;
 interface Section { count: number; items: Row[]; }
@@ -45,7 +45,7 @@ const TABS: TabDef[] = [
     row: r => [r.number as string, date(r.receiptDate)] },
   { key: "commitments", label: "Engagements", cols: ["N°", "Objet", "Date", "Montant", "Statut"],
     row: r => [r.number as string, r.label as string, date(r.date), formatMoney(r.amount), <StatusBadge key="s" status={String(r.status)} />] },
-  { key: "recurring", label: "Dépenses récurrentes", cols: ["Réf", "Objet", "Montant", "Fréquence", "Prochaine"],
+  { key: "recurring", label: "Charges récurrentes", cols: ["Réf", "Objet", "Montant", "Fréquence", "Prochaine"],
     row: r => [r.reference as string || "—", r.label as string, formatMoney(r.amount), FREQ[String(r.frequency)] || String(r.frequency || "—"), date(r.nextDueDate)],
     href: "/recurring-expenses" },
 ];
@@ -60,18 +60,13 @@ export default function SupplierDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
 
   const load = useCallback(() => {
-    fetch(`/api/suppliers/${id}/overview`, { credentials: "include" })
-      .then(r => r.json()).then(d => d.success && setData(d.data));
+    apiJson(`/api/suppliers/${id}/overview`).then(d => d.success && setData(d.data));
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
   async function handleSave(body: SupplierFormData) {
-    const csrfToken = await getCsrfToken();
-    const res = await fetch(`/api/suppliers/${id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      credentials: "include", body: JSON.stringify(body),
-    });
-    const d = await res.json();
+    const res = await apiSend("PATCH", `/api/suppliers/${id}`, body);
+    const d = res.data;
     if (!res.ok) throw new Error(d.error || "Enregistrement impossible.");
     setEditOpen(false); load();
   }
@@ -103,7 +98,7 @@ export default function SupplierDetailPage() {
           <button onClick={() => setEditOpen(true)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Modifier</button>
           {canRemove && <button onClick={async () => {
             if (!(await confirmDialog({ title: "Désactiver ce fournisseur ?", message: "Il disparaît des listes ; ses documents restent.", danger: true }))) return;
-            const res = await fetch(`/api/suppliers/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
+            const res = await apiSend("DELETE", `/api/suppliers/${id}`);
             if (res.ok) router.push("/suppliers"); else showToast("Désactivation impossible", "error");
           }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Désactiver</button>}
           {data.access?.commandes !== false && <a href={`/commandes/new?supplierId=${id}`} className={buttonClass("primary", "md")}>+ Commande</a>}

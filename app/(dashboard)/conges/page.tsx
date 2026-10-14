@@ -6,7 +6,7 @@ import { RequestDialog } from "@/components/hr/LeaveRequestDialog";
 import { LEAVE_TYPES } from "@/lib/leave-types";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 interface Leave {
   _id: string; type: string; startDate: string; endDate: string; days: number; reason?: string; status: string;
   employeeId?: { _id: string; firstName: string; lastName: string } | null; decisionNote?: string;
@@ -33,7 +33,7 @@ export default function LeavesPage() {
   const load = useCallback(async () => {
     const p = new URLSearchParams({ scope: tab === "mine" ? "mine" : "team" });
     if (status) p.set("status", status);
-    const d = await fetch(`/api/leaves?${p}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const d = await apiJson(`/api/leaves?${p}`).catch(() => null);
     setItems(d?.data?.items ?? []);
     if (tab === "mine") setBalance(d?.data?.balance ?? null);
     setCanDecide(!!d?.data?.canDecide);
@@ -44,15 +44,15 @@ export default function LeavesPage() {
   async function act(id: string, action: string) {
     const note = action === "reject" ? await promptDialog({ title: "Motif du refus :", multiline: true }) ?? undefined : undefined;
     if (action === "reject" && !note) return;
-    const res = await fetch(`/api/leaves/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify({ action, note }) });
-    const x = await res.json().catch(() => ({}));
+    const res = await apiSend("PATCH", `/api/leaves/${id}`, { action, note });
+    const x = res.data;
     setMsg(res.ok ? null : { ok: false, text: x.error || "Action refusée" });
     load();
   }
   async function remove(id: string) {
     if (!(await confirmDialog({ title: "Supprimer cette demande ?", danger: true }))) return;
-    const res = await fetch(`/api/leaves/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
-    if (!res.ok) { const x = await res.json().catch(() => ({})); setMsg({ ok: false, text: x.error || "Suppression refusée" }); }
+    const res = await apiSend("DELETE", `/api/leaves/${id}`);
+    if (!res.ok) { const x = res.data; setMsg({ ok: false, text: x.error || "Suppression refusée" }); }
     load();
   }
 

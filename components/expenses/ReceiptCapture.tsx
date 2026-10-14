@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Camera, Upload, Check, Loader2, AlertTriangle } from "lucide-react";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 interface Props {
   hostId: string;
   lineId: string;
@@ -35,7 +35,6 @@ export function ReceiptCapture({ hostId, lineId, count, onUploaded, disabled }: 
     setBusy(true);
     setError(null);
     try {
-      const csrfToken = await getCsrfToken();
       for (const file of Array.from(files)) {
         const body = new FormData();
         body.append("file", file);
@@ -44,13 +43,8 @@ export function ReceiptCapture({ hostId, lineId, count, onUploaded, disabled }: 
         body.append("lineId", lineId);
         body.append("category", "justificatif");
 
-        const res = await fetch("/api/attachments", {
-          method: "POST",
-          headers: { "x-csrf-token": csrfToken },
-          credentials: "include",
-          body,
-        });
-        if (!res.ok) throw new Error((await res.json()).error || "Envoi refusé");
+        const res = await apiSend("POST", "/api/attachments", body);
+        if (!res.ok) throw new Error((res.data).error || "Envoi refusé");
       }
       onUploaded();
     } catch (e) {

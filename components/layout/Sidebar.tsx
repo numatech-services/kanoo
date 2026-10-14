@@ -7,8 +7,9 @@ import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { moduleEnabled } from "@/lib/modules";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, Scroll, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Settings, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes  } from "lucide-react";
 
+import { apiJson, apiSend } from "@/lib/api-client";
 /** Où mène la pastille d'une entrée : la liste filtrée sur ce qu'elle compte. */
 const BADGE_TARGET: Record<string, { href: string; title: string }> = {
   "/invoices": { href: "/invoices?overdue=true", title: "Voir les factures en retard" },
@@ -68,7 +69,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Fournisseurs", href: "/suppliers", icon: <Factory size={18} /> },
     { label: "Bons de commande", href: "/commandes", icon: <Package size={18} /> },
     { label: "Factures & dépenses", href: "/depenses", icon: <ReceiptText size={18} /> },
-    { label: "Dépenses récurrentes", href: "/recurring-expenses", icon: <RefreshCw size={18} /> },
+    { label: "Charges récurrentes", href: "/recurring-expenses", icon: <RefreshCw size={18} /> },
     { label: "Stock", href: "/stock", icon: <Warehouse size={18} /> },
     { label: "Entrepôts", href: "/stock/entrepots", icon: <Building2 size={18} /> },
     { label: "Lots & péremptions", href: "/stock/lots", icon: <CalendarClock size={18} /> },
@@ -116,7 +117,7 @@ const PME_NAV: NavGroup[] = [
   { section: "Réglages", tone: "parametres", items: [
     { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
     { label: "Modules", href: "/settings/modules", icon: <Boxes size={18} /> },
-    { label: "Utilisateurs", href: "/users", icon: <Users size={18} /> },
+    { label: "Utilisateurs et droits", href: "/users", icon: <Users size={18} /> },
     { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
     { label: "Confidentialité", href: "/settings/confidentialite", icon: <FileText size={18} /> },
@@ -248,8 +249,7 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   const [counters, setCounters] = useState<Record<string, number>>({});
   useEffect(() => {
     let alive = true;
-    fetch("/api/nav-counters", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/nav-counters")
       .then(d => { if (alive && d.success) setCounters(d.data || {}); })
       .catch(() => { /* la navigation se passe très bien de ses pastilles */ });
     return () => { alive = false; };
@@ -368,7 +368,7 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
       <div className="px-4 py-4 border-t border-chromefg/10">
         <button 
           onClick={async () => { 
-            await fetch("/api/auth/logout", { method: "POST" }); 
+            await apiSend("POST", "/api/auth/logout"); 
             window.location.href = "/login"; 
           }}
           className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-chromefg/50 hover:bg-neg/10 hover:text-neg transition-all"

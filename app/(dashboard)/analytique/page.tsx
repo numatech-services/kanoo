@@ -9,7 +9,7 @@ import { promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 interface Activity { _id: string; name: string; color?: string }
 interface Sector { activityId: string; name: string; color?: string; revenue: number; expense: number; result: number; fromAccounting?: { revenue: number; expense: number } }
 interface Report { sectors: Sector[]; general: { revenue: number; expense: number }; consolidated: { revenue: number; expense: number; result: number } | null; isAdmin: boolean }
@@ -30,28 +30,28 @@ export default function AnalytiquePage() {
     const period = new URLSearchParams();
     if (filter.from) period.set("from", filter.from);
     if (filter.to) period.set("to", filter.to);
-    fetch(`/api/analytics/report?${period}`, { credentials: "include" }).then(r => r.json()).then(d => setReport(d.data || null));
-    fetch("/api/analytics/activities", { credentials: "include" }).then(r => r.json()).then(d => setActivities(d.data || []));
+    apiJson(`/api/analytics/report?${period}`).then(d => setReport(d.data || null));
+    apiJson("/api/analytics/activities").then(d => setActivities(d.data || []));
     const q = new URLSearchParams(filter.query);
     q.set("limit", "100");
     if (sector) q.set("activityId", sector);
-    fetch(`/api/analytics/entries?${q}`, { credentials: "include" }).then(r => r.json())
+    apiJson(`/api/analytics/entries?${q}`)
       .then(d => { setEntries(d.data?.items || []); setTotals(d.data?.totals ?? null); });
   }, [filter.query, filter.from, filter.to, sector]);
   useEffect(() => { load(); }, [load]);
 
   async function addSector() {
     const name = await promptDialog({ title: "Nom du secteur (ex. Vente mobilier, ISIC, Abonnements) :" }); if (!name) return;
-    const res = await fetch("/api/analytics/activities", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify({ name }) });
-    if (res.ok) load(); else showToast((await res.json()).error || "Échec", "error");
+    const res = await apiSend("POST", "/api/analytics/activities", { name });
+    if (res.ok) load(); else showToast((res.data).error || "Échec", "error");
   }
   async function addEntry() {
     if (!form.label.trim() || form.amount <= 0) { showToast("Libellé et montant requis.", "warning"); return; }
-    const res = await fetch("/api/analytics/entries", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify(form) });
-    if (res.ok) { setForm(f => ({ ...f, label: "", amount: 0 })); load(); } else showToast((await res.json()).error || "Échec", "error");
+    const res = await apiSend("POST", "/api/analytics/entries", form);
+    if (res.ok) { setForm(f => ({ ...f, label: "", amount: 0 })); load(); } else showToast((res.data).error || "Échec", "error");
   }
   async function delEntry(id: string) {
-    const res = await fetch(`/api/analytics/entries/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
+    const res = await apiSend("DELETE", `/api/analytics/entries/${id}`);
     if (res.ok) load();
   }
 

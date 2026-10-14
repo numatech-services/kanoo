@@ -5,6 +5,7 @@ import { useState } from "react";
 import { errorMessage } from "@/lib/errors";
 
 import { showToast } from "@/components/ui/Toast";
+import { apiSend } from "@/lib/api-client";
 export default function NewMarchePage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -12,24 +13,8 @@ export default function NewMarchePage() {
   async function handleSave(data: Record<string, unknown>) {
     setIsSubmitting(true);
     try {
-      // 1. Récupération du Token CSRF
-      const csrfRes = await fetch("/api/auth/csrf");
-      if (!csrfRes.ok) throw new Error("Impossible de récupérer le jeton de sécurité (CSRF)");
-      
-      const { csrfToken } = await csrfRes.json();
-
-      // 2. Envoi des données
-      const res = await fetch("/api/marches", { 
-        method: "POST", 
-        headers: { 
-          "Content-Type": "application/json", 
-          "x-csrf-token": csrfToken 
-        }, 
-        credentials: "include", 
-        body: JSON.stringify(data) 
-      });
-
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/marches", data);
+      const d = res.data;
 
       if (!res.ok) {
         throw new Error(d.error || "Une erreur est survenue lors de la création");

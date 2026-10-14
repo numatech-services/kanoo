@@ -7,7 +7,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
 interface Delivery {
   _id:string; number:string; status:string; deliveryDate:string; deliveryAddress?:string;
   signedAt?:string; signedBy?:string; notes?:string;
@@ -28,16 +28,18 @@ export default function LivraisonDetailPage() {
   const [showSignForm,setShowSignForm]=useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/livraisons/${id}`, { credentials: "include" });
-    const d = await res.json(); setDelivery(d.data); setLoading(false);
+    const d = await apiJson(`/api/livraisons/${id}`); setDelivery(d.data); setLoading(false);
   }, [id]);
   useEffect(() => { setMounted(true); load(); }, [load]);
 
   async function handleSign(e: React.FormEvent) {
     e.preventDefault(); setSigning(true);
-    const csrfToken = await getCsrfToken();
-    await fetch(`/api/livraisons/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},credentials:"include",body:JSON.stringify({status:"delivered",signedBy:signerName,signedAt:new Date().toISOString()})});
-    setShowSignForm(false); load(); setSigning(false);
+    try {
+      await api.patch(`/api/livraisons/${id}`, { status: "delivered", signedBy: signerName, signedAt: new Date().toISOString() });
+      setShowSignForm(false); showToast("Livraison signée.", "success");
+    } catch (err) { showToast(apiErrorMessage(err, "Signature impossible."), "error"); }
+    finally { setSigning(false); }
+    load();
   }
 
   if(loading) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-line"/></div>;
@@ -52,8 +54,8 @@ export default function LivraisonDetailPage() {
           <button onClick={()=>window.print()} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Imprimer</button>
           {canCancelBl && <button onClick={async()=>{
             if(!(await confirmDialog({ title: "Annuler ce bon de livraison ?", message: "Les articles sortis seront remis en stock.", danger: true }))) return;
-            const res=await fetch(`/api/livraisons/${id}`,{method:"DELETE",credentials:"include",headers:{"x-csrf-token":await getCsrfToken()}});
-            if(res.ok) window.location.href="/livraisons"; else { const d=await res.json().catch(()=>({})); showToast(d.error||"Annulation impossible", "error"); }
+            const res=await apiSend("DELETE", `/api/livraisons/${id}`);
+            if(res.ok) window.location.href="/livraisons"; else { const d= res.data; showToast(d.error||"Annulation impossible", "error"); }
           }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Annuler le BL</button>}
           {!delivery.signedAt && delivery.status!=="delivered" && <button onClick={()=>setShowSignForm(true)} className="px-4 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95">Signer la livraison</button>}
         </div>

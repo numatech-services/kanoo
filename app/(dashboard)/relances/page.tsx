@@ -13,7 +13,7 @@ import { fullXof, compactXof } from "@/components/ui/charts/geometry";
 import type { DunningPlan, DunningSettings, AgingBucket } from "@/lib/dunning";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Payload {
   asOf: string;
   enabled: boolean;
@@ -42,10 +42,6 @@ const OUTCOME: Record<string, { label: string; cls: string }> = {
   superseded: { label: "Dépassée", cls: "text-ink3" },
 };
 
-async function csrf() {
-  const csrfToken = await getCsrfToken();
-  return csrfToken as string;
-}
 
 export default function RelancesPage() {
   const [data, setData] = useState<Payload | null>(null);
@@ -57,8 +53,7 @@ export default function RelancesPage() {
   const [approved, setApproved] = useState<Set<string>>(new Set());
 
   const load = useCallback(() => {
-    fetch("/api/relances", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/relances")
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
         setData(d.data);
@@ -75,16 +70,11 @@ export default function RelancesPage() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch("/api/relances/executer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify({
+      const res = await apiSend("POST", "/api/relances/executer", {
           ...(invoiceIds ? { invoiceIds } : {}),
           approvedInvoiceIds: [...approved],
-        }),
-      });
-      const d = await res.json();
+        });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Exécution refusée");
       setNotice(d.data.message);
       setApproved(new Set());
@@ -99,13 +89,8 @@ export default function RelancesPage() {
   async function toggleEnabled(enabled: boolean) {
     setBusy(true);
     try {
-      const res = await fetch("/api/relances/parametres", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify({ enabled }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
+      const res = await apiSend("PUT", "/api/relances/parametres", { enabled });
+      if (!res.ok) throw new Error((res.data).error);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Modification impossible");
@@ -406,13 +391,8 @@ function SettingsDialog({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/relances/parametres", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify(form),
-      });
-      const d = await res.json();
+      const res = await apiSend("PUT", "/api/relances/parametres", form);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Enregistrement refusé");
       onSaved();
       onClose();

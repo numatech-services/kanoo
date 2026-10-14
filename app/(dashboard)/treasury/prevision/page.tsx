@@ -5,6 +5,7 @@ import { ArrowLeft, AlertTriangle, ChevronDown, ChevronRight } from "lucide-reac
 import { selectCls } from "@/components/ui/FormField";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
+import { apiJson } from "@/lib/api-client";
 interface Flow { label: string; amount: number; kind: "in" | "out"; source: string; date: string }
 interface Week { start: string; end: string; in: number; out: number; balance: number; flows: Flow[] }
 interface Forecast { opening: number; accounts: Array<{ label: string; balance: number }>; weeks: Week[]; lowest: { balance: number; weekStart: string } | null; totals: { in: number; out: number }; notes: string[] }
@@ -18,7 +19,7 @@ export default function TreasuryForecastPage() {
   const [open, setOpen] = useState<Set<number>>(new Set());
   const [flow, setFlow] = useState<"" | "in" | "out">("");
   useEffect(() => {
-    fetch(`/api/treasury-accounts/forecast?weeks=${weeks}`, { credentials: "include" }).then(r => r.json()).then(x => setData(x.data ?? null)).catch(() => {});
+    apiJson(`/api/treasury-accounts/forecast?weeks=${weeks}`).then(x => setData(x.data ?? null)).catch(() => {});
   }, [weeks]);
   if (!data) return <div className="h-64 bg-surface rounded-xl border border-line animate-pulse" />;
   const max = Math.max(1, ...data.weeks.map(w => Math.abs(w.balance)));

@@ -15,7 +15,7 @@ import { fullXof } from "@/components/ui/charts/geometry";
 import { orderProgress, canDeliver, lotTotals } from "@/lib/framework-order";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Order {
   _id: string; reference: string; title: string; unit: string; status: string;
   totalQuantity: number; deliveredQuantity?: number; invoicedQuantity?: number;
@@ -28,10 +28,6 @@ interface Lot {
   status: string; invoiceId?: string; inputConsumed?: number;
 }
 
-async function csrf() {
-  const csrfToken = await getCsrfToken();
-  return csrfToken as string;
-}
 
 export default function MarcheDetailPage() {
   const { id } = useParams();
@@ -44,8 +40,7 @@ export default function MarcheDetailPage() {
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    fetch(`/api/marches-cadres/${id}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/marches-cadres/${id}`)
       .then(d => { if (!d.success) throw new Error(d.error); setOrder(d.data.order); setLots(d.data.lots || []); setError(null); })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
@@ -55,11 +50,8 @@ export default function MarcheDetailPage() {
   async function invoiceLot(lot: Lot) {
     setBusy(lot._id); setError(null); setNotice(null);
     try {
-      const res = await fetch(`/api/marches-cadres/${id}/lots/${lot._id}/facturer`, {
-        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include", body: JSON.stringify({}),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/marches-cadres/${id}/lots/${lot._id}/facturer`, {});
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Facturation refusée");
       setNotice(`Facture ${d.data.number} créée pour le lot ${lot.reference}.`);
       load();
@@ -164,11 +156,8 @@ function DeliverDialog({ open, onClose, order, onDone }: { open: boolean; onClos
     e.preventDefault();
     setSaving(true); setError(null);
     try {
-      const res = await fetch(`/api/marches-cadres/${order._id}/lots`, {
-        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include", body: JSON.stringify({ quantity: n, date, notes, warehouseId: warehouseId || undefined }),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/marches-cadres/${order._id}/lots`, { quantity: n, date, notes, warehouseId: warehouseId || undefined });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Livraison refusée");
       onDone();
     } catch (e) { setError(e instanceof Error ? e.message : "Livraison impossible"); }

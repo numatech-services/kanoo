@@ -6,6 +6,7 @@ import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
 
 import { BarChart3, CheckCircle2, FileEdit, ScrollText } from "lucide-react";
 import { formatMoney } from "@/lib/format";
+import { apiJson } from "@/lib/api-client";
 interface BudgetChapter { _id: string; code: string; label: string; allocatedAmount: number; engagedAmount: number; paidAmount: number; }
 interface Engagement { _id: string; reference: string; description: string; amount: number; status: string; createdAt: string; }
 interface Marche { _id: string; reference: string; title: string; status: string; estimatedAmount: number; publishDate: string; }
@@ -57,26 +58,22 @@ export default function AdminDashboardPage() {
       return [];
     };
 
-    fetch("/api/budget?flat=true", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/budget?flat=true")
       .then(d => setChapters(extractArray(d)))
       .catch((e) => console.error(e))
       .finally(() => setLoadingCh(false));
 
-    fetch("/api/budget/engagements?limit=5&page=1", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/budget/engagements?limit=5&page=1")
       .then(d => setEngagements(extractArray(d)))
       .catch((e) => console.error(e))
       .finally(() => setLoadingEn(false));
 
-    fetch("/api/marches?limit=100&page=1", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/marches?limit=100&page=1")
       .then(d => setMarches(extractArray(d)))
       .catch((e) => console.error(e))
       .finally(() => setLoadingMa(false));
 
-    fetch("/api/budget/mandatements?limit=5&page=1", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/budget/mandatements?limit=5&page=1")
       .then(d => setMandatements(extractArray(d)))
       .catch((e) => console.error(e))
       .finally(() => setLoadingMn(false));

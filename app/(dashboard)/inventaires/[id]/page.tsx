@@ -11,7 +11,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { fullXof } from "@/components/ui/charts/geometry";
 import { COUNT_STATUS_LABEL, type CountStatus } from "@/lib/inventory";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Line {
   _id: string;
   code: string;
@@ -42,10 +42,6 @@ interface Payload {
   topVariances: Array<{ line: Line; result: { variance: number; varianceValue: number | null } }>;
 }
 
-async function csrf() {
-  const csrfToken = await getCsrfToken();
-  return csrfToken as string;
-}
 
 export default function InventaireDetailPage() {
   const { id } = useParams();
@@ -58,8 +54,7 @@ export default function InventaireDetailPage() {
   const [onlyPending, setOnlyPending] = useState(false);
 
   const load = useCallback(() => {
-    fetch(`/api/inventaires/${id}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/inventaires/${id}`)
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
         setData(d.data);
@@ -74,13 +69,8 @@ export default function InventaireDetailPage() {
   async function patch(body: Record<string, unknown>, reload = true) {
     setError(null);
     try {
-      const res = await fetch(`/api/inventaires/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-      const d = await res.json();
+      const res = await apiSend("PATCH", `/api/inventaires/${id}`, body);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Action refusée");
       if (d.data?.message) setNotice(d.data.message);
       if (reload) load();

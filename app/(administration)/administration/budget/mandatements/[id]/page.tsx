@@ -17,7 +17,7 @@ import Link from "next/link";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 interface EngagementData {
   _id: string;
   reference: string;
@@ -44,8 +44,7 @@ export default function MandatementActionPage() {
       if (!id) return;
       try {
         setLoading(true);
-        const res = await fetch(`/api/budget/engagements/${id}`);
-        const result = await res.json();
+        const result = await apiJson(`/api/budget/engagements/${id}`);
         setData(result.data || result);
       } catch (err) {
         console.error("Erreur de chargement:", err);

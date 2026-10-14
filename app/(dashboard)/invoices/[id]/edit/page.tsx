@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { InvoiceForm } from "@/components/pme/InvoiceForm";
 import { showToast } from "@/components/ui/Toast";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 export default function EditInvoicePage() {
   const { id } = useParams();
   const router = useRouter();
@@ -15,8 +15,7 @@ export default function EditInvoicePage() {
 
   const loadInvoice = useCallback(async () => {
     try {
-      const res = await fetch(`/api/invoices/${id}`, { credentials: "include" });
-      const d = await res.json();
+      const d = await apiJson(`/api/invoices/${id}`);
       const invoice = d.data || d;
       
       if (invoice) {
@@ -57,23 +56,14 @@ export default function EditInvoicePage() {
   }
 
   async function handleUpdate(updatedData: any) {
-    const csrfToken = await getCsrfToken();
 
-    const res = await fetch(`/api/invoices/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "x-csrf-token": csrfToken,
-      },
-      credentials: "include",
-      body: JSON.stringify(updatedData),
-    });
+    const res = await apiSend("PATCH", `/api/invoices/${id}`, updatedData);
 
     // Gestion sécurisée si le serveur renvoie une réponse vide (ex: status 204)
     if (!res.ok) {
       let errorMessage = "Impossible de mettre à jour la facture";
       try {
-        const errorData = await res.json();
+        const errorData = res.data;
         errorMessage = errorData.error || errorMessage;
       } catch (e) {
         // Le JSON était vide ou invalide mais le statut est en erreur

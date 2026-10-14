@@ -6,7 +6,7 @@ import { FormField, inputCls } from "@/components/ui/FormField";
 import { invalidateMe } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Profile { firstName?: string; lastName?: string; phone?: string; email?: string; role?: string; }
 
 export default function ProfilePage() {
@@ -17,8 +17,7 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/auth/me")
       .then(d => setForm(d.data?.user || {}))
       .catch(() => setError("Chargement impossible."))
       .finally(() => setLoading(false));
@@ -27,14 +26,8 @@ export default function ProfilePage() {
   async function save() {
     setSaving(true); setError(null); setNotice(null);
     try {
-      const csrfToken = await getCsrfToken();
-      const res = await fetch("/api/auth/me", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify({ firstName: form.firstName, lastName: form.lastName, phone: form.phone }),
-      });
-      const d = await res.json();
+      const res = await apiSend("PATCH", "/api/auth/me", { firstName: form.firstName, lastName: form.lastName, phone: form.phone });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Enregistrement refusé");
       invalidateMe(); // rafraîchit l'en-tête (initiales, nom)
       setNotice("Profil mis à jour.");

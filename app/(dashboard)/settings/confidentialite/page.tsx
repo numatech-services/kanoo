@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Download, Mail, MessageCircle, Smartphone, Trash2, ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
 
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Consents { email: boolean; whatsapp: boolean; sms: boolean; }
 
 const CHANNELS: { key: keyof Consents; label: string; desc: string; icon: React.ReactNode }[] = [
@@ -19,8 +20,7 @@ export default function ConfidentialitePage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
-    fetch("/api/me/consents", { credentials: "include" })
-      .then((r) => r.json())
+    apiJson("/api/me/consents")
       .then((d) => {
         if (d.data?.consents) setConsents({ email: !!d.data.consents.email, whatsapp: !!d.data.consents.whatsapp, sms: !!d.data.consents.sms });
         setRequested(d.data?.deletionRequestedAt || null);
@@ -33,10 +33,7 @@ export default function ConfidentialitePage() {
     const next = { ...consents, [key]: value };
     setConsents(next);
     try {
-      const res = await fetch("/api/me/consents", {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ [key]: value }),
-      });
+      const res = await apiSend("PATCH", "/api/me/consents", { [key]: value });
       if (!res.ok) throw new Error();
       toast.success("Préférence enregistrée");
     } catch {
@@ -47,8 +44,8 @@ export default function ConfidentialitePage() {
 
   async function requestDeletion() {
     try {
-      const res = await fetch("/api/me/deletion-request", { method: "POST", credentials: "include" });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/me/deletion-request");
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Erreur");
       setRequested(d.data.requestedAt);
       setConfirmDelete(false);

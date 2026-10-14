@@ -6,7 +6,7 @@ import { LEAVE_TYPES } from "@/lib/leave-types";
 
 import { buttonClass } from "@/components/ui/button-class";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiSend } from "@/lib/api-client";
 /** Demande (ou saisie pour un salarié, depuis sa fiche) d'un congé / absence. */
 export function RequestDialog({ onClose, onDone, employeeId }: { onClose: () => void; onDone: () => void; employeeId?: string }) {
   const today = new Date().toISOString().slice(0, 10);
@@ -14,8 +14,8 @@ export function RequestDialog({ onClose, onDone, employeeId }: { onClose: () => 
   const [error, setError] = useState("");
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch("/api/leaves", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify({ ...f, employeeId }) });
-    const x = await res.json().catch(() => ({}));
+    const res = await apiSend("POST", "/api/leaves", { ...f, employeeId });
+    const x = res.data;
     if (!res.ok) { setError(x.error || "Demande refusée"); return; }
     onDone();
   }

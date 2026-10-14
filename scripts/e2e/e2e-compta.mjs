@@ -52,6 +52,12 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   const bank = id(await g.req("POST", "/api/treasury-accounts", { label: "Banque compta", type: "bank", openingBalance: 5000000, openingDate: "2025-01-01" }));
   const sup = id(await g.req("POST", "/api/suppliers", { code: "F-CPT", name: "Nigelec" }));
 
+  console.log("\n▶ Mon organisation");
+  const org = await g.req("GET", "/api/company");
+  check("fiche de l'organisation lisible", org.status === 200 && !!D(org).name, `${org.status} ${J(org.data).slice(0, 120)}`);
+  const orgUpd = await g.req("PATCH", "/api/company", { phone: "+227 90 00 00 00" });
+  check("fiche de l'organisation modifiable", orgUpd.status === 200 && D(orgUpd).phone === "+227 90 00 00 00", `${orgUpd.status} ${J(orgUpd.data).slice(0, 120)}`);
+
   console.log("\n▶ Banque et caisse protégées en saisie manuelle");
   const manual = await g.req("POST", "/api/accounting-entries", { journalCode: "OD", entryDate: today, reference: "BQ-MAN", label: "x",
     lines: [{ accountCode: "521000", accountLabel: "Banque", debit: 1000 }, { accountCode: "471000", accountLabel: "Attente", credit: 1000 }] });

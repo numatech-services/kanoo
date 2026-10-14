@@ -10,7 +10,7 @@ import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Payment {
   _id: string;
   invoiceId: { 
@@ -74,11 +74,10 @@ export default function PaymentsPage() {
   // L'encaissement d'un paiement en attente se confirme avec sa date réelle et le compte crédité.
 
   async function cancelPayment(id: string, pending: boolean) {
-    const csrfToken = await getCsrfToken();
-    let res: Response;
+    let res: { ok: boolean; data: { error?: string } };
     if (pending) {
       if (!(await confirmDialog({ title: "Supprimer ce paiement en attente ?", danger: true, confirmLabel: "Supprimer" }))) return;
-      res = await fetch(`/api/payments/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": csrfToken } });
+      res = await apiSend("DELETE", `/api/payments/${id}`);
     } else {
       const reason = await promptDialog({
         title: "Annuler cet encaissement ?",
@@ -89,10 +88,10 @@ export default function PaymentsPage() {
         multiline: true,
       });
       if (!reason) return;
-      res = await fetch(`/api/payments/${id}/cancel`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, body: JSON.stringify({ reason }) });
+      res = await apiSend("POST", `/api/payments/${id}/cancel`, { reason });
     }
     if (res.ok) load();
-    else { const d = await res.json().catch(() => ({})); showToast(d.error || "Annulation impossible.", "error"); }
+    else showToast(res.data?.error || "Annulation impossible.", "error");
   }
 
   if (!mounted) return null;
@@ -225,7 +224,7 @@ function ConfirmDialog({ payment, onClose, onDone }: { payment: Payment; onClose
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    fetch("/api/treasury-accounts", { credentials: "include" }).then(r => r.json()).then(d => {
+    apiJson("/api/treasury-accounts").then(d => {
       const list = d.data?.items || [];
       setAccounts(list);
       if (!accountId && list.length === 1) setAccountId(list[0]._id);
@@ -233,12 +232,8 @@ function ConfirmDialog({ payment, onClose, onDone }: { payment: Payment; onClose
   }, [accountId]);
   async function submit() {
     setSaving(true); setError("");
-    const csrfToken = await getCsrfToken();
-    const res = await fetch(`/api/payments/${payment._id}`, {
-      method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      body: JSON.stringify({ status: "effective", date, ...(accountId ? { treasuryAccountId: accountId } : {}) }),
-    });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("PATCH", `/api/payments/${payment._id}`, { status: "effective", date, ...(accountId ? { treasuryAccountId: accountId } : {}) });
+    const d = res.data;
     setSaving(false);
     if (!res.ok) { setError(d.error || "Confirmation impossible."); return; }
     onDone();

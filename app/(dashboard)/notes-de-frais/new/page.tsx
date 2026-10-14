@@ -8,7 +8,7 @@ import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/For
 import { Inset } from "@/components/ui/Primitives";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Employee { _id: string; firstName: string; lastName: string; code?: string }
 
 const MOIS = [
@@ -34,8 +34,7 @@ export default function NouvelleNotePage() {
   useEffect(() => {
     // La liste ne sert qu'à ceux qui valident ; pour les autres, l'API impose
     // déjà le bénéficiaire et le champ resterait décoratif.
-    fetch("/api/employees?limit=200", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/employees?limit=200")
       .then(d => {
         if (d.success) {
           setEmployees(d.data?.items || []);
@@ -50,18 +49,12 @@ export default function NouvelleNotePage() {
     setSaving(true);
     setError(null);
     try {
-      const csrfToken = await getCsrfToken();
-      const res = await fetch("/api/expenses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify({
+      const res = await apiSend("POST", "/api/expenses", {
           ...form,
           employeeId: form.employeeId || undefined,
           lines: [],
-        }),
-      });
-      const d = await res.json();
+        });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Création refusée");
       // On enchaîne directement sur la saisie des dépenses : créer une note
       // vide puis revenir à la liste ferait perdre l'élan.

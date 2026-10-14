@@ -15,7 +15,7 @@ import {
 } from "@/lib/admin-documents";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Row {
   _id: string;
   label: string;
@@ -40,10 +40,6 @@ interface Payload {
 
 const fr = (d?: string | null) => (d ? new Date(d).toLocaleDateString("fr-FR") : "—");
 
-async function csrf() {
-  const csrfToken = await getCsrfToken();
-  return csrfToken as string;
-}
 
 export default function DocumentsAdministratifsPage() {
   const [data, setData] = useState<Payload | null>(null);
@@ -55,8 +51,7 @@ export default function DocumentsAdministratifsPage() {
   const [openDoc, setOpenDoc] = useState<Row | null>(null);
 
   const load = useCallback(() => {
-    fetch("/api/documents-administratifs", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/documents-administratifs")
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
         setData(d.data);
@@ -72,13 +67,8 @@ export default function DocumentsAdministratifsPage() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch(`/api/documents-administratifs/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-      const d = await res.json();
+      const res = await apiSend("PATCH", `/api/documents-administratifs/${id}`, body);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Action refusée");
       if (d.data?.message) setNotice(d.data.message);
       load();
@@ -361,13 +351,8 @@ function AddDialog({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/documents-administratifs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify(form),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/documents-administratifs", form);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Création refusée");
       setForm(f => ({ ...f, label: "", reference: "", issuedAt: "", expiresAt: "", notes: "" }));
       onCreated();

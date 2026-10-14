@@ -7,7 +7,7 @@ import { MarcheForm } from "@/components/pme/MarcheForm";
 import { errorMessage } from "@/lib/errors";
 
 import { showToast } from "@/components/ui/Toast";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 export default function MarcheDetailPage() {
   const params = useParams(); // Récupération sécurisée des paramètres
   const id = params?.id;
@@ -21,8 +21,7 @@ export default function MarcheDetailPage() {
   useEffect(() => {
     if (!id) return;
     
-    fetch(`/api/marches/${id}`, { credentials: "include" })
-      .then((r) => r.json())
+    apiJson(`/api/marches/${id}`)
       .then((d) => {
         if (d.success === false) {
           setError(d.error || "Erreur de chargement");
@@ -36,19 +35,10 @@ export default function MarcheDetailPage() {
   // 2. Sauvegarde des modifications (PATCH)
   async function handleSave(body: Record<string, any>) {
     try {
-      const csrfToken = await getCsrfToken();
       
-      const res = await fetch(`/api/marches/${id}`, { 
-        method: "PATCH", 
-        headers: { 
-          "Content-Type": "application/json", 
-          "x-csrf-token": csrfToken 
-        }, 
-        credentials: "include", 
-        body: JSON.stringify(body) 
-      });
+      const res = await apiSend("PATCH", `/api/marches/${id}`, body);
 
-      const d = await res.json();
+      const d = res.data;
       if (res.ok) { 
         setItem(d.data || d); 
         setEditOpen(false); 

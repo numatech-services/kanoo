@@ -6,7 +6,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { useWarehouses } from "@/components/stock/useWarehouses";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 interface Product { _id: string; code: string; label: string; unit?: string; trackingMode?: string }
 interface Line { productId: string; quantity: number; lotNumber: string }
 interface Lot { lotNumber: string; qty: number; expiryDate?: string; warehouseId?: { _id: string } | string }
@@ -30,13 +30,13 @@ export function TransferDialog({ onClose, onDone, product, fromWarehouseId }: {
   }, [warehouses, from]);
   useEffect(() => {
     if (product) return;
-    fetch("/api/products?isService=false&limit=100", { credentials: "include" }).then(r => r.json()).then(d => setProducts(d.data?.items ?? [])).catch(() => {});
+    apiJson("/api/products?isService=false&limit=100").then(d => setProducts(d.data?.items ?? [])).catch(() => {});
   }, [product]);
   useEffect(() => {
     for (const l of lines) {
       const p = products.find(x => x._id === l.productId);
       if (!p || !p.trackingMode || p.trackingMode === "none" || lots[p._id]) continue;
-      fetch(`/api/products/${p._id}/stock`, { credentials: "include" }).then(r => r.json()).then(d => setLots(s => ({ ...s, [p._id]: d.data?.lots ?? [] }))).catch(() => {});
+      apiJson(`/api/products/${p._id}/stock`).then(d => setLots(s => ({ ...s, [p._id]: d.data?.lots ?? [] }))).catch(() => {});
     }
   }, [lines, products, lots]);
 
@@ -47,11 +47,8 @@ export function TransferDialog({ onClose, onDone, product, fromWarehouseId }: {
     const valid = lines.filter(l => l.productId && l.quantity > 0);
     if (!valid.length) { setError("Ajoutez au moins un article."); return; }
     setSaving(true);
-    const res = await fetch("/api/stock/transfers", {
-      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
-      body: JSON.stringify({ fromWarehouseId: from, toWarehouseId: to, reason, lines: valid.map(l => ({ productId: l.productId, quantity: l.quantity, lots: l.lotNumber ? [{ lotNumber: l.lotNumber, qty: l.quantity }] : undefined })) }),
-    });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("POST", "/api/stock/transfers", { fromWarehouseId: from, toWarehouseId: to, reason, lines: valid.map(l => ({ productId: l.productId, quantity: l.quantity, lots: l.lotNumber ? [{ lotNumber: l.lotNumber, qty: l.quantity }] : undefined })) });
+    const d = res.data;
     setSaving(false);
     if (!res.ok) { setError(d.error || "Transfert refusé"); return; }
     onDone();

@@ -10,6 +10,7 @@ import { fullXof, compactXof } from "@/components/ui/charts/geometry";
 import { KIND_LABEL, type Statement, type StatementKind } from "@/lib/statement";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface Payload {
   client: { name: string; code?: string; email?: string; nif?: string; address?: string };
   statement: Statement;
@@ -42,8 +43,7 @@ export default function RelevePage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch(`/api/clients/${id}/releve?from=${from}&to=${to}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/clients/${id}/releve?from=${from}&to=${to}`)
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
         setData(d.data);

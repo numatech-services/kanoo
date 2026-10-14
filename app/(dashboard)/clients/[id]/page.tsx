@@ -10,7 +10,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 type Client = ClientFormData & { _id: string; currentBalance: number; logo?: string };
 type Row = Record<string, unknown>;
 interface Section { count: number; items: Row[]; }
@@ -72,17 +72,12 @@ export default function ClientDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
 
   const load = useCallback(() => {
-    fetch(`/api/clients/${id}/overview`, { credentials: "include" })
-      .then(r => r.json()).then(d => d.success && setData(d.data));
+    apiJson(`/api/clients/${id}/overview`).then(d => d.success && setData(d.data));
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
   async function handleSave(body: ClientFormData) {
-    const csrfToken = await getCsrfToken();
-    const res = await fetch(`/api/clients/${id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      credentials: "include", body: JSON.stringify(body),
-    });
+    const res = await apiSend("PATCH", `/api/clients/${id}`, body);
     if (res.ok) { setEditOpen(false); load(); }
   }
 
@@ -112,7 +107,7 @@ export default function ClientDetailPage() {
           <button onClick={() => setEditOpen(true)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Modifier</button>
           {canRemove && <button onClick={async () => {
             if (!(await confirmDialog({ title: "Désactiver ce client ?", message: "Il disparaît des listes ; ses documents restent.", danger: true }))) return;
-            const res = await fetch(`/api/clients/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
+            const res = await apiSend("DELETE", `/api/clients/${id}`);
             if (res.ok) router.push("/clients"); else showToast("Désactivation impossible", "error");
           }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Désactiver</button>}
           {data.financials && <a href={`/clients/${id}/releve`} className={buttonClass("secondary", "md")}>Relevé</a>}

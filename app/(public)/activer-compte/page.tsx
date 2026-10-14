@@ -7,6 +7,7 @@ import { promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { CheckCircle2 } from "lucide-react";
 import { buttonClass } from "@/components/ui/button-class";
+import { apiSend } from "@/lib/api-client";
 function ActivateForm() {
   const searchParams = useSearchParams();
   const tokenFromUrl = searchParams.get("token") || "";
@@ -17,8 +18,8 @@ function ActivateForm() {
   async function handleActivate(e: React.FormEvent) {
     e.preventDefault(); setLoading(true);
     try {
-      const res = await fetch("/api/public/activation/complete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/public/activation/complete", { token });
+      const d = res.data;
       setResult({ success: res.ok, message: res.ok ? d.data?.message : d.error });
     } catch { setResult({ success: false, message: "Erreur réseau" }); } finally { setLoading(false); }
   }
@@ -41,7 +42,7 @@ function ActivateForm() {
       </div>
       {result && !result.success && <div className="p-3 bg-neg-50 border border-neg/25 rounded-lg text-neg text-sm">{result.message}</div>}
       <button type="submit" disabled={loading || !token} className={buttonClass("primary", "md", "w-full")}>{loading ? "Activation…" : "Activer mon compte"}</button>
-      <div className="text-center"><button type="button" onClick={async () => { const email = await promptDialog({ title: "Votre email pour renvoyer le lien :" }); if (email) { await fetch("/api/public/activation/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) }); showToast("Si votre email est enregistré, vous recevrez un nouveau lien.", "success"); } }} className="text-sm text-section hover:underline">Renvoyer le lien d'activation</button></div>
+      <div className="text-center"><button type="button" onClick={async () => { const email = await promptDialog({ title: "Votre email pour renvoyer le lien :" }); if (email) { await apiSend("POST", "/api/public/activation/request", { email }); showToast("Si votre email est enregistré, vous recevrez un nouveau lien.", "success"); } }} className="text-sm text-section hover:underline">Renvoyer le lien d'activation</button></div>
     </form>
   );
 }

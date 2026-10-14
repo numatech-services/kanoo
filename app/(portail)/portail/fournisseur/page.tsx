@@ -5,6 +5,7 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Factory } from "lucide-react";
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface TenderData {
   _id:string; reference:string; object:string; estimatedAmount:number; bidsDeadline?:string; status:string; procedure:string;
 }
@@ -22,8 +23,7 @@ export default function PortailFournisseurPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/portail/fournisseur", { credentials:"include" })
-      .then(r=>r.json()).then(d=>{ if(d.success) setData(d.data); else setError(d.error||"Session expirée"); })
+    apiJson("/api/portail/fournisseur").then(d=>{ if(d.success) setData(d.data); else setError(d.error||"Session expirée"); })
       .catch(()=>setError("Connexion impossible")).finally(()=>setLoading(false));
   }, []);
 

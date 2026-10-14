@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 
+import { apiJson } from "@/lib/api-client";
 interface Log { _id: string; userEmail: string; userRole: string; action: string; resource: string; resourceId?: string; ip?: string; createdAt: string; }
 
 const ACTION_COLORS: Record<string, string> = { CREATE:"bg-pos-50 text-pos", UPDATE:"bg-info-50 text-info", DELETE:"bg-neg-50 text-neg", LOGIN:"bg-section-soft text-section", PAYMENT:"bg-warn-50 text-warn", APPROVE:"bg-teal-100 text-teal-700", REJECT:"bg-neg-50 text-neg" };
@@ -19,8 +20,7 @@ export default function AuditPage() {
     if (resource) params.set("resource", resource);
     if (from) params.set("from", from);
     if (to) params.set("to", to);
-    const res = await fetch(`/api/audit-logs?${params}`, { credentials: "include" });
-    const d = await res.json(); setLogs(d.data?.items || []); setTotal(d.data?.pagination?.total || 0); setLoading(false);
+    const d = await apiJson(`/api/audit-logs?${params}`); setLogs(d.data?.items || []); setTotal(d.data?.pagination?.total || 0); setLoading(false);
   }, [page, resource, from, to]);
   useEffect(() => { setMounted(true); load(); }, [load]);
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { Building2, Handshake, Landmark, PartyPopper } from "lucide-react";
 import { buttonClass } from "@/components/ui/button-class";
+import { apiSend } from "@/lib/api-client";
 function SouscrireForm() {
   const searchParams = useSearchParams();
   const planFromUrl = searchParams.get("plan") || "starter";
@@ -24,8 +25,8 @@ function SouscrireForm() {
       // Route publique dédiée : l'ancienne cible (/api/superadmin/tenants)
       // exigeait d'être superadmin — un 401 pour tout visiteur, donc aucune
       // inscription publique possible depuis la mise en ligne.
-      const res = await fetch("/api/public/inscription", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/public/inscription", form);
+      const d = res.data;
       if (!res.ok) { setError(d.error || "Erreur lors de la souscription"); setLoading(false); return; }
       setSuccess(true);
     } catch { setError("Erreur réseau"); } finally { setLoading(false); }

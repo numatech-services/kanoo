@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { CalendarClock, MapPin, Video, User, AlertCircle } from "lucide-react";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface Meeting {
   title: string; description?: string; type: string;
   startAt: string; endAt?: string; allDay?: boolean;
@@ -22,8 +23,7 @@ export default function PublicMeetingPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/public/reunion/${token}`)
-      .then((r) => r.json())
+    apiJson(`/api/public/reunion/${token}`)
       .then((d) => { if (d.success) setM(d.data); else setError(d.error || "Réunion introuvable."); })
       .catch(() => setError("Chargement impossible."))
       .finally(() => setLoading(false));

@@ -6,7 +6,7 @@ import { showToast } from "@/components/ui/Toast";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
 import { formatMoney } from "@/lib/format";
 interface DepreciationEntry { year: number; annuity: number; cumulative: number; netValue: number; posted: boolean; }
 interface FixedAsset {
@@ -50,8 +50,7 @@ export default function FixedAssetsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/fixed-assets", { credentials: "include" });
-    const d = await res.json();
+    const d = await apiJson("/api/fixed-assets");
     setAssets(d.data?.items || []);
     setStats(d.data?.stats || {});
     setLoading(false);
@@ -66,24 +65,17 @@ export default function FixedAssetsPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
-    const csrfToken = await getCsrfToken();
-    const res = await fetch("/api/fixed-assets", {
-      method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      credentials: "include", body: JSON.stringify(form),
-    });
+    const res = await apiSend("POST", "/api/fixed-assets", form);
     if (res.ok) { setModalOpen(false); load(); showToast("Immobilisation créée.", "success"); }
-    else showToast((await res.json().catch(() => null))?.error ?? "Création impossible.", "error");
+    else showToast((res.data)?.error ?? "Création impossible.", "error");
     setSaving(false);
   }
 
   async function handlePostDepreciation(assetId: string, year: number) {
     setPostingYear(year);
-    const csrfToken = await getCsrfToken();
-    await fetch(`/api/fixed-assets/${assetId}/depreciation`, {
-      method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      credentials: "include", body: JSON.stringify({ year }),
-    });
-    setPostingYear(null);
+    try { await api.post(`/api/fixed-assets/${assetId}/depreciation`, { year }); showToast(`Dotation ${year} comptabilisée.`, "success"); }
+    catch (e) { showToast(apiErrorMessage(e, "Écriture de dotation impossible."), "error"); }
+    finally { setPostingYear(null); }
     load();
   }
 
@@ -144,17 +136,15 @@ export default function FixedAssetsPage() {
               <button onClick={async () => {
                 const name = await promptDialog({ title: "Modifier l'immobilisation", label: "Désignation", defaultValue: selectedAsset.name, required: true }); if (!name) return;
                 const location = await promptDialog({ title: "Modifier l'immobilisation", label: "Emplacement / affectation", defaultValue: (selectedAsset as { location?: string }).location ?? "" }) ?? undefined;
-                const csrfToken = await getCsrfToken();
-                const res = await fetch(`/api/fixed-assets/${selectedAsset._id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, body: JSON.stringify({ name, location }) });
+                const res = await apiSend("PATCH", `/api/fixed-assets/${selectedAsset._id}`, { name, location });
                 if (res.ok) load(); else showToast("Modification impossible", "error");
               }} className="px-3 h-8 rounded-lg border border-line2 text-xs hover:bg-surface">Modifier</button>
               {selectedAsset.status !== "disposed" && <button onClick={async () => {
                 const sale = await confirmDialog({ title: "Cession (vente) ou mise au rebut ?", message: "Une vente demande un prix de cession ; une mise au rebut sort le bien sans prix.", confirmLabel: "Vente", cancelLabel: "Mise au rebut" });
                 const price = sale ? Number(await promptDialog({ title: "Prix de cession", label: "Prix de cession (FCFA)", defaultValue: "0", type: "number" })) || 0 : 0;
                 if (!await confirmDialog({ title: `Sortir « ${selectedAsset.name} » de l'actif ?`, message: "L'écriture de sortie sera passée.", danger: true, confirmLabel: "Sortir de l'actif" })) return;
-                const csrfToken = await getCsrfToken();
-                const res = await fetch(`/api/fixed-assets/${selectedAsset._id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, body: JSON.stringify({ action: "dispose", reason: sale ? "sale" : "scrap", price }) });
-                const d = await res.json().catch(() => ({}));
+                const res = await apiSend("PATCH", `/api/fixed-assets/${selectedAsset._id}`, { action: "dispose", reason: sale ? "sale" : "scrap", price });
+                const d = res.data;
                 if (res.ok) load(); else showToast(d.error || "Sortie impossible", "error");
               }} className="px-3 h-8 rounded-lg border border-neg/25 text-neg text-xs hover:bg-neg-50">Céder / mettre au rebut</button>}
             </div>

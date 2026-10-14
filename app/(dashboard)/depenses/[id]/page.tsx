@@ -11,7 +11,7 @@ import { PurchaseForm, type PurchaseFormValue } from "@/components/achats/Purcha
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 import { formatMoney, formatDate } from "@/lib/format";
 type Ref = { _id: string; code?: string; name?: string; label?: string; type?: string } | null | undefined;
 interface Purchase {
@@ -47,7 +47,7 @@ export default function PurchaseDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
 
   const load = useCallback(async () => {
-    const d = await fetch(`/api/achats/${id}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const d = await apiJson(`/api/achats/${id}`).catch(() => null);
     setP(d?.data ?? null);
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -171,7 +171,7 @@ function PayDialog({ id, rest, onClose, onDone }: { id: string; rest: number; on
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    fetch("/api/treasury-accounts", { credentials: "include" }).then(r => r.json()).then(d => {
+    apiJson("/api/treasury-accounts").then(d => {
       const list = d.data?.items ?? []; setAccounts(list);
       if (list.length === 1) setF(p => ({ ...p, treasuryAccountId: list[0]._id }));
     }).catch(() => {});

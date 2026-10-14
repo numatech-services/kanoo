@@ -3,14 +3,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 
 import { Bell } from "lucide-react";
+import { apiJson } from "@/lib/api-client";
 export function NotificationsBell() {
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/notifications?unread=true&limit=1", { credentials: "include" });
-        const d = await res.json();
+        const d = await apiJson("/api/notifications?unread=true&limit=1");
         setUnread(d.data?.pagination?.total || 0);
       } catch {}
     }

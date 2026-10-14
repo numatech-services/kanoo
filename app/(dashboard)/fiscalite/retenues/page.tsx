@@ -6,7 +6,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 import { TreasuryAccountSelect } from "@/components/shared/TreasuryAccountSelect";
 interface Retenue { _id:string; type:string; beneficiaire:string; nifBeneficiaire?:string; montantBrut:number; montantRetenue:number; montantNet:number; article:string; date:string; isPaid:boolean; }
 interface TypeInfo { key:string; taux:number; description:string; article:string; }
@@ -26,8 +26,7 @@ export default function RetenuesPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/fiscal/retenues?annee=${new Date().getFullYear()}`, { credentials:"include" });
-    const d = await res.json();
+    const d = await apiJson(`/api/fiscal/retenues?annee=${new Date().getFullYear()}`);
     setRetenues(d.data?.items||[]); setTotal(d.data?.pagination?.total||0);
     setTotalRetenues(d.data?.totalRetenues||0); setNonVersees(d.data?.nonVersees||0);
     setTypes(d.data?.typesDisponibles||[]);
@@ -43,8 +42,7 @@ export default function RetenuesPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
-    const csrfToken = await getCsrfToken();
-    const res = await fetch("/api/fiscal/retenues", { method:"POST", headers:{"Content-Type":"application/json","x-csrf-token":csrfToken}, credentials:"include", body:JSON.stringify(form) });
+    const res = await apiSend("POST", "/api/fiscal/retenues", form);
     if (res.ok) { setModalOpen(false); load(); }
     setSaving(false);
   }

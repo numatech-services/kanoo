@@ -5,6 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import { selectCls } from "@/components/ui/FormField";
 
 import { StockTabs } from "@/components/stock/StockTabs";
+import { apiJson } from "@/lib/api-client";
 interface Lot { _id: string; lotNumber: string; qty: number; expiryDate: string; productId?: { _id: string; code: string; label: string; unit?: string } | null; warehouseId?: { name: string } | null }
 
 /** Lots périmés et à péremption : ce qu'il faut écouler ou sortir du stock. */
@@ -12,7 +13,7 @@ export default function LotsExpiryPage() {
   const [days, setDays] = useState(30);
   const [data, setData] = useState<{ expired: Lot[]; soon: Lot[] } | null>(null);
   useEffect(() => {
-    fetch(`/api/stock/lots?days=${days}`, { credentials: "include" }).then(r => r.json()).then(d => setData(d.data ?? null)).catch(() => {});
+    apiJson(`/api/stock/lots?days=${days}`).then(d => setData(d.data ?? null)).catch(() => {});
   }, [days]);
   const table = (rows: Lot[], expired: boolean) => (
     <div className="bg-surface rounded-xl border border-line overflow-x-auto">

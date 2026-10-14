@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/Toast";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface NumberingConfig {
   invoicePrefix: string; quotePrefix: string; orderPrefix: string;
   deliveryPrefix: string; contractPrefix: string;
@@ -28,8 +28,7 @@ export default function NumberingPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/companies/numbering", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/companies/numbering")
       .then(d => {
         setConfig(d.data?.config || {});
         setPreviews(d.data?.previews || {});
@@ -40,18 +39,12 @@ export default function NumberingPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const csrfToken = await getCsrfToken();
-    const res = await fetch("/api/companies/numbering", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      credentials: "include",
-      body: JSON.stringify(config),
-    });
-    const d = await res.json();
+    const res = await apiSend("PATCH", "/api/companies/numbering", config);
+    const d = res.data;
     if (res.ok) {
       toast("Configuration de numérotation enregistrée", "success");
       // Rafraîchir les prévisualisations
-      const fresh = await fetch("/api/companies/numbering", { credentials: "include" }).then(r => r.json());
+      const fresh = await apiJson("/api/companies/numbering");
       setPreviews(fresh.data?.previews || {});
     } else {
       toast(d.error || "Erreur", "error");

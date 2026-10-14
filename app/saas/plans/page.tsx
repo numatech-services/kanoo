@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/Modal";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface Plan {
   _id?: string;
   code: string;
@@ -28,8 +29,7 @@ export default function PlansPage() {
     setMounted(true);
     const loadPlans = async () => {
       try {
-        const res = await fetch("/api/public/plans");
-        const d = await res.json();
+        const d = await apiJson("/api/public/plans");
         if (d.success) setPlans(d.data || []);
       } catch (err) {
         console.error("Erreur chargement:", err);
@@ -83,8 +83,7 @@ export default function PlansPage() {
     if (res.ok) {
       setIsEditOpen(false);
       // Rafraîchir la liste
-      const r = await fetch("/api/public/plans");
-      const d = await r.json();
+      const d = await apiJson("/api/public/plans");
       if (d.success) setPlans(d.data || []);
     }
   };

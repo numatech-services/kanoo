@@ -6,6 +6,7 @@ import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 export type UnitType = "unité" | "m³" | "L" | "kg" | "m²" | "Année" | "Mois";
 
 interface InvoiceLine {
@@ -94,8 +95,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
   );
 
   useEffect(() => {
-    fetch("/api/clients?limit=100&isActive=true", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/clients?limit=100&isActive=true")
       .then(d => setClients(d.data?.items || []));
   }, []);
 

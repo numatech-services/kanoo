@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, User, FileText } from "lucide-react";
 import Link from "next/link";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 export default function NewEngagementPage() {
   const router = useRouter();
   type Chapter = { _id: string; code?: string; label?: string } & Record<string, unknown>;
@@ -23,8 +23,7 @@ export default function NewEngagementPage() {
 
  useEffect(() => {
   // On force le paramètre flat=true pour que l'API renvoie le tableau simple
-  fetch("/api/budget?flat=true")
-    .then((res) => res.json())
+  apiJson("/api/budget?flat=true")
     .then((response) => {
       // On teste les deux formats possibles (direct ou enveloppé dans .data)
       const data = response.data || response;
@@ -44,12 +43,7 @@ export default function NewEngagementPage() {
     setLoading(true);
     
     try {
-      const res = await fetch("/api/budget/engagements", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
-        credentials: "include",
-        body: JSON.stringify(formData),
-      });
+      const res = await apiSend("POST", "/api/budget/engagements", formData);
 
       if (res.ok) {
         router.push("/administration/budget/engagements");

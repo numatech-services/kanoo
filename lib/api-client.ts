@@ -110,3 +110,64 @@ export function apiErrorMessage(e: unknown, fallback = "Une erreur est survenue.
   if (e instanceof Error && e.message) return e.message;
   return fallback;
 }
+
+/**
+ * Lecture « enveloppe » : renvoie la réponse JSON telle quelle (`{ success,
+ * data, error }`), comme `fetch(url).then(r => r.json())`, si bien qu'un
+ * écran existant se branche sans changer sa lecture des données. La
+ * différence : un échec n'est plus silencieux. Le message du serveur s'affiche
+ * (sauf `quiet`), et la promesse se résout quand même avec
+ * `{ success: false, error }` — un écran qui lisait `d.data?.items` affiche
+ * alors une liste vide au lieu de planter, sans jamais rester bloqué.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- même type que `r.json()`, qu'il remplace
+export async function apiJson<T = any>(url: string, opts: { quiet?: boolean; signal?: AbortSignal } = {}): Promise<T> {
+  try {
+    const res = await fetch(url, { credentials: "include", signal: opts.signal });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok || payload?.success === false) {
+      const error = payload?.error || payload?.message
+        || (res.status === 403 ? "Vous n'avez pas les droits pour afficher ces données." : `Lecture impossible (${res.status}).`);
+      // Seules les vraies pannes s'affichent : requête refusée (400, 409, 422),
+      // trop de requêtes, erreur serveur. Droits manquants (403) et élément
+      // introuvable (404) sont des cas que l'écran présente lui-même — beaucoup
+      // de listes sont lues « au cas où » ; 401 relève de la reconnexion.
+      if (!opts.quiet && [400, 409, 422, 429].concat(res.status >= 500 ? [res.status] : []).includes(res.status)) notify(error);
+      return { ...(payload ?? {}), success: false, error } as T;
+    }
+    return (payload ?? {}) as T;
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    const error = "Connexion impossible. Vérifiez le réseau et réessayez.";
+    if (!opts.quiet) notify(error);
+    return { success: false, error } as T;
+  }
+}
+
+// Le toast est chargé à la demande : ce module reste importable côté serveur.
+function notify(message: string) {
+  if (typeof window === "undefined") return;
+  import("@/components/ui/Toast").then(m => m.showToast(message, "error")).catch(() => {});
+}
+
+/**
+ * Envoi « à la Response » : `{ ok, status, data }`, où `data` est la réponse
+ * JSON (enveloppe). Remplace l'enchaînement fetch + jeton CSRF + en-têtes +
+ * `res.json()` des écrans existants sans changer leur logique : `res.ok` et
+ * `res.status` gardent leur sens, `await res.json()` devient `res.data`.
+ * Une coupure réseau donne `{ ok: false, status: 0 }` au lieu d'une exception.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- même type que `res.json()`, qu'il remplace
+export async function apiSend<T = any>(method: Exclude<Method, "GET">, url: string, body?: unknown): Promise<{ ok: boolean; status: number; data: T }> {
+  const headers: Record<string, string> = { "x-csrf-token": await csrfToken() };
+  let payload: BodyInit | undefined;
+  if (body instanceof FormData) payload = body;
+  else if (body !== undefined) { headers["Content-Type"] = "application/json"; payload = JSON.stringify(body); }
+  try {
+    const res = await fetch(url, { method, credentials: "include", headers, body: payload });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data: data as T };
+  } catch {
+    return { ok: false, status: 0, data: { success: false, error: "Connexion impossible. Vérifiez le réseau et réessayez." } as T };
+  }
+}

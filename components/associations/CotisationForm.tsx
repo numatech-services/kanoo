@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { buttonClass } from "@/components/ui/button-class";
 import { TreasuryAccountSelect } from "@/components/shared/TreasuryAccountSelect";
+import { apiJson } from "@/lib/api-client";
 interface Member { _id: string; firstName: string; lastName: string; code: string; }
 interface CotisationFormProps { onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
 export function CotisationForm({ onSave, onCancel }: CotisationFormProps) {
@@ -10,7 +11,7 @@ export function CotisationForm({ onSave, onCancel }: CotisationFormProps) {
   const [members, setMembers] = useState<Member[]>([]);
   const [form, setForm] = useState({ memberId:"", year:new Date().getFullYear(), amount:0, paymentMethod:"cash", paid:true, treasuryAccountId:"" });
   const [saving, setSaving] = useState(false);
-  useEffect(()=>{ setMounted(true); fetch("/api/membres?limit=200&status=active",{credentials:"include"}).then(r=>r.json()).then(d=>setMembers(d.data?.items||[])); },[]);
+  useEffect(()=>{ setMounted(true); apiJson("/api/membres?limit=200&status=active").then(d=>setMembers(d.data?.items||[])); },[]);
   const u = (f: string, v: unknown) => setForm(p => ({ ...p, [f]: v }));
   if (!mounted) return null;
   return (

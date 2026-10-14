@@ -10,7 +10,7 @@ import { Plus, Trash2, Award, Ban, FileCheck, Landmark, Users } from "lucide-rea
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Bid { _id?: string; bidderName: string; amount: number; compliant?: boolean; notes?: string }
 interface Tender {
   _id: string; reference: string; object: string; estimatedAmount: number;
@@ -37,10 +37,6 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   completed: { label: "Terminé", cls: "bg-pos-50 text-pos border-pos/25" },
 };
 
-async function csrf() {
-  const csrfToken = await getCsrfToken();
-  return csrfToken as string;
-}
 
 export default function TenderDetailPage() {
   const { id } = useParams();
@@ -53,14 +49,13 @@ export default function TenderDetailPage() {
   const [winnerBidId, setWinnerBidId] = useState("");
 
   const load = useCallback(() => {
-    fetch(`/api/marches/${id}`, { credentials: "include" })
-      .then((r) => r.json()).then((d) => setTender(d.data || d)).catch(() => toast.error("Erreur de chargement"));
+    apiJson(`/api/marches/${id}`).then((d) => setTender(d.data || d)).catch(() => toast.error("Erreur de chargement"));
   }, [id]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    fetch("/api/budget", { credentials: "include" }).then((r) => r.json())
+    apiJson("/api/budget")
       .then((d) => setChapters(Array.isArray(d.data) ? d.data : d.data?.items || [])).catch(() => {});
-    fetch("/api/agenda/directory", { credentials: "include" }).then((r) => r.json())
+    apiJson("/api/agenda/directory")
       .then((d) => d.success && setDir(d.data)).catch(() => {});
   }, []);
 
@@ -73,13 +68,8 @@ export default function TenderDetailPage() {
   async function patch(updates: Partial<Tender>, msg = "Marché mis à jour") {
     setLoading(true);
     try {
-      const res = await fetch(`/api/marches/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify(updates),
-      });
-      const d = await res.json();
+      const res = await apiSend("PATCH", `/api/marches/${id}`, updates);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Échec");
       setTender(d.data || d); toast.success(msg); router.refresh();
     } catch (err) { toast.error(errorMessage(err)); } finally { setLoading(false); }
@@ -87,7 +77,7 @@ export default function TenderDetailPage() {
 
   async function del() {
     if (!(await confirmDialog({ title: "Supprimer ce marché ?", message: "Action irréversible.", danger: true }))) return;
-    const res = await fetch(`/api/marches/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    const res = await apiSend("DELETE", `/api/marches/${id}`);
     if (res.ok) { toast.success("Marché supprimé"); router.push("/administration/marches-publics"); }
     else toast.error("Suppression impossible");
   }
@@ -110,8 +100,8 @@ export default function TenderDetailPage() {
   async function createEngagement() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/marches/${id}/engagement`, { method: "POST", credentials: "include", headers: { "x-csrf-token": await csrf() } });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/marches/${id}/engagement`);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Échec");
       toast.success(`Engagement ${d.data.reference} créé`); load();
     } catch (err) { toast.error(errorMessage(err)); } finally { setLoading(false); }

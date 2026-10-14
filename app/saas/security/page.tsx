@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 
+import { apiJson } from "@/lib/api-client";
 type Level = "ok" | "warn" | "critical";
 
 interface Control {
@@ -31,8 +32,7 @@ export default function SecurityPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/superadmin/security/posture", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/superadmin/security/posture")
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
         setControls(d.data.controls);

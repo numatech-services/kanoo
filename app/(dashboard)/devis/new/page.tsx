@@ -1,13 +1,12 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { DevisForm } from "@/components/pme/DevisForm";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 export default function NewDevisPage() {
   const router = useRouter();
   async function handleSave(data: Record<string, unknown>) {
-    const csrfToken = await getCsrfToken();
-    const res = await fetch("/api/devis", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, credentials: "include", body: JSON.stringify(data) });
-    const d = await res.json(); if (!res.ok) throw new Error(d.error);
+    const res = await apiSend("POST", "/api/devis", data);
+    const d = res.data; if (!res.ok) throw new Error(d.error);
     router.push(`/devis/${d.data._id}`);
   }
   return (

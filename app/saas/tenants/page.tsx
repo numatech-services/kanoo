@@ -9,7 +9,7 @@ import Link from "next/link";
 import { showToast } from "@/components/ui/Toast";
 import { alertDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Tenant { _id: string; name: string; type: string; plan: string; subscriptionStatus: string; email?: string; userCount: number; createdAt: string; }
 
 export default function TenantsPage() {
@@ -30,16 +30,14 @@ export default function TenantsPage() {
     if (search) params.set("search", search);
     if (type) params.set("type", type);
     if (status) params.set("status", status);
-    const res = await fetch(`/api/superadmin/tenants?${params}`, { credentials: "include" });
-    const d = await res.json(); setTenants(d.data?.items || []); setTotal(d.data?.pagination?.total || 0); setLoading(false);
+    const d = await apiJson(`/api/superadmin/tenants?${params}`); setTenants(d.data?.items || []); setTotal(d.data?.pagination?.total || 0); setLoading(false);
   }, [page, search, type, status]);
   useEffect(() => { load(); }, [load]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
-    const csrfToken = await getCsrfToken();
-    const res = await fetch("/api/superadmin/tenants", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, credentials: "include", body: JSON.stringify(form) });
-    const d = await res.json();
+    const res = await apiSend("POST", "/api/superadmin/tenants", form);
+    const d = res.data;
     if (res.ok) { setCreateModal(false); load(); await alertDialog({ title: "Organisation créée", message: `Jeton d'activation à transmettre : ${d.data?.activationToken}` }); }
     else showToast(d.error || "Création impossible.", "error");
     setSaving(false);

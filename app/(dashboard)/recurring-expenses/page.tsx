@@ -10,7 +10,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 type Ref = { _id: string; label?: string; name?: string } | null;
 interface Expense {
   _id: string; label: string; category: string; amount: number; frequency: string; nextDueDate: string; accountCode?: string; tvaRate?: number;
@@ -51,11 +51,11 @@ export default function RecurringExpensesPage() {
   const load = useCallback(async () => {
     const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (!showInactive) q.set("isActive", "true");
-    const d = await fetch(`/api/recurring-expenses?${q}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const d = await apiJson(`/api/recurring-expenses?${q}`).catch(() => null);
     setItems(d?.data?.items ?? []); setTotal(d?.data?.pagination?.total ?? 0); setMonthlyTotal(d?.data?.monthlyTotal ?? 0);
   }, [page, showInactive]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { fetch("/api/treasury-accounts", { credentials: "include" }).then(r => r.json()).then(d => setAccounts(d.data?.items ?? [])).catch(() => {}); }, []);
+  useEffect(() => { apiJson("/api/treasury-accounts").then(d => setAccounts(d.data?.items ?? [])).catch(() => {}); }, []);
   async function run(fn: () => Promise<unknown>) { setError(""); try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Erreur"); } }
 
   const today = new Date(); today.setHours(0, 0, 0, 0);

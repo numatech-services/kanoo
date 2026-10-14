@@ -11,8 +11,9 @@ import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
 import { RefundPanel } from "@/components/invoices/RefundPanel";
+import { showToast } from "@/components/ui/Toast";
 interface InvoiceLine { 
   description: string; 
   quantity: number; 
@@ -66,8 +67,7 @@ export default function InvoiceDetailPage() {
   const [user, setUser] = useState<{ firstName: string; lastName: string } | null>(null);
   useEffect(() => {
     setMounted(true);
-    fetch("/api/auth/me", { credentials: "include" })
-      .then((r) => r.json())
+    apiJson("/api/auth/me")
       .then((d) => setUser(d.data?.user || null))
       .catch(() => {});
   }, []);
@@ -120,29 +120,17 @@ export default function InvoiceDetailPage() {
   };
 
   async function handlePayment(data: Record<string, unknown>) {
-    const csrfToken = await getCsrfToken();
-    const res = await fetch("/api/payments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      credentials: "include",
-      body: JSON.stringify(data),
-    });
+    const res = await apiSend("POST", "/api/payments", data);
     // Un refus (montant, date, compte…) s'affiche dans le formulaire au lieu de ne rien faire.
-    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Paiement refusé"); }
+    if (!res.ok) { const d = res.data; throw new Error(d.error || "Paiement refusé"); }
     setPaymentOpen(false); load();
   }
 
   async function relancer() {
     setDunningBusy(true);
     setDunningNote(null);
-    const csrfToken = await getCsrfToken();
-    const res = await fetch(`/api/invoices/${id}/relance`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      credentials: "include",
-      body: JSON.stringify({ tone: "reminder", channels: ["email"] }),
-    });
-    const d = await res.json();
+    const res = await apiSend("POST", `/api/invoices/${id}/relance`, { tone: "reminder", channels: ["email"] });
+    const d = res.data;
     // Un échec d'envoi doit se lire : une relance qu'on croit partie et qui
     // n'est jamais arrivée est pire que pas de relance du tout.
     setDunningNote({ ok: res.ok, text: res.ok ? d.data.message : (d.error || "Envoi impossible") });
@@ -157,30 +145,24 @@ export default function InvoiceDetailPage() {
     if (open && !reason?.trim()) return;
 
     setDunningBusy(true);
-    const csrfToken = await getCsrfToken();
-    const res = await fetch(`/api/invoices/${id}/litige`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      credentials: "include",
-      body: JSON.stringify({ open, reason }),
-    });
-    const d = await res.json();
+    const res = await apiSend("POST", `/api/invoices/${id}/litige`, { open, reason });
+    const d = res.data;
     setDunningNote({ ok: res.ok, text: res.ok ? d.data.message : (d.error || "Action impossible") });
     setDunningBusy(false);
     if (res.ok) load();
   }
 
   async function sendInvoice() {
-    if (!(await confirmDialog({ title: "Marquer cette facture comme émise ?" }))) return;
-    const csrfToken = await getCsrfToken();
-    await fetch(`/api/invoices/${id}/send`, { method: "POST", headers: { "x-csrf-token": csrfToken }, credentials: "include" });
+    if (!(await confirmDialog({ title: "Émettre cette facture ?", message: "Elle devient opposable et entre en comptabilité (écriture de vente)." }))) return;
+    try { await api.post(`/api/invoices/${id}/send`); showToast("Facture émise et comptabilisée.", "success"); }
+    catch (e) { showToast(apiErrorMessage(e, "Émission impossible."), "error"); }
     load();
   }
 
   async function cancelInvoice() {
     if (!(await confirmDialog({ title: "Annuler cette facture ?", message: "Cette action est irréversible.", danger: true }))) return;
-    const csrfToken = await getCsrfToken();
-    await fetch(`/api/invoices/${id}/cancel`, { method: "POST", headers: { "x-csrf-token": csrfToken }, credentials: "include" });
+    try { await api.post(`/api/invoices/${id}/cancel`); showToast("Facture annulée.", "success"); }
+    catch (e) { showToast(apiErrorMessage(e, "Annulation impossible."), "error"); }
     load();
   }
 

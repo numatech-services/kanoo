@@ -7,7 +7,7 @@ import { useWarehouses } from "@/components/stock/useWarehouses";
 
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiSend } from "@/lib/api-client";
 export default function NewDeliveryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -71,18 +71,13 @@ export default function NewDeliveryPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/livraisons", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
-        credentials: "include",
-        body: JSON.stringify(form)
-      });
+      const res = await apiSend("POST", "/api/livraisons", form);
 
       if (res.ok) {
         router.push("/livraisons");
         router.refresh();
       } else {
-        const error = await res.json();
+        const error = res.data;
         showToast("Erreur : " + error.error, "error");
       }
     } finally {

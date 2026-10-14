@@ -11,7 +11,7 @@ import { useMe, meCan, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Delivery { _id: string; date: string; quantity: number; note?: string }
 interface Payment { _id: string; date: string; amount: number; method?: string; note?: string }
 interface Batch {
@@ -55,10 +55,10 @@ export default function IsicBatchPage() {
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   const load = useCallback(() => {
-    fetch(`/api/isic/${id}`, { credentials: "include" }).then(r => r.json()).then(d => setB(d.data || d));
+    apiJson(`/api/isic/${id}`).then(d => setB(d.data || d));
   }, [id]);
   const loadCards = useCallback(() => {
-    fetch(`/api/isic/${id}/cards`, { credentials: "include" }).then(r => r.json())
+    apiJson(`/api/isic/${id}/cards`)
       .then(d => { setCards(d.data?.cards || []); setCounts(d.data?.counts || {}); }).catch(() => {});
   }, [id]);
   useEffect(() => { load(); loadCards(); }, [load, loadCards]);
@@ -66,8 +66,8 @@ export default function IsicBatchPage() {
   async function cardsAction(bodyOrFile: Record<string, unknown>) {
     setBusy(true);
     try {
-      const res = await fetch(`/api/isic/${id}/cards`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify(bodyOrFile) });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/isic/${id}/cards`, bodyOrFile);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Échec");
       loadCards();
     } catch (e) { showToast(e instanceof Error ? e.message : "Action impossible", "error"); } finally { setBusy(false); }
@@ -81,13 +81,13 @@ export default function IsicBatchPage() {
   async function syncRegistry() {
     setBusy(true);
     try {
-      let res = await fetch(`/api/isic/${id}/registry`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: "{}" });
-      let d = await res.json();
+      let res = await apiSend("POST", `/api/isic/${id}/registry`, {});
+      let d = res.data;
       if (!res.ok && /année académique/i.test(d.error || "")) {
         const y = await promptDialog({ title: "Année académique du lot (format 2025-2026) :" });
         if (!y) return;
-        res = await fetch(`/api/isic/${id}/registry`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify({ academicYear: y.trim() }) });
-        d = await res.json();
+        res = await apiSend("POST", `/api/isic/${id}/registry`, { academicYear: y.trim() });
+        d = res.data;
       }
       if (!res.ok) throw new Error(d.error || "Synchronisation impossible");
       setSync(d.data);
@@ -102,7 +102,7 @@ export default function IsicBatchPage() {
   }
   useEffect(() => {
     if (!canInvoiceUni) return;
-    fetch("/api/clients?limit=500", { credentials: "include" }).then(r => r.json())
+    apiJson("/api/clients?limit=500")
       .then(d => setClients(Array.isArray(d.data) ? d.data : d.data?.items || [])).catch(() => {});
   }, [canInvoiceUni]);
 
@@ -111,16 +111,12 @@ export default function IsicBatchPage() {
     if (!uniId) { showToast("Liez d'abord un client (université) pour facturer.", "warning"); return; }
     setBusy(true);
     try {
-      const token = await getCsrfToken();
       const today = new Date(); const due = new Date(today); due.setDate(due.getDate() + 30);
-      const res = await fetch("/api/invoices", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": token }, credentials: "include",
-        body: JSON.stringify({
+      const res = await apiSend("POST", "/api/invoices", {
           clientId: uniId, issueDate: today.toISOString().slice(0, 10), dueDate: due.toISOString().slice(0, 10),
           lines: [{ description: `Cartes ISIC ${b!.academicYear || ""} — ${b!.reference}`.trim(), quantity: b!.totalCards, unitPrice: b!.unitSalePrice, tvaRate: 0 }],
-        }),
-      });
-      const d = await res.json();
+        });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Échec");
       const invId = d.data?._id || d.data?.id;
       await patch({ invoiceId: invId });
@@ -129,20 +125,20 @@ export default function IsicBatchPage() {
   }
 
   async function patch(body: Record<string, unknown>) {
-    const res = await fetch(`/api/isic/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify(body) });
-    if (res.ok) load(); else showToast((await res.json()).error || "Échec", "error");
+    const res = await apiSend("PATCH", `/api/isic/${id}`, body);
+    if (res.ok) load(); else showToast((res.data).error || "Échec", "error");
   }
   async function post(path: string, body: Record<string, unknown>, reset: () => void) {
-    const res = await fetch(`/api/isic/${id}/${path}`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify(body) });
-    if (res.ok) { reset(); load(); } else showToast((await res.json()).error || "Échec", "error");
+    const res = await apiSend("POST", `/api/isic/${id}/${path}`, body);
+    if (res.ok) { reset(); load(); } else showToast((res.data).error || "Échec", "error");
   }
   async function del(path: string, qs: string) {
-    const res = await fetch(`/api/isic/${id}/${path}?${qs}`, { method: "DELETE", headers: { "x-csrf-token": await getCsrfToken() }, credentials: "include" });
+    const res = await apiSend("DELETE", `/api/isic/${id}/${path}?${qs}`);
     if (res.ok) load();
   }
   async function deleteBatch() {
     if (!(await confirmDialog({ title: "Supprimer ce lot ?", danger: true }))) return;
-    const res = await fetch(`/api/isic/${id}`, { method: "DELETE", headers: { "x-csrf-token": await getCsrfToken() }, credentials: "include" });
+    const res = await apiSend("DELETE", `/api/isic/${id}`);
     if (res.ok) router.push("/isic"); else showToast("Suppression impossible.", "error");
   }
   function upload(field: "receivedFile" | "isicFile", file: File) {

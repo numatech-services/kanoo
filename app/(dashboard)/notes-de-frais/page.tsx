@@ -11,6 +11,7 @@ import { fullXof } from "@/components/ui/charts/geometry";
 import { STATUS_LABEL, type ExpenseStatus } from "@/lib/expenses";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface Report {
   _id: string;
   reference: string;
@@ -45,8 +46,7 @@ export default function NotesDeFraisPage() {
   const load = useCallback(() => {
     if (!ready) return;
     const q = status ? `?status=${status}` : "";
-    fetch(`/api/expenses${q}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/expenses${q}`)
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
         setItems(d.data.items || []);

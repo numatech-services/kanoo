@@ -6,7 +6,7 @@ import Link from "next/link";
 import { CheckCircle2, XCircle, ArrowLeft, Keyboard, Camera, Wifi, WifiOff, DownloadCloud, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiSend } from "@/lib/api-client";
 interface Result { valid: boolean; reason?: string; name?: string; ticketTypeName?: string; offline?: boolean }
 interface Ticket { code: string; name: string; present: boolean }
 interface Manifest { ts: number; byId: Record<string, Ticket>; byCode: Record<string, string> }
@@ -67,10 +67,7 @@ export default function CheckinPage() {
     if (q.length === 0) return;
     for (const item of [...q]) {
       try {
-        const res = await fetch(`/api/events/${id}/checkin`, {
-          method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) }, credentials: "include",
-          body: JSON.stringify({ code: item.code }),
-        });
+        const res = await apiSend("POST", `/api/events/${id}/checkin`, { code: item.code });
         if (res.ok) { q = q.filter((x) => x.at !== item.at); writeQueue(q); }
       } catch { break; } // encore hors-ligne : on réessaiera
     }
@@ -128,11 +125,8 @@ export default function CheckinPage() {
 
     if (navigator.onLine) {
       try {
-        const res = await fetch(`/api/events/${id}/checkin`, {
-          method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) }, credentials: "include",
-          body: JSON.stringify(payload ? { payload } : { code }),
-        });
-        const d = await res.json();
+        const res = await apiSend("POST", `/api/events/${id}/checkin`, payload ? { payload } : { code });
+        const d = res.data;
         const r: Result = res.ok ? d.data : { valid: false, reason: d.error || "Erreur" };
         // Tenir le manifeste local à jour si présent.
         const m = readManifest();

@@ -12,6 +12,7 @@ const FINANCE_RESOURCES = ["invoices", "payments", "treasuryAccounts", "accounti
 import { resourceLabel } from "@/lib/resource-labels";
 import type { UserRole } from "@/types";
 
+import { apiJson } from "@/lib/api-client";
 interface U {
   _id: string; firstName?: string; lastName?: string; email?: string;
   role: string; roles?: string[]; roleLevels?: Record<string, string>; isActive?: boolean; allowedResources?: string[];
@@ -23,8 +24,7 @@ export default function AccessSummaryPage() {
   const [q, setQ] = useState("");
 
   useEffect(() => {
-    fetch("/api/users?limit=500", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/users?limit=500")
       .then(d => setUsers(d.data?.items || []))
       .finally(() => setLoading(false));
   }, []);

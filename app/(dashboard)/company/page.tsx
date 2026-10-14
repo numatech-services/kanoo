@@ -9,7 +9,7 @@ import { Inset } from "@/components/ui/Primitives";
 import { invalidateMe } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Company {
   name?: string; type?: string; nif?: string; rccm?: string;
   address?: string; phone?: string; email?: string; logo?: string;
@@ -17,10 +17,6 @@ interface Company {
 
 const TYPE_LABEL: Record<string, string> = { pme: "Entreprise (PME)", association: "Association / ONG", administration: "Administration" };
 
-async function csrf() {
-  const csrfToken = await getCsrfToken();
-  return csrfToken as string;
-}
 
 export default function CompanyPage() {
   const [form, setForm] = useState<Company>({});
@@ -30,8 +26,7 @@ export default function CompanyPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/company", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/company")
       .then(d => { if (!d.success) throw new Error(d.error); setForm(d.data); })
       .catch(() => setError("Chargement impossible."))
       .finally(() => setLoading(false));
@@ -41,13 +36,8 @@ export default function CompanyPage() {
     if (!form.name?.trim()) { setError("Le nom de l'organisation est requis."); return; }
     setSaving(true); setError(null); setNotice(null);
     try {
-      const res = await fetch("/api/company", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify(form),
-      });
-      const d = await res.json();
+      const res = await apiSend("PATCH", "/api/company", form);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Enregistrement refusé");
       invalidateMe(); // rafraîchit la marque dans la barre latérale
       setNotice("Organisation mise à jour. Le logo et le nom s'affichent dans l'interface.");

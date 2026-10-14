@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
+import { apiJson } from "@/lib/api-client";
 interface BudgetChapter {
   _id: string;
   code: string;
@@ -79,8 +80,7 @@ export default function BudgetPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/budget?year=${year}`, { credentials: "include" })
-      .then((r) => r.json())
+    apiJson(`/api/budget?year=${year}`)
       .then((d) => setData(d.data))
       .catch(() => setData(null))
       .finally(() => setLoading(false));

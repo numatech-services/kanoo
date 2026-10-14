@@ -272,7 +272,7 @@ export const CRON_JOBS: CronJob[] = [
     },
   },
   {
-    id: "recurring-expenses", label: "Dépenses récurrentes échues",
+    id: "recurring-expenses", label: "Charges récurrentes échues",
     cadence: "daily", schedule: "30 8 * * *",
     run: async () => {
       const due = await RecurringExpenseModel.find({

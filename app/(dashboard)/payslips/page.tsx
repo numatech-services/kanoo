@@ -11,7 +11,7 @@ import { showToast } from "@/components/ui/Toast";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 interface Employee {
   _id: string; firstName: string; lastName: string; code: string;
   employeeType?: string; indemnityPeriod?: string; grossSalary?: number;
@@ -52,7 +52,7 @@ export default function PayslipsPage() {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT), year: String(filter.year) });
     if (filter.month) params.set("month", String(filter.month));
-    const d = await fetch(`/api/payslips?${params}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const d = await apiJson(`/api/payslips?${params}`).catch(() => null);
     setPayslips(d?.data?.items || []);
     setTotal(d?.data?.pagination?.total || 0);
     setLoading(false);
@@ -61,14 +61,13 @@ export default function PayslipsPage() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     // Seuls les salariés actifs peuvent recevoir un bulletin.
-    fetch("/api/employees?limit=100&isActive=true", { credentials: "include" })
-      .then(r => r.json()).then(d => setEmployees(d.data?.items || [])).catch(() => {});
+    apiJson("/api/employees?limit=100&isActive=true").then(d => setEmployees(d.data?.items || [])).catch(() => {});
   }, []);
 
   async function remove(p: Payslip) {
     if (!(await confirmDialog({ title: "Supprimer ce bulletin non payé ?", message: "Son écriture de paie sera extournée.", danger: true, confirmLabel: "Supprimer" }))) return;
-    const res = await fetch(`/api/payslips/${p._id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.error || "Suppression impossible", "error"); return; }
+    const res = await apiSend("DELETE", `/api/payslips/${p._id}`);
+    if (!res.ok) { const d = res.data; showToast(d.error || "Suppression impossible", "error"); return; }
     load();
   }
 
@@ -179,16 +178,13 @@ function SingleDialog({ employees, onClose, onDone }: { employees: Employee[]; o
     e.preventDefault();
     if (!f.employeeId) { setError("Choisissez un salarié."); return; }
     setSaving(true); setError("");
-    const res = await fetch("/api/payslips", {
-      method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include",
-      body: JSON.stringify({
+    const res = await apiSend("POST", "/api/payslips", {
         employeeId: f.employeeId, month: f.month, year: f.year,
         ...(f.grossSalary > 0 ? { grossSalary: f.grossSalary } : {}),
         ...(needsUnits ? { units: f.units } : {}),
         items: items.filter(i => i.label && i.amount > 0),
-      }),
-    });
-    const d = await res.json().catch(() => ({}));
+      });
+    const d = res.data;
     setSaving(false);
     if (!res.ok) { setError(d.error || "Génération impossible"); return; }
     if (d.data?.alerts?.length) { setAlerts(d.data.alerts); return; }
@@ -250,11 +246,8 @@ function BatchDialog({ onClose }: { onClose: () => void }) {
 
   async function run() {
     setSaving(true); setError("");
-    const res = await fetch("/api/payslips/batch", {
-      method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include",
-      body: JSON.stringify(f),
-    });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("POST", "/api/payslips/batch", f);
+    const d = res.data;
     setSaving(false);
     if (!res.ok) { setError(d.error || "Paie du mois impossible"); return; }
     setResult(d.data);

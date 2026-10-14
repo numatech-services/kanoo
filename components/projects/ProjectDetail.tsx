@@ -15,7 +15,7 @@ import { PROJECT_STATUS_FR, TASK_STATUS_FR, type ProjectVocabulary } from "@/lib
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
 // ── Interfaces ────────────────────────────────────────────────────
 interface Task { _id: string; label: string; status: string; weight: number; }
 interface Milestone { _id?: string; label: string; dueDate?: string; completedAt?: string; amount?: number; description?: string; }
@@ -105,8 +105,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
 
   useEffect(() => {
     if (memberModal) {
-      fetch(vocabulary.teamEndpoint, { credentials: "include" })
-        .then(r => r.json())
+      apiJson(vocabulary.teamEndpoint)
         .then(d => setBureauMembers(d.data?.items || d.data || []));
     }
   }, [memberModal, vocabulary.teamEndpoint]);
@@ -130,32 +129,18 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
   const realCost = (project.finance?.cost ?? 0) + (project.spentAmount || 0);
   const currentBudgetRate = money && project.budget > 0 ? Math.round((realCost / project.budget) * 100) : 0;
 
-  const getCsrf = async () => {
-    const csrfToken = await getCsrfToken();
-    return csrfToken;
-  };
-
   // --- ACTIONS ---
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
-    const csrf = await getCsrf();
     const updatedTasks = project.tasks.map(t => t._id === taskId ? { ...t, status: newStatus } : t);
     
-    await fetch(`/api/projects/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
-      body: JSON.stringify({ tasks: updatedTasks }),
-      credentials: "include"
-    });
+    await apiSend("PATCH", `/api/projects/${id}`, { tasks: updatedTasks });
     fetchData();
   };
 
   const patchProject = async (body: Record<string, unknown>) => {
-    const csrf = await getCsrf();
-    const res = await fetch(`/api/projects/${id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": csrf }, body: JSON.stringify(body), credentials: "include",
-    });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("PATCH", `/api/projects/${id}`, body);
+    const d = res.data;
     if (!res.ok) throw new Error(d.error || "Modification impossible");
     await fetchData();
   };
@@ -167,8 +152,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
 
   const deleteProject = async () => {
     if (!(await confirmDialog({ title: "Supprimer définitivement ce projet ?", message: "Ses tâches et documents disparaissent ; les écritures comptables imputées restent.", danger: true }))) return;
-    const csrf = await getCsrf();
-    const res = await fetch(`/api/projects/${id}`, { method: "DELETE", headers: { "x-csrf-token": csrf }, credentials: "include" });
+    const res = await apiSend("DELETE", `/api/projects/${id}`);
     if (res.ok) router.push("/projects"); else showToast("Suppression impossible", "error");
   };
 
@@ -176,64 +160,44 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
 
   const completeProject = async () => {
     if (currentExecRate < 100) return;
-    const csrf = await getCsrf();
-    await fetch(`/api/projects/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
-      body: JSON.stringify({ status: "completed", completedAt: new Date() }),
-      credentials: "include"
-    });
+    try { await api.patch(`/api/projects/${id}`, { status: "completed", completedAt: new Date() }); showToast("Projet clôturé.", "success"); }
+    catch (e) { showToast(apiErrorMessage(e, "Clôture impossible."), "error"); }
     fetchData();
   };
 
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    const csrf = await getCsrf();
     // Pas d'identifiant provisoire : Mongo attribue le sien (« temp-… » faisait échouer l'enregistrement).
     const tasks = [...project.tasks, { ...newTask }];
-    await fetch(`/api/projects/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
-      body: JSON.stringify({ tasks }),
-      credentials: "include"
-    });
-    setTaskModal(false);
-    setNewTask({ label: "", weight: 1, status: "todo" });
+    try {
+      await api.patch(`/api/projects/${id}`, { tasks });
+      setTaskModal(false);
+      setNewTask({ label: "", weight: 1, status: "todo" });
+    } catch (err) { showToast(apiErrorMessage(err, "Ajout de la tâche impossible."), "error"); }
     fetchData();
   };
 
   const addDocument = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) return;
-    const csrf = await getCsrf();
     const fd = new FormData();
     fd.append("file", selectedFile);
     fd.append("name", newDoc.name || selectedFile.name);
     fd.append("type", newDoc.type);
-
-    await fetch(`/api/projects/${id}/documents`, {
-      method: "POST",
-      headers: { "x-csrf-token": csrf },
-      body: fd,
-      credentials: "include"
-    });
-    setDocModal(false);
-    setSelectedFile(null);
+    try {
+      await api.post(`/api/projects/${id}/documents`, fd);
+      setDocModal(false);
+      setSelectedFile(null);
+    } catch (err) { showToast(apiErrorMessage(err, "Envoi du document impossible."), "error"); }
     fetchData();
   };
 
   const addMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMember.userId) return;
-    const csrf = await getCsrf();
     const projectMembers = [...project.projectMembers, { userId: newMember.userId, role: newMember.role }];
-    await fetch(`/api/projects/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
-      body: JSON.stringify({ projectMembers }),
-      credentials: "include"
-    });
-    setMemberModal(false);
+    try { await api.patch(`/api/projects/${id}`, { projectMembers }); setMemberModal(false); }
+    catch (err) { showToast(apiErrorMessage(err, "Ajout du membre impossible."), "error"); }
     fetchData();
   };
 

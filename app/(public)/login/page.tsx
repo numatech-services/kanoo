@@ -18,7 +18,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, AlertCircle, Check } from "lucide-react";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,13 +54,8 @@ export default function LoginPage() {
     setError("");
     setStatus("loading");
     try {
-      const res = await fetch("/api/auth/2fa/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: code }),
-        credentials: "include",
-      });
-      const result = await res.json();
+      const res = await apiSend("POST", "/api/auth/2fa/verify", { token: code });
+      const result = res.data;
       if (!res.ok) throw new Error(result.error || "Code incorrect");
       setStatus("success");
       redirect(result.data.role);
@@ -75,15 +70,9 @@ export default function LoginPage() {
     setError("");
     setStatus("loading");
     try {
-      const csrfToken = await getCsrfToken();
 
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        body: JSON.stringify({ email, password }),
-        credentials: "include",
-      });
-      const result = await res.json();
+      const res = await apiSend("POST", "/api/auth/login", { email, password });
+      const result = res.data;
       if (!res.ok) {
         // Message unique volontaire : ne révèle pas si l'email existe.
         throw new Error("Email ou mot de passe incorrect.");

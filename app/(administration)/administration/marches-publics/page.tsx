@@ -8,7 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { LIBELLES_PROCEDURES, determineProcedureMarche } from "@/lib/niger-fiscal";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Tender { 
   _id: string; 
   reference: string; 
@@ -39,8 +39,7 @@ export default function MarchesPublicsPage() {
     if (status) params.set("status", status);
     
     try {
-      const res = await fetch(`/api/marches?${params}`, { credentials: "include" });
-      const d = await res.json(); 
+      const d = await apiJson(`/api/marches?${params}`); 
       setTenders(d.data?.items || []); 
       setTotal(d.data?.pagination?.total || 0);
     } catch (error) {
@@ -62,14 +61,8 @@ export default function MarchesPublicsPage() {
     e.preventDefault(); 
     setSaving(true);
     try {
-      const csrfToken = await getCsrfToken();
       
-      const res = await fetch("/api/marches", { 
-          method: "POST", 
-          headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, 
-          credentials: "include", 
-          body: JSON.stringify(form) 
-      });
+      const res = await apiSend("POST", "/api/marches", form);
 
       if (res.ok) {
         setModalOpen(false); 

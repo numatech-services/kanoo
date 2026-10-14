@@ -10,7 +10,7 @@ import { fullXof } from "@/components/ui/charts/geometry";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Sale {
   _id: string;
   reference: string;
@@ -66,18 +66,15 @@ export default function ReventesPage() {
     const params = new URLSearchParams({ limit: "100" });
     if (filter === "unbilled") params.set("unbilled", "true");
     else if (filter) params.set("status", filter);
-    fetch(`/api/abonnements/reventes?${params}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/abonnements/reventes?${params}`)
       .then(d => setItems(d.data?.items || []))
       .finally(() => setLoading(false));
   }, [filter]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    fetch("/api/clients?limit=200", { credentials: "include" })
-      .then(r => r.json()).then(d => setClients(d.data?.items || [])).catch(() => setClients([]));
-    fetch("/api/abonnements/achats?limit=200&status=active", { credentials: "include" })
-      .then(r => r.json()).then(d => setPurchases(d.data?.items || [])).catch(() => setPurchases([]));
+    apiJson("/api/clients?limit=200").then(d => setClients(d.data?.items || [])).catch(() => setClients([]));
+    apiJson("/api/abonnements/achats?limit=200&status=active").then(d => setPurchases(d.data?.items || [])).catch(() => setPurchases([]));
   }, []);
 
   const selectedPurchase = purchases.find(p => p._id === form.purchaseId);
@@ -105,14 +102,8 @@ export default function ReventesPage() {
     setSaving(true);
     setError(null);
     try {
-      const csrfToken = await getCsrfToken();
-      const res = await fetch("/api/abonnements/reventes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify({ ...form, purchaseId: form.purchaseId || undefined }),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/abonnements/reventes", { ...form, purchaseId: form.purchaseId || undefined });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Enregistrement refusé");
       setOpen(false);
       setForm({ ...EMPTY });
@@ -131,7 +122,7 @@ export default function ReventesPage() {
           <Link href="/abonnements" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1">
             <ArrowLeft size={13} /> Abonnements
           </Link>
-          <h1 className="page-title mt-1">Reventes</h1>
+          <h1 className="page-title mt-1">Licences : reventes</h1>
           <p className="text-sm text-ink2">
             Ce qui est placé chez les clients finaux, adossé aux contrats souscrits.
           </p>

@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 
 import { showToast } from "@/components/ui/Toast";
 import { CheckCircle2, Lock } from "lucide-react";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Plan { id:string; label:string; price:number; priceYearly:number; features:string[]; popular?:boolean; }
 
 const PLANS: Plan[] = [
@@ -29,21 +29,15 @@ export default function SubscriptionPage() {
   const [currentPlan, setCurrentPlan] = useState<string>("");
 
   useEffect(() => {
-    fetch("/api/auth/me", { credentials:"include" }).then(r=>r.json()).then(d=>{
+    apiJson("/api/auth/me").then(d=>{
       setCurrentPlan(d.data?.user?.planId || "");
     });
   }, []);
 
   async function handleSubscribe(planId: string) {
     setLoading(planId);
-    const csrfToken = await getCsrfToken();
-    const res = await fetch("/api/subscription/pay", {
-      method:"POST",
-      headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},
-      credentials:"include",
-      body:JSON.stringify({ plan:planId, period }),
-    });
-    const d = await res.json();
+    const res = await apiSend("POST", "/api/subscription/pay", { plan:planId, period });
+    const d = res.data;
     if (d.data?.paymentUrl) {
       window.location.href = d.data.paymentUrl;
     } else {

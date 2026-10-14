@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { Lock } from "lucide-react";
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface PortailData {
   member: { firstName:string; lastName:string; code:string; membershipType:string; status:string; joinDate:string; };
   cotisations: Array<{ year:number; amount:number; paidAt?:string; receiptNumber:string; }>;
@@ -18,8 +19,7 @@ export default function PortailAdherentPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/portail/adherent", { credentials:"include" })
-      .then(r => r.json())
+    apiJson("/api/portail/adherent")
       .then(d => {
         if (d.success) setData(d.data);
         else setError(d.error || "Session expirée");

@@ -5,6 +5,7 @@ import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 // On ajoute productId dans l'interface pour faire le lien avec le stock
 interface CmdLine { 
   productId?: string; // CRUCIAL pour le stock
@@ -61,12 +62,10 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
   useEffect(() => { 
     setMounted(true); 
     // Charger fournisseurs
-    fetch("/api/suppliers?limit=100",{credentials:"include"})
-      .then(r=>r.json()).then(d=>setSuppliers(d.data?.items||[])); 
+    apiJson("/api/suppliers?limit=100").then(d=>setSuppliers(d.data?.items||[])); 
     
     // Charger catalogue produits (pour lier au stock)
-    fetch("/api/stock?limit=100",{credentials:"include"})
-      .then(r=>r.json()).then(d=>setCatalog(d.data?.items||[]));
+    apiJson("/api/stock?limit=100").then(d=>setCatalog(d.data?.items||[]));
   }, []);
 
   useEffect(() => {

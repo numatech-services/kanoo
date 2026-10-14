@@ -16,7 +16,7 @@ import { AccessEditor, accessPayload, accessChip, emptyAccess, type Access, type
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface User {
   _id: string;
   firstName: string;
@@ -37,10 +37,6 @@ interface User {
 
 interface Employee { _id: string; firstName: string; lastName: string; code?: string; userId?: string }
 
-async function csrf() {
-  const csrfToken = await getCsrfToken();
-  return csrfToken as string;
-}
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -64,8 +60,8 @@ export default function UsersPage() {
     setLoading(true);
     try {
       const [u, me] = await Promise.all([
-        fetch(`/api/users?page=${page}&limit=${LIMIT}`, { credentials: "include" }).then(r => r.json()),
-        fetch("/api/auth/me", { credentials: "include" }).then(r => r.json()).catch(() => null),
+        apiJson(`/api/users?page=${page}&limit=${LIMIT}`),
+        apiJson("/api/auth/me").catch(() => null),
       ]);
       setUsers(u.data?.items || []);
       setTotal(u.data?.pagination?.total || 0);
@@ -83,8 +79,7 @@ export default function UsersPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    fetch("/api/employees?limit=300", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/employees?limit=300")
       .then(d => setEmployees(d.data?.items || []))
       .catch(() => { /* le rattachement reste facultatif */ });
   }, []);
@@ -93,13 +88,8 @@ export default function UsersPage() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch(`/api/users/${user._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-      const d = await res.json();
+      const res = await apiSend("PATCH", `/api/users/${user._id}`, body);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Modification refusée");
       load();
     } catch (e) {
@@ -112,13 +102,8 @@ export default function UsersPage() {
   async function resetAccount(user: User, mode: "temporary" | "link", resetTwoFactor: boolean) {
     setError(null);
     try {
-      const res = await fetch(`/api/users/${user._id}/password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify({ mode, resetTwoFactor }),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/users/${user._id}/password`, { mode, resetTwoFactor });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Réinitialisation refusée");
       setResetFor(null);
       if (mode === "link") setResetLink({ user, link: d.data.link, message: d.data.message });
@@ -135,8 +120,8 @@ export default function UsersPage() {
       + `Ses accès et ses données personnelles sont effacés ; ce qu'il a enregistré reste dans l'historique sous « Compte supprimé ». Action définitive.`, danger: true }))) return;
     setError(null); setNotice(null);
     try {
-      const res = await fetch(`/api/users/${user._id}`, { method: "DELETE", headers: { "x-csrf-token": await csrf() }, credentials: "include" });
-      const d = await res.json().catch(() => ({}));
+      const res = await apiSend("DELETE", `/api/users/${user._id}`);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Suppression refusée");
       setNotice(d.data?.message || "Compte supprimé.");
       load();
@@ -148,12 +133,8 @@ export default function UsersPage() {
   async function revoke(user: User) {
     if (!(await confirmDialog({ title: `Fermer les sessions de ${user.firstName} ${user.lastName} ?` }))) return;
     try {
-      const res = await fetch(`/api/users/${user._id}/revoke-session`, {
-        method: "POST",
-        headers: { "x-csrf-token": await csrf() },
-        credentials: "include",
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/users/${user._id}/revoke-session`);
+      const d = res.data;
       setNotice(res.ok ? (d.data?.message || "Sessions fermées.") : null);
       if (!res.ok) setError(d.error || "Révocation refusée");
     } catch {
@@ -164,16 +145,10 @@ export default function UsersPage() {
   async function linkEmployee(user: User, employeeId: string) {
     setError(null);
     try {
-      const res = await fetch(`/api/employees/${employeeId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify({ userId: employeeId ? user._id : null }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error || "Rattachement refusé");
+      const res = await apiSend("PATCH", `/api/employees/${employeeId}`, { userId: employeeId ? user._id : null });
+      if (!res.ok) throw new Error((res.data).error || "Rattachement refusé");
       setNotice("Compte rattaché à la fiche salarié : ses notes de frais lui seront remboursées.");
-      fetch("/api/employees?limit=300", { credentials: "include" })
-        .then(r => r.json()).then(d => setEmployees(d.data?.items || []));
+      apiJson("/api/employees?limit=300").then(d => setEmployees(d.data?.items || []));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Rattachement impossible");
     }
@@ -195,7 +170,7 @@ export default function UsersPage() {
     <div className="space-y-5">
       <div className="page-head">
         <div>
-          <h1 className="page-title">Comptes &amp; droits</h1>
+          <h1 className="page-title">Utilisateurs et droits</h1>
           <p className="text-sm text-ink2">
             {total} compte{total > 1 ? "s" : ""} · {activeAdmins} administrateur{activeAdmins > 1 ? "s" : ""} actif{activeAdmins > 1 ? "s" : ""}
           </p>
@@ -434,13 +409,8 @@ function InviteDialog({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify({ ...form, ...accessPayload(access) }),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/users", { ...form, ...accessPayload(access) });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Création refusée");
       setForm({ firstName: "", lastName: "", email: "", password: "" });
       setAccess(emptyAccess());
@@ -525,13 +495,8 @@ function EditAccessDialog({ user, roles, onClose, onSaved }: {
     if (!ident.firstName.trim() || !ident.lastName.trim()) { setError("Prénom et nom obligatoires."); return; }
     setSaving(true); setError(null);
     try {
-      const res = await fetch(`/api/users/${user._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify({ ...accessPayload(access), firstName: ident.firstName.trim(), lastName: ident.lastName.trim(), phone: ident.phone.trim() }),
-      });
-      const d = await res.json();
+      const res = await apiSend("PATCH", `/api/users/${user._id}`, { ...accessPayload(access), firstName: ident.firstName.trim(), lastName: ident.lastName.trim(), phone: ident.phone.trim() });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Modification refusée");
       onSaved();
     } catch (e) {

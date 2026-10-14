@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { PurchaseForm, type PurchaseFormValue } from "@/components/achats/PurchaseForm";
 
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 function NewPurchase() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -20,7 +20,7 @@ function NewPurchase() {
   // Depuis un bon de commande : fournisseur, lignes et imputation repris.
   useEffect(() => {
     if (!commandeId) return;
-    fetch(`/api/commandes/${commandeId}`, { credentials: "include" }).then(r => r.json()).then(d => {
+    apiJson(`/api/commandes/${commandeId}`).then(d => {
       const c = d.data;
       if (!c) { setInitial({}); return; }
       const idOf = (v: unknown) => (v && typeof v === "object" ? String((v as { _id: string })._id) : v ? String(v) : undefined);
@@ -37,15 +37,12 @@ function NewPurchase() {
   }, [commandeId]);
 
   async function submit(v: PurchaseFormValue, validate: boolean) {
-    const res = await fetch("/api/achats", {
-      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
-      body: JSON.stringify({
+    const res = await apiSend("POST", "/api/achats", {
         kind: v.kind, supplierId: v.supplierId || undefined, payee: v.payee, supplierRef: v.supplierRef, date: v.date, dueDate: v.dueDate || undefined,
         notes: v.notes, commandeId: v.commandeId, lines: v.lines, validate,
         ...(v.kind === "cash" && v.pay && validate ? { payment: { treasuryAccountId: v.treasuryAccountId } } : {}),
-      }),
-    });
-    const d = await res.json().catch(() => ({}));
+      });
+    const d = res.data;
     if (!res.ok) throw new Error(d.error || "Enregistrement impossible");
     router.push(`/depenses/${d.data._id}`);
   }

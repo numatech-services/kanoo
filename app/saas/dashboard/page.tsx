@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 
 import { Building2, CheckCircle2, Users } from "lucide-react";
+import { apiJson } from "@/lib/api-client";
 interface Stats { totalTenants: number; activeTenants: number; trialTenants: number; totalUsers: number; byType: Array<{_id: string; count: number}>; }
 
 export default function SuperadminDashboard() {
@@ -10,8 +11,7 @@ export default function SuperadminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/superadmin/stats", { credentials: "include" })
-      .then(r => r.json()).then(d => setStats(d.data)).finally(() => setLoading(false));
+    apiJson("/api/superadmin/stats").then(d => setStats(d.data)).finally(() => setLoading(false));
   }, []);
 
   const kpis = stats ? [

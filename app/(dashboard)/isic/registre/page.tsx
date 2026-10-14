@@ -17,7 +17,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { showToast } from "@/components/ui/Toast";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 interface SchoolRow { school: string; students: number; withNumber: number; withoutPhoto: number; covered: number; fresh: number; renewed: number; toRenew: number }
 interface Stats {
   year: string;
@@ -51,8 +51,7 @@ export default function RegistrePage() {
   const [coverageFilter, setCoverageFilter] = useState("");
 
   const loadStats = useCallback(() => {
-    fetch(`/api/isic/registry/stats?year=${year}`, { credentials: "include" })
-      .then(r => r.json()).then(d => setStats(d.data ?? null)).catch(() => {});
+    apiJson(`/api/isic/registry/stats?year=${year}`).then(d => setStats(d.data ?? null)).catch(() => {});
   }, [year]);
   useEffect(() => { loadStats(); }, [loadStats]);
 
@@ -208,7 +207,7 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
     if (number) p.set("number", number);
     if (coverage) { p.set("coverage", coverage); p.set("year", year); }
     if (photo) p.set("photo", photo);
-    fetch(`/api/isic/registry/students?${p}`, { credentials: "include" }).then(r => r.json())
+    apiJson(`/api/isic/registry/students?${p}`)
       .then(d => setData({ items: d.data?.items ?? [], total: d.data?.pagination?.total ?? 0 }))
       .finally(() => setLoading(false));
   }, [page, q, school, number, coverage, photo, year]);
@@ -367,7 +366,7 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
-    fetch(`/api/isic/registry/students/${id}`, { credentials: "include" }).then(r => r.json()).then(x => {
+    apiJson(`/api/isic/registry/students/${id}`).then(x => {
       const data: StudentDetail = x.data; setD(data);
       const s = data.student;
       setF({

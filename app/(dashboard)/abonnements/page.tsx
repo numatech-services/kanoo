@@ -13,6 +13,7 @@ import { DonutChart } from "@/components/ui/charts/DonutChart";
 import { compactXof, fullXof } from "@/components/ui/charts/geometry";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 const MONTHS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jui", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 
 interface Reconciliation {
@@ -78,8 +79,7 @@ export default function AbonnementsPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch(`/api/abonnements/rapprochement?year=${year}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/abonnements/rapprochement?year=${year}`)
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
         setData(d.data);
@@ -128,7 +128,7 @@ export default function AbonnementsPage() {
             <span className="h-8 w-8 rounded-xl bg-section-soft text-section flex items-center justify-center">
               <Repeat size={17} />
             </span>
-            <h1 className="page-title">Abonnements</h1>
+            <h1 className="page-title">Licences : portefeuille</h1>
           </div>
           <p className="text-sm text-ink2 mt-1">
             {totals.purchaseCount} contrat(s) souscrit(s) · {totals.saleCount} revente(s) ·{" "}

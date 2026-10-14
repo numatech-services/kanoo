@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { apiJson } from "@/lib/api-client";
 interface Tenant { _id:string; name:string; type:string; plan:string; subscriptionStatus:string; email?:string; phone?:string; address?:string; nif?:string; createdAt:string; trialEndsAt?:string; activatedAt?:string; }
 export default function TenantDetailPage() {
   const params = useParams();
@@ -9,7 +10,7 @@ export default function TenantDetailPage() {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     if (!params.id) return;
-    fetch(`/api/superadmin/tenants/${params.id}`,{credentials:"include"}).then(r=>r.json()).then(d=>setTenant(d.data)).finally(()=>setLoading(false));
+    apiJson(`/api/superadmin/tenants/${params.id}`).then(d=>setTenant(d.data)).finally(()=>setLoading(false));
   },[params.id]);
   if (loading) return <div className="p-6"><div className="h-32 bg-surface rounded-xl animate-pulse" /></div>;
   if (!tenant) return <div className="p-6 text-ink2">Organisation introuvable</div>;

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "+22796000000";
 const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, "")}?text=${encodeURIComponent("Bonjour, j'ai besoin d'aide avec Kanoo. Mon organisation : ")}`;
 
@@ -16,17 +16,11 @@ export function SupportButton() {
     e.preventDefault();
     setSending(true);
     setFailed(null);
-    const csrfToken = await getCsrfToken();
-    const res = await fetch("/api/support/tickets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-      credentials: "include",
-      body: JSON.stringify(form),
-    }).catch(() => null);
+    const res = await apiSend("POST", "/api/support/tickets", form).catch(() => null);
     setSending(false);
     // Un refus ne s'affiche plus comme un envoi réussi : le ticket serait perdu.
     if (!res || !res.ok) {
-      const d = res ? await res.json().catch(() => ({})) : {};
+      const d = res ?res.data: {};
       setFailed((d as { error?: string }).error || "Ticket non envoyé. Écrivez-nous sur WhatsApp.");
       return;
     }

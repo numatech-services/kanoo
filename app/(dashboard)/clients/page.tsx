@@ -9,7 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ClientForm } from "@/components/pme/ClientForm";
 import { useMe, meCan } from "@/lib/useMe";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 interface Client {
   _id: string;
   code: string;
@@ -47,8 +47,7 @@ export default function ClientsPage() {
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (search) params.set("search", search);
     try {
-      const res = await fetch(`/api/clients?${params}`, { credentials: "include" });
-      const d = await res.json();
+      const d = await apiJson(`/api/clients?${params}`);
       setClients(d.data?.items || []);
       setTotal(d.data?.pagination?.total || 0);
     } finally {

@@ -9,6 +9,7 @@ import { useWarehouses } from "@/components/stock/useWarehouses";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { StockTabs } from "@/components/stock/StockTabs";
+import { apiJson } from "@/lib/api-client";
 interface Movement {
   _id: string; type: string; quantity: number; quantityBefore: number; quantityAfter: number; unitCost?: number;
   reason: string; linkedDocNumber?: string; createdAt: string; reversedBy?: string; reverses?: string;
@@ -34,8 +35,7 @@ export default function StockMovementsPage() {
     return p;
   }, [f]);
   useEffect(() => {
-    fetch(`/api/stock/movements?${params({ page: String(page), limit: String(LIMIT) })}`, { credentials: "include" })
-      .then(r => r.json()).then(d => { setItems(d.data?.items ?? []); setTotal(d.data?.pagination?.total ?? 0); }).catch(() => {});
+    apiJson(`/api/stock/movements?${params({ page: String(page), limit: String(LIMIT) })}`).then(d => { setItems(d.data?.items ?? []); setTotal(d.data?.pagination?.total ?? 0); }).catch(() => {});
   }, [page, params]);
   useEffect(() => { const t = setTimeout(() => { setPage(1); setF(x => ({ ...x, q: q.trim() })); }, 300); return () => clearTimeout(t); }, [q]);
 

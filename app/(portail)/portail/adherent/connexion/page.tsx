@@ -3,14 +3,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Handshake } from "lucide-react";
 import { buttonClass } from "@/components/ui/button-class";
+import { apiSend } from "@/lib/api-client";
 export default function ConnexionAdherentPage() {
   const [form, setForm] = useState({ email:"", accessCode:"" });
   const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
   const router = useRouter();
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault(); setLoading(true); setError("");
-    const res = await fetch("/api/portail/auth", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...form, type:"adherent"}) });
-    const d = await res.json();
+    const res = await apiSend("POST", "/api/portail/auth", {...form, type:"adherent"});
+    const d = res.data;
     if (d.success) router.push("/portail/adherent");
     else setError(d.error || "Identifiants incorrects");
     setLoading(false);

@@ -6,7 +6,7 @@ import { FormField, inputCls } from "@/components/ui/FormField";
 import { DonutChart } from "@/components/ui/charts/DonutChart";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Status {
   identity: { nif?: string; isf?: string; mcfId?: string; certifiedSince: string | null };
   activeDriver: string;
@@ -26,8 +26,7 @@ export default function FactureCertifieePage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    fetch("/api/secef/status", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/secef/status")
       .then(d => {
         if (!d.success) throw new Error(d.error);
         setStatus(d.data);
@@ -48,14 +47,8 @@ export default function FactureCertifieePage() {
     setSaving(true);
     setMessage(null);
     try {
-      const csrfToken = await getCsrfToken();
-      const res = await fetch("/api/secef/status", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify(form),
-      });
-      const d = await res.json();
+      const res = await apiSend("PATCH", "/api/secef/status", form);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Enregistrement refusé");
       setMessage({ kind: "ok", text: "Identité de facturation enregistrée." });
       load();

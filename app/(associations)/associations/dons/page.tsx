@@ -2,12 +2,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
+import { apiJson } from "@/lib/api-client";
 interface Don { _id:string; donorName?:string; donorType:string; amount:number; currency:string; campaign?:string; date:string; receiptNumber:string; }
 export default function DonsPage() {
   const [mounted,setMounted]=useState(false);
   const [items,setItems]=useState<Don[]>([]); const [total,setTotal]=useState(0); const [page,setPage]=useState(1); const [loading,setLoading]=useState(true);
   const LIMIT=20;
-  const load=useCallback(async()=>{setLoading(true);const res=await fetch(`/api/dons?page=${page}&limit=${LIMIT}`,{credentials:"include"});const d=await res.json();setItems(d.data?.items||[]);setTotal(d.data?.pagination?.total||0);setLoading(false);},[page]);
+  const load=useCallback(async()=>{setLoading(true);const d = await apiJson(`/api/dons?page=${page}&limit=${LIMIT}`);setItems(d.data?.items||[]);setTotal(d.data?.pagination?.total||0);setLoading(false);},[page]);
   useEffect(()=>{setMounted(true);load();},[load]);
   if (!mounted) return null;
   const totalXOF=items.filter(d=>d.currency==="XOF").reduce((s,d)=>s+d.amount,0);

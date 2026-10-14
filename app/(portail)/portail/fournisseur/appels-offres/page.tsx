@@ -2,12 +2,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface Tender { _id:string; reference:string; object:string; estimatedAmount:number; bidsDeadline?:string; procedure:string; status:string; }
 export default function AppelsOffresPage() {
   const [mounted, setMounted] = useState(false);
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(()=>{ setMounted(true); fetch("/api/portail/fournisseur",{credentials:"include"}).then(r=>r.json()).then(d=>setTenders(d.data?.openTenders||[])).finally(()=>setLoading(false)); },[]);
+  useEffect(()=>{ setMounted(true); apiJson("/api/portail/fournisseur").then(d=>setTenders(d.data?.openTenders||[])).finally(()=>setLoading(false)); },[]);
   
   if (!mounted) return null;
   

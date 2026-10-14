@@ -13,7 +13,7 @@ import { useMe, meCan, meCanDo } from "@/lib/useMe";
 import { COST_CENTERS } from "@/lib/cost-centers";
 import { LEAVE_TYPES } from "@/lib/leave-types";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 interface Employee {
   _id: string; code: string; firstName: string; lastName: string; position: string; department?: string; costCenter?: string;
   employeeType: string; contractNature: string; startDate: string; endDate?: string; contractEndDate?: string; exitReason?: string;
@@ -28,8 +28,8 @@ const MONTHS = ["", "janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "
 const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
 const d = (s?: string) => (s ? new Date(s).toLocaleDateString("fr-FR") : "—");
 async function patch(id: string, body: Record<string, unknown>) {
-  const res = await fetch(`/api/employees/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify(body) });
-  const x = await res.json().catch(() => ({}));
+  const res = await apiSend("PATCH", `/api/employees/${id}`, body);
+  const x = res.data;
   if (!res.ok) throw new Error(x.error || "Enregistrement impossible.");
   return x.data;
 }
@@ -59,7 +59,7 @@ export default function EmployeeDetailPage() {
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const x = await fetch(`/api/employees/${id}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const x = await apiJson(`/api/employees/${id}`).catch(() => null);
     setE(x?.data ?? null);
     fetch(`/api/leaves?employeeId=${id}`, { credentials: "include" }).then(r => r.ok ? r.json() : null).then(l => setLeaves(l?.data ?? null)).catch(() => {});
   }, [id]);
@@ -176,7 +176,7 @@ function LinkUserDialog({ current, onClose, onSave }: { current?: string; onClos
   const [users, setUsers] = useState<Array<{ _id: string; firstName?: string; lastName?: string; email: string }>>([]);
   const [value, setValue] = useState(current ?? "");
   const [error, setError] = useState("");
-  useEffect(() => { fetch("/api/users?limit=100", { credentials: "include" }).then(r => r.json()).then(x => setUsers(x.data?.items ?? [])).catch(() => {}); }, []);
+  useEffect(() => { apiJson("/api/users?limit=100").then(x => setUsers(x.data?.items ?? [])).catch(() => {}); }, []);
   return (
     <Modal open onClose={onClose} title="Compte de connexion lié">
       <div className="space-y-4">

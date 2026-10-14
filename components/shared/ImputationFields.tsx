@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { selectCls } from "@/components/ui/FormField";
 
+import { apiJson } from "@/lib/api-client";
 export interface ImputationValue { projectId?: string; activityId?: string; costCenter?: string }
 interface Options {
   projects: Array<{ _id: string; code: string; name: string }>;
@@ -12,8 +13,7 @@ interface Options {
 let cache: Promise<Options> | null = null;
 function loadOptions(): Promise<Options> {
   if (!cache) {
-    cache = fetch("/api/imputation/options", { credentials: "include" })
-      .then(r => r.json()).then(d => d.data ?? { projects: [], activities: [], costCenters: [] })
+    cache = apiJson("/api/imputation/options").then(d => d.data ?? { projects: [], activities: [], costCenters: [] })
       .catch(() => { cache = null; return { projects: [], activities: [], costCenters: [] }; });
   }
   return cache;

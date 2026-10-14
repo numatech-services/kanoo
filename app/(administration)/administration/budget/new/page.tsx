@@ -1,13 +1,12 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { BudgetChapterForm } from "@/components/administration/BudgetChapterForm";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 export default function NewBudgetChapterPage() {
   const router = useRouter();
   async function handleSave(data: Record<string, unknown>) {
-    const csrfToken = await getCsrfToken();
-    const res = await fetch("/api/budget", { method:"POST", headers:{"Content-Type":"application/json","x-csrf-token":csrfToken}, credentials:"include", body:JSON.stringify(data) });
-    const d = await res.json(); if (!res.ok) throw new Error(d.error);
+    const res = await apiSend("POST", "/api/budget", data);
+    const d = res.data; if (!res.ok) throw new Error(d.error);
     router.push("/administration/budget");
   }
   return (

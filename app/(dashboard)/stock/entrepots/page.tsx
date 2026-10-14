@@ -10,7 +10,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { StockTabs } from "@/components/stock/StockTabs";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
 async function send(url: string, method: string, body?: unknown) {
   const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -30,7 +30,7 @@ export default function WarehousesPage() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const load = useCallback(async () => {
-    const d = await fetch(`/api/warehouses?all=${all}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const d = await apiJson(`/api/warehouses?all=${all}`).catch(() => null);
     setItems(d?.data ?? []);
   }, [all]);
   useEffect(() => { load(); }, [load]);

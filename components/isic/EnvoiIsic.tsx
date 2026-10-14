@@ -8,7 +8,7 @@ import { compressPhoto, collectPhotos } from "@/components/isic/image";
 
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson, apiSend } from "@/lib/api-client";
 async function send<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
   const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify(body) });
   const d = await res.json().catch(() => ({}));
@@ -27,7 +27,7 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
   const [renewalCode, setRenewalCode] = useState("");
   const [codeSaved, setCodeSaved] = useState("");
   useEffect(() => {
-    fetch("/api/isic/registry/settings", { credentials: "include" }).then(r => r.json())
+    apiJson("/api/isic/registry/settings")
       .then(d => { setRenewalCode(d.data?.renewalRequestType ?? ""); setCodeSaved(d.data?.renewalRequestType ?? ""); }).catch(() => {});
   }, []);
   async function saveCode() {
@@ -47,18 +47,13 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
     const report = { attached: 0, unknown: [] as string[], ambiguous: [] as string[], failed: [] as string[] };
     setProgress({ done: 0, total: items.length });
     let next = 0, done = 0;
-    const token = await getCsrfToken();
     const worker = async () => {
       while (next < items.length) {
         const it = items[next++];
         try {
           const dataUri = await compressPhoto(it.blob);
-          const res = await fetch("/api/isic/registry/photos", {
-            method: "POST", credentials: "include",
-            headers: { "Content-Type": "application/json", "x-csrf-token": token },
-            body: JSON.stringify({ fileName: it.name, schoolName: photoSchool || undefined, dataUri }),
-          });
-          const d = await res.json().catch(() => ({}));
+          const res = await apiSend("POST", "/api/isic/registry/photos", { fileName: it.name, schoolName: photoSchool || undefined, dataUri });
+          const d = res.data;
           if (!res.ok) report.failed.push(`${it.name} — ${d.error || "refusée"}`);
           else if (d.data?.status === "attached") report.attached++;
           else if (d.data?.status === "ambiguous") report.ambiguous.push(it.name);
@@ -82,7 +77,7 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
   async function runCheck() {
     setChecking(true);
     try {
-      const r = await fetch(`/api/isic/registry/submission?${qs("check")}`, { credentials: "include" }).then(x => x.json());
+      const r = await apiJson(`/api/isic/registry/submission?${qs("check")}`);
       if (!r.success) throw new Error(r.error || "Contrôle impossible");
       setCheck(r.data);
     } catch (e) { showToast(e instanceof Error ? e.message : "Contrôle impossible", "error"); } finally { setChecking(false); }

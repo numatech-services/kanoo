@@ -16,7 +16,7 @@ import { useWarehouses } from "@/components/stock/useWarehouses";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { StockTabs } from "@/components/stock/StockTabs";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Session {
   _id: string;
   reference: string;
@@ -36,10 +36,6 @@ const STATUS_TONE: Record<CountStatus, "pos" | "warn" | "info" | "neg" | "mute">
   draft: "mute", counting: "info", review: "warn", validated: "pos", cancelled: "mute",
 };
 
-async function csrf() {
-  const csrfToken = await getCsrfToken();
-  return csrfToken as string;
-}
 
 export default function InventairesPage() {
   // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
@@ -50,8 +46,7 @@ export default function InventairesPage() {
   const [open, setOpen] = useState(false);
 
   const load = useCallback(() => {
-    fetch("/api/inventaires", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/inventaires")
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
         setItems(d.data.items || []);
@@ -65,12 +60,9 @@ export default function InventairesPage() {
 
   async function remove(id: string) {
     if (!await confirmDialog({ title: "Supprimer cette session d'inventaire ?", danger: true, confirmLabel: "Supprimer" })) return;
-    const res = await fetch(`/api/inventaires/${id}`, {
-      method: "DELETE", credentials: "include",
-      headers: { "x-csrf-token": await csrf() },
-    });
+    const res = await apiSend("DELETE", `/api/inventaires/${id}`);
     if (res.ok) load();
-    else { const d = await res.json().catch(() => ({})); showToast(d.error || "Suppression impossible.", "error"); }
+    else { const d = res.data; showToast(d.error || "Suppression impossible.", "error"); }
   }
 
   const running = items.find(s => ["draft", "counting", "review"].includes(s.status));
@@ -219,13 +211,8 @@ function OpenDialog({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/inventaires", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify(form),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/inventaires", form);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Ouverture refusée");
       setResult({ lines: d.data.lines, unvalued: d.data.unvalued });
       onOpened();

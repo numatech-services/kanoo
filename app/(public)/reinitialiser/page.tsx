@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, KeyRound } from "lucide-react";
 
+import { apiSend } from "@/lib/api-client";
 /**
  * Pose du nouveau mot de passe, depuis le lien reçu par courriel.
  *
@@ -27,12 +28,8 @@ function ResetForm() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/auth/reset-password", { token, password });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Réinitialisation impossible");
       setDone(true);
       setTimeout(() => router.push("/login"), 2500);

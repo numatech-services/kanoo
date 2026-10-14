@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CalendarClock, Users, MapPin } from "lucide-react";
 import { AgendaItem, itemColor, TYPE_META } from "./types";
 
+import { apiJson } from "@/lib/api-client";
 function when(it: AgendaItem): string {
   const d = new Date(it.startAt);
   const day = d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
@@ -20,8 +21,7 @@ export function UpcomingAgenda({ agendaHref = "/agenda" }: { agendaHref?: string
   const [items, setItems] = useState<AgendaItem[] | null>(null);
 
   useEffect(() => {
-    fetch("/api/agenda/upcoming?limit=5", { credentials: "include" })
-      .then((r) => r.json())
+    apiJson("/api/agenda/upcoming?limit=5")
       .then((d) => setItems(d.success ? d.data : []))
       .catch(() => setItems([]));
   }, []);

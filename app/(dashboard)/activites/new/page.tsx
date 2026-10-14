@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronLeft, ChevronRight, Plus, Trash2, MapPin, Video } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiSend } from "@/lib/api-client";
 interface TicketType { name: string; price: number; quantity: number; }
 
 const STEPS = ["Informations", "Date & lieu", "Capacité", "Billets", "Publication"];
@@ -39,20 +39,15 @@ export default function NewActivitePage() {
     if (!form.title.trim() || !form.startAt) { toast.error("Titre et date requis"); setStep(0); return; }
     setSaving(true);
     try {
-      const res = await fetch("/api/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
-        credentials: "include",
-        body: JSON.stringify({
+      const res = await apiSend("POST", "/api/events", {
           ...form,
           capacity: Number(form.capacity) || 0,
           reminderHoursBefore: Number(form.reminderHoursBefore) || 24,
           tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
           ticketTypes: form.isPaid ? tickets.filter((t) => t.name.trim()) : [],
           status: publish ? "published" : "draft",
-        }),
-      });
-      const d = await res.json();
+        });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Création impossible");
       toast.success(publish ? "Activité publiée" : "Brouillon enregistré");
       router.push(`/activites/${d.data._id}`);

@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 
 import { showToast } from "@/components/ui/Toast";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiSend } from "@/lib/api-client";
 interface Revenue {
   _id: string;
   reference: string;
@@ -72,14 +72,9 @@ export default function RecettesPage() {
     setSaving(true);
     
     try {
-      const res = await fetch("/api/recettes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
-        credentials: "include",
-        body: JSON.stringify(form)
-      });
+      const res = await apiSend("POST", "/api/recettes", form);
 
-      const result = await res.json();
+      const result = res.data;
 
       if (res.ok) {
         setModalOpen(false);

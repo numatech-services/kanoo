@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CotisationForm } from "@/components/associations/CotisationForm";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 export default function NewCotisationPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -16,16 +16,10 @@ export default function NewCotisationPage() {
   async function handleSave(data: Record<string, unknown>) {
     try {
       setError("");
-      const csrfToken = await getCsrfToken();
       
-      const res = await fetch("/api/cotisations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
+      const res = await apiSend("POST", "/api/cotisations", data);
       
-      const d = await res.json();
+      const d = res.data;
       if (!res.ok) {
         setError(d.error || "Une erreur est survenue");
         return;

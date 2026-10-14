@@ -5,7 +5,7 @@ import { AccountingEntryForm } from "@/components/pme/AccountingEntryForm";
 import { useState } from "react";
 import { errorMessage } from "@/lib/errors";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 export default function NewAccountingEntryPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -15,20 +15,11 @@ export default function NewAccountingEntryPage() {
       setError(null);
       
       // Récupération du jeton CSRF
-      const csrfToken = await getCsrfToken();
 
       // Envoi de la requête au backend
-      const res = await fetch("/api/accounting-entries", { 
-        method: "POST", 
-        headers: { 
-          "Content-Type": "application/json", 
-          "x-csrf-token": csrfToken 
-        }, 
-        credentials: "include", 
-        body: JSON.stringify(data) 
-      });
+      const res = await apiSend("POST", "/api/accounting-entries", data);
 
-      const d = await res.json(); 
+      const d = res.data; 
       
       if (!res.ok) {
         // Affiche l'erreur spécifique retournée par Mongoose (ex: accountCode is required)

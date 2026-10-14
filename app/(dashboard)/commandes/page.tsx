@@ -5,6 +5,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 import Link from "next/link"; // Import indispensable
 
 interface Commande { _id:string; number:string; supplierId:{name:string}|string; totalTTC:number; status:string; orderDate:string; expectedDeliveryDate?:string; }
@@ -22,8 +23,7 @@ export default function CommandesPage() {
     setLoading(true);
     const params = new URLSearchParams({page:String(page),limit:String(LIMIT)});
     if(status) params.set("status",status);
-    const res = await fetch(`/api/commandes?${params}`,{credentials:"include"});
-    const d = await res.json(); 
+    const d = await apiJson(`/api/commandes?${params}`); 
     setCommandes(d.data?.items||[]); 
     setTotal(d.data?.pagination?.total||0); 
     setLoading(false);

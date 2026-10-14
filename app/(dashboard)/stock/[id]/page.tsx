@@ -14,7 +14,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 interface Product {
   _id: string; code: string; label: string; description?: string; unit?: string; category?: string; barcode?: string; location?: string;
   unitPrice: number; tvaRate: number; stockQty: number; stockMinAlert: number; stockMaxAlert?: number; purchaseCost?: number; lastPurchaseCost?: number;
@@ -54,12 +54,12 @@ export default function StockDetailPage() {
     if (filter.from) params.set("from", filter.from);
     if (filter.to) params.set("to", filter.to);
     const [a, b] = await Promise.all([
-      fetch(`/api/products/${id}`, { credentials: "include" }).then(r => r.json()).catch(() => null),
-      fetch(`/api/stock/movements?${params}`, { credentials: "include" }).then(r => r.json()).catch(() => null),
+      apiJson(`/api/products/${id}`).catch(() => null),
+      apiJson(`/api/stock/movements?${params}`).catch(() => null),
     ]);
     setP(a?.data ?? null);
     setMoves(b?.data?.items ?? []);
-    const st = await fetch(`/api/products/${id}/stock`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const st = await apiJson(`/api/products/${id}/stock`).catch(() => null);
     setByWh(st?.data?.warehouses ?? []);
     setLots(st?.data?.lots ?? []);
   }, [id, filter]);
@@ -75,8 +75,8 @@ export default function StockDetailPage() {
       .map(r => ({ id: r.warehouseId!._id, name: r.warehouseId!.name, kind: r.warehouseId!.kind, qty: r.qty, minAlert: r.minAlert })),
   ];
   async function saveThreshold(warehouseId: string, v: string) {
-    const res = await fetch(`/api/products/${id}/stock`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify({ warehouseId, minAlert: v === "" ? null : Number(v) }) });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.error || "Seuil refusé", "error"); }
+    const res = await apiSend("PATCH", `/api/products/${id}/stock`, { warehouseId, minAlert: v === "" ? null : Number(v) });
+    if (!res.ok) { const d = res.data; showToast(d.error || "Seuil refusé", "error"); }
     load();
   }
 
@@ -84,20 +84,20 @@ export default function StockDetailPage() {
     const reason = await promptDialog({ title: "Motif de l'annulation (un contre-mouvement sera enregistré) :", multiline: true });
     if (reason === null) return;
     setError("");
-    const res = await fetch(`/api/stock/movements/${m._id}?reason=${encodeURIComponent(reason)}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("DELETE", `/api/stock/movements/${m._id}?reason=${encodeURIComponent(reason)}`);
+    const d = res.data;
     if (!res.ok) { setError(d.error || "Annulation impossible"); return; }
     load();
   }
   async function saveProduct(body: Record<string, unknown>) {
-    const res = await fetch(`/api/products/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify(body) });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("PATCH", `/api/products/${id}`, body);
+    const d = res.data;
     if (!res.ok) throw new Error(d.error || "Modification impossible");
     setEditOpen(false); load();
   }
   async function deactivate() {
     if (!(await confirmDialog({ title: "Désactiver cet article ?", message: "Il disparaît des listes ; son historique est conservé.", danger: true }))) return;
-    const res = await fetch(`/api/products/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
+    const res = await apiSend("DELETE", `/api/products/${id}`);
     if (res.ok) router.push("/stock"); else setError("Désactivation impossible");
   }
 

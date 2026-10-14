@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface BillingRow {
   _id: string;
   name: string;
@@ -29,8 +29,7 @@ export default function BillingPage() {
     setLoading(true);
     // La liste était filtrée sur `status=trial` alors que l'écran affiche les
     // compteurs « Actifs » et « Suspendus » : ils valaient donc toujours zéro.
-    fetch("/api/superadmin/tenants?limit=50", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/superadmin/tenants?limit=50")
       .then(d => setTenants(d.data?.items || []))
       .catch(() => setError("Chargement impossible."))
       .finally(() => setLoading(false));
@@ -46,14 +45,8 @@ export default function BillingPage() {
     setBusyId(id);
     setError(null);
     try {
-      const csrfToken = await getCsrfToken();
-      const res = await fetch(`/api/superadmin/tenants/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify({ subscriptionStatus }),
-      });
-      const d = await res.json();
+      const res = await apiSend("PATCH", `/api/superadmin/tenants/${id}`, { subscriptionStatus });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Mise à jour refusée.");
       setTenants(prev => prev.map(t => (t._id === id ? { ...t, subscriptionStatus } : t)));
     } catch (e) {

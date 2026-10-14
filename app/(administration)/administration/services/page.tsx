@@ -5,7 +5,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/Modal";
 
 import { showToast } from "@/components/ui/Toast";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 interface IServiceProduct {
   _id: string;
   code: string;
@@ -34,8 +34,7 @@ export default function ServicesPage() {
   const loadServices = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/services");
-      const data = await res.json();
+      const data = await apiJson("/api/services");
       setServices(data.data || data);
     } finally {
       setLoading(false);
@@ -83,14 +82,9 @@ async function handleSubmit(e: React.FormEvent) {
   };
 
   try {
-    const res = await fetch("/api/services", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
-      credentials: "include",
-      body: JSON.stringify(payload)
-    });
+    const res = await apiSend("POST", "/api/services", payload);
 
-    const result = await res.json();
+    const result = res.data;
 
     if (res.ok) {
       setModalOpen(false);

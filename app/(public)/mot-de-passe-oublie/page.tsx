@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Loader2, MailCheck } from "lucide-react";
 
+import { apiSend } from "@/lib/api-client";
 /**
  * Demande de réinitialisation.
  *
@@ -22,12 +23,8 @@ export default function MotDePasseOubliePage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/auth/forgot-password", { email });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Demande impossible");
       setSent(true);
     } catch (err) {

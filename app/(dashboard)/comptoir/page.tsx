@@ -11,7 +11,7 @@ import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEdi
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 interface Desk { _id: string; name: string; description?: string; activityId?: string; treasuryAccountId?: string; revenueAccount?: string; expenseAccount?: string; vatRate?: number }
 interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
 interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string }
@@ -63,8 +63,7 @@ export default function ComptoirPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const loadDesks = useCallback(() => {
-    fetch("/api/comptoir/desks", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/comptoir/desks")
       .then(d => {
         const list: Desk[] = d.data || [];
         setDesks(list);
@@ -81,7 +80,7 @@ export default function ComptoirPage() {
     <div className="space-y-6">
       <div className="page-head">
         <div>
-          <h1 className="page-title flex items-center gap-2"><Store size={22} /> Comptoir d&apos;activité</h1>
+          <h1 className="page-title flex items-center gap-2"><Store size={22} /> Comptoirs</h1>
           <p className="text-sm text-ink2">
             Comptabilité matière (stock d&apos;articles) et caisse (recettes / dépenses) d&apos;un point d&apos;activité — The Spot et autres.
           </p>
@@ -282,8 +281,7 @@ function DeskView({ deskId, tab, setTab }: { deskId: string; tab: "caisse" | "st
   const [summary, setSummary] = useState<Summary | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const reloadSummary = useCallback(() => {
-    fetch(`/api/comptoir/summary?deskId=${deskId}`, { credentials: "include" })
-      .then(r => r.json()).then(d => setSummary(d.data)).catch(() => {});
+    apiJson(`/api/comptoir/summary?deskId=${deskId}`).then(d => setSummary(d.data)).catch(() => {});
   }, [deskId]);
   useEffect(() => { reloadSummary(); }, [reloadSummary]);
 
@@ -467,8 +465,7 @@ function ArreteDialog({ deskId, onClose }: { deskId: string; onClose: () => void
   const [dayEntries, setDayEntries] = useState<CashEntry[]>([]);
   useEffect(() => {
     if (!day) return;
-    fetch(`/api/comptoir/cash?deskId=${deskId}&from=${day}&to=${day}`, { credentials: "include" })
-      .then(r => r.json()).then(d => setDayEntries(d.data?.items || [])).catch(() => setDayEntries([]));
+    apiJson(`/api/comptoir/cash?deskId=${deskId}&from=${day}&to=${day}`).then(d => setDayEntries(d.data?.items || [])).catch(() => setDayEntries([]));
   }, [deskId, day]);
 
   const sum = (pred: (e: CashEntry) => boolean) => dayEntries.filter(pred).reduce((s, e) => s + e.amount, 0);
@@ -607,8 +604,8 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
   const [linkFor, setLinkFor] = useState<Item | null>(null);
 
   const load = useCallback(() => {
-    fetch(`/api/comptoir/items?deskId=${deskId}`, { credentials: "include" }).then(r => r.json()).then(d => setItems(d.data || [])).catch(() => {});
-    fetch(`/api/comptoir/stock?deskId=${deskId}`, { credentials: "include" }).then(r => r.json()).then(d => setMoves(d.data || [])).catch(() => {});
+    apiJson(`/api/comptoir/items?deskId=${deskId}`).then(d => setItems(d.data || [])).catch(() => {});
+    apiJson(`/api/comptoir/stock?deskId=${deskId}`).then(d => setMoves(d.data || [])).catch(() => {});
   }, [deskId]);
   useEffect(() => { load(); }, [load]);
 

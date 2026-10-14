@@ -8,7 +8,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { SupplierForm } from "@/components/pme/SupplierForm";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 interface Supplier { _id: string; code: string; name: string; nif?: string; phone?: string; email?: string; logo?: string; paymentTermDays: number; bankAccount?: string; isActive: boolean; }
 
 export default function SuppliersPage() {
@@ -25,8 +25,7 @@ export default function SuppliersPage() {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (search) params.set("search", search);
-    const res = await fetch(`/api/suppliers?${params}`, { credentials: "include" });
-    const d = await res.json(); setSuppliers(d.data?.items || []); setTotal(d.data?.pagination?.total || 0); setLoading(false);
+    const d = await apiJson(`/api/suppliers?${params}`); setSuppliers(d.data?.items || []); setTotal(d.data?.pagination?.total || 0); setLoading(false);
   }, [page, search]);
   useEffect(() => { setMounted(true); load(); }, [load]);
 

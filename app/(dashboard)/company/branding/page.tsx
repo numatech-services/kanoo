@@ -7,7 +7,7 @@ import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
 import { Inset } from "@/components/ui/Primitives";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Branding {
   primaryColor?: string; secondaryColor?: string;
   showLogo?: boolean; tagline?: string; legalFooter?: string;
@@ -19,10 +19,6 @@ interface Company {
   address?: string; phone?: string; email?: string; branding?: Branding;
 }
 
-async function csrf() {
-  const csrfToken = await getCsrfToken();
-  return csrfToken as string;
-}
 
 export default function BrandingPage() {
   const [company, setCompany] = useState<Company | null>(null);
@@ -33,8 +29,7 @@ export default function BrandingPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/company/branding", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/company/branding")
       .then(d => {
         if (!d.success) throw new Error(d.error);
         const c: Company = d.data;
@@ -68,13 +63,8 @@ export default function BrandingPage() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch("/api/company/branding", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
-        credentials: "include",
-        body: JSON.stringify(form),
-      });
-      const d = await res.json();
+      const res = await apiSend("PATCH", "/api/company/branding", form);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Enregistrement refusé");
       setNotice("Personnalisation enregistrée. Elle s'applique aux prochains documents générés.");
     } catch (e) {

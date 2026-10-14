@@ -7,7 +7,7 @@ import { FlowFilterBar, useFlowFilter, monthStart, type FlowTotals } from "@/com
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 export interface TreasuryAccountLite { _id: string; label: string; type: string; balance: number; openingBalance: number; movementCount: number; isActive: boolean; bankName?: string; accountNumber?: string }
 
 async function send(url: string, method: string, body?: unknown) {
@@ -161,7 +161,7 @@ export function MovementsDialog({ account, onClose }: { account?: TreasuryAccoun
     const q = new URLSearchParams(filter.query);
     q.set("limit", "100");
     if (account) q.set("accountId", account._id);
-    fetch(`/api/treasury-accounts/movements?${q}`, { credentials: "include" }).then(r => r.json())
+    apiJson(`/api/treasury-accounts/movements?${q}`)
       .then(d => { setItems(d.data?.items ?? []); setTotals(d.data?.totals ?? null); setCount(d.data?.pagination?.total ?? 0); }).catch(() => {});
   }, [account, filter.query]);
   const SRC: Record<string, string> = { payment: "Encaissement", expense: "Dépense", payroll: "Salaire", transfer: "Virement", manual: "Manuel", import: "Import" };

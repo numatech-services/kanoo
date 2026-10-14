@@ -7,7 +7,7 @@ import { CommandeForm } from "@/components/pme/CommandeForm";
 import { errorMessage } from "@/lib/errors";
 
 import { showToast } from "@/components/ui/Toast";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 export default function NewCommandePage() {
   const router = useRouter();
   const [supplierId, setSupplierId] = useState("");
@@ -17,20 +17,11 @@ export default function NewCommandePage() {
     
     try {
       // 1. Récupération du token CSRF
-      const csrfToken = await getCsrfToken();
 
       // 2. Envoi de la commande
-      const res = await fetch("/api/commandes", { 
-        method: "POST", 
-        headers: { 
-          "Content-Type": "application/json", 
-          "x-csrf-token": csrfToken 
-        }, 
-        credentials: "include", 
-        body: JSON.stringify(data) 
-      });
+      const res = await apiSend("POST", "/api/commandes", data);
 
-      const d = await res.json();
+      const d = res.data;
 
       if (!res.ok) {
         console.error("[BC New] Erreur API:", d.error);

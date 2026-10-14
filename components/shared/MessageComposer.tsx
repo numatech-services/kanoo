@@ -6,7 +6,7 @@ import { Plus, Send, Search, Users, ArrowLeft } from "lucide-react";
 import { promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 interface Message {
   _id: string;
   content: string;
@@ -39,14 +39,13 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
   const endRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = useCallback(() => {
-    fetch("/api/conversations", { credentials: "include" }).then(r => r.json()).then(d => setConversations(d.data?.items || []));
+    apiJson("/api/conversations").then(d => setConversations(d.data?.items || []));
   }, []);
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
   const loadMessages = useCallback(async (convId: string) => {
     setLoading(true);
-    const res = await fetch(`/api/conversations/${convId}/messages`, { credentials: "include" });
-    const d = await res.json();
+    const d = await apiJson(`/api/conversations/${convId}/messages`);
     // L'API renvoie du plus récent au plus ancien : on inverse pour un fil de discussion.
     setMessages((d.data || []).slice().reverse());
     setLoading(false);
@@ -56,7 +55,7 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
 
   useEffect(() => {
     if (!picking || dir.length) return;
-    fetch("/api/agenda/directory", { credentials: "include" }).then(r => r.json())
+    apiJson("/api/agenda/directory")
       .then(d => setDir((d.success ? d.data : []).filter((u: DirUser) => u._id !== currentUserId)));
   }, [picking, dir.length, currentUserId]);
 
@@ -65,35 +64,23 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
     if (!newMessage.trim() || !activeConvId) return;
     setSending(true);
     try {
-      const res = await fetch(`/api/conversations/${activeConvId}/messages`, {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
-        body: JSON.stringify({ content: newMessage }),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/conversations/${activeConvId}/messages`, { content: newMessage });
+      const d = res.data;
       if (res.ok) { setMessages(prev => [...prev, d.data]); setNewMessage(""); loadConversations(); setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 40); }
       else showToast(d.error || "Envoi impossible.", "error");
     } finally { setSending(false); }
   }
 
   async function startDirect(userId: string) {
-    const res = await fetch("/api/conversations", {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
-      body: JSON.stringify({ type: "direct", participantIds: [userId] }),
-    });
-    const d = await res.json();
+    const res = await apiSend("POST", "/api/conversations", { type: "direct", participantIds: [userId] });
+    const d = res.data;
     if (res.ok) { setPicking(false); setDq(""); loadConversations(); setActiveConvId(d.data._id); }
     else showToast(d.error || "Impossible de démarrer la conversation.", "error");
   }
   async function createGroup() {
     const name = await promptDialog({ title: "Nom du groupe :" }); if (!name) return;
-    const res = await fetch("/api/conversations", {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
-      body: JSON.stringify({ type: "group", title: name }),
-    });
-    const d = await res.json();
+    const res = await apiSend("POST", "/api/conversations", { type: "group", title: name });
+    const d = res.data;
     if (res.ok) { setPicking(false); loadConversations(); setActiveConvId(d.data._id); }
   }
 

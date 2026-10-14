@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Check, Users } from "lucide-react";
 
+import { apiJson } from "@/lib/api-client";
 interface Plan {
   code: string;
   label: string;
@@ -22,8 +23,7 @@ export default function TarifsPage() {
   const [filter, setFilter] = useState<"all" | "pme" | "association" | "administration">("all");
 
   useEffect(() => {
-    fetch("/api/public/plans")
-      .then((r) => r.json())
+    apiJson("/api/public/plans")
       .then((d) => setPlans(d.data || []))
       .catch(() => {});
   }, []);

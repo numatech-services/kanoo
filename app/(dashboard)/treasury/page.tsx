@@ -11,7 +11,7 @@ import { EditAccountDialog, TransferDialog, ManualMovementDialog, MovementsDialo
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { api, apiErrorMessage } from "@/lib/api-client";
@@ -75,8 +75,7 @@ export default function TreasuryPage() {
   const reload = () => setVersion(v => v + 1);
 
   useEffect(() => {
-    fetch(`/api/treasury-accounts?all=${showInactive}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/treasury-accounts?all=${showInactive}`)
       .then(d => setAccounts(d.data?.items || []))
       .catch(() => setError("Lecture des comptes impossible."))
       .finally(() => setLoading(false));
@@ -92,14 +91,8 @@ export default function TreasuryPage() {
     setSaving(true);
     setError(null);
     try {
-      const csrfToken = await getCsrfToken();
-      const res = await fetch("/api/treasury-accounts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify(form),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/treasury-accounts", form);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Création refusée");
       setAccounts(a => [...a, {
         ...d.data, balance: d.data.openingBalance ?? 0,

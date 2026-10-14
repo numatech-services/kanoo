@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 
 import { BarChart3 } from "lucide-react";
+import { apiJson } from "@/lib/api-client";
 interface AnalyticsSeries {
   data: number[];
   label: string;
@@ -140,8 +141,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/reports/analytics?months=${months}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/reports/analytics?months=${months}`)
       .then(d => setData(d.data))
       .finally(() => setLoading(false));
   }, [months]);

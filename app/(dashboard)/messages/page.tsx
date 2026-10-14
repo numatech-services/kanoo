@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { MessageComposer } from "@/components/shared/MessageComposer";
 
 import { Lightbulb } from "lucide-react";
+import { apiJson } from "@/lib/api-client";
 interface UserInfo {
   _id: string;
   firstName: string;
@@ -23,8 +24,7 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/auth/me")
       .then(d => { setUser(d.data?.user || null); setTenantKind(d.data?.tenant?.type ?? null); })
       .finally(() => setLoading(false));
   }, []);

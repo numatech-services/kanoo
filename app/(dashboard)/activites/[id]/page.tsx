@@ -14,7 +14,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiSend } from "@/lib/api-client";
 import { TicketingAccounts } from "@/components/events/TicketingAccounts";
 interface Ev {
   _id: string; title: string; description?: string; startAt: string; endAt?: string;
@@ -87,11 +87,8 @@ export default function ActiviteDetailPage() {
     if (!reg.firstName.trim() || !reg.lastName.trim()) { toast.error("Nom et prénom requis"); return; }
     setSaving(true);
     try {
-      const res = await fetch(`/api/events/${id}/attendees`, {
-        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) }, credentials: "include",
-        body: JSON.stringify(reg),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/events/${id}/attendees`, reg);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Inscription impossible");
       toast.success("Participant inscrit");
       setTicket({ name: `${reg.firstName} ${reg.lastName}`, payload: d.data.qrPayload, code: d.data.attendee.ticketCode });
@@ -104,8 +101,8 @@ export default function ActiviteDetailPage() {
   async function pay(attendeeId: string) {
     const tid = toast.loading("Initialisation du paiement…");
     try {
-      const res = await fetch(`/api/events/${id}/attendees/${attendeeId}/pay`, { method: "POST", credentials: "include", headers: { "x-csrf-token": (await getCsrfToken()) } });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/events/${id}/attendees/${attendeeId}/pay`);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Échec");
       toast.success("Redirection vers le paiement…", { id: tid });
       window.open(d.data.paymentUrl, "_blank");
@@ -117,8 +114,8 @@ export default function ActiviteDetailPage() {
   async function resend(attendeeId: string) {
     const tid = toast.loading("Envoi du billet…");
     try {
-      const res = await fetch(`/api/events/${id}/attendees/${attendeeId}/ticket`, { method: "POST", credentials: "include", headers: { "x-csrf-token": (await getCsrfToken()) } });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/events/${id}/attendees/${attendeeId}/ticket`);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Échec de l'envoi");
       toast.success("Billet renvoyé par email", { id: tid });
     } catch (e) {
@@ -130,10 +127,8 @@ export default function ActiviteDetailPage() {
     if (!(await confirmDialog({ title: "Rembourser ce billet ?", message: "Il sera invalidé et la place libérée." }))) return;
     const tid = toast.loading("Remboursement…");
     try {
-      const res = await fetch(`/api/events/${id}/attendees/${attendeeId}/refund`, {
-        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) }, credentials: "include", body: JSON.stringify({}),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/events/${id}/attendees/${attendeeId}/refund`, {});
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Échec");
       toast.success("Billet remboursé", { id: tid });
       load();

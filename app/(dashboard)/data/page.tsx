@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Download, Upload, Database, Check, AlertTriangle, Loader2 } from "lucide-react";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 interface Entity { key: string; label: string; canExport: boolean; canImport: boolean; importable: boolean; columns: string[] }
 interface ImportResult { total: number; created: number; updated: number; failed: number; errors: { line: number; message: string }[] }
 
@@ -17,8 +17,7 @@ export default function DataPage() {
   const [catalog, setCatalog] = useState<Entity[] | null>(null);
 
   useEffect(() => {
-    fetch("/api/data/catalog", { credentials: "include" })
-      .then((r) => r.json()).then((d) => setCatalog(d.success ? d.data : [])).catch(() => setCatalog([]));
+    apiJson("/api/data/catalog").then((d) => setCatalog(d.success ? d.data : [])).catch(() => setCatalog([]));
   }, []);
 
   return (

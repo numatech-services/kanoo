@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
+import { apiJson } from "@/lib/api-client";
 export default function TVAPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -10,7 +11,7 @@ export default function TVAPage() {
   const [loading, setLoading] = useState(false);
   useEffect(()=>{
     setLoading(true);
-    fetch(`/api/fiscal/tva?annee=${year}&mois=${month}`,{credentials:"include"}).then(r=>r.json()).then(d=>setData(d.data)).finally(()=>setLoading(false));
+    apiJson(`/api/fiscal/tva?annee=${year}&mois=${month}`).then(d=>setData(d.data)).finally(()=>setLoading(false));
   },[year,month]);
   const inp = "px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
   const MONTHS = ["","Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];

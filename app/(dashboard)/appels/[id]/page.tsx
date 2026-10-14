@@ -9,7 +9,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 interface ReqDoc { _id?: string; label: string; provided: boolean }
 interface Doc { _id: string; name?: string; dataUri?: string }
 interface Appel {
@@ -32,17 +32,17 @@ export default function AppelDetailPage() {
   const [newDoc, setNewDoc] = useState("");
 
   const load = useCallback(() => {
-    fetch(`/api/appels/${id}`, { credentials: "include" }).then(r => r.json()).then(d => setA(d.data || d));
+    apiJson(`/api/appels/${id}`).then(d => setA(d.data || d));
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
   async function patch(body: Record<string, unknown>) {
-    const res = await fetch(`/api/appels/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify(body) });
-    if (res.ok) load(); else showToast((await res.json()).error || "Échec", "error");
+    const res = await apiSend("PATCH", `/api/appels/${id}`, body);
+    if (res.ok) load(); else showToast((res.data).error || "Échec", "error");
   }
   async function del() {
     if (!(await confirmDialog({ title: "Supprimer cet appel ?", danger: true }))) return;
-    const res = await fetch(`/api/appels/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
+    const res = await apiSend("DELETE", `/api/appels/${id}`);
     if (res.ok) router.push("/appels");
   }
   function toggleReq(i: number) {

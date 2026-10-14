@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { FileStack, Plus, Search, Clock, CheckCircle2, AlertCircle, Eye, Loader2 } from "lucide-react";
 import Link from "next/link";
 
+import { apiJson } from "@/lib/api-client";
 interface Engagement {
   _id: string;
   reference: string; // Vérifie que c'est 'reference' et non 'ref' selon ton modèle
@@ -30,8 +31,7 @@ export default function EngagementsPage() {
   useEffect(() => {
     const fetchEngagements = async () => {
       try {
-        const res = await fetch("/api/budget/engagements");
-        const response = await res.json();
+        const response = await apiJson("/api/budget/engagements");
         // Gestion du helper ok() : les données sont dans .data ou direct
         const data = response.data || response;
         if (Array.isArray(data)) setItems(data);

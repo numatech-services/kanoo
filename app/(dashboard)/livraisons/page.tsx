@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface Delivery {
   _id: string;
   number: string;
@@ -36,8 +37,7 @@ export default function LivraisonsPage() {
     if (status) params.set("status", status);
     if (clientId) params.set("clientId", clientId);
     if (!ready) return;
-    const res = await fetch(`/api/livraisons?${params}`, { credentials: "include" });
-    const d = await res.json();
+    const d = await apiJson(`/api/livraisons?${params}`);
     setItems(d.data?.items || []);
     setTotal(d.data?.pagination?.total || 0);
     setLoading(false);

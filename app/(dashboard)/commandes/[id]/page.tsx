@@ -12,7 +12,7 @@ import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEdi
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 interface Line {
   productId?: { _id: string; code: string; label: string; unit?: string; trackingMode?: string } | string;
   description: string; quantity: number; unitPrice: number; totalHT: number; receivedQty?: number;
@@ -46,7 +46,7 @@ export default function CommandeDetailPage() {
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const d = await fetch(`/api/commandes/${id}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const d = await apiJson(`/api/commandes/${id}`).catch(() => null);
     setItem(d?.data ?? null);
     setLoading(false);
   }, [id]);

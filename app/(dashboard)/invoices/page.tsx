@@ -12,6 +12,7 @@ import { urlParam } from "@/lib/url-param";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
+import { apiJson } from "@/lib/api-client";
 interface Invoice {
   _id: string;
   number: string;
@@ -65,8 +66,7 @@ export default function InvoicesPage() {
 
   // Récupération de l'utilisateur connecté
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
-      .then((r) => r.json())
+    apiJson("/api/auth/me")
       .then((d) => setUser(d.data?.user || null))
       .catch(() => {});
   }, []);
@@ -79,8 +79,7 @@ export default function InvoicesPage() {
     if (clientId) params.set("clientId", clientId);
 
     try {
-      const res = await fetch(`/api/invoices?${params}`, { credentials: "include" });
-      const d = await res.json();
+      const d = await apiJson(`/api/invoices?${params}`);
       setInvoices(d.data?.items || d.items || []);
       setTotal(d.data?.pagination?.total || d.total || 0);
     } catch (err) {

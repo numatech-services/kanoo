@@ -51,7 +51,10 @@ export async function stockLedgerBalance(tenantId: string, date: Date, session?:
 }
 
 export async function previewStockVariation(tenantId: string, date: Date, session?: ClientSession) {
-  const [stockValue, ledgerBalance] = await Promise.all([stockValueAt(tenantId, date, session), stockLedgerBalance(tenantId, date, session)]);
+  // Séquentiel : deux opérations simultanées dans une même transaction sont
+  // refusées par MongoDB (« transaction number does not match »).
+  const stockValue = await stockValueAt(tenantId, date, session);
+  const ledgerBalance = await stockLedgerBalance(tenantId, date, session);
   const reference = `VAR-STOCK-${date.toISOString().slice(0, 10)}`;
   const already = await AccountingEntryModel.exists({ tenantId, reference, reversedBy: { $exists: false } }).session(session ?? null);
   return { date, stockValue, ledgerBalance, variation: stockValue - ledgerBalance, reference, alreadyPosted: Boolean(already) };

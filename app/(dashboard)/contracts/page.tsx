@@ -9,6 +9,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { apiJson } from "@/lib/api-client";
 interface Contract { _id:string; reference:string; title:string; type:string; clientId:{name:string}|null; amount:number; paymentMode:string; isRecurring:boolean; billingFrequency:string; status:string; startDate?:string; endDate?:string; nextBillingDate?:string; invoiceIds:string[]; }
 
 const PAYMENT_MODE_LABELS: Record<string,string> = {
@@ -33,8 +34,7 @@ export default function ContractsPage() {
     if(isRecurring) params.set("isRecurring",isRecurring);
     if(clientId) params.set("clientId",clientId);
     if(!ready) return;
-    const res=await fetch(`/api/contracts?${params}`,{credentials:"include"});
-    const d=await res.json(); setContracts(d.data?.items||[]); setTotal(d.data?.pagination?.total||0); setLoading(false);
+    const d = await apiJson(`/api/contracts?${params}`); setContracts(d.data?.items||[]); setTotal(d.data?.pagination?.total||0); setLoading(false);
   },[page,status,type,isRecurring,clientId,ready]);
   useEffect(()=>{setMounted(true);load();;},[load]);
 

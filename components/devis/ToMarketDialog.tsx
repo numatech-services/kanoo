@@ -6,7 +6,7 @@ import { FormField, inputCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiSend } from "@/lib/api-client";
 /**
  * Devis accepté → marché : contrat au montant HT du devis, projet d'exécution
  * (qui recevra les dépenses), échéancier facultatif (acompte puis solde).
@@ -24,11 +24,8 @@ export function ToMarketDialog({ devis, onClose }: { devis: { _id: string; numbe
     const milestones = rate > 0 && rate < 100
       ? [{ label: "Acompte à la commande", kind: "deposit", rate }, { label: "Solde à la livraison", kind: "standard", rate: 100 - rate }]
       : [{ label: "Facture du marché", kind: "standard", rate: 100 }];
-    const res = await fetch(`/api/devis/${devis._id}/to-market`, {
-      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
-      body: JSON.stringify({ title, createProject: project, milestones }),
-    });
-    const d = await res.json().catch(() => ({}));
+    const res = await apiSend("POST", `/api/devis/${devis._id}/to-market`, { title, createProject: project, milestones });
+    const d = res.data;
     setSaving(false);
     if (!res.ok) { setError(d.error || "Création du marché refusée"); return; }
     router.push(`/contracts/${d.data.contractId}`);

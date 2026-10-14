@@ -13,6 +13,7 @@ import { useUrlReady } from "@/lib/url-param";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { StockTabs } from "@/components/stock/StockTabs";
+import { apiJson } from "@/lib/api-client";
 interface StockItem {
   _id: string; code: string; label: string; unit?: string; category?: string; location?: string;
   stockQty: number; totalQty?: number; stockMinAlert: number; trackingMode?: string; stockMaxAlert?: number; purchaseCost?: number; unitPrice: number;
@@ -50,7 +51,7 @@ export default function StockPage() {
     if (filters.location) params.set("location", filters.location);
     if (filters.alertOnly) params.set("alertOnly", "true");
     if (filters.warehouseId) params.set("warehouseId", filters.warehouseId);
-    const d = await fetch(`/api/stock?${params}`, { credentials: "include" }).then(r => r.json()).catch(() => null);
+    const d = await apiJson(`/api/stock?${params}`).catch(() => null);
     if (d?.data) {
       setItems(d.data.items || []);
       setTotal(d.data.pagination?.total || 0);

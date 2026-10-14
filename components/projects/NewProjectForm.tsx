@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { ProjectForm } from "@/components/pme/ProjectForm";
 import type { ProjectVocabulary } from "@/lib/vocabulary";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 /**
  * Création d'un projet — écran unique pour les trois profils.
  *
@@ -21,16 +21,10 @@ export function NewProjectForm({ vocabulary }: { vocabulary: ProjectVocabulary }
   async function handleSave(data: Record<string, unknown>) {
     setError("");
     try {
-      const csrfToken = await getCsrfToken();
 
-      const res = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify({ ...data, projectType: vocabulary.projectType }),
-      });
+      const res = await apiSend("POST", "/api/projects", { ...data, projectType: vocabulary.projectType });
 
-      const d = await res.json();
+      const d = res.data;
       if (!res.ok) {
         setError(d.error || "Enregistrement refusé");
         return;

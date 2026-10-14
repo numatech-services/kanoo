@@ -12,7 +12,7 @@ import { Paperclip } from "lucide-react";
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Purchase {
   _id: string;
   reference: string;
@@ -68,16 +68,14 @@ export default function AchatsAbonnementsPage() {
     setLoading(true);
     const params = new URLSearchParams({ limit: "100" });
     if (status) params.set("status", status);
-    fetch(`/api/abonnements/achats?${params}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/abonnements/achats?${params}`)
       .then(d => setItems(d.data?.items || []))
       .finally(() => setLoading(false));
   }, [status]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    fetch("/api/suppliers?limit=200", { credentials: "include" })
-      .then(r => r.json())
+    apiJson("/api/suppliers?limit=200")
       .then(d => setSuppliers(d.data?.items || []))
       .catch(() => setSuppliers([]));
   }, []);
@@ -98,17 +96,11 @@ export default function AchatsAbonnementsPage() {
     setSaving(true);
     setError(null);
     try {
-      const csrfToken = await getCsrfToken();
-      const res = await fetch("/api/abonnements/achats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        credentials: "include",
-        body: JSON.stringify({
+      const res = await apiSend("POST", "/api/abonnements/achats", {
           ...form,
           withholdingAmount: form.withholdingAmount === "" ? undefined : Number(form.withholdingAmount),
-        }),
-      });
-      const d = await res.json();
+        });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Enregistrement refusé");
       setOpen(false);
       setForm({ ...EMPTY });
@@ -127,7 +119,7 @@ export default function AchatsAbonnementsPage() {
           <Link href="/abonnements" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1">
             <ArrowLeft size={13} /> Abonnements
           </Link>
-          <h1 className="page-title mt-1">Contrats souscrits</h1>
+          <h1 className="page-title mt-1">Licences : contrats éditeurs</h1>
           <p className="text-sm text-ink2">
             Ce que l&apos;organisation achète aux éditeurs, et qui alimente les reventes.
           </p>

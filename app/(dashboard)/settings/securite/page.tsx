@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { ShieldCheck, ShieldOff, Copy, Loader2, KeyRound } from "lucide-react";
 import toast from "react-hot-toast";
 
+import { apiJson, apiSend } from "@/lib/api-client";
 type Step = "idle" | "setup" | "backup";
 
 export default function SecuritePage() {
@@ -19,8 +20,7 @@ export default function SecuritePage() {
   const [showDisable, setShowDisable] = useState(false);
 
   useEffect(() => {
-    fetch("/api/auth/2fa/setup", { credentials: "include" })
-      .then((r) => r.json())
+    apiJson("/api/auth/2fa/setup")
       .then((d) => setEnabled(!!d.data?.enabled))
       .catch(() => setEnabled(false));
   }, []);
@@ -28,8 +28,8 @@ export default function SecuritePage() {
   async function startSetup() {
     setBusy(true);
     try {
-      const res = await fetch("/api/auth/2fa/setup", { method: "POST", credentials: "include" });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/auth/2fa/setup");
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Erreur");
       setSecret(d.data.secret);
       setQr(await QRCode.toDataURL(d.data.otpauth, { margin: 1, width: 200, color: { dark: "#17130E", light: "#FFFFFF" } }));
@@ -41,11 +41,8 @@ export default function SecuritePage() {
     e.preventDefault();
     setBusy(true);
     try {
-      const res = await fetch("/api/auth/2fa/enable", {
-        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ token: code }),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/auth/2fa/enable", { token: code });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Code incorrect");
       setBackup(d.data.backupCodes || []);
       setStep("backup");
@@ -59,11 +56,8 @@ export default function SecuritePage() {
     e.preventDefault();
     setBusy(true);
     try {
-      const res = await fetch("/api/auth/2fa/disable", {
-        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ token: disableCode }),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/auth/2fa/disable", { token: disableCode });
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Erreur");
       setEnabled(false); setShowDisable(false); setDisableCode(""); setStep("idle");
       toast.success("2FA désactivée");

@@ -5,7 +5,7 @@ import { User, Mail, Shield, Camera, Save, Lock, ArrowLeft, Phone, Loader2, Chec
 import Link from "next/link";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 export default function ProfilPage() {
   // 1. État complet du formulaire pour correspondre à ton UserModel
   const [formData, setFormData] = useState({
@@ -25,8 +25,7 @@ export default function ProfilPage() {
   // 2. Chargement des données
   useEffect(() => {
     setMounted(true);
-    fetch("/api/auth/me", { credentials: "include" })
-      .then((r) => r.json())
+    apiJson("/api/auth/me")
       .then((d) => {
         if (d.success) {
           const u = d.data.user;
@@ -49,19 +48,14 @@ export default function ProfilPage() {
     setSaving(true);
     setStatus(null);
     try {
-      const res = await fetch("/api/auth/me", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
-        credentials: "include",
-        body: JSON.stringify({
+      const res = await apiSend("PATCH", "/api/auth/me", {
           firstName: formData.firstName,
           lastName: formData.lastName,
           phone: formData.phone
           // On n'envoie pas l'email ni le rôle (sécurité serveur)
-        }),
-      });
+        });
 
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         setStatus({ type: 'success', msg: "Profil mis à jour avec succès !" });
         setTimeout(() => setStatus(null), 3000);

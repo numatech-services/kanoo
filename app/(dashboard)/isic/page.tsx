@@ -11,7 +11,7 @@ import { useMe, meCan } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import {apiJson, apiSend } from "@/lib/api-client";
 export interface Batch {
   _id: string; reference: string; universityName: string; academicYear?: string;
   status: string; totalCards: number; unitLicenseFee: number; unitSalePrice: number;
@@ -45,7 +45,7 @@ export default function IsicListPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch("/api/isic", { credentials: "include" }).then(r => r.json())
+    apiJson("/api/isic")
       .then(d => setItems(d.data?.items || [])).finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -122,11 +122,8 @@ function NewBatch({ canFinance, onClose, onCreated }: { canFinance: boolean; onC
     if (!form.universityName.trim()) { setError("Nom de l'université requis."); return; }
     setSaving(true); setError(null);
     try {
-      const res = await fetch("/api/isic", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
-        credentials: "include", body: JSON.stringify(form),
-      });
-      const d = await res.json();
+      const res = await apiSend("POST", "/api/isic", form);
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Échec");
       onCreated(d.data._id);
     } catch (e) { setError(e instanceof Error ? e.message : "Création impossible"); } finally { setSaving(false); }

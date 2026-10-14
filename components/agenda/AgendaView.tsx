@@ -9,7 +9,8 @@ import { MonthGrid, localDayKey } from "./CalendarGrid";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
+import { showToast } from "@/components/ui/Toast";
 async function csrf() {
   const csrfToken = await getCsrfToken();
   return csrfToken as string;
@@ -90,8 +91,7 @@ export function AgendaView() {
     if (grid) { const p = period(view, anchor); from = p.from; to = p.to; }
     else { from = new Date(); from.setHours(0, 0, 0, 0); to = new Date(from); to.setDate(to.getDate() + 90); }
     const q = new URLSearchParams({ from: from.toISOString(), to: to.toISOString(), scope });
-    fetch(`/api/agenda?${q}`, { credentials: "include" })
-      .then((r) => r.json())
+    apiJson(`/api/agenda?${q}`)
       .then((d) => setItems(d.success ? d.data : []))
       .finally(() => setLoading(false));
   }, [scope, view, anchor, grid]);
@@ -242,8 +242,7 @@ function EventDialog({ item, onClose, onSaved }: { item: Partial<AgendaItem>; on
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetch("/api/agenda/directory", { credentials: "include" })
-      .then((r) => r.json()).then((d) => d.success && setDir(d.data)).catch(() => {});
+    apiJson("/api/agenda/directory").then((d) => d.success && setDir(d.data)).catch(() => {});
   }, []);
 
   function toggleParticipant(uid: string) {
@@ -254,14 +253,14 @@ function EventDialog({ item, onClose, onSaved }: { item: Partial<AgendaItem>; on
     if (!id) return;
     setSharing(true);
     try {
-      const res = await fetch(`/api/agenda/${id}/share`, { method: "POST", credentials: "include", headers: { "x-csrf-token": await csrf() } });
-      const d = await res.json();
+      const res = await apiSend("POST", `/api/agenda/${id}/share`);
+      const d = res.data;
       if (res.ok) setShareUrl(`${window.location.origin}${d.data.path}`);
     } finally { setSharing(false); }
   }
   async function revoke() {
     if (!id) return;
-    await fetch(`/api/agenda/${id}/share`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    await apiSend("DELETE", `/api/agenda/${id}/share`);
     setShareUrl(null); setCopied(false);
   }
   function copy() {
@@ -293,8 +292,8 @@ function EventDialog({ item, onClose, onSaved }: { item: Partial<AgendaItem>; on
 
   async function remove() {
     if (!id || !(await confirmDialog({ title: "Supprimer cet événement ?", danger: true }))) return;
-    await fetch(`/api/agenda/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
-    onSaved();
+    try { await api.del(`/api/agenda/${id}`); onSaved(); }
+    catch (e) { showToast(apiErrorMessage(e, "Suppression impossible."), "error"); }
   }
 
   return (

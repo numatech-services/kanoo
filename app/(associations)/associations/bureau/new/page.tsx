@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 const ROLES: Array<[string, string]> = [
   ["president", "Président(e)"],
   ["vice_president", "Vice-Président(e)"],
@@ -51,20 +51,11 @@ export default function NewBureauMemberPage() {
     if (payload.role !== "autre") delete (payload as any).customRoleLabel;
 
     try {
-      const csrfToken = await getCsrfToken();
 
-      const res = await fetch("/api/bureau", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-csrf-token": csrfToken,
-        },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
+      const res = await apiSend("POST", "/api/bureau", payload);
 
       if (!res.ok) {
-        const errData = await res.json();
+        const errData = res.data;
         setError(errData.error || "Une erreur est survenue");
         setSaving(false);
         return;

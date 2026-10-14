@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 
+import { apiJson } from "@/lib/api-client";
 interface BureauMember { _id:string; firstName:string; lastName:string; role:string; customRoleLabel?:string; email?:string; phone?:string; mandateStart:string; mandateEnd?:string; isActive:boolean; projectIds:Array<{_id:string;code:string;name:string;executionRate:number;status:string}>; }
 
 const ROLES: Array<[string,string]> = [
@@ -20,8 +21,7 @@ export default function BureauPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/bureau", { credentials:"include" });
-    const d = await res.json();
+    const d = await apiJson("/api/bureau");
     setMembers(d.data?.items || []);
     setLoading(false);
   }, []);

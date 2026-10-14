@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 interface Approbation { _id: string; resource: string; resourceId: string; requestedBy: { firstName: string; lastName: string } | string; amount?: number; status: string; currentLevel: number; notes?: string; createdAt: string; }
 
 export default function ApprobationsPage() {
@@ -22,15 +22,13 @@ export default function ApprobationsPage() {
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     if (mineOnly) params.set("mine", "true");
     if (status) params.set("status", status);
-    const res = await fetch(`/api/approbations?${params}`, { credentials: "include" });
-    const d = await res.json(); setItems(d.data?.items || []); setTotal(d.data?.pagination?.total || 0); setLoading(false);
+    const d = await apiJson(`/api/approbations?${params}`); setItems(d.data?.items || []); setTotal(d.data?.pagination?.total || 0); setLoading(false);
   }, [page, mineOnly, status]);
   useEffect(() => { setMounted(true); load(); }, [load]);
 
   async function handleDecide() {
     if (!decideModal) return; setDeciding(true);
-    const csrfToken = await getCsrfToken();
-    const res = await fetch(`/api/approbations/${decideModal.id}/decide`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, credentials: "include", body: JSON.stringify({ decision, comment }) });
+    const res = await apiSend("POST", `/api/approbations/${decideModal.id}/decide`, { decision, comment });
     if (res.ok) { setDecideModal(null); setComment(""); load(); }
     setDeciding(false);
   }

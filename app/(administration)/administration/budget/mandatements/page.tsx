@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { FileCheck, Search, ArrowUpRight, Loader2, Landmark, Printer } from "lucide-react";
 import Link from "next/link";
 
+import { apiJson } from "@/lib/api-client";
 interface Mandat {
   _id: string;
   reference: string;
@@ -23,8 +24,7 @@ export default function MandatementsPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/budget/engagements?status=${tab}`, { credentials: "include" })
-      .then((r) => r.json())
+    apiJson(`/api/budget/engagements?status=${tab}`)
       .then((response) => {
         const data = response.data || response;
         // La liste peut renvoyer tous les engagements : on filtre par statut au cas où.

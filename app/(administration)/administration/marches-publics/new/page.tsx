@@ -5,25 +5,16 @@ import { MarcheForm } from "@/components/pme/MarcheForm";
 import { errorMessage } from "@/lib/errors";
 
 import { showToast } from "@/components/ui/Toast";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 export default function NewMarchePublicPage() {
   const router = useRouter();
 
   async function handleSave(data: Record<string, unknown>) {
     try {
-      const csrfToken = await getCsrfToken();
 
-      const res = await fetch("/api/marches", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-csrf-token": csrfToken
-        },
-        credentials: "include",
-        body: JSON.stringify(data)
-      });
+      const res = await apiSend("POST", "/api/marches", data);
 
-      const d = await res.json();
+      const d = res.data;
       if (!res.ok) throw new Error(d.error || "Erreur lors de la création");
 
       router.push("/administration/marches-publics");

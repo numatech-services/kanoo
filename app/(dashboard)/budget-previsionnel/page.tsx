@@ -15,7 +15,7 @@ import {
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiJson, apiSend } from "@/lib/api-client";
 interface Profile { label: string; weights: number[] }
 
 interface Payload {
@@ -57,8 +57,7 @@ export default function BudgetPrevisionnelPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch(`/api/budget-previsionnel?year=${year}`, { credentials: "include" })
-      .then(r => r.json())
+    apiJson(`/api/budget-previsionnel?year=${year}`)
       .then(d => {
         if (!d.success) throw new Error(d.error || "Lecture impossible");
         setData(d.data);
@@ -105,7 +104,7 @@ export default function BudgetPrevisionnelPage() {
               <button onClick={() => setEditOpen(true)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Réviser</button>
               <button onClick={async () => {
                 if (!(await confirmDialog({ title: `Supprimer le budget ${year} ?`, message: `Le réalisé comptable n'est pas touché.`, danger: true }))) return;
-                const res = await fetch(`/api/budget-previsionnel?year=${year}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+                const res = await apiSend("DELETE", `/api/budget-previsionnel?year=${year}`);
                 if (res.ok) load(); else setError("Suppression impossible");
               }} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50" title="Supprimer le budget"><Trash2 size={15} /></button>
             </>
