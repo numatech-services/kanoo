@@ -181,17 +181,17 @@ export async function briefCandidates(auth: TokenPayload, can: Can, now = new Da
 
   // Appels d'offres dont la date limite de dépôt approche (14 jours).
   if (can("appels")) await safe(async () => {
-    const open = await AppelCandidatureModel.find({ tenantId: tid, status: { $in: OPEN_APPEL_STATUSES },
+    const open = await AppelCandidatureModel.find({ tenantId: tid, status: { $in: OPEN_APPEL_STATUSES }, "goNoGo.decision": { $ne: "no_go" },
       submissionDeadline: { $gte: new Date(new Date(now).setHours(0, 0, 0, 0)), $lte: new Date(now.getTime() + 14 * DAY) } })
-      .sort({ submissionDeadline: 1 }).select("title estimatedAmount submissionDeadline requiredDocuments")
-      .lean<Array<{ _id: unknown; title: string; estimatedAmount?: number; submissionDeadline: Date; requiredDocuments?: Array<{ provided: boolean }> }>>();
+      .sort({ submissionDeadline: 1 }).select("title estimatedAmount submissionDeadline requiredDocuments goNoGo.decision")
+      .lean<Array<{ _id: unknown; title: string; estimatedAmount?: number; submissionDeadline: Date; requiredDocuments?: Array<{ provided: boolean }>; goNoGo?: { decision: string } }>>();
     if (open.length) {
       const first = open[0], left = daysUntil(first.submissionDeadline, now);
       const missing = (first.requiredDocuments ?? []).filter(d => !d.provided).length;
       const when = left === 0 ? "aujourd'hui" : left === 1 ? "demain" : `dans ${left} jours`;
       out.push({ kind: "tender_deadline", amount: first.estimatedAmount || undefined, daysLeft: left,
         title: open.length > 1 ? `Préparer ${plural(open.length, "dossier")} d'appel d'offres` : `Déposer « ${first.title} »`,
-        why: `Dépôt ${when}${open.length > 1 ? ` pour « ${first.title} »` : ""}${missing ? `, ${plural(missing, "pièce")} encore à réunir` : ", dossier complet"}.`,
+        why: `Dépôt ${when}${open.length > 1 ? ` pour « ${first.title} »` : ""}${missing ? `, ${plural(missing, "pièce")} encore à réunir` : ", dossier complet"}${first.goNoGo ? "" : " ; décision Go/No-Go à prendre"}.`,
         href: open.length > 1 ? "/appels" : `/appels/${String(first._id)}`, cta: "Ouvrir le dossier" });
     }
   });

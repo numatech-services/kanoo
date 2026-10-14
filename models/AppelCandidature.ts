@@ -29,6 +29,8 @@ export interface IAppelCandidature {
   contractId?: Types.ObjectId;
   projectId?: Types.ObjectId;
   notes?: string;
+  /** Décision de répondre ou non (grille pondérée, lib/go-no-go). */
+  goNoGo?: { scores: Record<string, number>; score: number; decision: "go" | "review" | "no_go"; note?: string; decidedAt: Date; decidedBy: Types.ObjectId };
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -51,6 +53,14 @@ const AppelSchema = new Schema<IAppelCandidature>({
   contractId: { type: Schema.Types.ObjectId, ref: "Contract" },
   projectId: { type: Schema.Types.ObjectId, ref: "Project" },
   notes: String,
+  goNoGo: {
+    scores: { type: Schema.Types.Mixed },
+    score: Number,
+    decision: { type: String, enum: ["go", "review", "no_go"] },
+    note: { type: String, maxlength: 2000 },
+    decidedAt: Date,
+    decidedBy: { type: Schema.Types.ObjectId, ref: "User" },
+  },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: true });
 

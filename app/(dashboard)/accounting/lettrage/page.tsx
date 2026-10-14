@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Link2, Unlink } from "lucide-react";
+import { ArrowLeft, Link2, Unlink, Wand2 } from "lucide-react";
 import { selectCls } from "@/components/ui/FormField";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
@@ -38,6 +38,20 @@ export default function LettragePage() {
     setMsg({ ok: res.ok, text: res.ok ? d.data.message : d.error });
     if (res.ok) load();
   }
+  /** Lettrage automatique : proposition d'abord, application après accord. */
+  async function autoLetter() {
+    if (account.length < 2) { setMsg({ ok: false, text: "Choisissez un compte précis (411, 401…)." }); return; }
+    const dry = await apiSend("POST", "/api/accounting-entries/lettrage/auto", { account });
+    if (!dry.ok) { setMsg({ ok: false, text: dry.data?.error ?? "Proposition impossible." }); return; }
+    const p = dry.data.data as { proposed: number; entries: number; byRule: Record<string, number> };
+    if (!p.proposed) { setMsg({ ok: true, text: "Rien à lettrer automatiquement : les écritures restantes ne se soldent pas entre elles." }); return; }
+    const RULES: Record<string, string> = { reversal: "écriture et son extourne", document: "même facture ou même achat", amount: "même montant, même tiers", balance: "solde nul du tiers" };
+    const detail = Object.entries(p.byRule).map(([k, n]) => `${n} × ${RULES[k] ?? k}`).join(", ");
+    if (!(await confirmDialog({ title: `Lettrer ${p.entries} écritures en ${p.proposed} groupes ?`, message: `Chaque groupe se solde exactement (${detail}). Un lettrage se défait à tout moment.`, confirmLabel: "Lettrer" }))) return;
+    const res = await apiSend("POST", "/api/accounting-entries/lettrage/auto", { account, apply: true });
+    setMsg({ ok: res.ok, text: res.ok ? `${res.data.data.applied} lettrage(s) passé(s).` : res.data?.error ?? "Lettrage refusé." });
+    if (res.ok) load();
+  }
   async function unletter(ref: string) {
     if (!(await confirmDialog({ title: `Délettrer ${ref} ?` }))) return;
     const res = await apiSend("DELETE", `/api/accounting-entries/lettrage?ref=${encodeURIComponent(ref)}`);
@@ -72,7 +86,10 @@ export default function LettragePage() {
       {state === "open" && (
         <div className="sticky top-0 z-10 bg-surface rounded-xl border border-line p-3 flex items-center justify-between flex-wrap gap-2">
           <p className="text-sm">{selected.size} sélectionnée(s) · Débit <b className="font-mono">{fmt(sumD)}</b> · Crédit <b className="font-mono">{fmt(sumC)}</b> · Écart <b className={`font-mono ${sumD === sumC ? "text-pos" : "text-neg"}`}>{fmt(sumD - sumC)}</b></p>
-          <button onClick={letter} disabled={selected.size < 2 || sumD !== sumC} className={buttonClass("primary", "md")}><Link2 size={15} /> Lettrer</button>
+          <div className="flex gap-2">
+            <button onClick={autoLetter} className={buttonClass("secondary", "md")}><Wand2 size={15} /> Lettrage automatique</button>
+            <button onClick={letter} disabled={selected.size < 2 || sumD !== sumC} className={buttonClass("primary", "md")}><Link2 size={15} /> Lettrer</button>
+          </div>
         </div>
       )}
       <div className="bg-surface rounded-xl border border-line overflow-x-auto">

@@ -13,6 +13,7 @@ export interface Appel {
   _id: string; title: string; organism?: string; reference?: string;
   submissionDeadline?: string; status: string; estimatedAmount: number;
   requiredDocuments?: { label: string; provided: boolean }[];
+  goNoGo?: { decision: "go" | "review" | "no_go"; score: number };
 }
 
 export const APPEL_STATUS: Record<string, { label: string; cls: string }> = {
@@ -89,6 +90,7 @@ export default function AppelsListPage() {
                   <span className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-ink truncate">{a.title}</span>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>
+                    {a.goNoGo && <span title={`Go/No-Go : ${a.goNoGo.score}/100`} className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${a.goNoGo.decision === "go" ? "bg-pos-50 text-pos border-pos/25" : a.goNoGo.decision === "no_go" ? "bg-neg-50 text-neg border-neg/25" : "bg-warn-50 text-warn border-warn/25"}`}>{a.goNoGo.decision === "go" ? "Go" : a.goNoGo.decision === "no_go" ? "No-Go" : "À arbitrer"} · {a.goNoGo.score}</span>}
                   </span>
                   <span className="text-xs text-ink2">{a.organism || "—"}{a.reference ? ` · ${a.reference}` : ""}{req.length > 0 ? ` · pièces ${done}/${req.length}` : ""}</span>
                 </span>

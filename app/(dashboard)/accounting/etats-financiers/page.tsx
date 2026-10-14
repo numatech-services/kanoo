@@ -15,6 +15,7 @@ interface Data {
   incomeStatement: { lines: Line[]; resultat: number; unclassified: number };
   incomeStatementPrev: { lines: Line[] };
   cashFlow: { lines: Line[]; gap: number };
+  warnings: string[];
   notes: {
     fixedAssets: Array<{ label: string; opening: number; acquisitions: number; disposals: number; closing: number }>;
     depreciation: Array<{ label: string; opening: number; charges: number; reversals: number; closing: number }>;
@@ -86,6 +87,7 @@ export default function FinancialStatementsPage() {
             <span className={`inline-flex items-center gap-1.5 ${d.cashFlow.gap === 0 ? "text-pos" : "text-neg"}`}>{d.cashFlow.gap === 0 ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />} Flux de trésorerie {d.cashFlow.gap === 0 ? "rapprochés de la trésorerie" : `: écart de ${fmt(d.cashFlow.gap)}`}</span>
             {d.incomeStatement.unclassified !== 0 && <span className="inline-flex items-center gap-1.5 text-warn"><AlertTriangle size={15} /> {fmt(d.incomeStatement.unclassified)} sur des comptes hors nomenclature</span>}
             {!d.closed && <span className="text-ink2">Exercice non clôturé : états provisoires.</span>}
+            {d.warnings.map(w => <span key={w} className="w-full inline-flex items-center gap-1.5 text-warn"><AlertTriangle size={15} /> {w}</span>)}
           </section>
           <div className="flex gap-2 flex-wrap">{TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={buttonClass(tab === k ? "primary" : "secondary", "sm")}>{l}</button>)}</div>
           <section className="surface-card overflow-hidden">

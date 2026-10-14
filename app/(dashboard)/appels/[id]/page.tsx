@@ -12,6 +12,7 @@ import { showToast } from "@/components/ui/Toast";
 import {apiJson, apiSend } from "@/lib/api-client";
 import { formatMoney } from "@/lib/format";
 import { GUARANTEE_TYPES } from "@/lib/guarantees";
+import { GoNoGoPanel } from "@/components/appels/GoNoGoPanel";
 interface ReqDoc { _id?: string; label: string; provided: boolean }
 interface Doc { _id: string; name?: string; dataUri?: string }
 interface Appel {
@@ -164,6 +165,9 @@ export default function AppelDetailPage() {
           <span className={`text-sm ${dl.cls}`}>{dl.text}</span>
         </div>
       )}
+
+      <GoNoGoPanel appelId={String(id)} editable={!terminal && meCanDo(me, "appels", "update")}
+        onDecision={async d => { if (d === "no_go" && a.status !== "cancelled" && await confirmDialog({ title: "Abandonner cet appel ?", message: "Décision No-Go : l'appel passe à « Annulé » et ne fera plus l'objet de rappels.", confirmLabel: "Abandonner" })) patch({ status: "cancelled" }); }} />
 
       {/* Cautions bancaires */}
       <section className="surface-card p-5 space-y-2">

@@ -242,7 +242,7 @@ export const CRON_JOBS: CronJob[] = [
     cadence: "daily", schedule: "45 7 * * *",
     run: async () => {
       const now = new Date();
-      const open = await AppelCandidatureModel.find({ status: { $in: OPEN_APPEL_STATUSES },
+      const open = await AppelCandidatureModel.find({ status: { $in: OPEN_APPEL_STATUSES }, "goNoGo.decision": { $ne: "no_go" },
         submissionDeadline: { $gte: new Date(new Date(now).setHours(0, 0, 0, 0)), $lte: new Date(now.getTime() + 8 * 86400000) } })
         .lean<Array<{ _id: Id; tenantId: Id; title: string; reference?: string; organism?: string; submissionDeadline: Date; requiredDocuments?: Array<{ provided: boolean }>; createdBy?: Id }>>();
       let sent = 0;

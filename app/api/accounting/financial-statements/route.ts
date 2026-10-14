@@ -42,8 +42,14 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
       },
     });
   }
+  // Contrôles de vraisemblance : un compte qui ne peut pas avoir ce sens de solde.
+  const warnings: string[] = [];
+  const stock = fs.balances.filter(r => /^3[0-8]/.test(r.code)).reduce((t, r) => t + r.debit - r.credit, 0);
+  if (stock < 0) warnings.push(`Stocks créditeurs (${stock.toLocaleString("fr-FR")} FCFA) : passez la variation de stock de fin de période (Comptabilité › Écritures, bouton « Variation de stock »).`);
+  const cashNegative = fs.balances.filter(r => /^57/.test(r.code) && r.debit - r.credit < 0);
+  if (cashNegative.length) warnings.push(`Caisse créditrice (${cashNegative.map(r => r.code).join(", ")}) : une caisse ne peut pas être négative, vérifiez les saisies.`);
   // Soldes et mouvements bruts : utiles aux notes, trop lourds pour l'écran.
   const statements: Partial<typeof fs> = { ...fs };
   delete statements.balances; delete statements.balancesPrev; delete statements.movements;
-  return ok({ ...statements, notes });
+  return ok({ ...statements, notes, warnings });
 });
