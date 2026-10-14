@@ -6,12 +6,12 @@ import { DeliveryLotModel } from "@/models/DeliveryLot";
 import { InvoiceModel } from "@/models/Invoice";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { canInvoice, isFullyCompleted } from "@/lib/framework-order";
-import { computeInvoiceLines, saleEntryLines } from "@/lib/invoice-entry";
-import { AccountingEntryModel } from "@/models/AccountingEntry";
+import { computeInvoiceLines } from "@/lib/invoice-entry";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
+import { postInvoice } from "@/lib/invoice-posting";
 export const dynamic = "force-dynamic";
 
 /**
@@ -69,12 +69,8 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
       createdBy: auth.userId,
     }], { session });
 
-    await AccountingEntryModel.create([{
-      tenantId: auth.tenantId, journalCode: "VT", entryDate: issueDate, reference: number,
-      label: `Facture lot ${lot.reference} — marché ${order.reference}`,
-      lines: await saleEntryLines(auth.tenantId, { clientId: order.clientId, lines, totalTVA, totalDTS, totalTTC }, session),
-      linkedDocType: "invoice", linkedDocId: inv._id, createdBy: auth.userId,
-    }], { session });
+    // Facture émise d'emblée : comptabilisée tout de suite, par le chemin commun.
+    await postInvoice({ tenantId: auth.tenantId, userId: auth.userId }, inv, session);
 
     await DeliveryLotModel.updateOne({ _id: lot._id },
       { $set: { status: "invoiced", invoiceId: inv._id } }, { session });

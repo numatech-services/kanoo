@@ -76,7 +76,7 @@ export async function gatherReportContext(auth: TokenPayload): Promise<ReportCon
     stats["Projets en cours"] = projets;
   } else {
     // PME et administration : activité commerciale / facturation.
-    const salesMatch = { tenantId, documentType: { $ne: "credit_note" }, issueDate: { $gte: yearStart, $lt: yearEnd } };
+    const salesMatch = { tenantId, documentType: { $ne: "credit_note" }, status: { $nin: ["cancelled", "draft"] }, issueDate: { $gte: yearStart, $lt: yearEnd } };
     const [caFacture, encaisse, nbFactures, nbDevis, nbClients, impayes] = await Promise.all([
       safe(() => sum(InvoiceModel, salesMatch, "$totalTTC"), 0),
       safe(() => sum(InvoiceModel, salesMatch, "$paidAmount"), 0),

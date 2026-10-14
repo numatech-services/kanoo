@@ -32,7 +32,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   // Un avoir est stocké avec des montants positifs dans la même collection :
   // sans ce signe, il gonflerait le chiffre d'affaires au lieu de le réduire.
   const invoicesByMonth = await InvoiceModel.aggregate([
-    { $match: { ...filter, issueDate: { $gte: startDate }, status: { $ne: "cancelled" } } },
+    { $match: { ...filter, issueDate: { $gte: startDate }, status: { $nin: ["cancelled", "draft"] } } },
     { $addFields: {
       sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] },
     }},
@@ -88,7 +88,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   // ── KPIs globaux ─────────────────────────────────────────────────────────
   const [totalCA, totalEncaisse, clientActifs, facInRetard] = await Promise.all([
     InvoiceModel.aggregate([
-      { $match: { ...filter, issueDate: { $gte: startDate }, status: { $ne: "cancelled" } } },
+      { $match: { ...filter, issueDate: { $gte: startDate }, status: { $nin: ["cancelled", "draft"] } } },
       { $addFields: { sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] } } },
       { $addFields: { signedTTC: { $multiply: ["$totalTTC", "$sign"] } } },
       { $group: { _id: null, sum: { $sum: "$signedTTC" } } }
@@ -110,7 +110,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
 
   // ── Top clients (par CA sur la période) ──────────────────────────────────
   const topClients = await InvoiceModel.aggregate([
-    { $match: { ...filter, issueDate: { $gte: startDate }, status: { $ne: "cancelled" } } },
+    { $match: { ...filter, issueDate: { $gte: startDate }, status: { $nin: ["cancelled", "draft"] } } },
       { $addFields: { sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] } } },
       { $addFields: { signedTTC: { $multiply: ["$totalTTC", "$sign"] } } },
     { $group: {

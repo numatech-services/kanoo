@@ -43,7 +43,7 @@ async function getStats(allowed: Allowed, tenantId: string): Promise<Stats | nul
       // Chaque requête n'est lancée que si le rôle peut lire la donnée : on ne
       // calcule pas ce qu'on n'affichera pas.
       !allowed.invoices ? [] : InvoiceModel.aggregate([
-        { $match: { ...tf, issueDate: { $gte: startOfYear }, status: { $ne: "cancelled" } } },
+        { $match: { ...tf, issueDate: { $gte: startOfYear }, status: { $nin: ["cancelled", "draft"] } } },
         { $addFields: { sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] } } },
         { $group: { _id: null, total: { $sum: { $multiply: ["$totalTTC", "$sign"] } } } },
       ]),
@@ -69,7 +69,7 @@ async function getStats(allowed: Allowed, tenantId: string): Promise<Stats | nul
         { $sort: { "_id.y": 1, "_id.m": 1 } },
       ]),
       !allowed.invoices ? [] : InvoiceModel.aggregate([
-        { $match: { ...tf, issueDate: { $gte: startOfYear }, status: { $ne: "cancelled" } } },
+        { $match: { ...tf, issueDate: { $gte: startOfYear }, status: { $nin: ["cancelled", "draft"] } } },
         { $addFields: { sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] } } },
         { $group: {
           _id: { m: { $month: "$issueDate" } },

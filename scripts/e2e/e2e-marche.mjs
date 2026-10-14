@@ -71,8 +71,7 @@ const id = r => D(r)?._id;
   const dep = await g.req("POST", `/api/contracts/${mc}/invoice`, { milestoneId: ct.milestones[0]._id });
   const depInv = D(dep).invoice;
   check("facture d'acompte : 300 000 HT, nature acompte, rattachée au marché", dep.status === 201 && depInv?.kind === "deposit" && depInv.totalHT === 300000 && depInv.contractId === mc, `${dep.status} ${J(dep.data).slice(0, 200)}`);
-  const depEntry = await balanced(depInv.number);
-  check("écriture d'acompte équilibrée, avance en 419, pas de produit", depEntry && depEntry.lines.some(l => l.accountCode === "419000" && l.credit === 300000) && !depEntry.lines.some(l => /^7/.test(l.accountCode)), J(depEntry?.lines));
+  check("brouillon d'acompte : pas encore d'écriture", !(await balanced(depInv.number)));
   check("même échéance refacturée : refusée", (await g.req("POST", `/api/contracts/${mc}/invoice`, { milestoneId: ct.milestones[0]._id })).status === 400);
   check("acompte au-delà du reste : refusé", (await g.req("POST", `/api/contracts/${mc}/invoice`, { mode: "deposit", amountHT: 800000 })).status === 400);
   let f = await fin(mc);
@@ -98,6 +97,10 @@ const id = r => D(r)?._id;
   const sol = await g.req("POST", `/api/contracts/${mc}/invoice`, { milestoneId: ct.milestones[1]._id });
   const solInv = D(sol).invoice;
   check("facture du solde : travaux 1 000 000 − acompte 300 000 = 700 000 HT net (l'échéance)", sol.status === 201 && solInv?.totalHT === 700000 && solInv.lines.some(l => l.kind === "deposit_deduction" && l.totalHT === -300000) && solInv.lines.some(l => l.kind !== "deposit_deduction" && l.totalHT === 1000000), `${sol.status} ${J(sol.data).slice(0, 200)}`);
+  // Émettre le solde émet aussi l'acompte qu'il déduit, resté au brouillon.
+  check("facture du solde émise", (await g.req("POST", `/api/invoices/${solInv._id}/send`)).status < 300);
+  const depEntry = await balanced(depInv.number);
+  check("acompte émis avec le solde : écriture équilibrée, avance en 419, pas de produit", depEntry && depEntry.lines.some(l => l.accountCode === "419000" && l.credit === 300000) && !depEntry.lines.some(l => /^7/.test(l.accountCode)), J(depEntry?.lines));
   const solEntry = await balanced(solInv.number);
   check("écriture équilibrée : 706 1 000 000 au crédit imputé au projet, 419 300 000 au débit", solEntry && solEntry.lines.some(l => l.accountCode === "706000" && l.credit === 1000000 && l.projectId === prj) && solEntry.lines.some(l => l.accountCode === "419000" && l.debit === 300000), J(solEntry?.lines));
   f = await fin(mc);
@@ -109,7 +112,6 @@ const id = r => D(r)?._id;
   check("encaissement de l'acompte reflété", pay.status < 300 && f.billing.collectedTTC === depInv.totalTTC, `${pay.status} ${f.billing.collectedTTC}`);
 
   console.log("\n▶ Avoir total sur le solde");
-  check("facture du solde émise", (await g.req("POST", `/api/invoices/${solInv._id}/send`)).status < 300);
   const cn = await g.req("POST", `/api/invoices/${solInv._id}/credit-note`, { mode: "full", reason: "Erreur de montant" });
   check("avoir total émis", cn.status === 201, `${cn.status} ${J(cn.data).slice(0, 150)}`);
   const cnEntry = await balanced(D(cn).creditNote?.number ?? "x");

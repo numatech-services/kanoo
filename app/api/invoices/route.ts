@@ -3,10 +3,9 @@ import { connectDB } from "@/lib/db";
 import { Types } from "mongoose";
 import { withAuth, created, badRequest, notFound, paginatedResponse, getPagination, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
-import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { ClientModel } from "@/models/Client";
 import { logAudit } from "@/lib/audit";
-import { computeInvoiceLines, saleEntryLines } from "@/lib/invoice-entry";
+import { computeInvoiceLines } from "@/lib/invoice-entry";
 import { pickImputation, checkImputations } from "@/lib/imputation";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { withTransaction } from "@/lib/db";
@@ -64,7 +63,7 @@ export const GET = withAuth("invoices", "read", async (req: NextRequest, auth: T
   return paginatedResponse(items, total, pagination);
 });
 
-// POST /api/invoices — Créer + écritures comptables automatiques
+// POST /api/invoices — Créer un brouillon (comptabilisé à l'émission)
 export const POST = withAuth("invoices", "create", async (req: NextRequest, auth: TokenPayload) => {
   const body = await req.json();
   const missing = requireFields(body, ["clientId", "lines", "issueDate", "dueDate"]);
@@ -103,24 +102,8 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
       { session }
     );
 
-    // 2. Écriture comptable automatique (VT — journal Ventes).
-    // L'équilibre est garanti par construction : le débit est la somme des
-    // trois crédits, tous entiers.
-    await AccountingEntryModel.create(
-      [{
-        tenantId: auth.tenantId,
-        journalCode: "VT",
-        entryDate: new Date(body.issueDate),
-        reference: number,
-        label: `Facture client ${client.name} — ${number}`,
-        lines: await saleEntryLines(auth.tenantId, { clientId: client._id, lines, totalTVA, totalDTS, totalTTC, ...imp }, session),
-        linkedDocType: "invoice",
-        linkedDocId: invoice._id,
-        createdBy: auth.userId,
-      }],
-      { session }
-    );
-
+    // Pas d'écriture au brouillon : la facture est comptabilisée à son
+    // émission (lib/invoice-posting).
     return invoice;
   });
 

@@ -3,7 +3,7 @@
  *
  * Cas connu : les factures de lots de marchés-cadres, créées sans écriture
  * jusqu'au correctif d'octobre 2026 — leur règlement creusait le compte 411.
- * Le script crée, pour chaque facture non annulée sans écriture VT active,
+ * Le script crée, pour chaque facture émise (ni brouillon ni annulée) sans écriture VT active,
  * l'écriture de vente à la date de la facture (411 / 70x / 443 / 447).
  *
  * Par défaut, il SIMULE et affiche la liste. Pour écrire : ajouter --apply.
@@ -29,7 +29,7 @@ async function run() {
   const { AccountingEntryModel } = await import("../models/AccountingEntry");
   const { saleEntryLines } = await import("../lib/invoice-entry");
 
-  const invoices = await InvoiceModel.find({ documentType: { $ne: "credit_note" }, status: { $ne: "cancelled" } })
+  const invoices = await InvoiceModel.find({ documentType: { $ne: "credit_note" }, status: { $nin: ["cancelled", "draft"] } })
     .select("tenantId number clientId lines totalTVA totalDTS totalTTC projectId activityId kind issueDate createdBy").lean<Array<{
       _id: mongoose.Types.ObjectId; tenantId: mongoose.Types.ObjectId; number: string; clientId: unknown;
       lines: Array<{ productId?: unknown; totalHT: number; kind?: string }>; totalTVA: number; totalDTS?: number; totalTTC: number;

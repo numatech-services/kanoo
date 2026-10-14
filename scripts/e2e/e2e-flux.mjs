@@ -96,6 +96,9 @@ const id = r => D(r)?._id;
   check("modification : client d'une autre organisation refusé", (await g.req("PATCH", `/api/contracts/${ctId}`, { clientId: "000000000000000000000000" })).status === 400);
   const gen = await g.req("POST", `/api/contracts/${ctId}/generate-invoice`);
   const inv = D(gen).invoice;
+  check("facture de contrat créée en brouillon, sans écriture", inv?.status === "draft"
+    && !(D(await g.req("GET", `/api/accounting-entries?search=${encodeURIComponent(inv?.number ?? "x")}`)).items ?? []).length);
+  await g.req("POST", `/api/invoices/${inv?._id}/send`);
   const vt = (D(await g.req("GET", `/api/accounting-entries?search=${encodeURIComponent(inv?.number ?? "x")}`)).items ?? [])[0];
   const deb = vt?.lines?.reduce((t, l) => t + l.debit, 0), cred = vt?.lines?.reduce((t, l) => t + l.credit, 0);
   check("facture depuis un contrat : écriture équilibrée, timbre en 447", gen.status === 200 && vt && deb === cred && deb === inv.totalTTC && (inv.totalDTS === 0 || vt.lines.some(l => l.accountCode === "447000")), `${gen.status} ${deb}/${cred} TTC ${inv?.totalTTC} DTS ${inv?.totalDTS}`);

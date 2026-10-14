@@ -111,7 +111,10 @@ const id = r => D(r)?._id;
   const inv = await g.req("POST", "/api/invoices", { clientId: client._id, issueDate: today, dueDate: today, projectId: prj, activityId: sector,
     lines: [{ description: "Conception campagne", quantity: 1, unitPrice: 300000, tvaRate: 0.19 }, { productId: prod._id, description: "Clavier USB", quantity: 2, unitPrice: 8000, tvaRate: 0.19 }] });
   check("facture de vente imputée au projet et au secteur", inv.status === 201, `${inv.status} ${J(inv.data).slice(0, 150)}`);
-  const pf = D(await g.req("GET", `/api/projects/${prj}`));
+  let pf = D(await g.req("GET", `/api/projects/${prj}`));
+  check("brouillon : aucune recette comptabilisée", pf.finance?.revenue === 0, J(pf.finance));
+  check("émission de la facture", (await g.req("POST", `/api/invoices/${D(inv)._id}/send`)).status === 200);
+  pf = D(await g.req("GET", `/api/projects/${prj}`));
   check("coût réel du projet = charges imputées (70 000)", pf.finance?.cost === 70000, J(pf.finance));
   check("recettes du projet = CA HT imputé (316 000)", pf.finance?.revenue === 316000, J(pf.finance));
   const rep = D(await g.req("GET", "/api/analytics/report"));

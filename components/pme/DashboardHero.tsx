@@ -70,7 +70,7 @@ async function getHero(auth: TokenPayload): Promise<Hero | null> {
         } } },
       ]),
       InvoiceModel.countDocuments({
-        ...tf, documentType: "invoice", issueDate: { $gte: startOfMonth }, status: { $ne: "cancelled" },
+        ...tf, documentType: "invoice", issueDate: { $gte: startOfMonth }, status: { $nin: ["cancelled", "draft"] },
       }),
     ]);
 

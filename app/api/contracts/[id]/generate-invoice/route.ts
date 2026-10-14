@@ -3,13 +3,11 @@ import { connectDB } from "@/lib/db";
 import { withAuth, forbidden, ok, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
 import { ContractModel } from "@/models/Contract";
 import { InvoiceModel } from "@/models/Invoice";
-import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
 import { calculerTVA, calculerDTS, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
-import { saleEntryLines } from "@/lib/invoice-entry";
 import { authCan } from "@/lib/role-resources";
 
 export const POST = withAuth("contracts", "update", async (_req: NextRequest, auth: TokenPayload, params) => {
@@ -70,15 +68,7 @@ export const POST = withAuth("contracts", "update", async (_req: NextRequest, au
     contract.nextBillingDate = nextDate;
     await contract.save({ session });
 
-    // Même écriture que toute facture : 411 = produits + TVA + droits de timbre (447),
-    // sinon l'écriture est déséquilibrée dès qu'il y a un timbre.
-    await AccountingEntryModel.create([{
-      tenantId: auth.tenantId, journalCode: "VT", entryDate: issueDate,
-      reference: number, label: `Facture contrat ${contract.reference}`,
-      lines: await saleEntryLines(auth.tenantId, { clientId: contract.clientId, lines: [{ totalHT }], totalTVA, totalDTS, totalTTC, ...(contract.projectId ? { projectId: contract.projectId } : {}) }, session),
-      linkedDocType: "invoice", linkedDocId: invoice._id, createdBy: auth.userId,
-    }], { session });
-
+    // Brouillon : l'écriture de vente sera passée à l'émission.
     return invoice;
   });
 

@@ -3,13 +3,11 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, conflict, forbidden, tenantFilter } from "@/lib/api-helpers";
 import { DevisModel } from "@/models/Devis";
 import { InvoiceModel } from "@/models/Invoice";
-import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
 import { calculerDTS } from "@/lib/niger-fiscal";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
-import { saleEntryLines } from "@/lib/invoice-entry";
 import { authCan } from "@/lib/role-resources";
 
 // POST /api/devis/:id/to-invoice
@@ -73,17 +71,7 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
     devis.status = "accepted";
     await devis.save({ session });
 
-    // Écriture de vente commune (produits par article, TVA, timbre 447), imputée au projet du devis.
-    await AccountingEntryModel.create([{
-      tenantId: auth.tenantId, journalCode: "VT", entryDate: issueDate,
-      reference: number, label: `Facture client — convertie du devis ${devis.number}`,
-      lines: await saleEntryLines(auth.tenantId, {
-        clientId: devis.clientId, lines: devis.lines, totalTVA: devis.totalTVA, totalDTS, totalTTC: invoice.totalTTC,
-        ...(devis.projectId ? { projectId: devis.projectId } : {}),
-      }, session),
-      linkedDocType: "invoice", linkedDocId: invoice._id, createdBy: auth.userId,
-    }], { session });
-
+    // Brouillon : l'écriture de vente sera passée à l'émission.
     return invoice;
   });
 

@@ -1,9 +1,8 @@
 import { Types, type ClientSession } from "mongoose";
 import { InvoiceModel } from "@/models/Invoice";
 import { ContractModel } from "@/models/Contract";
-import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { ClientModel } from "@/models/Client";
-import { computeInvoiceLines, saleEntryLines, type InvoiceLineIn } from "@/lib/invoice-entry";
+import { computeInvoiceLines, type InvoiceLineIn } from "@/lib/invoice-entry";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { BusinessRuleError } from "@/lib/errors";
@@ -144,12 +143,7 @@ export async function invoiceMarket(auth: TokenPayload, contract: MarketContract
     if (!r.modifiedCount) throw new MarketError("Un acompte vient d'être déduit ailleurs : recommencez.");
   }
 
-  await AccountingEntryModel.create([{
-    tenantId: auth.tenantId, journalCode: "VT", entryDate: issueDate, reference: number,
-    label: `${mode === "deposit" ? "Acompte" : "Facture"} marché ${contract.reference} — ${client.name}`,
-    lines: await saleEntryLines(auth.tenantId, { clientId: contract.clientId, lines, totalTVA, totalDTS, totalTTC, kind: mode, ...(contract.projectId ? { projectId: contract.projectId } : {}) }, session),
-    linkedDocType: "invoice", linkedDocId: invoice._id, createdBy: auth.userId,
-  }], { session });
+  // Brouillon : comptabilisé à l'émission (lib/invoice-posting), avec ses acomptes.
 
   contract.invoiceIds.push(invoice._id);
   contract.lastBilledDate = issueDate;

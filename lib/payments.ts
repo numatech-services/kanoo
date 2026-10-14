@@ -3,6 +3,7 @@ import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { TokenPayload } from "@/lib/auth";
 import { ledgerFor, treasuryKind } from "@/lib/treasury";
 
+import { issueInvoice } from "@/lib/invoice-posting";
 /**
  * Applique les effets comptables d'un encaissement EFFECTIF : solde de la
  * facture, écriture comptable (BQ/CA), et mouvement de trésorerie si un compte
@@ -20,6 +21,9 @@ export function invoiceDue(inv: { totalTTC: number; paidAmount?: number; credite
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function applyPaymentEffects(payment: any, invoice: any, auth: TokenPayload, session: any) {
   const amount = payment.amount;
+  // Un règlement reçu sur un brouillon vaut émission : la facture est
+  // comptabilisée avant que son règlement ne solde le compte client.
+  if (invoice.status === "draft") await issueInvoice({ tenantId: auth.tenantId, userId: auth.userId }, invoice, session);
   invoice.paidAmount += amount;
   invoice.status = invoiceDue(invoice) <= 1 ? "paid" : "partial";
   await invoice.save({ session });

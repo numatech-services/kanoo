@@ -70,7 +70,7 @@ export const GET = withAuth("clients", "read", async (_req: NextRequest, auth: T
     gated(seeInvoices,
       () =>
         InvoiceModel.aggregate<{ _id: null; invoiced: number; paid: number; outstanding: number }>([
-          { $match: { ...tf, clientId, documentType: { $ne: "credit_note" } } },
+          { $match: { ...tf, clientId, documentType: { $ne: "credit_note" }, status: { $nin: ["cancelled", "draft"] } } },
           {
             $group: {
               _id: null,
