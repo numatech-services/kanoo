@@ -12,7 +12,12 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { confirmDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
+import { api, apiErrorMessage } from "@/lib/api-client";
+import { formatMoney } from "@/lib/format";
 interface Account {
+  ledgerCode?: string;
   _id: string;
   type: string;
   label: string;
@@ -44,6 +49,22 @@ export default function TreasuryPage() {
   const [saving, setSaving] = useState(false);
   const me = useMe();
   const canEdit = meCanDo(me, "treasuryAccounts", "update");
+
+  // Compte ancien : un compte comptable dédié, avec reclassement de son solde
+  // depuis le compte général (521000 / 571000).
+  async function dedicate(a: Account) {
+    const ok = await confirmDialog({
+      title: `Attribuer un compte comptable dédié à « ${a.label} » ?`,
+      message: "Ses prochaines opérations seront écrites sur son propre compte, et son solde comptable actuel y sera reclassé par une écriture d'OD. Le grand livre suivra alors ce compte séparément.",
+      confirmLabel: "Attribuer",
+    });
+    if (!ok) return;
+    try {
+      const r = await api.patch<{ ledgerCode: string; reclassed: number }>(`/api/treasury-accounts/${a._id}`, { assignLedgerCode: true });
+      showToast(`Compte ${r.ledgerCode} attribué${r.reclassed ? `, ${formatMoney(Math.abs(r.reclassed))} reclassés` : ""}.`, "success");
+      reload();
+    } catch (e) { showToast(apiErrorMessage(e, "Attribution impossible."), "error"); }
+  }
   const [showInactive, setShowInactive] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [listing, setListing] = useState<Account | null>(null);
@@ -166,6 +187,11 @@ export default function TreasuryPage() {
 
                 <p className="text-[11px] text-ink3 mt-1">
                   Ouverture {a.openingBalance.toLocaleString("fr-FR")} · {a.movementCount} mouvement(s){a.isActive === false ? " · désactivé" : ""}
+                </p>
+                <p className="text-[11px] text-ink3 mt-0.5">
+                  {a.ledgerCode
+                    ? <>Compte comptable <span className="num">{a.ledgerCode}</span></>
+                    : <>Compte comptable général (partagé){canEdit && <> · <button onClick={() => dedicate(a)} className="text-section hover:underline">Attribuer un compte dédié</button></>}</>}
                 </p>
                 <div className="mt-2 flex gap-3 text-xs">
                   <button onClick={() => setListing(a)} className="text-section hover:underline">Mouvements</button>

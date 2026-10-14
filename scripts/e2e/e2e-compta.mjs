@@ -88,6 +88,10 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   console.log("\n▶ Retenue à la source sur le compte fournisseur commun");
   const rt = await g.req("POST", "/api/fiscal/retenues", { type: "prestation_service", beneficiaire: "Prestataire", montantBrut: 100000 });
   const rtE = (await entriesOf(g, "RTS-"))[0];
+  const rt2 = await g.req("POST", "/api/fiscal/retenues", { type: "prestation_service", beneficiaire: "Prestataire payé", montantBrut: 200000, treasuryAccountId: bank });
+  const rt2E = (await entriesOf(g, "Prestataire payé"))[0];
+  check("retenue avec règlement du net : banque dédiée créditée du net 190 000, retenue 10 000 due à l'État", rt2.status === 201 && rt2E && balancedE(rt2E)
+    && rt2E.lines.some(l => /^5211/.test(l.accountCode) && l.credit === 190000) && rt2E.lines.some(l => l.accountCode === "447200" && l.credit === 10000), `${rt2.status} ${J(rt2E?.lines ?? rt2.data).slice(0, 250)}`);
   check("retenue enregistrée sur 401100 (et plus 401000)", rt.status === 201 && rtE && rtE.lines.some(l => l.accountCode === "401100") && !rtE.lines.some(l => l.accountCode === "401000"), `${rt.status} ${J(rtE?.lines ?? rt.data).slice(0, 200)}`);
 
   console.log("\n▶ Comptoir relié à une caisse");
@@ -104,11 +108,11 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   const spotE = await entriesOf(g, "Spot compta");
   const sale = spotE.find(e => e.label.includes("Ventes du midi")), spend = spotE.find(e => e.label.includes("Glace"));
   check("vente : caisse 571 au débit 11 900, 706300 10 000 et TVA 443 1 900 au crédit", sale && balancedE(sale)
-    && sale.lines.some(l => l.accountCode === "571000" && l.debit === 11900) && sale.lines.some(l => l.accountCode === "706300" && l.credit === 10000)
+    && sale.lines.some(l => /^571/.test(l.accountCode) && l.debit === 11900) && sale.lines.some(l => l.accountCode === "706300" && l.credit === 10000)
     && sale.lines.some(l => l.accountCode === "443000" && l.credit === 1900), J(sale?.lines));
   check("dépense : 601100 2 000 + TVA 4452 380 au débit, caisse au crédit", spend && balancedE(spend)
     && spend.lines.some(l => l.accountCode === "601100" && l.debit === 2000) && spend.lines.some(l => l.accountCode === "445200" && l.debit === 380)
-    && spend.lines.some(l => l.accountCode === "571000" && l.credit === 2380), J(spend?.lines));
+    && spend.lines.some(l => /^571/.test(l.accountCode) && l.credit === 2380), J(spend?.lines));
   const cs = D(await g.req("GET", `/api/treasury-accounts/${caisse}`));
   const bal = cs.balance ?? cs.account?.balance;
   check("solde de la caisse = 11 900 − 2 380", bal === 9520, J(cs).slice(0, 200));
@@ -119,7 +123,7 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   const tt = D(await g.req("GET", `/api/events/${evt}`)).ticketTypes?.[0]?._id;
   const att = D(await g.req("POST", `/api/events/${evt}/attendees`, { firstName: "Awa", lastName: "Test", ticketTypeId: tt, markPaid: true })).attendee ?? {};
   const tk = (await entriesOf(g, att.ticketCode ?? "x"))[0];
-  check("billet vendu sur place : caisse au débit, 706500 au crédit", tk && balancedE(tk) && tk.lines.some(l => l.accountCode === "706500" && l.credit === 5000) && tk.lines.some(l => l.accountCode === "571000" && l.debit === 5000), `${J(att).slice(0, 120)} ${J(tk?.lines)}`);
+  check("billet vendu sur place : caisse au débit, 706500 au crédit", tk && balancedE(tk) && tk.lines.some(l => l.accountCode === "706500" && l.credit === 5000) && tk.lines.some(l => /^571/.test(l.accountCode) && l.debit === 5000), `${J(att).slice(0, 120)} ${J(tk?.lines)}`);
   const rf = await g.req("POST", `/api/events/${evt}/attendees/${att._id}/refund`, { reason: "Annulation" });
   const tkAll = await entriesOf(g, att.ticketCode ?? "x");
   check("remboursement : recette extournée", rf.status === 200 && tkAll.some(e => e.journalCode === "EX"), `${rf.status} ${J(tkAll.map(e => e.journalCode))}`);
@@ -138,6 +142,37 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   const donE = (await entriesOf(a, D(don).receiptNumber ?? "x"))[0];
   check("don en euros : 65 596 FCFA reçus en 758100", don.status === 201 && donE && donE.lines.some(l => l.accountCode === "758100" && l.credit === 65596), `${don.status} ${J(don.data).slice(0, 150)}`);
   check("le PME ne voit pas les écritures de l'association", (await entriesOf(g, D(don).receiptNumber ?? "x")).length === 0);
+
+  console.log("\n▶ Un compte comptable par banque et par caisse");
+  const b1 = D(await g.req("POST", "/api/treasury-accounts", { label: "BOA Niger", type: "bank", openingBalance: 1000000, openingDate: "2025-01-01" }));
+  const b2 = D(await g.req("POST", "/api/treasury-accounts", { label: "Ecobank", type: "bank", openingBalance: 0, openingDate: "2025-01-01" }));
+  check("comptes dédiés distincts 5211xx", /^5211\d\d$/.test(b1.ledgerCode ?? "") && /^5211\d\d$/.test(b2.ledgerCode ?? "") && b1.ledgerCode !== b2.ledgerCode, `${b1.ledgerCode} ${b2.ledgerCode}`);
+  check("caisse en 5711xx", /^5711\d\d$/.test(D(await g.req("GET", `/api/treasury-accounts/${caisse}`)).ledgerCode ?? ""));
+  const vir = await g.req("POST", "/api/treasury-accounts/movements", { kind: "transfer", fromAccountId: b1._id, toAccountId: b2._id, amount: 250000, date: today, label: "Virement BOA vers Ecobank" });
+  const virE = (await entriesOf(g, "Virement BOA vers Ecobank"))[0];
+  check("virement interne : Ecobank au débit, BOA au crédit, sur leurs comptes dédiés", vir.status < 300 && virE
+    && virE.lines.some(l => l.accountCode === b2.ledgerCode && l.debit === 250000) && virE.lines.some(l => l.accountCode === b1.ledgerCode && l.credit === 250000), `${vir.status} ${J(virE?.lines ?? vir.data).slice(0, 250)}`);
+  check("vente du comptoir sur la caisse dédiée, plus sur 571000", (await entriesOf(g, "Ventes du midi"))[0]?.lines.some(l => /^5711\d\d$/.test(l.accountCode)));
+
+  console.log("\n▶ Remboursement d'un avoir");
+  const cl = id(await g.req("POST", "/api/clients", { code: "C-RMB", name: "Client remboursé" }));
+  const fi = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ description: "Prestation", quantity: 1, unitPrice: 100000, tvaRate: 0 }] }));
+  await g.req("POST", `/api/invoices/${fi._id}/send`);
+  await g.req("POST", "/api/payments", { invoiceId: fi._id, amount: fi.totalTTC, method: "bank_transfer", date: today, treasuryAccountId: b1._id });
+  const av = D(await g.req("POST", `/api/invoices/${fi._id}/credit-note`, { mode: "full", reason: "Prestation annulée" })).creditNote;
+  const st = D(await g.req("GET", `/api/invoices/${av?._id}/refund`));
+  check("avoir sur facture payée : tout le TTC est remboursable", st.refundable === fi.totalTTC, J(st));
+  check("remboursement au-delà : refusé", (await g.req("POST", `/api/invoices/${av?._id}/refund`, { treasuryAccountId: b1._id, amount: fi.totalTTC + 1 })).status === 400);
+  const rb = await g.req("POST", `/api/invoices/${av?._id}/refund`, { treasuryAccountId: b1._id, amount: 40000, date: today });
+  const rbE = (await entriesOf(g, `${av?.number}-RMB`))[0];
+  check("remboursement partiel : 411 au débit au nom du client, BOA au crédit", rb.status === 200 && rbE && balancedE(rbE)
+    && rbE.lines.some(l => l.accountCode === "411000" && l.debit === 40000) && rbE.lines.some(l => l.accountCode === b1.ledgerCode && l.credit === 40000), `${rb.status} ${J(rb.data).slice(0, 150)} ${J(rbE?.lines)}`);
+  check("reste remboursable", D(await g.req("GET", `/api/invoices/${av?._id}/refund`)).refundable === fi.totalTTC - 40000);
+  const unpaidInv = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ description: "Autre", quantity: 1, unitPrice: 50000, tvaRate: 0 }] }));
+  await g.req("POST", `/api/invoices/${unpaidInv._id}/send`);
+  const av2 = D(await g.req("POST", `/api/invoices/${unpaidInv._id}/credit-note`, { mode: "full", reason: "Erreur" })).creditNote;
+  check("avoir sur facture impayée : rien à rembourser", D(await g.req("GET", `/api/invoices/${av2?._id}/refund`)).refundable === 0
+    && (await g.req("POST", `/api/invoices/${av2?._id}/refund`, { treasuryAccountId: b1._id })).status === 400);
 
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);

@@ -1,7 +1,7 @@
 import type { ClientSession } from "mongoose";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
-import { ledgerFor, treasuryKind } from "@/lib/treasury";
+import { treasuryLedger } from "@/lib/treasury";
 import { reverseEntry } from "@/lib/accounting-reversal";
 import { VAT_ACCOUNT } from "@/lib/purchases";
 import { BusinessRuleError } from "@/lib/errors";
@@ -45,9 +45,8 @@ export interface CashFlowInput {
 export async function postCashFlow(input: CashFlowInput, session?: ClientSession) {
   const amount = Math.round(input.amount);
   if (!(amount > 0)) throw new BusinessRuleError("Montant invalide.");
-  const kind = await treasuryKind(input.tenantId, input.treasuryAccountId, session);
-  if (!kind) throw new BusinessRuleError("Compte de trésorerie introuvable.");
-  const ledger = ledgerFor(kind);
+  const ledger = await treasuryLedger(input.tenantId, input.treasuryAccountId, session);
+  if (!ledger) throw new BusinessRuleError("Compte de trésorerie introuvable.");
   const rate = input.vatRate && input.vatRate > 0 ? input.vatRate : 0;
   const ht = rate ? Math.round(amount / (1 + rate)) : amount;
   const vat = amount - ht;

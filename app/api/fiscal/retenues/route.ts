@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { connectDB } from "@/lib/db";
+import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, created, badRequest, getPagination, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { calculerRetenueDetaillee, RETENUES_DETAILLEES } from "@/lib/niger-fiscal";
@@ -8,6 +8,7 @@ import { TokenPayload } from "@/lib/auth";
 import { Schema, model, models } from "mongoose";
 
 import { SUPPLIER_ACCOUNT } from "@/lib/purchases";
+import { treasuryLedger, recordMovement } from "@/lib/treasury";
 // Modèle inline pour les retenues
 const RetenueSchema = new Schema({
   tenantId: { type: Schema.Types.ObjectId, required: true, index: true },
@@ -74,28 +75,46 @@ export const POST = withAuth("fiscalDeclarations", "create", async (req: NextReq
 
   const calcul = calculerRetenueDetaillee(body.montantBrut, body.type);
 
-  const retenue = await RetenueModel.create({
-    ...body,
-    tenantId: auth.tenantId,
-    taux: calcul.taux,
-    montantRetenue: calcul.montantRetenue,
-    montantNet: calcul.montantNet,
-    article: calcul.article,
-    createdBy: auth.userId,
-  });
-
-  // Écriture comptable automatique
-  await AccountingEntryModel.create({
-    tenantId: auth.tenantId, journalCode: "OD",
-    entryDate: new Date(),
-    reference: `RTS-${retenue._id.toString().slice(-6).toUpperCase()}`,
-    label: `Retenue à la source — ${body.beneficiaire} (${RETENUES_DETAILLEES[body.type].description})`,
-    lines: [
-      { ...SUPPLIER_ACCOUNT, debit: body.montantBrut, credit: 0 },
-      { accountCode: "447200", accountLabel: "Retenues à la source DGI", debit: 0, credit: calcul.montantRetenue },
-      { accountCode: "521000", accountLabel: "Banque / Trésorerie", debit: 0, credit: calcul.montantNet },
-    ],
-    createdBy: auth.userId,
+  // Avec un compte payeur : le net est réglé ici (écriture + mouvement de
+  // trésorerie, sur le compte réellement débité). Sans compte : seule la retenue
+  // est constatée — elle réduit la dette fournisseur et devient due à l'État —,
+  // le net se réglant depuis Achats. L'écriture créditait autrefois « 521000 »
+  // sans aucun mouvement : comptabilité et trésorerie divergeaient.
+  const ledger = body.treasuryAccountId ? await treasuryLedger(auth.tenantId, body.treasuryAccountId) : null;
+  if (body.treasuryAccountId && !ledger) return badRequest("Compte de trésorerie introuvable.");
+  const date = new Date();
+  const retenue = await withTransaction(async session => {
+    const [r] = await RetenueModel.create([{
+      ...body,
+      tenantId: auth.tenantId,
+      taux: calcul.taux,
+      montantRetenue: calcul.montantRetenue,
+      montantNet: calcul.montantNet,
+      article: calcul.article,
+      createdBy: auth.userId,
+    }], { session });
+    const reference = `RTS-${r._id.toString().slice(-6).toUpperCase()}`;
+    await AccountingEntryModel.create([{
+      tenantId: auth.tenantId, journalCode: ledger ? ledger.journalCode : "OD",
+      entryDate: date, reference,
+      label: `Retenue à la source — ${body.beneficiaire} (${RETENUES_DETAILLEES[body.type].description})`,
+      lines: ledger ? [
+        { ...SUPPLIER_ACCOUNT, debit: body.montantBrut, credit: 0 },
+        { accountCode: "447200", accountLabel: "Retenues à la source DGI", debit: 0, credit: calcul.montantRetenue },
+        { accountCode: ledger.accountCode, accountLabel: ledger.accountLabel, debit: 0, credit: calcul.montantNet },
+      ] : [
+        { ...SUPPLIER_ACCOUNT, debit: calcul.montantRetenue, credit: 0 },
+        { accountCode: "447200", accountLabel: "Retenues à la source DGI", debit: 0, credit: calcul.montantRetenue },
+      ],
+      linkedDocType: "withholding", linkedDocId: r._id, createdBy: auth.userId,
+    }], { session });
+    if (ledger && calcul.montantNet > 0) {
+      await recordMovement({
+        tenantId: auth.tenantId, accountId: String(body.treasuryAccountId), date, amount: -calcul.montantNet,
+        label: `Règlement net — ${body.beneficiaire}`, reference, source: "expense", createdBy: auth.userId,
+      }, session);
+    }
+    return r;
   });
 
   await logAudit(auth, "CREATE", "retenues", { resourceId: retenue._id.toString(), after: { type: body.type, montantRetenue: calcul.montantRetenue } });

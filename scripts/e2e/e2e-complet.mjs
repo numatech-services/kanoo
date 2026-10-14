@@ -176,7 +176,7 @@ const id = r => D(r)?._id;
   check("balance générale équilibrée", bl.totals && bl.totals.debit === bl.totals.credit && bl.totals.debit > 0, J(bl.totals));
   const bs = D(await g.req("GET", `/api/accounting/reports?type=bs&to=${today}`));
   check("bilan équilibré (actif = passif)", Math.abs(bs.totalActif - bs.totalPassif) <= 1, `${bs.totalActif} / ${bs.totalPassif}`);
-  const gl = D(await g.req("GET", `/api/accounting/reports?type=ledger&account=521000&from=2026-01-01&to=${today}`));
+  const gl = D(await g.req("GET", `/api/accounting/reports?type=ledger&account=521&from=2026-01-01&to=${today}`));
   check("grand livre de la banque avec solde progressif", gl.lines?.length > 0 && gl.closingBalance === gl.lines[gl.lines.length - 1].balance, J({ n: gl.lines?.length, c: gl.closingBalance }));
   const plan = D(await g.req("GET", "/api/ledger-accounts?q=627"));
   check("plan comptable initialisé (SYSCOHADA)", Array.isArray(plan) && plan.some(a => a.code === "627000"), J(plan).slice(0, 120));

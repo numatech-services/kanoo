@@ -12,6 +12,7 @@ import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { RefundPanel } from "@/components/invoices/RefundPanel";
 interface InvoiceLine { 
   description: string; 
   quantity: number; 
@@ -200,6 +201,7 @@ export default function InvoiceDetailPage() {
           {invoice.creditReason && <> Motif&nbsp;: {invoice.creditReason}.</>}
         </p>
       )}
+      {isCreditNote && <RefundPanel creditNoteId={invoice._id} onDone={load} />}
       {!isCreditNote && credited > 0 && (
         <p className="px-4 py-3 rounded-xl bg-warn-50 border border-warn/25 text-sm text-warn">
           <strong className="num">{credited.toLocaleString("fr-FR")} FCFA</strong> déjà

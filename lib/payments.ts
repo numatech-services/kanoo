@@ -1,7 +1,7 @@
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { TokenPayload } from "@/lib/auth";
-import { ledgerFor, treasuryKind } from "@/lib/treasury";
+import { ledgerFor, treasuryLedger } from "@/lib/treasury";
 
 import { issueInvoice } from "@/lib/invoice-posting";
 /**
@@ -30,9 +30,8 @@ export async function applyPaymentEffects(payment: any, invoice: any, auth: Toke
 
   // Le compte encaisseur fait foi (caisse, banque, mobile money) ; à défaut, le
   // mode de règlement.
-  const kind = (await treasuryKind(auth.tenantId, payment.treasuryAccountId, session))
-    ?? (payment.method === "cash" ? "cash" : payment.method === "mobile_money" ? "mobile_money" : "bank");
-  const ledger = ledgerFor(kind);
+  const ledger = (await treasuryLedger(auth.tenantId, payment.treasuryAccountId, session))
+    ?? ledgerFor(payment.method === "cash" ? "cash" : payment.method === "mobile_money" ? "mobile_money" : "bank");
   const journalCode = ledger.journalCode;
   await AccountingEntryModel.create([{
     tenantId: auth.tenantId, journalCode, entryDate: new Date(payment.date),

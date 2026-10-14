@@ -7,6 +7,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { TreasuryAccountSelect } from "@/components/shared/TreasuryAccountSelect";
 interface Retenue { _id:string; type:string; beneficiaire:string; nifBeneficiaire?:string; montantBrut:number; montantRetenue:number; montantNet:number; article:string; date:string; isPaid:boolean; }
 interface TypeInfo { key:string; taux:number; description:string; article:string; }
 
@@ -21,7 +22,7 @@ export default function RetenuesPage() {
   const [saving, setSaving] = useState(false);
   const [totalRetenues, setTotalRetenues] = useState(0);
   const [nonVersees, setNonVersees] = useState(0);
-  const [form, setForm] = useState({ type:"marche_public", beneficiaire:"", nifBeneficiaire:"", montantBrut:0, reference:"" });
+  const [form, setForm] = useState({ type:"marche_public", beneficiaire:"", nifBeneficiaire:"", montantBrut:0, reference:"", treasuryAccountId:"" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,6 +104,9 @@ export default function RetenuesPage() {
           </div>
           <FormField label="Montant brut (FCFA)" required>
             <input type="number" className={inputCls} value={form.montantBrut} onChange={e=>u("montantBrut",Number(e.target.value))} min={0} required/>
+          </FormField>
+          <FormField label="Compte qui paie le net (facultatif)" hint="Laissez vide si le règlement du fournisseur est saisi dans Achats : seule la retenue est alors constatée.">
+            <TreasuryAccountSelect value={form.treasuryAccountId} onChange={v=>u("treasuryAccountId",v)} autoSelect={false} />
           </FormField>
           {simulatedRetenue > 0 && (
             <div className="bg-warn-50 border border-warn/25 rounded-xl p-3 grid grid-cols-3 text-xs text-center">

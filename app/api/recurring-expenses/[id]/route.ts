@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { RecurringExpenseModel } from "@/models/RecurringExpense";
-import { recordMovement, ledgerFor, treasuryKind } from "@/lib/treasury";
+import { recordMovement, treasuryLedger } from "@/lib/treasury";
 import { recurringFields } from "@/lib/recurring";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
@@ -45,9 +45,8 @@ export const POST = withAuth("recurringCharges", "update", async (req: NextReque
   const accountId = body.treasuryAccountId || expense.treasuryAccountId;
   // Sans compte, rien n'était enregistré alors que la réponse disait « enregistrée ».
   if (!accountId) return badRequest("Choisissez le compte de trésorerie qui paie cette charge.");
-  const kind = await treasuryKind(auth.tenantId, accountId);
-  if (!kind) return badRequest("Compte de trésorerie introuvable.");
-  const ledger = ledgerFor(kind);
+  const ledger = await treasuryLedger(auth.tenantId, accountId);
+  if (!ledger) return badRequest("Compte de trésorerie introuvable.");
   const amount = Number(body.amount) > 0 ? Math.round(Number(body.amount)) : expense.amount;
   const date = body.date ? new Date(body.date) : new Date();
   if (isNaN(date.getTime())) return badRequest("Date invalide.");

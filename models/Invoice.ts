@@ -53,6 +53,15 @@ const InvoiceSchema = new Schema<IInvoice>(
      * facture » ne dépende pas d'une agrégation à chaque écriture.
      */
     creditedAmount: { type: Number, default: 0, min: 0 },
+    /**
+     * Remboursements au client : sur un avoir, ce qui en a été rendu ; sur la
+     * facture d'origine, le total rendu (le trop-perçu restant en découle).
+     */
+    refundedAmount: { type: Number, default: 0, min: 0 },
+    refunds: [{
+      _id: false, date: Date, amount: Number, treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount" },
+      reference: String, entryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" }, movementId: { type: Schema.Types.ObjectId, ref: "TreasuryMovement" },
+    }],
 
     number: { type: String, required: true },
     clientId: { type: Schema.Types.ObjectId, ref: "Client", required: true },

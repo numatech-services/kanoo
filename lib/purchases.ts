@@ -2,7 +2,7 @@ import { Types, type ClientSession } from "mongoose";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { SupplierModel } from "@/models/Supplier";
-import { accountBalance, ledgerFor, treasuryKind } from "@/lib/treasury";
+import { accountBalance, treasuryLedger } from "@/lib/treasury";
 import { reverseEntry } from "@/lib/accounting-reversal";
 import { checkImputations, pickImputation } from "@/lib/imputation";
 import { defaultAccountLabel } from "@/lib/syscohada";
@@ -115,15 +115,14 @@ export async function payPurchase(
   if (amount > rest) throw new PurchaseError(`Le règlement dépasse le reste à payer (${rest.toLocaleString("fr-FR")} FCFA).`);
   const accountId = input.treasuryAccountId;
   if (!accountId || !Types.ObjectId.isValid(String(accountId))) throw new PurchaseError("Choisissez le compte de trésorerie qui paie.");
-  const kind = await treasuryKind(auth.tenantId, accountId, session);
-  if (!kind) throw new PurchaseError("Compte de trésorerie introuvable.");
+  const ledger = await treasuryLedger(auth.tenantId, accountId, session);
+  if (!ledger) throw new PurchaseError("Compte de trésorerie introuvable.");
   if (!input.allowOverdraft) {
     const bal = await accountBalance(auth.tenantId, String(accountId), session);
     if (bal && bal.balance < amount) throw new PurchaseError(`Solde insuffisant sur ce compte (${bal.balance.toLocaleString("fr-FR")} FCFA).`);
   }
   const date = input.date ? new Date(String(input.date)) : new Date();
   if (isNaN(date.getTime())) throw new PurchaseError("Date de règlement invalide.");
-  const ledger = ledgerFor(kind);
   const reference = input.reference ? String(input.reference).slice(0, 80) : undefined;
 
   const paymentId = new Types.ObjectId();

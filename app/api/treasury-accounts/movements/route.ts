@@ -5,7 +5,7 @@ import { withAuth, created, badRequest, tenantFilter, getPagination, paginatedRe
 import { TokenPayload } from "@/lib/auth";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
-import { accountBalance, ledgerFor, treasuryKind } from "@/lib/treasury";
+import { accountBalance, treasuryLedger } from "@/lib/treasury";
 import { unknownAccounts } from "@/lib/ledger";
 import { pickImputation, checkImputations } from "@/lib/imputation";
 import { logAudit } from "@/lib/audit";
@@ -57,12 +57,11 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
   const reference = body.reference ? String(body.reference).slice(0, 80) : undefined;
 
   if (body.kind === "transfer") {
-    const [fromKind, toKind] = await Promise.all([treasuryKind(auth.tenantId, body.fromAccountId), treasuryKind(auth.tenantId, body.toAccountId)]);
-    if (!fromKind || !toKind) return badRequest("Compte de trésorerie introuvable.");
+    const [src, dst] = await Promise.all([treasuryLedger(auth.tenantId, body.fromAccountId), treasuryLedger(auth.tenantId, body.toAccountId)]);
+    if (!src || !dst) return badRequest("Compte de trésorerie introuvable.");
     if (String(body.fromAccountId) === String(body.toAccountId)) return badRequest("Choisissez deux comptes différents.");
     const bal = await accountBalance(auth.tenantId, String(body.fromAccountId));
     if (bal && bal.balance < amount && !body.allowOverdraft) return badRequest(`Solde insuffisant sur le compte débité (${bal.balance.toLocaleString("fr-FR")} FCFA).`);
-    const src = ledgerFor(fromKind), dst = ledgerFor(toKind);
     const label = String(body.label || "Virement interne").slice(0, 200);
     const result = await withTransaction(async session => {
       const [entry] = await AccountingEntryModel.create([{
@@ -85,8 +84,8 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
   }
 
   if (body.kind === "manual") {
-    const kind = await treasuryKind(auth.tenantId, body.accountId);
-    if (!kind) return badRequest("Compte de trésorerie introuvable.");
+    const ledger = await treasuryLedger(auth.tenantId, body.accountId);
+    if (!ledger) return badRequest("Compte de trésorerie introuvable.");
     const direction = body.direction === "out" ? "out" : "in";
     const label = String(body.label ?? "").trim().slice(0, 200);
     if (!label) return badRequest("Libellé obligatoire.");
@@ -101,7 +100,6 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
       const bal = await accountBalance(auth.tenantId, String(body.accountId));
       if (bal && bal.balance < amount && !body.allowOverdraft) return badRequest(`Solde insuffisant (${bal.balance.toLocaleString("fr-FR")} FCFA).`);
     }
-    const ledger = ledgerFor(kind);
     const result = await withTransaction(async session => {
       const counterLine = { accountCode: counter, accountLabel: String(body.counterLabel || label).slice(0, 160), ...(/^[67]/.test(counter) ? imp : {}) };
       const [entry] = await AccountingEntryModel.create([{

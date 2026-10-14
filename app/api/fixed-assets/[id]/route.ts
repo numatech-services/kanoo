@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
-import { ledgerFor, treasuryKind, recordMovement } from "@/lib/treasury";
+import { treasuryLedger, recordMovement } from "@/lib/treasury";
 import { FixedAssetModel } from "@/models/FixedAsset";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { logAudit } from "@/lib/audit";
@@ -61,9 +61,9 @@ export const PATCH = withAuth("fixedAssets", "update", async (req: NextRequest, 
     const vnc = Math.max(0, asset.acquisitionCost - cumulated);
     let ledger: { accountCode: string; accountLabel: string } = { accountCode: "485000", accountLabel: "Créances sur cessions d'immobilisations" };
     if (price > 0 && body.treasuryAccountId) {
-      const kind = await treasuryKind(auth.tenantId, body.treasuryAccountId);
-      if (!kind) return badRequest("Compte de trésorerie introuvable.");
-      ledger = ledgerFor(kind);
+      const tl = await treasuryLedger(auth.tenantId, body.treasuryAccountId);
+      if (!tl) return badRequest("Compte de trésorerie introuvable.");
+      ledger = tl;
     }
     await withTransaction(async session => {
       const lines = [

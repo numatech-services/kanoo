@@ -14,7 +14,7 @@ import {
 } from "@/lib/expenses";
 import { expenseAuthority, teamMembers, canReimburse } from "@/lib/expense-scope";
 import { logAudit } from "@/lib/audit";
-import { ledgerFor, treasuryKind } from "@/lib/treasury";
+import { treasuryLedger } from "@/lib/treasury";
 import { checkImputations } from "@/lib/imputation";
 import { TokenPayload } from "@/lib/auth";
 import { authCan } from "@/lib/role-resources";
@@ -236,10 +236,9 @@ export const PATCH = withAuth("expenses", "read", async (req: NextRequest, auth:
       const amount = report.totalTTC;
       // Date réelle du remboursement ; compte de l'organisation seulement.
       const paidAt = paymentDate(body.date);
-      const kind = await treasuryKind(auth.tenantId, accountId);
-      if (!kind) return badRequest("Compte de trésorerie introuvable.");
+      const ledger = await treasuryLedger(auth.tenantId, accountId);
+      if (!ledger) return badRequest("Compte de trésorerie introuvable.");
       // Caisse, banque ou mobile money : l'écriture crédite le compte réellement payé.
-      const ledger = ledgerFor(kind);
       const entry = reimbursementEntry(amount, ledger);
 
       await withTransaction(async (session) => {

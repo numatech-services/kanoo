@@ -42,7 +42,7 @@ export function TicketingAccounts({ eventId, initial, onSaved }: {
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
         <FormField label="Caisse des ventes sur place"><TreasuryAccountSelect value={onsite} onChange={setOnsite} /></FormField>
-        <FormField label="Compte des paiements en ligne" hint="À défaut, la caisse sur place."><TreasuryAccountSelect value={online} onChange={setOnline} /></FormField>
+        <FormField label="Compte des paiements en ligne" hint="À défaut, la caisse sur place."><TreasuryAccountSelect value={online} onChange={setOnline} autoSelect={false} /></FormField>
       </div>
       <div className="flex justify-end"><Button size="sm" onClick={save} loading={saving}>Enregistrer</Button></div>
     </section>

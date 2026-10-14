@@ -7,9 +7,10 @@ interface Account { _id: string; label: string; type?: string; isActive?: boolea
 
 /**
  * Compte de trésorerie qui reçoit (ou paie) l'argent : caisse, banque, mobile
- * money. Un seul compte actif est présélectionné pour éviter un clic inutile.
+ * money. Un seul compte actif est présélectionné pour éviter un clic inutile
+ * (sauf `autoSelect={false}`, pour un choix facultatif).
  */
-export function TreasuryAccountSelect({ value, onChange, required, id }: { value: string; onChange: (v: string) => void; required?: boolean; id?: string }) {
+export function TreasuryAccountSelect({ value, onChange, required, id, autoSelect = true }: { value: string; onChange: (v: string) => void; required?: boolean; id?: string; autoSelect?: boolean }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   useEffect(() => {
     fetch("/api/treasury-accounts?limit=100", { credentials: "include" })
@@ -17,7 +18,7 @@ export function TreasuryAccountSelect({ value, onChange, required, id }: { value
       .then(d => {
         const list = ((d?.data?.items ?? []) as Account[]).filter(a => a.isActive !== false);
         setAccounts(list);
-        if (!value && list.length === 1) onChange(list[0]._id);
+        if (autoSelect && !value && list.length === 1) onChange(list[0]._id);
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps

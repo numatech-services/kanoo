@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import mongoose from "mongoose";
 import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withTransaction } from "@/lib/db";
+import { nextLedgerCode, registerLedgerAccount } from "@/lib/treasury";
 import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { BankStatementLineModel } from "@/models/BankStatementLine";
@@ -82,15 +84,24 @@ export const POST = withAuth("treasuryAccounts", "create", async (req: NextReque
   // Ce qui est saisi à la création est un solde d'**ouverture**, à une date
   // donnée. Le stocker dans `balance` reproduirait le défaut d'origine : un
   // nombre figé que plus rien ne met à jour.
-  const account = await TreasuryAccountModel.create({
-    label: body.label,
-    type: body.type,
-    currency: body.currency || "XOF",
-    bankName: body.bankName,
-    accountNumber: body.accountNumber,
-    openingBalance: Number(body.openingBalance ?? body.balance ?? 0),
-    openingDate: body.openingDate ? new Date(body.openingDate) : new Date(),
-    tenantId: auth.tenantId,
+  if (!["bank", "cash", "mobile_money"].includes(body.type)) return badRequest("Type de compte invalide (banque, caisse, mobile money).");
+  // Chaque compte reçoit son compte comptable (5211xx, 5218xx, 5711xx) : le
+  // grand livre suit chaque banque et chaque caisse séparément.
+  const account = await withTransaction(async session => {
+    const ledgerCode = await nextLedgerCode(auth.tenantId, body.type, session);
+    const [a] = await TreasuryAccountModel.create([{
+      label: body.label,
+      type: body.type,
+      currency: body.currency || "XOF",
+      bankName: body.bankName,
+      accountNumber: body.accountNumber,
+      openingBalance: Number(body.openingBalance ?? body.balance ?? 0),
+      openingDate: body.openingDate ? new Date(body.openingDate) : new Date(),
+      tenantId: auth.tenantId,
+      ledgerCode,
+    }], { session });
+    await registerLedgerAccount(auth.tenantId, ledgerCode, String(body.label), session);
+    return a;
   });
   return created(account);
 });

@@ -298,6 +298,9 @@ export interface IInvoice {
   creditReason?: string;
   /** TTC déjà couvert par des avoirs, sur une facture d'origine. */
   creditedAmount: number;
+  /** Remboursé au client (avoir) ou total rendu (facture d'origine). */
+  refundedAmount?: number;
+  refunds: Array<{ date: Date; amount: number; treasuryAccountId?: unknown; reference?: string; entryId?: Types.ObjectId; movementId?: Types.ObjectId }>;
   number: string;
   projectId?: Types.ObjectId;
   activityId?: Types.ObjectId;

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
 import { PayslipModel } from "@/models/Payslip";
-import { accountBalance, recordMovement, ledgerFor, treasuryKind } from "@/lib/treasury";
+import { accountBalance, recordMovement, ledgerFor, treasuryLedger } from "@/lib/treasury";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -55,7 +55,7 @@ export const POST = withAuth("payslips", "update", async (req: NextRequest, auth
       }, session);
 
       const emp = payslip.employeeId as { firstName?: string; lastName?: string; code?: string };
-      const ledger = ledgerFor(await treasuryKind(auth.tenantId, accountId, session));
+      const ledger = (await treasuryLedger(auth.tenantId, accountId, session)) ?? ledgerFor("bank");
       await AccountingEntryModel.create([{
         tenantId: auth.tenantId, journalCode: ledger.journalCode,
         entryDate: paidAt,
