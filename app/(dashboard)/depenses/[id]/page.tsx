@@ -12,8 +12,11 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { formatMoney, formatDate } from "@/lib/format";
 type Ref = { _id: string; code?: string; name?: string; label?: string; type?: string } | null | undefined;
 interface Purchase {
+  match?: { commandeNumber: string; orderedHT: number; receivedHT: number; invoicedHT: number; gapHT: number; overInvoiced: boolean } | null;
+  matchOverride?: { at: string; gapHT: number };
   _id: string; number: string; kind: "invoice" | "cash"; date: string; dueDate?: string; payee?: string; supplierRef?: string; notes?: string;
   supplierId?: Ref; commandeId?: { _id: string; number: string } | null;
   lines: Array<{ description: string; accountCode: string; accountLabel?: string; quantity: number; unitPrice: number; amountHT: number; tvaRate: number; amountTVA: number; projectId?: Ref; activityId?: Ref; costCenter?: string }>;
@@ -49,6 +52,18 @@ export default function PurchaseDetailPage() {
   }, [id]);
   useEffect(() => { load(); }, [load]);
   async function act(fn: () => Promise<unknown>) { setError(""); try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Action impossible"); } }
+  // Facture supérieure à la réception : le serveur refuse ; on propose alors
+  // de valider malgré l'écart, décision tracée sur l'achat.
+  async function validate() {
+    setError("");
+    try { await send(`/api/achats/${id}/validate`, "POST"); await load(); }
+    catch (e) {
+      const msg = e instanceof Error ? e.message : "Validation impossible";
+      if (/supérieure à la marchandise reçue/.test(msg) && await confirmDialog({ title: "Valider malgré l'écart ?", message: msg, confirmLabel: "Valider malgré l'écart", danger: true })) {
+        await act(() => send(`/api/achats/${id}/validate`, "POST", { force: true }));
+      } else setError(msg);
+    }
+  }
 
   if (!p) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-line" /></div>;
   const rest = p.totalTTC - p.paidAmount;
@@ -66,13 +81,25 @@ export default function PurchaseDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           {canUpdate && p.status === "draft" && <button onClick={() => setEditOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Edit3 size={16} /> Modifier</button>}
-          {canUpdate && p.status === "draft" && <button onClick={() => act(() => send(`/api/achats/${id}/validate`, "POST"))} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><CheckCircle2 size={16} /> Valider</button>}
+          {canUpdate && p.status === "draft" && <button onClick={validate} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><CheckCircle2 size={16} /> Valider</button>}
           {canUpdate && ["validated", "partial"].includes(p.status) && <button onClick={() => setPayOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-white text-sm font-semibold"><Banknote size={16} /> Enregistrer un règlement</button>}
           {canDelete && p.status === "draft" && <button onClick={async () => { if (!(await confirmDialog({ title: "Supprimer ce brouillon ?", danger: true }))) return; try { await send(`/api/achats/${id}`, "DELETE"); router.push("/depenses"); } catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); } }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Trash2 size={16} /> Supprimer</button>}
           {canDelete && p.status === "validated" && <button onClick={async () => { const reason = await promptDialog({ title: "Motif de l'annulation (l'écriture sera extournée) :", multiline: true }); if (reason) act(() => send(`/api/achats/${id}/cancel`, "POST", { reason })); }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Ban size={16} /> Annuler</button>}
         </div>
       </div>
       {error && <p className="px-4 py-3 bg-neg-50 border border-neg/25 rounded-xl text-sm text-neg">{error}</p>}
+      {p.match && (
+        <section className={`surface-card p-4 ${p.match.overInvoiced ? "border-warn/40" : ""}`}>
+          <h2 className="font-semibold text-ink text-sm mb-2">Rapprochement avec le bon {p.match.commandeNumber}</h2>
+          <div className="grid grid-cols-3 gap-3 text-sm">
+            <div><p className="text-xs text-ink3">Commandé HT</p><p className="num font-semibold">{formatMoney(p.match.orderedHT)}</p></div>
+            <div><p className="text-xs text-ink3">Reçu HT</p><p className="num font-semibold">{formatMoney(p.match.receivedHT)}</p></div>
+            <div><p className="text-xs text-ink3">Facturé HT</p><p className={`num font-semibold ${p.match.overInvoiced ? "text-warn" : ""}`}>{formatMoney(p.match.invoicedHT)}</p></div>
+          </div>
+          {p.match.overInvoiced && <p className="text-xs text-warn mt-2">La facture dépasse la marchandise reçue de {formatMoney(p.match.gapHT)} HT.</p>}
+          {p.matchOverride && <p className="text-xs text-ink3 mt-2">Validée malgré un écart de {formatMoney(p.matchOverride.gapHT)} HT le {formatDate(p.matchOverride.at)}.</p>}
+        </section>
+      )}
       {p.status === "cancelled" && p.cancelReason && <p className="px-4 py-3 bg-surface2 rounded-xl text-sm text-ink2">Annulé : {p.cancelReason}</p>}
 
       <div className="grid sm:grid-cols-4 gap-4">

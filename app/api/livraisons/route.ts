@@ -11,6 +11,8 @@ import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { authCan } from "@/lib/role-resources";
 
+import { allocateDelivery, deliveredByLine } from "@/lib/deliveries";
+import { BusinessRuleError } from "@/lib/errors";
 export const GET = withAuth("livraisons", "read", async (req: NextRequest, auth: TokenPayload) => {
     await connectDB();
   const pagination = getPagination(req);
@@ -54,14 +56,27 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
     return conflict(`La référence ${customNumber} est déjà utilisée par un autre bon de livraison.`);
   }
 
-  const delivery = await withTransaction(async (session) => {
+  const requested = Array.isArray(body.lines) ? body.lines as Array<Record<string, unknown>> : [];
+  let delivery;
+  try {
+  delivery = await withTransaction(async (session) => {
+    // Reste à livrer, lu dans la transaction : deux bons simultanés ne peuvent
+    // pas livrer deux fois la même quantité.
+    const alloc = allocateDelivery(invoice.lines, await deliveredByLine(auth.tenantId, invoice._id, session), requested);
+    if (!alloc.ok) throw new BusinessRuleError(alloc.error);
+    const lines = alloc.lines.map((l, k) => {
+      const raw = requested.find(r => Number(r.invoiceLineIndex) === l.invoiceLineIndex) ?? requested[k] ?? {};
+      return { ...l, unit: (invoice.lines[l.invoiceLineIndex] as { unit?: string }).unit || String(raw.unit || "unité"),
+        ...(raw.serialNumber ? { serialNumber: String(raw.serialNumber).slice(0, 80) } : {}), ...(raw.notes ? { notes: String(raw.notes).slice(0, 300) } : {}) };
+    });
     // Numéro attribué automatiquement, mais une référence saisie à la main est
     // respectée (l'utilisateur peut la changer).
     const number = customNumber
       ? customNumber
       : await nextDocumentNumber(auth.tenantId, "delivery", { issueDate: body.deliveryDate, session });
     const [doc] = await DeliveryNoteModel.create([{
-      ...sanitizeBody(body, ["number", "status"]),
+      ...sanitizeBody(body, ["number", "status", "lines"]),
+      lines,
       tenantId: auth.tenantId,
       number,
       clientId: body.clientId || invoice.clientId,
@@ -90,6 +105,10 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
     }
     return doc;
   });
+  } catch (e) {
+    if (e instanceof BusinessRuleError) return badRequest(e.message);
+    throw e;
+  }
 
   await logAudit(auth, "CREATE", "livraisons", {
     resourceId: delivery._id.toString(),

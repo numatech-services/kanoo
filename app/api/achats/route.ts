@@ -87,7 +87,7 @@ export const POST = withAuth("purchases", "create", async (req: NextRequest, aut
         status: "draft", createdBy: auth.userId,
       }], { session });
       if (commandeId) await CommandeModel.updateOne({ _id: commandeId }, { $set: { purchaseId: p._id } }, { session });
-      if (body.validate || (kind === "cash" && body.payment)) await validatePurchase(auth, p, session);
+      if (body.validate || (kind === "cash" && body.payment)) await validatePurchase(auth, p, session, { force: body.force === true });
       if (kind === "cash" && body.payment) await payPurchase(auth, p, { ...body.payment, date: body.payment.date ?? date }, session);
       return p;
     });

@@ -174,6 +174,46 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   check("avoir sur facture impayée : rien à rembourser", D(await g.req("GET", `/api/invoices/${av2?._id}/refund`)).refundable === 0
     && (await g.req("POST", `/api/invoices/${av2?._id}/refund`, { treasuryAccountId: b1._id })).status === 400);
 
+  console.log("\n▶ Livraisons plafonnées au facturé");
+  const art = D(await g.req("POST", "/api/products", { code: "ART-LIV", label: "Rame de papier", unitPrice: 4000, initialQty: 20, initialCost: 2500 }));
+  const fl = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ productId: art._id, description: "Rame de papier", quantity: 5, unitPrice: 4000, tvaRate: 0.19 }] }));
+  await g.req("POST", `/api/invoices/${fl._id}/send`);
+  const src1 = D(await g.req("GET", `/api/livraisons/source?number=${encodeURIComponent(fl.number)}`));
+  check("source : 5 à livrer sur la ligne 0", src1.lines?.[0]?.remaining === 5 && src1.lines?.[0]?.invoiceLineIndex === 0, J(src1.lines));
+  const bl1 = await g.req("POST", "/api/livraisons", { invoiceId: fl._id, deliveryDate: today, lines: [{ invoiceLineIndex: 0, productId: art._id, description: "Rame de papier", quantity: 3 }] });
+  check("première livraison de 3 : acceptée", bl1.status === 201, `${bl1.status} ${J(bl1.data).slice(0, 150)}`);
+  const bl2 = await g.req("POST", "/api/livraisons", { invoiceId: fl._id, deliveryDate: today, lines: [{ invoiceLineIndex: 0, productId: art._id, description: "Rame de papier", quantity: 3 }] });
+  check("deuxième livraison de 3 sur 2 restants : refusée", bl2.status === 400 && /2 restant/.test(bl2.data?.error ?? ""), `${bl2.status} ${J(bl2.data)}`);
+  const src2 = D(await g.req("GET", `/api/livraisons/source?number=${encodeURIComponent(fl.number)}`));
+  check("source : reste 2", src2.lines?.[0]?.quantity === 2 && src2.lines?.[0]?.delivered === 3, J(src2.lines));
+  const bl3 = await g.req("POST", "/api/livraisons", { invoiceId: fl._id, deliveryDate: today, lines: [{ productId: art._id, description: "Rame de papier", quantity: 2 }] });
+  check("solde de 2 (ligne retrouvée par l'article) : accepté, facture entièrement livrée", bl3.status === 201
+    && D(await g.req("GET", `/api/livraisons/source?number=${encodeURIComponent(fl.number)}`)).fullyDelivered === true, `${bl3.status} ${J(bl3.data).slice(0, 150)}`);
+
+  console.log("\n▶ Rapprochement commande / réception / facture");
+  const bcm = D(await g.req("POST", "/api/commandes", { supplierId: sup, orderDate: today, lines: [{ productId: art._id, quantity: 10, unitPrice: 2500, tvaRate: 0.19 }] }));
+  await g.req("PATCH", `/api/commandes/${bcm._id}`, { status: "confirmed" });
+  await g.req("POST", `/api/commandes/${bcm._id}/receive`, { lines: [{ index: 0, quantity: 4 }] });
+  const fac = id(await g.req("POST", "/api/achats", { kind: "invoice", supplierId: sup, date: today, commandeId: bcm._id,
+    lines: [{ description: "Rames x10", accountCode: "601100", quantity: 10, unitPrice: 2500, tvaRate: 0.19 }] }));
+  const m1 = D(await g.req("GET", `/api/achats/${fac}`)).match;
+  check("rapprochement : commandé 25 000, reçu 10 000, facturé 25 000", m1?.orderedHT === 25000 && m1?.receivedHT === 10000 && m1?.invoicedHT === 25000 && m1?.overInvoiced === true, J(m1));
+  const v1 = await g.req("POST", `/api/achats/${fac}/validate`);
+  check("facture au-delà du reçu : validation refusée", v1.status === 400 && /marchandise reçue/.test(v1.data?.error ?? ""), `${v1.status} ${J(v1.data)}`);
+  const v2 = await g.req("POST", `/api/achats/${fac}/validate`, { force: true });
+  const after = D(await g.req("GET", `/api/achats/${fac}`));
+  check("validation forcée : acceptée et tracée (écart 15 000)", v2.status === 200 && after.status === "validated" && after.matchOverride?.gapHT === 15000, `${v2.status} ${J(after.matchOverride)}`);
+
+  console.log("\n▶ Variation de stock (inventaire intermittent)");
+  const pv = D(await g.req("GET", `/api/accounting/stock-variation?date=${today}`));
+  check("aperçu : valeur du stock positive, compte 31 vide, variation = valeur", pv.stockValue > 0 && pv.ledgerBalance === 0 && pv.variation === pv.stockValue, J(pv));
+  const sv = await g.req("POST", "/api/accounting/stock-variation", { date: today });
+  const svE = (await entriesOf(g, `VAR-STOCK-${today}`))[0];
+  check("écriture : 311000 au débit, 603100 au crédit, du montant de la variation", sv.status === 201 && svE && balancedE(svE)
+    && svE.lines.some(l => l.accountCode === "311000" && l.debit === pv.variation) && svE.lines.some(l => l.accountCode === "603100" && l.credit === pv.variation), `${sv.status} ${J(svE?.lines ?? sv.data).slice(0, 200)}`);
+  check("deuxième passage à la même date : refusé", (await g.req("POST", "/api/accounting/stock-variation", { date: today })).status === 400);
+  check("après écriture : compte 31 = valeur du stock", D(await g.req("GET", `/api/accounting/stock-variation?date=${today}`)).variation === 0);
+
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

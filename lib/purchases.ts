@@ -9,6 +9,7 @@ import { defaultAccountLabel } from "@/lib/syscohada";
 import type { TokenPayload } from "@/lib/auth";
 import { BusinessRuleError } from "@/lib/errors";
 
+import { CommandeModel } from "@/models/Commande";
 /** Refus métier : rendu en 400 avec son message, même levé au fond d'une transaction. */
 export class PurchaseError extends BusinessRuleError {}
 
@@ -67,7 +68,8 @@ export async function checkSupplier(tenantId: string, supplierId: unknown) {
 
 type PurchaseDoc = {
   _id: Types.ObjectId; number: string; kind: string; supplierId?: unknown; payee?: string; supplierRef?: string;
-  date: Date; totalTTC: number; totalTVA: number; paidAmount: number; status: string; entryId?: unknown;
+  date: Date; totalHT?: number; totalTTC: number; totalTVA: number; paidAmount: number; status: string; entryId?: unknown;
+  commandeId?: unknown; matchOverride?: { by: unknown; at: Date; gapHT: number };
   lines: Array<{ description: string; accountCode: string; accountLabel?: string; amountHT: number; projectId?: unknown; activityId?: unknown; costCenter?: string }>;
   payments: Array<{ _id: Types.ObjectId; date: Date; amount: number; treasuryAccountId: unknown; reference?: string; entryId?: unknown; movementId?: unknown; cancelledAt?: Date }>;
   validatedBy?: unknown; validatedAt?: Date; cancelledAt?: Date; cancelReason?: string;
@@ -81,8 +83,36 @@ function label(p: PurchaseDoc) {
 }
 
 /** Validation : écriture d'achat (AC) — charges imputées + TVA / dette fournisseur. */
-export async function validatePurchase(auth: TokenPayload, p: PurchaseDoc, session?: ClientSession) {
+/**
+ * Rapprochement commande / réception / facture d'un achat lié à un bon de
+ * commande : montants HT commandé, reçu (quantités réceptionnées) et facturé.
+ */
+export async function commandeMatch(tenantId: string, p: { commandeId?: unknown; totalHT?: number; lines: Array<{ amountHT: number }> }, session?: ClientSession) {
+  if (!p.commandeId) return null;
+  const cmd = await CommandeModel.findOne({ _id: p.commandeId, tenantId }).select("number lines").session(session ?? null)
+    .lean<{ number: string; lines: Array<{ quantity?: number; receivedQty?: number; unitPrice?: number }> } | null>();
+  if (!cmd) return null;
+  const orderedHT = Math.round(cmd.lines.reduce((t, l) => t + (l.quantity ?? 0) * (l.unitPrice ?? 0), 0));
+  const receivedHT = Math.round(cmd.lines.reduce((t, l) => t + (l.receivedQty ?? 0) * (l.unitPrice ?? 0), 0));
+  const invoicedHT = Math.round(p.totalHT ?? p.lines.reduce((t, l) => t + l.amountHT, 0));
+  // Tolérance d'arrondi : 1 % du reçu, au moins 100 FCFA.
+  const tolerance = Math.max(100, Math.round(receivedHT * 0.01));
+  return { commandeNumber: cmd.number, orderedHT, receivedHT, invoicedHT, gapHT: invoicedHT - receivedHT, overInvoiced: invoicedHT > receivedHT + tolerance };
+}
+
+export async function validatePurchase(auth: TokenPayload, p: PurchaseDoc, session?: ClientSession, opts: { force?: boolean } = {}) {
   if (p.status !== "draft") throw new PurchaseError("Seul un brouillon se valide.");
+  // Une facture fournisseur ne se valide pas pour plus que ce qui a été reçu,
+  // sauf décision explicite (tracée) : c'est l'écart qu'un contrôle interne
+  // doit voir avant de payer.
+  const match = await commandeMatch(auth.tenantId, p, session);
+  if (match?.overInvoiced) {
+    if (!opts.force) {
+      throw new PurchaseError(`Facture (${match.invoicedHT.toLocaleString("fr-FR")} FCFA HT) supérieure à la marchandise reçue `
+        + `(${match.receivedHT.toLocaleString("fr-FR")} FCFA HT) sur le bon ${match.commandeNumber}. Enregistrez la réception, ou validez malgré l'écart.`);
+    }
+    p.matchOverride = { by: auth.userId, at: new Date(), gapHT: match.gapHT };
+  }
   const lines = [
     ...p.lines.map(l => ({
       accountCode: l.accountCode, accountLabel: l.accountLabel || l.description, debit: l.amountHT, credit: 0,

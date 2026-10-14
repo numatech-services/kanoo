@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, Fragment } from "react";
 import Link from "next/link";
 import { FlowFilterBar, useFlowFilter, type FlowTotals } from "@/components/ui/FlowFilterBar";
-import { Plus, Search, ChevronDown, ChevronRight, Undo2, Lock, FileSpreadsheet, Hash, Link2 } from "lucide-react";
+import { Plus, Search, ChevronDown, ChevronRight, Undo2, Lock, FileSpreadsheet, Hash, Link2, Boxes } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
@@ -12,6 +12,7 @@ import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { StockVariationDialog } from "@/components/accounting/StockVariationDialog";
 interface Line { accountCode: string; accountLabel: string; debit: number; credit: number; projectId?: string; activityId?: string; costCenter?: string }
 interface Entry {
   _id: string; journalCode: string; entryDate: string; reference: string; label: string; lines: Line[];
@@ -34,6 +35,7 @@ export default function AccountingPage() {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [lock, setLock] = useState<{ lockedUntil: string | null; closedYears: number[] }>({ lockedUntil: null, closedYears: [] });
   const [closingOpen, setClosingOpen] = useState(false);
+  const [variationOpen, setVariationOpen] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const LIMIT = 30;
 
@@ -75,6 +77,7 @@ export default function AccountingPage() {
           <Link href="/accounting/etats" className={buttonClass("secondary", "md")}><FileSpreadsheet size={15} /> États</Link>
           <Link href="/accounting/plan" className={buttonClass("secondary", "md")}><Hash size={15} /> Plan comptable</Link>
           <Link href="/accounting/lettrage" className={buttonClass("secondary", "md")}><Link2 size={15} /> Lettrage</Link>
+          {canReverse && <button onClick={() => setVariationOpen(true)} className={buttonClass("secondary", "md")}><Boxes size={15} /> Variation de stock</button>}
           {canReverse && <button onClick={() => setClosingOpen(true)} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Lock size={15} /> Clôture</button>}
           {canCreate && <Link href="/accounting/new" className={buttonClass("primary", "md")}><Plus size={16} /> Écriture</Link>}
         </div>
@@ -151,6 +154,7 @@ export default function AccountingPage() {
       </div>
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
 
+      {variationOpen && <StockVariationDialog onClose={() => setVariationOpen(false)} onDone={() => { setVariationOpen(false); load(); }} />}
       {closingOpen && <ClosingDialog lock={lock} onClose={() => setClosingOpen(false)} onDone={() => { setClosingOpen(false); load(); }} />}
     </div>
   );

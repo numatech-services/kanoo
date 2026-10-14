@@ -57,6 +57,8 @@ const PurchaseSchema = new Schema({
   entryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },
   payments: [PaymentSchema],
   notes: { type: String, maxlength: 2000 },
+  /** Validation malgré une facture supérieure à la réception (rapprochement). */
+  matchOverride: { by: { type: Schema.Types.ObjectId, ref: "User" }, at: Date, gapHT: Number },
   validatedBy: { type: Schema.Types.ObjectId, ref: "User" },
   validatedAt: Date,
   cancelledAt: Date,

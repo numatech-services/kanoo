@@ -46,13 +46,16 @@ export default function NewDeliveryPage() {
           clientId: src.client?._id,
           clientName: src.client?.name,
           deliveryAddress: src.client?.address || "",
-          lines: (src.lines || []).map((l: { description: string; quantity: number; unit: string; productId?: string }) => ({
+          // Reste à livrer de chaque ligne de la facture (déjà livré déduit).
+          lines: (src.lines || []).map((l: { description: string; quantity: number; unit: string; productId?: string; invoiceLineIndex: number }) => ({
             description: l.description,
             quantity: l.quantity,
             unit: l.unit || "unité",
-            productId: l.productId
+            productId: l.productId,
+            invoiceLineIndex: l.invoiceLineIndex,
           }))
         }));
+        if (src.fullyDelivered) showToast("Cette facture est déjà entièrement livrée.", "info");
       } else {
         showToast(d.error || "Facture introuvable", "error");
       }

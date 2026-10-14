@@ -4,6 +4,7 @@ import { withAuth, ok, badRequest, notFound, tenantFilter } from "@/lib/api-help
 import { InvoiceModel } from "@/models/Invoice";
 import { TokenPayload } from "@/lib/auth";
 
+import { deliveredByLine, remainingLines } from "@/lib/deliveries";
 export const dynamic = "force-dynamic";
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -40,6 +41,10 @@ export const GET = withAuth("livraisons", "create", async (req: NextRequest, aut
     invoiceId: inv._id,
     number: inv.number,
     client: inv.clientId ? { _id: inv.clientId._id, name: inv.clientId.name, address: inv.clientId.address } : null,
-    lines: (inv.lines ?? []).map(l => ({ description: l.description, quantity: l.quantity, unit: l.unit || "unité", productId: l.productId })),
+    // Reste à livrer par ligne : la quantité proposée est ce qui n'a pas encore été livré.
+    lines: remainingLines(inv.lines ?? [], await deliveredByLine(auth.tenantId, inv._id))
+      .filter(l => l.remaining > 0)
+      .map(l => ({ ...l, ordered: l.quantity, quantity: l.remaining })),
+    fullyDelivered: remainingLines(inv.lines ?? [], await deliveredByLine(auth.tenantId, inv._id)).every(l => l.remaining <= 0),
   });
 });

@@ -55,6 +55,7 @@ export const SYSCOHADA_ACCOUNTS: DefaultAccount[] = [
   // Classe 6 — Charges
   { code: "601100", label: "Achats de marchandises" },
   { code: "602100", label: "Achats de matières premières" },
+  { code: "603100", label: "Variations des stocks de marchandises" },
   { code: "604000", label: "Achats stockés de matières et fournitures consommables" },
   { code: "605100", label: "Eau" },
   { code: "605200", label: "Électricité" },

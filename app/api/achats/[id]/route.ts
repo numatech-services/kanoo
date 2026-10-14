@@ -4,7 +4,7 @@ import { withAuth, ok, notFound, noContent, badRequest, tenantFilter } from "@/l
 import { TokenPayload } from "@/lib/auth";
 import { PurchaseModel } from "@/models/Purchase";
 import { CommandeModel } from "@/models/Commande";
-import { buildPurchaseLines, checkSupplier, PurchaseError } from "@/lib/purchases";
+import { buildPurchaseLines, checkSupplier, PurchaseError, commandeMatch } from "@/lib/purchases";
 import { logAudit } from "@/lib/audit";
 
 export const GET = withAuth("purchases", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
@@ -15,7 +15,10 @@ export const GET = withAuth("purchases", "read", async (_req: NextRequest, auth:
     .populate("payments.treasuryAccountId", "label type").populate("createdBy validatedBy", "firstName lastName")
     .lean();
   if (!p) return notFound("Achat introuvable");
-  return ok(p);
+  // Rapprochement commande / réception / facture, si l'achat vient d'un bon de commande.
+  const doc = p as unknown as { commandeId?: { _id?: unknown } | null; totalHT?: number; lines: Array<{ amountHT: number }> };
+  const match = await commandeMatch(auth.tenantId, { ...doc, commandeId: doc.commandeId?._id ?? doc.commandeId ?? undefined });
+  return ok({ ...p, match });
 });
 
 /** PATCH — modification d'un BROUILLON (après validation : extourne puis nouvelle saisie). */
