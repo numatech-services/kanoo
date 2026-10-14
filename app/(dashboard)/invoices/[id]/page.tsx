@@ -45,6 +45,10 @@ interface Invoice {
   originalInvoiceId?: string;
   creditReason?: string;
   creditedAmount?: number;
+  /** Retenue de garantie du marché (non exigible avant la réception définitive). */
+  retentionAmount?: number;
+  retentionRate?: number;
+  contractId?: string | { _id: string; reference?: string };
 }
 
 
@@ -170,7 +174,7 @@ export default function InvoiceDetailPage() {
   if (!invoice) return <div className="p-6 text-ink2">Facture introuvable</div>;
 
   // Reste à payer net des avoirs déjà émis.
-  const remaining = Math.max(0, invoice.totalTTC - (invoice.creditedAmount || 0) - invoice.paidAmount);
+  const remaining = Math.max(0, invoice.totalTTC - (invoice.creditedAmount || 0) - invoice.paidAmount - (invoice.status === "cancelled" ? 0 : invoice.retentionAmount || 0));
   const credited = invoice.creditedAmount || 0;
   const isCreditNote = invoice.documentType === "credit_note";
 
@@ -283,6 +287,7 @@ export default function InvoiceDetailPage() {
           </p>
         </div>
         <div><p className="text-xs text-ink2">Total TTC</p><p className="font-mono font-bold text-ink mt-1">{invoice.totalTTC.toLocaleString("fr-FR")} FCFA</p></div>
+        {(invoice.retentionAmount ?? 0) > 0 && <div><p className="text-xs text-ink2" title="Gardée par le client jusqu'à la réception définitive du marché">Retenue de garantie ({Math.round((invoice.retentionRate ?? 0) * 1000) / 10} %)</p><p className="font-mono font-bold text-ink2 mt-1">{(invoice.retentionAmount ?? 0).toLocaleString("fr-FR")} FCFA</p></div>}
         <div><p className="text-xs text-ink2">Encaissé</p><p className="font-mono font-bold text-pos mt-1">{invoice.paidAmount.toLocaleString("fr-FR")} FCFA</p></div>
         {remaining > 0 && <div><p className="text-xs text-ink2">Reste dû</p><p className="font-mono font-bold text-neg mt-1">{remaining.toLocaleString("fr-FR")} FCFA</p></div>}
       </div>

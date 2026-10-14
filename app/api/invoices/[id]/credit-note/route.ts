@@ -1,3 +1,4 @@
+import { RETENTION_ACCOUNT } from "@/lib/retention";
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import {
@@ -37,6 +38,12 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
   // Objet simple : recopier les lignes d'un document Mongoose avec `{ ...l }`
   // perdait leurs champs (dont la nature « déduction d'acompte »), et l'avoir
   // total d'une facture de solde n'extournait ni l'acompte ni tout le produit.
+  // Retenue de garantie : un avoir partiel ne saurait dire quelle part de la
+  // retenue il annule. Avoir total, puis nouvelle facture si besoin.
+  const retention = Math.round(invoice.retentionAmount || 0);
+  if (retention > 0 && body.mode !== "full") {
+    return badRequest("Facture avec retenue de garantie : faites un avoir total, puis refacturez le bon montant.");
+  }
   const draftResult = buildCreditNote(
     invoice.toObject() as unknown as InvoiceLike,
     body.mode === "full" ? "full" : body.lines
@@ -54,6 +61,14 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
   // L'avoir porte l'imputation de la facture : il réduit les recettes du projet.
   const tags = { ...(invoice.projectId ? { projectId: invoice.projectId } : {}), ...(invoice.activityId ? { activityId: invoice.activityId } : {}) };
   const entryLines = reversalEntryLines(draft, invoice.clientId, { kind: invoice.kind, tags });
+  if (retention > 0) {
+    // La vente avait porté la retenue au 4117 : l'avoir la solde aussi.
+    const client411 = entryLines.find(l => l.accountCode === "411000" && l.credit >= retention);
+    if (client411) {
+      client411.credit -= retention;
+      entryLines.push({ ...RETENTION_ACCOUNT, debit: 0, credit: retention, thirdPartyId: invoice.clientId } as (typeof entryLines)[number]);
+    }
+  }
   const totalDebit = entryLines.reduce((sum, l) => sum + l.debit, 0);
   const totalCredit = entryLines.reduce((sum, l) => sum + l.credit, 0);
   if (totalDebit !== totalCredit) {

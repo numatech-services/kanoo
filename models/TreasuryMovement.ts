@@ -34,7 +34,7 @@ const TreasuryMovementSchema = new Schema(
       default: "manual",
     },
     /** Pièce à l'origine du mouvement, quand il y en a une. */
-    linkedDocType: { type: String, enum: ["invoice", "payment", "expense", "payslip", "recurringExpense", "purchase", "transfer", "manual", "desk_cash", "attendee", "membership", "donation", null] },
+    linkedDocType: { type: String, enum: ["invoice", "payment", "expense", "payslip", "recurringExpense", "purchase", "transfer", "manual", "desk_cash", "attendee", "membership", "donation", "contract", "guarantee", null] },
     /** Virement interne : l'autre jambe (mouvement du compte opposé). */
     transferPeerId: { type: Schema.Types.ObjectId },
     /** Écriture comptable passée pour une saisie manuelle ou un virement. */

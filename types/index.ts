@@ -322,6 +322,9 @@ export interface IInvoice {
   totalDTS: number;
   totalTTC: number;
   retenueSource?: number;
+  /** Retenue de garantie (marchés) : non exigible avant la réception définitive. */
+  retentionAmount?: number;
+  retentionRate?: number;
   status: InvoiceStatus;
   issueDate: Date;
   dueDate: Date;

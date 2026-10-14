@@ -77,6 +77,7 @@ const PME_NAV: NavGroup[] = [
   ]},
   { section: "Appels d'offres & projets", tone: "contrats", items: [
     { label: "Veille & offres", href: "/appels", icon: <Megaphone size={18} /> },
+    { label: "Cautions", href: "/cautions", icon: <ShieldCheck size={18} /> },
     { label: "Projets", href: "/projects", icon: <Folder size={18} /> },
     { label: "Approbations", href: "/approbations", icon: <CheckCircle2 size={18} /> },
   ]},

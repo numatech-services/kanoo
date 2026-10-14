@@ -84,7 +84,10 @@ const InvoiceSchema = new Schema<IInvoice>(
     totalTVA: { type: Number, required: true },
     totalDTS: { type: Number, default: 0 },         // Droits de timbre Niger
     totalTTC: { type: Number, required: true },
-    retenueSource: { type: Number, default: 0 },    // Retenue à la source marchés publics
+    retenueSource: { type: Number, default: 0 },
+    /** Retenue de garantie du marché : part du TTC que le client garde jusqu'à la réception définitive (compte 4117). */
+    retentionAmount: { type: Number, default: 0, min: 0 },
+    retentionRate: { type: Number, default: 0, min: 0 },    // Retenue à la source marchés publics
     status: {
       type: String,
       enum: ["draft", "sent", "partial", "paid", "overdue", "cancelled"],

@@ -23,7 +23,7 @@ type InvoiceDoc = {
   _id: unknown; number: string; status: string; kind?: string; clientId: unknown;
   issueDate: Date; documentType?: string; projectId?: unknown; activityId?: unknown;
   lines: Array<{ productId?: unknown; totalHT: number; kind?: string; depositInvoiceId?: unknown }>;
-  totalTVA: number; totalDTS?: number; totalTTC: number;
+  totalTVA: number; totalDTS?: number; totalTTC: number; retentionAmount?: number;
   save: (o?: { session?: ClientSession }) => Promise<unknown>;
 };
 
@@ -43,7 +43,7 @@ export async function postInvoice(actor: PostingActor, invoice: InvoiceDoc, sess
     label: `${what} ${client?.name ?? ""} — ${invoice.number}`.replace("  ", " "),
     lines: await saleEntryLines(actor.tenantId, {
       clientId: invoice.clientId, lines: invoice.lines, totalTVA: invoice.totalTVA, totalDTS: invoice.totalDTS ?? 0,
-      totalTTC: invoice.totalTTC, kind: invoice.kind,
+      totalTTC: invoice.totalTTC, kind: invoice.kind, retentionAmount: invoice.retentionAmount ?? 0,
       ...(invoice.projectId ? { projectId: invoice.projectId } : {}),
       ...(invoice.activityId ? { activityId: invoice.activityId } : {}),
     }, session),

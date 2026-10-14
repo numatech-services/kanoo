@@ -14,9 +14,17 @@ import { issueInvoice } from "@/lib/invoice-posting";
  * Reste à payer d'une facture : TTC, moins les avoirs déjà émis, moins les
  * règlements. Sans les avoirs, un client pouvait payer ce qui lui avait été crédité.
  */
-export function invoiceDue(inv: { totalTTC: number; paidAmount?: number; creditedAmount?: number }): number {
-  return Math.max(0, Math.round(inv.totalTTC - (inv.creditedAmount || 0) - (inv.paidAmount || 0)));
+export function invoiceDue(inv: { totalTTC: number; paidAmount?: number; creditedAmount?: number; retentionAmount?: number; status?: string }): number {
+  // Retenue de garantie : due plus tard (réception définitive), pas exigible maintenant.
+  // Une facture annulée par avoir total ne la retient plus.
+  const retention = inv.status === "cancelled" ? 0 : (inv.retentionAmount || 0);
+  return Math.max(0, Math.round(inv.totalTTC - (inv.creditedAmount || 0) - (inv.paidAmount || 0) - retention));
 }
+
+/** Même calcul en expression d'agrégation MongoDB (reste exigible d'une facture). */
+export const INVOICE_DUE_EXPR = {
+  $subtract: ["$totalTTC", { $add: [{ $ifNull: ["$paidAmount", 0] }, { $ifNull: ["$creditedAmount", 0] }, { $ifNull: ["$retentionAmount", 0] }] }],
+};
 
 /** Retenues à la source subies sur les encaissements : acomptes d'impôt sur l'État. */
 export const WITHHOLDING_SUFFERED = { accountCode: "449200", accountLabel: "État — retenues à la source subies" };

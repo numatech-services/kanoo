@@ -87,6 +87,8 @@ export interface InvoiceLike {
   totalTTC: number;
   paidAmount?: number;
   creditedAmount?: number;
+  /** Retenue de garantie : pas exigible, jamais relancée. */
+  retentionAmount?: number;
   dueDate?: Date | string | null;
   status: string;
   documentType?: string;
@@ -167,7 +169,8 @@ export function daysBetween(from: Date | string, to: Date | string): number {
 export function outstandingAmount(invoice: InvoiceLike): number {
   const paid = invoice.paidAmount || 0;
   const credited = invoice.creditedAmount || 0;
-  return Math.max(0, invoice.totalTTC - paid - credited);
+  const retention = invoice.status === "cancelled" ? 0 : (invoice.retentionAmount || 0);
+  return Math.max(0, invoice.totalTTC - paid - credited - retention);
 }
 
 export function daysPastDue(invoice: InvoiceLike, asOf: Date): number {

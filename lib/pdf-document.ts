@@ -235,6 +235,8 @@ export interface InvoiceForPdf {
   lines?: Array<{ description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; totalTTC?: number }>;
   totalHT?: number; totalTVA?: number; totalDTS?: number; totalTTC?: number;
   paidAmount?: number; creditedAmount?: number; notes?: string;
+  /** Retenue de garantie du marché, gardée par le client jusqu'à la réception définitive. */
+  retentionAmount?: number; retentionRate?: number;
   clientId?: { name?: string; nif?: string; rccm?: string; code?: string; address?: string; phone?: string } | null;
   secef?: { code?: string; qrPayload?: string };
 }
@@ -323,10 +325,20 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
       .text(`Arrêté${isCredit ? " le présent avoir" : " la présente facture"} à la somme de ${amountInWordsFr(inv.totalTTC ?? 0)} francs CFA.`, 50, y + 2, { width: 270 });
     y += 32;
 
+    const retention = !isCredit && inv.status !== "cancelled" ? (inv.retentionAmount ?? 0) : 0;
+    if (retention > 0) {
+      doc.fillColor(c.muted).font("Helvetica").fontSize(9);
+      doc.text(`Retenue de garantie (${Math.round((inv.retentionRate ?? 0) * 1000) / 10} %)`, 330, y); doc.text(`− ${FCFA(retention)}`, 430, y, { width: 115, align: "right" });
+      y += 14;
+      doc.fillColor(c.ink).font("Helvetica-Bold");
+      doc.text("Net à payer", 330, y); doc.text(FCFA((inv.totalTTC ?? 0) - retention), 430, y, { width: 115, align: "right" });
+      y += 18;
+    }
+
     if (!isCredit && (inv.paidAmount ?? 0) > 0) {
       doc.fillColor("#1C5D4C").font("Helvetica").fontSize(9);
       doc.text("Encaissé", 330, y); doc.text(FCFA(inv.paidAmount!), 430, y, { width: 115, align: "right" });
-      const remaining = (inv.totalTTC ?? 0) - (inv.creditedAmount ?? 0) - (inv.paidAmount ?? 0);
+      const remaining = (inv.totalTTC ?? 0) - (inv.creditedAmount ?? 0) - (inv.paidAmount ?? 0) - retention;
       if (remaining > 0) {
         y += 14;
         doc.fillColor("#B23B2E").font("Helvetica-Bold");
@@ -345,7 +357,7 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
     }
 
     // Lien du portail client : le client scanne, consulte et règle en ligne.
-    const due = (inv.totalTTC ?? 0) - (inv.creditedAmount ?? 0) - (inv.paidAmount ?? 0);
+    const due = (inv.totalTTC ?? 0) - (inv.creditedAmount ?? 0) - (inv.paidAmount ?? 0) - retention;
     if (opts.portalUrl && !isCredit && due > 0) {
       await drawDocumentQr(doc, opts.portalUrl, { x: 380, y: 700, size: 74, caption: "Consulter et payer en ligne" });
     }

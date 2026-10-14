@@ -11,6 +11,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import {apiJson, apiSend } from "@/lib/api-client";
 import { formatMoney } from "@/lib/format";
+import { GUARANTEE_TYPES } from "@/lib/guarantees";
 interface ReqDoc { _id?: string; label: string; provided: boolean }
 interface Doc { _id: string; name?: string; dataUri?: string }
 interface Appel {
@@ -38,6 +39,8 @@ export default function AppelDetailPage() {
   const [clients, setClients] = useState<Array<{ _id: string; name: string }>>([]);
   const [award, setAward] = useState({ amount: "", clientId: "", project: true });
   const [busy, setBusy] = useState(false);
+  const [cautions, setCautions] = useState<Array<{ _id: string; type: string; amount: number; status: string; expiryDate?: string }>>([]);
+  useEffect(() => { apiJson(`/api/cautions?appelId=${id}`).then(d => setCautions(d?.data?.items ?? [])); }, [id]);
 
   const load = useCallback(() => {
     apiJson(`/api/appels/${id}`).then(d => setA(d.data || d));
@@ -161,6 +164,25 @@ export default function AppelDetailPage() {
           <span className={`text-sm ${dl.cls}`}>{dl.text}</span>
         </div>
       )}
+
+      {/* Cautions bancaires */}
+      <section className="surface-card p-5 space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-ink">Cautions bancaires</h2>
+          <Link href={`/cautions?appelId=${id}&new=1`} className="text-sm text-section font-semibold hover:underline inline-flex items-center gap-1"><Plus size={14} /> Ajouter</Link>
+        </div>
+        {cautions.length === 0 ? <p className="text-sm text-ink3">Aucune caution (soumission, bonne exécution…) liée à cet appel.</p> : (
+          <ul className="divide-y divide-line text-sm">
+            {cautions.map(c => (
+              <li key={c._id} className="flex items-center gap-3 py-1.5">
+                <span className="flex-1 text-ink">{GUARANTEE_TYPES[c.type as keyof typeof GUARANTEE_TYPES] ?? c.type}</span>
+                <span className="text-xs text-ink2">{c.status === "active" ? (c.expiryDate ? `échéance ${new Date(c.expiryDate).toLocaleDateString("fr-FR")}` : "en cours") : c.status === "released" ? "mainlevée" : "appelée"}</span>
+                <span className="num font-semibold">{formatMoney(c.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {/* Pièces exigées */}
       <section className="surface-card p-5 space-y-2">

@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill } from "@/components/ui/Primitives";
+import { RetentionPanel } from "@/components/contracts/RetentionPanel";
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 import { ImputedFlows } from "@/components/shared/ImputedFlows";
 import { useMe, meCanDo } from "@/lib/useMe";
@@ -30,6 +31,7 @@ interface Contract {
   _id: string; title: string; reference: string; status: string; type: string; amount: number; isRecurring?: boolean;
   clientId?: { name?: string } | null; projectId?: { _id: string; code: string; name: string } | null; devisId?: { _id: string; number: string } | null;
   milestones?: Milestone[];
+  retentionRate?: number; receptionProvisoireDate?: string; receptionDefinitiveDate?: string; guaranteeMonths?: number;
 }
 
 export default function ContractDetailPage() {
@@ -170,6 +172,8 @@ export default function ContractDetailPage() {
           </table></div>
         </section>
       )}
+
+      {isMarket && <RetentionPanel contractId={id} settings={contract} canEdit={canEdit} canCollect={meCanDo(me, "payments", "create")} onChange={load} />}
 
       {finance && contract.projectId && <ImputedFlows projectId={contract.projectId._id} />}
 
@@ -322,6 +326,7 @@ function InvoiceDialog({ contractId, mode, f, onClose, onDone }: { contractId: s
           {deduction > 0 && <Row label="Acompte déduit (HT)" value={`− ${formatMoney(deduction)}`} />}
           <Row label="Net HT à facturer" value={formatMoney(amount - deduction)} strong />
         </div>
+        {!deposit && f.retention.rate > 0 && <p className="text-xs text-ink2">Retenue de garantie : {(f.retention.rate * 100).toLocaleString("fr-FR")} % du TTC sera gardé par le client jusqu&apos;à la réception définitive (non exigible, jamais relancé).</p>}
         <p className="text-[11px] text-ink3 flex items-center gap-1"><FileText size={12} /> La facture est créée en brouillon ; TVA et timbre sont calculés comme sur toute facture.</p>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>

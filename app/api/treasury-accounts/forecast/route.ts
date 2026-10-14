@@ -40,8 +40,8 @@ export const GET = withAuth("treasuryAccounts", "read", async (req: NextRequest,
   const flows: Flow[] = [];
   const [invoices, purchases, recurring, employees, unpaidSlips, reports] = await Promise.all([
     InvoiceModel.find({ ...tf, documentType: { $ne: "credit_note" }, status: { $in: ["sent", "partial", "overdue"] } })
-      .select("number dueDate totalTTC paidAmount creditedAmount clientId").populate("clientId", "name")
-      .lean<Array<{ number: string; dueDate?: Date; totalTTC: number; paidAmount?: number; creditedAmount?: number; clientId?: { name?: string } }>>(),
+      .select("number dueDate totalTTC paidAmount creditedAmount retentionAmount clientId").populate("clientId", "name")
+      .lean<Array<{ number: string; dueDate?: Date; totalTTC: number; paidAmount?: number; creditedAmount?: number; retentionAmount?: number; clientId?: { name?: string } }>>(),
     PurchaseModel.find({ ...tf, status: { $in: ["validated", "partial"] } }).select("number dueDate date totalTTC paidAmount payee")
       .lean<Array<{ number: string; dueDate?: Date; date: Date; totalTTC: number; paidAmount: number; payee?: string }>>(),
     RecurringExpenseModel.find({ ...tf, isActive: true }).select("label amount frequency nextDueDate")
@@ -52,7 +52,8 @@ export const GET = withAuth("treasuryAccounts", "read", async (req: NextRequest,
   ]);
 
   for (const i of invoices) {
-    const rest = i.totalTTC - (i.paidAmount ?? 0) - (i.creditedAmount ?? 0);
+    // La retenue de garantie ne rentre qu'à la réception définitive : hors de l'horizon.
+    const rest = i.totalTTC - (i.paidAmount ?? 0) - (i.creditedAmount ?? 0) - (i.retentionAmount ?? 0);
     if (rest > 0) flows.push({ label: `Facture ${i.number}${i.clientId?.name ? ` — ${i.clientId.name}` : ""}`, amount: rest, kind: "in", source: "Clients", date: i.dueDate ?? now, ref: i.number });
   }
   for (const p of purchases) {

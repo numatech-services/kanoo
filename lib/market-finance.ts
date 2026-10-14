@@ -4,6 +4,7 @@ import { DevisModel } from "@/models/Devis";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { CommandeModel } from "@/models/Commande";
 import { PurchaseModel } from "@/models/Purchase";
+import { retentionState, type RetentionState } from "@/lib/retention";
 import { COST_CATEGORIES, costCategory, type CostCategoryKey } from "@/lib/cost-categories";
 
 export interface MarketFinance {
@@ -20,6 +21,8 @@ export interface MarketFinance {
     dueTTC: number;
     toInvoiceHT: number;
   };
+  /** Retenue de garantie : gardée par le client jusqu'à la réception définitive. */
+  retention: RetentionState & { rate: number };
   costs: {
     categories: Array<{ key: CostCategoryKey; label: string; hint: string; committed: number; actual: number }>;
     committed: number;
@@ -31,10 +34,13 @@ export interface MarketFinance {
   invoices: Array<{ _id: string; number: string; kind: string; documentType: string; status: string; issueDate: Date; totalHT: number; totalTTC: number; paidAmount: number; milestoneId?: string }>;
 }
 
-type ContractLike = { _id: unknown; amount: number; projectId?: unknown; devisId?: unknown; invoiceIds?: unknown[] };
+type ContractLike = {
+  _id: unknown; amount: number; projectId?: unknown; devisId?: unknown; invoiceIds?: unknown[];
+  retentionRate?: number; retentionReleases?: Array<{ amount: number }>; receptionProvisoireDate?: Date; receptionDefinitiveDate?: Date; guaranteeMonths?: number;
+};
 type InvoiceRow = {
   _id: Types.ObjectId; number: string; kind?: string; documentType: string; status: string; issueDate: Date; originalInvoiceId?: Types.ObjectId;
-  totalHT: number; totalTTC: number; paidAmount: number; depositUsedHT?: number; milestoneId?: Types.ObjectId; lines: Array<{ totalHT: number; kind?: string }>;
+  totalHT: number; totalTTC: number; paidAmount: number; depositUsedHT?: number; retentionAmount?: number; milestoneId?: Types.ObjectId; lines: Array<{ totalHT: number; kind?: string }>;
 };
 
 const rate = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 1000) / 10 : null);
@@ -55,7 +61,7 @@ export async function marketFinance(tenantId: string, contract: ContractLike): P
   const [quote, base] = await Promise.all([
     contract.devisId ? DevisModel.findOne({ _id: contract.devisId, tenantId: tid }).select("number status totalHT totalTTC").lean<{ _id: Types.ObjectId; number: string; status: string; totalHT: number; totalTTC: number } | null>() : null,
     InvoiceModel.find({ tenantId: tid, $or: [{ contractId: contract._id }, { _id: { $in: linked } }] })
-      .select("number kind documentType status issueDate originalInvoiceId totalHT totalTTC paidAmount depositUsedHT milestoneId lines.totalHT lines.kind")
+      .select("number kind documentType status issueDate originalInvoiceId totalHT totalTTC paidAmount depositUsedHT retentionAmount milestoneId lines.totalHT lines.kind")
       .sort({ issueDate: 1 }).lean<InvoiceRow[]>(),
   ]);
   // Avoirs émis sur ces factures, même s'ils ne portent pas le marché.
@@ -109,15 +115,18 @@ export async function marketFinance(tenantId: string, contract: ContractLike): P
   const committed = categories.reduce((t, c) => t + c.committed, 0);
   const actualCost = categories.reduce((t, c) => t + c.actual, 0);
   const contractHT = contract.amount || 0;
+  const retention = retentionState(live, contract);
 
   return {
     quote: quote ? { _id: String(quote._id), number: quote.number, status: quote.status, totalHT: quote.totalHT, totalTTC: quote.totalTTC } : null,
     contractHT,
     billing: {
       workHT, depositsHT, depositsDeductedHT: deducted, depositsOutstandingHT: outstanding,
-      invoicedTTC, collectedTTC, dueTTC: Math.max(0, invoicedTTC - collectedTTC),
+      // Encaissé : règlements et retenues déjà reversées ; dû : l'exigible, hors retenue.
+      invoicedTTC, collectedTTC: collectedTTC + retention.released, dueTTC: Math.max(0, invoicedTTC - collectedTTC - retention.held),
       toInvoiceHT: Math.max(0, contractHT - workHT - outstanding),
     },
+    retention: { ...retention, rate: contract.retentionRate ?? 0 },
     costs: { categories, committed, actual: actualCost, supplierDueTTC },
     margin: {
       actual: workHT - actualCost, actualRate: rate(workHT - actualCost, workHT),

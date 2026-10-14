@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, ctx: Params) {
     return NextResponse.json({ success: false, error: "Le paiement en ligne n'est pas activé par votre fournisseur." }, { status: 400 });
   }
   const inv = await InvoiceModel.findOne({ _id: id, tenantId: gate.client.tenantId, clientId: gate.client._id, documentType: { $ne: "credit_note" }, status: { $nin: ["draft", "cancelled"] } })
-    .select("number totalTTC paidAmount creditedAmount").lean<{ _id: unknown; number: string; totalTTC: number; paidAmount?: number; creditedAmount?: number } | null>();
+    .select("number totalTTC paidAmount creditedAmount retentionAmount status").lean<{ _id: unknown; number: string; totalTTC: number; paidAmount?: number; creditedAmount?: number; retentionAmount?: number; status?: string } | null>();
   if (!inv) return NextResponse.json({ success: false, error: "Facture introuvable." }, { status: 404 });
   const due = invoiceDue(inv);
   if (due <= 0) return NextResponse.json({ success: false, error: "Cette facture est déjà réglée." }, { status: 409 });

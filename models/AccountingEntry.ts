@@ -38,7 +38,9 @@ const AccountingEntrySchema = new Schema<IAccountingEntry>(
       enum: ["invoice", "payment", "supplier_invoice", "supplier_payment", "payslip", "expense", "credit_note",
         "recurringExpense", "delivery", "stock", "inventory", "fixed_asset", "treasury", "reversal", "closing", "manual", "withholding",
         // Encaissements au comptant des modules (lib/cash-posting).
-        "desk_cash", "attendee", "membership", "donation"],
+        "desk_cash", "attendee", "membership", "donation",
+        // Retenue de garantie reversée (marché) ; caution bancaire (commission, dépôt, mainlevée, appel).
+        "retention", "guarantee"],
     },
     /** Extourne : l'écriture qui annule celle-ci, et inversement. */
     reversedBy: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },

@@ -16,6 +16,8 @@ export function notificationHref(n: { type?: string; linkedTo?: string; linkedId
     case "crm_followup": return "/crm";
     case "subscription_alert": return "/abonnements";
     case "fiscal_reminder": return "/fiscalite";
+    case "guarantee_expiry": return "/cautions";
+    case "retention_claimable": return id ? `/contracts/${id}` : "/contracts";
     case "tender_deadline": return id ? `/appels/${id}` : "/appels";
   }
   switch (n.linkedTo) {

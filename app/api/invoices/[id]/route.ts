@@ -3,6 +3,7 @@ import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, noContent, tenantFilter } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
 import { ClientModel } from "@/models/Client";
+import { retentionFor } from "@/lib/retention";
 import { computeInvoiceLines, saleEntryLines, findSaleEntry, reverseSaleEntry } from "@/lib/invoice-entry";
 import { pickImputation, checkImputations } from "@/lib/imputation";
 import { logAudit } from "@/lib/audit";
@@ -57,6 +58,8 @@ export const PATCH = withAuth("invoices", "update", async (req: NextRequest, aut
     if (body.lines.length === 0) return badRequest("Au moins une ligne.");
     const t = computeInvoiceLines(body.lines);
     inv.set({ lines: t.lines, totalHT: t.totalHT, totalTVA: t.totalTVA, totalDTS: t.totalDTS, totalTTC: t.totalTTC });
+    // Retenue de garantie du marché : suit le nouveau TTC.
+    if ((inv.retentionRate ?? 0) > 0) inv.retentionAmount = retentionFor(t.totalTTC, inv.retentionRate, inv.kind);
   }
 
   await withTransaction(async session => {

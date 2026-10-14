@@ -4,6 +4,7 @@ import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { reverseEntry } from "@/lib/accounting-reversal";
 import { calculerTVA, calculerDTS, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { DEPOSIT_ACCOUNT } from "@/lib/deposit";
+import { RETENTION_ACCOUNT } from "@/lib/retention";
 
 export interface InvoiceLineIn { description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; discount?: number; productId?: unknown; kind?: "deposit_deduction"; depositInvoiceId?: unknown }
 
@@ -37,7 +38,7 @@ export { DEPOSIT_ACCOUNT };
  */
 export async function saleEntryLines(
   tenantId: string,
-  inv: { clientId: unknown; lines: Array<{ productId?: unknown; totalHT: number; kind?: string }>; totalTVA: number; totalDTS: number; totalTTC: number; projectId?: unknown; activityId?: unknown; kind?: string },
+  inv: { clientId: unknown; lines: Array<{ productId?: unknown; totalHT: number; kind?: string }>; totalTVA: number; totalDTS: number; totalTTC: number; projectId?: unknown; activityId?: unknown; kind?: string; retentionAmount?: number },
   session?: ClientSession,
 ) {
   // Facture d'acompte : avance reçue (419), pas encore du chiffre d'affaires.
@@ -58,8 +59,12 @@ export async function saleEntryLines(
   }
   const LABELS: Record<string, string> = { "701100": "Ventes de marchandises", "706000": "Prestations de services", [DEPOSIT_ACCOUNT.accountCode]: DEPOSIT_ACCOUNT.accountLabel };
   const tags = { ...(inv.projectId ? { projectId: inv.projectId } : {}), ...(inv.activityId ? { activityId: inv.activityId } : {}) };
+  // Retenue de garantie : la part gardée par le maître d'ouvrage passe au 4117
+  // (due à la réception définitive) ; le 411 ne porte que l'exigible.
+  const retention = Math.min(Math.max(0, Math.round(inv.retentionAmount ?? 0)), inv.totalTTC);
   return [
-    { accountCode: "411000", accountLabel: "Clients", debit: inv.totalTTC, credit: 0, thirdPartyId: inv.clientId },
+    { accountCode: "411000", accountLabel: "Clients", debit: inv.totalTTC - retention, credit: 0, thirdPartyId: inv.clientId },
+    ...(retention > 0 ? [{ ...RETENTION_ACCOUNT, debit: retention, credit: 0, thirdPartyId: inv.clientId }] : []),
     ...(deduction > 0 ? [{ ...DEPOSIT_ACCOUNT, debit: deduction, credit: 0, thirdPartyId: inv.clientId }] : []),
     ...[...byAccount.entries()].filter(([, v]) => v !== 0).map(([code, v]) => ({
       accountCode: code, accountLabel: LABELS[code] ?? "Ventes", debit: 0, credit: v,

@@ -87,7 +87,7 @@ export async function gatherReportContext(auth: TokenPayload): Promise<ReportCon
         () =>
           InvoiceModel.aggregate([
             { $match: { tenantId, documentType: { $ne: "credit_note" }, status: { $in: ["sent", "partial", "overdue"] } } },
-            { $group: { _id: null, total: { $sum: { $subtract: ["$totalTTC", { $ifNull: ["$paidAmount", 0] }] } } } },
+            { $group: { _id: null, total: { $sum: { $subtract: ["$totalTTC", { $add: [{ $ifNull: ["$paidAmount", 0] }, { $ifNull: ["$creditedAmount", 0] }, { $ifNull: ["$retentionAmount", 0] }] }] } } } },
           ]).then((r) => r[0]?.total || 0),
         0
       ),

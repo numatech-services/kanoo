@@ -16,6 +16,9 @@ import { AdminDocumentModel } from "@/models/AdminDocument";
 import { LetterModel } from "@/models/Letter";
 import { AppelCandidatureModel } from "@/models/AppelCandidature";
 import { OPEN_APPEL_STATUSES, daysUntil, reminderDue, reminderMessage } from "@/lib/appels";
+import { BankGuaranteeModel } from "@/models/BankGuarantee";
+import { GUARANTEE_TYPES, GUARANTEE_REMINDER_DAYS, daysToExpiry } from "@/lib/guarantees";
+import { retentionState } from "@/lib/retention";
 import { courrierReminderPlan, courrierReminderEmail, DUE_SOON_DAYS, type ReminderCandidate } from "@/lib/courriers";
 import { sendEmail } from "@/lib/email";
 import { buildAlerts, type PurchaseLike, type SaleLike } from "@/lib/subscriptions";
@@ -256,6 +259,56 @@ export const CRON_JOBS: CronJob[] = [
         }
       }
       return `${sent} rappel(s) d'appel d'offres`;
+    },
+  },
+  {
+    id: "bank-guarantees", label: "Cautions bancaires à échéance",
+    cadence: "daily", schedule: "50 7 * * *",
+    run: async () => {
+      const now = new Date();
+      const list = await BankGuaranteeModel.find({ status: "active", expiryDate: { $exists: true, $lte: new Date(now.getTime() + 31 * 86400000) } })
+        .lean<Array<{ _id: Id; tenantId: Id; type: keyof typeof GUARANTEE_TYPES; amount: number; beneficiary: string; expiryDate: Date; createdBy?: Id }>>();
+      let sent = 0;
+      for (const g of list) {
+        const left = daysToExpiry(g.expiryDate, now)!;
+        if (!GUARANTEE_REMINDER_DAYS.includes(left)) continue;
+        const users = new Map((await getAdmins(g.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "svc_admin", "admin_ordonnateur"])).map(a => [String(a._id), a._id]));
+        if (g.createdBy) users.set(String(g.createdBy), g.createdBy);
+        const what = `${GUARANTEE_TYPES[g.type]} de ${g.amount.toLocaleString("fr-FR")} FCFA (${g.beneficiary})`;
+        for (const userId of users.values()) {
+          await notify(g.tenantId, userId, "guarantee_expiry", left < 0 ? "Caution échue — mainlevée à demander" : "Caution bientôt échue",
+            left < 0 ? `${what} est échue depuis hier : demandez la mainlevée pour arrêter la commission et récupérer le dépôt.` : `${what} échoit dans ${left} jours : prorogez-la ou demandez la mainlevée.`,
+            "cautions", g._id);
+          sent++;
+        }
+      }
+      return `${sent} rappel(s) de caution`;
+    },
+  },
+  {
+    id: "retentions-claimable", label: "Retenues de garantie à réclamer",
+    cadence: "daily", schedule: "55 7 * * *",
+    run: async () => {
+      const now = new Date();
+      const held = await InvoiceModel.aggregate<{ _id: Id; tenantId: Id; invoices: Array<{ retentionAmount: number; status: string }> }>([
+        { $match: { documentType: "invoice", retentionAmount: { $gt: 0 }, status: { $ne: "cancelled" }, contractId: { $exists: true } } },
+        { $group: { _id: "$contractId", tenantId: { $first: "$tenantId" }, invoices: { $push: { retentionAmount: "$retentionAmount", status: "$status" } } } },
+      ]);
+      let sent = 0;
+      for (const h of held) {
+        const c = await ContractModel.findById(h._id).select("reference retentionReleases receptionProvisoireDate receptionDefinitiveDate guaranteeMonths")
+          .lean<{ _id: Id; reference: string; retentionReleases?: Array<{ amount: number }>; receptionProvisoireDate?: Date; receptionDefinitiveDate?: Date; guaranteeMonths?: number } | null>();
+        if (!c) continue;
+        const s = retentionState(h.invoices, c, now);
+        // Le jour où elle devient réclamable, puis tous les 30 jours tant qu'elle n'est pas reversée.
+        if (!s.claimable || daysUntil(s.releasableFrom!, now) % 30 !== 0) continue;
+        for (const admin of await getAdmins(h.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "svc_compta"])) {
+          await notify(h.tenantId, admin._id, "retention_claimable", "Retenue de garantie à réclamer",
+            `Marché ${c.reference} : ${s.outstanding.toLocaleString("fr-FR")} FCFA de retenue de garantie sont réclamables (délai de garantie écoulé).`, "contracts", c._id);
+          sent++;
+        }
+      }
+      return `${sent} rappel(s) de retenue`;
     },
   },
   {

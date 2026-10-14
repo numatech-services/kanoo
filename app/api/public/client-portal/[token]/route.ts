@@ -25,9 +25,9 @@ export async function GET(req: NextRequest, ctx: Params) {
     TenantModel.findById(client.tenantId).select("name logo phone email address branding.primaryColor branding.paymentInstructions onlinePaymentAccountId")
       .lean<{ name: string; logo?: string; phone?: string; email?: string; address?: string; branding?: { primaryColor?: string; paymentInstructions?: string }; onlinePaymentAccountId?: unknown } | null>(),
     InvoiceModel.find({ tenantId: client.tenantId, clientId: client._id, ...BOOKED_INVOICE_MATCH })
-      .select("number documentType issueDate dueDate totalTTC paidAmount creditedAmount status originalInvoiceId")
+      .select("number documentType issueDate dueDate totalTTC paidAmount creditedAmount retentionAmount status originalInvoiceId")
       .sort({ issueDate: -1 }).limit(200)
-      .lean<Array<{ _id: unknown; number: string; documentType?: string; issueDate: Date; dueDate: Date; totalTTC: number; paidAmount?: number; creditedAmount?: number; status: string }>>(),
+      .lean<Array<{ _id: unknown; number: string; documentType?: string; issueDate: Date; dueDate: Date; totalTTC: number; paidAmount?: number; creditedAmount?: number; retentionAmount?: number; status: string }>>(),
     DevisModel.find({ tenantId: client.tenantId, clientId: client._id, status: { $in: ["sent", "accepted", "rejected", "expired"] } })
       .select("number issueDate validUntil totalTTC status acceptedOnline")
       .sort({ issueDate: -1 }).limit(100)
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest, ctx: Params) {
   const payable = onlinePaymentsConfigured() && Boolean(tenant?.onlinePaymentAccountId);
 
   const invoices = docs.filter(d => d.documentType !== "credit_note").map(d => {
-    const due = invoiceDue({ totalTTC: d.totalTTC, paidAmount: d.paidAmount, creditedAmount: d.creditedAmount });
+    const due = invoiceDue({ totalTTC: d.totalTTC, paidAmount: d.paidAmount, creditedAmount: d.creditedAmount, retentionAmount: d.retentionAmount, status: d.status });
     return {
       _id: d._id, number: d.number, issueDate: d.issueDate, dueDate: d.dueDate, totalTTC: d.totalTTC, due,
       // Facture annulée par un avoir : affichée (son avoir figure plus bas), rien à régler.

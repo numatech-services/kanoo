@@ -54,7 +54,7 @@ export async function loadPortfolio(tenantId: string): Promise<PortfolioContext>
       documentType: { $ne: "credit_note" },
       status: { $in: ["sent", "partial", "overdue"] },
     })
-      .select("number totalTTC paidAmount creditedAmount dueDate status documentType clientId disputedAt")
+      .select("number totalTTC paidAmount creditedAmount retentionAmount dueDate status documentType clientId disputedAt")
       .sort({ dueDate: 1 })
       .limit(2_000)
       .lean<InvoiceLike[]>(),

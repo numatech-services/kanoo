@@ -21,7 +21,7 @@ export const GET = withAuth("contracts", "read", async (req: NextRequest, auth: 
     return {
       _id: c._id, reference: c.reference, title: c.title, status: c.status, client: c.clientId?.name ?? "", hasProject: !!c.projectId,
       quoteHT: f.quote?.totalHT ?? null, contractHT: f.contractHT, workHT: f.billing.workHT, depositsOutstandingHT: f.billing.depositsOutstandingHT,
-      collectedTTC: f.billing.collectedTTC, dueTTC: f.billing.dueTTC, toInvoiceHT: f.billing.toInvoiceHT,
+      collectedTTC: f.billing.collectedTTC, dueTTC: f.billing.dueTTC, toInvoiceHT: f.billing.toInvoiceHT, retentionTTC: f.retention.outstanding,
       costActual: f.costs.actual, costCommitted: f.costs.committed, marginActual: f.margin.actual, marginActualRate: f.margin.actualRate,
       marginAtCompletion: f.margin.atCompletion, marginAtCompletionRate: f.margin.atCompletionRate,
     };
@@ -29,6 +29,6 @@ export const GET = withAuth("contracts", "read", async (req: NextRequest, auth: 
   const sum = (k: keyof (typeof items)[number]) => items.reduce((t, i) => t + (Number(i[k]) || 0), 0);
   return ok({
     items,
-    totals: { contractHT: sum("contractHT"), workHT: sum("workHT"), costActual: sum("costActual"), costCommitted: sum("costCommitted"), marginActual: sum("marginActual"), marginAtCompletion: sum("marginAtCompletion"), dueTTC: sum("dueTTC") },
+    totals: { contractHT: sum("contractHT"), workHT: sum("workHT"), costActual: sum("costActual"), costCommitted: sum("costCommitted"), marginActual: sum("marginActual"), marginAtCompletion: sum("marginAtCompletion"), dueTTC: sum("dueTTC"), retentionTTC: sum("retentionTTC") },
   });
 });

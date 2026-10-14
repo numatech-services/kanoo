@@ -23,6 +23,7 @@ export const SYSCOHADA_ACCOUNTS: DefaultAccount[] = [
   { code: "245000", label: "Matériel de transport" },
   { code: "281300", label: "Amortissements des logiciels" },
   { code: "284000", label: "Amortissements du matériel" },
+  { code: "275000", label: "Dépôts et cautionnements versés" },
   // Classe 3 — Stocks
   { code: "311000", label: "Marchandises" },
   { code: "321000", label: "Matières premières" },
@@ -34,6 +35,7 @@ export const SYSCOHADA_ACCOUNTS: DefaultAccount[] = [
   { code: "408000", label: "Fournisseurs, factures non parvenues" },
   { code: "409000", label: "Fournisseurs débiteurs, avances versées" },
   { code: "411000", label: "Clients" },
+  { code: "411700", label: "Clients, retenues de garantie" },
   { code: "419000", label: "Clients créditeurs, avances reçues" },
   { code: "421000", label: "Personnel, rémunérations dues" },
   { code: "422000", label: "Personnel, notes de frais à rembourser" },

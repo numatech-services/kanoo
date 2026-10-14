@@ -13,6 +13,10 @@ import { ProductStockModel } from "@/models/ProductStock";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { AppelCandidatureModel } from "@/models/AppelCandidature";
 import { OPEN_APPEL_STATUSES, daysUntil } from "@/lib/appels";
+import { ContractModel } from "@/models/Contract";
+import { BankGuaranteeModel } from "@/models/BankGuarantee";
+import { retentionState } from "@/lib/retention";
+import { GUARANTEE_TYPES, daysToExpiry } from "@/lib/guarantees";
 import { accountBalance } from "@/lib/treasury";
 import { formatMoney, formatDateLong } from "@/lib/format";
 import { rankBrief, plural, type BriefCandidate, type BriefItem } from "@/lib/daily-brief";
@@ -41,8 +45,8 @@ export async function briefCandidates(auth: TokenPayload, can: Can, now = new Da
   let receivable30 = 0;
   if (can("invoices")) await safe(async () => {
     const open = await InvoiceModel.find({ tenantId: tid, documentType: { $ne: "credit_note" }, status: { $in: ["sent", "partial", "overdue"] } })
-      .select("number dueDate totalTTC paidAmount creditedAmount").lean<Array<{ number: string; dueDate: Date; totalTTC: number; paidAmount?: number; creditedAmount?: number }>>();
-    const due = (i: typeof open[number]) => Math.max(0, i.totalTTC - (i.paidAmount ?? 0) - (i.creditedAmount ?? 0));
+      .select("number dueDate totalTTC paidAmount creditedAmount retentionAmount").lean<Array<{ number: string; dueDate: Date; totalTTC: number; paidAmount?: number; creditedAmount?: number; retentionAmount?: number }>>();
+    const due = (i: typeof open[number]) => Math.max(0, i.totalTTC - (i.paidAmount ?? 0) - (i.creditedAmount ?? 0) - (i.retentionAmount ?? 0));
     const late = open.filter(i => new Date(i.dueDate) < now && due(i) > 0);
     receivable30 = open.filter(i => new Date(i.dueDate) <= in30).reduce((t, i) => t + due(i), 0);
     if (late.length) {
@@ -190,6 +194,43 @@ export async function briefCandidates(auth: TokenPayload, can: Can, now = new Da
         why: `Dépôt ${when}${open.length > 1 ? ` pour « ${first.title} »` : ""}${missing ? `, ${plural(missing, "pièce")} encore à réunir` : ", dossier complet"}.`,
         href: open.length > 1 ? "/appels" : `/appels/${String(first._id)}`, cta: "Ouvrir le dossier" });
     }
+  });
+
+  // Retenues de garantie dont le délai de garantie est écoulé : à réclamer.
+  if (can("contracts") && can("invoices")) await safe(async () => {
+    const held = await InvoiceModel.aggregate<{ _id: unknown; invoices: Array<{ retentionAmount: number; status: string }> }>([
+      { $match: { tenantId: tid, documentType: "invoice", retentionAmount: { $gt: 0 }, status: { $ne: "cancelled" }, contractId: { $exists: true } } },
+      { $group: { _id: "$contractId", invoices: { $push: { retentionAmount: "$retentionAmount", status: "$status" } } } },
+    ]);
+    if (!held.length) return;
+    const contracts = await ContractModel.find({ tenantId: tid, _id: { $in: held.map(h => h._id) } })
+      .select("reference title retentionReleases receptionProvisoireDate receptionDefinitiveDate guaranteeMonths")
+      .lean<Array<{ _id: unknown; reference: string; title: string; retentionReleases?: Array<{ amount: number }>; receptionProvisoireDate?: Date; receptionDefinitiveDate?: Date; guaranteeMonths?: number }>>();
+    const claimable = contracts.map(c => ({ c, s: retentionState(held.find(h => String(h._id) === String(c._id))!.invoices, c, now) })).filter(x => x.s.claimable);
+    if (!claimable.length) return;
+    const amount = claimable.reduce((t, x) => t + x.s.outstanding, 0);
+    const late = claimable.reduce((m, x) => Math.max(m, days(new Date(x.s.releasableFrom!))), 0);
+    const one = claimable.length === 1 ? claimable[0].c : null;
+    out.push({ kind: "retention_claimable", amount, daysLate: late,
+      title: one ? `Réclamer la retenue de garantie du marché ${one.reference}` : `Réclamer ${plural(claimable.length, "retenue")} de garantie`,
+      why: `${formatMoney(amount)} retenus par vos clients, délai de garantie écoulé : demandez la réception définitive et le reversement.`,
+      href: one ? `/contracts/${String(one._id)}` : "/contracts/rentabilite", cta: "Voir le marché" });
+  });
+
+  // Cautions bancaires échues (mainlevée à demander) ou qui arrivent à échéance.
+  if (can("appels")) await safe(async () => {
+    const list = await BankGuaranteeModel.find({ tenantId: tid, status: "active", expiryDate: { $lte: new Date(now.getTime() + 15 * DAY) } })
+      .sort({ expiryDate: 1 }).select("type amount beneficiary expiryDate").lean<Array<{ _id: unknown; type: keyof typeof GUARANTEE_TYPES; amount: number; beneficiary: string; expiryDate: Date }>>();
+    if (!list.length) return;
+    const expired = list.filter(g => (daysToExpiry(g.expiryDate, now) ?? 0) < 0);
+    const amount = list.reduce((t, g) => t + g.amount, 0);
+    const first = list[0], left = daysToExpiry(first.expiryDate, now) ?? 0;
+    out.push({ kind: "guarantee_due", amount, ...(expired.length ? { daysLate: -left } : { daysLeft: left }),
+      title: expired.length ? `Obtenir la mainlevée de ${plural(expired.length, "caution")}` : `${plural(list.length, "caution")} arrive${list.length > 1 ? "nt" : ""} à échéance`,
+      why: expired.length
+        ? `${GUARANTEE_TYPES[first.type]} (${first.beneficiary}) échue : tant que la mainlevée n'est pas obtenue, la banque facture et garde le dépôt.`
+        : `${GUARANTEE_TYPES[first.type]} (${first.beneficiary}) échoit dans ${left} jour${left > 1 ? "s" : ""} : prorogez-la ou demandez la mainlevée.`,
+      href: "/cautions", cta: "Voir les cautions" });
   });
 
   // Articles sous le seuil d'alerte.

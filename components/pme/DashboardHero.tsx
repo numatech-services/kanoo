@@ -57,7 +57,7 @@ async function getHero(auth: TokenPayload): Promise<Hero | null> {
       InvoiceModel.aggregate([
         { $match: { ...tf, documentType: { $ne: "credit_note" }, status: { $in: ["sent", "partial", "overdue"] } } },
         { $group: { _id: null, total: {
-          $sum: { $subtract: ["$totalTTC", { $add: ["$paidAmount", { $ifNull: ["$creditedAmount", 0] }] }] },
+          $sum: { $subtract: ["$totalTTC", { $add: ["$paidAmount", { $ifNull: ["$creditedAmount", 0] }, { $ifNull: ["$retentionAmount", 0] }] }] },
         } } },
       ]),
       InvoiceModel.aggregate([
@@ -66,7 +66,7 @@ async function getHero(auth: TokenPayload): Promise<Hero | null> {
           status: { $in: ["sent", "partial", "overdue"] }, dueDate: { $lt: now },
         } },
         { $group: { _id: null, count: { $sum: 1 }, clients: { $addToSet: "$clientId" }, total: {
-          $sum: { $subtract: ["$totalTTC", { $add: ["$paidAmount", { $ifNull: ["$creditedAmount", 0] }] }] },
+          $sum: { $subtract: ["$totalTTC", { $add: ["$paidAmount", { $ifNull: ["$creditedAmount", 0] }, { $ifNull: ["$retentionAmount", 0] }] }] },
         } } },
       ]),
       InvoiceModel.countDocuments({

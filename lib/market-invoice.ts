@@ -6,6 +6,8 @@ import { computeInvoiceLines, type InvoiceLineIn } from "@/lib/invoice-entry";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { BusinessRuleError } from "@/lib/errors";
+import { retentionFor, RETENTION_ACCOUNT } from "@/lib/retention";
+import { registerLedgerAccount } from "@/lib/treasury";
 import type { TokenPayload } from "@/lib/auth";
 
 export class MarketError extends BusinessRuleError {}
@@ -14,7 +16,7 @@ type Milestone = { _id: Types.ObjectId; label: string; amount: number; dueDate?:
 export type MarketContract = {
   _id: Types.ObjectId; reference: string; title: string; type: string; status: string; amount: number;
   clientId?: unknown; projectId?: unknown; devisId?: unknown; invoiceIds: unknown[]; milestones: Milestone[];
-  lastBilledDate?: Date;
+  lastBilledDate?: Date; retentionRate?: number;
   save: (o?: { session?: ClientSession }) => Promise<unknown>;
   markModified: (p: string) => void;
 };
@@ -118,6 +120,10 @@ export async function invoiceMarket(auth: TokenPayload, contract: MarketContract
     }
   }
   const { lines, totalHT, totalTVA, totalDTS, totalTTC } = computeInvoiceLines(raw, { allowDeduction: true });
+  // Retenue de garantie du marché, sur le TTC de chaque facture de travaux.
+  const retentionRate = contract.retentionRate ?? 0;
+  const retentionAmount = retentionFor(totalTTC, retentionRate, mode);
+  if (retentionAmount > 0) await registerLedgerAccount(auth.tenantId, RETENTION_ACCOUNT.accountCode, RETENTION_ACCOUNT.accountLabel, session);
 
   const issueDate = input.issueDate ? new Date(String(input.issueDate)) : new Date();
   if (isNaN(issueDate.getTime())) throw new MarketError("Date d'émission invalide.");
@@ -131,6 +137,7 @@ export async function invoiceMarket(auth: TokenPayload, contract: MarketContract
     ...(contract.projectId ? { projectId: contract.projectId } : {}),
     ...(contract.devisId ? { quoteId: contract.devisId } : {}),
     lines, totalHT, totalTVA, totalDTS, totalTTC, paidAmount: 0, status: "draft", issueDate, dueDate,
+    ...(retentionAmount > 0 ? { retentionAmount, retentionRate } : {}),
     notes: mode === "deposit" ? `Acompte sur le marché ${contract.reference}` : `Marché ${contract.reference}`,
     createdBy: auth.userId,
   }], { session });

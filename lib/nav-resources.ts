@@ -19,7 +19,7 @@ export const NAV_RESOURCE: Record<string, string> = {
   // reventes restent ouverts au service qui gère les abonnements.
   "/abonnements": "accountingEntries", "/abonnements/achats": "subscriptions", "/abonnements/reventes": "subscriptions",
   // PME — Contrats & projets
-  "/appels": "appels", "/contracts": "contracts", "/projects": "projects",
+  "/appels": "appels", "/cautions": "appels", "/contracts": "contracts", "/projects": "projects",
   "/documents": "documents", "/documents-administratifs": "documents", "/approbations": "approbations",
   // PME — Finance
   "/treasury": "treasuryAccounts", "/accounting": "accountingEntries", "/comptoir": "comptoir",

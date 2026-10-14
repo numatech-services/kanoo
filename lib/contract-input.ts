@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import { ClientModel } from "@/models/Client";
 import { SupplierModel } from "@/models/Supplier";
 import { EmployeeModel } from "@/models/Employee";
+import { MAX_RETENTION_RATE } from "@/lib/retention";
 
 /**
  * Champs d'un contrat modifiables par l'utilisateur. Le reste (organisation,
@@ -12,6 +13,8 @@ const EDITABLE = [
   "title", "type", "status", "clientId", "supplierId", "employeeId", "amount", "currency", "paymentMode",
   "isRecurring", "billingFrequency", "autoGenerateInvoice", "nextBillingDate", "startDate", "endDate", "signedDate",
   "renewalReminderDays", "documentIds", "description", "notes", "tags",
+  // Retenue de garantie et réceptions.
+  "retentionRate", "receptionProvisoireDate", "receptionDefinitiveDate", "guaranteeMonths",
 ] as const;
 
 /** Champs autorisés du corps, et refus si une partie liée n'appartient pas à l'organisation. */
@@ -29,6 +32,12 @@ export async function contractFields(tenantId: string, body: Record<string, unkn
     if (!Types.ObjectId.isValid(String(v)) || !(await model.exists({ _id: v, tenantId }))) return { data, error: msg };
   }
   if ("amount" in data && !(Number(data.amount) >= 0)) return { data, error: "Montant invalide." };
+  if ("retentionRate" in data) {
+    const r = Number(data.retentionRate ?? 0);
+    if (!(r >= 0 && r <= MAX_RETENTION_RATE)) return { data, error: "Retenue de garantie : entre 0 et 10 %." };
+    data.retentionRate = r;
+  }
+  if ("guaranteeMonths" in data && !(Number(data.guaranteeMonths) >= 0 && Number(data.guaranteeMonths) <= 60)) return { data, error: "Délai de garantie : entre 0 et 60 mois." };
   return { data };
 }
 

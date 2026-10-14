@@ -61,6 +61,21 @@ const ContractSchema = new Schema({
   appelId: { type: Schema.Types.ObjectId, ref: "AppelCandidature" },
   projectId: { type: Schema.Types.ObjectId, ref: "Project" },
 
+  // Retenue de garantie : le client garde une part de chaque facture de
+  // travaux jusqu'à la réception définitive (fin du délai de garantie).
+  retentionRate: { type: Number, default: 0, min: 0, max: 0.1 },
+  receptionProvisoireDate: Date,
+  receptionDefinitiveDate: Date,
+  guaranteeMonths: { type: Number, default: 12, min: 0, max: 60 },
+  retentionReleases: [{
+    date: { type: Date, required: true },
+    amount: { type: Number, required: true, min: 1 },
+    treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount" },
+    entryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },
+    reference: String,
+    createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+  }],
+
   // Factures liées
   invoiceIds: [{ type: Schema.Types.ObjectId, ref: "Invoice" }],
   milestones: [MilestoneSchema],

@@ -55,7 +55,7 @@ export async function RecentInvoices() {
           {invoices.map((inv: any) => {
             const overdue = !["paid","cancelled"].includes(inv.status) && new Date(inv.dueDate) < new Date();
             const displayStatus = overdue ? "overdue" : inv.status;
-            const remaining = inv.totalTTC - inv.paidAmount;
+            const remaining = inv.totalTTC - inv.paidAmount - (inv.creditedAmount ?? 0) - (inv.retentionAmount ?? 0);
             return (
               <Link
                 key={String(inv._id)}
