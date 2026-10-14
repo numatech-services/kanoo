@@ -1,7 +1,7 @@
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { TokenPayload } from "@/lib/auth";
-import { ledgerFor, treasuryLedger } from "@/lib/treasury";
+import { ledgerFor, treasuryLedger, registerLedgerAccount } from "@/lib/treasury";
 
 import { issueInvoice } from "@/lib/invoice-posting";
 /**
@@ -40,6 +40,8 @@ export async function applyPaymentEffects(payment: any, invoice: any, auth: Toke
   const ledger = (await treasuryLedger(auth.tenantId, payment.treasuryAccountId, session))
     ?? ledgerFor(payment.method === "cash" ? "cash" : payment.method === "mobile_money" ? "mobile_money" : "bank");
   const journalCode = ledger.journalCode;
+  // Organisations créées avant l'arrivée du 449200 : le compte rejoint leur plan.
+  if (withheld > 0) await registerLedgerAccount(auth.tenantId, WITHHOLDING_SUFFERED.accountCode, "État — retenues à la source subies (acomptes d'impôt)", session);
   await AccountingEntryModel.create([{
     tenantId: auth.tenantId, journalCode, entryDate: new Date(payment.date),
     reference: `PMNT-${payment._id.toString().slice(-6).toUpperCase()}`,
