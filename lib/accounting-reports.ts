@@ -61,15 +61,22 @@ const PL_GROUPS: Array<{ key: string; label: string; side: "charge" | "produit";
   { key: "personnel", label: "Charges de personnel", side: "charge", prefixes: ["66"] },
   { key: "financier", label: "Frais financiers", side: "charge", prefixes: ["67"] },
   { key: "dotations", label: "Dotations aux amortissements et provisions", side: "charge", prefixes: ["68", "69"] },
+  // Hors activités ordinaires (cessions d'immobilisations…) et impôt sur le résultat.
+  { key: "hao_produits", label: "Produits hors activités ordinaires", side: "produit", prefixes: ["82", "84", "86", "88"] },
+  { key: "hao_charges", label: "Charges hors activités ordinaires", side: "charge", prefixes: ["81", "83", "85"] },
+  { key: "impot_resultat", label: "Impôts sur le résultat et participation", side: "charge", prefixes: ["87", "89"] },
 ];
+/** Classe des comptes de gestion (charges, produits, HAO). */
+const isPL = (code: string) => /^[678]/.test(code);
+const sideOf = (code: string) => (code[0] === "7" || /^8[2468]/.test(code) ? "produit" : "charge");
 
 /** Compte de résultat (présentation simplifiée SYSCOHADA). */
 export async function incomeStatement(tenantId: string, from?: Date, to?: Date) {
   const bal = await trialBalance(tenantId, from, to);
   const groups = PL_GROUPS.map(g => ({ ...g, amount: 0, accounts: [] as Array<{ code: string; label: string; amount: number }> }));
   for (const r of bal) {
-    if (!/^[67]/.test(r.code)) continue;
-    const g = groups.find(x => x.prefixes.some(p => r.code.startsWith(p)) && x.side === (r.code[0] === "7" ? "produit" : "charge"));
+    if (!isPL(r.code)) continue;
+    const g = groups.find(x => x.prefixes.some(p => r.code.startsWith(p)) && x.side === sideOf(r.code));
     if (!g) continue;
     const amount = g.side === "produit" ? r.credit - r.debit : r.debit - r.credit;
     g.amount += amount;
@@ -97,7 +104,7 @@ export async function balanceSheet(tenantId: string, at: Date, closedYears: numb
   for (const r of bal) {
     const s = r.debit - r.credit;
     const c = r.code[0];
-    if (c === "6" || c === "7") { resultat -= s; continue; }
+    if (isPL(r.code)) { resultat -= s; continue; }
     if (s === 0) continue;
     if (c === "1") passif.push({ code: r.code, label: r.label, amount: -s, rubric: "Capitaux propres et dettes financières" });
     else if (c === "2") actif.push({ code: r.code, label: r.label, amount: s, rubric: "Actif immobilisé (net)" });

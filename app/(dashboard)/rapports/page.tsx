@@ -26,6 +26,8 @@ const GROUPS: Array<{ title: string; items: Report[] }> = [
   ]},
   { title: "Finance", items: [
     { title: "États comptables", desc: "Balance, grand livre, bilan et compte de résultat, export CSV.", href: "/accounting/etats", icon: <BookOpen size={18} /> },
+    { title: "États financiers SYSCOHADA", desc: "Bilan, compte de résultat, flux de trésorerie et notes ; liasse Excel pour la DSF.", href: "/accounting/etats-financiers", icon: <FileDown size={18} /> },
+    { title: "Créances douteuses", desc: "Retards à examiner, dépréciations, pertes sur créances.", href: "/accounting/provisions", icon: <Scale size={18} /> },
     { title: "Prévision de trésorerie", desc: "Encaissements et décaissements attendus, solde projeté.", href: "/treasury/prevision", icon: <Landmark size={18} /> },
     { title: "Évolution sur 12 mois", desc: "Produits, charges et résultat mois par mois.", href: "/analytics", icon: <TrendingUp size={18} /> },
     { title: "Rentabilité par secteur", desc: "Résultat de chaque secteur d'activité.", href: "/analytique", icon: <Layers size={18} /> },

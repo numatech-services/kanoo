@@ -61,7 +61,7 @@ export const POST = withAuth("accountingEntries", "delete", async (req: NextRequ
     let result = 0;
     for (const r of bal) {
       const s = r.debit - r.credit;
-      if (/^[67]/.test(r.code)) { result -= s; continue; }
+      if (/^[678]/.test(r.code)) { result -= s; continue; }
       if (!/^[1-5]/.test(r.code) || s === 0) continue;
       lines.push({ accountCode: r.code, accountLabel: r.label, debit: Math.max(0, s), credit: Math.max(0, -s) });
     }

@@ -243,7 +243,7 @@ export interface InvoiceForPdf {
 
 const STATUS_FR: Record<string, string> = {
   draft: "Brouillon", sent: "Émise", partial: "Part. payée",
-  paid: "Soldée", overdue: "En retard", cancelled: "Annulée",
+  paid: "Soldée", overdue: "En retard", cancelled: "Annulée", written_off: "Irrécouvrable",
 };
 
 /** Charge utile du QR : SECeF si certifiée, sinon un résumé vérifiable. */

@@ -10,8 +10,10 @@ const GROUPS: Record<string, { label: string; items: TabItem[] }> = {
   accounting: { label: "Écrans de la comptabilité", items: [
     { key: "journal", label: "Écritures", href: "/accounting" },
     { key: "etats", label: "États comptables", href: "/accounting/etats" },
+    { key: "etats-financiers", label: "États SYSCOHADA", href: "/accounting/etats-financiers" },
     { key: "lettrage", label: "Lettrage", href: "/accounting/lettrage" },
     { key: "plan", label: "Plan comptable", href: "/accounting/plan" },
+    { key: "provisions", label: "Créances douteuses", href: "/accounting/provisions" },
     { key: "reprise", label: "Soldes d'ouverture", href: "/accounting/reprise" },
   ]},
   fiscalite: { label: "Écrans de la fiscalité", items: [

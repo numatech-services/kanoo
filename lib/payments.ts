@@ -4,6 +4,8 @@ import { TokenPayload } from "@/lib/auth";
 import { ledgerFor, treasuryLedger, registerLedgerAccount } from "@/lib/treasury";
 
 import { issueInvoice } from "@/lib/invoice-posting";
+import { DOUBTFUL_ACCOUNT } from "@/lib/doubtful";
+import { adjustProvision } from "@/lib/doubtful-server";
 /**
  * Applique les effets comptables d'un encaissement EFFECTIF : solde de la
  * facture, écriture comptable (BQ/CA), et mouvement de trésorerie si un compte
@@ -17,6 +19,7 @@ import { issueInvoice } from "@/lib/invoice-posting";
 export function invoiceDue(inv: { totalTTC: number; paidAmount?: number; creditedAmount?: number; retentionAmount?: number; status?: string }): number {
   // Retenue de garantie : due plus tard (réception définitive), pas exigible maintenant.
   // Une facture annulée par avoir total ne la retient plus.
+  if (inv.status === "written_off") return 0;
   const retention = inv.status === "cancelled" ? 0 : (inv.retentionAmount || 0);
   return Math.max(0, Math.round(inv.totalTTC - (inv.creditedAmount || 0) - (inv.paidAmount || 0) - retention));
 }
@@ -28,6 +31,11 @@ export const INVOICE_DUE_EXPR = {
 
 /** Retenues à la source subies sur les encaissements : acomptes d'impôt sur l'État. */
 export const WITHHOLDING_SUFFERED = { accountCode: "449200", accountLabel: "État — retenues à la source subies" };
+/** Écarts de change réalisés sur règlements en devise. */
+export const EXCHANGE_LOSS = { accountCode: "676000", accountLabel: "Pertes de change" };
+export const EXCHANGE_GAIN = { accountCode: "776000", accountLabel: "Gains de change" };
+/** Écart de change admis sans contrôle complémentaire : 10 % du montant soldé. */
+export const MAX_EXCHANGE_RATE = 0.1;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function applyPaymentEffects(payment: any, invoice: any, auth: TokenPayload, session: any) {
@@ -38,7 +46,11 @@ export async function applyPaymentEffects(payment: any, invoice: any, auth: Toke
   // Un règlement reçu sur un brouillon vaut émission : la facture est
   // comptabilisée avant que son règlement ne solde le compte client.
   if (invoice.status === "draft") await issueInvoice({ tenantId: auth.tenantId, userId: auth.userId }, invoice, session);
-  invoice.paidAmount += amount + withheld;
+  // Écart de change : la facture est soldée de ce que le client devait, la
+  // différence avec ce qui est arrivé en banque est une perte ou un gain de change.
+  const fx = Math.round(payment.exchangeDifference || 0);
+  const settled = amount + withheld + fx;
+  invoice.paidAmount += settled;
   if (withheld > 0) invoice.retenueSource = (invoice.retenueSource || 0) + withheld;
   invoice.status = invoiceDue(invoice) <= 1 ? "paid" : "partial";
   await invoice.save({ session });
@@ -50,6 +62,9 @@ export async function applyPaymentEffects(payment: any, invoice: any, auth: Toke
   const journalCode = ledger.journalCode;
   // Organisations créées avant l'arrivée du 449200 : le compte rejoint leur plan.
   if (withheld > 0) await registerLedgerAccount(auth.tenantId, WITHHOLDING_SUFFERED.accountCode, "État — retenues à la source subies (acomptes d'impôt)", session);
+  if (fx) await registerLedgerAccount(auth.tenantId, (fx > 0 ? EXCHANGE_LOSS : EXCHANGE_GAIN).accountCode, (fx > 0 ? EXCHANGE_LOSS : EXCHANGE_GAIN).accountLabel, session);
+  // Créance douteuse : elle est au 416, c'est lui que le règlement solde.
+  const clientAccount = invoice.doubtfulAt ? DOUBTFUL_ACCOUNT : { accountCode: "411000", accountLabel: "Clients" };
   await AccountingEntryModel.create([{
     tenantId: auth.tenantId, journalCode, entryDate: new Date(payment.date),
     reference: `PMNT-${payment._id.toString().slice(-6).toUpperCase()}`,
@@ -57,7 +72,8 @@ export async function applyPaymentEffects(payment: any, invoice: any, auth: Toke
     lines: [
       { accountCode: ledger.accountCode, accountLabel: ledger.accountLabel, debit: amount, credit: 0 },
       ...(withheld > 0 ? [{ ...WITHHOLDING_SUFFERED, debit: withheld, credit: 0, thirdPartyId: invoice.clientId }] : []),
-      { accountCode: "411000", accountLabel: "Clients", debit: 0, credit: amount + withheld, thirdPartyId: invoice.clientId },
+      ...(fx > 0 ? [{ ...EXCHANGE_LOSS, debit: fx, credit: 0 }] : fx < 0 ? [{ ...EXCHANGE_GAIN, debit: 0, credit: -fx }] : []),
+      { ...clientAccount, debit: 0, credit: settled, thirdPartyId: invoice.clientId },
     ],
     linkedDocType: "payment", linkedDocId: payment._id, createdBy: auth.userId,
   }], { session });
@@ -69,6 +85,8 @@ export async function applyPaymentEffects(payment: any, invoice: any, auth: Toke
       source: "payment", linkedDocType: "payment", linkedDocId: payment._id, createdBy: auth.userId,
     }], { session });
   }
+  // Créance douteuse en partie réglée : sa dépréciation suit le reste dû.
+  if (invoice.doubtfulAt) await adjustProvision({ tenantId: auth.tenantId, userId: auth.userId }, invoice, invoice.provisionRate ?? 0, new Date(payment.date), session);
 }
 
 /**

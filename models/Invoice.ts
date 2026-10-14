@@ -87,10 +87,18 @@ const InvoiceSchema = new Schema<IInvoice>(
     retenueSource: { type: Number, default: 0 },
     /** Retenue de garantie du marché : part du TTC que le client garde jusqu'à la réception définitive (compte 4117). */
     retentionAmount: { type: Number, default: 0, min: 0 },
-    retentionRate: { type: Number, default: 0, min: 0 },    // Retenue à la source marchés publics
+    retentionRate: { type: Number, default: 0, min: 0 },
+    /** Créance douteuse : transférée du 411 au 416 ; dépréciation (491) au taux estimé de perte, sur le HT. */
+    doubtfulAt: Date,
+    provisionRate: { type: Number, default: 0, min: 0, max: 1 },
+    provisionAmount: { type: Number, default: 0, min: 0 },
+    /** Créance irrécouvrable passée en perte (651). */
+    writtenOffAt: Date,
+    writtenOffAmount: { type: Number, default: 0, min: 0 },    // Retenue à la source marchés publics
     status: {
       type: String,
-      enum: ["draft", "sent", "partial", "paid", "overdue", "cancelled"],
+      // written_off : créance irrécouvrable passée en perte (reste dans les ventes).
+      enum: ["draft", "sent", "partial", "paid", "overdue", "cancelled", "written_off"],
       default: "draft",
     },
     issueDate: { type: Date, required: true },

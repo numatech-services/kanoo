@@ -1,3 +1,4 @@
+import { adjustProvision } from "@/lib/doubtful-server";
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
@@ -36,10 +37,13 @@ export const POST = withAuth("payments", "delete", async (req: NextRequest, auth
     }
     if (invoice) {
       const withheld = payment.withholdingAmount || 0;
-      invoice.paidAmount = Math.max(0, (invoice.paidAmount || 0) - payment.amount - withheld);
+      const fx = payment.exchangeDifference || 0;
+      invoice.paidAmount = Math.max(0, (invoice.paidAmount || 0) - payment.amount - withheld - fx);
       if (withheld) invoice.retenueSource = Math.max(0, (invoice.retenueSource || 0) - withheld);
       invoice.status = invoice.paidAmount <= 0 ? (invoice.dueDate && new Date(invoice.dueDate) < new Date() ? "overdue" : "sent") : "partial";
       await invoice.save({ session });
+      // Créance douteuse : le reste dû remonte, sa dépréciation aussi.
+      if (invoice.doubtfulAt) await adjustProvision({ tenantId: auth.tenantId, userId: auth.userId }, invoice, invoice.provisionRate ?? 0, new Date(), session);
     }
     payment.status = "cancelled";
     payment.set({ cancelledAt: new Date(), cancelReason: reason.slice(0, 300) });

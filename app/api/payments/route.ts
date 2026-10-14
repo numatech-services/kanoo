@@ -4,7 +4,7 @@ import { withAuth, created, badRequest, notFound, getPagination, paginatedRespon
 import { PaymentModel } from "@/models/Payment";
 import { InvoiceModel } from "@/models/Invoice";
 import { withTransaction } from "@/lib/db";
-import { applyPaymentEffects, invoiceDue } from "@/lib/payments";
+import { applyPaymentEffects, invoiceDue, MAX_EXCHANGE_RATE } from "@/lib/payments";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { paymentDate } from "@/lib/payment-date";
@@ -51,8 +51,8 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
 
   const invoice = await InvoiceModel.findOne({ _id: body.invoiceId, tenantId: auth.tenantId });
   if (!invoice) return notFound("Facture introuvable");
-  if (invoice.status === "paid" || invoice.status === "cancelled") {
-    return badRequest(`Cette facture est déjà ${invoice.status === "paid" ? "soldée" : "annulée"}`);
+  if (["paid", "cancelled", "written_off"].includes(invoice.status)) {
+    return badRequest(`Cette facture est déjà ${invoice.status === "paid" ? "soldée" : invoice.status === "cancelled" ? "annulée" : "passée en perte"}`);
   }
 
   const amount = Number(body.amount);
@@ -62,9 +62,15 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
   const withholdingAmount = Math.round(Number(body.withholdingAmount) || 0);
   if (withholdingAmount < 0) return badRequest("Retenue invalide.");
   const remaining = invoiceDue(invoice);
-  if (amount + withholdingAmount > remaining + 1) {
-    return badRequest(`Encaissement et retenue dépassent le reste à payer (${remaining} FCFA).`);
+  // Écart de change (règlement en devise) : > 0 perte, < 0 gain ; la facture est soldée de amount + retenue + écart.
+  const exchangeDifference = Math.round(Number(body.exchangeDifference) || 0);
+  if (Math.abs(exchangeDifference) > Math.round(remaining * MAX_EXCHANGE_RATE)) {
+    return badRequest(`Écart de change trop élevé (au plus ${Math.round(MAX_EXCHANGE_RATE * 100)} % du reste à payer).`);
   }
+  if (amount + withholdingAmount + exchangeDifference > remaining + 1) {
+    return badRequest(`Encaissement${withholdingAmount ? ", retenue" : ""}${exchangeDifference ? " et écart de change" : " et retenue"} dépassent le reste à payer (${remaining} FCFA).`);
+  }
+  if (amount + withholdingAmount + exchangeDifference <= 0) return badRequest("Montant soldé invalide.");
 
   // « pending » = promesse enregistrée, sans effet comptable ; « effective » =
   // encaissé, on solde la facture et on écrit compta + trésorerie.
@@ -83,7 +89,7 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
   const result = await withTransaction(async (session) => {
     const [payment] = await PaymentModel.create(
       [{
-        invoiceId: invoice._id, amount, method: body.method, date, status, withholdingAmount,
+        invoiceId: invoice._id, amount, method: body.method, date, status, withholdingAmount, exchangeDifference,
         reference: body.reference ? String(body.reference).slice(0, 120) : undefined,
         notes: body.notes ? String(body.notes).slice(0, 1000) : undefined,
         ...(treasuryAccountId ? { treasuryAccountId } : {}),
@@ -97,7 +103,7 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
 
   await logAudit(auth, "PAYMENT", "payments", {
     resourceId: result._id.toString(),
-    after: { invoiceId: body.invoiceId, amount, withholdingAmount, method: body.method, status },
+    after: { invoiceId: body.invoiceId, amount, withholdingAmount, exchangeDifference, method: body.method, status },
   });
 
   return created(result);

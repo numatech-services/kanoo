@@ -29,11 +29,11 @@ export const PATCH = withAuth("payments", "update", async (req: NextRequest, aut
 
   const invoice = await InvoiceModel.findOne({ _id: payment.invoiceId, ...tenantFilter(auth) });
   if (!invoice) return notFound("Facture introuvable");
-  if (invoice.status === "paid" || invoice.status === "cancelled") {
-    return badRequest(`Cette facture est déjà ${invoice.status === "paid" ? "soldée" : "annulée"}.`);
+  if (["paid", "cancelled", "written_off"].includes(invoice.status)) {
+    return badRequest(`Cette facture est déjà ${invoice.status === "paid" ? "soldée" : invoice.status === "cancelled" ? "annulée" : "passée en perte"}.`);
   }
   const remaining = invoiceDue(invoice);
-  if (payment.amount > remaining + 1) return badRequest(`Montant supérieur au reste à payer (${remaining} FCFA).`);
+  if (payment.amount + (payment.withholdingAmount || 0) + (payment.exchangeDifference || 0) > remaining + 1) return badRequest(`Montant supérieur au reste à payer (${remaining} FCFA).`);
   // À l'encaissement : date réelle (saisie, sinon la date prévue si elle est passée,
   // sinon aujourd'hui) et compte réellement crédité.
   payment.date = paymentDate(body.date ?? (payment.date && payment.date <= new Date() ? payment.date.toISOString() : undefined));

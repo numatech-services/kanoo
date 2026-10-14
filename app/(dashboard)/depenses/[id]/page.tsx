@@ -170,6 +170,9 @@ function PayDialog({ id, rest, onClose, onDone }: { id: string; rest: number; on
   const [f, setF] = useState({ amount: rest, date: new Date().toISOString().slice(0, 10), treasuryAccountId: "", reference: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // Règlement en devise : le montant décaissé solde la dette, l'écart est un gain ou une perte de change.
+  const [fxSettle, setFxSettle] = useState(false);
+  const fx = fxSettle ? rest - f.amount : 0;
   useEffect(() => {
     apiJson("/api/treasury-accounts").then(d => {
       const list = d.data?.items ?? []; setAccounts(list);
@@ -178,16 +181,20 @@ function PayDialog({ id, rest, onClose, onDone }: { id: string; rest: number; on
   }, []);
   async function submit() {
     setSaving(true); setError("");
-    try { await send(`/api/achats/${id}/pay`, "POST", f); onDone(); } catch (e) { setError(e instanceof Error ? e.message : "Règlement impossible"); setSaving(false); }
+    try { await send(`/api/achats/${id}/pay`, "POST", { ...f, exchangeDifference: fx }); onDone(); } catch (e) { setError(e instanceof Error ? e.message : "Règlement impossible"); setSaving(false); }
   }
   return (
     <Modal open onClose={onClose} title="Enregistrer un règlement">
       <div className="space-y-4">
         {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Montant (FCFA)" hint={`Reste : ${fmt(rest)}`}><input type="number" min={1} max={rest} className={inputCls} value={f.amount} onChange={e => setF(p => ({ ...p, amount: Number(e.target.value) }))} /></FormField>
+          <FormField label="Montant (FCFA)" hint={`Reste : ${fmt(rest)}`}><input type="number" min={1} max={fxSettle ? undefined : rest} className={inputCls} value={f.amount} onChange={e => setF(p => ({ ...p, amount: Number(e.target.value) }))} /></FormField>
           <FormField label="Date"><input type="date" className={inputCls} value={f.date} onChange={e => setF(p => ({ ...p, date: e.target.value }))} /></FormField>
         </div>
+        <label className="flex items-start gap-2 text-sm text-ink2">
+          <input type="checkbox" className="accent-section mt-0.5" checked={fxSettle} onChange={e => setFxSettle(e.target.checked)} />
+          <span>Règlement en devise : ce montant solde la facture{fxSettle && fx !== 0 ? ` (${fx > 0 ? "gain" : "perte"} de change de ${fmt(Math.abs(fx))})` : ""}</span>
+        </label>
         <FormField label="Compte qui paie" required>
           <select className={selectCls} value={f.treasuryAccountId} onChange={e => setF(p => ({ ...p, treasuryAccountId: e.target.value }))}>
             <option value="">— Choisir —</option>

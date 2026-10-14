@@ -38,6 +38,10 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
   // Objet simple : recopier les lignes d'un document Mongoose avec `{ ...l }`
   // perdait leurs champs (dont la nature « déduction d'acompte »), et l'avoir
   // total d'une facture de solde n'extournait ni l'acompte ni tout le produit.
+  // Créance douteuse ou perdue : elle n'est plus au 411, un avoir y créditerait un solde absent.
+  if (invoice.doubtfulAt || invoice.status === "written_off") {
+    return badRequest("Créance douteuse ou passée en perte : un avoir n'est plus possible sur cette facture.");
+  }
   // Retenue de garantie : un avoir partiel ne saurait dire quelle part de la
   // retenue il annule. Avoir total, puis nouvelle facture si besoin.
   const retention = Math.round(invoice.retentionAmount || 0);

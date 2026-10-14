@@ -36,6 +36,8 @@ export const SYSCOHADA_ACCOUNTS: DefaultAccount[] = [
   { code: "409000", label: "Fournisseurs débiteurs, avances versées" },
   { code: "411000", label: "Clients" },
   { code: "411700", label: "Clients, retenues de garantie" },
+  { code: "416000", label: "Créances clients litigieuses ou douteuses" },
+  { code: "491100", label: "Dépréciations des comptes clients" },
   { code: "419000", label: "Clients créditeurs, avances reçues" },
   { code: "421000", label: "Personnel, rémunérations dues" },
   { code: "422000", label: "Personnel, notes de frais à rembourser" },
@@ -94,6 +96,9 @@ export const SYSCOHADA_ACCOUNTS: DefaultAccount[] = [
   { code: "664000", label: "Charges sociales (CNSS patronale)" },
   { code: "668000", label: "Autres charges sociales" },
   { code: "671000", label: "Intérêts des emprunts" },
+  { code: "651000", label: "Pertes sur créances clients" },
+  { code: "659400", label: "Charges provisionnées sur créances (dotations)" },
+  { code: "676000", label: "Pertes de change" },
   { code: "681000", label: "Dotations aux amortissements" },
   // Classe 7 — Produits
   { code: "701100", label: "Ventes de marchandises" },
@@ -110,7 +115,12 @@ export const SYSCOHADA_ACCOUNTS: DefaultAccount[] = [
   { code: "756000", label: "Cotisations des membres" },
   { code: "758000", label: "Produits divers" },
   { code: "758100", label: "Dons et libéralités reçus" },
+  { code: "759400", label: "Reprises de charges provisionnées sur créances" },
   { code: "771000", label: "Intérêts de prêts" },
+  { code: "776000", label: "Gains de change" },
+  // Classe 8 — Hors activités ordinaires
+  { code: "812000", label: "Valeurs comptables des cessions d'immobilisations" },
+  { code: "822000", label: "Produits des cessions d'immobilisations" },
 ];
 
 export const ACCOUNT_CLASS_LABEL: Record<string, string> = {

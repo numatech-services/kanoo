@@ -36,6 +36,9 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
   const [amount, setAmount] = useState(remainingAmount);
   // Retenue à la source subie : le client verse le net, le reste part à l'État.
   const [withholding, setWithholding] = useState(0);
+  // Règlement en devise : le client a soldé la facture, mais le montant arrivé en
+  // banque diffère (cours) ; l'écart va en perte (676) ou gain (776) de change.
+  const [fxSettle, setFxSettle] = useState(false);
   const [method, setMethod] = useState("bank_transfer");
   const [reference, setReference] = useState("");
   const [date, setDate] = useState(today);
@@ -70,7 +73,12 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
       setError("Choisissez le compte qui a reçu l'argent : il alimente le solde de trésorerie.");
       return;
     }
-    if (amount <= 0 || withholding < 0 || amount + withholding > remainingAmount + 1) {
+    const fx = fxSettle ? remainingAmount - amount - withholding : 0;
+    if (fxSettle && Math.abs(fx) > Math.round(remainingAmount * 0.1)) {
+      setError("Écart de change supérieur à 10 % du reste à payer : vérifiez le montant reçu.");
+      return;
+    }
+    if (amount <= 0 || withholding < 0 || (!fxSettle && amount + withholding > remainingAmount + 1)) {
       setError(`Montant encaissé + retenue : entre 1 et ${remainingAmount.toLocaleString("fr-FR")} FCFA`);
       return;
     }
@@ -78,7 +86,7 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
     setError("");
     try {
       await onSave({
-        invoiceId, amount, method, reference, date, notes, status, withholdingAmount: withholding,
+        invoiceId, amount, method, reference, date, notes, status, withholdingAmount: withholding, exchangeDifference: fx,
         ...(treasuryAccountId ? { treasuryAccountId } : {}),
       });
     } catch (err) {
@@ -101,7 +109,7 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
 
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Montant encaissé (FCFA)" required>
-          <input type="number" className={inputCls} value={amount} min={1} max={remainingAmount} required
+          <input type="number" className={inputCls} value={amount} min={1} max={fxSettle ? undefined : remainingAmount} required
             onChange={e => setAmount(parseFloat(e.target.value) || 0)} />
         </FormField>
         <FormField label="Retenue à la source subie" hint="Marchés publics : part retenue par le client pour l'État.">
@@ -118,6 +126,16 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
         <p className="text-xs text-ink2 -mt-2">
           Net reçu <strong className="num">{amount.toLocaleString("fr-FR")} FCFA</strong> + retenue <strong className="num">{withholding.toLocaleString("fr-FR")} FCFA</strong> = <strong className="num">{(amount + withholding).toLocaleString("fr-FR")} FCFA</strong> réglés.
           La retenue est enregistrée comme créance sur l&apos;État (imputable sur l&apos;IS/BIC).
+        </p>
+      )}
+
+      <label className="flex items-start gap-2 text-sm text-ink2">
+        <input type="checkbox" className="accent-section mt-0.5" checked={fxSettle} onChange={e => setFxSettle(e.target.checked)} />
+        <span>Règlement en devise : ce montant solde la facture (écart de change)</span>
+      </label>
+      {fxSettle && amount + withholding !== remainingAmount && (
+        <p className="text-xs text-ink2 -mt-2">
+          {amount + withholding < remainingAmount ? "Perte" : "Gain"} de change de <strong className="num">{Math.abs(remainingAmount - amount - withholding).toLocaleString("fr-FR")} FCFA</strong> ({amount + withholding < remainingAmount ? "676" : "776"}) : la facture est soldée.
         </p>
       )}
 

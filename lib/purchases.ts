@@ -10,6 +10,8 @@ import type { TokenPayload } from "@/lib/auth";
 import { BusinessRuleError } from "@/lib/errors";
 
 import { CommandeModel } from "@/models/Commande";
+import { registerLedgerAccount } from "@/lib/treasury";
+import { EXCHANGE_GAIN, EXCHANGE_LOSS, MAX_EXCHANGE_RATE } from "@/lib/payments";
 /** Refus métier : rendu en 400 avec son message, même levé au fond d'une transaction. */
 export class PurchaseError extends BusinessRuleError {}
 
@@ -71,7 +73,7 @@ type PurchaseDoc = {
   date: Date; totalHT?: number; totalTTC: number; totalTVA: number; paidAmount: number; status: string; entryId?: unknown;
   commandeId?: unknown; matchOverride?: { by: unknown; at: Date; gapHT: number };
   lines: Array<{ description: string; accountCode: string; accountLabel?: string; amountHT: number; projectId?: unknown; activityId?: unknown; costCenter?: string }>;
-  payments: Array<{ _id: Types.ObjectId; date: Date; amount: number; treasuryAccountId: unknown; reference?: string; entryId?: unknown; movementId?: unknown; cancelledAt?: Date }>;
+  payments: Array<{ _id: Types.ObjectId; date: Date; amount: number; exchangeDifference?: number; treasuryAccountId: unknown; reference?: string; entryId?: unknown; movementId?: unknown; cancelledAt?: Date }>;
   validatedBy?: unknown; validatedAt?: Date; cancelledAt?: Date; cancelReason?: string;
   save: (o?: { session?: ClientSession }) => Promise<unknown>;
   markModified: (p: string) => void;
@@ -135,14 +137,20 @@ export async function validatePurchase(auth: TokenPayload, p: PurchaseDoc, sessi
 /** Règlement (total ou partiel) : 401 soldé par la trésorerie + mouvement. */
 export async function payPurchase(
   auth: TokenPayload, p: PurchaseDoc,
-  input: { amount?: unknown; date?: unknown; treasuryAccountId?: unknown; reference?: unknown; allowOverdraft?: boolean },
+  input: { amount?: unknown; date?: unknown; treasuryAccountId?: unknown; reference?: unknown; allowOverdraft?: boolean; exchangeDifference?: unknown },
   session?: ClientSession,
 ) {
   if (!["validated", "partial"].includes(p.status)) throw new PurchaseError(p.status === "draft" ? "Validez d'abord l'achat." : "Cet achat ne peut plus être réglé.");
   const rest = p.totalTTC - p.paidAmount;
   const amount = input.amount === undefined || input.amount === "" ? rest : Math.round(Number(input.amount));
   if (!(amount > 0)) throw new PurchaseError("Montant du règlement invalide.");
-  if (amount > rest) throw new PurchaseError(`Le règlement dépasse le reste à payer (${rest.toLocaleString("fr-FR")} FCFA).`);
+  // Règlement en devise : la dette soldée (amount + écart) diffère du décaissé ;
+  // écart > 0 : on a payé moins que dû, gain de change ; < 0 : perte.
+  const fx = Math.round(Number(input.exchangeDifference) || 0);
+  if (Math.abs(fx) > Math.round(rest * MAX_EXCHANGE_RATE)) throw new PurchaseError(`Écart de change trop élevé (au plus ${Math.round(MAX_EXCHANGE_RATE * 100)} % du reste à payer).`);
+  const settled = amount + fx;
+  if (settled > rest) throw new PurchaseError(`Le règlement dépasse le reste à payer (${rest.toLocaleString("fr-FR")} FCFA).`);
+  if (!(settled > 0)) throw new PurchaseError("Montant soldé invalide.");
   const accountId = input.treasuryAccountId;
   if (!accountId || !Types.ObjectId.isValid(String(accountId))) throw new PurchaseError("Choisissez le compte de trésorerie qui paie.");
   const ledger = await treasuryLedger(auth.tenantId, accountId, session);
@@ -160,8 +168,10 @@ export async function payPurchase(
     tenantId: auth.tenantId, journalCode: ledger.journalCode, entryDate: date, reference: `${p.number}-RGL`,
     label: `Règlement ${label(p)}`,
     lines: [
-      { ...SUPPLIER_ACCOUNT, debit: amount, credit: 0, ...(p.supplierId ? { thirdPartyId: p.supplierId } : {}) },
+      { ...SUPPLIER_ACCOUNT, debit: settled, credit: 0, ...(p.supplierId ? { thirdPartyId: p.supplierId } : {}) },
+      ...(fx < 0 ? [{ ...EXCHANGE_LOSS, debit: -fx, credit: 0 }] : []),
       { accountCode: ledger.accountCode, accountLabel: ledger.accountLabel, debit: 0, credit: amount },
+      ...(fx > 0 ? [{ ...EXCHANGE_GAIN, debit: 0, credit: fx }] : []),
     ],
     linkedDocType: "supplier_payment", linkedDocId: p._id, createdBy: auth.userId,
   }], { session });
@@ -169,8 +179,9 @@ export async function payPurchase(
     tenantId: auth.tenantId, accountId, date, amount: -amount, label: `Règlement ${p.number}${p.payee ? ` — ${p.payee}` : ""}`,
     reference, source: "expense", linkedDocType: "purchase", linkedDocId: p._id, createdBy: auth.userId,
   }], { session });
-  p.payments.push({ _id: paymentId, date, amount, treasuryAccountId: accountId, reference, entryId: entry._id, movementId: movement._id } as PurchaseDoc["payments"][number]);
-  p.paidAmount += amount;
+  if (fx) await registerLedgerAccount(auth.tenantId, (fx > 0 ? EXCHANGE_GAIN : EXCHANGE_LOSS).accountCode, (fx > 0 ? EXCHANGE_GAIN : EXCHANGE_LOSS).accountLabel, session);
+  p.payments.push({ _id: paymentId, date, amount, exchangeDifference: fx, treasuryAccountId: accountId, reference, entryId: entry._id, movementId: movement._id } as PurchaseDoc["payments"][number]);
+  p.paidAmount += settled;
   p.status = p.paidAmount >= p.totalTTC ? "paid" : "partial";
   p.markModified("payments");
   await p.save({ session });
@@ -188,7 +199,7 @@ export async function cancelPayment(auth: TokenPayload, p: PurchaseDoc, paymentI
     label: `Annulation règlement ${p.number}`, source: "expense", linkedDocType: "purchase", linkedDocId: p._id, createdBy: auth.userId,
   }], { session });
   pay.cancelledAt = new Date();
-  p.paidAmount -= pay.amount;
+  p.paidAmount -= pay.amount + (pay.exchangeDifference || 0);
   p.status = p.paidAmount > 0 ? "partial" : "validated";
   p.markModified("payments");
   await p.save({ session });

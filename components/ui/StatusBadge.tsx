@@ -34,6 +34,7 @@ const VARIANTS = {
   paid:       { tone: "pos",  label: "Soldée",         Icon: CheckCircle2 },
   overdue:    { tone: "neg",  label: "En retard",      Icon: AlertTriangle },
   cancelled:  { tone: "mute", label: "Annulée",        Icon: Ban },
+  written_off: { tone: "neg", label: "Irrécouvrable",  Icon: CircleSlash },
   disputed:   { tone: "warn", label: "En litige",      Icon: CircleSlash },
 
   active:     { tone: "pos",  label: "Actif",          Icon: CheckCircle2 },

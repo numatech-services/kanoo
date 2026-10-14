@@ -31,6 +31,8 @@ const PaymentSchema = new Schema({
   reference: { type: String, trim: true, maxlength: 80 },
   entryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },
   movementId: { type: Schema.Types.ObjectId, ref: "TreasuryMovement" },
+  /** Écart de change réalisé : dette soldée moins montant décaissé (> 0 gain, < 0 perte). */
+  exchangeDifference: { type: Number, default: 0 },
   cancelledAt: Date,
   createdBy: { type: Schema.Types.ObjectId, ref: "User" },
 });

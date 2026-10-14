@@ -270,7 +270,7 @@ export interface IProduct {
   isActive: boolean;
 }
 
-export type InvoiceStatus = "draft" | "sent" | "partial" | "paid" | "overdue" | "cancelled";
+export type InvoiceStatus = "draft" | "sent" | "partial" | "paid" | "overdue" | "cancelled" | "written_off";
 export type DevisStatus = "draft" | "sent" | "accepted" | "rejected" | "expired";
 export type CommandeStatus = "draft" | "confirmed" | "partially_received" | "received" | "cancelled" | "invoiced";
 
@@ -325,6 +325,11 @@ export interface IInvoice {
   /** Retenue de garantie (marchés) : non exigible avant la réception définitive. */
   retentionAmount?: number;
   retentionRate?: number;
+  doubtfulAt?: Date;
+  provisionRate?: number;
+  provisionAmount?: number;
+  writtenOffAt?: Date;
+  writtenOffAmount?: number;
   status: InvoiceStatus;
   issueDate: Date;
   dueDate: Date;
@@ -376,6 +381,7 @@ export interface IDevis {
 
 export interface IPayment {
   withholdingAmount?: number;
+  exchangeDifference?: number;
   _id: Types.ObjectId;
   tenantId: Types.ObjectId;
   invoiceId: Types.ObjectId;

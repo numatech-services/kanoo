@@ -58,7 +58,7 @@ export async function postOpeningBalances(actor: { tenantId: string; userId: str
     if (!debit && !credit) continue;
     const code = String(l.accountCode ?? "").trim();
     if (!/^[1-9]\d{2,7}$/.test(code)) throw new BusinessRuleError(`Ligne ${i + 1} : numéro de compte invalide.`);
-    if (/^[67]/.test(code)) throw new BusinessRuleError(`Ligne ${i + 1} : un bilan d'ouverture ne reprend que des comptes de bilan (classes 1 à 5).`);
+    if (/^[678]/.test(code)) throw new BusinessRuleError(`Ligne ${i + 1} : un bilan d'ouverture ne reprend que des comptes de bilan (classes 1 à 5).`);
     if (/^5[27]/.test(code)) throw new BusinessRuleError(`Ligne ${i + 1} : banque et caisse se reprennent dans la partie « Trésorerie », par compte.`);
     if (debit < 0 || credit < 0 || (debit > 0 && credit > 0)) throw new BusinessRuleError(`Ligne ${i + 1} : un montant au débit OU au crédit.`);
     let thirdPartyId: unknown;
