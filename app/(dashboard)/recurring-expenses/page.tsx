@@ -13,7 +13,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
 type Ref = { _id: string; label?: string; name?: string } | null;
 interface Expense {
-  _id: string; label: string; category: string; amount: number; frequency: string; nextDueDate: string; accountCode?: string;
+  _id: string; label: string; category: string; amount: number; frequency: string; nextDueDate: string; accountCode?: string; tvaRate?: number;
   treasuryAccountId: Ref | string; supplierId?: Ref | string; isActive: boolean; description?: string;
   projectId?: string; activityId?: string; costCenter?: string; executions?: Array<{ executedAt: string; amount: number }>;
 }
@@ -113,7 +113,7 @@ function ChargeDialog({ charge, accounts, onClose, onDone }: { charge: Expense |
   const [f, setF] = useState({
     label: charge?.label ?? "", category: charge?.category ?? "loyer", amount: charge?.amount ?? 0, frequency: charge?.frequency ?? "monthly",
     startDate: new Date().toISOString().slice(0, 10), nextDueDate: charge?.nextDueDate?.slice(0, 10) ?? "",
-    accountCode: charge?.accountCode ?? "622100", treasuryAccountId: idOf(charge?.treasuryAccountId), supplierId: idOf(charge?.supplierId), description: charge?.description ?? "",
+    accountCode: charge?.accountCode ?? "622100", tvaRate: charge?.tvaRate ?? 0, treasuryAccountId: idOf(charge?.treasuryAccountId), supplierId: idOf(charge?.supplierId), description: charge?.description ?? "",
   });
   const [imp, setImp] = useState<ImputationValue>({ projectId: charge?.projectId, activityId: charge?.activityId, costCenter: charge?.costCenter });
   const [suppliers, setSuppliers] = useState<Array<{ _id: string; name: string }>>([]);
@@ -141,6 +141,11 @@ function ChargeDialog({ charge, accounts, onClose, onDone }: { charge: Expense |
             </select>
           </FormField>
           <FormField label="Montant (FCFA)" required><input type="number" min={1} className={inputCls} value={f.amount || ""} onChange={e => u("amount", Number(e.target.value))} /></FormField>
+          <FormField label="TVA comprise dans le montant" hint="Récupérable : déduite de la TVA à reverser.">
+            <select className={selectCls} value={f.tvaRate} onChange={e => u("tvaRate", Number(e.target.value))}>
+              <option value={0}>Sans TVA</option><option value={0.19}>19 %</option><option value={0.1}>10 %</option>
+            </select>
+          </FormField>
           <FormField label="Fréquence">
             <select className={selectCls} value={f.frequency} onChange={e => u("frequency", e.target.value)}>{Object.entries(FREQ).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
           </FormField>

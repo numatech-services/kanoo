@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { Schema, model, models } from "mongoose";
 
+import { SUPPLIER_ACCOUNT } from "@/lib/purchases";
 // Modèle inline pour les retenues
 const RetenueSchema = new Schema({
   tenantId: { type: Schema.Types.ObjectId, required: true, index: true },
@@ -90,7 +91,7 @@ export const POST = withAuth("fiscalDeclarations", "create", async (req: NextReq
     reference: `RTS-${retenue._id.toString().slice(-6).toUpperCase()}`,
     label: `Retenue à la source — ${body.beneficiaire} (${RETENUES_DETAILLEES[body.type].description})`,
     lines: [
-      { accountCode: "401000", accountLabel: "Fournisseurs / Tiers", debit: body.montantBrut, credit: 0 },
+      { ...SUPPLIER_ACCOUNT, debit: body.montantBrut, credit: 0 },
       { accountCode: "447200", accountLabel: "Retenues à la source DGI", debit: 0, credit: calcul.montantRetenue },
       { accountCode: "521000", accountLabel: "Banque / Trésorerie", debit: 0, credit: calcul.montantNet },
     ],

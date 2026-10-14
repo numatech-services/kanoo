@@ -64,6 +64,15 @@ const FixedAssetSchema = new Schema({
   },
 
   supplier:       String,
+  /**
+   * Origine de l'acquisition, qui décide de l'écriture d'entrée :
+   * `purchase` — achat déjà saisi dans Achats (écriture faite, aucune autre) ;
+   * `supplier` — dette envers un fournisseur (2… / 401) ;
+   * `existing` — bien déjà en comptabilité (reprise du registre, aucune écriture).
+   */
+  origin:         { type: String, enum: ["purchase", "supplier", "existing"], default: "supplier" },
+  purchaseId:     { type: Schema.Types.ObjectId, ref: "Purchase" },
+  supplierId:     { type: Schema.Types.ObjectId, ref: "Supplier" },
   invoiceRef:     String,
   location:       String,
   serialNumber:   String,

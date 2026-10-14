@@ -3,6 +3,10 @@ import { connectDB } from "@/lib/db";
 import { withAuth, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { FixedAssetModel } from "@/models/FixedAsset";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
+import { PurchaseModel } from "@/models/Purchase";
+import { SupplierModel } from "@/models/Supplier";
+import { SUPPLIER_ACCOUNT } from "@/lib/purchases";
+import { Types } from "mongoose";
 import { logAudit } from "@/lib/audit";
 import { calculerAmortissementLineaire, AMORTISSEMENT_TAUX } from "@/lib/niger-fiscal";
 import { TokenPayload } from "@/lib/auth";
@@ -42,6 +46,27 @@ export const POST = withAuth("fixedAssets", "create", async (req: NextRequest, a
 
   const existing = await FixedAssetModel.findOne({ tenantId: auth.tenantId, code: body.code });
   if (existing) return conflict(`Code '${body.code}' déjà utilisé`);
+  const acquisitionCost = Math.round(Number(body.acquisitionCost));
+  if (!(acquisitionCost > 0)) return badRequest("Valeur d'acquisition invalide.");
+
+  // L'origine décide de l'écriture d'entrée. Un bien acheté via Achats est déjà
+  // en comptabilité (compte 2…) : l'écrire une seconde fois au registre le
+  // comptait deux fois au bilan, contre un « fournisseur » sans nom.
+  const origin = ["purchase", "existing"].includes(body.origin) ? body.origin : "supplier";
+  let purchaseId: unknown, supplierId: unknown;
+  if (origin === "purchase") {
+    if (!Types.ObjectId.isValid(String(body.purchaseId))) return badRequest("Choisissez l'achat qui a acquis ce bien.");
+    const p = await PurchaseModel.findOne({ _id: body.purchaseId, tenantId: auth.tenantId, status: { $in: ["validated", "partial", "paid"] } })
+      .select("lines supplierId").lean<{ lines: Array<{ accountCode: string }>; supplierId?: unknown } | null>();
+    if (!p) return badRequest("Achat introuvable ou non validé.");
+    if (!p.lines.some(l => /^2/.test(l.accountCode))) return badRequest("Cet achat n'est imputé à aucun compte d'immobilisation (2…).");
+    purchaseId = body.purchaseId; supplierId = p.supplierId;
+  } else if (origin === "supplier" && body.supplierId) {
+    if (!Types.ObjectId.isValid(String(body.supplierId)) || !(await SupplierModel.exists({ _id: body.supplierId, tenantId: auth.tenantId }))) {
+      return badRequest("Fournisseur introuvable.");
+    }
+    supplierId = body.supplierId;
+  }
 
   // Utiliser les taux par défaut si non fournis
   const catInfo = AMORTISSEMENT_TAUX[body.category] || AMORTISSEMENT_TAUX.other;
@@ -53,7 +78,7 @@ export const POST = withAuth("fixedAssets", "create", async (req: NextRequest, a
   // d'acquisition. Une annuité pleine la première année surévaluait la dotation.
   const serviceDate = new Date(body.serviceDate || body.acquisitionDate);
   const schedule = calculerAmortissementLineaire(
-    body.acquisitionCost,
+    acquisitionCost,
     body.residualValue || 0,
     usefulLife,
     acquisitionYear,
@@ -62,27 +87,32 @@ export const POST = withAuth("fixedAssets", "create", async (req: NextRequest, a
 
   const asset = await FixedAssetModel.create({
     ...body,
+    acquisitionCost, origin, purchaseId, supplierId,
     tenantId: auth.tenantId,
     usefulLifeYears: usefulLife,
     depreciationSchedule: schedule,
-    currentNetValue: body.acquisitionCost, // VNC initiale = coût d'acquisition
+    currentNetValue: acquisitionCost, // VNC initiale = coût d'acquisition
     accountCode: body.accountCode || catInfo.compte,
     createdBy: auth.userId,
   });
 
-  // Écriture comptable d'acquisition
-  await AccountingEntryModel.create({
-    tenantId: auth.tenantId,
-    journalCode: "OD",
-    entryDate: new Date(body.acquisitionDate),
-    reference: body.code,
-    label: `Acquisition ${body.name}`,
-    lines: [
-      { accountCode: catInfo.compte, accountLabel: body.name, debit: body.acquisitionCost, credit: 0 },
-      { accountCode: "401000", accountLabel: "Fournisseur", debit: 0, credit: body.acquisitionCost },
-    ],
-    createdBy: auth.userId,
-  });
+  // Écriture d'acquisition : seulement pour une dette fournisseur, sur le
+  // compte fournisseur commun (401100) et au nom du fournisseur s'il est connu.
+  if (origin === "supplier") {
+    await AccountingEntryModel.create({
+      tenantId: auth.tenantId,
+      journalCode: "AC",
+      entryDate: new Date(body.acquisitionDate),
+      reference: body.code,
+      label: `Acquisition ${body.name}`,
+      lines: [
+        { accountCode: asset.accountCode, accountLabel: body.name, debit: acquisitionCost, credit: 0 },
+        { ...SUPPLIER_ACCOUNT, debit: 0, credit: acquisitionCost, ...(supplierId ? { thirdPartyId: supplierId } : {}) },
+      ],
+      linkedDocType: "fixed_asset", linkedDocId: asset._id,
+      createdBy: auth.userId,
+    });
+  }
 
   await logAudit(auth, "CREATE", "fixedAssets", { resourceId: asset._id.toString(), after: { code: body.code, name: body.name, cost: body.acquisitionCost } });
   return created(asset);

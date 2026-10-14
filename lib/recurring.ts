@@ -19,6 +19,7 @@ export async function recurringFields(tenantId: string, body: Record<string, unk
   if (has("category")) data.category = body.category;
   if (has("description")) data.description = String(body.description ?? "").slice(0, 500);
   if (has("accountCode")) { const c = String(body.accountCode ?? "").trim(); if (!/^6\d{2,7}$/.test(c)) return { data, error: "Compte de charge (6…) attendu." }; data.accountCode = c; }
+  if (has("tvaRate")) { const r = Number(body.tvaRate) || 0; if (!(r >= 0 && r < 0.5)) return { data, error: "Taux de TVA invalide." }; data.tvaRate = r; }
   if (has("alertDaysBefore")) data.alertDaysBefore = Math.max(0, Math.min(60, Number(body.alertDaysBefore) || 0));
   if (has("isActive")) data.isActive = !!body.isActive;
   if (has("nextDueDate") && body.nextDueDate) { const d = new Date(String(body.nextDueDate)); if (isNaN(d.getTime())) return { data, error: "Échéance invalide." }; data.nextDueDate = d; }

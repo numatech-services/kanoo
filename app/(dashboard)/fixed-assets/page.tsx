@@ -7,6 +7,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { formatMoney } from "@/lib/format";
 interface DepreciationEntry { year: number; annuity: number; cumulative: number; netValue: number; posted: boolean; }
 interface FixedAsset {
   _id: string; code: string; name: string; category: string;
@@ -34,7 +35,18 @@ export default function FixedAssetsPage() {
     code: "", name: "", category: "equipment", acquisitionDate: new Date().toISOString().slice(0,10),
     acquisitionCost: 0, residualValue: 0, depreciationMethod: "linear",
     usefulLifeYears: 5, supplier: "", location: "", notes: "",
+    origin: "purchase", purchaseId: "", supplierId: "",
   });
+  // Achats validés portant un compte d'immobilisation : le bien vient de l'un d'eux.
+  const [purchases, setPurchases] = useState<Array<{ _id: string; number: string; payee?: string; supplierId?: { name?: string } | null; totalHT: number; date: string; lines: Array<{ accountCode: string; description: string; amountHT?: number }> }>>([]);
+  const [suppliers, setSuppliers] = useState<Array<{ _id: string; name: string }>>([]);
+  useEffect(() => {
+    if (!modalOpen) return;
+    fetch("/api/achats?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null)
+      .then(d => setPurchases((d?.data?.items ?? []).filter((p: { status: string; lines: Array<{ accountCode: string }> }) => p.status !== "draft" && p.status !== "cancelled" && p.lines.some(l => /^2/.test(l.accountCode)))))
+      .catch(() => {});
+    fetch("/api/suppliers?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => setSuppliers(d?.data?.items ?? [])).catch(() => {});
+  }, [modalOpen]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,7 +71,8 @@ export default function FixedAssetsPage() {
       method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
       credentials: "include", body: JSON.stringify(form),
     });
-    if (res.ok) { setModalOpen(false); load(); }
+    if (res.ok) { setModalOpen(false); load(); showToast("Immobilisation créée.", "success"); }
+    else showToast((await res.json().catch(() => null))?.error ?? "Création impossible.", "error");
     setSaving(false);
   }
 
@@ -206,8 +219,37 @@ export default function FixedAssetsPage() {
               {" "}· Taux : <strong>{(100 / form.usefulLifeYears).toFixed(1)}%</strong>
             </div>
           )}
+          <FormField label="Origine du bien" hint={form.origin === "purchase" ? "L'achat est déjà en comptabilité : aucune écriture supplémentaire."
+            : form.origin === "supplier" ? "Écriture d'acquisition : compte d'immobilisation au débit, fournisseur (401) au crédit."
+            : "Bien déjà au bilan (reprise du registre) : aucune écriture."}>
+            <select className={selectCls} value={form.origin} onChange={e=>u("origin",e.target.value)}>
+              <option value="purchase">Acheté via Achats (facture fournisseur déjà saisie)</option>
+              <option value="supplier">Dette fournisseur, non saisie dans Achats</option>
+              <option value="existing">Bien déjà en comptabilité (reprise)</option>
+            </select>
+          </FormField>
+          {form.origin === "purchase" && (
+            <FormField label="Achat d'origine" required hint={purchases.length === 0 ? "Aucun achat validé imputé à un compte 2… : saisissez d'abord la facture dans Achats." : undefined}>
+              <select className={selectCls} value={form.purchaseId} required onChange={e=>{
+                const p = purchases.find(x => x._id === e.target.value);
+                const line = p?.lines.find(l => /^2/.test(l.accountCode));
+                setForm(f => ({ ...f, purchaseId: e.target.value, ...(p && !f.acquisitionCost ? { acquisitionCost: Math.round(line?.amountHT ?? p.totalHT) } : {}), ...(line && !f.name ? { name: line.description } : {}) }));
+              }}>
+                <option value="">— Choisir —</option>
+                {purchases.map(p => <option key={p._id} value={p._id}>{p.number} — {p.supplierId?.name ?? p.payee ?? "Achat"} — {formatMoney(p.totalHT)} HT</option>)}
+              </select>
+            </FormField>
+          )}
+          {form.origin === "supplier" && (
+            <FormField label="Fournisseur (compte 401)">
+              <select className={selectCls} value={form.supplierId} onChange={e=>u("supplierId",e.target.value)}>
+                <option value="">— Sans fournisseur référencé —</option>
+                {suppliers.map(x => <option key={x._id} value={x._id}>{x.name}</option>)}
+              </select>
+            </FormField>
+          )}
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Fournisseur"><input className={inputCls} value={form.supplier} onChange={e=>u("supplier",e.target.value)}/></FormField>
+            <FormField label="Fournisseur (texte libre)"><input className={inputCls} value={form.supplier} onChange={e=>u("supplier",e.target.value)}/></FormField>
             <FormField label="Localisation"><input className={inputCls} value={form.location} onChange={e=>u("location",e.target.value)}/></FormField>
           </div>
           <div className="flex justify-end gap-3 pt-3 border-t border-line">

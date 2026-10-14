@@ -8,6 +8,8 @@ Chaque script joue un parcours complet contre une instance compilée et affiche
 - `e2e-stock.mjs` : entrepôts, transferts, lots / péremption, inventaire, comptoir.
 - `e2e-flux.mjs` : filtre commun recettes / dépenses / période, contrats.
 - `e2e-marche.mjs` : devis → marché → acomptes → dépenses par catégorie → marge, avoir.
+- `e2e-compta.mjs` : moteur comptable — banque protégée, TVA et fournisseur des charges
+  récurrentes, origine des immobilisations, retenues sur le compte fournisseur commun.
 
 Lancement (base de test jetable, jamais la production). La base peut venir de
 Docker comme ci-dessous ou de tout MongoDB 7 en jeu de réplicas (transactions)

@@ -9,6 +9,7 @@ import { withTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
+import { SUPPLIER_ACCOUNT, VAT_ACCOUNT } from "@/lib/purchases";
 export const GET = withAuth("recurringCharges", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const e = await RecurringExpenseModel.findOne({ _id: params.id, ...tenantFilter(auth) })
@@ -65,21 +66,34 @@ export const POST = withAuth("recurringCharges", "update", async (req: NextReque
       createdBy: auth.userId,
     }, session);
 
-    await AccountingEntryModel.create([{
-      tenantId: auth.tenantId,
-      journalCode: ledger.journalCode,
-      entryDate: date,
-      reference: `DEP-${expense._id.toString().slice(-6).toUpperCase()}-${date.toISOString().slice(0, 7)}`,
-      label: expense.label || "Charge récurrente",
-      lines: [
-        { accountCode: expense.accountCode || "622000", accountLabel: expense.label || "Charges diverses", debit: amount, credit: 0,
-          ...(expense.projectId ? { projectId: expense.projectId } : {}), ...(expense.activityId ? { activityId: expense.activityId } : {}) },
+    // Le montant payé est TTC : la TVA récupérable va en 4452, la charge en
+    // HT. Avec un fournisseur, la dette transite par son compte (401) : la
+    // charge figure alors dans son historique et dans la balance fournisseurs.
+    const rate = Number(expense.tvaRate) || 0;
+    const ht = rate > 0 ? Math.round(amount / (1 + rate)) : amount;
+    const tva = amount - ht;
+    const imputation = { ...(expense.projectId ? { projectId: expense.projectId } : {}), ...(expense.activityId ? { activityId: expense.activityId } : {}) };
+    const charge = [
+      { accountCode: expense.accountCode || "622000", accountLabel: expense.label || "Charges diverses", debit: ht, credit: 0, ...imputation },
+      ...(tva > 0 ? [{ accountCode: VAT_ACCOUNT.accountCode, accountLabel: VAT_ACCOUNT.accountLabel, debit: tva, credit: 0 }] : []),
+    ];
+    const ref = `DEP-${expense._id.toString().slice(-6).toUpperCase()}-${date.toISOString().slice(0, 7)}`;
+    const supplier = expense.supplierId ? { thirdPartyId: expense.supplierId } : null;
+    const entries = supplier ? [
+      { journalCode: "AC", lines: [...charge, { ...SUPPLIER_ACCOUNT, debit: 0, credit: amount, ...supplier }] },
+      { journalCode: ledger.journalCode, lines: [
+        { ...SUPPLIER_ACCOUNT, debit: amount, credit: 0, ...supplier },
         { accountCode: ledger.accountCode, accountLabel: ledger.accountLabel, debit: 0, credit: amount },
-      ],
-      linkedDocType: "recurringExpense",
-      linkedDocId: expense._id,
-      createdBy: auth.userId,
-    }], { session });
+      ] },
+    ] : [
+      { journalCode: ledger.journalCode, lines: [...charge, { accountCode: ledger.accountCode, accountLabel: ledger.accountLabel, debit: 0, credit: amount }] },
+    ];
+    await AccountingEntryModel.create(entries.map((e, k) => ({
+      tenantId: auth.tenantId, journalCode: e.journalCode, entryDate: date,
+      reference: entries.length > 1 && k === 1 ? `${ref}-RGL` : ref,
+      label: `${k === 1 ? "Règlement — " : ""}${expense.label || "Charge récurrente"}`,
+      lines: e.lines, linkedDocType: "recurringExpense", linkedDocId: expense._id, createdBy: auth.userId,
+    })), { session, ordered: true });
 
     expense.executions.push({ executedAt: date, amount, treasuryAccountId: accountId, reference: body.reference, notes: body.notes });
     const next = new Date(expense.nextDueDate || date);

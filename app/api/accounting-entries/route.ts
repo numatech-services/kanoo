@@ -79,6 +79,12 @@ export const POST = withAuth("accountingEntries", "create", async (req: NextRequ
     if (debit < 0 || credit < 0) return badRequest(`Ligne ${i + 1} : montant négatif.`);
     if ((debit > 0) === (credit > 0)) return badRequest(`Ligne ${i + 1} : un montant au débit OU au crédit.`);
     if (!/^[1-9]\d{2,7}$/.test(code)) return badRequest(`Ligne ${i + 1} : numéro de compte invalide.`);
+    // Banque et caisse ne bougent qu'avec un mouvement de trésorerie : une
+    // écriture manuelle y créait un écart entre comptabilité et solde du compte
+    // que le rapprochement bancaire ne pouvait plus expliquer.
+    if (/^5[27]/.test(code)) {
+      return badRequest(`Ligne ${i + 1} : les comptes de banque et de caisse (52…, 57…) se mouvementent depuis Trésorerie (mouvement, virement), pour rester rapprochables. Pour une régularisation, passez par un compte d'attente (471…).`);
+    }
     lines.push({ accountCode: code, accountLabel: String(l.accountLabel ?? "").trim().slice(0, 160) || code, debit, credit, ...pickImputation(l) });
   }
   const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
