@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, notFound, noContent, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, noContent, tenantFilter, badRequest } from "@/lib/api-helpers";
 import { EventModel } from "@/models/Event";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
+import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 export const GET = withAuth("events", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   const ev = await EventModel.findOne({ _id: params.id, ...tenantFilter(auth) }).lean();
   if (!ev) return notFound("Activité introuvable");
@@ -14,6 +15,11 @@ export const PATCH = withAuth("events", "update", async (req: NextRequest, auth:
   const body = await req.json();
   // Champs protégés : jamais réaffectés depuis le corps.
   for (const k of ["_id", "tenantId", "createdBy", "createdAt", "updatedAt"]) delete body[k];
+  for (const k of ["treasuryAccountId", "onlineTreasuryAccountId"]) {
+    if (!(k in body)) continue;
+    if (!body[k]) { body[k] = null; continue; }
+    if (!(await TreasuryAccountModel.exists({ _id: body[k], ...tenantFilter(auth) }))) return badRequest("Compte de trésorerie introuvable.");
+  }
   const ev = await EventModel.findOneAndUpdate(
     { _id: params.id, ...tenantFilter(auth) },
     { $set: body },

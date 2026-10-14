@@ -538,6 +538,10 @@ export interface IMembership {
   paidAt?: Date;
   paymentMethod?: string;
   receiptNumber: string;
+  /** Compte encaisseur, écriture et mouvement de trésorerie (lib/cash-posting). */
+  treasuryAccountId?: Types.ObjectId;
+  entryId?: Types.ObjectId;
+  movementId?: Types.ObjectId;
   createdAt: Date;
 }
 
@@ -555,6 +559,11 @@ export interface IDonation {
   receiptNumber: string;
   receiptGeneratedAt?: Date;
   notes?: string;
+  /** Montant reçu en FCFA (don en devise) ; compte encaisseur, écriture, mouvement. */
+  amountXOF?: number;
+  treasuryAccountId?: Types.ObjectId;
+  entryId?: Types.ObjectId;
+  movementId?: Types.ObjectId;
   createdAt: Date;
 }
 

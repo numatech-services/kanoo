@@ -2,12 +2,13 @@
 import { useState, useEffect } from "react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { buttonClass } from "@/components/ui/button-class";
+import { TreasuryAccountSelect } from "@/components/shared/TreasuryAccountSelect";
 interface Member { _id: string; firstName: string; lastName: string; code: string; }
 interface CotisationFormProps { onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
 export function CotisationForm({ onSave, onCancel }: CotisationFormProps) {
   const [mounted, setMounted] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
-  const [form, setForm] = useState({ memberId:"", year:new Date().getFullYear(), amount:0, paymentMethod:"cash", paid:true });
+  const [form, setForm] = useState({ memberId:"", year:new Date().getFullYear(), amount:0, paymentMethod:"cash", paid:true, treasuryAccountId:"" });
   const [saving, setSaving] = useState(false);
   useEffect(()=>{ setMounted(true); fetch("/api/membres?limit=200&status=active",{credentials:"include"}).then(r=>r.json()).then(d=>setMembers(d.data?.items||[])); },[]);
   const u = (f: string, v: unknown) => setForm(p => ({ ...p, [f]: v }));
@@ -29,6 +30,11 @@ export function CotisationForm({ onSave, onCancel }: CotisationFormProps) {
           <option value="cash">Espèces</option><option value="bank_transfer">Virement</option><option value="mobile_money">Mobile Money</option>
         </select>
       </FormField>
+      {form.paid && (
+        <FormField label="Compte qui a reçu le paiement" required hint="La cotisation est enregistrée en trésorerie et en comptabilité (756).">
+          <TreasuryAccountSelect value={form.treasuryAccountId} onChange={v=>u("treasuryAccountId",v)} required />
+        </FormField>
+      )}
       <label className="flex items-center gap-3 cursor-pointer">
         <input type="checkbox" checked={form.paid} onChange={e=>u("paid",e.target.checked)} className="w-4 h-4 accent-section" />
         <span className="text-sm text-ink">Paiement reçu (génère le reçu)</span>

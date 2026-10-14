@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { connectDB } from "@/lib/db";
+import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound, tenantFilter, requireFields } from "@/lib/api-helpers";
-import { isId, ownDesk } from "@/lib/comptoir";
+import { isId, ownDesk, postDeskCash } from "@/lib/comptoir";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -45,15 +45,23 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   if (!(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
   const amount = Number(body.amount);
   if (!(amount > 0)) return badRequest("Montant invalide");
-  const entry = await ActivityCashEntryModel.create({
-    tenantId: auth.tenantId,
-    deskId: body.deskId,
-    direction: body.direction,
-    amount,
-    label: String(body.label).slice(0, 200).trim(),
-    method: METHODS.includes(body.method) ? body.method : "cash",
-    date: body.date ? new Date(body.date) : new Date(),
-    createdBy: auth.userId,
+  const date = body.date ? new Date(body.date) : new Date();
+  if (isNaN(date.getTime())) return badRequest("Date invalide");
+  // Écriture de caisse + comptabilisation (si le comptoir est relié à une caisse)
+  // dans la même transaction : jamais l'une sans l'autre.
+  const entry = await withTransaction(async session => {
+    const [e] = await ActivityCashEntryModel.create([{
+      tenantId: auth.tenantId,
+      deskId: body.deskId,
+      direction: body.direction,
+      amount,
+      label: String(body.label).slice(0, 200).trim(),
+      method: METHODS.includes(body.method) ? body.method : "cash",
+      date,
+      createdBy: auth.userId,
+    }], { session });
+    await postDeskCash(auth, body.deskId, e, session);
+    return e;
   });
   await logAudit(auth, "CREATE", "comptoir", { resourceId: entry._id.toString(), metadata: { cash: body.direction } });
   return created(entry);

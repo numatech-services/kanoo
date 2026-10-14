@@ -12,7 +12,7 @@ import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEdi
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
-interface Desk { _id: string; name: string; description?: string; activityId?: string }
+interface Desk { _id: string; name: string; description?: string; activityId?: string; treasuryAccountId?: string; revenueAccount?: string; expenseAccount?: string; vatRate?: number }
 interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
 interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string }
 interface Move { _id: string; type: "in" | "out" | "adjust" | "supply" | "return"; quantity: number; quantityAfter: number; reason?: string; date: string; itemId?: { name?: string; unit?: string } }
@@ -109,6 +109,12 @@ export default function ComptoirPage() {
             </button>
           </div>
 
+          {deskId && !desks.find(d => d._id === deskId)?.treasuryAccountId && (
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl border border-warn/30 bg-warn-50 text-sm text-warn">
+              <span>Caisse hors comptabilité : ses ventes et dépenses n&apos;apparaissent ni au compte de résultat ni en trésorerie.</span>
+              <button onClick={() => setSettingsOpen(true)} className={buttonClass("secondary", "sm")}>Relier à une caisse</button>
+            </div>
+          )}
           {deskId && <DeskView key={deskId} deskId={deskId} tab={tab} setTab={setTab} />}
         </>
       )}
@@ -187,6 +193,15 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
   const [name, setName] = useState(desk.name);
   const [description, setDescription] = useState(desk.description || "");
   const [activityId, setActivityId] = useState(desk.activityId ? String(desk.activityId) : "");
+  const [treasuryAccountId, setTreasuryAccountId] = useState(desk.treasuryAccountId ? String(desk.treasuryAccountId) : "");
+  const [revenueAccount, setRevenueAccount] = useState(desk.revenueAccount || "701100");
+  const [expenseAccount, setExpenseAccount] = useState(desk.expenseAccount || "601100");
+  const [vatRate, setVatRate] = useState(desk.vatRate ?? 0);
+  const [accounts, setAccounts] = useState<Array<{ _id: string; label: string; type?: string }>>([]);
+  useEffect(() => {
+    fetch("/api/treasury-accounts?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null)
+      .then(d => setAccounts(d?.data?.items ?? [])).catch(() => {});
+  }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -196,7 +211,7 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
     try {
       // Le secteur n'est envoyé que si l'utilisateur voit la liste des secteurs :
       // sinon on laisserait croire qu'il a été détaché.
-      const payload: Record<string, unknown> = { name, description, ...extra };
+      const payload: Record<string, unknown> = { name, description, treasuryAccountId: treasuryAccountId || null, revenueAccount, expenseAccount, vatRate, ...extra };
       if (sectors.length > 0) payload.activityId = activityId || null;
       await post(`/api/comptoir/desks/${desk._id}`, payload, "PATCH");
       onSaved();
@@ -222,6 +237,32 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
             </select>
           </FormField>
         )}
+        <fieldset className="space-y-3 rounded-xl border border-line p-3">
+          <legend className="px-1 text-xs font-semibold text-ink2">Comptabilité</legend>
+          <FormField label="Caisse de trésorerie" hint="Chaque vente et dépense du comptoir y est enregistrée, avec son écriture comptable. Sans caisse, rien n'est comptabilisé.">
+            <select className={selectCls} value={treasuryAccountId} onChange={e => setTreasuryAccountId(e.target.value)}>
+              <option value="">— Non reliée —</option>
+              {accounts.map(a => <option key={a._id} value={a._id}>{a.label}</option>)}
+            </select>
+          </FormField>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <FormField label="Compte des ventes">
+              <select className={selectCls} value={revenueAccount} onChange={e => setRevenueAccount(e.target.value)}>
+                <option value="701100">701100 — Marchandises</option><option value="706300">706300 — Restauration</option><option value="706000">706000 — Prestations</option>
+              </select>
+            </FormField>
+            <FormField label="Compte des dépenses">
+              <select className={selectCls} value={expenseAccount} onChange={e => setExpenseAccount(e.target.value)}>
+                <option value="601100">601100 — Achats de marchandises</option><option value="604000">604000 — Fournitures consommables</option><option value="658000">658000 — Charges diverses</option>
+              </select>
+            </FormField>
+            <FormField label="TVA dans les prix">
+              <select className={selectCls} value={vatRate} onChange={e => setVatRate(Number(e.target.value))}>
+                <option value={0}>Aucune</option><option value={0.19}>19 %</option><option value={0.1}>10 %</option>
+              </select>
+            </FormField>
+          </div>
+        </fieldset>
         <div className="flex justify-between items-center gap-3 pt-2">
           <button onClick={async () => { if (await confirmDialog({ title: "Archiver ce comptoir ?", message: "Ses données restent conservées." })) save({ archived: true }); }}
             disabled={saving} className="text-sm text-neg hover:underline disabled:opacity-50">Archiver le comptoir</button>

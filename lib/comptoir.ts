@@ -5,6 +5,8 @@ import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { canPerformAction, effectiveRoles } from "@/lib/role-resources";
 import { UserRole } from "@/types";
 
+import { postCashFlow } from "@/lib/cash-posting";
+import type { ClientSession } from "mongoose";
 export const isId = (v: unknown): v is string =>
   typeof v === "string" && Types.ObjectId.isValid(v);
 
@@ -45,4 +47,36 @@ export async function ownDesk(auth: TokenPayload, deskId: unknown) {
 export function deskFilter(auth: TokenPayload): Record<string, unknown> {
   const scope = deskScope(auth);
   return scope ? { deskId: { $in: scope.filter(isId).map(id => new Types.ObjectId(id)) } } : {};
+}
+
+/**
+ * Comptabilise une écriture de caisse de comptoir, si le comptoir est relié à
+ * une caisse de trésorerie (lib/cash-posting). Sans liaison, rien n'est écrit :
+ * le comptoir affiche alors un avertissement « caisse hors comptabilité ».
+ */
+export async function postDeskCash(
+  auth: TokenPayload,
+  deskId: unknown,
+  entry: { _id: unknown; direction: "in" | "out"; amount: number; date: Date; label: string; entryId?: unknown; movementId?: unknown; save: (o?: { session?: ClientSession }) => Promise<unknown> },
+  session?: ClientSession,
+) {
+  const desk = await ActivityDeskModel.findOne({ _id: deskId, ...tenantFilter(auth) }).session(session ?? null)
+    .select("name activityId treasuryAccountId revenueAccount expenseAccount vatRate")
+    .lean<{ name: string; activityId?: unknown; treasuryAccountId?: unknown; revenueAccount?: string; expenseAccount?: string; vatRate?: number } | null>();
+  if (!desk?.treasuryAccountId) return null;
+  const isIn = entry.direction === "in";
+  const posted = await postCashFlow({
+    tenantId: auth.tenantId, userId: auth.userId, treasuryAccountId: desk.treasuryAccountId,
+    direction: entry.direction, amount: entry.amount, date: entry.date,
+    label: `${desk.name} — ${entry.label}`, reference: `CPT-${String(entry._id).slice(-6).toUpperCase()}`,
+    account: isIn
+      ? { accountCode: desk.revenueAccount || "701100", accountLabel: "Ventes du comptoir" }
+      : { accountCode: desk.expenseAccount || "601100", accountLabel: "Dépenses du comptoir" },
+    vatRate: desk.vatRate ?? 0, activityId: desk.activityId,
+    linkedDocType: "desk_cash", linkedDocId: entry._id,
+  }, session);
+  entry.entryId = posted.entryId;
+  entry.movementId = posted.movementId;
+  await entry.save({ session });
+  return posted;
 }

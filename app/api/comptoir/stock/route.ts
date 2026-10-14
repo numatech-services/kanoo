@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound, tenantFilter, requireFields } from "@/lib/api-helpers";
-import { isId, ownDesk } from "@/lib/comptoir";
+import { isId, ownDesk, postDeskCash } from "@/lib/comptoir";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
@@ -104,6 +104,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
         method: cashMethod, date: body.date ? new Date(body.date) : new Date(),
         linkedMoveId: move._id, createdBy: auth.userId,
       }], { session });
+      await postDeskCash(auth, body.deskId, cash, session);
     }
     return { move, cash, crossedThreshold, itemName: item.name, itemUnit: item.unit, after, threshold: item.threshold };
   });

@@ -100,9 +100,12 @@ export const SYSCOHADA_ACCOUNTS: DefaultAccount[] = [
   { code: "706200", label: "Développement logiciel" },
   { code: "706300", label: "Restauration (The Spot)" },
   { code: "706400", label: "Cartes ISIC / Easypay" },
+  { code: "706500", label: "Billetterie et inscriptions" },
   { code: "707000", label: "Ventes de marchandises (négoce)" },
   { code: "754000", label: "Produits des cessions d'immobilisations" },
+  { code: "756000", label: "Cotisations des membres" },
   { code: "758000", label: "Produits divers" },
+  { code: "758100", label: "Dons et libéralités reçus" },
   { code: "771000", label: "Intérêts de prêts" },
 ];
 

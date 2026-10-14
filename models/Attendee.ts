@@ -15,6 +15,8 @@ export interface IAttendee {
   qrSig: string; // signature du billet (32 hex)
   status: "registered" | "paid" | "present" | "cancelled" | "refunded";
   paymentRef?: string;
+  entryId?: Types.ObjectId;
+  movementId?: Types.ObjectId;
   orderId?: string;
   paydunyaToken?: string;
   refundedAt?: Date;
@@ -46,6 +48,8 @@ const AttendeeSchema = new Schema<IAttendee>(
       index: true,
     },
     paymentRef: String,
+    entryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },
+    movementId: { type: Schema.Types.ObjectId, ref: "TreasuryMovement" },
     orderId: { type: String, index: true },
     paydunyaToken: String,
     refundedAt: Date,

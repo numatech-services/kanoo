@@ -8,6 +8,8 @@ import { AttendeeModel } from "@/models/Attendee";
 import { EventModel } from "@/models/Event";
 import { sendTicketEmail, sendTicketWhatsApp } from "@/lib/ticket-delivery";
 
+import { withTransaction } from "@/lib/db";
+import { postAttendee } from "@/lib/event-posting";
 /**
  * POST /api/webhooks/payment
  * Webhook PayDunya — appelé après un paiement réussi ou échoué
@@ -43,6 +45,15 @@ export async function POST(req: NextRequest) {
       attendee.status = "paid";
       attendee.paymentRef = token;
       await attendee.save();
+      // Paiement en ligne confirmé : recette comptabilisée sur le compte des
+      // paiements en ligne de l'événement (au nom de son créateur, sans session).
+      const evAcc = await EventModel.findById(attendee.eventId)
+        .select("title tenantId createdBy treasuryAccountId onlineTreasuryAccountId").lean<{ _id: unknown; title: string; tenantId: unknown; createdBy: unknown; treasuryAccountId?: unknown; onlineTreasuryAccountId?: unknown } | null>();
+      if (evAcc) {
+        try {
+          await withTransaction(session => postAttendee({ tenantId: String(evAcc.tenantId), userId: String(evAcc.createdBy) }, evAcc, attendee, "online", session));
+        } catch (e) { console.error("[Webhook] Billet payé, comptabilisation impossible :", e instanceof Error ? e.message : e); }
+      }
 
       // Livraison du billet après paiement (best-effort).
       try {

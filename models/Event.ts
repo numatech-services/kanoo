@@ -28,6 +28,8 @@ export interface IEvent {
   capacity: number; // 0 = illimité
   visibility: "public" | "private";
   isPaid: boolean;
+  treasuryAccountId?: Types.ObjectId;
+  onlineTreasuryAccountId?: Types.ObjectId;
   ticketTypes: ITicketType[];
   status: "draft" | "published" | "cancelled" | "completed";
   sendConfirmation: boolean;
@@ -67,6 +69,9 @@ const EventSchema = new Schema<IEvent>(
     capacity: { type: Number, default: 0, min: 0 },
     visibility: { type: String, enum: ["public", "private"], default: "public" },
     isPaid: { type: Boolean, default: false },
+    /** Caisse des ventes sur place et compte des paiements en ligne (billetterie comptabilisée). */
+    treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount" },
+    onlineTreasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount" },
     ticketTypes: { type: [TicketTypeSchema], default: [] },
     status: {
       type: String,

@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
-import { withAuth, ok, created, badRequest, getPagination, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, getPagination, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
+import { withTransaction } from "@/lib/db";
+import { postDonation } from "@/lib/association-posting";
 import { DonationModel } from "@/models/Donation";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -33,11 +35,11 @@ export const POST = withAuth("dons", "create", async (req: NextRequest, auth: To
   const count = await DonationModel.countDocuments({ tenantId: auth.tenantId });
   const receiptNumber = `DON-${year}-${String(count + 1).padStart(5, "0")}`;
   
-  const donation = await DonationModel.create({
-    ...body,
-    tenantId: auth.tenantId,
-    date: dateObj,
-    receiptNumber,
+  const clean = sanitizeBody(body, ["receiptNumber", "entryId", "movementId", "receiptGeneratedAt"]);
+  const donation = await withTransaction(async session => {
+    const [d] = await DonationModel.create([{ ...clean, tenantId: auth.tenantId, date: dateObj, receiptNumber }], { session });
+    await postDonation(auth, d, session);
+    return d;
   });
   await logAudit(auth, "CREATE", "dons", { resourceId: donation._id.toString(), after: { amount: body.amount, currency: body.currency } });
   return created(donation);

@@ -2,10 +2,11 @@
 import { useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 import { buttonClass } from "@/components/ui/button-class";
+import { TreasuryAccountSelect } from "@/components/shared/TreasuryAccountSelect";
 interface DonFormProps { onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
 export function DonForm({ onSave, onCancel }: DonFormProps) {
   const today = new Date().toISOString().slice(0, 10);
-  const [form, setForm] = useState({ donorType:"individual", donorName:"", donorContact:"", amount:0, currency:"XOF", campaign:"", date:today, paymentMethod:"cash", notes:"" });
+  const [form, setForm] = useState({ donorType:"individual", donorName:"", donorContact:"", amount:0, currency:"XOF", campaign:"", date:today, paymentMethod:"cash", notes:"", treasuryAccountId:"", amountXOF:0 });
   const [saving, setSaving] = useState(false);
   const u = (f: string, v: unknown) => setForm(p => ({ ...p, [f]: v }));
   return (
@@ -25,6 +26,16 @@ export function DonForm({ onSave, onCancel }: DonFormProps) {
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Date du don" required><input type="date" className={inputCls} value={form.date} onChange={e=>u("date",e.target.value)} required /></FormField>
         <FormField label="Mode de versement"><select className={selectCls} value={form.paymentMethod} onChange={e=>u("paymentMethod",e.target.value)}><option value="cash">Espèces</option><option value="bank_transfer">Virement</option><option value="mobile_money">Mobile Money</option><option value="cheque">Chèque</option></select></FormField>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <FormField label="Compte qui a reçu le don" required hint="Enregistré en trésorerie et en comptabilité (7581).">
+          <TreasuryAccountSelect value={form.treasuryAccountId} onChange={v=>u("treasuryAccountId",v)} required />
+        </FormField>
+        {form.currency !== "XOF" && (
+          <FormField label="Montant reçu en FCFA" required hint="Après conversion par la banque.">
+            <input type="number" className={inputCls} value={form.amountXOF || ""} onChange={e=>u("amountXOF",Number(e.target.value))} min={1} required />
+          </FormField>
+        )}
       </div>
       <FormField label="Campagne / Projet"><input className={inputCls} value={form.campaign} onChange={e=>u("campaign",e.target.value)} placeholder="Ex: Fonds d'urgence 2025" /></FormField>
       <FormField label="Notes"><textarea className={textareaCls} rows={2} value={form.notes} onChange={e=>u("notes",e.target.value)} /></FormField>

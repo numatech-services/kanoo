@@ -36,7 +36,9 @@ const AccountingEntrySchema = new Schema<IAccountingEntry>(
     linkedDocType: {
       type: String,
       enum: ["invoice", "payment", "supplier_invoice", "supplier_payment", "payslip", "expense", "credit_note",
-        "recurringExpense", "delivery", "stock", "inventory", "fixed_asset", "treasury", "reversal", "closing", "manual", "withholding"],
+        "recurringExpense", "delivery", "stock", "inventory", "fixed_asset", "treasury", "reversal", "closing", "manual", "withholding",
+        // Encaissements au comptant des modules (lib/cash-posting).
+        "desk_cash", "attendee", "membership", "donation"],
     },
     /** Extourne : l'écriture qui annule celle-ci, et inversement. */
     reversedBy: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },

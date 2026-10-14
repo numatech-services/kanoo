@@ -189,6 +189,8 @@ const ASSO_PRESIDENT: ResourcePermissions = {
   assemblee: ["create", "read", "update", "delete"],
   boardMeetings: ["create", "read", "update", "delete"],
   accountingEntries: ["create", "read", "update", "delete"],
+  // Caisses et comptes de l'association : les cotisations et dons y sont encaissés.
+  treasuryAccounts: ["create", "read", "update", "delete"],
   documents: ["create", "read", "update", "delete"],
   notifications: ["read", "update"],
   auditLogs: ["read"],

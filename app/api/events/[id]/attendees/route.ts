@@ -9,6 +9,8 @@ import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { hasFinanceAccess } from "@/lib/role-resources";
 
+import { withTransaction } from "@/lib/db";
+import { postAttendee } from "@/lib/event-posting";
 // Liste des participants + statistiques de présence.
 export const GET = withAuth("events", "read", async (req: NextRequest, auth: TokenPayload, params) => {
   const url = new URL(req.url);
@@ -86,7 +88,10 @@ export const POST = withAuth("eventCheckin", "update", async (req: NextRequest, 
   if (body.checkin) status = "present";
   const nowDate = new Date();
 
-  const attendee = await AttendeeModel.create({
+  // Billet réglé à la création (vente sur place) : comptabilisé dans la caisse
+  // de l'événement, dans la même transaction.
+  const attendee = await withTransaction(async session => {
+    const [a] = await AttendeeModel.create([{
     _id,
     tenantId: auth.tenantId,
     eventId: ev._id,
@@ -103,6 +108,9 @@ export const POST = withAuth("eventCheckin", "update", async (req: NextRequest, 
     checkedInAt: body.checkin ? nowDate : undefined,
     checkedInBy: body.checkin ? new Types.ObjectId(auth.userId) : undefined,
     createdBy: new Types.ObjectId(auth.userId),
+  }], { session });
+    await postAttendee({ tenantId: auth.tenantId, userId: auth.userId }, ev as never, a, "onsite", session);
+    return a;
   });
 
   // Livraison du billet (email PDF+.ics et/ou WhatsApp) — best-effort, non bloquant.

@@ -90,6 +90,55 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   const rtE = (await entriesOf(g, "RTS-"))[0];
   check("retenue enregistrée sur 401100 (et plus 401000)", rt.status === 201 && rtE && rtE.lines.some(l => l.accountCode === "401100") && !rtE.lines.some(l => l.accountCode === "401000"), `${rt.status} ${J(rtE?.lines ?? rt.data).slice(0, 200)}`);
 
+  console.log("\n▶ Comptoir relié à une caisse");
+  const caisse = id(await g.req("POST", "/api/treasury-accounts", { label: "Caisse Spot", type: "cash", openingBalance: 0, openingDate: "2025-01-01" }));
+  const loose = id(await g.req("POST", "/api/comptoir/desks", { name: "Buvette non reliée" }));
+  await g.req("POST", "/api/comptoir/cash", { deskId: loose, direction: "in", amount: 777, label: "Vente libre" });
+  check("comptoir non relié : aucune écriture", (await entriesOf(g, "Buvette non reliée")).length === 0);
+  const spot = id(await g.req("POST", "/api/comptoir/desks", { name: "Spot compta" }));
+  const link = await g.req("PATCH", `/api/comptoir/desks/${spot}`, { treasuryAccountId: caisse, revenueAccount: "706300", expenseAccount: "601100", vatRate: 0.19 });
+  check("comptoir relié à la caisse", link.status === 200, `${link.status} ${J(link.data).slice(0, 150)}`);
+  check("compte de produit hors classe 7 : refusé", (await g.req("PATCH", `/api/comptoir/desks/${spot}`, { revenueAccount: "601100" })).status === 400);
+  await g.req("POST", "/api/comptoir/cash", { deskId: spot, direction: "in", amount: 11900, label: "Ventes du midi" });
+  await g.req("POST", "/api/comptoir/cash", { deskId: spot, direction: "out", amount: 2380, label: "Glace" });
+  const spotE = await entriesOf(g, "Spot compta");
+  const sale = spotE.find(e => e.label.includes("Ventes du midi")), spend = spotE.find(e => e.label.includes("Glace"));
+  check("vente : caisse 571 au débit 11 900, 706300 10 000 et TVA 443 1 900 au crédit", sale && balancedE(sale)
+    && sale.lines.some(l => l.accountCode === "571000" && l.debit === 11900) && sale.lines.some(l => l.accountCode === "706300" && l.credit === 10000)
+    && sale.lines.some(l => l.accountCode === "443000" && l.credit === 1900), J(sale?.lines));
+  check("dépense : 601100 2 000 + TVA 4452 380 au débit, caisse au crédit", spend && balancedE(spend)
+    && spend.lines.some(l => l.accountCode === "601100" && l.debit === 2000) && spend.lines.some(l => l.accountCode === "445200" && l.debit === 380)
+    && spend.lines.some(l => l.accountCode === "571000" && l.credit === 2380), J(spend?.lines));
+  const cs = D(await g.req("GET", `/api/treasury-accounts/${caisse}`));
+  const bal = cs.balance ?? cs.account?.balance;
+  check("solde de la caisse = 11 900 − 2 380", bal === 9520, J(cs).slice(0, 200));
+
+  console.log("\n▶ Billetterie comptabilisée");
+  const evt = id(await g.req("POST", "/api/events", { title: "Concert compta", startAt: `${today}T18:00:00.000Z`, locationType: "physical", isPaid: true, ticketTypes: [{ name: "Standard", price: 5000, quantity: 0 }] }));
+  await g.req("PATCH", `/api/events/${evt}`, { treasuryAccountId: caisse });
+  const tt = D(await g.req("GET", `/api/events/${evt}`)).ticketTypes?.[0]?._id;
+  const att = D(await g.req("POST", `/api/events/${evt}/attendees`, { firstName: "Awa", lastName: "Test", ticketTypeId: tt, markPaid: true })).attendee ?? {};
+  const tk = (await entriesOf(g, att.ticketCode ?? "x"))[0];
+  check("billet vendu sur place : caisse au débit, 706500 au crédit", tk && balancedE(tk) && tk.lines.some(l => l.accountCode === "706500" && l.credit === 5000) && tk.lines.some(l => l.accountCode === "571000" && l.debit === 5000), `${J(att).slice(0, 120)} ${J(tk?.lines)}`);
+  const rf = await g.req("POST", `/api/events/${evt}/attendees/${att._id}/refund`, { reason: "Annulation" });
+  const tkAll = await entriesOf(g, att.ticketCode ?? "x");
+  check("remboursement : recette extournée", rf.status === 200 && tkAll.some(e => e.journalCode === "EX"), `${rf.status} ${J(tkAll.map(e => e.journalCode))}`);
+
+  console.log("\n▶ Association : cotisations et dons");
+  const { s: a } = await login("president@test.ne", SEED_PW);
+  const acaisse = id(await a.req("POST", "/api/treasury-accounts", { label: "Caisse asso", type: "cash", openingBalance: 0, openingDate: "2025-01-01" }));
+  const mem = id(await a.req("POST", "/api/membres", { firstName: "Moussa", lastName: "Adhérent", code: `M-${Date.now()}`, membershipType: "active", joinDate: today, email: `m${Date.now()}@asso.ne` }));
+  check("cotisation payée sans compte encaisseur : refusée", (await a.req("POST", "/api/cotisations", { memberId: mem, year: 2026, amount: 10000, paid: true })).status === 400);
+  const cot = await a.req("POST", "/api/cotisations", { memberId: mem, year: 2026, amount: 10000, paid: true, treasuryAccountId: acaisse });
+  const cotE = (await entriesOf(a, D(cot).receiptNumber ?? "x"))[0];
+  check("cotisation : caisse au débit, 756000 au crédit", cot.status === 201 && cotE && cotE.lines.some(l => l.accountCode === "756000" && l.credit === 10000), `${cot.status} ${J(cot.data).slice(0, 150)} ${J(cotE?.lines)}`);
+  const unpaid = await a.req("PATCH", `/api/cotisations/${D(cot)._id}`, { paid: false });
+  check("cotisation repassée à non payée : extournée", unpaid.status === 200 && (await entriesOf(a, D(cot).receiptNumber ?? "x")).some(e => e.journalCode === "EX"));
+  const don = await a.req("POST", "/api/dons", { donorType: "company", donorName: "ONG Sahel", amount: 100, currency: "EUR", amountXOF: 65596, date: today, treasuryAccountId: acaisse });
+  const donE = (await entriesOf(a, D(don).receiptNumber ?? "x"))[0];
+  check("don en euros : 65 596 FCFA reçus en 758100", don.status === 201 && donE && donE.lines.some(l => l.accountCode === "758100" && l.credit === 65596), `${don.status} ${J(don.data).slice(0, 150)}`);
+  check("le PME ne voit pas les écritures de l'association", (await entriesOf(g, D(don).receiptNumber ?? "x")).length === 0);
+
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

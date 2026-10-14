@@ -19,6 +19,14 @@ export interface IActivityDesk {
   /** Secteur analytique lié (rentabilité par secteur), s'il y a lieu. */
   activityId?: Types.ObjectId;
   warehouseId?: Types.ObjectId;
+  /** Caisse de trésorerie qui reçoit les ventes ; sans elle, la caisse reste hors comptabilité. */
+  treasuryAccountId?: Types.ObjectId;
+  /** Produit des ventes (701100 marchandises, 706300 restauration…). */
+  revenueAccount?: string;
+  /** Charge des dépenses de caisse (601100 achats de marchandises…). */
+  expenseAccount?: string;
+  /** TVA comprise dans les prix (0 = non assujetti). */
+  vatRate?: number;
   archived: boolean;
   createdBy: Types.ObjectId;
   createdAt: Date;
@@ -32,6 +40,10 @@ const ActivityDeskSchema = new Schema<IActivityDesk>({
   activityId: { type: Schema.Types.ObjectId, ref: "Activity" },
   /** Réserve du comptoir dans la gestion de stock (créée automatiquement). */
   warehouseId: { type: Schema.Types.ObjectId, ref: "Warehouse" },
+  treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount" },
+  revenueAccount: { type: String, default: "701100", match: /^7\d{2,7}$/ },
+  expenseAccount: { type: String, default: "601100", match: /^6\d{2,7}$/ },
+  vatRate: { type: Number, default: 0, min: 0, max: 0.5 },
   archived: { type: Boolean, default: false, index: true },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: true });

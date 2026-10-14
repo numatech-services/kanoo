@@ -145,6 +145,10 @@ const ASSO_NAV: NavGroup[] = [
     { label: "Cotisations", href: "/associations/cotisations", icon: <CreditCard size={18} /> },
     { label: "Dons", href: "/associations/dons", icon: <Heart size={18} /> },
   ]},
+  { section: "Finances", tone: "finance", items: [
+    { label: "Trésorerie", href: "/treasury", icon: <Landmark size={18} /> },
+    { label: "Comptabilité", href: "/accounting", icon: <BookOpen size={18} /> },
+  ]},
   { section: "Projets", items: [
     { label: "Projets / ONG", href: "/projects", icon: <Folder size={18} /> },
   ]},

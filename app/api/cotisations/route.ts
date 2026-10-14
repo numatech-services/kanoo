@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
-import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
+import { withTransaction } from "@/lib/db";
+import { postMembership } from "@/lib/association-posting";
 import { MembershipModel } from "@/models/Membership";
 import { MemberModel } from "@/models/Member";
 import { logAudit } from "@/lib/audit";
@@ -34,7 +36,14 @@ export const POST = withAuth("cotisations", "create", async (req: NextRequest, a
   const year = new Date().getFullYear();
   const count = await MembershipModel.countDocuments({ tenantId: auth.tenantId });
   const receiptNumber = `REC-${year}-${String(count + 1).padStart(5, "0")}`;
-  const membership = await MembershipModel.create({ ...body, tenantId: auth.tenantId, receiptNumber, paidAt: body.paid ? new Date() : undefined });
+  const paidAt = body.paid ? (body.paidAt ? new Date(body.paidAt) : new Date()) : undefined;
+  if (paidAt && isNaN(paidAt.getTime())) return badRequest("Date de paiement invalide");
+  const clean = sanitizeBody(body, ["receiptNumber", "entryId", "movementId", "paidAt"]);
+  const membership = await withTransaction(async session => {
+    const [m] = await MembershipModel.create([{ ...clean, tenantId: auth.tenantId, receiptNumber, paidAt }], { session });
+    await postMembership(auth, m, session);
+    return m;
+  });
   await logAudit(auth, "CREATE", "cotisations", { resourceId: membership._id.toString() });
   return created(membership);
 });

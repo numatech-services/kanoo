@@ -15,10 +15,11 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { TicketingAccounts } from "@/components/events/TicketingAccounts";
 interface Ev {
   _id: string; title: string; description?: string; startAt: string; endAt?: string;
   locationType: string; address?: string; meetingLink?: string; capacity: number;
-  status: string; isPaid: boolean; visibility: string;
+  status: string; isPaid: boolean; visibility: string; treasuryAccountId?: string; onlineTreasuryAccountId?: string;
   ticketTypes: { _id: string; name: string; price: number; quantity: number }[];
 }
 interface Attendee {
@@ -185,6 +186,10 @@ export default function ActiviteDetailPage() {
           {canCheckin && <button onClick={() => setShowReg(true)} className="btn-primary"><Plus size={16} /> Inscrire</button>}
         </div>
       </div>
+
+      {ev.isPaid && canManage && (
+        <TicketingAccounts eventId={ev._id} initial={{ treasuryAccountId: ev.treasuryAccountId, onlineTreasuryAccountId: ev.onlineTreasuryAccountId }} />
+      )}
 
       {/* Stats */}
       {stats && (
