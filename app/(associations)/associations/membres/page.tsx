@@ -7,6 +7,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Member {
   _id: string;
   code: string;
@@ -121,8 +122,7 @@ export default function MembresPage() {
           initial={editing || undefined}
           onSave={async (data) => {
             const url = editing ? `/api/membres/${editing._id}` : "/api/membres";
-            const csrfRes = await fetch("/api/auth/csrf");
-            const { csrfToken } = await csrfRes.json();
+            const csrfToken = await getCsrfToken();
             await fetch(url, {
               method: editing ? "PATCH" : "POST",
               headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },

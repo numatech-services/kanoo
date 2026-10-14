@@ -11,6 +11,7 @@ import { showToast } from "@/components/ui/Toast";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Employee {
   _id: string; firstName: string; lastName: string; code: string;
   employeeType?: string; indemnityPeriod?: string; grossSalary?: number;
@@ -30,7 +31,6 @@ interface BatchResult {
 const MONTHS = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
 
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function PayslipsPage() {
   const router = useRouter();
@@ -67,7 +67,7 @@ export default function PayslipsPage() {
 
   async function remove(p: Payslip) {
     if (!(await confirmDialog({ title: "Supprimer ce bulletin non payé ?", message: "Son écriture de paie sera extournée.", danger: true, confirmLabel: "Supprimer" }))) return;
-    const res = await fetch(`/api/payslips/${p._id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    const res = await fetch(`/api/payslips/${p._id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
     if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.error || "Suppression impossible", "error"); return; }
     load();
   }
@@ -180,7 +180,7 @@ function SingleDialog({ employees, onClose, onDone }: { employees: Employee[]; o
     if (!f.employeeId) { setError("Choisissez un salarié."); return; }
     setSaving(true); setError("");
     const res = await fetch("/api/payslips", {
-      method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include",
+      method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include",
       body: JSON.stringify({
         employeeId: f.employeeId, month: f.month, year: f.year,
         ...(f.grossSalary > 0 ? { grossSalary: f.grossSalary } : {}),
@@ -251,7 +251,7 @@ function BatchDialog({ onClose }: { onClose: () => void }) {
   async function run() {
     setSaving(true); setError("");
     const res = await fetch("/api/payslips/batch", {
-      method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include",
+      method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include",
       body: JSON.stringify(f),
     });
     const d = await res.json().catch(() => ({}));

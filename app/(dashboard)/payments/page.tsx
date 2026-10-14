@@ -10,6 +10,7 @@ import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Payment {
   _id: string;
   invoiceId: { 
@@ -73,7 +74,7 @@ export default function PaymentsPage() {
   // L'encaissement d'un paiement en attente se confirme avec sa date réelle et le compte crédité.
 
   async function cancelPayment(id: string, pending: boolean) {
-    const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+    const csrfToken = await getCsrfToken();
     let res: Response;
     if (pending) {
       if (!(await confirmDialog({ title: "Supprimer ce paiement en attente ?", danger: true, confirmLabel: "Supprimer" }))) return;
@@ -232,7 +233,7 @@ function ConfirmDialog({ payment, onClose, onDone }: { payment: Payment; onClose
   }, [accountId]);
   async function submit() {
     setSaving(true); setError("");
-    const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+    const csrfToken = await getCsrfToken();
     const res = await fetch(`/api/payments/${payment._id}`, {
       method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
       body: JSON.stringify({ status: "effective", date, ...(accountId ? { treasuryAccountId: accountId } : {}) }),

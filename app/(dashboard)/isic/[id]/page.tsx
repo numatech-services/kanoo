@@ -11,6 +11,7 @@ import { useMe, meCan, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Delivery { _id: string; date: string; quantity: number; note?: string }
 interface Payment { _id: string; date: string; amount: number; method?: string; note?: string }
 interface Batch {
@@ -31,7 +32,6 @@ const STAGES: { key: string; label: string }[] = [
 ];
 const NEXT: Record<string, string> = { received: "processing", processing: "submitted", submitted: "numbered", numbered: "printing", printing: "printed" };
 const dt = (d?: string) => (d ? new Date(d).toLocaleDateString("fr-FR") : "");
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function IsicBatchPage() {
   const { id } = useParams();
@@ -66,7 +66,7 @@ export default function IsicBatchPage() {
   async function cardsAction(bodyOrFile: Record<string, unknown>) {
     setBusy(true);
     try {
-      const res = await fetch(`/api/isic/${id}/cards`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify(bodyOrFile) });
+      const res = await fetch(`/api/isic/${id}/cards`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify(bodyOrFile) });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Échec");
       loadCards();
@@ -81,12 +81,12 @@ export default function IsicBatchPage() {
   async function syncRegistry() {
     setBusy(true);
     try {
-      let res = await fetch(`/api/isic/${id}/registry`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: "{}" });
+      let res = await fetch(`/api/isic/${id}/registry`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: "{}" });
       let d = await res.json();
       if (!res.ok && /année académique/i.test(d.error || "")) {
         const y = await promptDialog({ title: "Année académique du lot (format 2025-2026) :" });
         if (!y) return;
-        res = await fetch(`/api/isic/${id}/registry`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify({ academicYear: y.trim() }) });
+        res = await fetch(`/api/isic/${id}/registry`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify({ academicYear: y.trim() }) });
         d = await res.json();
       }
       if (!res.ok) throw new Error(d.error || "Synchronisation impossible");
@@ -111,7 +111,7 @@ export default function IsicBatchPage() {
     if (!uniId) { showToast("Liez d'abord un client (université) pour facturer.", "warning"); return; }
     setBusy(true);
     try {
-      const token = await csrf();
+      const token = await getCsrfToken();
       const today = new Date(); const due = new Date(today); due.setDate(due.getDate() + 30);
       const res = await fetch("/api/invoices", {
         method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": token }, credentials: "include",
@@ -129,20 +129,20 @@ export default function IsicBatchPage() {
   }
 
   async function patch(body: Record<string, unknown>) {
-    const res = await fetch(`/api/isic/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify(body) });
+    const res = await fetch(`/api/isic/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify(body) });
     if (res.ok) load(); else showToast((await res.json()).error || "Échec", "error");
   }
   async function post(path: string, body: Record<string, unknown>, reset: () => void) {
-    const res = await fetch(`/api/isic/${id}/${path}`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify(body) });
+    const res = await fetch(`/api/isic/${id}/${path}`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify(body) });
     if (res.ok) { reset(); load(); } else showToast((await res.json()).error || "Échec", "error");
   }
   async function del(path: string, qs: string) {
-    const res = await fetch(`/api/isic/${id}/${path}?${qs}`, { method: "DELETE", headers: { "x-csrf-token": await csrf() }, credentials: "include" });
+    const res = await fetch(`/api/isic/${id}/${path}?${qs}`, { method: "DELETE", headers: { "x-csrf-token": await getCsrfToken() }, credentials: "include" });
     if (res.ok) load();
   }
   async function deleteBatch() {
     if (!(await confirmDialog({ title: "Supprimer ce lot ?", danger: true }))) return;
-    const res = await fetch(`/api/isic/${id}`, { method: "DELETE", headers: { "x-csrf-token": await csrf() }, credentials: "include" });
+    const res = await fetch(`/api/isic/${id}`, { method: "DELETE", headers: { "x-csrf-token": await getCsrfToken() }, credentials: "include" });
     if (res.ok) router.push("/isic"); else showToast("Suppression impossible.", "error");
   }
   function upload(field: "receivedFile" | "isicFile", file: File) {
@@ -241,6 +241,7 @@ export default function IsicBatchPage() {
         )}
         {cards.length > 0 ? (
           <div className="max-h-72 overflow-y-auto rounded-lg border border-line">
+            <div className="overflow-x-auto">
             <table className="table-dense w-full">
               <thead><tr className="bg-surface2/50"><th>Étudiant</th><th>Matricule</th><th>N° ISIC</th><th>Statut</th></tr></thead>
               <tbody>
@@ -253,7 +254,7 @@ export default function IsicBatchPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
             {cards.length > 200 && <p className="text-[11px] text-ink3 px-3 py-1.5">… et {cards.length - 200} autres.</p>}
           </div>
         ) : (
@@ -446,6 +447,7 @@ function IsicCostsPanel({ batch, fin, canEdit, canDelete, onPatch, onAdd, onDele
           </div>
         )}
       </div>
+      <div className="overflow-x-auto">
       <table className="table-dense w-full">
         <thead><tr className="text-left text-ink2"><th>Poste</th><th className="text-right">Prévu</th><th className="text-right">Réel</th></tr></thead>
         <tbody>
@@ -461,7 +463,7 @@ function IsicCostsPanel({ batch, fin, canEdit, canDelete, onPatch, onAdd, onDele
           <tr className="border-t border-line font-semibold"><td>Total des coûts</td><td className="text-right font-mono">{fmt(fin.plannedTotal)}</td><td className="text-right font-mono">{fmt(fin.actualTotal)}</td></tr>
           <tr className="font-semibold"><td>Marge (revente {fmt(fin.sale)})</td><td className={`text-right font-mono ${fin.plannedMargin < 0 ? "text-neg" : "text-pos"}`}>{fmt(fin.plannedMargin)}</td><td className="text-right font-mono text-ink3 text-xs">à terminaison {fmt(fin.forecastMargin)}</td></tr>
         </tfoot>
-      </table>
+      </table></div>
 
       {(batch.costs ?? []).length > 0 && (
         <ul className="divide-y divide-line text-sm">

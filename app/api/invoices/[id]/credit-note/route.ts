@@ -34,8 +34,11 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
   const invoice = await InvoiceModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!invoice) return notFound("Facture introuvable");
 
+  // Objet simple : recopier les lignes d'un document Mongoose avec `{ ...l }`
+  // perdait leurs champs (dont la nature « déduction d'acompte »), et l'avoir
+  // total d'une facture de solde n'extournait ni l'acompte ni tout le produit.
   const draftResult = buildCreditNote(
-    invoice as unknown as InvoiceLike,
+    invoice.toObject() as unknown as InvoiceLike,
     body.mode === "full" ? "full" : body.lines
   );
   if (!draftResult.ok) return badRequest(draftResult.error);

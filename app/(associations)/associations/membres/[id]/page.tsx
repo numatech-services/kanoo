@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Member {
   _id: string; code: string; firstName: string; lastName: string;
   email?: string; phone?: string; membershipType: string; status: string; joinDate: string;
@@ -38,7 +39,7 @@ export default function MembreDetailPage() {
 
   async function handleGenerateCode() {
     setSendingCode(true); setCodeResult(null);
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res = await fetch(`/api/membres/${id}/access-code`, {
       method:"POST", headers:{"Content-Type":"application/json","x-csrf-token":csrfToken}, credentials:"include"
     });

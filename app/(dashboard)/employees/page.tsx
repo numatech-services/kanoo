@@ -9,6 +9,7 @@ import { EmployeeForm, type EmployeeFormData } from "@/components/pme/EmployeeFo
 import { useMe, meCan } from "@/lib/useMe";
 
 import { AlertTriangle } from "lucide-react";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Employee {
   _id:string; code:string; firstName:string; lastName:string; position:string; department?:string;
   employeeType:string; contractNature:string;
@@ -45,7 +46,7 @@ export default function EmployeesPage() {
 
   async function handleSave(data: EmployeeFormData) {
     const url = editing ? `/api/employees/${editing._id}` : "/api/employees";
-    const csrfRes=await fetch("/api/auth/csrf"); const {csrfToken}=await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res=await fetch(url,{method:editing?"PATCH":"POST",headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},credentials:"include",body:JSON.stringify(data)});
     if(!res.ok){
       const d=await res.json().catch(()=>({}));

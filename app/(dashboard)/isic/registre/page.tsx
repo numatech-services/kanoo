@@ -17,6 +17,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { showToast } from "@/components/ui/Toast";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface SchoolRow { school: string; students: number; withNumber: number; withoutPhoto: number; covered: number; fresh: number; renewed: number; toRenew: number }
 interface Stats {
   year: string;
@@ -30,11 +31,10 @@ interface Student {
 }
 interface Report { rows: number; created: number; updated: number; numbersAssigned: number; licencesCreated: number; conflicts: { line: number; name: string; reason: string }[]; skipped: { line: number; reason: string }[] }
 
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function api<T = unknown>(url: string, method: "POST" | "PATCH" | "DELETE" = "POST", body?: unknown): Promise<T> {
   const res = await fetch(url, {
     method, credentials: "include",
-    headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+    headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const d = await res.json().catch(() => ({}));
@@ -159,6 +159,7 @@ function Dashboard({ stats, year, onChanged, openStudents, goImport }: {
 
       <div className="surface-card overflow-hidden">
         <div className="px-4 py-3 border-b border-line"><h2 className="font-semibold text-ink">Par établissement — {year}</h2></div>
+        <div className="overflow-x-auto">
         <table className="table-dense">
           <thead><tr><th>Établissement</th><th className="text-right">Étudiants</th><th className="text-right">Avec n°</th><th className="text-right">Licences {year}</th><th className="text-right">Nouveaux</th><th className="text-right">Renouvelés</th><th className="text-right">À renouveler</th><th className="text-right">Sans photo</th></tr></thead>
           <tbody>
@@ -175,7 +176,7 @@ function Dashboard({ stats, year, onChanged, openStudents, goImport }: {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );
@@ -279,6 +280,7 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
         <EmptyState icon={<Users size={20} />} title="Aucun étudiant" hint="Aucun étudiant ne correspond à ces critères." />
       ) : (
         <div className="surface-card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="table-dense">
             <thead><tr><th className="w-8"></th><th>Étudiant</th><th>Personal ID</th><th>Établissement</th><th>N° ISIC</th><th>Photo</th><th>Licences</th></tr></thead>
             <tbody>
@@ -297,7 +299,7 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
       <Pagination page={page} totalPages={Math.ceil(data.total / LIMIT)} total={data.total} limit={LIMIT} onPage={setPage} />
@@ -594,13 +596,14 @@ function ImportTab({ year, schools, onChanged }: { year: string; schools: string
             <p className="text-sm text-pos font-semibold">Aucune anomalie.</p>
           ) : (
             <div className="max-h-64 overflow-y-auto rounded-lg border border-line">
+              <div className="overflow-x-auto">
               <table className="table-dense">
                 <thead><tr><th>Ligne</th><th>Étudiant</th><th>Anomalie</th></tr></thead>
                 <tbody>
                   {report.r.conflicts.map((c, i) => <tr key={`c${i}`}><td className="font-mono">{c.line}</td><td>{c.name}</td><td className="text-warn">{c.reason}</td></tr>)}
                   {report.r.skipped.map((c, i) => <tr key={`s${i}`}><td className="font-mono">{c.line}</td><td>—</td><td className="text-ink2">{c.reason}</td></tr>)}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           )}
         </div>

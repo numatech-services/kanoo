@@ -1,7 +1,6 @@
 // Scénario de bout en bout : organisation cloisonnée (services × niveaux).
 import { readFileSync } from "fs";
 import { randomBytes } from "crypto";
-import { execSync } from "child_process";
 
 const BASE = "http://localhost:3099";
 const ROOT = process.argv[2];
@@ -26,7 +25,18 @@ function session() {
   }
   return { req, reset: () => { csrf = ""; } };
 }
-async function login(email, pw) { const s = session(); const r = await s.req("POST", "/api/auth/login", { email, password: pw }); s.reset(); return { s, r }; }
+// Le serveur limite les connexions par adresse (20 par minute) : sur un 429,
+// le scénario attend le délai annoncé puis réessaie.
+async function login(email, pw) {
+  for (let attempt = 0; ; attempt++) {
+    const s = session();
+    const r = await s.req("POST", "/api/auth/login", { email, password: pw });
+    s.reset();
+    if (r.status !== 429 || attempt >= 2) return { s, r };
+    const wait = Number(/(\d+) secondes/.exec(r.data?.error ?? "")?.[1] ?? 60);
+    await new Promise(res => setTimeout(res, (wait + 1) * 1000));
+  }
+}
 const D = r => r.data?.data ?? {};
 
 const today = new Date().toISOString().slice(0, 10);

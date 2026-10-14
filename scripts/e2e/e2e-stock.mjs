@@ -1,7 +1,7 @@
 // Scénario de bout en bout : organisation cloisonnée (services × niveaux).
 import { readFileSync } from "fs";
 import { randomBytes } from "crypto";
-import { execSync } from "child_process";
+import { withDb } from "./db.mjs";
 
 const BASE = "http://localhost:3099";
 const ROOT = process.argv[2];
@@ -26,7 +26,18 @@ function session() {
   }
   return { req, reset: () => { csrf = ""; } };
 }
-async function login(email, pw) { const s = session(); const r = await s.req("POST", "/api/auth/login", { email, password: pw }); s.reset(); return { s, r }; }
+// Le serveur limite les connexions par adresse (20 par minute) : sur un 429,
+// le scénario attend le délai annoncé puis réessaie.
+async function login(email, pw) {
+  for (let attempt = 0; ; attempt++) {
+    const s = session();
+    const r = await s.req("POST", "/api/auth/login", { email, password: pw });
+    s.reset();
+    if (r.status !== 429 || attempt >= 2) return { s, r };
+    const wait = Number(/(\d+) secondes/.exec(r.data?.error ?? "")?.[1] ?? 60);
+    await new Promise(res => setTimeout(res, (wait + 1) * 1000));
+  }
+}
 const D = r => r.data?.data ?? {};
 
 const today = new Date().toISOString().slice(0, 10);
@@ -40,7 +51,10 @@ const id = r => D(r)?._id;
   const prodQty = async pid => D(await g.req("GET", `/api/products/${pid}`)).stockQty;
 
   console.log("\n▶ Reprise de l'ancien stock global");
-  execSync(`docker exec kanoo-e2e mongosh --quiet kanoo_e2e --eval 'db.products.insertOne({tenantId:db.users.findOne({email:"admin@test.ne"}).tenantId,code:"LEGACY",label:"Ancien article",unitPrice:1000,tvaRate:0.19,unit:"u",stockQty:7,stockMinAlert:0,isService:false,isActive:true,purchaseCost:500})'`);
+  await withDb(ROOT, async db => {
+    const admin = await db.collection("users").findOne({ email: "admin@test.ne" });
+    await db.collection("products").insertOne({ tenantId: admin.tenantId, code: "LEGACY", label: "Ancien article", unitPrice: 1000, tvaRate: 0.19, unit: "u", stockQty: 7, stockMinAlert: 0, isService: false, isActive: true, purchaseCost: 500 });
+  });
   const legacy = (D(await g.req("GET", "/api/products?search=LEGACY")).items ?? [])[0];
   const lw = await byWh(legacy._id);
   check("ancien stock rangé dans le magasin principal", lw.PRINC === 7, J(lw));

@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { Download, Upload, Database, Check, AlertTriangle, Loader2 } from "lucide-react";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Entity { key: string; label: string; canExport: boolean; canImport: boolean; importable: boolean; columns: string[] }
 interface ImportResult { total: number; created: number; updated: number; failed: number; errors: { line: number; message: string }[] }
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then((r) => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 

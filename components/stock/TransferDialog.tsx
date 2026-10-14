@@ -6,10 +6,10 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { useWarehouses } from "@/components/stock/useWarehouses";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Product { _id: string; code: string; label: string; unit?: string; trackingMode?: string }
 interface Line { productId: string; quantity: number; lotNumber: string }
 interface Lot { lotNumber: string; qty: number; expiryDate?: string; warehouseId?: { _id: string } | string }
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 /** Transfert d'articles d'un entrepôt à un autre (lots et péremptions suivent). */
 export function TransferDialog({ onClose, onDone, product, fromWarehouseId }: {
@@ -48,7 +48,7 @@ export function TransferDialog({ onClose, onDone, product, fromWarehouseId }: {
     if (!valid.length) { setError("Ajoutez au moins un article."); return; }
     setSaving(true);
     const res = await fetch("/api/stock/transfers", {
-      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
       body: JSON.stringify({ fromWarehouseId: from, toWarehouseId: to, reason, lines: valid.map(l => ({ productId: l.productId, quantity: l.quantity, lots: l.lotNumber ? [{ lotNumber: l.lotNumber, qty: l.quantity }] : undefined })) }),
     });
     const d = await res.json().catch(() => ({}));

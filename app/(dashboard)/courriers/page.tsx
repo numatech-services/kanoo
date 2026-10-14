@@ -10,6 +10,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Letter {
   _id: string; reference?: string; kind: string; subject: string;
   recipient?: string; status: string; direction?: string; archived?: boolean;
@@ -33,7 +34,7 @@ const KIND_LABEL: Record<string, string> = {
 const MAX_ATTACHMENT = 2_500_000;
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 
@@ -160,6 +161,7 @@ export default function CourriersPage() {
           hint={query || direction ? "Élargissez la recherche ou affichez « Tous »." : "Rédigez une lettre ou un rapport, ou importez un courrier reçu ; il sera classé et suivi ici."} />
       ) : (
         <div className="surface-card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="table-dense">
             <thead><tr><th>Réf.</th><th>Objet</th><th>Sens</th><th>Type</th><th>Destinataire</th><th>Date</th><th></th></tr></thead>
             <tbody>
@@ -217,7 +219,7 @@ export default function CourriersPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           {total > LIMIT && (
             <div className="flex items-center justify-between px-4 py-2 border-t border-line text-sm text-ink2">
               <span>{(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} sur {total}</span>

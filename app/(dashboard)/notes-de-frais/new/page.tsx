@@ -8,6 +8,7 @@ import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/For
 import { Inset } from "@/components/ui/Primitives";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Employee { _id: string; firstName: string; lastName: string; code?: string }
 
 const MOIS = [
@@ -49,7 +50,7 @@ export default function NouvelleNotePage() {
     setSaving(true);
     setError(null);
     try {
-      const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+      const csrfToken = await getCsrfToken();
       const res = await fetch("/api/expenses", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },

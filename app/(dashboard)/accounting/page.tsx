@@ -11,6 +11,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Line { accountCode: string; accountLabel: string; debit: number; credit: number; projectId?: string; activityId?: string; costCenter?: string }
 interface Entry {
   _id: string; journalCode: string; entryDate: string; reference: string; label: string; lines: Line[];
@@ -18,7 +19,6 @@ interface Entry {
 }
 const JOURNALS: Record<string, string> = { VT: "Ventes", AC: "Achats", BQ: "Banque", CA: "Caisse", OD: "Opérations diverses", AN: "À-nouveaux", EX: "Extournes" };
 const fmt = (n: number) => n.toLocaleString("fr-FR");
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function AccountingPage() {
   const me = useMe();
@@ -57,7 +57,7 @@ export default function AccountingPage() {
   async function reverse(e: Entry) {
     const reason = await promptDialog({ title: `Extourner l'écriture ${e.reference} ? Motif :`, multiline: true });
     if (!reason) return;
-    const res = await fetch(`/api/accounting-entries/${e._id}/reverse`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify({ reason }) });
+    const res = await fetch(`/api/accounting-entries/${e._id}/reverse`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify({ reason }) });
     const d = await res.json().catch(() => ({}));
     setMsg({ ok: res.ok, text: res.ok ? `Écriture ${e.reference} extournée.` : d.error });
     if (res.ok) load();
@@ -127,6 +127,7 @@ export default function AccountingPage() {
                     <tr className="bg-surface2/20">
                       <td />
                       <td colSpan={7} className="py-2">
+                        <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                           <tbody>
                             {e.lines.map((l, i) => (
@@ -138,7 +139,7 @@ export default function AccountingPage() {
                               </tr>
                             ))}
                           </tbody>
-                        </table>
+                        </table></div>
                       </td>
                     </tr>
                   )}
@@ -163,7 +164,7 @@ function ClosingDialog({ lock, onClose, onDone }: { lock: { lockedUntil: string 
   const [busy, setBusy] = useState(false);
   async function post(body: unknown) {
     setBusy(true); setError("");
-    const res = await fetch("/api/accounting/closing", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify(body) });
+    const res = await fetch("/api/accounting/closing", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify(body) });
     const d = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) { setError(d.error || "Opération refusée"); return; }

@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Approbation { _id: string; resource: string; resourceId: string; requestedBy: { firstName: string; lastName: string } | string; amount?: number; status: string; currentLevel: number; notes?: string; createdAt: string; }
 
 export default function ApprobationsPage() {
@@ -28,7 +29,7 @@ export default function ApprobationsPage() {
 
   async function handleDecide() {
     if (!decideModal) return; setDeciding(true);
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res = await fetch(`/api/approbations/${decideModal.id}/decide`, { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, credentials: "include", body: JSON.stringify({ decision, comment }) });
     if (res.ok) { setDecideModal(null); setComment(""); load(); }
     setDeciding(false);

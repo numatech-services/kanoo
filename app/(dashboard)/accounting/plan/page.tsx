@@ -9,8 +9,8 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Account { _id: string; code: string; label: string; accountClass: string; isActive: boolean; used: boolean }
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 /** Plan comptable : SYSCOHADA par défaut, comptes et sous-comptes ajoutés par l'organisation. */
 export default function LedgerPlanPage() {
@@ -35,7 +35,7 @@ export default function LedgerPlanPage() {
   useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [load]);
 
   async function call(url: string, method: string, body?: unknown) {
-    const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: body === undefined ? undefined : JSON.stringify(body) });
     const d = await res.json().catch(() => ({}));
     setMsg(res.ok ? null : { ok: false, text: d.error || "Opération refusée" });
     if (res.ok) load();
@@ -69,6 +69,7 @@ export default function LedgerPlanPage() {
         <label className="flex items-center gap-2 text-sm text-ink2"><input type="checkbox" className="accent-section" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} /> Inactifs</label>
       </div>
       <div className="bg-surface rounded-xl border border-line overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="table-dense w-full">
           <thead><tr className="bg-surface2/50 text-left"><th className="w-28">Compte</th><th>Intitulé</th><th>Classe</th><th>Usage</th><th /></tr></thead>
           <tbody>
@@ -88,7 +89,7 @@ export default function LedgerPlanPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

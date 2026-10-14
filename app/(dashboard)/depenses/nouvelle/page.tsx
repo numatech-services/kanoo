@@ -5,8 +5,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PurchaseForm, type PurchaseFormValue } from "@/components/achats/PurchaseForm";
 
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 function NewPurchase() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -38,7 +38,7 @@ function NewPurchase() {
 
   async function submit(v: PurchaseFormValue, validate: boolean) {
     const res = await fetch("/api/achats", {
-      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
       body: JSON.stringify({
         kind: v.kind, supplierId: v.supplierId || undefined, payee: v.payee, supplierRef: v.supplierRef, date: v.date, dueDate: v.dueDate || undefined,
         notes: v.notes, commandeId: v.commandeId, lines: v.lines, validate,

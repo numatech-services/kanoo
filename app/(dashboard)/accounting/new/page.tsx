@@ -5,6 +5,7 @@ import { AccountingEntryForm } from "@/components/pme/AccountingEntryForm";
 import { useState } from "react";
 import { errorMessage } from "@/lib/errors";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function NewAccountingEntryPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -14,8 +15,7 @@ export default function NewAccountingEntryPage() {
       setError(null);
       
       // Récupération du jeton CSRF
-      const csrfRes = await fetch("/api/auth/csrf"); 
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
 
       // Envoi de la requête au backend
       const res = await fetch("/api/accounting-entries", { 

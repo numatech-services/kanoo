@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 const ROLES: Array<[string, string]> = [
   ["president", "Président(e)"],
   ["vice_president", "Vice-Président(e)"],
@@ -50,8 +51,7 @@ export default function NewBureauMemberPage() {
     if (payload.role !== "autre") delete (payload as any).customRoleLabel;
 
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
 
       const res = await fetch("/api/bureau", {
         method: "POST",

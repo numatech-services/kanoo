@@ -7,9 +7,9 @@ import { selectCls } from "@/components/ui/FormField";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Row { entryId: string; date: string; reference: string; label: string; account: string; debit: number; credit: number; thirdParty: string | null; thirdPartyId: string | null; isLettered: boolean; letterRef: string | null }
 const fmt = (n: number) => n.toLocaleString("fr-FR");
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 /** Lettrage : rapprocher factures et règlements d'un compte de tiers, par sélection. */
 export default function LettragePage() {
@@ -33,14 +33,14 @@ export default function LettragePage() {
   const toggle = (id: string) => setSelected(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   async function letter() {
-    const res = await fetch("/api/accounting-entries/lettrage", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify({ entryIds: [...selected], account }) });
+    const res = await fetch("/api/accounting-entries/lettrage", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify({ entryIds: [...selected], account }) });
     const d = await res.json().catch(() => ({}));
     setMsg({ ok: res.ok, text: res.ok ? d.data.message : d.error });
     if (res.ok) load();
   }
   async function unletter(ref: string) {
     if (!(await confirmDialog({ title: `Délettrer ${ref} ?` }))) return;
-    const res = await fetch(`/api/accounting-entries/lettrage?ref=${encodeURIComponent(ref)}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    const res = await fetch(`/api/accounting-entries/lettrage?ref=${encodeURIComponent(ref)}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
     const d = await res.json().catch(() => ({}));
     setMsg({ ok: res.ok, text: res.ok ? d.data.message : d.error });
     if (res.ok) load();

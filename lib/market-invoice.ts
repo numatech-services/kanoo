@@ -77,9 +77,24 @@ export async function invoiceMarket(auth: TokenPayload, contract: MarketContract
   const outstanding = billing.availableHT;
   if (!Number.isFinite(amountHT) && mode === "standard") amountHT = contract.amount - billing.workHT;
   if (!(amountHT > 0)) throw new MarketError("Montant à facturer invalide.");
+  const deducting = mode === "standard" && input.deductDeposits !== false && input.deductDeposits !== "false";
+  // Échéance de travaux : son montant est ce que le client paie à cette étape
+  // de l'échéancier (« Acompte 30 % » puis « Solde 70 % » = 100 % du marché).
+  // Les travaux facturés sont donc l'échéance PLUS la part d'acompte qu'elle
+  // impute — sinon l'acompte serait retranché deux fois et le client paierait
+  // 70 % du marché. La dernière échéance de travaux solde tous les acomptes ;
+  // les précédentes en imputent une part proportionnelle.
+  let depositShare: number | null = null;
+  if (milestone && mode === "standard" && deducting && outstanding > 0) {
+    const pendingWork = contract.milestones.filter(m => m.status === "pending" && m.kind !== "deposit");
+    const pendingTotal = pendingWork.reduce((t, m) => t + m.amount, 0);
+    depositShare = pendingWork.length <= 1 || pendingTotal <= 0
+      ? outstanding
+      : Math.round(outstanding * milestone.amount / pendingTotal);
+    amountHT += depositShare;
+  }
   // Plafond : le marché. Une facture qui déduit les acomptes peut aller jusqu'au
   // reste des travaux ; sinon, les acomptes non imputés comptent déjà.
-  const deducting = mode === "standard" && input.deductDeposits !== false && input.deductDeposits !== "false";
   const ceiling = contract.amount - billing.workHT - (deducting ? 0 : outstanding);
   if (amountHT > ceiling) {
     throw new MarketError(`Le montant dépasse le reste à facturer du marché (${Math.max(0, ceiling).toLocaleString("fr-FR")} FCFA HT).`);
@@ -94,7 +109,7 @@ export async function invoiceMarket(auth: TokenPayload, contract: MarketContract
   // Déduction des acomptes, du plus ancien au plus récent, dans la limite du montant facturé.
   const used: Array<{ _id: Types.ObjectId; amount: number }> = [];
   if (deducting) {
-    let left = amountHT;
+    let left = depositShare ?? amountHT;
     for (const d of billing.available) {
       if (left <= 0) break;
       const take = Math.min(d.free, left);

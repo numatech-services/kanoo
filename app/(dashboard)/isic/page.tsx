@@ -11,6 +11,7 @@ import { useMe, meCan } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export interface Batch {
   _id: string; reference: string; universityName: string; academicYear?: string;
   status: string; totalCards: number; unitLicenseFee: number; unitSalePrice: number;
@@ -33,7 +34,6 @@ export const ISIC_STATUS: Record<string, { label: string; cls: string }> = {
 export const fmt = (n?: number) => formatMoney(n ?? 0);
 export const delivered = (b: { deliveries: { quantity: number }[] }) => b.deliveries.reduce((s, d) => s + d.quantity, 0);
 
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function IsicListPage() {
   const router = useRouter();
@@ -123,7 +123,7 @@ function NewBatch({ canFinance, onClose, onCreated }: { canFinance: boolean; onC
     setSaving(true); setError(null);
     try {
       const res = await fetch("/api/isic", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
         credentials: "include", body: JSON.stringify(form),
       });
       const d = await res.json();

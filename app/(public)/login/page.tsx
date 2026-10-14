@@ -18,6 +18,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, AlertCircle, Check } from "lucide-react";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -74,8 +75,7 @@ export default function LoginPage() {
     setError("");
     setStatus("loading");
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
 
       const res = await fetch("/api/auth/login", {
         method: "POST",

@@ -41,6 +41,7 @@ export function ImputedFlows({ projectId }: { projectId: string }) {
       </div>
       {rows.length === 0 ? <p className="px-5 py-6 text-sm text-ink3 text-center">Aucune écriture imputée pour ce filtre.</p> : (
         <div className="max-h-[50vh] overflow-y-auto">
+          <div className="overflow-x-auto">
           <table className="table-dense w-full">
             <thead><tr className="text-left text-ink2"><th>Date</th><th>Jnl</th><th>Pièce</th><th>Libellé</th><th>Compte</th><th className="text-right">Montant</th></tr></thead>
             <tbody>
@@ -55,7 +56,7 @@ export function ImputedFlows({ projectId }: { projectId: string }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
     </section>

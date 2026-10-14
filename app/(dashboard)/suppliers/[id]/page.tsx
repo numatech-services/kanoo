@@ -10,6 +10,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 type Supplier = SupplierFormData & { _id: string; logo?: string; bankName?: string };
 type Row = Record<string, unknown>;
 interface Section { count: number; items: Row[]; }
@@ -49,7 +50,6 @@ const TABS: TabDef[] = [
     href: "/recurring-expenses" },
 ];
 
-async function csrfTok() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function SupplierDetailPage() {
   const { id } = useParams();
@@ -66,7 +66,7 @@ export default function SupplierDetailPage() {
   useEffect(() => { load(); }, [load]);
 
   async function handleSave(body: SupplierFormData) {
-    const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+    const csrfToken = await getCsrfToken();
     const res = await fetch(`/api/suppliers/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
       credentials: "include", body: JSON.stringify(body),
@@ -103,7 +103,7 @@ export default function SupplierDetailPage() {
           <button onClick={() => setEditOpen(true)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Modifier</button>
           {canRemove && <button onClick={async () => {
             if (!(await confirmDialog({ title: "Désactiver ce fournisseur ?", message: "Il disparaît des listes ; ses documents restent.", danger: true }))) return;
-            const res = await fetch(`/api/suppliers/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrfTok() } });
+            const res = await fetch(`/api/suppliers/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
             if (res.ok) router.push("/suppliers"); else showToast("Désactivation impossible", "error");
           }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Désactiver</button>}
           {data.access?.commandes !== false && <a href={`/commandes/new?supplierId=${id}`} className={buttonClass("primary", "md")}>+ Commande</a>}
@@ -142,6 +142,7 @@ export default function SupplierDetailPage() {
           {section.items.length === 0 ? (
             <p className="text-sm text-ink3 px-4 py-8 text-center">Aucun élément dans cette rubrique.</p>
           ) : (
+            <div className="overflow-x-auto">
             <table className="table-dense w-full">
               <thead><tr className="bg-surface2/50">{active.cols.map(h => <th key={h}>{h}</th>)}</tr></thead>
               <tbody>
@@ -155,7 +156,7 @@ export default function SupplierDetailPage() {
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           )}
           {active.href && section.count > section.items.length && (
             <div className="px-4 py-2 text-right"><a href={active.href} className="text-xs text-section hover:underline">Voir les {section.count} →</a></div>

@@ -11,6 +11,7 @@ import { PurchaseForm, type PurchaseFormValue } from "@/components/achats/Purcha
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 type Ref = { _id: string; code?: string; name?: string; label?: string; type?: string } | null | undefined;
 interface Purchase {
   _id: string; number: string; kind: "invoice" | "cash"; date: string; dueDate?: string; payee?: string; supplierRef?: string; notes?: string;
@@ -23,9 +24,8 @@ interface Purchase {
 const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
 const STATUS: Record<string, string> = { draft: "Brouillon", validated: "À payer", partial: "Payé en partie", paid: "Payé", cancelled: "Annulé" };
 const CC: Record<string, string> = { direction: "Direction", admin: "Administration", comm: "Communication", prosp: "Prospection", dev: "Développement", prod: "Production & Cartes", spot: "The Spot", secu: "Sécurité", compta: "Comptabilité" };
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function send(url: string, method: string, body?: unknown) {
-  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: body === undefined ? undefined : JSON.stringify(body) });
   const d = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(d.error || "Action impossible");
   return d.data;

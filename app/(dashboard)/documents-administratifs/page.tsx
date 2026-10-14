@@ -15,6 +15,7 @@ import {
 } from "@/lib/admin-documents";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Row {
   _id: string;
   label: string;
@@ -40,7 +41,7 @@ interface Payload {
 const fr = (d?: string | null) => (d ? new Date(d).toLocaleDateString("fr-FR") : "—");
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 

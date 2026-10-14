@@ -7,11 +7,11 @@ import { FlowFilterBar, useFlowFilter, monthStart, type FlowTotals } from "@/com
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export interface TreasuryAccountLite { _id: string; label: string; type: string; balance: number; openingBalance: number; movementCount: number; isActive: boolean; bankName?: string; accountNumber?: string }
 
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function send(url: string, method: string, body?: unknown) {
-  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: body === undefined ? undefined : JSON.stringify(body) });
   const d = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(d.error || "Opération refusée");
   return d.data;
@@ -171,6 +171,7 @@ export function MovementsDialog({ account, onClose }: { account?: TreasuryAccoun
         <FlowFilterBar state={filter} totals={totals} size="sm" />
         <p className="text-[11px] text-ink3">Les virements internes ne sont comptés ni en recettes ni en dépenses.{count > items.length ? ` ${items.length} mouvements affichés sur ${count}.` : ""}</p>
         <div className="max-h-[55vh] overflow-y-auto">
+          <div className="overflow-x-auto">
           <table className="table-dense w-full">
             <thead><tr className="text-left text-ink2"><th>Date</th>{!account && <th>Compte</th>}<th>Libellé</th><th>Origine</th><th className="text-right">Montant</th></tr></thead>
             <tbody>
@@ -185,7 +186,7 @@ export function MovementsDialog({ account, onClose }: { account?: TreasuryAccoun
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     </Modal>

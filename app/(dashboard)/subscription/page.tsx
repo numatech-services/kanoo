@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 
 import { showToast } from "@/components/ui/Toast";
 import { CheckCircle2, Lock } from "lucide-react";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Plan { id:string; label:string; price:number; priceYearly:number; features:string[]; popular?:boolean; }
 
 const PLANS: Plan[] = [
@@ -35,7 +36,7 @@ export default function SubscriptionPage() {
 
   async function handleSubscribe(planId: string) {
     setLoading(planId);
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res = await fetch("/api/subscription/pay", {
       method:"POST",
       headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},

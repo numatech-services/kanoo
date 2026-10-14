@@ -10,10 +10,10 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { StockTabs } from "@/components/stock/StockTabs";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function send(url: string, method: string, body?: unknown) {
-  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: body === undefined ? undefined : JSON.stringify(body) });
   const d = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(d.error || "Opération refusée");
   return d.data;

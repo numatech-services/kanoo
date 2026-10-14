@@ -11,6 +11,7 @@ import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEdi
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Desk { _id: string; name: string; description?: string; activityId?: string }
 interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
 interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string }
@@ -30,7 +31,7 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 
@@ -386,6 +387,7 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
           hint={filter.flow || filter.from || filter.to ? "Changez le sens ou la période." : "Enregistrez une recette ou une dépense."} />
       ) : (
         <div className="surface-card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="table-dense">
             <thead><tr><th>Date</th><th>Libellé</th><th>Moyen</th><th>Sens</th><th className="text-right">Montant</th><th></th></tr></thead>
             <tbody>
@@ -406,7 +408,7 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
       {open && <CashDialog deskId={deskId} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); load(); onChange(); }} />}
@@ -603,6 +605,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
         <EmptyState icon={<Package size={20} />} title="Aucun article" hint="Ajoutez un article pour suivre son stock (entrées, sorties, ventes)." />
       ) : (
         <div className="surface-card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="table-dense">
             <thead><tr><th>Article</th><th className="text-right">Stock</th><th className="text-right">Coût unit.</th><th className="text-right">Valeur</th><th className="text-center">Mouvement</th><th></th></tr></thead>
             <tbody>
@@ -631,7 +634,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 
@@ -639,6 +642,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
         <div>
           <h3 className="text-sm font-bold text-ink mb-2">Derniers mouvements</h3>
           <div className="surface-card overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="table-dense">
               <thead><tr><th>Date</th><th>Article</th><th>Type</th><th className="text-right">Qté</th><th className="text-right">Stock après</th><th>Motif</th></tr></thead>
               <tbody>
@@ -653,7 +657,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
       )}

@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export interface Appel {
   _id: string; title: string; organism?: string; reference?: string;
   submissionDeadline?: string; status: string; estimatedAmount: number;
@@ -33,7 +34,6 @@ export function deadlineInfo(iso?: string): { text: string; cls: string } | null
   return { text: `${days} j restants`, cls: "text-ink2" };
 }
 
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function AppelsListPage() {
   const router = useRouter();
@@ -114,7 +114,7 @@ function NewAppel({ onClose, onCreated }: { onClose: () => void; onCreated: (id:
     setSaving(true); setError(null);
     try {
       const res = await fetch("/api/appels", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include",
+        method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include",
         body: JSON.stringify({ ...form, requiredDocuments: form.docs.split("\n").map(s => s.trim()).filter(Boolean) }),
       });
       const d = await res.json();

@@ -7,6 +7,7 @@ import { useWarehouses } from "@/components/stock/useWarehouses";
 
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function NewDeliveryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -69,7 +70,7 @@ export default function NewDeliveryPage() {
     try {
       const res = await fetch("/api/livraisons", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken },
+        headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
         credentials: "include",
         body: JSON.stringify(form)
       });
@@ -163,6 +164,7 @@ export default function NewDeliveryPage() {
               <Package className="w-4 h-4" /> Articles à livrer
             </h3>
             <div className="border border-line rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="table-dense">
                 <thead className="bg-surface2/30 text-ink2 text-[10px] uppercase font-bold">
                   <tr>
@@ -186,7 +188,7 @@ export default function NewDeliveryPage() {
                     </tr>
                   )}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           </div>
 

@@ -16,6 +16,7 @@ import { AccessEditor, accessPayload, accessChip, emptyAccess, type Access, type
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface User {
   _id: string;
   firstName: string;
@@ -37,7 +38,7 @@ interface User {
 interface Employee { _id: string; firstName: string; lastName: string; code?: string; userId?: string }
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 

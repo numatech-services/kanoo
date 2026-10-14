@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function ISBICPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear() - 1);
@@ -20,7 +21,7 @@ export default function ISBICPage() {
 
   async function handleSubmit() {
     setSubmitting(true);
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     await fetch("/api/fiscal/isbic", { method:"POST", headers:{"Content-Type":"application/json","x-csrf-token":csrfToken}, credentials:"include",
       body: JSON.stringify({ annee: year, resultatFiscal: (data as {resultatFiscal?:number})?.resultatFiscal, montantDu: (data as {calcul?:{montantDu:number}})?.calcul?.montantDu }) });
     setSubmitting(false);

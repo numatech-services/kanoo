@@ -5,8 +5,8 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 /**
  * Devis accepté → marché : contrat au montant HT du devis, projet d'exécution
  * (qui recevra les dépenses), échéancier facultatif (acompte puis solde).
@@ -25,7 +25,7 @@ export function ToMarketDialog({ devis, onClose }: { devis: { _id: string; numbe
       ? [{ label: "Acompte à la commande", kind: "deposit", rate }, { label: "Solde à la livraison", kind: "standard", rate: 100 - rate }]
       : [{ label: "Facture du marché", kind: "standard", rate: 100 }];
     const res = await fetch(`/api/devis/${devis._id}/to-market`, {
-      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
       body: JSON.stringify({ title, createProject: project, milestones }),
     });
     const d = await res.json().catch(() => ({}));

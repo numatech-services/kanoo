@@ -9,6 +9,7 @@ import Link from "next/link";
 import { showToast } from "@/components/ui/Toast";
 import { alertDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Tenant { _id: string; name: string; type: string; plan: string; subscriptionStatus: string; email?: string; userCount: number; createdAt: string; }
 
 export default function TenantsPage() {
@@ -36,7 +37,7 @@ export default function TenantsPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res = await fetch("/api/superadmin/tenants", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, credentials: "include", body: JSON.stringify(form) });
     const d = await res.json();
     if (res.ok) { setCreateModal(false); load(); await alertDialog({ title: "Organisation créée", message: `Jeton d'activation à transmettre : ${d.data?.activationToken}` }); }

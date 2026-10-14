@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface BillingRow {
   _id: string;
   name: string;
@@ -45,8 +46,7 @@ export default function BillingPage() {
     setBusyId(id);
     setError(null);
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
       const res = await fetch(`/api/superadmin/tenants/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },

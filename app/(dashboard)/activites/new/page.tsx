@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronLeft, ChevronRight, Plus, Trash2, MapPin, Video } from "lucide-react";
 import toast from "react-hot-toast";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface TicketType { name: string; price: number; quantity: number; }
 
 const STEPS = ["Informations", "Date & lieu", "Capacité", "Billets", "Publication"];
@@ -40,7 +41,7 @@ export default function NewActivitePage() {
     try {
       const res = await fetch("/api/events", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken },
+        headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
         credentials: "include",
         body: JSON.stringify({
           ...form,

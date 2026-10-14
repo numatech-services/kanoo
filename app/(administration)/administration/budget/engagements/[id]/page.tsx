@@ -10,6 +10,7 @@ import Link from "next/link";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function EngagementDetailsPage() {
   const params = useParams();
   const id = params?.id as string;
@@ -50,7 +51,7 @@ export default function EngagementDetailsPage() {
 
     setUpdating(true);
     try {
-      const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+      const csrfToken = await getCsrfToken();
       const res = await fetch(`/api/budget/engagements/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },

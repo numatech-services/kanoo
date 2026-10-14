@@ -3,13 +3,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useUrlReady } from "@/lib/url-param";
 import { InvoiceForm, type InvoiceFormData } from "@/components/pme/InvoiceForm";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function NewInvoicePage() {
   const router = useRouter();
   // Client présélectionné depuis sa fiche (« + Facture »).
   const [clientId, setClientId] = useState("");
   const ready = useUrlReady(p => setClientId(p.get("clientId") ?? ""));
   async function handleSave(data: InvoiceFormData) {
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res = await fetch("/api/invoices", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, credentials: "include", body: JSON.stringify(data) });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error);

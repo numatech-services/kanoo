@@ -15,6 +15,7 @@ import {
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Profile { label: string; weights: number[] }
 
 interface Payload {
@@ -41,7 +42,7 @@ const VERDICT_TONE = (result: LineResult): "pos" | "neg" | "mute" | "warn" => {
 };
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 

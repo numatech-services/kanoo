@@ -13,6 +13,7 @@ import { useMe, meCan, meCanDo } from "@/lib/useMe";
 import { COST_CENTERS } from "@/lib/cost-centers";
 import { LEAVE_TYPES } from "@/lib/leave-types";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Employee {
   _id: string; code: string; firstName: string; lastName: string; position: string; department?: string; costCenter?: string;
   employeeType: string; contractNature: string; startDate: string; endDate?: string; contractEndDate?: string; exitReason?: string;
@@ -26,9 +27,8 @@ const CONTRACT: Record<string, string> = { cdi: "CDI", cdd: "CDD", stage: "Conve
 const MONTHS = ["", "janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
 const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
 const d = (s?: string) => (s ? new Date(s).toLocaleDateString("fr-FR") : "—");
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function patch(id: string, body: Record<string, unknown>) {
-  const res = await fetch(`/api/employees/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify(body) });
+  const res = await fetch(`/api/employees/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify(body) });
   const x = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(x.error || "Enregistrement impossible.");
   return x.data;

@@ -5,6 +5,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Opp {
   _id: string; reference: string; title: string; stage: string;
   estimatedAmount: number; probability: number; expectedCloseDate?: string;
@@ -53,7 +54,7 @@ export default function CRMPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     await fetch("/api/crm/opportunities", {
       method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
       credentials: "include", body: JSON.stringify(form),
@@ -62,7 +63,7 @@ export default function CRMPage() {
   }
 
   async function moveStage(oppId: string, newStage: string) {
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     await fetch(`/api/crm/opportunities/${oppId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
       credentials: "include", body: JSON.stringify({ stage: newStage }),

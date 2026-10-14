@@ -7,6 +7,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { fullXof } from "@/components/ui/charts/geometry";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export interface CreditableLine {
   description: string;
   quantity: number;
@@ -67,8 +68,7 @@ export function CreditNoteDialog({
         throw new Error("Sélectionnez au moins une ligne à créditer.");
       }
 
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
       const res = await fetch(`/api/invoices/${invoiceId}/credit-note`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
@@ -126,6 +126,7 @@ export function CreditNoteDialog({
 
         {mode === "partial" && (
           <div className="border border-line rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="table-dense">
               <thead>
                 <tr className="bg-surface2/60 border-b border-line">
@@ -160,7 +161,7 @@ export function CreditNoteDialog({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </div>
         )}
 

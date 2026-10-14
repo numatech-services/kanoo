@@ -9,7 +9,9 @@ Chaque script joue un parcours complet contre une instance compilée et affiche
 - `e2e-flux.mjs` : filtre commun recettes / dépenses / période, contrats.
 - `e2e-marche.mjs` : devis → marché → acomptes → dépenses par catégorie → marge, avoir.
 
-Lancement (base de test jetable, jamais la production) :
+Lancement (base de test jetable, jamais la production). La base peut venir de
+Docker comme ci-dessous ou de tout MongoDB 7 en jeu de réplicas (transactions)
+sur le port 27099 ; les scénarios y accèdent par `MONGODB_URI` (voir `db.mjs`) :
 
 ```bash
 docker run -d --rm --name kanoo-e2e -p 127.0.0.1:27099:27017 mongo:7 --replSet rs0 --bind_ip_all

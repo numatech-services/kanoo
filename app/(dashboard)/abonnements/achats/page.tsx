@@ -12,6 +12,7 @@ import { Paperclip } from "lucide-react";
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Purchase {
   _id: string;
   reference: string;
@@ -97,8 +98,7 @@ export default function AchatsAbonnementsPage() {
     setSaving(true);
     setError(null);
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
       const res = await fetch("/api/abonnements/achats", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },

@@ -9,6 +9,7 @@ import { Inset } from "@/components/ui/Primitives";
 import { invalidateMe } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Company {
   name?: string; type?: string; nif?: string; rccm?: string;
   address?: string; phone?: string; email?: string; logo?: string;
@@ -17,7 +18,7 @@ interface Company {
 const TYPE_LABEL: Record<string, string> = { pme: "Entreprise (PME)", association: "Association / ONG", administration: "Administration" };
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CotisationForm } from "@/components/associations/CotisationForm";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function NewCotisationPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -15,8 +16,7 @@ export default function NewCotisationPage() {
   async function handleSave(data: Record<string, unknown>) {
     try {
       setError("");
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
       
       const res = await fetch("/api/cotisations", {
         method: "POST",

@@ -10,6 +10,7 @@ import { Plus, Trash2, Award, Ban, FileCheck, Landmark, Users } from "lucide-rea
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Bid { _id?: string; bidderName: string; amount: number; compliant?: boolean; notes?: string }
 interface Tender {
   _id: string; reference: string; object: string; estimatedAmount: number;
@@ -37,7 +38,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 };
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then((r) => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 
@@ -216,6 +217,7 @@ export default function TenderDetailPage() {
             <div className="bg-surface rounded-2xl border border-line p-6">
               <h2 className="text-lg font-bold text-ink mb-4 border-b border-line pb-2">Soumissions ({tender.bids?.length || 0})</h2>
               {tender.bids && tender.bids.length > 0 ? (
+                <div className="overflow-x-auto">
                 <table className="table-dense w-full mb-3">
                   <thead><tr className="bg-surface2/50"><th>Soumissionnaire</th><th>Montant</th><th>Conforme</th><th></th></tr></thead>
                   <tbody>
@@ -228,7 +230,7 @@ export default function TenderDetailPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               ) : <p className="text-sm text-ink3 mb-3">Aucune soumission enregistrée.</p>}
               {canBid && (
                 <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2 items-center">

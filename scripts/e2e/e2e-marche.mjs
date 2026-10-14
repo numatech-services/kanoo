@@ -1,7 +1,6 @@
 // Scénario de bout en bout : marché (devis → marché → acomptes → dépenses → marge).
 import { readFileSync } from "fs";
 import { randomBytes } from "crypto";
-import { execSync } from "child_process";
 
 const BASE = "http://localhost:3099";
 const ROOT = process.argv[2];
@@ -26,7 +25,18 @@ function session() {
   }
   return { req, reset: () => { csrf = ""; } };
 }
-async function login(email, pw) { const s = session(); const r = await s.req("POST", "/api/auth/login", { email, password: pw }); s.reset(); return { s, r }; }
+// Le serveur limite les connexions par adresse (20 par minute) : sur un 429,
+// le scénario attend le délai annoncé puis réessaie.
+async function login(email, pw) {
+  for (let attempt = 0; ; attempt++) {
+    const s = session();
+    const r = await s.req("POST", "/api/auth/login", { email, password: pw });
+    s.reset();
+    if (r.status !== 429 || attempt >= 2) return { s, r };
+    const wait = Number(/(\d+) secondes/.exec(r.data?.error ?? "")?.[1] ?? 60);
+    await new Promise(res => setTimeout(res, (wait + 1) * 1000));
+  }
+}
 const D = r => r.data?.data ?? {};
 
 const today = new Date().toISOString().slice(0, 10);
@@ -87,9 +97,9 @@ const id = r => D(r)?._id;
   console.log("\n▶ Solde avec déduction de l'acompte");
   const sol = await g.req("POST", `/api/contracts/${mc}/invoice`, { milestoneId: ct.milestones[1]._id });
   const solInv = D(sol).invoice;
-  check("facture du solde : 700 000 − 300 000 d'acompte = 400 000 HT net", sol.status === 201 && solInv?.totalHT === 400000 && solInv.lines.some(l => l.kind === "deposit_deduction" && l.totalHT === -300000), `${sol.status} ${J(sol.data).slice(0, 200)}`);
+  check("facture du solde : travaux 1 000 000 − acompte 300 000 = 700 000 HT net (l'échéance)", sol.status === 201 && solInv?.totalHT === 700000 && solInv.lines.some(l => l.kind === "deposit_deduction" && l.totalHT === -300000) && solInv.lines.some(l => l.kind !== "deposit_deduction" && l.totalHT === 1000000), `${sol.status} ${J(sol.data).slice(0, 200)}`);
   const solEntry = await balanced(solInv.number);
-  check("écriture équilibrée : 706 700 000 au crédit imputé au projet, 419 300 000 au débit", solEntry && solEntry.lines.some(l => l.accountCode === "706000" && l.credit === 700000 && l.projectId === prj) && solEntry.lines.some(l => l.accountCode === "419000" && l.debit === 300000), J(solEntry?.lines));
+  check("écriture équilibrée : 706 1 000 000 au crédit imputé au projet, 419 300 000 au débit", solEntry && solEntry.lines.some(l => l.accountCode === "706000" && l.credit === 1000000 && l.projectId === prj) && solEntry.lines.some(l => l.accountCode === "419000" && l.debit === 300000), J(solEntry?.lines));
   f = await fin(mc);
   check("situation : travaux 1 000 000, acomptes tous déduits, rien à facturer", f.billing.workHT === 1000000 && f.billing.depositsOutstandingHT === 0 && f.billing.toInvoiceHT === 0, J(f.billing));
   check("marge réelle = 1 000 000 − 430 000", f.margin.actual === 570000, J(f.margin));
@@ -99,10 +109,11 @@ const id = r => D(r)?._id;
   check("encaissement de l'acompte reflété", pay.status < 300 && f.billing.collectedTTC === depInv.totalTTC, `${pay.status} ${f.billing.collectedTTC}`);
 
   console.log("\n▶ Avoir total sur le solde");
+  check("facture du solde émise", (await g.req("POST", `/api/invoices/${solInv._id}/send`)).status < 300);
   const cn = await g.req("POST", `/api/invoices/${solInv._id}/credit-note`, { mode: "full", reason: "Erreur de montant" });
   check("avoir total émis", cn.status === 201, `${cn.status} ${J(cn.data).slice(0, 150)}`);
   const cnEntry = await balanced(D(cn).creditNote?.number ?? "x");
-  check("écriture d'avoir équilibrée : acompte rendu (419 au crédit), CA du projet retiré", cnEntry && cnEntry.lines.some(l => l.accountCode === "419000" && l.credit === 300000) && cnEntry.lines.some(l => l.accountCode === "706000" && l.debit === 700000 && l.projectId === prj), J(cnEntry?.lines));
+  check("écriture d'avoir équilibrée : acompte rendu (419 au crédit), CA du projet retiré", cnEntry && cnEntry.lines.some(l => l.accountCode === "419000" && l.credit === 300000) && cnEntry.lines.some(l => l.accountCode === "706000" && l.debit === 1000000 && l.projectId === prj), J(cnEntry?.lines));
   f = await fin(mc);
   check("situation : acompte de nouveau à déduire, travaux 0", f.billing.workHT === 0 && f.billing.depositsOutstandingHT === 300000, J(f.billing));
   const ct2 = D(await g.req("GET", `/api/contracts/${mc}`));

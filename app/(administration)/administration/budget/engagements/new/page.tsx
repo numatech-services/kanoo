@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, User, FileText } from "lucide-react";
 import Link from "next/link";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function NewEngagementPage() {
   const router = useRouter();
   type Chapter = { _id: string; code?: string; label?: string } & Record<string, unknown>;
@@ -45,7 +46,7 @@ export default function NewEngagementPage() {
     try {
       const res = await fetch("/api/budget/engagements", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken },
+        headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
         credentials: "include",
         body: JSON.stringify(formData),
       });

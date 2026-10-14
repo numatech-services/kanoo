@@ -15,6 +15,7 @@ import { PROJECT_STATUS_FR, TASK_STATUS_FR, type ProjectVocabulary } from "@/lib
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 // ── Interfaces ────────────────────────────────────────────────────
 interface Task { _id: string; label: string; status: string; weight: number; }
 interface Milestone { _id?: string; label: string; dueDate?: string; completedAt?: string; amount?: number; description?: string; }
@@ -130,8 +131,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
   const currentBudgetRate = money && project.budget > 0 ? Math.round((realCost / project.budget) * 100) : 0;
 
   const getCsrf = async () => {
-    const res = await fetch("/api/auth/csrf");
-    const { csrfToken } = await res.json();
+    const csrfToken = await getCsrfToken();
     return csrfToken;
   };
 

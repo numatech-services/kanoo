@@ -7,6 +7,7 @@ import { MarcheForm } from "@/components/pme/MarcheForm";
 import { errorMessage } from "@/lib/errors";
 
 import { showToast } from "@/components/ui/Toast";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function MarcheDetailPage() {
   const params = useParams(); // Récupération sécurisée des paramètres
   const id = params?.id;
@@ -35,8 +36,7 @@ export default function MarcheDetailPage() {
   // 2. Sauvegarde des modifications (PATCH)
   async function handleSave(body: Record<string, any>) {
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
       
       const res = await fetch(`/api/marches/${id}`, { 
         method: "PATCH", 

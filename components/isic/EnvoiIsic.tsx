@@ -8,9 +8,9 @@ import { compressPhoto, collectPhotos } from "@/components/isic/image";
 
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 async function send<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
-  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify(body) });
+  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify(body) });
   const d = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(d.error || "Opération refusée");
   return d.data as T;
@@ -47,7 +47,7 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
     const report = { attached: 0, unknown: [] as string[], ambiguous: [] as string[], failed: [] as string[] };
     setProgress({ done: 0, total: items.length });
     let next = 0, done = 0;
-    const token = await csrf();
+    const token = await getCsrfToken();
     const worker = async () => {
       while (next < items.length) {
         const it = items[next++];
@@ -166,6 +166,7 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
               <p className="text-sm text-pos font-semibold inline-flex items-center gap-2"><CheckCircle2 size={15} /> Tout est complet : prêt pour ISIC.</p>
             ) : check.students.length > 0 && (
               <div className="max-h-72 overflow-y-auto rounded-lg border border-line">
+                <div className="overflow-x-auto">
                 <table className="table-dense">
                   <thead><tr><th>Étudiant</th><th>Personal ID</th><th>À corriger</th></tr></thead>
                   <tbody>
@@ -179,7 +180,7 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             )}
             <div className="flex flex-wrap items-center gap-3 pt-1">

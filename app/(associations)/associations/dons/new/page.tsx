@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DonForm } from "@/components/associations/DonForm";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function NewDonPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -15,8 +16,7 @@ export default function NewDonPage() {
   async function handleSave(data: Record<string, unknown>) {
     try {
       setError("");
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
       
       const res = await fetch("/api/dons", {
         method: "POST",

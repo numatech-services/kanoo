@@ -3,10 +3,11 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ProductForm } from "@/components/stock/ProductForm";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function NewProductPage() {
   const router = useRouter();
   async function save(body: Record<string, unknown>) {
-    const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+    const csrfToken = await getCsrfToken();
     const res = await fetch("/api/products", {
       method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, body: JSON.stringify(body),
     });

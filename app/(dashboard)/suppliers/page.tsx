@@ -8,6 +8,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { SupplierForm } from "@/components/pme/SupplierForm";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Supplier { _id: string; code: string; name: string; nif?: string; phone?: string; email?: string; logo?: string; paymentTermDays: number; bankAccount?: string; isActive: boolean; }
 
 export default function SuppliersPage() {
@@ -52,7 +53,7 @@ export default function SuppliersPage() {
 
   async function handleSave(data: Partial<Supplier>) {
     const url = editing ? `/api/suppliers/${editing._id}` : "/api/suppliers";
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     await fetch(url, { method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken }, credentials: "include", body: JSON.stringify(data) });
     setModalOpen(false); setEditing(null); load();
   }

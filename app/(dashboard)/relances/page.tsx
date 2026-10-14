@@ -13,6 +13,7 @@ import { fullXof, compactXof } from "@/components/ui/charts/geometry";
 import type { DunningPlan, DunningSettings, AgingBucket } from "@/lib/dunning";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Payload {
   asOf: string;
   enabled: boolean;
@@ -42,7 +43,7 @@ const OUTCOME: Record<string, { label: string; cls: string }> = {
 };
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 
@@ -437,6 +438,7 @@ function SettingsDialog({
         </label>
 
         <div className="rounded-lg border border-line overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="table-dense">
             <thead><tr><th>Quand</th><th>Étape</th><th>Ton</th><th>Canaux</th></tr></thead>
             <tbody>
@@ -460,7 +462,7 @@ function SettingsDialog({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
         <p className="text-xs text-ink3 -mt-3">
           Le barème par défaut ouvre par un rappel <em>avant</em> échéance&nbsp;: c&apos;est

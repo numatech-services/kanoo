@@ -17,6 +17,7 @@ import Link from "next/link";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface EngagementData {
   _id: string;
   reference: string;
@@ -61,7 +62,7 @@ export default function MandatementActionPage() {
     
     setSubmitting(true);
     try {
-      const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+      const csrfToken = await getCsrfToken();
       const res = await fetch(`/api/budget/engagements/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },

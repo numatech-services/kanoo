@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Ticket { _id:string; subject:string; message:string; priority:string; status:string; createdAt:string; }
 export default function SupportPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -12,7 +13,7 @@ export default function SupportPage() {
   useEffect(()=>{ fetch("/api/support/tickets",{credentials:"include"}).then(r=>r.json()).then(d=>setTickets(d.data?.items||[])).finally(()=>setLoading(false)); },[]);
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setCreating(true);
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res = await fetch("/api/support/tickets",{method:"POST",headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},credentials:"include",body:JSON.stringify(form)});
     const d = await res.json();
     if(res.ok){ setTickets(t=>[d.data,...t]); setShowForm(false); setForm({subject:"",message:"",priority:"medium"}); }

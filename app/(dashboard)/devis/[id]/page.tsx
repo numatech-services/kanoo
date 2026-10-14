@@ -11,6 +11,7 @@ import { ToMarketDialog } from "@/components/devis/ToMarketDialog";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 function calcLine(l: any) {
   const qty = l.quantity || 0; 
   const price = l.unitPrice || 0; 
@@ -31,7 +32,6 @@ function calcLine(l: any) {
   };
 }
 
-async function csrfTok() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function DevisDetailPage() {
   const { id } = useParams();
@@ -79,7 +79,7 @@ export default function DevisDetailPage() {
 
     const res = await fetch(`/api/devis/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken },
+      headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
       credentials: "include",
       body: JSON.stringify(body),
     });
@@ -113,7 +113,7 @@ export default function DevisDetailPage() {
           </a>
           {canEditDevis && !item.convertedToInvoiceId && (
             <select value={item.status} onChange={async e => {
-              const res = await fetch(`/api/devis/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrfTok() }, body: JSON.stringify({ status: e.target.value }) });
+              const res = await fetch(`/api/devis/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify({ status: e.target.value }) });
               const d = await res.json().catch(() => ({}));
               if (res.ok) setItem(d.data); else showToast(d.error || "Changement impossible", "error");
             }} className="h-11 px-3 rounded-2xl border border-line2 text-sm font-semibold" aria-label="Statut du devis">
@@ -124,7 +124,7 @@ export default function DevisDetailPage() {
           {canDeleteDevis && !item.convertedToInvoiceId && (
             <button onClick={async () => {
               if (!(await confirmDialog({ title: "Supprimer ce devis ?", danger: true }))) return;
-              const res = await fetch(`/api/devis/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrfTok() } });
+              const res = await fetch(`/api/devis/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
               if (res.ok) router.push("/devis"); else { const d = await res.json().catch(() => ({})); showToast(d.error || "Suppression impossible", "error"); }
             }} className="px-5 py-2.5 border border-neg/25 text-neg rounded-2xl font-bold hover:bg-neg-50">Supprimer</button>
           )}

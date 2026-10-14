@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ClientForm } from "@/components/pme/ClientForm";
 import { useMe, meCan } from "@/lib/useMe";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Client {
   _id: string;
   code: string;
@@ -112,8 +113,7 @@ export default function ClientsPage() {
     const url = editing ? `/api/clients/${editing._id}` : "/api/clients";
     const method = editing ? "PATCH" : "POST";
 
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
 
     await fetch(url, {
       method,

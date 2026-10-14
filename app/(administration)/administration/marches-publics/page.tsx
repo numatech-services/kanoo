@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { LIBELLES_PROCEDURES, determineProcedureMarche } from "@/lib/niger-fiscal";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Tender { 
   _id: string; 
   reference: string; 
@@ -61,8 +62,7 @@ export default function MarchesPublicsPage() {
     e.preventDefault(); 
     setSaving(true);
     try {
-      const csrfRes = await fetch("/api/auth/csrf"); 
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
       
       const res = await fetch("/api/marches", { 
           method: "POST", 

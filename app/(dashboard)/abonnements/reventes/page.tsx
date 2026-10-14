@@ -10,6 +10,7 @@ import { fullXof } from "@/components/ui/charts/geometry";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Sale {
   _id: string;
   reference: string;
@@ -104,8 +105,7 @@ export default function ReventesPage() {
     setSaving(true);
     setError(null);
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
       const res = await fetch("/api/abonnements/reventes", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },

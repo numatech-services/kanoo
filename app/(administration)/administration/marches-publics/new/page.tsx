@@ -5,13 +5,13 @@ import { MarcheForm } from "@/components/pme/MarcheForm";
 import { errorMessage } from "@/lib/errors";
 
 import { showToast } from "@/components/ui/Toast";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function NewMarchePublicPage() {
   const router = useRouter();
 
   async function handleSave(data: Record<string, unknown>) {
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
 
       const res = await fetch("/api/marches", {
         method: "POST",

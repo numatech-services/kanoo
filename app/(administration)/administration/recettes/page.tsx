@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 
 import { showToast } from "@/components/ui/Toast";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Revenue {
   _id: string;
   reference: string;
@@ -73,7 +74,7 @@ export default function RecettesPage() {
     try {
       const res = await fetch("/api/recettes", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken },
+        headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
         credentials: "include",
         body: JSON.stringify(form)
       });

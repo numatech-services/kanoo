@@ -9,12 +9,12 @@ import { promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Activity { _id: string; name: string; color?: string }
 interface Sector { activityId: string; name: string; color?: string; revenue: number; expense: number; result: number; fromAccounting?: { revenue: number; expense: number } }
 interface Report { sectors: Sector[]; general: { revenue: number; expense: number }; consolidated: { revenue: number; expense: number; result: number } | null; isAdmin: boolean }
 interface Entry { _id: string; kind: string; label: string; amount: number; date: string; activityId?: { name?: string } | null }
 
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function AnalytiquePage() {
   const [report, setReport] = useState<Report | null>(null);
@@ -42,16 +42,16 @@ export default function AnalytiquePage() {
 
   async function addSector() {
     const name = await promptDialog({ title: "Nom du secteur (ex. Vente mobilier, ISIC, Abonnements) :" }); if (!name) return;
-    const res = await fetch("/api/analytics/activities", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify({ name }) });
+    const res = await fetch("/api/analytics/activities", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify({ name }) });
     if (res.ok) load(); else showToast((await res.json()).error || "Échec", "error");
   }
   async function addEntry() {
     if (!form.label.trim() || form.amount <= 0) { showToast("Libellé et montant requis.", "warning"); return; }
-    const res = await fetch("/api/analytics/entries", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify(form) });
+    const res = await fetch("/api/analytics/entries", { method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify(form) });
     if (res.ok) { setForm(f => ({ ...f, label: "", amount: 0 })); load(); } else showToast((await res.json()).error || "Échec", "error");
   }
   async function delEntry(id: string) {
-    const res = await fetch(`/api/analytics/entries/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    const res = await fetch(`/api/analytics/entries/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
     if (res.ok) load();
   }
 
@@ -83,6 +83,7 @@ export default function AnalytiquePage() {
         {!report || report.sectors.length === 0 ? (
           <p className="text-sm text-ink3 p-6 text-center">Aucun secteur. Créez-en un (bouton « Secteur ») : factures, achats, notes de frais et charges imputés au secteur y remontent automatiquement.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="table-dense w-full">
             <thead><tr className="bg-surface2/50"><th>Secteur</th><th className="text-right">Recettes</th><th className="text-right">Dépenses</th><th className="text-right">Résultat</th><th></th></tr></thead>
             <tbody>
@@ -108,7 +109,7 @@ export default function AnalytiquePage() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></div>
         )}
       </section>
 

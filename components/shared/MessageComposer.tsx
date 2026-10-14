@@ -6,6 +6,7 @@ import { Plus, Send, Search, Users, ArrowLeft } from "lucide-react";
 import { promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Message {
   _id: string;
   content: string;
@@ -23,7 +24,6 @@ interface DirUser { _id: string; firstName?: string; lastName?: string }
 
 interface Props { currentUserId: string; conversationId?: string; compact?: boolean }
 
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 const initials = (name: string) => name.split(" ").filter(Boolean).map(w => w[0]).join("").toUpperCase().slice(0, 2) || "?";
 
 export function MessageComposer({ currentUserId, conversationId: initConvId, compact = false }: Props) {
@@ -67,7 +67,7 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
     try {
       const res = await fetch(`/api/conversations/${activeConvId}/messages`, {
         method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+        headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
         body: JSON.stringify({ content: newMessage }),
       });
       const d = await res.json();
@@ -79,7 +79,7 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
   async function startDirect(userId: string) {
     const res = await fetch("/api/conversations", {
       method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+      headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
       body: JSON.stringify({ type: "direct", participantIds: [userId] }),
     });
     const d = await res.json();
@@ -90,7 +90,7 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
     const name = await promptDialog({ title: "Nom du groupe :" }); if (!name) return;
     const res = await fetch("/api/conversations", {
       method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+      headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
       body: JSON.stringify({ type: "group", title: name }),
     });
     const d = await res.json();

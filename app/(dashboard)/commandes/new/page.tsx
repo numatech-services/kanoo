@@ -7,6 +7,7 @@ import { CommandeForm } from "@/components/pme/CommandeForm";
 import { errorMessage } from "@/lib/errors";
 
 import { showToast } from "@/components/ui/Toast";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function NewCommandePage() {
   const router = useRouter();
   const [supplierId, setSupplierId] = useState("");
@@ -16,8 +17,7 @@ export default function NewCommandePage() {
     
     try {
       // 1. Récupération du token CSRF
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
 
       // 2. Envoi de la commande
       const res = await fetch("/api/commandes", { 

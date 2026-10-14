@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "+22796000000";
 const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, "")}?text=${encodeURIComponent("Bonjour, j'ai besoin d'aide avec Kanoo. Mon organisation : ")}`;
 
@@ -15,8 +16,7 @@ export function SupportButton() {
     e.preventDefault();
     setSending(true);
     setFailed(null);
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res = await fetch("/api/support/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },

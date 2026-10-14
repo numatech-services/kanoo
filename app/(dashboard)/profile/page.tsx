@@ -6,6 +6,7 @@ import { FormField, inputCls } from "@/components/ui/FormField";
 import { invalidateMe } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Profile { firstName?: string; lastName?: string; phone?: string; email?: string; role?: string; }
 
 export default function ProfilePage() {
@@ -26,7 +27,7 @@ export default function ProfilePage() {
   async function save() {
     setSaving(true); setError(null); setNotice(null);
     try {
-      const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+      const csrfToken = await getCsrfToken();
       const res = await fetch("/api/auth/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },

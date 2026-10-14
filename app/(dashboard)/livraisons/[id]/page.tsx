@@ -7,6 +7,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Delivery {
   _id:string; number:string; status:string; deliveryDate:string; deliveryAddress?:string;
   signedAt?:string; signedBy?:string; notes?:string;
@@ -15,7 +16,6 @@ interface Delivery {
   lines:Array<{description:string;quantity:number;unit:string;notes?:string}>;
 }
 
-async function csrfTok() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function LivraisonDetailPage() {
   const { id } = useParams();
@@ -35,7 +35,7 @@ export default function LivraisonDetailPage() {
 
   async function handleSign(e: React.FormEvent) {
     e.preventDefault(); setSigning(true);
-    const csrfRes=await fetch("/api/auth/csrf"); const {csrfToken}=await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     await fetch(`/api/livraisons/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json","x-csrf-token":csrfToken},credentials:"include",body:JSON.stringify({status:"delivered",signedBy:signerName,signedAt:new Date().toISOString()})});
     setShowSignForm(false); load(); setSigning(false);
   }
@@ -52,7 +52,7 @@ export default function LivraisonDetailPage() {
           <button onClick={()=>window.print()} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Imprimer</button>
           {canCancelBl && <button onClick={async()=>{
             if(!(await confirmDialog({ title: "Annuler ce bon de livraison ?", message: "Les articles sortis seront remis en stock.", danger: true }))) return;
-            const res=await fetch(`/api/livraisons/${id}`,{method:"DELETE",credentials:"include",headers:{"x-csrf-token":await csrfTok()}});
+            const res=await fetch(`/api/livraisons/${id}`,{method:"DELETE",credentials:"include",headers:{"x-csrf-token":await getCsrfToken()}});
             if(res.ok) window.location.href="/livraisons"; else { const d=await res.json().catch(()=>({})); showToast(d.error||"Annulation impossible", "error"); }
           }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Annuler le BL</button>}
           {!delivery.signedAt && delivery.status!=="delivered" && <button onClick={()=>setShowSignForm(true)} className="px-4 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95">Signer la livraison</button>}
@@ -77,6 +77,7 @@ export default function LivraisonDetailPage() {
           </div>
         </div>
 
+        <div className="overflow-x-auto">
         <table className="table-dense">
           <thead><tr className="bg-surface2/50 border-b border-line">{["Description","Volume","Unité","Observations"].map(h=><th key={h} >{h}</th>)}</tr></thead>
           <tbody>
@@ -89,7 +90,7 @@ export default function LivraisonDetailPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
 
         <div className="p-5 grid grid-cols-2 gap-8 border-t border-line">
           <div><p className="text-xs text-ink2 font-semibold uppercase mb-2">Émis par</p><div className="h-16 border border-line rounded-xl"/></div>

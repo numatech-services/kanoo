@@ -6,6 +6,7 @@ import { useWarehouses } from "@/components/stock/useWarehouses";
 import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export const MOVEMENT_OPTIONS = [
   { value: "entry", label: "Entrée (achat, réception)" },
   { value: "exit", label: "Sortie (vente, consommation)" },
@@ -15,7 +16,6 @@ export const MOVEMENT_OPTIONS = [
 ] as const;
 
 interface Lot { lotNumber: string; expiryDate?: string; qty: number; warehouseId?: { _id: string } | string }
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 /** Saisie d'un mouvement de stock : entrepôt, lots / numéros de série. */
 export function MovementDialog({ product, onClose, onDone, defaultWarehouseId }: {
@@ -61,7 +61,7 @@ export function MovementDialog({ product, onClose, onDone, defaultWarehouseId }:
     }
     setSaving(true); setError("");
     const res = await fetch("/api/stock/movements", {
-      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() },
+      method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() },
       body: JSON.stringify({ productId: product._id, type: f.type, quantity: f.quantity, reason: f.reason, reference: f.reference || undefined, warehouseId: f.warehouseId || undefined, lots, ...(f.type === "entry" ? { unitCost: f.unitCost } : {}) }),
     });
     const d = await res.json().catch(() => ({}));

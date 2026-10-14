@@ -12,6 +12,7 @@ import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEdi
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Line {
   productId?: { _id: string; code: string; label: string; unit?: string; trackingMode?: string } | string;
   description: string; quantity: number; unitPrice: number; totalHT: number; receivedQty?: number;
@@ -24,9 +25,8 @@ interface Commande {
 }
 
 const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function send(url: string, method: string, body?: unknown) {
-  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: body === undefined ? undefined : JSON.stringify(body) });
   const d = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(d.error || "Action impossible");
   return d.data;
@@ -103,6 +103,7 @@ export default function CommandeDetailPage() {
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 bg-surface rounded-2xl border border-line p-5">
           <h3 className="text-sm font-bold text-ink2 uppercase mb-3">Articles</h3>
+          <div className="overflow-x-auto">
           <table className="table-dense w-full">
             <thead><tr className="text-left text-ink2 border-b border-line">
               <th>Désignation</th><th className="text-center">Commandé</th><th className="text-center">Reçu</th><th className="text-right">P.U. HT</th><th className="text-right">Total HT</th>
@@ -122,7 +123,7 @@ export default function CommandeDetailPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         </div>
         <div className="space-y-4">
           <div className="bg-surface rounded-2xl border border-line p-5 text-sm space-y-1">
@@ -180,6 +181,7 @@ function ReceiveDialog({ cmd, onClose, onDone }: { cmd: Commande; onClose: () =>
           </select>
         </label>
         {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
+        <div className="overflow-x-auto">
         <table className="table-dense w-full">
           <thead><tr className="text-left text-ink2"><th>Article</th><th className="text-center">Reste</th><th className="text-right">Reçu maintenant</th></tr></thead>
           <tbody>
@@ -200,7 +202,7 @@ function ReceiveDialog({ cmd, onClose, onDone }: { cmd: Commande; onClose: () =>
               );
             })}
           </tbody>
-        </table>
+        </table></div>
         <button onClick={submit} disabled={saving} className={buttonClass("primary", "md", "w-full")}>{saving ? "Enregistrement…" : "Valider la réception"}</button>
       </div>
     </Modal>

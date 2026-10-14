@@ -5,6 +5,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/Modal";
 
 import { showToast } from "@/components/ui/Toast";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface IServiceProduct {
   _id: string;
   code: string;
@@ -84,7 +85,7 @@ async function handleSubmit(e: React.FormEvent) {
   try {
     const res = await fetch("/api/services", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken },
+      headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
       credentials: "include",
       body: JSON.stringify(payload)
     });

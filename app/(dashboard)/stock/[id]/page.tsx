@@ -14,6 +14,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Product {
   _id: string; code: string; label: string; description?: string; unit?: string; category?: string; barcode?: string; location?: string;
   unitPrice: number; tvaRate: number; stockQty: number; stockMinAlert: number; stockMaxAlert?: number; purchaseCost?: number; lastPurchaseCost?: number;
@@ -29,7 +30,6 @@ const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
 const TYPE_LABEL: Record<string, string> = { entry: "Entrée", exit: "Sortie", return: "Retour", loss: "Perte", adjustment: "Ajustement", transfer: "Transfert" };
 interface ByWarehouse { _id: string; qty: number; minAlert?: number; warehouseId?: { _id: string; code: string; name: string; kind: string } | null }
 interface LotRowView { _id: string; lotNumber: string; qty: number; expiryDate?: string; unitCost?: number; warehouseId?: { name: string } | null }
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function StockDetailPage() {
   const { id } = useParams();
@@ -75,7 +75,7 @@ export default function StockDetailPage() {
       .map(r => ({ id: r.warehouseId!._id, name: r.warehouseId!.name, kind: r.warehouseId!.kind, qty: r.qty, minAlert: r.minAlert })),
   ];
   async function saveThreshold(warehouseId: string, v: string) {
-    const res = await fetch(`/api/products/${id}/stock`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify({ warehouseId, minAlert: v === "" ? null : Number(v) }) });
+    const res = await fetch(`/api/products/${id}/stock`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify({ warehouseId, minAlert: v === "" ? null : Number(v) }) });
     if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.error || "Seuil refusé", "error"); }
     load();
   }
@@ -84,20 +84,20 @@ export default function StockDetailPage() {
     const reason = await promptDialog({ title: "Motif de l'annulation (un contre-mouvement sera enregistré) :", multiline: true });
     if (reason === null) return;
     setError("");
-    const res = await fetch(`/api/stock/movements/${m._id}?reason=${encodeURIComponent(reason)}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    const res = await fetch(`/api/stock/movements/${m._id}?reason=${encodeURIComponent(reason)}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
     const d = await res.json().catch(() => ({}));
     if (!res.ok) { setError(d.error || "Annulation impossible"); return; }
     load();
   }
   async function saveProduct(body: Record<string, unknown>) {
-    const res = await fetch(`/api/products/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify(body) });
+    const res = await fetch(`/api/products/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify(body) });
     const d = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(d.error || "Modification impossible");
     setEditOpen(false); load();
   }
   async function deactivate() {
     if (!(await confirmDialog({ title: "Désactiver cet article ?", message: "Il disparaît des listes ; son historique est conservé.", danger: true }))) return;
-    const res = await fetch(`/api/products/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    const res = await fetch(`/api/products/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
     if (res.ok) router.push("/stock"); else setError("Désactivation impossible");
   }
 
@@ -145,6 +145,7 @@ export default function StockDetailPage() {
           <div className="bg-surface rounded-xl border border-line p-4">
             <h2 className="font-semibold text-ink mb-2">Stock par entrepôt</h2>
             {whRows.length === 0 ? <p className="text-sm text-ink3">Aucun stock.</p> : (
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-[11px] text-ink3 uppercase"><th className="text-left font-semibold py-1">Entrepôt</th><th className="text-right font-semibold">Quantité</th><th className="text-right font-semibold">Seuil propre</th></tr></thead>
                 <tbody className="divide-y divide-line">
@@ -165,7 +166,7 @@ export default function StockDetailPage() {
                     );
                   })}
                 </tbody>
-              </table>
+              </table></div>
             )}
             {canEdit && whRows.length > 0 && <p className="text-[11px] text-ink3 mt-2">Seuil propre : alerte quand le stock de cet entrepôt passe dessous (vide = aucun).</p>}
           </div>
@@ -173,6 +174,7 @@ export default function StockDetailPage() {
             <div className="bg-surface rounded-xl border border-line p-4">
               <h2 className="font-semibold text-ink mb-2">{p.trackingMode === "serial" ? "Numéros de série en stock" : "Lots en stock"} ({lots.length})</h2>
               <div className="max-h-64 overflow-y-auto">
+                <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <tbody>
                     {lots.map(l => {
@@ -187,7 +189,7 @@ export default function StockDetailPage() {
                       );
                     })}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             </div>
           )}
@@ -206,6 +208,7 @@ export default function StockDetailPage() {
             <a href={`/api/stock/movements?${csvParams}`} className={buttonClass("secondary", "md")}><Download size={14} /> CSV</a>
           </div>
         </div>
+        <div className="overflow-x-auto">
         <table className="table-dense w-full">
           <thead><tr className="bg-surface2/50 text-left"><th>Date</th><th>Type</th><th>Entrepôt</th><th className="text-right">Qté</th><th className="text-right">Avant → Après</th><th className="text-right">Coût unit.</th><th>Motif</th><th>Par</th><th /></tr></thead>
           <tbody>
@@ -227,7 +230,7 @@ export default function StockDetailPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title={`Modifier — ${p.label}`} size="lg">

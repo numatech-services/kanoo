@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/Toast";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface NumberingConfig {
   invoicePrefix: string; quotePrefix: string; orderPrefix: string;
   deliveryPrefix: string; contractPrefix: string;
@@ -39,8 +40,7 @@ export default function NumberingPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res = await fetch("/api/companies/numbering", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },

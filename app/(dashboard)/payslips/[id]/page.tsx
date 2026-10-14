@@ -9,6 +9,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { useMe, meCanDo } from "@/lib/useMe";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Payslip {
   _id: string; month: number; year: number;
   grossSalary: number; grossTotal?: number; seniorityRate?: number; seniorityAmount?: number;
@@ -24,7 +25,6 @@ interface Payslip {
 
 const MONTHS = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function PayslipDetailPage() {
   const { id } = useParams();
@@ -45,7 +45,7 @@ export default function PayslipDetailPage() {
 
   async function remove() {
     if (!(await confirmDialog({ title: "Supprimer ce bulletin ?", message: "Son écriture de paie sera extournée.", danger: true, confirmLabel: "Supprimer" }))) return;
-    const res = await fetch(`/api/payslips/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    const res = await fetch(`/api/payslips/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
     if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.error || "Suppression impossible", "error"); return; }
     router.push("/payslips");
   }
@@ -125,6 +125,7 @@ export default function PayslipDetailPage() {
           </div>
         )}
 
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-surface2/60 text-ink2 text-xs uppercase">
@@ -142,7 +143,7 @@ export default function PayslipDetailPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
 
         <div className="p-6 grid sm:grid-cols-3 gap-4 border-t border-line">
           <div><p className="text-xs text-ink3">Net imposable</p><p className="font-mono font-semibold">{fmt(p.netImposable ?? (p.grossTotal ?? p.grossSalary) - p.cnssEmployee)} FCFA</p></div>
@@ -177,7 +178,7 @@ function PayDialog({ id, net, onClose, onPaid }: { id: string; net: number; onCl
     if (!accountId) { setError("Choisissez le compte qui paie."); return; }
     setSaving(true); setError("");
     const res = await fetch(`/api/payslips/${id}/pay`, {
-      method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include",
+      method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include",
       body: JSON.stringify({ treasuryAccountId: accountId, date }),
     });
     const d = await res.json().catch(() => ({}));

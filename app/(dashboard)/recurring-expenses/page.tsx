@@ -10,6 +10,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 type Ref = { _id: string; label?: string; name?: string } | null;
 interface Expense {
   _id: string; label: string; category: string; amount: number; frequency: string; nextDueDate: string; accountCode?: string;
@@ -23,9 +24,8 @@ const FREQ: Record<string, string> = { monthly: "Mensuelle", quarterly: "Trimest
 const DEFAULT_ACCOUNT: Record<string, string> = { loyer: "622100", electricite: "605200", eau: "605100", internet: "628300", telephone: "628100", assurance: "625000", abonnement: "634000", prestation: "632400", maintenance: "624100", fourniture: "605500", transport: "618000", salaire: "661000", autre: "658000" };
 const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
 const idOf = (v: Ref | string | undefined) => (v && typeof v === "object" ? v._id : v ? String(v) : "");
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 async function send(url: string, method: string, body?: unknown) {
-  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: body === undefined ? undefined : JSON.stringify(body) });
   const d = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(d.error || "Opération refusée");
   return d.data;

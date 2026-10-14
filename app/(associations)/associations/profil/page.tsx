@@ -5,6 +5,7 @@ import { User, Mail, Shield, Camera, Save, Lock, ArrowLeft, Phone, Loader2, Chec
 import Link from "next/link";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function ProfilPage() {
   // 1. État complet du formulaire pour correspondre à ton UserModel
   const [formData, setFormData] = useState({
@@ -50,7 +51,7 @@ export default function ProfilPage() {
     try {
       const res = await fetch("/api/auth/me", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken },
+        headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) },
         credentials: "include",
         body: JSON.stringify({
           firstName: formData.firstName,

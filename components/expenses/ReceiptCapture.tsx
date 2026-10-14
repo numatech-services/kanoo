@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Camera, Upload, Check, Loader2, AlertTriangle } from "lucide-react";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Props {
   hostId: string;
   lineId: string;
@@ -34,7 +35,7 @@ export function ReceiptCapture({ hostId, lineId, count, onUploaded, disabled }: 
     setBusy(true);
     setError(null);
     try {
-      const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+      const csrfToken = await getCsrfToken();
       for (const file of Array.from(files)) {
         const body = new FormData();
         body.append("file", file);

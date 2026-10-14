@@ -9,6 +9,7 @@ import { Pill, EmptyState } from "@/components/ui/Primitives";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export type AttachmentHost =
   | "contracts" | "subscriptions" | "invoices" | "devis" | "commandes" | "marches"
   | "expenses" | "projects" | "employees" | "clients" | "suppliers" | "payslips"
@@ -115,7 +116,7 @@ export function AttachmentPanel({
     setError(null);
     setNotice(null);
 
-    const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+    const csrfToken = await getCsrfToken();
     const messages: string[] = [];
 
     // Séquentiel, pas en parallèle : sur une connexion faible, quatre
@@ -152,7 +153,7 @@ export function AttachmentPanel({
     if (!(await confirmDialog({ title: `Retirer « ${filename} » ?`, message: `Le fichier sera supprimé.`, danger: true }))) return;
     setBusy(true);
     try {
-      const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+      const csrfToken = await getCsrfToken();
       const res = await fetch(`/api/attachments/${id}`, {
         method: "DELETE",
         headers: { "x-csrf-token": csrfToken },

@@ -11,6 +11,7 @@ import { fullXof } from "@/components/ui/charts/geometry";
 
 import { promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Movement {
   _id: string; date: string; amount: number; label: string;
   reference?: string; statementLineId?: string; source?: string;
@@ -63,8 +64,7 @@ export default function RapprochementPage() {
     setBusy(key);
     setError(null);
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
       const res = await fetch(`/api/treasury-accounts/${id}/match`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
@@ -355,8 +355,7 @@ function ImportDialog({
     setBusy(true);
     setResult(null);
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
       const mapping: Record<string, unknown> = {
         separator, skipRows, date: cols.date, label: cols.label,
         ...(cols.reference >= 0 ? { reference: cols.reference } : {}),

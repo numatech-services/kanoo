@@ -16,9 +16,9 @@ import type { MarketFinance } from "@/lib/market-finance";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 async function send(url: string, method: string, body?: unknown) {
-  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: body === undefined ? undefined : JSON.stringify(body) });
   const d = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(d.error || "Action refusée");
   return d.data;
@@ -125,6 +125,7 @@ export default function ContractDetailPage() {
             {canEdit && <button onClick={() => setMilestoneOpen(true)} className="px-3 h-8 rounded-lg border border-line2 text-xs font-semibold hover:bg-surface2 inline-flex items-center gap-1"><Plus size={13} /> Échéance</button>}
           </div>
           {(contract.milestones ?? []).length === 0 ? <p className="px-5 py-5 text-sm text-ink3">Aucune échéance. Exemple : acompte de 30 % à la commande, solde à la livraison.</p> : (
+            <div className="overflow-x-auto">
             <table className="table-dense w-full">
               <thead><tr className="text-left text-ink2"><th>Échéance</th><th>Nature</th><th>Prévue le</th><th className="text-right">Montant HT</th><th>État</th><th /></tr></thead>
               <tbody>
@@ -142,7 +143,7 @@ export default function ContractDetailPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </section>
       )}
@@ -150,6 +151,7 @@ export default function ContractDetailPage() {
       {finance && finance.invoices.length > 0 && (
         <section className="surface-card overflow-hidden">
           <h2 className="font-semibold text-ink px-5 py-4 border-b border-line">Factures du marché</h2>
+          <div className="overflow-x-auto">
           <table className="table-dense w-full">
             <thead><tr className="text-left text-ink2"><th>N°</th><th>Nature</th><th>Date</th><th className="text-right">HT</th><th className="text-right">TTC</th><th className="text-right">Encaissé</th><th>Statut</th></tr></thead>
             <tbody>
@@ -165,7 +167,7 @@ export default function ContractDetailPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </section>
       )}
 
@@ -246,6 +248,7 @@ function MarketPanel({ f, hasProject }: { f: MarketFinance; hasProject: boolean 
           {!hasProject ? <p className="text-sm text-warn">Créez le projet d&apos;exécution : les dépenses s&apos;imputent à ce projet (achats, commandes, notes de frais, charges).</p> : (
             <>
               <p className="text-[11px] text-ink3 mb-2">Classées selon le compte de charge. Engagé : bons de commande et achats pas encore comptabilisés. Réalisé : comptabilisé.</p>
+              <div className="overflow-x-auto">
               <table className="table-dense w-full">
                 <thead><tr className="text-left text-ink2"><th>Catégorie</th><th className="text-right">Engagé</th><th className="text-right">Réalisé</th><th className="text-right">Total</th></tr></thead>
                 <tbody>
@@ -259,7 +262,7 @@ function MarketPanel({ f, hasProject }: { f: MarketFinance; hasProject: boolean 
                   ))}
                 </tbody>
                 <tfoot><tr className="border-t border-line font-semibold"><td>Total</td><td className="text-right font-mono">{formatMoney(f.costs.committed)}</td><td className="text-right font-mono">{formatMoney(f.costs.actual)}</td><td className="text-right font-mono">{formatMoney(f.costs.committed + f.costs.actual)}</td></tr></tfoot>
-              </table>
+              </table></div>
               {f.costs.supplierDueTTC > 0 && <p className="text-xs text-ink2 mt-2">Reste à payer aux fournisseurs : <b className="font-mono">{formatMoney(f.costs.supplierDueTTC)}</b></p>}
             </>
           )}

@@ -11,6 +11,7 @@ import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface InvoiceLine { 
   description: string; 
   quantity: number; 
@@ -118,8 +119,7 @@ export default function InvoiceDetailPage() {
   };
 
   async function handlePayment(data: Record<string, unknown>) {
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res = await fetch("/api/payments", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
@@ -134,8 +134,7 @@ export default function InvoiceDetailPage() {
   async function relancer() {
     setDunningBusy(true);
     setDunningNote(null);
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res = await fetch(`/api/invoices/${id}/relance`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
@@ -157,8 +156,7 @@ export default function InvoiceDetailPage() {
     if (open && !reason?.trim()) return;
 
     setDunningBusy(true);
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res = await fetch(`/api/invoices/${id}/litige`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
@@ -173,16 +171,14 @@ export default function InvoiceDetailPage() {
 
   async function sendInvoice() {
     if (!(await confirmDialog({ title: "Marquer cette facture comme émise ?" }))) return;
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     await fetch(`/api/invoices/${id}/send`, { method: "POST", headers: { "x-csrf-token": csrfToken }, credentials: "include" });
     load();
   }
 
   async function cancelInvoice() {
     if (!(await confirmDialog({ title: "Annuler cette facture ?", message: "Cette action est irréversible.", danger: true }))) return;
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     await fetch(`/api/invoices/${id}/cancel`, { method: "POST", headers: { "x-csrf-token": csrfToken }, credentials: "include" });
     load();
   }
@@ -317,6 +313,7 @@ export default function InvoiceDetailPage() {
       )}
 
       <div className="bg-surface rounded-xl border border-line overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="table-dense">
           <thead>
             <tr className="bg-surface2/50">
@@ -336,7 +333,7 @@ export default function InvoiceDetailPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
 
         <div className="border-t border-line p-4 flex justify-end">
           <div className="w-56 space-y-2 text-sm">
@@ -435,6 +432,7 @@ export default function InvoiceDetailPage() {
           )}
 
           {/* TABLEAU DES ARTICLES */}
+          <div className="overflow-x-auto">
           <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "30px" }}>
             <thead>
               <tr style={{ background: "#f5f5f5", borderBottom: "2px solid #ddd", textAlign: "left", fontSize: "11px", fontWeight: "bold" }}>
@@ -454,7 +452,7 @@ export default function InvoiceDetailPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
 
           {/* SECTION CALCULS FINAUX */}
           <div style={{ display: "flex", justifyContent: "flex-end" }}>

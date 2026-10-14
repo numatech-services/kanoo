@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Megaphone, Users, Check, Plus, Trash2, Gavel, FileText, Upload, Download } from "lucide-react";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Decision { text: string; votes: { for: number; against: number; abstain: number }; passed: boolean }
 interface AG {
   _id: string; title: string; type: string; date: string; location?: string;
@@ -16,7 +17,7 @@ interface AG {
 interface Member { _id: string; firstName?: string; lastName?: string; code?: string }
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then((r) => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 

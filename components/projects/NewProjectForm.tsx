@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { ProjectForm } from "@/components/pme/ProjectForm";
 import type { ProjectVocabulary } from "@/lib/vocabulary";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 /**
  * Création d'un projet — écran unique pour les trois profils.
  *
@@ -20,8 +21,7 @@ export function NewProjectForm({ vocabulary }: { vocabulary: ProjectVocabulary }
   async function handleSave(data: Record<string, unknown>) {
     setError("");
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
 
       const res = await fetch("/api/projects", {
         method: "POST",

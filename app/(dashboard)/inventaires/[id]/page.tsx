@@ -11,6 +11,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { fullXof } from "@/components/ui/charts/geometry";
 import { COUNT_STATUS_LABEL, type CountStatus } from "@/lib/inventory";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Line {
   _id: string;
   code: string;
@@ -42,7 +43,7 @@ interface Payload {
 }
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 

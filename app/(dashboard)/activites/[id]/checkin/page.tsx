@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CheckCircle2, XCircle, ArrowLeft, Keyboard, Camera, Wifi, WifiOff, DownloadCloud, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Result { valid: boolean; reason?: string; name?: string; ticketTypeName?: string; offline?: boolean }
 interface Ticket { code: string; name: string; present: boolean }
 interface Manifest { ts: number; byId: Record<string, Ticket>; byCode: Record<string, string> }
@@ -67,7 +68,7 @@ export default function CheckinPage() {
     for (const item of [...q]) {
       try {
         const res = await fetch(`/api/events/${id}/checkin`, {
-          method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken }, credentials: "include",
+          method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) }, credentials: "include",
           body: JSON.stringify({ code: item.code }),
         });
         if (res.ok) { q = q.filter((x) => x.at !== item.at); writeQueue(q); }
@@ -128,7 +129,7 @@ export default function CheckinPage() {
     if (navigator.onLine) {
       try {
         const res = await fetch(`/api/events/${id}/checkin`, {
-          method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken }, credentials: "include",
+          method: "POST", headers: { "Content-Type": "application/json", "x-csrf-token": (await getCsrfToken()) }, credentials: "include",
           body: JSON.stringify(payload ? { payload } : { code }),
         });
         const d = await res.json();

@@ -74,6 +74,7 @@ export default function EngagementsPage() {
       </div>
 
       <div className="bg-surface rounded-[2rem] border border-line overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-surface2/10 border-b border-line">
@@ -130,7 +131,7 @@ export default function EngagementsPage() {
               </tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

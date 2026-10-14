@@ -6,6 +6,7 @@ import { RequestDialog } from "@/components/hr/LeaveRequestDialog";
 import { LEAVE_TYPES } from "@/lib/leave-types";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Leave {
   _id: string; type: string; startDate: string; endDate: string; days: number; reason?: string; status: string;
   employeeId?: { _id: string; firstName: string; lastName: string } | null; decisionNote?: string;
@@ -17,7 +18,6 @@ const STATUS: Record<string, [string, string]> = {
   rejected: ["Refusé", "bg-neg-50 text-neg"], cancelled: ["Annulé", "bg-surface2 text-ink2"],
 };
 const d = (s: string) => new Date(s).toLocaleDateString("fr-FR");
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 /** Congés : mes demandes et mon solde ; pour un responsable, les demandes à valider. */
 export default function LeavesPage() {
@@ -44,14 +44,14 @@ export default function LeavesPage() {
   async function act(id: string, action: string) {
     const note = action === "reject" ? await promptDialog({ title: "Motif du refus :", multiline: true }) ?? undefined : undefined;
     if (action === "reject" && !note) return;
-    const res = await fetch(`/api/leaves/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, body: JSON.stringify({ action, note }) });
+    const res = await fetch(`/api/leaves/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: JSON.stringify({ action, note }) });
     const x = await res.json().catch(() => ({}));
     setMsg(res.ok ? null : { ok: false, text: x.error || "Action refusée" });
     load();
   }
   async function remove(id: string) {
     if (!(await confirmDialog({ title: "Supprimer cette demande ?", danger: true }))) return;
-    const res = await fetch(`/api/leaves/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    const res = await fetch(`/api/leaves/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
     if (!res.ok) { const x = await res.json().catch(() => ({})); setMsg({ ok: false, text: x.error || "Suppression refusée" }); }
     load();
   }

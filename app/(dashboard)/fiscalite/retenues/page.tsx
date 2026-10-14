@@ -6,6 +6,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Retenue { _id:string; type:string; beneficiaire:string; nifBeneficiaire?:string; montantBrut:number; montantRetenue:number; montantNet:number; article:string; date:string; isPaid:boolean; }
 interface TypeInfo { key:string; taux:number; description:string; article:string; }
 
@@ -41,7 +42,7 @@ export default function RetenuesPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     const res = await fetch("/api/fiscal/retenues", { method:"POST", headers:{"Content-Type":"application/json","x-csrf-token":csrfToken}, credentials:"include", body:JSON.stringify(form) });
     if (res.ok) { setModalOpen(false); load(); }
     setSaving(false);

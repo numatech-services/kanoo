@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { InvoiceForm } from "@/components/pme/InvoiceForm";
 import { showToast } from "@/components/ui/Toast";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 export default function EditInvoicePage() {
   const { id } = useParams();
   const router = useRouter();
@@ -56,8 +57,7 @@ export default function EditInvoicePage() {
   }
 
   async function handleUpdate(updatedData: any) {
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
 
     const res = await fetch(`/api/invoices/${id}`, {
       method: "PATCH",

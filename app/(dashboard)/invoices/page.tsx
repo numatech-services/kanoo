@@ -333,6 +333,7 @@ export default function InvoicesPage() {
       </div>
 
       {/* TABLEAU DES ARTICLES */}
+      <div className="overflow-x-auto">
       <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "30px" }}>
         <thead>
           <tr style={{ background: "#f5f5f5", borderBottom: "2px solid #ddd", textAlign: "left", fontSize: "11px", fontWeight: "bold" }}>
@@ -361,7 +362,7 @@ export default function InvoicesPage() {
             </tr>
           )}
         </tbody>
-      </table>
+      </table></div>
 
       {/* TOTALS */}
       <div style={{ display: "flex", justifyContent: "flex-end" }}>

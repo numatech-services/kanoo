@@ -1,7 +1,7 @@
 // Scénario de bout en bout : organisation cloisonnée (services × niveaux).
 import { readFileSync } from "fs";
 import { randomBytes } from "crypto";
-import { execSync } from "child_process";
+import { withDb } from "./db.mjs";
 
 const BASE = "http://localhost:3099";
 const ROOT = process.argv[2];
@@ -26,7 +26,18 @@ function session() {
   }
   return { req, reset: () => { csrf = ""; } };
 }
-async function login(email, pw) { const s = session(); const r = await s.req("POST", "/api/auth/login", { email, password: pw }); s.reset(); return { s, r }; }
+// Le serveur limite les connexions par adresse (20 par minute) : le scénario,
+// qui ouvre plus de sessions que cela, attend le délai annoncé puis réessaie.
+async function login(email, pw) {
+  for (let attempt = 0; ; attempt++) {
+    const s = session();
+    const r = await s.req("POST", "/api/auth/login", { email, password: pw });
+    s.reset();
+    if (r.status !== 429 || attempt >= 2) return { s, r };
+    const wait = Number(/(\d+) secondes/.exec(r.data?.error ?? "")?.[1] ?? 60);
+    await new Promise(res => setTimeout(res, (wait + 1) * 1000));
+  }
+}
 const D = r => r.data?.data ?? {};
 
 (async () => {
@@ -150,7 +161,7 @@ const D = r => r.data?.data ?? {};
   check("bordereau CNSS (paie) : refusé au comptable employé", cnssEmp === 403, String(cnssEmp));
 
   // Secrets de compte : le transform toJSON ne s'applique pas aux lectures lean().
-  execSync(`docker exec kanoo-e2e mongosh --quiet kanoo_e2e --eval 'db.users.updateOne({email:"admin@test.ne"},{$set:{twoFactorPending:"PENDINGSECRET",passwordResetToken:"RESETTOKEN",twoFactorBackupCodes:["h1"]}})'`);
+  await withDb(ROOT, db => db.collection("users").updateOne({ email: "admin@test.ne" }, { $set: { twoFactorPending: "PENDINGSECRET", passwordResetToken: "RESETTOKEN", twoFactorBackupCodes: ["h1"] } }));
   const meRaw = J(await g.req("GET", "/api/auth/me"));
   const usersRaw = J(await g.req("GET", "/api/users?limit=100"));
   const adminId = D(await g.req("GET", "/api/users?limit=100")).items?.find(u => u.email === "admin@test.ne")?._id;
@@ -175,11 +186,15 @@ const D = r => r.data?.data ?? {};
   check("Prospection : pas de compteur de factures en retard", !("/invoices" in nav) && !("/relances" in nav), J(nav));
 
   // Projets : budget masqué, corps assaini (ni tenantId ni montant écrasé).
-  const pj = D(await g.req("POST", "/api/projects", { code: "PRJ-E2E-BUD2", name: "Projet budgété", budget: 800000 }));
+  // Un employé ne voit que les projets auxquels il participe.
+  const prospId = D(await S.prosp_emp.req("GET", "/api/auth/me")).user?._id;
+  const hidden = D(await g.req("POST", "/api/projects", { code: "PRJ-E2E-HID", name: "Projet d'une autre équipe", budget: 100000 }));
+  check("Prospection : projet d'une autre équipe invisible", (await S.prosp_emp.req("GET", `/api/projects/${hidden._id}`)).status === 404);
+  const pj = D(await g.req("POST", "/api/projects", { code: "PRJ-E2E-BUD2", name: "Projet budgété", budget: 800000, teamIds: [prospId] }));
   const pjComm = D(await S.prosp_emp.req("GET", `/api/projects/${pj._id}`));
   check("Prospection : projet visible sans budget", pjComm._id === pj._id && !("budget" in pjComm) && pjComm.amountsHidden === true, J(Object.keys(pjComm)));
   const listComm = D(await S.prosp_emp.req("GET", "/api/projects")).items ?? [];
-  check("Prospection : liste des projets sans montants", listComm.length > 0 && listComm.every(p => !("budget" in p) && !("spentAmount" in p)));
+  check("Prospection : liste des projets sans montants, sans les projets des autres", listComm.length > 0 && listComm.every(p => !("budget" in p) && !("spentAmount" in p)) && !listComm.some(p => p._id === hidden._id));
   check("Prospection (lecture seule) : ne modifie pas un projet", (await S.prosp_emp.req("PATCH", `/api/projects/${pj._id}`, { name: "X" })).status === 403);
   const upd = await S.comm_chef.req("PATCH", `/api/projects/${pj._id}`, { name: "Renommé", budget: 0, spentAmount: 5, tenantId: "000000000000000000000000", $where: "1" });
   const after = D(await g.req("GET", `/api/projects/${pj._id}`));
@@ -213,7 +228,7 @@ const D = r => r.data?.data ?? {};
   check("contrat : génération de facture refusée hors comptabilité", (await S.admin_emp.req("POST", `/api/contracts/000000000000000000000000/generate-invoice`)).status === 403);
 
   console.log("\n▶ Fin de stage et changement d'accès");
-  execSync(`docker exec kanoo-e2e mongosh --quiet kanoo_e2e --eval 'db.users.updateOne({email:"dev.stag@test.ne"},{$set:{accessUntil:new Date(Date.now()-86400000)}})'`);
+  await withDb(ROOT, db => db.collection("users").updateOne({ email: "dev.stag@test.ne" }, { $set: { accessUntil: new Date(Date.now() - 86400000) } }));
   const exp = await S.dev_stag.req("GET", "/api/projects");
   check("stage terminé : la session ouverte est coupée", exp.status === 401 && /fin de stage/.test(exp.data?.error), `${exp.status} ${J(exp.data)}`);
   const relog = await login("dev.stag@test.ne", PW);

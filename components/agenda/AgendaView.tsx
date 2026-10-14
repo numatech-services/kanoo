@@ -9,8 +9,9 @@ import { MonthGrid, localDayKey } from "./CalendarGrid";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then((r) => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 

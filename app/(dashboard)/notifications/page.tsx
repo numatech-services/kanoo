@@ -4,13 +4,14 @@ import Link from "next/link";
 import { notificationHref } from "@/lib/notification-link";
 import { Bell } from "lucide-react";
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Notif { _id:string; type:string; title:string; message:string; read:boolean; createdAt:string; linkedTo?:string; linkedId?:string|null; }
 export default function NotificationsPage() {
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => { fetch("/api/notifications",{credentials:"include"}).then(r=>r.json()).then(d=>setNotifs(d.data?.items||[])).finally(()=>setLoading(false)); },[]);
   async function markAllRead() {
-    const csrfRes = await fetch("/api/auth/csrf"); const { csrfToken } = await csrfRes.json();
+    const csrfToken = await getCsrfToken();
     await fetch("/api/notifications",{method:"PATCH",headers:{"x-csrf-token":csrfToken},credentials:"include"});
     setNotifs(n=>n.map(x=>({...x,read:true})));
   }

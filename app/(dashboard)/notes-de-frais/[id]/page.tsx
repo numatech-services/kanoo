@@ -19,6 +19,7 @@ import {
 } from "@/lib/expenses";
 import { ImputationFields } from "@/components/shared/ImputationFields";
 
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Line {
   _id: string;
   date: string;
@@ -67,7 +68,7 @@ const EMPTY_LINE = () => ({
 });
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 

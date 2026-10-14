@@ -11,6 +11,7 @@ import { EditAccountDialog, TransferDialog, ManualMovementDialog, MovementsDialo
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Account {
   _id: string;
   type: string;
@@ -70,7 +71,7 @@ export default function TreasuryPage() {
     setSaving(true);
     setError(null);
     try {
-      const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+      const csrfToken = await getCsrfToken();
       const res = await fetch("/api/treasury-accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },

@@ -6,6 +6,7 @@ import { FormField, inputCls } from "@/components/ui/FormField";
 import { DonutChart } from "@/components/ui/charts/DonutChart";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Status {
   identity: { nif?: string; isf?: string; mcfId?: string; certifiedSince: string | null };
   activeDriver: string;
@@ -47,8 +48,7 @@ export default function FactureCertifieePage() {
     setSaving(true);
     setMessage(null);
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
+      const csrfToken = await getCsrfToken();
       const res = await fetch("/api/secef/status", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },

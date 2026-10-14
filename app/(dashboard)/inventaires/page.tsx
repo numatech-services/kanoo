@@ -16,6 +16,7 @@ import { useWarehouses } from "@/components/stock/useWarehouses";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { StockTabs } from "@/components/stock/StockTabs";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface Session {
   _id: string;
   reference: string;
@@ -36,7 +37,7 @@ const STATUS_TONE: Record<CountStatus, "pos" | "warn" | "info" | "neg" | "mute">
 };
 
 async function csrf() {
-  const { csrfToken } = await fetch("/api/auth/csrf").then(r => r.json());
+  const csrfToken = await getCsrfToken();
   return csrfToken as string;
 }
 

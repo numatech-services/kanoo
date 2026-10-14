@@ -9,6 +9,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
 interface ReqDoc { _id?: string; label: string; provided: boolean }
 interface Doc { _id: string; name?: string; dataUri?: string }
 interface Appel {
@@ -21,7 +22,6 @@ const NEXT: Record<string, { to: string; label: string }> = {
   identified: { to: "preparing", label: "Démarrer la préparation" },
   preparing: { to: "submitted", label: "Marquer déposé" },
 };
-async function csrf() { return (await fetch("/api/auth/csrf").then(r => r.json())).csrfToken as string; }
 
 export default function AppelDetailPage() {
   // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
@@ -37,12 +37,12 @@ export default function AppelDetailPage() {
   useEffect(() => { load(); }, [load]);
 
   async function patch(body: Record<string, unknown>) {
-    const res = await fetch(`/api/appels/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": await csrf() }, credentials: "include", body: JSON.stringify(body) });
+    const res = await fetch(`/api/appels/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, credentials: "include", body: JSON.stringify(body) });
     if (res.ok) load(); else showToast((await res.json()).error || "Échec", "error");
   }
   async function del() {
     if (!(await confirmDialog({ title: "Supprimer cet appel ?", danger: true }))) return;
-    const res = await fetch(`/api/appels/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await csrf() } });
+    const res = await fetch(`/api/appels/${id}`, { method: "DELETE", credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
     if (res.ok) router.push("/appels");
   }
   function toggleReq(i: number) {
