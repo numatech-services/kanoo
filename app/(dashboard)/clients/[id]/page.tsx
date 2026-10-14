@@ -11,6 +11,7 @@ import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { PortalLinkPanel } from "@/components/clients/PortalLinkPanel";
 type Client = ClientFormData & { _id: string; currentBalance: number; logo?: string };
 type Row = Record<string, unknown>;
 interface Section { count: number; items: Row[]; }
@@ -124,6 +125,8 @@ export default function ClientDetailPage() {
           </div>
         ))}
       </div>}
+
+      <PortalLinkPanel clientId={String(id)} clientName={c.name} phone={c.phone} />
 
       {/* Informations */}
       <div className="grid md:grid-cols-2 gap-5">

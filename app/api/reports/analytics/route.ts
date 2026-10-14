@@ -7,6 +7,7 @@ import { ClientModel } from "@/models/Client";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TokenPayload } from "@/lib/auth";
 
+import { BOOKED_INVOICE_MATCH } from "@/lib/payments";
 // GET /api/reports/analytics?months=12
 // Retourne les données analytiques sur N mois pour le tableau de bord
 export const GET = withAuth("accountingEntries", "read", async (req: NextRequest, auth: TokenPayload) => {
@@ -32,7 +33,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   // Un avoir est stocké avec des montants positifs dans la même collection :
   // sans ce signe, il gonflerait le chiffre d'affaires au lieu de le réduire.
   const invoicesByMonth = await InvoiceModel.aggregate([
-    { $match: { ...filter, issueDate: { $gte: startDate }, status: { $nin: ["cancelled", "draft"] } } },
+    { $match: { ...filter, issueDate: { $gte: startDate }, ...BOOKED_INVOICE_MATCH } },
     { $addFields: {
       sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] },
     }},
@@ -88,7 +89,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   // ── KPIs globaux ─────────────────────────────────────────────────────────
   const [totalCA, totalEncaisse, clientActifs, facInRetard] = await Promise.all([
     InvoiceModel.aggregate([
-      { $match: { ...filter, issueDate: { $gte: startDate }, status: { $nin: ["cancelled", "draft"] } } },
+      { $match: { ...filter, issueDate: { $gte: startDate }, ...BOOKED_INVOICE_MATCH } },
       { $addFields: { sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] } } },
       { $addFields: { signedTTC: { $multiply: ["$totalTTC", "$sign"] } } },
       { $group: { _id: null, sum: { $sum: "$signedTTC" } } }
@@ -110,7 +111,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
 
   // ── Top clients (par CA sur la période) ──────────────────────────────────
   const topClients = await InvoiceModel.aggregate([
-    { $match: { ...filter, issueDate: { $gte: startDate }, status: { $nin: ["cancelled", "draft"] } } },
+    { $match: { ...filter, issueDate: { $gte: startDate }, ...BOOKED_INVOICE_MATCH } },
       { $addFields: { sign: { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] } } },
       { $addFields: { signedTTC: { $multiply: ["$totalTTC", "$sign"] } } },
     { $group: {

@@ -1,6 +1,8 @@
 import { Schema, model, models } from "mongoose";
 import { IClient } from "@/types";
-const ClientSchema = new Schema<IClient>({ tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true }, code: { type: String, required: true }, name: { type: String, required: true, trim: true }, type: { type: String, enum: ["individual", "company"], default: "company" }, nif: String, rccm: String, email: String, phone: String, address: String, /** Logo propre du client (data-URI), affiché sur sa fiche et dans la liste.
+const ClientSchema = new Schema<IClient>({ tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true }, code: { type: String, required: true }, name: { type: String, required: true, trim: true }, type: { type: String, enum: ["individual", "company"], default: "company" }, nif: String, rccm: String, email: String, phone: String, address: String,
+  /** Lien du portail client : empreinte (recherche) et jeton chiffré (réaffichage, QR des PDF). Jamais renvoyés par défaut. */
+  portalTokenHash: { type: String, select: false, index: true }, portalTokenEnc: { type: String, select: false }, portalLinkAt: Date, /** Logo propre du client (data-URI), affiché sur sa fiche et dans la liste.
    * Longueur bornée : ~150 Ko binaire ≈ 300 000 caractères base64, avec marge. */
   logo: { type: String, maxlength: [320_000, "Logo trop volumineux (150 Ko max)."] }, creditLimit: { type: Number, default: 0 }, /** @deprecated Jamais mis à jour : le solde est calculé (voir /api/clients et lib/statement.ts). */
   currentBalance: { type: Number, default: 0 }, paymentTermDays: { type: Number, default: 30 }, isActive: { type: Boolean, default: true }, notes: String }, { timestamps: true });

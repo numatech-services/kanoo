@@ -10,6 +10,7 @@ import { sendTicketEmail, sendTicketWhatsApp } from "@/lib/ticket-delivery";
 
 import { withTransaction } from "@/lib/db";
 import { postAttendee } from "@/lib/event-posting";
+import { recordOnlineInvoicePayment } from "@/lib/online-payment";
 /**
  * POST /api/webhooks/payment
  * Webhook PayDunya — appelé après un paiement réussi ou échoué
@@ -33,6 +34,17 @@ export async function POST(req: NextRequest) {
     // Extraire tenantId depuis orderId (format: NMP-{tenantId}-{timestamp})
     const orderId = payment.orderId || "";
     const parts = orderId.split("-");
+
+    // ── Paiement d'une facture depuis le portail client (orderId = INV-<invoiceId>-<ts>) ──
+    // Montant et commande viennent de la vérification serveur à serveur auprès
+    // de PayDunya, jamais du corps du webhook.
+    if (orderId.startsWith("INV-")) {
+      const invoiceId = parts[1];
+      if (!/^[a-f0-9]{24}$/.test(invoiceId ?? "")) return NextResponse.json({ error: "Commande inconnue" }, { status: 404 });
+      const r = await withTransaction(session => recordOnlineInvoicePayment({ invoiceId, amount: Number(payment.amount) || 0, reference: `PAYDUNYA-${token}` }, session));
+      if (!r.recorded) console.warn(`[Webhook] Paiement de facture non enregistré (${invoiceId}) : ${r.reason}`);
+      return NextResponse.json({ received: true, paid: true, recorded: r.recorded });
+    }
 
     // ── Paiement d'un billet d'activité (orderId = EVT-<attendeeId>-<ts>) ──
     if (orderId.startsWith("EVT-")) {

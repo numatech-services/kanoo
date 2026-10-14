@@ -5,6 +5,7 @@ import { RecentDeliveries } from "@/components/pme/RecentDeliveries";
 import { CashflowChart } from "@/components/pme/CashflowChart";
 import { AlertsPanel } from "@/components/shared/AlertsPanel";
 import { DashboardHero } from "@/components/pme/DashboardHero";
+import { DailyBrief } from "@/components/pme/DailyBrief";
 import { UpcomingEvents } from "@/components/shared/UpcomingEvents";
 import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
 import { getServerAccess } from "@/lib/server-auth";
@@ -18,6 +19,10 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <Suspense fallback={<div className="h-44 bg-surface rounded-2xl border border-line animate-pulse" />}>
         <DashboardHero />
+      </Suspense>
+
+      <Suspense fallback={<div className="h-40 bg-surface rounded-2xl border border-line animate-pulse" />}>
+        <DailyBrief />
       </Suspense>
 
       {/* KPI Cards */}

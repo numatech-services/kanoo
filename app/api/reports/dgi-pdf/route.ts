@@ -8,6 +8,7 @@ import { TenantModel } from "@/models/Tenant";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 
+import { BOOKED_INVOICE_MATCH } from "@/lib/payments";
 /**
  * GET /api/reports/dgi-pdf?type=tva|cnss|bilan|grandlivre&mois=MM&annee=YYYY
  * Génère un PDF de rapport fiscal certifié conforme DGI Niger
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
 
   if (type === "tva") {
     const [invoices, entries] = await Promise.all([
-      InvoiceModel.find({ ...tenantFilter(auth), issueDate: { $gte: start, $lte: end }, status: { $nin: ["cancelled", "draft"] } })
+      InvoiceModel.find({ ...tenantFilter(auth), issueDate: { $gte: start, $lte: end }, ...BOOKED_INVOICE_MATCH })
         .select("totalHT documentType").lean<Array<{ totalHT: number; documentType?: string }>>(),
       AccountingEntryModel.find({ ...tenantFilter(auth), entryDate: { $gte: start, $lte: end }, ...VAT_LINES_MATCH })
         .lean<Array<{ lines: Array<{ accountCode: string; debit?: number; credit?: number }> }>>(),

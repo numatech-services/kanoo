@@ -5,6 +5,7 @@ import { authorize, tenantFilter } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
 import { TenantModel } from "@/models/Tenant";
 import { generateInvoicePdf, type InvoiceForPdf, type TenantIdentity } from "@/lib/pdf-document";
+import { currentPortalLink } from "@/lib/client-portal";
 
 interface RouteParams { params: Promise<{ id: string }> | { id: string }; }
 
@@ -40,7 +41,10 @@ export async function GET(req: NextRequest, ctx: RouteParams) {
       return NextResponse.json({ error: "Facture introuvable" }, { status: 404 });
     }
 
-    const pdfBuffer = await generateInvoicePdf(invoice, tenant ?? { name: "Organisation" });
+    // Client doté d'un lien de portail : QR « consulter et payer en ligne » sur la facture.
+    const clientRef = (invoice as unknown as { clientId?: { _id?: unknown } | unknown }).clientId;
+    const portalUrl = await currentPortalLink(auth.tenantId, (clientRef as { _id?: unknown })?._id ?? clientRef);
+    const pdfBuffer = await generateInvoicePdf(invoice, tenant ?? { name: "Organisation" }, { portalUrl });
 
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,

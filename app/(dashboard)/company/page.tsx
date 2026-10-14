@@ -10,9 +10,11 @@ import { invalidateMe } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { TreasuryAccountSelect } from "@/components/shared/TreasuryAccountSelect";
 interface Company {
   name?: string; type?: string; nif?: string; rccm?: string;
   address?: string; phone?: string; email?: string; logo?: string;
+  onlinePaymentAccountId?: string | null;
 }
 
 const TYPE_LABEL: Record<string, string> = { pme: "Entreprise (PME)", association: "Association / ONG", administration: "Administration" };
@@ -93,6 +95,17 @@ export default function CompanyPage() {
         </div>
         <FormField label="Adresse">
           <textarea className={textareaCls} rows={2} value={form.address || ""} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+        </FormField>
+      </section>
+
+      <section className="surface-card p-5 space-y-3">
+        <div>
+          <h2 className="font-semibold text-ink">Paiements en ligne</h2>
+          <p className="text-xs text-ink2 mt-0.5">Vos clients règlent leurs factures en mobile money ou par carte depuis leur portail (fiche client › Portail client). Chaque paiement confirmé est enregistré et comptabilisé sur ce compte.</p>
+        </div>
+        <FormField label="Compte qui reçoit les paiements en ligne">
+          <TreasuryAccountSelect value={form.onlinePaymentAccountId ? String(form.onlinePaymentAccountId) : ""} autoSelect={false}
+            onChange={v => setForm(f => ({ ...f, onlinePaymentAccountId: v || null }))} />
         </FormField>
       </section>
 

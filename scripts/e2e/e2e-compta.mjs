@@ -220,6 +220,24 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   check("deuxième passage à la même date : refusé", (await g.req("POST", "/api/accounting/stock-variation", { date: today })).status === 400);
   check("après écriture : compte 31 = valeur du stock", D(await g.req("GET", `/api/accounting/stock-variation?date=${today}`)).variation === 0);
 
+  console.log("\n▶ Chiffre d'affaires et avoirs totaux");
+  const caBefore = D(await g.req("GET", "/api/reports/analytics?months=12")).kpis?.totalCA;
+  const fx = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ description: "Vente annulée", quantity: 1, unitPrice: 80000, tvaRate: 0 }] }));
+  await g.req("POST", `/api/invoices/${fx._id}/send`);
+  const caIssued = D(await g.req("GET", "/api/reports/analytics?months=12")).kpis?.totalCA;
+  await g.req("POST", `/api/invoices/${fx._id}/credit-note`, { mode: "full", reason: "Annulation de la vente" });
+  const caAfter = D(await g.req("GET", "/api/reports/analytics?months=12")).kpis?.totalCA;
+  check("CA : + le TTC de la facture à l'émission, revenu au point de départ après l'avoir total (pas de double déduction)",
+    caIssued - caBefore === fx.totalTTC && caAfter === caBefore && caAfter >= 0, J({ caBefore, caIssued, caAfter }));
+
+  console.log("\n▶ Brief du jour");
+  const br = D(await g.req("GET", "/api/brief?limit=10"));
+  check("brief : actions classées, expliquées, avec un lien", Array.isArray(br.items) && br.items.length > 0
+    && br.items.every(i => i.title && i.why && i.href?.startsWith("/") && typeof i.score === "number")
+    && br.items.every((i, k) => k === 0 || br.items[k - 1].score >= i.score), J(br.items?.map(i => [i.kind, i.score])));
+  check("brief : retard client signalé avec son montant", br.items?.some(i => i.kind === "overdue_receivables" && i.amount > 0), J(br.items?.map(i => i.kind)));
+  check("brief : trois actions par défaut", (D(await g.req("GET", "/api/brief")).items ?? []).length <= 3);
+
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

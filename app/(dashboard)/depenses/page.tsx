@@ -9,6 +9,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson } from "@/lib/api-client";
+import { useUrlReady } from "@/lib/url-param";
 interface Purchase {
   _id: string; number: string; kind: "invoice" | "cash"; date: string; dueDate?: string; payee?: string; supplierRef?: string;
   supplierId?: { name: string } | null; totalTTC: number; paidAmount: number; status: string;
@@ -28,12 +29,15 @@ export default function PurchasesPage() {
   const [q, setQ] = useState("");
   const LIMIT = 25;
 
+  // Filtres repris de l'adresse (liens du brief du jour, des pastilles…).
+  const ready = useUrlReady(p => setF(x => ({ ...x, status: p.get("status") ?? "", due: p.get("due") ?? "", kind: p.get("kind") ?? "" })));
   const load = useCallback(async () => {
+    if (!ready) return;
     const p = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
     for (const [k, v] of Object.entries(f)) if (v) p.set(k, v);
     const d = await apiJson(`/api/achats?${p}`).catch(() => null);
     setItems(d?.data?.items ?? []); setTotal(d?.data?.pagination?.total ?? 0); setTotals(d?.data?.totals ?? { totalTTC: 0, paid: 0, remaining: 0 });
-  }, [page, f]);
+  }, [page, f, ready]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const t = setTimeout(() => { setPage(1); setF(x => ({ ...x, q: q.trim() })); }, 300); return () => clearTimeout(t); }, [q]);
   const setFilter = (patch: Partial<typeof f>) => { setPage(1); setF(x => ({ ...x, ...patch })); };

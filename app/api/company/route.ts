@@ -5,6 +5,8 @@ import { TenantModel } from "@/models/Tenant";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
+import { Types } from "mongoose";
+import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 export const dynamic = "force-dynamic";
 
 const MAX_LOGO = 700_000; // ~500 Ko binaire en base64
@@ -24,7 +26,7 @@ export const GET = withAuth("companies", "read", async (_req: NextRequest, auth:
   // L'organisation est le document Tenant lui-même : son identifiant est _id
   // (filtrer sur un champ tenantId, qu'il n'a pas, ne trouvait jamais rien).
   const t = await TenantModel.findById(auth.tenantId)
-    .select("name type nif rccm address phone email logo slug plan subscriptionStatus")
+    .select("name type nif rccm address phone email logo slug plan subscriptionStatus onlinePaymentAccountId")
     .lean();
   if (!t) return notFound("Organisation introuvable");
   return ok(t);
@@ -47,8 +49,17 @@ export const PATCH = withAuth("companies", "update", async (req: NextRequest, au
     set.logo = logo || undefined;
   }
 
-  const t = await TenantModel.findByIdAndUpdate(auth.tenantId, { $set: set }, { new: true, runValidators: true })
-    .select("name type nif rccm address phone email logo").lean();
+  // Compte qui reçoit les paiements en ligne des factures (portail client).
+  const unset: Record<string, 1> = {};
+  if (body.onlinePaymentAccountId !== undefined) {
+    if (!body.onlinePaymentAccountId) unset.onlinePaymentAccountId = 1;
+    else if (!Types.ObjectId.isValid(String(body.onlinePaymentAccountId)) || !(await TreasuryAccountModel.exists({ _id: body.onlinePaymentAccountId, tenantId: auth.tenantId }))) {
+      return badRequest("Compte de trésorerie introuvable.");
+    } else set.onlinePaymentAccountId = body.onlinePaymentAccountId;
+  }
+
+  const t = await TenantModel.findByIdAndUpdate(auth.tenantId, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { new: true, runValidators: true })
+    .select("name type nif rccm address phone email logo onlinePaymentAccountId").lean();
   if (!t) return notFound("Organisation introuvable");
   await logAudit(auth, "UPDATE", "companies", { metadata: { fields: Object.keys(set) } });
   return ok(t);

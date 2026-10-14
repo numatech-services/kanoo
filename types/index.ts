@@ -26,6 +26,7 @@ export interface ITenant {
   planModules: string[];
   /** Modules optionnels masqués par l'organisation (lib/modules.ts). */
   disabledModules?: string[];
+  onlinePaymentAccountId?: Types.ObjectId;
   subscriptionStatus: SubscriptionStatus;
   trialEndsAt?: Date;
   subscriptionEndsAt?: Date;
@@ -199,6 +200,9 @@ export interface IUser {
 // ─── PME Types ────────────────────────────────────────────────────────────────
 
 export interface IClient {
+  portalTokenHash?: string;
+  portalTokenEnc?: string;
+  portalLinkAt?: Date;
   _id: Types.ObjectId;
   tenantId: Types.ObjectId;
   code: string;
@@ -345,6 +349,8 @@ export interface IInvoice {
 }
 
 export interface IDevis {
+  /** Acceptation par le client sur son portail. */
+  acceptedOnline?: { at: Date; name: string; ip?: string };
   _id: Types.ObjectId;
   tenantId: Types.ObjectId;
   number: string;

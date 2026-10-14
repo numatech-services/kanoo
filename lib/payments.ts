@@ -52,3 +52,16 @@ export async function applyPaymentEffects(payment: any, invoice: any, auth: Toke
     }], { session });
   }
 }
+
+/**
+ * Factures qui comptent dans les ventes d'une période, avoirs à retrancher.
+ *
+ * Un avoir total fait passer la facture d'origine au statut « annulée » : elle
+ * doit rester dans les ventes, que son avoir compense. L'exclure tout en
+ * retranchant l'avoir déduisait deux fois la même vente (chiffre d'affaires
+ * négatif, base de TVA sous-évaluée). Seuls les brouillons, et les brouillons
+ * supprimés (annulés sans avoir), sont écartés.
+ */
+export const BOOKED_INVOICE_MATCH = {
+  $or: [{ status: { $nin: ["cancelled", "draft"] } }, { status: "cancelled", creditedAmount: { $gt: 0 } }],
+};

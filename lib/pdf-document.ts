@@ -256,7 +256,7 @@ function invoiceQrPayload(inv: InvoiceForPdf, tenant: TenantIdentity): string {
  * Facture PDF à la marque de l'organisation, QR apposé.
  * Le même patron sert un avoir (documentType = credit_note).
  */
-export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdentity): Promise<Buffer> {
+export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdentity, opts: { portalUrl?: string | null } = {}): Promise<Buffer> {
   const c = colors(tenant);
   const isCredit = inv.documentType === "credit_note";
   const withQr = tenant.branding?.documentQr !== false;
@@ -342,6 +342,12 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
       doc.rect(50, ty, 495, th).fill("#F4F2EE");
       doc.fillColor(c.secondary).font("Helvetica-Bold").fontSize(8).text("CONDITIONS", 62, ty + 10, { characterSpacing: 1 });
       doc.fillColor(c.muted).font("Helvetica").fontSize(8).text(terms, 62, ty + 24, { width: 460 });
+    }
+
+    // Lien du portail client : le client scanne, consulte et règle en ligne.
+    const due = (inv.totalTTC ?? 0) - (inv.creditedAmount ?? 0) - (inv.paidAmount ?? 0);
+    if (opts.portalUrl && !isCredit && due > 0) {
+      await drawDocumentQr(doc, opts.portalUrl, { x: 380, y: 700, size: 74, caption: "Consulter et payer en ligne" });
     }
 
     // QR — en bas à droite, au-dessus du pied.

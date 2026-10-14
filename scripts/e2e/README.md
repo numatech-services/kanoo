@@ -8,6 +8,7 @@ Chaque script joue un parcours complet contre une instance compilée et affiche
 - `e2e-stock.mjs` : entrepôts, transferts, lots / péremption, inventaire, comptoir.
 - `e2e-flux.mjs` : filtre commun recettes / dépenses / période, contrats.
 - `e2e-marche.mjs` : devis → marché → acomptes → dépenses par catégorie → marge, avoir.
+- `e2e-portail.mjs` : portail client (lien, documents, devis acceptés, paiement en ligne, révocation).
 - `e2e-compta.mjs` : moteur comptable — banque protégée, TVA et fournisseur des charges
   récurrentes, origine des immobilisations, retenues sur le compte fournisseur commun.
 

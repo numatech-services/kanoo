@@ -27,6 +27,8 @@ const TenantSchema = new Schema<ITenant>(
      * défaut — tout est visible. Voir lib/modules.ts.
      */
     disabledModules: { type: [String], default: [] },
+    /** Compte de trésorerie qui reçoit les paiements en ligne (mobile money via PayDunya) des factures. */
+    onlinePaymentAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount" },
     subscriptionStatus: {
       type: String,
       enum: ["pending_activation", "trial", "active", "suspended", "cancelled", "none"],

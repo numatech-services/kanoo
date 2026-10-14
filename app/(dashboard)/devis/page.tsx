@@ -19,7 +19,7 @@ export default function DevisPage() {
   const [devis,setDevis]=useState<Devis[]>([]); const [total,setTotal]=useState(0); const [page,setPage]=useState(1); const [loading,setLoading]=useState(true);
   const [status,setStatus]=useState(""); const LIMIT=20;
   const [clientId,setClientId]=useState("");
-  const ready=useUrlReady(p=>setClientId(p.get("clientId")??""));
+  const ready=useUrlReady(p=>{ setClientId(p.get("clientId")??""); setStatus(p.get("status")??""); });
   const [convertDialog,setConvertDialog]=useState<{id:string;number:string;type:"invoice"|"proforma"}|null>(null);
   const [converting,setConverting]=useState(false);
   const me = useMe();
