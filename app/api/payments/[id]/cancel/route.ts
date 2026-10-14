@@ -35,7 +35,9 @@ export const POST = withAuth("payments", "delete", async (req: NextRequest, auth
       }], { session });
     }
     if (invoice) {
-      invoice.paidAmount = Math.max(0, (invoice.paidAmount || 0) - payment.amount);
+      const withheld = payment.withholdingAmount || 0;
+      invoice.paidAmount = Math.max(0, (invoice.paidAmount || 0) - payment.amount - withheld);
+      if (withheld) invoice.retenueSource = Math.max(0, (invoice.retenueSource || 0) - withheld);
       invoice.status = invoice.paidAmount <= 0 ? (invoice.dueDate && new Date(invoice.dueDate) < new Date() ? "overdue" : "sent") : "partial";
       await invoice.save({ session });
     }

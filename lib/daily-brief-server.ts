@@ -11,6 +11,8 @@ import { ExpenseReportModel } from "@/models/ExpenseReport";
 import { DevisModel } from "@/models/Devis";
 import { ProductStockModel } from "@/models/ProductStock";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
+import { AppelCandidatureModel } from "@/models/AppelCandidature";
+import { OPEN_APPEL_STATUSES, daysUntil } from "@/lib/appels";
 import { accountBalance } from "@/lib/treasury";
 import { formatMoney, formatDateLong } from "@/lib/format";
 import { rankBrief, plural, type BriefCandidate, type BriefItem } from "@/lib/daily-brief";
@@ -170,6 +172,23 @@ export async function briefCandidates(auth: TokenPayload, can: Can, now = new Da
         title: `Relancer ${plural(quotes.length, "devis")} avant expiration`,
         why: `${formatMoney(quotes.reduce((t, q) => t + q.totalTTC, 0))} d'offres en attente de réponse, la première expire dans ${first} jour${first > 1 ? "s" : ""}.`,
         href: "/devis?status=sent", cta: "Voir les devis" });
+    }
+  });
+
+  // Appels d'offres dont la date limite de dépôt approche (14 jours).
+  if (can("appels")) await safe(async () => {
+    const open = await AppelCandidatureModel.find({ tenantId: tid, status: { $in: OPEN_APPEL_STATUSES },
+      submissionDeadline: { $gte: new Date(new Date(now).setHours(0, 0, 0, 0)), $lte: new Date(now.getTime() + 14 * DAY) } })
+      .sort({ submissionDeadline: 1 }).select("title estimatedAmount submissionDeadline requiredDocuments")
+      .lean<Array<{ _id: unknown; title: string; estimatedAmount?: number; submissionDeadline: Date; requiredDocuments?: Array<{ provided: boolean }> }>>();
+    if (open.length) {
+      const first = open[0], left = daysUntil(first.submissionDeadline, now);
+      const missing = (first.requiredDocuments ?? []).filter(d => !d.provided).length;
+      const when = left === 0 ? "aujourd'hui" : left === 1 ? "demain" : `dans ${left} jours`;
+      out.push({ kind: "tender_deadline", amount: first.estimatedAmount || undefined, daysLeft: left,
+        title: open.length > 1 ? `Préparer ${plural(open.length, "dossier")} d'appel d'offres` : `Déposer « ${first.title} »`,
+        why: `Dépôt ${when}${open.length > 1 ? ` pour « ${first.title} »` : ""}${missing ? `, ${plural(missing, "pièce")} encore à réunir` : ", dossier complet"}.`,
+        href: open.length > 1 ? "/appels" : `/appels/${String(first._id)}`, cta: "Ouvrir le dossier" });
     }
   });
 

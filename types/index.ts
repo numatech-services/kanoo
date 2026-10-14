@@ -372,6 +372,7 @@ export interface IDevis {
 }
 
 export interface IPayment {
+  withholdingAmount?: number;
   _id: Types.ObjectId;
   tenantId: Types.ObjectId;
   invoiceId: Types.ObjectId;

@@ -3,19 +3,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Clock, Upload, Download, Trash2, Plus, Check, ArrowRight, Ban, Trophy, X } from "lucide-react";
+import { Clock, Upload, Download, Trash2, Plus, Check, ArrowRight, Ban, Trophy, X, Briefcase } from "lucide-react";
 import { APPEL_STATUS, deadlineInfo } from "../page";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import {apiJson, apiSend } from "@/lib/api-client";
+import { formatMoney } from "@/lib/format";
 interface ReqDoc { _id?: string; label: string; provided: boolean }
 interface Doc { _id: string; name?: string; dataUri?: string }
 interface Appel {
   _id: string; title: string; organism?: string; reference?: string; status: string;
   submissionDeadline?: string; estimatedAmount: number;
   requiredDocuments: ReqDoc[]; documents: Doc[]; notes?: string;
+  contractId?: { _id: string; reference?: string; title?: string } | null;
+  projectId?: { _id: string; name?: string } | null;
 }
 
 const NEXT: Record<string, { to: string; label: string }> = {
@@ -25,16 +28,45 @@ const NEXT: Record<string, { to: string; label: string }> = {
 
 export default function AppelDetailPage() {
   // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
-  const canDelete = meCanDo(useMe(), "appels", "delete");
+  const me = useMe();
+  const canDelete = meCanDo(me, "appels", "delete");
+  const canContract = meCanDo(me, "contracts", "create");
   const { id } = useParams();
   const router = useRouter();
   const [a, setA] = useState<Appel | null>(null);
   const [newDoc, setNewDoc] = useState("");
+  const [clients, setClients] = useState<Array<{ _id: string; name: string }>>([]);
+  const [award, setAward] = useState({ amount: "", clientId: "", project: true });
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
     apiJson(`/api/appels/${id}`).then(d => setA(d.data || d));
   }, [id]);
   useEffect(() => { load(); }, [load]);
+  const awardable = !!a && ["submitted", "won"].includes(a.status) && !a.contractId && canContract;
+  useEffect(() => {
+    if (!awardable) return;
+    apiJson("/api/clients?limit=100&isActive=true").then(d => {
+      const list: Array<{ _id: string; name: string }> = d?.data?.items ?? [];
+      setClients(list);
+      const match = list.find(c => c.name.trim().toLowerCase() === (a?.organism || "").trim().toLowerCase());
+      setAward(w => ({ ...w, amount: w.amount || String(a?.estimatedAmount || ""), clientId: w.clientId || match?._id || "" }));
+    });
+  }, [awardable, a?.organism, a?.estimatedAmount]);
+
+  async function toContract() {
+    const amount = Math.round(Number(award.amount.replace(/\s/g, "")) || 0);
+    if (!(amount > 0)) { showToast("Indiquez le montant attribué.", "warning"); return; }
+    if (!award.clientId && !a!.organism) { showToast("Choisissez le client du marché.", "warning"); return; }
+    if (!(await confirmDialog({ title: "Créer le marché ?", message: `Marché client de ${formatMoney(amount)} HT${award.project ? ", avec son projet d'exécution" : ""}. L'appel passe à « Gagné ».`, confirmLabel: "Créer le marché" }))) return;
+    setBusy(true);
+    try {
+      const res = await apiSend("POST", `/api/appels/${id}/to-contract`, { amount, clientId: award.clientId || undefined, createProject: award.project });
+      if (!res.ok) { showToast(res.data?.error || "Création refusée.", "error"); return; }
+      showToast(`Marché ${res.data.data.reference ?? ""} créé${res.data.data.newClient ? ", client ajouté" : ""}.`, "success");
+      router.push(`/contracts/${res.data.data.contractId}`);
+    } finally { setBusy(false); }
+  }
 
   async function patch(body: Record<string, unknown>) {
     const res = await apiSend("PATCH", `/api/appels/${id}`, body);
@@ -93,6 +125,34 @@ export default function AppelDetailPage() {
           {canDelete && <button onClick={del} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50">Supprimer</button>}
         </div>
       </div>
+
+      {a.contractId && (
+        <div className="surface-card p-4 flex flex-wrap items-center gap-3 text-sm">
+          <Briefcase size={16} className="text-pos" />
+          <span className="text-ink">Devenu le marché <Link href={`/contracts/${a.contractId._id}`} className="text-section font-semibold hover:underline">{a.contractId.reference || a.contractId.title}</Link></span>
+          {a.projectId && <span className="text-ink2">· projet <Link href={`/projects/${a.projectId._id}`} className="text-section hover:underline">{a.projectId.name}</Link></span>}
+        </div>
+      )}
+
+      {awardable && (
+        <section className="surface-card p-5 space-y-3 border-pos/30">
+          <h2 className="font-semibold text-ink inline-flex items-center gap-2"><Trophy size={16} className="text-pos" /> {a.status === "won" ? "Passer ce marché en exécution" : "Attribué ? Créez le marché"}</h2>
+          <p className="text-xs text-ink2">Le contrat client et son projet d&apos;exécution sont créés d&apos;un coup : les dépenses s&apos;y imputent et les factures s&apos;y rattachent.</p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <label className="text-sm text-ink">Montant attribué (HT)
+              <input inputMode="numeric" className="w-full mt-1 p-2 border border-line rounded-lg text-sm text-right num bg-surface" value={award.amount} onChange={e => setAward(w => ({ ...w, amount: e.target.value }))} />
+            </label>
+            <label className="text-sm text-ink">Client
+              <select className="w-full mt-1 p-2 border border-line rounded-lg text-sm bg-surface" value={award.clientId} onChange={e => setAward(w => ({ ...w, clientId: e.target.value }))}>
+                {a.organism ? <option value="">{`${a.organism} (créé comme client)`}</option> : <option value="">— Choisir —</option>}
+                {clients.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+              </select>
+            </label>
+          </div>
+          <label className="text-sm text-ink2 inline-flex items-center gap-2"><input type="checkbox" className="accent-section" checked={award.project} onChange={e => setAward(w => ({ ...w, project: e.target.checked }))} /> Créer le projet d&apos;exécution</label>
+          <div><button onClick={toContract} disabled={busy} className="px-4 h-10 rounded-lg bg-pos text-white text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-60"><Briefcase size={15} /> {busy ? "…" : "Créer le marché"}</button></div>
+        </section>
+      )}
 
       {/* Date limite */}
       {dl && (

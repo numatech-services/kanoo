@@ -14,6 +14,8 @@ import { SubscriptionPurchaseModel } from "@/models/SubscriptionPurchase";
 import { SubscriptionSaleModel } from "@/models/SubscriptionSale";
 import { AdminDocumentModel } from "@/models/AdminDocument";
 import { LetterModel } from "@/models/Letter";
+import { AppelCandidatureModel } from "@/models/AppelCandidature";
+import { OPEN_APPEL_STATUSES, daysUntil, reminderDue, reminderMessage } from "@/lib/appels";
 import { courrierReminderPlan, courrierReminderEmail, DUE_SOON_DAYS, type ReminderCandidate } from "@/lib/courriers";
 import { sendEmail } from "@/lib/email";
 import { buildAlerts, type PurchaseLike, type SaleLike } from "@/lib/subscriptions";
@@ -230,6 +232,30 @@ export const CRON_JOBS: CronJob[] = [
         }
       }
       return `${sent} notification(s) pour ${byTenant.size} organisation(s)`;
+    },
+  },
+  {
+    id: "tender-deadlines", label: "Dates limites des appels d'offres",
+    cadence: "daily", schedule: "45 7 * * *",
+    run: async () => {
+      const now = new Date();
+      const open = await AppelCandidatureModel.find({ status: { $in: OPEN_APPEL_STATUSES },
+        submissionDeadline: { $gte: new Date(new Date(now).setHours(0, 0, 0, 0)), $lte: new Date(now.getTime() + 8 * 86400000) } })
+        .lean<Array<{ _id: Id; tenantId: Id; title: string; reference?: string; organism?: string; submissionDeadline: Date; requiredDocuments?: Array<{ provided: boolean }>; createdBy?: Id }>>();
+      let sent = 0;
+      for (const appel of open.filter(a => reminderDue(a.submissionDeadline, now))) {
+        const left = daysUntil(appel.submissionDeadline, now);
+        const admins = await getAdmins(appel.tenantId, ["pme_admin", "pme_manager", "svc_admin", "admin_ordonnateur"]);
+        // Le responsable du dossier aussi, même s'il n'est pas dirigeant.
+        const users = new Map(admins.map(a => [String(a._id), a._id]));
+        if (appel.createdBy) users.set(String(appel.createdBy), appel.createdBy);
+        for (const userId of users.values()) {
+          await notify(appel.tenantId, userId, "tender_deadline", left === 0 ? "Appel d'offres — dépôt aujourd'hui" : "Appel d'offres — date limite proche",
+            reminderMessage(appel, left), "appels", appel._id);
+          sent++;
+        }
+      }
+      return `${sent} rappel(s) d'appel d'offres`;
     },
   },
   {

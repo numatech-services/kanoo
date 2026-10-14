@@ -16,6 +16,7 @@ export function notificationHref(n: { type?: string; linkedTo?: string; linkedId
     case "crm_followup": return "/crm";
     case "subscription_alert": return "/abonnements";
     case "fiscal_reminder": return "/fiscalite";
+    case "tender_deadline": return id ? `/appels/${id}` : "/appels";
   }
   switch (n.linkedTo) {
     case "invoices": return id ? `/invoices/${id}` : "/invoices";

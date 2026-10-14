@@ -3,6 +3,7 @@ import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, created, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { reverseEntry } from "@/lib/accounting-reversal";
+import { OPENING_REFERENCE, resetTreasuryOpening } from "@/lib/opening-balances";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -18,12 +19,18 @@ export const POST = withAuth("accountingEntries", "delete", async (req: NextRequ
   if (!reason) return badRequest("Indiquez le motif de l'extourne.");
   const e = await AccountingEntryModel.findOne({ _id: params.id, ...tenantFilter(auth) }).select("linkedDocType reference").lean<{ linkedDocType?: string; reference: string } | null>();
   if (!e) return notFound();
-  if (e.linkedDocType && e.linkedDocType !== "manual") {
+  // La reprise des soldes d'ouverture s'extourne ici pour pouvoir être refaite.
+  const opening = e.reference === OPENING_REFERENCE && e.linkedDocType === "closing";
+  if (e.linkedDocType && e.linkedDocType !== "manual" && !opening) {
     return badRequest("Écriture produite par un document : annulez le document (facture, achat, bulletin…) pour l'extourner.");
   }
-  const mirror = await withTransaction(session => reverseEntry({
-    tenantId: auth.tenantId, userId: auth.userId, entryId: params.id, reason, date: body.date ? new Date(body.date) : undefined,
-  }, session));
+  const mirror = await withTransaction(async session => {
+    const m = await reverseEntry({
+      tenantId: auth.tenantId, userId: auth.userId, entryId: params.id, reason, date: body.date ? new Date(body.date) : undefined,
+    }, session);
+    if (opening) await resetTreasuryOpening(auth.tenantId, params.id, session);
+    return m;
+  });
   await logAudit(auth, "UPDATE", "accountingEntries", { resourceId: params.id, metadata: { reversed: true, reason } });
   return created(mirror);
 });

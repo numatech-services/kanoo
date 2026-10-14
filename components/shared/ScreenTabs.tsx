@@ -12,6 +12,7 @@ const GROUPS: Record<string, { label: string; items: TabItem[] }> = {
     { key: "etats", label: "États comptables", href: "/accounting/etats" },
     { key: "lettrage", label: "Lettrage", href: "/accounting/lettrage" },
     { key: "plan", label: "Plan comptable", href: "/accounting/plan" },
+    { key: "reprise", label: "Soldes d'ouverture", href: "/accounting/reprise" },
   ]},
   fiscalite: { label: "Écrans de la fiscalité", items: [
     { key: "home", label: "Calendrier", href: "/fiscalite" },

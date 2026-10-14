@@ -57,6 +57,8 @@ const ContractSchema = new Schema({
 
   // Exécution : devis accepté d'origine et projet qui porte les dépenses imputées.
   devisId: { type: Schema.Types.ObjectId, ref: "Devis" },
+  /** Appel d'offres gagné dont le marché est issu. */
+  appelId: { type: Schema.Types.ObjectId, ref: "AppelCandidature" },
   projectId: { type: Schema.Types.ObjectId, ref: "Project" },
 
   // Factures liées

@@ -29,6 +29,7 @@ export const SYSCOHADA_ACCOUNTS: DefaultAccount[] = [
   { code: "335000", label: "Emballages" },
   // Classe 4 — Tiers
   { code: "401100", label: "Fournisseurs" },
+  { code: "449200", label: "État — retenues à la source subies (acomptes d'impôt)" },
   { code: "401000", label: "Fournisseurs (général)" },
   { code: "408000", label: "Fournisseurs, factures non parvenues" },
   { code: "409000", label: "Fournisseurs débiteurs, avances versées" },

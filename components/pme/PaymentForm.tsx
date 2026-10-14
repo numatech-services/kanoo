@@ -34,6 +34,8 @@ const METHOD_ACCOUNT_TYPE: Record<string, string> = {
 export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: PaymentFormProps) {
   const today = new Date().toISOString().slice(0, 10);
   const [amount, setAmount] = useState(remainingAmount);
+  // Retenue à la source subie : le client verse le net, le reste part à l'État.
+  const [withholding, setWithholding] = useState(0);
   const [method, setMethod] = useState("bank_transfer");
   const [reference, setReference] = useState("");
   const [date, setDate] = useState(today);
@@ -68,15 +70,15 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
       setError("Choisissez le compte qui a reçu l'argent : il alimente le solde de trésorerie.");
       return;
     }
-    if (amount <= 0 || amount > remainingAmount + 1) {
-      setError(`Montant entre 1 et ${remainingAmount.toLocaleString("fr-FR")} FCFA`);
+    if (amount <= 0 || withholding < 0 || amount + withholding > remainingAmount + 1) {
+      setError(`Montant encaissé + retenue : entre 1 et ${remainingAmount.toLocaleString("fr-FR")} FCFA`);
       return;
     }
     setSaving(true);
     setError("");
     try {
       await onSave({
-        invoiceId, amount, method, reference, date, notes, status,
+        invoiceId, amount, method, reference, date, notes, status, withholdingAmount: withholding,
         ...(treasuryAccountId ? { treasuryAccountId } : {}),
       });
     } catch (err) {
@@ -97,10 +99,27 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
         <span className="num font-bold text-warn">{remainingAmount.toLocaleString("fr-FR")} FCFA</span>
       </div>
 
-      <FormField label="Montant encaissé (FCFA)" required>
-        <input type="number" className={inputCls} value={amount} min={1} max={remainingAmount} required
-          onChange={e => setAmount(parseFloat(e.target.value) || 0)} />
-      </FormField>
+      <div className="grid grid-cols-2 gap-4">
+        <FormField label="Montant encaissé (FCFA)" required>
+          <input type="number" className={inputCls} value={amount} min={1} max={remainingAmount} required
+            onChange={e => setAmount(parseFloat(e.target.value) || 0)} />
+        </FormField>
+        <FormField label="Retenue à la source subie" hint="Marchés publics : part retenue par le client pour l'État.">
+          <input type="number" className={inputCls} value={withholding || ""} min={0} placeholder="0"
+            onChange={e => {
+              const w = Math.max(0, parseFloat(e.target.value) || 0);
+              setWithholding(w);
+              // Le reste à payer se règle par le net reçu plus la retenue.
+              if (w > 0 && amount + w > remainingAmount) setAmount(Math.max(0, remainingAmount - w));
+            }} />
+        </FormField>
+      </div>
+      {withholding > 0 && (
+        <p className="text-xs text-ink2 -mt-2">
+          Net reçu <strong className="num">{amount.toLocaleString("fr-FR")} FCFA</strong> + retenue <strong className="num">{withholding.toLocaleString("fr-FR")} FCFA</strong> = <strong className="num">{(amount + withholding).toLocaleString("fr-FR")} FCFA</strong> réglés.
+          La retenue est enregistrée comme créance sur l&apos;État (imputable sur l&apos;IS/BIC).
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Mode de paiement" required>

@@ -8,6 +8,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
 import { apiJson, apiSend } from "@/lib/api-client";
 import { TreasuryAccountSelect } from "@/components/shared/TreasuryAccountSelect";
+import { SufferedWithholdings } from "@/components/fiscal/SufferedWithholdings";
 interface Retenue { _id:string; type:string; beneficiaire:string; nifBeneficiaire?:string; montantBrut:number; montantRetenue:number; montantNet:number; article:string; date:string; isPaid:boolean; }
 interface TypeInfo { key:string; taux:number; description:string; article:string; }
 
@@ -83,6 +84,7 @@ export default function RetenuesPage() {
       </div>
 
       <DataTable columns={columns} data={retenues} loading={loading} keyExtractor={r=>r._id} emptyMessage="Aucune retenue à la source enregistrée"/>
+      <SufferedWithholdings />
 
       <Modal open={modalOpen} onClose={()=>setModalOpen(false)} title="Enregistrer une retenue à la source" size="lg">
         <form onSubmit={handleCreate} className="space-y-4">

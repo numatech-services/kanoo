@@ -58,9 +58,12 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
   const amount = Number(body.amount);
   if (!(amount > 0)) return badRequest("Montant invalide.");
   if (!METHODS.includes(body.method)) return badRequest("Mode de paiement invalide.");
+  // Retenue à la source subie (marchés publics…) : le client a versé le net.
+  const withholdingAmount = Math.round(Number(body.withholdingAmount) || 0);
+  if (withholdingAmount < 0) return badRequest("Retenue invalide.");
   const remaining = invoiceDue(invoice);
-  if (amount > remaining + 1) {
-    return badRequest(`Montant maximum payable : ${remaining} FCFA (reste à payer)`);
+  if (amount + withholdingAmount > remaining + 1) {
+    return badRequest(`Encaissement et retenue dépassent le reste à payer (${remaining} FCFA).`);
   }
 
   // « pending » = promesse enregistrée, sans effet comptable ; « effective » =
@@ -80,7 +83,7 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
   const result = await withTransaction(async (session) => {
     const [payment] = await PaymentModel.create(
       [{
-        invoiceId: invoice._id, amount, method: body.method, date, status,
+        invoiceId: invoice._id, amount, method: body.method, date, status, withholdingAmount,
         reference: body.reference ? String(body.reference).slice(0, 120) : undefined,
         notes: body.notes ? String(body.notes).slice(0, 1000) : undefined,
         ...(treasuryAccountId ? { treasuryAccountId } : {}),
@@ -94,7 +97,7 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
 
   await logAudit(auth, "PAYMENT", "payments", {
     resourceId: result._id.toString(),
-    after: { invoiceId: body.invoiceId, amount, method: body.method, status },
+    after: { invoiceId: body.invoiceId, amount, withholdingAmount, method: body.method, status },
   });
 
   return created(result);

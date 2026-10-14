@@ -18,13 +18,20 @@ export function invoiceDue(inv: { totalTTC: number; paidAmount?: number; credite
   return Math.max(0, Math.round(inv.totalTTC - (inv.creditedAmount || 0) - (inv.paidAmount || 0)));
 }
 
+/** Retenues à la source subies sur les encaissements : acomptes d'impôt sur l'État. */
+export const WITHHOLDING_SUFFERED = { accountCode: "449200", accountLabel: "État — retenues à la source subies" };
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function applyPaymentEffects(payment: any, invoice: any, auth: TokenPayload, session: any) {
   const amount = payment.amount;
+  // Retenue subie : le client a payé le net ; la facture est soldée du brut, la
+  // retenue devient une créance sur l'État (4492), imputable sur l'IS/BIC.
+  const withheld = Math.round(payment.withholdingAmount || 0);
   // Un règlement reçu sur un brouillon vaut émission : la facture est
   // comptabilisée avant que son règlement ne solde le compte client.
   if (invoice.status === "draft") await issueInvoice({ tenantId: auth.tenantId, userId: auth.userId }, invoice, session);
-  invoice.paidAmount += amount;
+  invoice.paidAmount += amount + withheld;
+  if (withheld > 0) invoice.retenueSource = (invoice.retenueSource || 0) + withheld;
   invoice.status = invoiceDue(invoice) <= 1 ? "paid" : "partial";
   await invoice.save({ session });
 
@@ -39,7 +46,8 @@ export async function applyPaymentEffects(payment: any, invoice: any, auth: Toke
     label: `Règlement facture ${invoice.number}`,
     lines: [
       { accountCode: ledger.accountCode, accountLabel: ledger.accountLabel, debit: amount, credit: 0 },
-      { accountCode: "411000", accountLabel: "Clients", debit: 0, credit: amount, thirdPartyId: invoice.clientId },
+      ...(withheld > 0 ? [{ ...WITHHOLDING_SUFFERED, debit: withheld, credit: 0, thirdPartyId: invoice.clientId }] : []),
+      { accountCode: "411000", accountLabel: "Clients", debit: 0, credit: amount + withheld, thirdPartyId: invoice.clientId },
     ],
     linkedDocType: "payment", linkedDocId: payment._id, createdBy: auth.userId,
   }], { session });

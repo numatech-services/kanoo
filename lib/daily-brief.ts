@@ -14,7 +14,7 @@
 export type BriefKind =
   | "treasury_shortfall" | "vat_deadline" | "overdue_receivables" | "supplier_overdue" | "supplier_due"
   | "admin_doc_expired" | "admin_doc_expiring" | "draft_invoices" | "approvals_pending"
-  | "expenses_to_validate" | "quotes_expiring" | "stock_low" | "desk_unlinked";
+  | "expenses_to_validate" | "quotes_expiring" | "stock_low" | "desk_unlinked" | "tender_deadline";
 
 export interface BriefCandidate {
   kind: BriefKind;
@@ -37,6 +37,7 @@ const WEIGHT: Record<BriefKind, number> = {
   overdue_receivables: 6,
   supplier_overdue: 6,
   admin_doc_expired: 6,
+  tender_deadline: 6,
   supplier_due: 4,
   draft_invoices: 4,
   approvals_pending: 4,
@@ -49,7 +50,7 @@ const WEIGHT: Record<BriefKind, number> = {
 
 const TONE: Partial<Record<BriefKind, BriefItem["tone"]>> = {
   treasury_shortfall: "neg", vat_deadline: "warn", overdue_receivables: "neg", supplier_overdue: "neg",
-  admin_doc_expired: "neg", supplier_due: "warn", admin_doc_expiring: "warn",
+  admin_doc_expired: "neg", supplier_due: "warn", admin_doc_expiring: "warn", tender_deadline: "warn",
 };
 
 export function scoreCandidate(c: BriefCandidate): number {
