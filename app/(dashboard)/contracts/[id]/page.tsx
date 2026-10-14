@@ -159,12 +159,12 @@ export default function ContractDetailPage() {
             <tbody>
               {finance.invoices.map(i => (
                 <tr key={i._id} className="border-t border-line">
-                  <td><Link href={`/invoices/${i._id}`} className="font-mono text-section hover:underline">{i.number}</Link></td>
+                  <td className="whitespace-nowrap"><Link href={`/invoices/${i._id}`} className="font-mono text-section hover:underline">{i.number}</Link></td>
                   <td>{i.documentType === "credit_note" ? <Pill tone="warn">Avoir</Pill> : i.kind === "deposit" ? <Pill tone="info">Acompte</Pill> : <Pill tone="mute">Facture</Pill>}</td>
                   <td className="text-xs text-ink2">{new Date(i.issueDate).toLocaleDateString("fr-FR")}</td>
-                  <td className="text-right font-mono">{formatMoney(i.totalHT)}</td>
-                  <td className="text-right font-mono">{formatMoney(i.totalTTC)}</td>
-                  <td className="text-right font-mono">{i.documentType === "credit_note" ? "—" : formatMoney(i.paidAmount)}</td>
+                  <td className="text-right font-mono whitespace-nowrap">{formatMoney(i.totalHT)}</td>
+                  <td className="text-right font-mono whitespace-nowrap">{formatMoney(i.totalTTC)}</td>
+                  <td className="text-right font-mono whitespace-nowrap">{i.documentType === "credit_note" ? "—" : formatMoney(i.paidAmount)}</td>
                   <td><StatusBadge status={i.status} /></td>
                 </tr>
               ))}
