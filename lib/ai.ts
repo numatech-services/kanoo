@@ -17,7 +17,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 
-const AI_MODEL = process.env.AI_MODEL || "claude-opus-5";
+const AI_MODEL = process.env.AI_MODEL || "claude-opus-5-5";
 const AI_MAX_TOKENS = Number(process.env.AI_MAX_TOKENS || "6000");
 
 /** L'assistant est-il configuré (clé présente) ? */
@@ -134,17 +134,26 @@ export async function generateDraft(req: DraftRequest): Promise<DraftResult> {
   // Pensée adaptative : Claude décide de réfléchir davantage pour un rapport
   // chiffré, moins pour une lettre simple. Effort « medium » : bon compromis
   // coût/qualité pour de la rédaction.
-  const response = await client().messages.create({
+  // Repli côté serveur : si le modèle décline la demande, l'API la rejoue
+  // sur un modèle de secours choisi selon le motif, dans le même appel.
+  const response = await client().beta.messages.create({
     model: AI_MODEL,
     max_tokens: AI_MAX_TOKENS,
     thinking: { type: "adaptive" },
     output_config: { effort: "medium" },
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
     system: systemPrompt(req),
     messages: [{ role: "user", content: userPrompt(req) }],
   });
 
+  // Toute la chaîne a décliné : le dire, plutôt que « aucun texte ».
+  if (response.stop_reason === "refusal") {
+    throw new Error("L'assistant a décliné cette demande. Reformulez l'objet ou les consignes.");
+  }
+
   const body = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
     .map((b) => b.text)
     .join("")
     .trim();

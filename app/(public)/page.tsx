@@ -232,11 +232,11 @@ export default function HomePage() {
       <section className="max-w-6xl mx-auto px-5 sm:px-6 py-6">
         <div className="rounded-2xl bg-[#141A44] text-[#EEF1FF] overflow-hidden grid lg:grid-cols-2 gap-8 items-center p-8 sm:p-12">
           <div>
-            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#E9A45C] bg-white/5 px-3 py-1.5 rounded-full">
+            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#96CDFF] bg-white/5 px-3 py-1.5 rounded-full">
               Activités &amp; billetterie
             </span>
             <h2 className="font-display font-semibold text-[clamp(1.8rem,4vw,2.6rem)] leading-tight mt-4">
-              De l&apos;invitation au <em className="text-[#E9A45C] italic">pointage</em>.
+              De l&apos;invitation au <em className="text-[#96CDFF] italic">pointage</em>.
             </h2>
             <p className="text-[#AEB6D6] mt-3 max-w-[46ch]">
               Créez un événement, vendez des billets en mobile money, envoyez le billet par
@@ -252,7 +252,7 @@ export default function HomePage() {
                 </span>
               ))}
             </div>
-            <Link href="/fonctionnalites#associations" className="inline-flex items-center gap-2 mt-7 text-[#E9A45C] font-semibold hover:underline">
+            <Link href="/fonctionnalites#associations" className="inline-flex items-center gap-2 mt-7 text-[#96CDFF] font-semibold hover:underline">
               En savoir plus <ArrowRight size={16} />
             </Link>
           </div>
@@ -260,7 +260,7 @@ export default function HomePage() {
             <div className="w-40 h-40 rounded-lg bg-[#EEF1FF] grid place-items-center">
               <QrCode size={116} className="text-[#141A44]" />
             </div>
-            <p className="text-xs text-[#8b8069] mt-3">Billet nominatif · code de secours</p>
+            <p className="text-xs text-[#8E97BD] mt-3">Billet nominatif · code de secours</p>
           </div>
         </div>
       </section>

@@ -69,7 +69,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </div>
         </div>
         <div className="border-t border-white/10">
-          <div className="max-w-6xl mx-auto px-6 py-4 text-xs text-[#8b8069]">© {year} Kanoo — Numatech Services · Niamey, Niger</div>
+          <div className="max-w-6xl mx-auto px-6 py-4 text-xs text-[#8E97BD]">© {year} Kanoo — Numatech Services · Niamey, Niger</div>
         </div>
       </footer>
     </div>

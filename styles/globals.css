@@ -903,7 +903,15 @@
   [data-space="pme"] [data-section], [data-space="pme"][data-section] { --s-accent: 124 155 232; --s-soft: 27 37 59; }
 }
 
-:root { --c-page: 238 240 245; --c-page-a: 230 233 240; --c-page-b: 232 230 240; --r-btn: .5rem; }
+:root { --c-page: 238 240 245; --c-page-a: 230 233 240; --c-page-b: 232 230 240; --r-btn: .5rem;
+  /* Dégradé de marque par défaut (pages publiques, espace PME) : bleu de la charte. */
+  --nav-a: 0 130 235; --nav-b: 47 89 223; --nav-fg: 255 255 255; }
+/* Associations et administrations : la pilule active reprend la couleur de leur
+   barre (claire sur fond sombre), sans dégradé. Déclaré sur l'élément même, la
+   référence se résout avec les valeurs de l'espace. */
+[data-space="association"], [data-space="administration"] {
+  --nav-a: var(--c-chrome-active-bg); --nav-b: var(--c-chrome-active-bg); --nav-fg: var(--c-chrome-active-fg);
+}
 @media (prefers-color-scheme: dark) { :root { --c-page: 10 12 16; --c-page-a: 18 22 30; --c-page-b: 20 18 28; } }
 
 @layer components {
@@ -921,8 +929,8 @@
   }
   /* Dégradé de marque : pilule de menu active, bouton d'action forte. */
   /* Hors espace PME, pas de dégradé déclaré : la pilule reprend la couleur active de l'espace. */
-  .grad-brand { background: linear-gradient(135deg, rgb(var(--nav-a, var(--c-chrome-active-bg))), rgb(var(--nav-b, var(--c-chrome-active-bg)))); color: rgb(var(--c-chrome-active-fg)); }
-  .grad-brand-glow { box-shadow: 0 10px 22px -10px rgb(var(--nav-b, var(--c-chrome-active-bg)) / .8); }
+  .grad-brand { background: linear-gradient(135deg, rgb(var(--nav-a)), rgb(var(--nav-b))); color: rgb(var(--nav-fg)); }
+  .grad-brand-glow { box-shadow: 0 10px 22px -10px rgb(var(--nav-b) / .8); }
   /* Texte en dégradé (titre du bandeau d'accueil). */
   .text-grad-brand {
     background: linear-gradient(90deg, rgb(0 127 225), rgb(71 71 221));

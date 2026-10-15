@@ -18,7 +18,7 @@ import { apiSend } from "@/lib/api-client";
  * Ce garde est côté client (confort et sécurité d'un poste partagé). La borne
  * dure reste l'expiration du jeton côté serveur.
  */
-const IDLE_MINUTES = Number(process.env.NEXT_PUBLIC_IDLE_TIMEOUT_MINUTES || "3");
+const IDLE_MINUTES = Number(process.env.NEXT_PUBLIC_IDLE_TIMEOUT_MINUTES || "2");
 const WARN_SECONDS = 60;
 const IDLE_MS = Math.max(60_000, IDLE_MINUTES * 60_000);
 const ACTIVITY_KEY = "kanoo.lastActivity";
