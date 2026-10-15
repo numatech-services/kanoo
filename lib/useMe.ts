@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { rolesCanPerform, effectiveRoles } from "@/lib/role-resources";
 import type { UserRole } from "@/types";
 
@@ -15,17 +15,23 @@ export interface Me { user: MeUser | null; tenant: MeTenant | null; resources: s
 // même si plusieurs composants (barre latérale, en-tête, coque) en ont besoin.
 let cache: Me | null = null;
 let inflight: Promise<Me> | null = null;
+/** Cache périmé (invalidateMe) : encore affiché, mais relu au prochain appel. */
+let stale = false;
+const EMPTY: Me = { user: null, tenant: null, resources: [] };
+const listeners = new Set<() => void>();
+const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
 
 function fetchMe(): Promise<Me> {
-  if (cache) return Promise.resolve(cache);
+  if (cache && !stale) return Promise.resolve(cache);
   if (!inflight) {
     inflight = fetch("/api/auth/me", { credentials: "include" })
       // Un refus (session expirée…) n'est pas mis en cache comme « aucun droit » :
       // la lecture suivante réessaie.
       .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
       .then((d) => {
-        cache = { user: d.data?.user ?? null, tenant: d.data?.tenant ?? null, resources: d.data?.resources ?? [] };
-        return cache;
+        const m: Me = { user: d.data?.user ?? null, tenant: d.data?.tenant ?? null, resources: d.data?.resources ?? [] };
+        cache = m; stale = false; listeners.forEach(l => l());
+        return m;
       })
       .catch(() => ({ user: null, tenant: null, resources: [] }))
       .finally(() => { inflight = null; });
@@ -52,18 +58,30 @@ export function meCanDo(me: Pick<Me, "user">, resource: string, action: "create"
   return rolesCanPerform(roles, resource, action, u.allowedResources, u.roleLevels as never);
 }
 
-/** Vide le cache — à appeler après une modification du profil ou de l'organisation. */
-export function invalidateMe() { cache = null; }
+/** Relit le profil — à appeler après une modification du profil ou de l'organisation. */
+export function invalidateMe() {
+  // L'ancien profil reste affiché le temps de la relecture, puis tous les
+  // composants abonnés (en-tête, barre latérale…) reçoivent le nouveau.
+  stale = true;
+  void fetchMe();
+}
 
+/**
+ * Profil de l'utilisateur connecté. Pendant l'hydratation, l'instantané est
+ * toujours vide, comme au rendu serveur : un écran sous <Suspense> s'hydrate
+ * après la coque, qui a souvent déjà rempli le cache — partir du cache
+ * affichait alors des boutons absents du HTML serveur (erreur React #418).
+ * React rend aussitôt après avec le cache.
+ */
 export function useMe(): Me & { loading: boolean } {
-  const [me, setMe] = useState<Me>(cache ?? { user: null, tenant: null, resources: [] });
-  const [loading, setLoading] = useState(!cache);
+  const me = useSyncExternalStore(subscribe, () => cache ?? EMPTY, () => EMPTY);
+  const [settled, setSettled] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    fetchMe().then((m) => { if (alive) { setMe(m); setLoading(false); } });
+    fetchMe().then(() => { if (alive) setSettled(true); });
     return () => { alive = false; };
   }, []);
 
-  return { ...me, loading };
+  return { ...me, loading: me === EMPTY && !settled };
 }
