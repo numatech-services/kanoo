@@ -8,7 +8,7 @@ import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-const STATUS = ["identified", "preparing", "submitted", "won", "lost", "cancelled"];
+const STATUS = ["identified", "preparing", "submitted", "evaluation", "won", "lost", "cancelled"];
 const SCALARS = ["title", "organism", "reference", "estimatedAmount", "notes", "requiredDocuments", "documents"];
 
 export const GET = withAuth("appels", "read", async (_req: NextRequest, auth: TokenPayload, params) => {

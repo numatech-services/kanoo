@@ -69,7 +69,9 @@ describe("Menu en espaces", () => {
     const palette = read("components/shared/CommandPalette.tsx");
     expect(palette).toMatch(/NAV_MAP\[profile\]\.flatMap/);
     expect(palette).not.toMatch(/const COMMANDS: Command\[\]/);
-    expect(read("app/(dashboard)/layout.tsx")).toMatch(/<CommandPalette profile=\{profile\} \/>/);
+    // La coque commune transmet le profil de l'organisation à la palette.
+    expect(read("app/(dashboard)/layout.tsx")).toMatch(/<AppShell [^>]*profile=\{profile\}/);
+    expect(read("components/layout/AppShell.tsx")).toMatch(/<CommandPalette profile=\{profile\} \/>/);
   });
 });
 

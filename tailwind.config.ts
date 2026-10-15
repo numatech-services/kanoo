@@ -57,13 +57,18 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ["Hanken Grotesk", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Arial", "sans-serif"],
-        display: ["Fraunces", "Georgia", "serif"],
-        mono: ["SF Mono", "ui-monospace", "Menlo", "Consolas", "monospace"],
+        sans: ["Plus Jakarta Sans", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Arial", "sans-serif"],
+        display: ["Plus Jakarta Sans", "-apple-system", "Segoe UI", "sans-serif"],
+        mono: ["JetBrains Mono", "SF Mono", "ui-monospace", "Menlo", "Consolas", "monospace"],
+        hand: ["Caveat", "cursive"],
       },
       boxShadow: {
-        soft: "0 14px 34px -12px rgba(23,19,14,.28)",
-        sm: "0 1px 2px rgba(23,19,14,.06)",
+        soft: "0 14px 34px -12px rgba(30,40,80,.22)",
+        sm: "0 1px 2px rgba(30,40,80,.06)",
+        // Coque de l'application et cartes de la charte v5 : ombres longues et bleutées.
+        shell: "0 30px 80px -30px rgba(44,60,130,.35)",
+        card: "0 1px 2px rgba(30,40,80,.04), 0 12px 32px -18px rgba(44,60,130,.22)",
+        glow: "0 10px 22px -10px rgba(47,89,223,.75)",
       },
     },
   },

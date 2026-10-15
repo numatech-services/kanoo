@@ -117,7 +117,7 @@ export default function HomePage() {
             même quand le réseau flanche.
           </p>
           <div className="flex flex-wrap items-center gap-3 mt-7">
-            <Link href="/souscrire" className="inline-flex items-center gap-2 h-12 px-6 rounded-full bg-accent text-white font-semibold hover:bg-accent-600 transition-colors shadow-[0_10px_24px_-8px_rgba(194,98,14,.65)]">
+            <Link href="/souscrire" className="inline-flex items-center gap-2 h-12 px-6 rounded-full bg-accent text-white font-semibold hover:bg-accent-600 transition-colors shadow-[0_10px_24px_-8px_rgba(47,89,223,.65)]">
               Démarrer gratuitement <ArrowRight size={17} />
             </Link>
             <Link href="/demo" className={buttonClass("secondary", "md")}>
@@ -230,7 +230,7 @@ export default function HomePage() {
 
       {/* ── Billetterie ───────────────────────────────────────────────── */}
       <section className="max-w-6xl mx-auto px-5 sm:px-6 py-6">
-        <div className="rounded-2xl bg-[#17130E] text-[#F5EEE1] overflow-hidden grid lg:grid-cols-2 gap-8 items-center p-8 sm:p-12">
+        <div className="rounded-2xl bg-[#141A44] text-[#EEF1FF] overflow-hidden grid lg:grid-cols-2 gap-8 items-center p-8 sm:p-12">
           <div>
             <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#E9A45C] bg-white/5 px-3 py-1.5 rounded-full">
               Activités &amp; billetterie
@@ -238,7 +238,7 @@ export default function HomePage() {
             <h2 className="font-display font-semibold text-[clamp(1.8rem,4vw,2.6rem)] leading-tight mt-4">
               De l&apos;invitation au <em className="text-[#E9A45C] italic">pointage</em>.
             </h2>
-            <p className="text-[#cabfac] mt-3 max-w-[46ch]">
+            <p className="text-[#AEB6D6] mt-3 max-w-[46ch]">
               Créez un événement, vendez des billets en mobile money, envoyez le billet par
               courriel et WhatsApp, puis scannez les entrées au QR — même sans réseau, la
               porte d&apos;une salle de fête étant rarement couverte.
@@ -257,8 +257,8 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="rounded-xl bg-[#1E1913] border border-white/10 p-6 grid place-items-center">
-            <div className="w-40 h-40 rounded-lg bg-[#F5EEE1] grid place-items-center">
-              <QrCode size={116} className="text-[#17130E]" />
+            <div className="w-40 h-40 rounded-lg bg-[#EEF1FF] grid place-items-center">
+              <QrCode size={116} className="text-[#141A44]" />
             </div>
             <p className="text-xs text-[#8b8069] mt-3">Billet nominatif · code de secours</p>
           </div>

@@ -27,6 +27,7 @@ export interface ITenant {
   /** Modules optionnels masqués par l'organisation (lib/modules.ts). */
   disabledModules?: string[];
   onlinePaymentAccountId?: Types.ObjectId;
+  monthlyRevenueTarget?: number;
   subscriptionStatus: SubscriptionStatus;
   trialEndsAt?: Date;
   subscriptionEndsAt?: Date;

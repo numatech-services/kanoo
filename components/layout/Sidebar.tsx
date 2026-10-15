@@ -7,7 +7,7 @@ import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { moduleEnabled } from "@/lib/modules";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes  } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles } from "lucide-react";
 
 import { apiJson, apiSend } from "@/lib/api-client";
 /** Où mène la pastille d'une entrée : la liste filtrée sur ce qu'elle compte. */
@@ -228,7 +228,7 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   }, []);
   useEffect(() => { setMobileOpen(false); }, [pathname]);
   const rawNav = NAV_MAP[profile] || PME_NAV;
-  const { tenant, resources, loading } = useMe();
+  const { tenant, resources, loading, user } = useMe();
 
   // Filtrage par droits : on masque les entrées dont on SAIT qu'elles sont
   // inaccessibles. Tant que les droits ne sont pas chargés (ou vides), on
@@ -288,24 +288,26 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   return (
     <>
     {mobileOpen && <div className="fixed inset-0 z-40 bg-ink/40 lg:hidden" onClick={() => setMobileOpen(false)} aria-hidden />}
-    <aside aria-label="Menu principal" className={`w-64 bg-chrome text-chromefg border-r border-chromefg/10 flex-col h-full overflow-hidden flex-shrink-0 ${
+    <aside aria-label="Menu principal" className={`w-[248px] bg-chrome text-chromefg border-r border-chromefg/10 flex-col h-full overflow-hidden flex-shrink-0 ${
       mobileOpen ? "flex fixed inset-y-0 left-0 z-50 shadow-xl" : "hidden"} lg:flex lg:static lg:z-auto lg:shadow-none`}>
-      <div className="px-6 py-5 border-b border-chromefg/10">
-        <div className="flex items-center gap-2.5">
-          {tenant?.logo ? (
-            <span className="w-9 h-9 rounded-lg bg-chromefg/10 grid place-items-center overflow-hidden shrink-0">
-              <img src={tenant.logo} alt="" className="max-w-full max-h-full object-contain" />
-            </span>
-          ) : null}
-          <span className="text-lg font-black tracking-tight leading-tight line-clamp-2">
-            {tenant?.name || "Kanoo"}
+      {/* Marque : logo (ou initiale sur pastille dégradée), nom, espace. */}
+      <div className="flex items-center gap-3 px-6 pt-6 pb-4">
+        {tenant?.logo ? (
+          <span className="w-[38px] h-[38px] rounded-xl bg-surface border border-chromefg/10 grid place-items-center overflow-hidden shrink-0">
+            <img src={tenant.logo} alt="" className="max-w-full max-h-full object-contain" />
           </span>
-        </div>
-        <p className="text-[10px] font-bold text-chromefg/40 mt-2 uppercase tracking-widest">{PROFILE_LABEL[profile]}</p>
-        {tenant?.name ? <p className="text-[9px] text-chromefg/25 mt-0.5">propulsé par Kanoo</p> : null}
+        ) : (
+          <span className="w-[38px] h-[38px] rounded-xl grad-brand grad-brand-glow grid place-items-center font-extrabold text-[17px] shrink-0" aria-hidden>
+            {(tenant?.name || "K").trim()[0]?.toUpperCase()}
+          </span>
+        )}
+        <span className="min-w-0">
+          <span className="block font-bold text-[16px] tracking-tight leading-tight truncate">{tenant?.name || "Kanoo"}</span>
+          <span className="block text-[11.5px] text-chromefg/55 truncate">{PROFILE_LABEL[profile]}{tenant?.name ? " · propulsé par Kanoo" : ""}</span>
+        </span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-6 px-3 custom-scrollbar">
+      <nav className="flex-1 overflow-y-auto pt-2 pb-4 px-4 custom-scrollbar">
         {nav.map((group) => {
           // À défaut de teinte déclarée, on prend celle du premier item : les
           // deux tables resteront cohérentes sans double saisie.
@@ -318,11 +320,10 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
             <div key={group.section} className="mb-2" data-section={tone}>
               <button type="button" onClick={() => toggleGroup(group.section)}
                 aria-expanded={open}
-                className="w-full flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-chromefg/40 hover:text-chromefg/70 px-3 py-2 rounded-lg transition-colors">
-                <span className="h-1.5 w-1.5 rounded-full bg-section shrink-0" aria-hidden />
+                className="w-full flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-chromefg/45 hover:text-chromefg/75 px-3 py-2 rounded-lg transition-colors">
                 <span className="flex-1 text-left">{group.section}</span>
                 {!open && groupCount > 0 && (
-                  <span className="num text-[9px] font-bold rounded-full px-1.5 bg-section text-chromefg">{groupCount}</span>
+                  <span className="num text-[10px] font-bold rounded-full px-1.5 min-w-[18px] h-[18px] grid place-items-center bg-neg-50 text-neg normal-case tracking-normal">{groupCount}</span>
                 )}
                 <ChevronDown size={13} className={`shrink-0 transition-transform duration-200 ${open ? "" : "-rotate-90"}`} />
               </button>
@@ -332,16 +333,13 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
                 return (
                   <Link key={item.href} href={item.href}
                     aria-current={active ? "page" : undefined}
-                    className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 mb-1 ${
+                    className={`relative flex items-center gap-3 h-[42px] px-3.5 rounded-[13px] text-[14px] transition-all duration-200 mb-[3px] ${
                       active
-                      ? "bg-chromeactive text-chromeactivefg shadow-lg font-bold"
-                      : "text-chromefg/60 hover:bg-chromefg/5 hover:text-chromefg"
+                      ? "grad-brand grad-brand-glow font-semibold"
+                      : "text-chromefg/75 font-medium hover:bg-chromefg/[0.06] hover:text-chromefg"
                     }`}
                   >
-                    {active && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r bg-chromeactivefg/40" aria-hidden />
-                    )}
-                    <span className={`flex items-center justify-center ${active ? "text-chromeactivefg" : "text-chromefg/40"}`}>
+                    <span className={`flex items-center justify-center ${active ? "text-chromeactivefg" : "text-chromefg/55"}`}>
                       {item.icon}
                     </span>
                     <span className="flex-1">{item.label}</span>
@@ -351,8 +349,8 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
                       <span
                         title={BADGE_TARGET[item.href] ? BADGE_TARGET[item.href].title : undefined}
                         onClick={BADGE_TARGET[item.href] ? (e) => { e.preventDefault(); e.stopPropagation(); router.push(BADGE_TARGET[item.href].href); } : undefined}
-                        className={`num text-[10px] font-bold rounded-full px-1.5 min-w-[1.25rem] text-center ${BADGE_TARGET[item.href] ? "cursor-pointer hover:ring-1 hover:ring-chromefg/40" : ""} ${
-                        active ? "bg-chromeactivefg/25 text-chromeactivefg" : "bg-chromefg/15 text-chromefg"
+                        className={`num text-[11px] font-bold rounded-full px-1.5 min-w-[22px] h-[22px] grid place-items-center ${BADGE_TARGET[item.href] ? "cursor-pointer hover:ring-1 hover:ring-chromefg/40" : ""} ${
+                        active ? "bg-white/25 text-chromeactivefg" : item.href === "/invoices" || item.href === "/relances" ? "bg-neg-50 text-neg" : "bg-accent-50 text-accent"
                       }`}>
                         {counters[item.href] ?? item.badge}
                       </span>
@@ -366,17 +364,30 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
         })}
       </nav>
 
-      <div className="px-4 py-4 border-t border-chromefg/10">
-        <button 
-          onClick={async () => { 
-            await apiSend("POST", "/api/auth/logout"); 
-            window.location.href = "/login"; 
-          }}
-          className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-chromefg/50 hover:bg-neg/10 hover:text-neg transition-all"
-        >
-          <LogOut size={16} />
-          <span>Déconnexion</span>
-        </button>
+      {/* Aide, puis l'utilisateur connecté et la déconnexion. */}
+      <div className="px-4 pb-4">
+        <div className="hidden lg:flex [@media(max-height:860px)]:!hidden flex-col gap-1.5 rounded-[18px] p-4 bg-gradient-to-br from-accent-50 to-[rgb(228_228_255)] dark:to-accent-100 text-ink">
+          <Sparkles size={20} className="text-accent opacity-80" aria-hidden />
+          <p className="text-sm font-bold">Besoin d&apos;aide ?</p>
+          <p className="text-[12.5px] leading-snug text-ink2">Guides, assistance et questions à l&apos;équipe Kanoo.</p>
+          <Link href="/support" className="mt-1.5 self-start h-[34px] px-3.5 rounded-full border border-accent/40 bg-surface grid place-items-center text-[12.5px] font-semibold text-accent hover:bg-accent-50">Centre d&apos;aide →</Link>
+        </div>
+        <div className="flex items-center gap-2.5 mt-3 pt-3.5 border-t border-chromefg/10 px-1">
+          <Link href={profile === "association" ? "/associations/profil" : "/profile"} className="flex items-center gap-2.5 min-w-0 flex-1 rounded-xl hover:bg-chromefg/[0.06] p-1 -m-1">
+            <span className="w-[38px] h-[38px] rounded-full grid place-items-center text-[13px] font-bold text-white shrink-0 bg-gradient-to-br from-[rgb(234_153_82)] to-[rgb(225_75_57)]" aria-hidden>
+              {(user?.firstName?.[0] ?? "").toUpperCase()}{(user?.lastName?.[0] ?? "").toUpperCase()}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[13.5px] font-semibold truncate">{user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : "…"}</span>
+              <span className="block text-xs text-chromefg/55 truncate capitalize">{user?.role?.replace(/_/g, " ") ?? ""}</span>
+            </span>
+          </Link>
+          <button type="button" aria-label="Déconnexion" title="Déconnexion"
+            onClick={async () => { await apiSend("POST", "/api/auth/logout"); window.location.href = "/login"; }}
+            className="w-8 h-8 rounded-[9px] grid place-items-center text-chromefg/55 hover:bg-neg/10 hover:text-neg transition-colors shrink-0">
+            <LogOut size={16} />
+          </button>
+        </div>
       </div>
     </aside>
     </>

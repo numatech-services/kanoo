@@ -128,10 +128,10 @@ export default function LoginPage() {
     <div className="min-h-screen grid lg:grid-cols-[1.05fr_.95fr] bg-surface">
       {/* Panneau de marque (masqué sur mobile) */}
       <aside className="relative hidden lg:flex flex-col justify-between p-14 text-white overflow-hidden
-        bg-[#17130E]
-        [background-image:radial-gradient(1200px_500px_at_15%_-10%,rgba(194,98,14,.5),transparent_60%),radial-gradient(900px_500px_at_110%_120%,rgba(194,98,14,.26),transparent_55%)]">
+        bg-[#141A44]
+        [background-image:radial-gradient(1200px_500px_at_15%_-10%,rgba(0,130,235,.42),transparent_60%),radial-gradient(900px_500px_at_110%_120%,rgba(110,68,188,.34),transparent_55%)]">
         <div className="flex items-center gap-2.5 font-bold text-lg tracking-tight">
-          <span className="w-8 h-8 rounded-lg bg-accent grid place-items-center shadow-[0_4px_14px_rgba(194,98,14,.5)]">K</span>
+          <span className="w-8 h-8 rounded-lg bg-accent grid place-items-center shadow-[0_4px_14px_rgba(47,89,223,.5)]">K</span>
           Kanoo
         </div>
         <div>

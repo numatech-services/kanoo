@@ -39,7 +39,7 @@ const A_STATUS: Record<string, { label: string; cls: string }> = {
 function TicketQR({ payload }: { payload: string }) {
   const [url, setUrl] = useState("");
   useEffect(() => {
-    QRCode.toDataURL(payload, { margin: 1, width: 240, color: { dark: "#17130E", light: "#FFFFFF" } })
+    QRCode.toDataURL(payload, { margin: 1, width: 240, color: { dark: "#161F32", light: "#FFFFFF" } })
       .then(setUrl).catch(() => {});
   }, [payload]);
   return url ? (

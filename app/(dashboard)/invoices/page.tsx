@@ -149,7 +149,9 @@ export default function InvoicesPage() {
       key: "dueDate",
       label: "Échéance",
       render: (v, row) => {
-        const overdue = row.status !== "paid" && new Date(String(v)) < new Date();
+        // Un avoir n'a pas d'échéance : « Invalid Date » s'affichait.
+        if (!v) return <span className="text-sm text-ink3">—</span>;
+        const overdue = !["paid", "cancelled", "written_off"].includes(row.status) && new Date(String(v)) < new Date();
         return (
           <span className={`text-sm ${overdue ? "text-neg font-medium" : "text-ink2"}`}>
             {formatDate(String(v))}

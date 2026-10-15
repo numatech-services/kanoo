@@ -8,29 +8,30 @@
    Toute couleur Tailwind basée sur ces tokens suit le mode sombre du système.
    ========================================================================= */
 :root {
-  --c-chrome: 23 19 14;    /* fond de la barre latérale */
+  --c-chrome: 22 31 50;    /* fond de la barre latérale (espaces à barre sombre) */
   /* Premier plan de la barre latérale (texte, séparateurs) et pilule active.
      Par défaut : barre sombre → texte blanc, pilule active claire. L'espace PME
      bascule ces valeurs (barre claire) sans toucher aux autres espaces. */
   --c-chrome-fg: 255 255 255;
   --c-chrome-active-bg: 255 255 255;
   --c-chrome-active-fg: 23 19 14;
-  --c-ink: 23 19 14;         /* encre chaude */
-  --c-bg: 251 247 239;       /* papier clair (variante B) */
+  /* Charte v5 « Numatech » par défaut : neutres froids, accent bleu. */
+  --c-ink: 22 31 50;
+  --c-bg: 249 250 253;
   --c-surface: 255 255 255;
-  --c-surface2: 241 234 221;
-  --c-line: 234 225 208;
-  --c-line2: 216 202 176;
-  --c-ink2: 90 82 69;        /* texte secondaire lisible */
-  /* Texte tertiaire : ≥ 4,5:1 sur blanc et sur surface2 (il était à 3,6:1). */
-  --c-ink3: 110 100 82;
+  --c-surface2: 241 243 249;
+  --c-line: 226 230 239;
+  --c-line2: 211 216 226;
+  --c-ink2: 53 61 77;        /* texte secondaire lisible */
+  /* Texte tertiaire : ≥ 4,5:1 sur blanc et sur surface2. */
+  --c-ink3: 98 105 120;
   /* Texte posé SUR l'encre (puce active, bouton sombre) : s'inverse avec elle. */
   --c-on-ink: 255 255 255;
-  --c-accent: 194 98 14;     /* soleil d'harmattan (ambre) */
-  --c-accent600: 168 82 10;
-  --c-accent700: 138 67 8;
-  --c-accent050: 246 231 211;
-  --c-accent100: 237 211 175;
+  --c-accent: 47 89 223;     /* bleu Numatech */
+  --c-accent600: 32 72 200;
+  --c-accent700: 10 70 185;
+  --c-accent050: 228 239 255;
+  --c-accent100: 210 225 252;
   --c-pos: 28 93 76;         /* vert acacia */
   --c-pos050: 226 237 232;
   --c-neg: 178 59 46;
@@ -43,20 +44,20 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --c-ink: 243 236 224;
-    --c-bg: 22 18 13;
-    --c-surface: 30 25 19;
-    --c-surface2: 41 34 26;
-    --c-line: 52 43 32;
-    --c-line2: 71 59 44;
-    --c-ink2: 185 174 156;
-    --c-ink3: 162 151 128;
-    --c-on-ink: 22 18 13;
-    --c-accent: 214 121 31;
-    --c-accent600: 194 98 14;
-    --c-accent700: 233 164 92;
-    --c-accent050: 46 34 20;
-    --c-accent100: 61 45 27;
+    --c-ink: 230 234 245;
+    --c-bg: 19 23 34;
+    --c-surface: 26 31 45;
+    --c-surface2: 32 38 54;
+    --c-line: 40 47 64;
+    --c-line2: 56 66 88;
+    --c-ink2: 172 182 202;
+    --c-ink3: 140 152 174;
+    --c-on-ink: 19 23 34;
+    --c-accent: 124 155 232;
+    --c-accent600: 100 133 216;
+    --c-accent700: 160 184 244;
+    --c-accent050: 20 27 44;
+    --c-accent100: 27 37 59;
     --c-pos: 79 183 154;
     --c-pos050: 22 36 31;
     --c-neg: 224 106 92;
@@ -77,12 +78,12 @@
    raccroche, si bien qu'ajouter une section revient à ajouter un bloc ici.
    ========================================================================= */
 :root {
-  --s-accent: 194 98 14;      /* défaut : ambre d'harmattan */
-  --s-soft:   246 231 211;
+  --s-accent: 47 89 223;      /* défaut : bleu de la charte v5 */
+  --s-soft:   228 239 255;
   --s-on:     255 255 255;
 }
 
-[data-section="accueil"]     { --s-accent: 194  98  14; --s-soft: 246 231 211; }
+[data-section="accueil"]     { --s-accent:  47  89 223; --s-soft: 228 239 255; }
 [data-section="ventes"]      { --s-accent:  55  81 189; --s-soft: 226 231 248; }
 [data-section="achats"]      { --s-accent:  13 116 128; --s-soft: 216 238 240; }
 [data-section="abonnements"] { --s-accent: 124  58 173; --s-soft: 238 228 248; }
@@ -99,9 +100,9 @@
 @media (prefers-color-scheme: dark) {
   /* En sombre, la teinte est éclaircie pour rester lisible sur fond foncé, et
      la version douce devient un voile sombre plutôt qu'un pastel. */
-  :root { --s-accent: 214 121  31; --s-soft: 46 34 20; }
+  :root { --s-accent: 124 155 232; --s-soft: 27 37 59; }
 
-  [data-section="accueil"]     { --s-accent: 214 121  31; --s-soft: 46 34 20; }
+  [data-section="accueil"]     { --s-accent: 124 155 232; --s-soft: 27 37 59; }
   [data-section="ventes"]      { --s-accent: 132 158 246; --s-soft: 24 29 48; }
   [data-section="achats"]      { --s-accent:  91 197 208; --s-soft: 16 36 39; }
   [data-section="abonnements"] { --s-accent: 190 143 235; --s-soft: 33 24 45; }
@@ -398,25 +399,37 @@
   /* PME (thème clair) : charte bleue « Numatech » — barre latérale BLANCHE,
      accent et pilule de menu BLEUS, neutres frais et clairs (fond de la
      maquette). Les autres espaces conservent leur propre teinte. */
-  --c-chrome: 255 255 255;
-  --c-chrome-fg: 26 31 45;
-  --c-chrome-active-bg: 59 91 219;      /* bleu Numatech (pilule active) */
+  /* Charte v5 « Numatech » : l'application tient dans une coque claire posée
+     sur un fond lavande ; menu dans la coque, pilule active en dégradé bleu. */
+  --c-chrome: 249 250 253;
+  --c-chrome-fg: 22 31 50;
+  --c-chrome-active-bg: 47 89 223;
   --c-chrome-active-fg: 255 255 255;
+  --nav-a: 0 130 235;   --nav-b: 47 89 223;     /* dégradé de la pilule active et des boutons forts */
   /* Accent bleu de l'espace PME. */
-  --c-accent: 59 91 219;
-  --c-accent600: 42 71 189;
-  --c-accent700: 32 54 150;
-  --c-accent050: 237 241 253;
-  --c-accent100: 214 223 250;
-  --c-bg: 247 248 251;
-  --c-surface2: 240 242 248;
-  --c-line: 228 231 240;
-  --c-line2: 210 215 230;
-  --c-ink: 24 28 40;
-  --c-ink2: 92 99 116;
-  --c-ink3: 100 108 126;   /* neutre froid, comme ink2 (il héritait du brun chaud) */
+  --c-accent: 47 89 223;
+  --c-accent600: 32 72 200;
+  --c-accent700: 10 70 185;
+  --c-accent050: 228 239 255;
+  --c-accent100: 210 225 252;
+  --c-bg: 249 250 253;      /* intérieur de la coque */
+  --c-page: 222 232 253;    /* fond derrière la coque */
+  --c-page-a: 200 224 255; --c-page-b: 221 217 254;
+  --c-surface2: 241 243 249;
+  --c-line: 226 230 239;
+  --c-line2: 211 216 226;
+  --c-ink: 22 31 50;
+  --c-ink2: 53 61 77;
+  --c-ink3: 98 105 120;
+  --c-pos: 0 120 64;   --c-pos050: 224 249 232;
+  --c-neg: 194 39 45;  --c-neg050: 255 235 232;
+  --c-warn: 148 90 0;  --c-warn050: 255 240 204;
+  --c-info: 10 70 185; --c-info050: 228 239 255;
+  /* Une seule teinte d'accent dans tout l'espace PME (charte v5) : les sections
+     se distinguent par leurs pastilles d'icônes, plus par la couleur du décor. */
+  --s-accent: 47 89 223; --s-soft: 228 239 255; --s-on: 255 255 255;
 
-  --r-sm: .5rem; --r-md: .625rem; --r-lg: .875rem;
+  --r-sm: .5rem; --r-md: .75rem; --r-lg: 1.25rem; --r-btn: 999px;
   --gutter: 1rem;
   --row-y: .45rem;
 
@@ -481,17 +494,21 @@
 
 @media (prefers-color-scheme: dark) {
   [data-space="pme"] {
-    --c-chrome: 15 18 26;
-    /* Mode sombre : barre PME sombre et fraîche, accent bleu, pilule active
-       bleue à texte blanc. */
+    --c-chrome: 19 23 34;
+    /* Mode sombre : coque nuit, accent bleu éclairci, pilule active bleue. */
     --c-chrome-fg: 226 231 243;
     --c-chrome-active-bg: 59 91 219;
     --c-chrome-active-fg: 255 255 255;
+    --nav-a: 40 120 230; --nav-b: 70 100 230;
     --c-accent: 124 155 232; --c-accent600: 100 133 216; --c-accent700: 160 184 244;
     --c-accent050: 20 27 44; --c-accent100: 27 37 59;
-    --c-bg: 17 20 28; --c-surface2: 27 31 42;
-    --c-line: 37 44 58; --c-line2: 54 64 84;
-    --c-ink: 226 231 243; --c-ink2: 158 170 192; --c-ink3: 134 146 168;
+    --c-bg: 19 23 34; --c-page: 11 14 22; --c-page-a: 22 34 66; --c-page-b: 34 28 66;
+    --c-surface: 26 31 45; --c-surface2: 32 38 54;
+    --c-line: 40 47 64; --c-line2: 56 66 88;
+    --c-ink: 230 234 245; --c-ink2: 172 182 202; --c-ink3: 140 152 174;
+    --c-pos: 79 196 140; --c-pos050: 18 40 30; --c-neg: 240 110 104; --c-neg050: 50 22 24;
+    --c-warn: 230 176 70; --c-warn050: 46 36 14; --c-info: 124 165 240; --c-info050: 22 32 56;
+    --s-accent: 124 155 232; --s-soft: 27 37 59;
   }
   [data-space="association"] {
     --c-chrome: 10 24 19;
@@ -641,11 +658,11 @@
 
   body {
     @apply text-ink bg-bg;
-    font-family: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 
-  /* Titres en Fraunces (éditorial) via les classes utilitaires du design system. */
-  .font-display { font-family: "Fraunces", Georgia, serif; }
+  /* Titres : même famille, plus grasse et resserrée (charte v5). */
+  .font-display { font-family: "Plus Jakarta Sans", -apple-system, "Segoe UI", sans-serif; font-weight: 800; letter-spacing: -0.03em; }
 
   /* Montants monétaires alignés : ajouter la classe .num sur tout chiffre. */
   .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
@@ -672,17 +689,17 @@
 @layer components {
   /* Boutons — mêmes noms, rendu fintech v2 */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-section text-onink rounded-lg shadow-sm
+    @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-section text-onink rounded-[var(--r-btn)] shadow-sm
            text-sm font-semibold hover:brightness-95 transition-colors
            disabled:opacity-60 disabled:cursor-not-allowed;
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-surface text-ink border border-line2
-           rounded-lg text-sm font-semibold hover:bg-surface2 transition-colors
+           rounded-[var(--r-btn)] text-sm font-semibold hover:bg-surface2 transition-colors
            disabled:opacity-60 disabled:cursor-not-allowed;
   }
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-neg text-onink rounded-lg shadow-sm
+    @apply inline-flex items-center justify-center gap-2 px-4 h-10 bg-neg text-onink rounded-[var(--r-btn)] shadow-sm
            text-sm font-semibold hover:brightness-95 transition-colors
            disabled:opacity-60 disabled:cursor-not-allowed;
   }
@@ -855,8 +872,8 @@
 @media print { .screen-only { display: none !important; } }
 
 /* Bouton d'aide : au-dessus de la barre de navigation du bas sur téléphone. */
-.support-fab { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
-.support-panel { bottom: calc(136px + env(safe-area-inset-bottom, 0px)); }
+.support-fab { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
+.support-panel { bottom: calc(152px + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 1024px) {
   .support-fab { bottom: 24px; }
   .support-panel { bottom: 84px; }
@@ -872,4 +889,50 @@
     background-color: rgb(var(--c-surface));
     color: rgb(var(--c-ink));
   }
+}
+
+/* =========================================================================
+   Charte v5 « Numatech » — coque de l'application.
+
+   L'espace PME n'a plus qu'une teinte d'accent (le bleu de la marque) : la
+   règle ci-dessous, plus précise que [data-section=…], neutralise les teintes
+   de section sous data-space="pme". Les autres espaces gardent les leurs.
+   ========================================================================= */
+[data-space="pme"] [data-section], [data-space="pme"][data-section] { --s-accent: 47 89 223; --s-soft: 228 239 255; }
+@media (prefers-color-scheme: dark) {
+  [data-space="pme"] [data-section], [data-space="pme"][data-section] { --s-accent: 124 155 232; --s-soft: 27 37 59; }
+}
+
+:root { --c-page: 238 240 245; --c-page-a: 230 233 240; --c-page-b: 232 230 240; --r-btn: .5rem; }
+@media (prefers-color-scheme: dark) { :root { --c-page: 10 12 16; --c-page-a: 18 22 30; --c-page-b: 20 18 28; } }
+
+@layer components {
+  /* Fond derrière la coque : deux halos doux, fixes au défilement. */
+  .app-page {
+    background:
+      radial-gradient(1200px 700px at 0% 0%, rgb(var(--c-page-a)), transparent 60%),
+      radial-gradient(1000px 700px at 100% 100%, rgb(var(--c-page-b)), transparent 60%),
+      rgb(var(--c-page));
+  }
+  /* La coque : grande carte arrondie qui contient menu, barre et contenu. */
+  .app-shell { background: rgb(var(--c-bg)); }
+  @media (min-width: 1024px) {
+    .app-shell { border-radius: 28px; border: 1px solid rgb(255 255 255 / .7); box-shadow: 0 30px 80px -30px rgba(44,60,130,.35); }
+  }
+  /* Dégradé de marque : pilule de menu active, bouton d'action forte. */
+  /* Hors espace PME, pas de dégradé déclaré : la pilule reprend la couleur active de l'espace. */
+  .grad-brand { background: linear-gradient(135deg, rgb(var(--nav-a, var(--c-chrome-active-bg))), rgb(var(--nav-b, var(--c-chrome-active-bg)))); color: rgb(var(--c-chrome-active-fg)); }
+  .grad-brand-glow { box-shadow: 0 10px 22px -10px rgb(var(--nav-b, var(--c-chrome-active-bg)) / .8); }
+  /* Texte en dégradé (titre du bandeau d'accueil). */
+  .text-grad-brand {
+    background: linear-gradient(90deg, rgb(0 127 225), rgb(71 71 221));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  /* Bouton rond de la barre du haut. */
+  .icon-pill {
+    @apply grid place-items-center shrink-0 rounded-full bg-surface border border-line text-ink2 hover:bg-surface2 transition-colors;
+    width: 2.875rem; height: 2.875rem;
+  }
+  /* Carte de la charte v5 : rayon généreux, ombre longue et légère. */
+  [data-space="pme"] .surface-card { box-shadow: 0 1px 2px rgba(30,40,80,.04), 0 12px 32px -18px rgba(44,60,130,.18); }
 }

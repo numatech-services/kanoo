@@ -7,11 +7,12 @@ import { CookieConsent } from "@/components/shared/CookieConsent";
 import { I18nProvider } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
 
-// Direction « Harmattan » : Fraunces (titres) + Hanken Grotesk (texte), chargées
-// via <link> (compatible avec un build hors-ligne ; les polices arrivent côté
-// navigateur). En CI avec réseau, next/font/google est une alternative valable.
+// Charte « Numatech » (maquettes v5) : Plus Jakarta Sans pour tout le texte,
+// JetBrains Mono pour les numéros de pièces, Caveat pour la touche manuscrite
+// du bandeau d'accueil. Chargées via <link> (compatible avec un build hors
+// ligne ; les polices arrivent côté navigateur).
 const FONTS_HREF =
-  "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap";
+  "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Caveat:wght@500;600&display=swap";
 
 export const metadata: Metadata = {
   title: { default: "Kanoo — Gestion d'entreprise Niger", template: "%s | Kanoo" },
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#C2620E",
+  themeColor: "#2F59DF",
   width: "device-width",
   initialScale: 1,
   // Pas de maximumScale : bloquer le zoom empêche de grossir le texte (WCAG 1.4.4).

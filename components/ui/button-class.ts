@@ -26,7 +26,7 @@ const SIZES: Record<ButtonSize, string> = {
 };
 
 export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize = "md", extra = "") {
-  return `inline-flex items-center justify-center rounded-lg font-semibold whitespace-nowrap transition-colors
+  return `inline-flex items-center justify-center rounded-[var(--r-btn)] font-semibold whitespace-nowrap transition-colors
     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-section/40 focus-visible:ring-offset-1
     disabled:opacity-60 disabled:cursor-not-allowed ${VARIANTS[variant]} ${SIZES[size]} ${extra}`.replace(/\s+/g, " ").trim();
 }

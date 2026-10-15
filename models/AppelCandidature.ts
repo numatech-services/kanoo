@@ -9,7 +9,7 @@ import { Schema, model, models, Types } from "mongoose";
  * préparation → déposé → gagné/perdu), pièces exigées (à cocher), documents
  * joints, et rattachement à un contrat / projet une fois gagné.
  */
-export type AppelStatus = "identified" | "preparing" | "submitted" | "won" | "lost" | "cancelled";
+export type AppelStatus = "identified" | "preparing" | "submitted" | "evaluation" | "won" | "lost" | "cancelled";
 
 export interface IRequiredDoc { _id?: Types.ObjectId; label: string; provided: boolean }
 export interface IAppelDoc { _id?: Types.ObjectId; name?: string; dataUri?: string; uploadedAt?: Date }
@@ -46,7 +46,7 @@ const AppelSchema = new Schema<IAppelCandidature>({
   reference: { type: String, maxlength: 100 },
   openDate: Date,
   submissionDeadline: { type: Date, index: true },
-  status: { type: String, enum: ["identified", "preparing", "submitted", "won", "lost", "cancelled"], default: "identified", index: true },
+  status: { type: String, enum: ["identified", "preparing", "submitted", "evaluation", "won", "lost", "cancelled"], default: "identified", index: true },
   estimatedAmount: { type: Number, min: 0, default: 0 },
   requiredDocuments: { type: [RequiredDocSchema], default: [] },
   documents: { type: [AppelDocSchema], default: [] },

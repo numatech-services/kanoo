@@ -26,6 +26,7 @@ interface Appel {
 const NEXT: Record<string, { to: string; label: string }> = {
   identified: { to: "preparing", label: "Démarrer la préparation" },
   preparing: { to: "submitted", label: "Marquer déposé" },
+  submitted: { to: "evaluation", label: "Passer en évaluation" },
 };
 
 export default function AppelDetailPage() {
@@ -47,7 +48,7 @@ export default function AppelDetailPage() {
     apiJson(`/api/appels/${id}`).then(d => setA(d.data || d));
   }, [id]);
   useEffect(() => { load(); }, [load]);
-  const awardable = !!a && ["submitted", "won"].includes(a.status) && !a.contractId && canContract;
+  const awardable = !!a && ["submitted", "evaluation", "won"].includes(a.status) && !a.contractId && canContract;
   useEffect(() => {
     if (!awardable) return;
     apiJson("/api/clients?limit=100&isActive=true").then(d => {
@@ -121,7 +122,7 @@ export default function AppelDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
           {next && <button onClick={() => patch({ status: next.to })} className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 inline-flex items-center gap-1.5">{next.label} <ArrowRight size={15} /></button>}
-          {a.status === "submitted" && <>
+          {["submitted", "evaluation"].includes(a.status) && <>
             <button onClick={() => patch({ status: "won" })} className="px-3 h-10 rounded-lg bg-pos text-white text-sm font-semibold inline-flex items-center gap-1.5"><Trophy size={15} /> Gagné</button>
             <button onClick={() => patch({ status: "lost" })} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm inline-flex items-center gap-1.5"><X size={15} /> Perdu</button>
           </>}

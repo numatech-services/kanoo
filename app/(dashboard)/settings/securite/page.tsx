@@ -32,7 +32,7 @@ export default function SecuritePage() {
       const d = res.data;
       if (!res.ok) throw new Error(d.error || "Erreur");
       setSecret(d.data.secret);
-      setQr(await QRCode.toDataURL(d.data.otpauth, { margin: 1, width: 200, color: { dark: "#17130E", light: "#FFFFFF" } }));
+      setQr(await QRCode.toDataURL(d.data.otpauth, { margin: 1, width: 200, color: { dark: "#161F32", light: "#FFFFFF" } }));
       setStep("setup");
     } catch (e) { toast.error(e instanceof Error ? e.message : "Erreur"); } finally { setBusy(false); }
   }

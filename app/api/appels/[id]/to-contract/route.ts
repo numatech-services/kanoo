@@ -26,7 +26,7 @@ export const POST = withAuth("contracts", "create", async (req: NextRequest, aut
   const appel = await AppelCandidatureModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!appel) return notFound("Appel introuvable");
   if (appel.contractId) return conflict("Cet appel est déjà devenu un marché.");
-  if (!["submitted", "won"].includes(appel.status)) return badRequest("Seul un appel déposé ou gagné devient un marché.");
+  if (!["submitted", "evaluation", "won"].includes(appel.status)) return badRequest("Seul un appel déposé, en évaluation ou gagné devient un marché.");
   const amount = Math.round(Number(body.amount ?? appel.estimatedAmount) || 0);
   if (!(amount > 0)) return badRequest("Indiquez le montant attribué du marché (HT).");
   const withProject = body.createProject !== false;
