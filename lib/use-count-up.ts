@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
  */
 export function useCountUp(target: number, durationMs = 520): number {
   const [value, setValue] = useState(target);
-  const frame = useRef<number>();
+  const frame = useRef<number | undefined>(undefined);
   const previous = useRef(target);
 
   useEffect(() => {

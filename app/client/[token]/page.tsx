@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { FileText, CreditCard, CheckCircle2, AlertTriangle, Phone, Mail } from "lucide-react";
 import { formatMoney, formatDate } from "@/lib/format";
 import { promptDialog } from "@/components/ui/Dialogs";
@@ -30,8 +30,9 @@ const QUOTE_STATUS: Record<string, [string, string]> = {
  * Portail client public : ouvert par le lien personnel envoyé au client.
  * Aucune donnée interne n'y figure ; le lien peut être révoqué à tout moment.
  */
-export default function ClientPortalPage({ params }: { params: { token: string } }) {
-  const token = params.token;
+export default function ClientPortalPage({ params }: { params: Promise<{ token: string }> }) {
+  // Next.js 16 : les paramètres de page arrivent en promesse.
+  const { token } = use(params);
   const [data, setData] = useState<Portal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);

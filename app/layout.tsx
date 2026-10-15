@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import "@/styles/globals.css";
 import { ToastProvider } from "@/components/ui/Toast";
 import { DialogHost } from "@/components/ui/Dialogs";
 import { CookieConsent } from "@/components/shared/CookieConsent";
 import { I18nProvider } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
+import { buildCsp } from "@/lib/csp";
 
 // Charte « Numatech » (maquettes v5) : Plus Jakarta Sans pour tout le texte,
 // JetBrains Mono pour les numéros de pièces, Caveat pour la touche manuscrite
@@ -36,6 +37,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const cookieStore = await cookies();
   const localeCookie = cookieStore.get("NEXT_LOCALE")?.value;
   const locale: Locale = localeCookie === "en" ? "en" : "fr";
+  // Nonce tiré par le proxy pour cette requête (lib/csp.ts).
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   // La page reste déclarée en français (lang="fr") : l'interface n'est rédigée
   // qu'en français ; annoncer « en » trompait les lecteurs d'écran.
 
@@ -58,17 +61,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         */}
         <meta
           httpEquiv="Content-Security-Policy"
-          content={
-            "default-src 'self'; img-src 'self' data: blob:; " +
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-            "font-src 'self' https://fonts.gstatic.com data:; " +
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; " +
-            "base-uri 'self'; form-action 'self'"
-          }
+          content={buildCsp(nonce, { dev: process.env.NODE_ENV !== "production" })}
         />
         {/* Thème choisi à la main (clair / sombre), appliqué avant le premier
             rendu pour éviter un éclair du mauvais thème. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href={FONTS_HREF} />

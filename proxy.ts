@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyTokenEdge } from "./lib/auth-edge"; // On importe la version compatible Edge
+import { buildCsp, newNonce } from "./lib/csp";
 
 // ─── Constantes de session ────────────────────────────────────────────────────
 const PUBLIC_EXACT_PATHS = [
@@ -12,13 +13,29 @@ const PUBLIC_EXACT_PATHS = [
 // API publique (clé d'API), webhook de paiement (signature) et portails
 // adhérent / fournisseur (jeton de portail) s'authentifient eux-mêmes : sans
 // cookie de session, le filtre les rejetait tous.
-const PUBLIC_PREFIX_PATHS = ["/_next", "/favicon.ico", "/api/auth", "/api/public", "/api/demo-requests", "/api/cron", "/api/health", "/api/v1/", "/api/webhooks/", "/api/portail/", "/portail/", "/client/", "/reunion", "/manifest.json", "/sw.js", "/offline", "/robots.txt", "/sitemap.xml"];
+const PUBLIC_PREFIX_PATHS = ["/_next", "/favicon.ico", "/api/auth", "/api/public", "/api/demo-requests", "/api/cron", "/api/health", "/api/v1/", "/api/webhooks/", "/api/portail/", "/portail/", "/client/", "/reunion", "/manifest.json", "/icons/", "/icon.png", "/apple-icon.png", "/sw.js", "/offline", "/robots.txt", "/sitemap.xml"];
 
 // ─── Sécurité ────────────────────────────────────────────────────────────────
-function withSecurityHeaders(res: NextResponse): NextResponse {
+const DEV = process.env.NODE_ENV !== "production";
+
+function withSecurityHeaders(res: NextResponse, nonce?: string): NextResponse {
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("X-Frame-Options", "DENY");
+  res.headers.set("Content-Security-Policy", buildCsp(nonce, { dev: DEV, frameAncestors: true }));
   return res;
+}
+
+/**
+ * Laisse passer la requête en transmettant au rendu un nonce neuf : Next.js
+ * le lit dans l'en-tête `content-security-policy` de la requête pour l'apposer
+ * sur ses scripts, le layout racine dans `x-nonce`.
+ */
+function pass(req: NextRequest): NextResponse {
+  const nonce = newNonce();
+  const headers = new Headers(req.headers);
+  headers.set("x-nonce", nonce);
+  headers.set("content-security-policy", buildCsp(nonce, { dev: DEV }));
+  return withSecurityHeaders(NextResponse.next({ request: { headers } }), nonce);
 }
 
 function isPublicPage(pathname: string): boolean {
@@ -27,12 +44,12 @@ function isPublicPage(pathname: string): boolean {
 }
 
 // AJOUT DE 'async' : Indispensable pour utiliser jose (jwtVerify)
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // 1. Laisser passer les pages publiques
   if (isPublicPage(pathname)) {
-    return withSecurityHeaders(NextResponse.next());
+    return pass(req);
   }
 
   // 2. Récupérer le token depuis les cookies (plus fiable dans le middleware)
@@ -62,7 +79,7 @@ export async function middleware(req: NextRequest) {
 
     // 4. Logique de redirection selon les rôles
     if (auth.role === "superadmin") {
-      return withSecurityHeaders(NextResponse.next());
+      return pass(req);
     }
 
     // Protection de l'espace superadmin (/saas)
@@ -70,7 +87,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
-    return withSecurityHeaders(NextResponse.next());
+    return pass(req);
 
   } catch (err) {
     console.error("[Middleware] Erreur de vérification du jeton", err);

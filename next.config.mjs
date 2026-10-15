@@ -2,10 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // Next.js 14 : la clé s'appelle "serverComponentsExternalPackages" (dans experimental)
+  // Next.js 16 : paquets serveur laissés hors du bundle (pdfkit lit ses polices sur disque).
+  serverExternalPackages: ["pdfkit"],
   experimental: {
-    serverComponentsExternalPackages: ["pdfkit"],
-    optimizePackageImports: ["lucide-react", "@radix-ui/react-icons"],
+    optimizePackageImports: ["lucide-react"],
     workerThreads: false,
     cpus: 1,
   },
@@ -16,10 +16,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  eslint: {
-    ignoreDuringBuilds: false,
-    dirs: ["app", "components", "lib", "models", "scripts"],
-  },
+  // Next.js 16 ne lance plus ESLint au build : « npm run lint » le fait à part
+  // (et « npm run verify » enchaîne types, lint, tests et build).
 
   images: {
     formats: ["image/webp", "image/avif"],
@@ -40,28 +38,9 @@ const nextConfig = {
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "X-Frame-Options", value: "DENY" },
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-      // CSP désormais APPLIQUÉE (et non plus Report-Only). Elle restait inerte :
-      // Report-Only sans report-uri n'observe rien et ne protège rien. Deux
-      // ajustements l'ont rendue applicable sans casser le rendu :
-      //   • style-src et font-src autorisent Google Fonts (fonts.googleapis.com
-      //     et fonts.gstatic.com) — la police Fraunces en dépend ; sans ça,
-      //     l'application stricte serait retombée sur les polices système.
-      //   • frame-ancestors 'none' double le X-Frame-Options: DENY contre le
-      //     clickjacking, et form-action 'self' empêche l'exfiltration d'un
-      //     formulaire vers un domaine tiers.
-      // 'unsafe-inline'/'unsafe-eval' restent tolérés (Next.js hydrate par
-      // scripts inline) : la CSP protège ici surtout du chargement de
-      // ressources et du cadrage tiers, l'échappement JSX couvrant le XSS.
-      {
-        key: "Content-Security-Policy",
-        value:
-          "default-src 'self'; img-src 'self' data: blob:; " +
-          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-          "font-src 'self' https://fonts.gstatic.com data:; " +
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; " +
-          "frame-ancestors 'none'; base-uri 'self'; form-action 'self'" +
-          (process.env.CSP_REPORT_URI ? `; report-uri ${process.env.CSP_REPORT_URI}` : ""),
-      },
+      // La Content-Security-Policy est posée par le proxy (proxy.ts), avec un
+      // nonce neuf à chaque requête : une valeur statique ici ne pourrait pas
+      // en porter (lib/csp.ts).
     ];
     return [
       { source: "/:path*", headers: securityHeaders },
