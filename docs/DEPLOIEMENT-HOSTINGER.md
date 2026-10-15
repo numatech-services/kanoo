@@ -19,6 +19,13 @@ le build échoue dès le départ.
 Commandes de l'hébergement (inchangées) : installation `npm install`, build
 `npm run build`, démarrage `npm start`.
 
+Le build de production passe par **webpack** (`next build --webpack`) et non
+par Turbopack, le compilateur par défaut de Next 16 : Turbopack confie PostCSS
+(Tailwind) à un processus Node séparé, que l'environnement de build d'Hostinger
+arrête avant qu'il se connecte (« TurbopackInternalError » sur
+`styles/globals.css`). Webpack exécute PostCSS dans le même processus. Ne pas
+retirer `--webpack` sans avoir vérifié un build Turbopack sur Hostinger.
+
 Points de la migration à connaître :
 - le filtre d'authentification s'appelle désormais `proxy.ts` (ex-`middleware.ts`) ;
 - la CSP est posée à chaque requête avec un nonce (`lib/csp.ts`) et recopiée en
