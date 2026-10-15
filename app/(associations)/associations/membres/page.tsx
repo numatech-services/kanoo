@@ -86,7 +86,7 @@ export default function MembresPage() {
         </div>
         <button
           onClick={() => { setEditing(null); setModalOpen(true); }}
-          className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors"
+          className={buttonClass("primary", "md")}
         >
           + Nouvel adhérent
         </button>

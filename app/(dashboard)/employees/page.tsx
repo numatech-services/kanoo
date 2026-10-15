@@ -10,6 +10,7 @@ import { useMe, meCan } from "@/lib/useMe";
 
 import { AlertTriangle } from "lucide-react";
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface Employee {
   _id:string; code:string; firstName:string; lastName:string; position:string; department?:string;
   employeeType:string; contractNature:string;
@@ -89,7 +90,7 @@ export default function EmployeesPage() {
           <h1 className="page-title">Collaborateurs</h1>
           <p className="text-sm text-ink2 mt-0.5">{total} collaborateur{total>1?"s":""}</p>
         </div>
-        <button onClick={()=>{setEditing(null);setModalOpen(true);}} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouveau collaborateur</button>
+        <button onClick={()=>{setEditing(null);setModalOpen(true);}} className={buttonClass("primary", "md")}>+ Nouveau collaborateur</button>
       </div>
 
       {alertCount > 0 && (

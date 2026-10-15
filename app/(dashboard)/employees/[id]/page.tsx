@@ -14,6 +14,7 @@ import { COST_CENTERS } from "@/lib/cost-centers";
 import { LEAVE_TYPES } from "@/lib/leave-types";
 
 import {apiJson, apiSend } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface Employee {
   _id: string; code: string; firstName: string; lastName: string; position: string; department?: string; costCenter?: string;
   employeeType: string; contractNature: string; startDate: string; endDate?: string; contractEndDate?: string; exitReason?: string;
@@ -87,12 +88,12 @@ export default function EmployeeDetailPage() {
         </div>
         {canEdit && (
           <div className="flex gap-2 flex-wrap">
-            <button onClick={() => setLeaveOpen(true)} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><CalendarClock size={15} /> Saisir un congé</button>
-            {canUsers && <button onClick={() => setLinkOpen(true)} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Link2 size={15} /> Compte utilisateur</button>}
+            <button onClick={() => setLeaveOpen(true)} className={buttonClass("secondary", "md")}><CalendarClock size={15} /> Saisir un congé</button>
+            {canUsers && <button onClick={() => setLinkOpen(true)} className={buttonClass("secondary", "md")}><Link2 size={15} /> Compte utilisateur</button>}
             {e.isActive
               ? <button onClick={() => setExitOpen(true)} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-warn/30 text-warn text-sm hover:bg-warn-50"><LogOut size={15} /> Enregistrer le départ</button>
-              : <button onClick={async () => { if (await confirmDialog({ title: "Réintégrer ce collaborateur ?", confirmLabel: "Réintégrer" })) run(() => patch(String(id), { isActive: true, endDate: null, exitReason: null })); }} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><RotateCcw size={15} /> Réintégrer</button>}
-            <button onClick={() => setEditOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><Edit3 size={15} /> Modifier</button>
+              : <button onClick={async () => { if (await confirmDialog({ title: "Réintégrer ce collaborateur ?", confirmLabel: "Réintégrer" })) run(() => patch(String(id), { isActive: true, endDate: null, exitReason: null })); }} className={buttonClass("secondary", "md")}><RotateCcw size={15} /> Réintégrer</button>}
+            <button onClick={() => setEditOpen(true)} className={buttonClass("primary", "md")}><Edit3 size={15} /> Modifier</button>
           </div>
         )}
       </div>
@@ -186,7 +187,7 @@ function LinkUserDialog({ current, onClose, onSave }: { current?: string; onClos
           <option value="">— Aucun compte —</option>
           {users.map(u => <option key={u._id} value={u._id}>{u.firstName} {u.lastName} — {u.email}</option>)}
         </select>
-        <button onClick={async () => { try { await onSave(value || null); } catch (e) { setError(e instanceof Error ? e.message : "Erreur"); } }} className="w-full h-10 rounded-lg bg-section text-white text-sm font-semibold">Enregistrer</button>
+        <button onClick={async () => { try { await onSave(value || null); } catch (e) { setError(e instanceof Error ? e.message : "Erreur"); } }} className={buttonClass("primary", "md", "w-full")}>Enregistrer</button>
       </div>
     </Modal>
   );

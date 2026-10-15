@@ -4,7 +4,8 @@
 
 /* =========================================================================
    Design tokens « Harmattan » — canaux RGB pilotés par variables CSS.
-   Thème clair par défaut, thème sombre automatique (prefers-color-scheme).
+   Thème clair par défaut, thème sombre automatique (prefers-color-scheme),
+   sauf choix manuel : data-theme="light" ou "dark" sur <html>.
    Toute couleur Tailwind basée sur ces tokens suit le mode sombre du système.
    ========================================================================= */
 :root {
@@ -43,7 +44,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --c-ink: 230 234 245;
     --c-bg: 19 23 34;
     --c-surface: 26 31 45;
@@ -68,6 +69,32 @@
     --c-info050: 20 28 41;
   }
 }
+/* Thème sombre choisi à la main (bascule de la barre du haut). */
+:root[data-theme="dark"] {
+    --c-ink: 230 234 245;
+    --c-bg: 19 23 34;
+    --c-surface: 26 31 45;
+    --c-surface2: 32 38 54;
+    --c-line: 40 47 64;
+    --c-line2: 56 66 88;
+    --c-ink2: 172 182 202;
+    --c-ink3: 140 152 174;
+    --c-on-ink: 19 23 34;
+    --c-accent: 124 155 232;
+    --c-accent600: 100 133 216;
+    --c-accent700: 160 184 244;
+    --c-accent050: 20 27 44;
+    --c-accent100: 27 37 59;
+    --c-pos: 79 183 154;
+    --c-pos050: 22 36 31;
+    --c-neg: 224 106 92;
+    --c-neg050: 42 23 20;
+    --c-warn: 217 163 42;
+    --c-warn050: 42 34 16;
+    --c-info: 106 160 224;
+    --c-info050: 20 28 41;
+  }
+
 
 
 /* =========================================================================
@@ -100,22 +127,41 @@
 @media (prefers-color-scheme: dark) {
   /* En sombre, la teinte est éclaircie pour rester lisible sur fond foncé, et
      la version douce devient un voile sombre plutôt qu'un pastel. */
-  :root { --s-accent: 124 155 232; --s-soft: 27 37 59; }
+  :root:not([data-theme="light"]) { --s-accent: 124 155 232; --s-soft: 27 37 59; }
 
-  [data-section="accueil"]     { --s-accent: 124 155 232; --s-soft: 27 37 59; }
-  [data-section="ventes"]      { --s-accent: 132 158 246; --s-soft: 24 29 48; }
-  [data-section="achats"]      { --s-accent:  91 197 208; --s-soft: 16 36 39; }
-  [data-section="abonnements"] { --s-accent: 190 143 235; --s-soft: 33 24 45; }
-  [data-section="contrats"]    { --s-accent: 226 148 194; --s-soft: 44 26 38; }
-  [data-section="documents"]   { --s-accent: 201 186 160; --s-soft: 38 34 28; }
-  [data-section="finance"]     { --s-accent:  79 183 154; --s-soft: 18 34 29; }
-  [data-section="rh"]          { --s-accent: 233 143 128; --s-soft: 45 26 22; }
-  [data-section="gouvernance"] { --s-accent: 152 165 224; --s-soft: 25 28 44; }
-  [data-section="membres"]     { --s-accent: 100 183 224; --s-soft: 16 31 41; }
-  [data-section="budget"]      { --s-accent: 223 173  74; --s-soft: 42 33 15; }
-  [data-section="parametres"]  { --s-accent: 176 181 191; --s-soft: 32 34 38; }
-  [data-section="plateforme"]  { --s-accent: 196 202 216; --s-soft: 30 32 38; }
+  :root:not([data-theme="light"]) [data-section="accueil"] { --s-accent: 124 155 232; --s-soft: 27 37 59; }
+  :root:not([data-theme="light"]) [data-section="ventes"] { --s-accent: 132 158 246; --s-soft: 24 29 48; }
+  :root:not([data-theme="light"]) [data-section="achats"] { --s-accent:  91 197 208; --s-soft: 16 36 39; }
+  :root:not([data-theme="light"]) [data-section="abonnements"] { --s-accent: 190 143 235; --s-soft: 33 24 45; }
+  :root:not([data-theme="light"]) [data-section="contrats"] { --s-accent: 226 148 194; --s-soft: 44 26 38; }
+  :root:not([data-theme="light"]) [data-section="documents"] { --s-accent: 201 186 160; --s-soft: 38 34 28; }
+  :root:not([data-theme="light"]) [data-section="finance"] { --s-accent:  79 183 154; --s-soft: 18 34 29; }
+  :root:not([data-theme="light"]) [data-section="rh"] { --s-accent: 233 143 128; --s-soft: 45 26 22; }
+  :root:not([data-theme="light"]) [data-section="gouvernance"] { --s-accent: 152 165 224; --s-soft: 25 28 44; }
+  :root:not([data-theme="light"]) [data-section="membres"] { --s-accent: 100 183 224; --s-soft: 16 31 41; }
+  :root:not([data-theme="light"]) [data-section="budget"] { --s-accent: 223 173  74; --s-soft: 42 33 15; }
+  :root:not([data-theme="light"]) [data-section="parametres"] { --s-accent: 176 181 191; --s-soft: 32 34 38; }
+  :root:not([data-theme="light"]) [data-section="plateforme"] { --s-accent: 196 202 216; --s-soft: 30 32 38; }
 }
+/* Thème sombre choisi à la main (bascule de la barre du haut). */
+/* En sombre, la teinte est éclaircie pour rester lisible sur fond foncé, et
+     la version douce devient un voile sombre plutôt qu'un pastel. */
+  :root[data-theme="dark"] { --s-accent: 124 155 232; --s-soft: 27 37 59; }
+
+  :root[data-theme="dark"] [data-section="accueil"] { --s-accent: 124 155 232; --s-soft: 27 37 59; }
+  :root[data-theme="dark"] [data-section="ventes"] { --s-accent: 132 158 246; --s-soft: 24 29 48; }
+  :root[data-theme="dark"] [data-section="achats"] { --s-accent:  91 197 208; --s-soft: 16 36 39; }
+  :root[data-theme="dark"] [data-section="abonnements"] { --s-accent: 190 143 235; --s-soft: 33 24 45; }
+  :root[data-theme="dark"] [data-section="contrats"] { --s-accent: 226 148 194; --s-soft: 44 26 38; }
+  :root[data-theme="dark"] [data-section="documents"] { --s-accent: 201 186 160; --s-soft: 38 34 28; }
+  :root[data-theme="dark"] [data-section="finance"] { --s-accent:  79 183 154; --s-soft: 18 34 29; }
+  :root[data-theme="dark"] [data-section="rh"] { --s-accent: 233 143 128; --s-soft: 45 26 22; }
+  :root[data-theme="dark"] [data-section="gouvernance"] { --s-accent: 152 165 224; --s-soft: 25 28 44; }
+  :root[data-theme="dark"] [data-section="membres"] { --s-accent: 100 183 224; --s-soft: 16 31 41; }
+  :root[data-theme="dark"] [data-section="budget"] { --s-accent: 223 173  74; --s-soft: 42 33 15; }
+  :root[data-theme="dark"] [data-section="parametres"] { --s-accent: 176 181 191; --s-soft: 32 34 38; }
+  :root[data-theme="dark"] [data-section="plateforme"] { --s-accent: 196 202 216; --s-soft: 30 32 38; }
+
 
 
 /* =========================================================================
@@ -139,7 +185,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --k-1: 138 152 250;
     --k-2: 236 130 194;
     --k-3: 226 165  76;
@@ -148,6 +194,16 @@
     --k-6:  86 197 162;
   }
 }
+/* Thème sombre choisi à la main (bascule de la barre du haut). */
+:root[data-theme="dark"] {
+    --k-1: 138 152 250;
+    --k-2: 236 130 194;
+    --k-3: 226 165  76;
+    --k-4:  92 190 222;
+    --k-5: 190 146 238;
+    --k-6:  86 197 162;
+  }
+
 
 /* =========================================================================
    Primitives d'interface.
@@ -493,7 +549,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  [data-space="pme"] {
+  :root:not([data-theme="light"]) [data-space="pme"] {
     --c-chrome: 19 23 34;
     /* Mode sombre : coque nuit, accent bleu éclairci, pilule active bleue. */
     --c-chrome-fg: 226 231 243;
@@ -510,7 +566,7 @@
     --c-warn: 230 176 70; --c-warn050: 46 36 14; --c-info: 124 165 240; --c-info050: 22 32 56;
     --s-accent: 124 155 232; --s-soft: 27 37 59;
   }
-  [data-space="association"] {
+  :root:not([data-theme="light"]) [data-space="association"] {
     --c-chrome: 10 24 19;
     --c-bg: 17 22 19; --c-surface2: 31 39 34;
     --c-line: 43 53 46; --c-line2: 60 74 64;
@@ -518,7 +574,7 @@
     --c-accent: 82 186 148; --c-accent600: 62 164 128; --c-accent700: 130 208 178;
     --c-accent050: 18 36 29; --c-accent100: 24 50 40;
   }
-  [data-space="administration"] {
+  :root:not([data-theme="light"]) [data-space="administration"] {
     --c-chrome: 9 14 26;
     --c-bg: 14 17 24; --c-surface2: 26 31 42;
     --c-line: 37 44 58; --c-line2: 54 64 84;
@@ -527,6 +583,41 @@
     --c-accent050: 20 27 44; --c-accent100: 27 37 59;
   }
 }
+/* Thème sombre choisi à la main (bascule de la barre du haut). */
+:root[data-theme="dark"] [data-space="pme"] {
+    --c-chrome: 19 23 34;
+    /* Mode sombre : coque nuit, accent bleu éclairci, pilule active bleue. */
+    --c-chrome-fg: 226 231 243;
+    --c-chrome-active-bg: 59 91 219;
+    --c-chrome-active-fg: 255 255 255;
+    --nav-a: 40 120 230; --nav-b: 70 100 230;
+    --c-accent: 124 155 232; --c-accent600: 100 133 216; --c-accent700: 160 184 244;
+    --c-accent050: 20 27 44; --c-accent100: 27 37 59;
+    --c-bg: 19 23 34; --c-page: 11 14 22; --c-page-a: 22 34 66; --c-page-b: 34 28 66;
+    --c-surface: 26 31 45; --c-surface2: 32 38 54;
+    --c-line: 40 47 64; --c-line2: 56 66 88;
+    --c-ink: 230 234 245; --c-ink2: 172 182 202; --c-ink3: 140 152 174;
+    --c-pos: 79 196 140; --c-pos050: 18 40 30; --c-neg: 240 110 104; --c-neg050: 50 22 24;
+    --c-warn: 230 176 70; --c-warn050: 46 36 14; --c-info: 124 165 240; --c-info050: 22 32 56;
+    --s-accent: 124 155 232; --s-soft: 27 37 59;
+  }
+  :root[data-theme="dark"] [data-space="association"] {
+    --c-chrome: 10 24 19;
+    --c-bg: 17 22 19; --c-surface2: 31 39 34;
+    --c-line: 43 53 46; --c-line2: 60 74 64;
+    --c-ink: 231 238 232; --c-ink2: 168 184 172; --c-ink3: 140 156 144;
+    --c-accent: 82 186 148; --c-accent600: 62 164 128; --c-accent700: 130 208 178;
+    --c-accent050: 18 36 29; --c-accent100: 24 50 40;
+  }
+  :root[data-theme="dark"] [data-space="administration"] {
+    --c-chrome: 9 14 26;
+    --c-bg: 14 17 24; --c-surface2: 26 31 42;
+    --c-line: 37 44 58; --c-line2: 54 64 84;
+    --c-ink: 228 233 243; --c-ink2: 158 170 192; --c-ink3: 136 148 170;
+    --c-accent: 124 155 232; --c-accent600: 100 133 216; --c-accent700: 160 184 244;
+    --c-accent050: 20 27 44; --c-accent100: 27 37 59;
+  }
+
 
 /* ── Accents de section, déclinés par espace ──────────────────────────────
    Chaque espace garde sa famille chromatique jusque dans ses onglets. Le
@@ -552,24 +643,43 @@
 [data-space="administration"] [data-section="parametres"]  { --s-accent:  74  82  96; --s-soft: 231 234 238; }
 
 @media (prefers-color-scheme: dark) {
-  [data-space="association"] [data-section="accueil"]     { --s-accent:  82 186 148; --s-soft: 18 36 29; }
-  [data-space="association"] [data-section="membres"]     { --s-accent:  84 196 190; --s-soft: 16 38 37; }
-  [data-space="association"] [data-section="finance"]     { --s-accent: 112 186 132; --s-soft: 20 34 24; }
-  [data-space="association"] [data-section="gouvernance"] { --s-accent: 214 168 100; --s-soft: 40 32 18; }
-  [data-space="association"] [data-section="contrats"]    { --s-accent: 226 148 118; --s-soft: 42 27 21; }
-  [data-space="association"] [data-section="ventes"]      { --s-accent: 106 180 220; --s-soft: 15 30 39; }
-  [data-space="association"] [data-section="rh"]          { --s-accent: 226 146 172; --s-soft: 42 25 32; }
-  [data-space="association"] [data-section="parametres"]  { --s-accent: 172 182 176; --s-soft: 30 35 32; }
+  :root:not([data-theme="light"]) [data-space="association"] [data-section="accueil"] { --s-accent:  82 186 148; --s-soft: 18 36 29; }
+  :root:not([data-theme="light"]) [data-space="association"] [data-section="membres"] { --s-accent:  84 196 190; --s-soft: 16 38 37; }
+  :root:not([data-theme="light"]) [data-space="association"] [data-section="finance"] { --s-accent: 112 186 132; --s-soft: 20 34 24; }
+  :root:not([data-theme="light"]) [data-space="association"] [data-section="gouvernance"] { --s-accent: 214 168 100; --s-soft: 40 32 18; }
+  :root:not([data-theme="light"]) [data-space="association"] [data-section="contrats"] { --s-accent: 226 148 118; --s-soft: 42 27 21; }
+  :root:not([data-theme="light"]) [data-space="association"] [data-section="ventes"] { --s-accent: 106 180 220; --s-soft: 15 30 39; }
+  :root:not([data-theme="light"]) [data-space="association"] [data-section="rh"] { --s-accent: 226 146 172; --s-soft: 42 25 32; }
+  :root:not([data-theme="light"]) [data-space="association"] [data-section="parametres"] { --s-accent: 172 182 176; --s-soft: 30 35 32; }
 
-  [data-space="administration"] [data-section="accueil"]     { --s-accent: 124 155 232; --s-soft: 20 27 44; }
-  [data-space="administration"] [data-section="budget"]      { --s-accent:  98 170 224; --s-soft: 16 29 41; }
-  [data-space="administration"] [data-section="gouvernance"] { --s-accent: 146 150 224; --s-soft: 25 26 44; }
-  [data-space="administration"] [data-section="achats"]      { --s-accent:  92 184 196; --s-soft: 15 33 36; }
-  [data-space="administration"] [data-section="finance"]     { --s-accent: 104 190 172; --s-soft: 17 33 30; }
-  [data-space="administration"] [data-section="rh"]          { --s-accent: 200 146 190; --s-soft: 38 25 35; }
-  [data-space="administration"] [data-section="contrats"]    { --s-accent: 172 156 228; --s-soft: 30 27 44; }
-  [data-space="administration"] [data-section="parametres"]  { --s-accent: 166 176 192; --s-soft: 29 32 38; }
+  :root:not([data-theme="light"]) [data-space="administration"] [data-section="accueil"] { --s-accent: 124 155 232; --s-soft: 20 27 44; }
+  :root:not([data-theme="light"]) [data-space="administration"] [data-section="budget"] { --s-accent:  98 170 224; --s-soft: 16 29 41; }
+  :root:not([data-theme="light"]) [data-space="administration"] [data-section="gouvernance"] { --s-accent: 146 150 224; --s-soft: 25 26 44; }
+  :root:not([data-theme="light"]) [data-space="administration"] [data-section="achats"] { --s-accent:  92 184 196; --s-soft: 15 33 36; }
+  :root:not([data-theme="light"]) [data-space="administration"] [data-section="finance"] { --s-accent: 104 190 172; --s-soft: 17 33 30; }
+  :root:not([data-theme="light"]) [data-space="administration"] [data-section="rh"] { --s-accent: 200 146 190; --s-soft: 38 25 35; }
+  :root:not([data-theme="light"]) [data-space="administration"] [data-section="contrats"] { --s-accent: 172 156 228; --s-soft: 30 27 44; }
+  :root:not([data-theme="light"]) [data-space="administration"] [data-section="parametres"] { --s-accent: 166 176 192; --s-soft: 29 32 38; }
 }
+/* Thème sombre choisi à la main (bascule de la barre du haut). */
+:root[data-theme="dark"] [data-space="association"] [data-section="accueil"] { --s-accent:  82 186 148; --s-soft: 18 36 29; }
+  :root[data-theme="dark"] [data-space="association"] [data-section="membres"] { --s-accent:  84 196 190; --s-soft: 16 38 37; }
+  :root[data-theme="dark"] [data-space="association"] [data-section="finance"] { --s-accent: 112 186 132; --s-soft: 20 34 24; }
+  :root[data-theme="dark"] [data-space="association"] [data-section="gouvernance"] { --s-accent: 214 168 100; --s-soft: 40 32 18; }
+  :root[data-theme="dark"] [data-space="association"] [data-section="contrats"] { --s-accent: 226 148 118; --s-soft: 42 27 21; }
+  :root[data-theme="dark"] [data-space="association"] [data-section="ventes"] { --s-accent: 106 180 220; --s-soft: 15 30 39; }
+  :root[data-theme="dark"] [data-space="association"] [data-section="rh"] { --s-accent: 226 146 172; --s-soft: 42 25 32; }
+  :root[data-theme="dark"] [data-space="association"] [data-section="parametres"] { --s-accent: 172 182 176; --s-soft: 30 35 32; }
+
+  :root[data-theme="dark"] [data-space="administration"] [data-section="accueil"] { --s-accent: 124 155 232; --s-soft: 20 27 44; }
+  :root[data-theme="dark"] [data-space="administration"] [data-section="budget"] { --s-accent:  98 170 224; --s-soft: 16 29 41; }
+  :root[data-theme="dark"] [data-space="administration"] [data-section="gouvernance"] { --s-accent: 146 150 224; --s-soft: 25 26 44; }
+  :root[data-theme="dark"] [data-space="administration"] [data-section="achats"] { --s-accent:  92 184 196; --s-soft: 15 33 36; }
+  :root[data-theme="dark"] [data-space="administration"] [data-section="finance"] { --s-accent: 104 190 172; --s-soft: 17 33 30; }
+  :root[data-theme="dark"] [data-space="administration"] [data-section="rh"] { --s-accent: 200 146 190; --s-soft: 38 25 35; }
+  :root[data-theme="dark"] [data-space="administration"] [data-section="contrats"] { --s-accent: 172 156 228; --s-soft: 30 27 44; }
+  :root[data-theme="dark"] [data-space="administration"] [data-section="parametres"] { --s-accent: 166 176 192; --s-soft: 29 32 38; }
+
 
 /* ── Formes propres à chaque espace ───────────────────────────────────────
    Ce que les variables ne portent pas : l'épaisseur des filets, la présence
@@ -709,7 +819,8 @@
   .custom-scrollbar { scrollbar-width: thin; scrollbar-color: rgb(var(--c-chrome-fg) / 0.2) transparent; }
 
   .card {
-    @apply bg-surface rounded-lg border border-line shadow-sm p-5;
+    border-radius: var(--r-lg);
+    @apply bg-surface border border-line shadow-sm p-5;
   }
 
   .input {
@@ -721,11 +832,14 @@
     @apply block text-xs font-medium text-ink mb-1.5;
   }
 
+  /* Titres (charte v5) : grands, gras, resserrés. */
   .page-title {
-    @apply font-display text-2xl font-semibold text-ink tracking-tight;
+    @apply text-ink;
+    font-size: clamp(1.5rem, 1.2rem + 1vw, 1.875rem);
+    line-height: 1.12; font-weight: 800; letter-spacing: -0.03em;
   }
   .section-title {
-    @apply font-display text-base font-semibold text-ink;
+    @apply text-base font-bold text-ink tracking-tight;
   }
 
   /* Badges de statut — évitent les couleurs Tailwind par défaut */
@@ -882,7 +996,10 @@
 /* Contrôles natifs et champs : suivent le thème (sans cela, un champ sans classe
    de fond gardait le fond clair du navigateur avec un texte clair en mode sombre). */
 :root { color-scheme: light; }
-@media (prefers-color-scheme: dark) { :root { color-scheme: dark; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
+/* Thème sombre choisi à la main (bascule de la barre du haut). */
+:root[data-theme="dark"] { color-scheme: dark; }
+
 @layer base {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
   select, textarea {
@@ -900,8 +1017,11 @@
    ========================================================================= */
 [data-space="pme"] [data-section], [data-space="pme"][data-section] { --s-accent: 47 89 223; --s-soft: 228 239 255; }
 @media (prefers-color-scheme: dark) {
-  [data-space="pme"] [data-section], [data-space="pme"][data-section] { --s-accent: 124 155 232; --s-soft: 27 37 59; }
+  :root:not([data-theme="light"]) [data-space="pme"] [data-section], :root:not([data-theme="light"]) [data-space="pme"][data-section] { --s-accent: 124 155 232; --s-soft: 27 37 59; }
 }
+/* Thème sombre choisi à la main (bascule de la barre du haut). */
+:root[data-theme="dark"] [data-space="pme"] [data-section], :root[data-theme="dark"] [data-space="pme"][data-section] { --s-accent: 124 155 232; --s-soft: 27 37 59; }
+
 
 :root { --c-page: 238 240 245; --c-page-a: 230 233 240; --c-page-b: 232 230 240; --r-btn: .5rem;
   /* Dégradé de marque par défaut (pages publiques, espace PME) : bleu de la charte. */
@@ -912,7 +1032,10 @@
 [data-space="association"], [data-space="administration"] {
   --nav-a: var(--c-chrome-active-bg); --nav-b: var(--c-chrome-active-bg); --nav-fg: var(--c-chrome-active-fg);
 }
-@media (prefers-color-scheme: dark) { :root { --c-page: 10 12 16; --c-page-a: 18 22 30; --c-page-b: 20 18 28; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --c-page: 10 12 16; --c-page-a: 18 22 30; --c-page-b: 20 18 28; } }
+/* Thème sombre choisi à la main (bascule de la barre du haut). */
+:root[data-theme="dark"] { --c-page: 10 12 16; --c-page-a: 18 22 30; --c-page-b: 20 18 28; }
+
 
 @layer components {
   /* Fond derrière la coque : deux halos doux, fixes au défilement. */
@@ -943,4 +1066,25 @@
   }
   /* Carte de la charte v5 : rayon généreux, ombre longue et légère. */
   [data-space="pme"] .surface-card { box-shadow: 0 1px 2px rgba(30,40,80,.04), 0 12px 32px -18px rgba(44,60,130,.18); }
+}
+
+/* =========================================================================
+   Charte v5 — tableaux et champs de l'espace PME.
+   Tableaux : en-têtes en casse normale, lignes aérées, marges latérales qui
+   respirent dans les cartes arrondies (comme le tableau du tableau de bord).
+   ========================================================================= */
+@layer components {
+  [data-space="pme"] .table-dense { font-size: .8125rem; }
+  [data-space="pme"] .table-dense thead th {
+    font-size: .72rem; letter-spacing: 0; text-transform: none; font-weight: 600;
+    padding: .6rem .9rem; background: rgb(var(--c-surface2) / .55);
+  }
+  [data-space="pme"] .table-dense tbody td { padding: .7rem .9rem; }
+  [data-space="pme"] .table-dense thead th:first-child,
+  [data-space="pme"] .table-dense tbody td:first-child { padding-left: 1.4rem; }
+  [data-space="pme"] .table-dense thead th:last-child,
+  [data-space="pme"] .table-dense tbody td:last-child { padding-right: 1.4rem; }
+  [data-space="pme"] .table-dense tbody tr:hover { background: rgb(var(--c-surface2) / .5); }
+  [data-space="pme"] .input { height: 2.75rem; border-radius: var(--r-md); }
+  [data-space="pme"] .input:focus, [data-space="pme"] .input:focus-visible { outline: none; border-color: rgb(var(--c-accent)); box-shadow: 0 0 0 4px rgb(var(--c-accent) / .14); }
 }

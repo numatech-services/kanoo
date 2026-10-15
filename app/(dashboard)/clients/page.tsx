@@ -10,6 +10,7 @@ import { ClientForm } from "@/components/pme/ClientForm";
 import { useMe, meCan } from "@/lib/useMe";
 
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface Client {
   _id: string;
   code: string;
@@ -136,7 +137,7 @@ export default function ClientsPage() {
         </div>
         <button
           onClick={() => { setEditing(null); setModalOpen(true); }}
-          className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95 transition-colors"
+          className={buttonClass("primary", "md")}
         >
           + Nouveau client
         </button>

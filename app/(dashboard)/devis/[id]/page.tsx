@@ -100,7 +100,7 @@ export default function DevisDetailPage() {
         <div className="flex items-center gap-2">
           {item.contractId
             ? <a href={`/contracts/${item.contractId}`} className="px-5 py-2.5 border border-section/30 text-section rounded-2xl font-bold hover:bg-section-soft">Voir le marché</a>
-            : canMarket && !["rejected", "expired"].includes(item.status) && <button onClick={() => setMarketOpen(true)} className="px-5 py-2.5 bg-section text-white rounded-2xl font-bold hover:brightness-95">Créer le marché</button>}
+            : canMarket && !["rejected", "expired"].includes(item.status) && <button onClick={() => setMarketOpen(true)} className={buttonClass("primary", "md")}>Créer le marché</button>}
           <a href={`/api/devis/${item._id}/pdf`} target="_blank" rel="noopener"
             className={buttonClass("secondary", "md")}>
             PDF

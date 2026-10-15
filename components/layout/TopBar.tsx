@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { NotificationsBell } from "@/components/shared/NotificationsBell";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Search, CalendarDays, Menu } from "lucide-react";
 import { useMe } from "@/lib/useMe";
 
@@ -49,6 +50,7 @@ export function TopBar() {
         </span>
       )}
       <NotificationsBell />
+      <ThemeToggle />
       {mounted && user && (
         <Link href="/profile" aria-label="Mon profil"
           className="lg:hidden w-[46px] h-[46px] rounded-full grid place-items-center text-sm font-bold text-white bg-gradient-to-br from-[rgb(234_153_82)] to-[rgb(225_75_57)] shrink-0">

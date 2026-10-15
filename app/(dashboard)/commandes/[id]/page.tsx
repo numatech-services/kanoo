@@ -75,19 +75,19 @@ export default function CommandeDetailPage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button onClick={() => window.print()} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Printer size={16} /> Imprimer</button>
+          <button onClick={() => window.print()} className={buttonClass("secondary", "md")}><Printer size={16} /> Imprimer</button>
           {canEdit && item.status === "draft" && (
-            <button onClick={() => act(() => send(`/api/commandes/${id}`, "PATCH", { status: "confirmed" }))} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2"><CheckCircle2 size={16} /> Confirmer</button>
+            <button onClick={() => act(() => send(`/api/commandes/${id}`, "PATCH", { status: "confirmed" }))} className={buttonClass("secondary", "md")}><CheckCircle2 size={16} /> Confirmer</button>
           )}
           {canEdit && receivable && (
-            <button onClick={() => setReceiveOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95"><PackageCheck size={16} /> Réceptionner</button>
+            <button onClick={() => setReceiveOpen(true)} className={buttonClass("primary", "md")}><PackageCheck size={16} /> Réceptionner</button>
           )}
           {canPurchase && ["confirmed", "partially_received", "received"].includes(item.status) && !item.purchaseId && (
             <Link href={`/depenses/nouvelle?commandeId=${item._id}`} className={buttonClass("secondary", "md")}><FileText size={16} /> Saisir la facture fournisseur</Link>
           )}
           {item.purchaseId && <Link href={`/depenses/${item.purchaseId}`} className={buttonClass("secondary", "md")}><FileText size={16} /> Facture fournisseur</Link>}
           {canEdit && editable && (
-            <button onClick={() => setEditOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Edit3 size={16} /> Modifier</button>
+            <button onClick={() => setEditOpen(true)} className={buttonClass("secondary", "md")}><Edit3 size={16} /> Modifier</button>
           )}
           {canEdit && editable && !anyReceived && (
             <button onClick={async () => { if (await confirmDialog({ title: "Annuler cette commande ?", danger: true })) act(() => send(`/api/commandes/${id}`, "PATCH", { status: "cancelled" })); }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-warn/30 text-warn text-sm hover:bg-warn-50"><Ban size={16} /> Annuler</button>

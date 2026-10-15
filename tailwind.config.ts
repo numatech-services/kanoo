@@ -18,7 +18,9 @@ import type { Config } from "tailwindcss";
 const c = (v: string) => `rgb(var(${v}) / <alpha-value>)`;
 
 const config: Config = {
-  darkMode: "media",
+  // Sombre : selon l'appareil, sauf choix manuel (data-theme sur <html>, posé
+  // par la bascule de la barre du haut).
+  darkMode: ["variant", ["@media (prefers-color-scheme: dark) { &:not([data-theme=light] *) }", "&:is([data-theme=dark] *)"]],
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
   theme: {
     extend: {

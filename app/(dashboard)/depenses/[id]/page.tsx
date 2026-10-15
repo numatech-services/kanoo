@@ -13,6 +13,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 import { formatMoney, formatDate } from "@/lib/format";
+import { buttonClass } from "@/components/ui/button-class";
 type Ref = { _id: string; code?: string; name?: string; label?: string; type?: string } | null | undefined;
 interface Purchase {
   match?: { commandeNumber: string; orderedHT: number; receivedHT: number; invoicedHT: number; gapHT: number; overInvoiced: boolean } | null;
@@ -80,8 +81,8 @@ export default function PurchaseDetailPage() {
           <p className="text-sm text-ink2">{p.supplierId?.name ?? p.payee}{p.supplierRef ? ` · réf. ${p.supplierRef}` : ""}{p.commandeId ? <> · <Link href={`/commandes/${p.commandeId._id}`} className="text-section hover:underline">BC {p.commandeId.number}</Link></> : null}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {canUpdate && p.status === "draft" && <button onClick={() => setEditOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Edit3 size={16} /> Modifier</button>}
-          {canUpdate && p.status === "draft" && <button onClick={validate} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><CheckCircle2 size={16} /> Valider</button>}
+          {canUpdate && p.status === "draft" && <button onClick={() => setEditOpen(true)} className={buttonClass("secondary", "md")}><Edit3 size={16} /> Modifier</button>}
+          {canUpdate && p.status === "draft" && <button onClick={validate} className={buttonClass("primary", "md")}><CheckCircle2 size={16} /> Valider</button>}
           {canUpdate && ["validated", "partial"].includes(p.status) && <button onClick={() => setPayOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-white text-sm font-semibold"><Banknote size={16} /> Enregistrer un règlement</button>}
           {canDelete && p.status === "draft" && <button onClick={async () => { if (!(await confirmDialog({ title: "Supprimer ce brouillon ?", danger: true }))) return; try { await send(`/api/achats/${id}`, "DELETE"); router.push("/depenses"); } catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); } }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Trash2 size={16} /> Supprimer</button>}
           {canDelete && p.status === "validated" && <button onClick={async () => { const reason = await promptDialog({ title: "Motif de l'annulation (l'écriture sera extournée) :", multiline: true }); if (reason) act(() => send(`/api/achats/${id}/cancel`, "POST", { reason })); }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Ban size={16} /> Annuler</button>}

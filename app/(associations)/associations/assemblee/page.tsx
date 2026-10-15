@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { apiJson } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface AG { _id:string; title:string; type:string; date:string; location:string; quorumRequired:number; quorumAchieved:number; decisions:Array<{text:string;passed:boolean}>; }
 export default function AssembleePage() {
   const router=useRouter();
@@ -21,7 +22,7 @@ export default function AssembleePage() {
   if (!mounted) return null;
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between"><h1 className="page-title">Assemblées générales</h1><button onClick={() => window.location.href = "/associations/assemblee/new"} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Convoquer une AG</button></div>
+      <div className="flex items-center justify-between"><h1 className="page-title">Assemblées générales</h1><button onClick={() => window.location.href = "/associations/assemblee/new"} className={buttonClass("primary", "md")}>+ Convoquer une AG</button></div>
       <DataTable columns={columns} data={items} loading={loading} keyExtractor={a=>a._id} emptyMessage="Aucune assemblée générale" onRowClick={a=>router.push(`/associations/assemblee/${a._id}`)}/>
     </div>
   );

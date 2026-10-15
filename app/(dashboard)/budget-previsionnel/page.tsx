@@ -101,7 +101,7 @@ export default function BudgetPrevisionnelPage() {
           </select>
           {budget && (
             <>
-              <button onClick={() => setEditOpen(true)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Réviser</button>
+              <button onClick={() => setEditOpen(true)} className={buttonClass("secondary", "md")}>Réviser</button>
               <button onClick={async () => {
                 if (!(await confirmDialog({ title: `Supprimer le budget ${year} ?`, message: `Le réalisé comptable n'est pas touché.`, danger: true }))) return;
                 const res = await apiSend("DELETE", `/api/budget-previsionnel?year=${year}`);
@@ -111,7 +111,7 @@ export default function BudgetPrevisionnelPage() {
           )}
           {!budget && (
             <button onClick={() => setCreateOpen(true)}
-              className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+              className={buttonClass("primary", "md")}>
               <Plus size={16} /> Établir le budget {year}
             </button>
           )}
@@ -431,7 +431,7 @@ function CreateDialog({
 
         <button type="button"
           onClick={() => setLines(ls => [...ls, { accountPrefix: "", label: "", nature: "expense", annualAmount: 0, profile: "even" }])}
-          className="px-3 h-9 inline-flex items-center gap-1.5 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+          className={buttonClass("secondary", "md")}>
           <Plus size={14} /> Ajouter un poste
         </button>
 
@@ -460,7 +460,7 @@ function CreateDialog({
             Annuler
           </button>
           <button type="submit" disabled={saving || lines.every(l => l.annualAmount === 0)}
-            className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+            className={buttonClass("primary", "md")}>
             {saving ? "Enregistrement…" : edit ? `Enregistrer la révision ${year}` : `Établir le budget ${year}`}
           </button>
         </div>

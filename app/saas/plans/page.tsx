@@ -96,7 +96,7 @@ export default function PlansPage() {
         </h1>
         <button 
           onClick={() => openEdit()} 
-          className="px-6 py-2 bg-section text-white rounded-xl font-bold shadow-lg hover:scale-105 transition-transform"
+          className={buttonClass("primary", "md")}
         >
           + Nouveau Plan
         </button>

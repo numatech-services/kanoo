@@ -6,6 +6,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 
 import { apiJson, apiSend } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface Approbation { _id: string; resource: string; resourceId: string; requestedBy: { firstName: string; lastName: string } | string; amount?: number; status: string; currentLevel: number; notes?: string; createdAt: string; }
 
 export default function ApprobationsPage() {
@@ -69,7 +70,7 @@ export default function ApprobationsPage() {
           </div>
           <div><label className={lbl}>Commentaire {decision==="rejected"?"(obligatoire)":""}</label><textarea className={inp} rows={3} value={comment} onChange={e=>setComment(e.target.value)} placeholder="Motif de la décision…" /></div>
           <div className="flex justify-end gap-3">
-            <button onClick={() => setDecideModal(null)} className="px-4 py-2 text-sm border border-line rounded-lg text-ink2 hover:bg-surface2">Annuler</button>
+            <button onClick={() => setDecideModal(null)} className={buttonClass("secondary", "md")}>Annuler</button>
             <button onClick={handleDecide} disabled={deciding || (decision==="rejected" && !comment.trim())} className={`px-5 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-60 ${decision==="approved"?"bg-pos hover:brightness-95":"bg-neg hover:brightness-95"}`}>{deciding?"Traitement…":"Confirmer"}</button>
           </div>
         </div>

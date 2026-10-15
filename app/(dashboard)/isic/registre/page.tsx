@@ -259,7 +259,7 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
           <option value="with">Avec photo</option>
           <option value="without">Sans photo</option>
         </select>
-        <button onClick={() => setAdding(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+        <button onClick={() => setAdding(true)} className={buttonClass("primary", "md")}>
           <Plus size={16} /> Ajouter
         </button>
       </div>
@@ -502,7 +502,7 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
             <div className="flex gap-3">
               <button onClick={onClose} className={buttonClass("secondary", "md")}>Fermer</button>
               <button onClick={() => save()} disabled={saving || (numberChanged && !!d.student.isicNumber && !f.numberReason.trim())}
-                className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-50">{saving ? "Enregistrement…" : "Enregistrer"}</button>
+                className={buttonClass("primary", "md")}>{saving ? "Enregistrement…" : "Enregistrer"}</button>
             </div>
           </div>
         </div>

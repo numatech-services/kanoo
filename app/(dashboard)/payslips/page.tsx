@@ -110,10 +110,10 @@ export default function PayslipsPage() {
         </div>
         {canCreate && (
           <div className="flex gap-2">
-            <button onClick={() => setBatch(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2">
+            <button onClick={() => setBatch(true)} className={buttonClass("secondary", "md")}>
               <Users size={16} /> Paie du mois (tous)
             </button>
-            <button onClick={() => setSingle(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+            <button onClick={() => setSingle(true)} className={buttonClass("primary", "md")}>
               <Plus size={16} /> Un bulletin
             </button>
           </div>

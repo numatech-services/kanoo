@@ -89,7 +89,7 @@ export default function FixedAssetsPage() {
           <h1 className="page-title">Immobilisations</h1>
           <p className="text-sm text-ink2">Plan d'amortissement OHADA · Méthode linéaire et dégressive</p>
         </div>
-        <button onClick={() => setModalOpen(true)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouvelle immobilisation</button>
+        <button onClick={() => setModalOpen(true)} className={buttonClass("primary", "md")}>+ Nouvelle immobilisation</button>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -164,7 +164,7 @@ export default function FixedAssetsPage() {
                       ? <span className="text-xs text-pos">Comptabilisé</span>
                       : entry.year <= currentYear
                       ? <button onClick={() => handlePostDepreciation(selectedAsset._id, entry.year)} disabled={postingYear === entry.year}
-                          className="text-xs bg-section text-white px-3 py-1 rounded-lg hover:brightness-95 disabled:opacity-60">
+                          className={buttonClass("primary", "sm")}>
                           {postingYear === entry.year ? "…" : "Passer l'écriture"}
                         </button>
                       : <span className="text-xs text-ink2">Non échu</span>
@@ -243,7 +243,7 @@ export default function FixedAssetsPage() {
             <FormField label="Localisation"><input className={inputCls} value={form.location} onChange={e=>u("location",e.target.value)}/></FormField>
           </div>
           <div className="flex justify-end gap-3 pt-3 border-t border-line">
-            <button type="button" onClick={()=>setModalOpen(false)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
+            <button type="button" onClick={()=>setModalOpen(false)} className={buttonClass("secondary", "md")}>Annuler</button>
             <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving?"Création…":"Créer + plan d'amortissement"}</button>
           </div>
         </form>

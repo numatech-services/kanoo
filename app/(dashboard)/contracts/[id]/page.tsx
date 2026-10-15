@@ -96,19 +96,19 @@ export default function ContractDetailPage() {
           <StatusBadge status={contract.status} />
           {contract.status === "draft" && canEdit && (
             <button onClick={() => run(() => send(`/api/contracts/${id}/sign`, "POST"), "Contrat signé.")} disabled={busy}
-              className="px-4 h-9 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5"><PenLine size={15} /> Signer</button>
+              className={buttonClass("primary", "md")}><PenLine size={15} /> Signer</button>
           )}
           {isMarket && !contract.projectId && canEdit && (
             <button onClick={() => run(() => send(`/api/contracts/${id}/project`, "POST", {}), "Projet d'exécution créé : imputez-y les dépenses du marché.")} disabled={busy}
-              className="px-4 h-9 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2 inline-flex items-center gap-1.5"><FolderKanban size={15} /> Créer le projet d&apos;exécution</button>
+              className={buttonClass("secondary", "md")}><FolderKanban size={15} /> Créer le projet d&apos;exécution</button>
           )}
           {isMarket && contract.projectId && canBuy && (
             <Link href={`/depenses/nouvelle?projectId=${contract.projectId._id}`} className={buttonClass("secondary", "md")}><Wallet size={15} /> Imputer une dépense</Link>
           )}
           {isMarket && billable && canInvoice && (
             <>
-              <button onClick={() => setInvoiceFor({ mode: "deposit" })} className="px-4 h-9 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2 inline-flex items-center gap-1.5"><ReceiptText size={15} /> Facture d&apos;acompte</button>
-              <button onClick={() => setInvoiceFor({ mode: "standard" })} className="px-4 h-9 rounded-lg bg-section text-white text-sm font-semibold inline-flex items-center gap-1.5"><ReceiptText size={15} /> Facturer</button>
+              <button onClick={() => setInvoiceFor({ mode: "deposit" })} className={buttonClass("secondary", "md")}><ReceiptText size={15} /> Facture d&apos;acompte</button>
+              <button onClick={() => setInvoiceFor({ mode: "standard" })} className={buttonClass("primary", "md")}><ReceiptText size={15} /> Facturer</button>
             </>
           )}
         </div>
@@ -330,7 +330,7 @@ function InvoiceDialog({ contractId, mode, f, onClose, onDone }: { contractId: s
         <p className="text-[11px] text-ink3 flex items-center gap-1"><FileText size={12} /> La facture est créée en brouillon ; TVA et timbre sont calculés comme sur toute facture.</p>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
-          <button onClick={submit} disabled={saving || !(amount > 0)} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">{saving ? "Création…" : "Créer la facture"}</button>
+          <button onClick={submit} disabled={saving || !(amount > 0)} className={buttonClass("primary", "md")}>{saving ? "Création…" : "Créer la facture"}</button>
         </div>
       </div>
     </Modal>
@@ -369,7 +369,7 @@ function MilestoneDialog({ contractId, amount, onClose, onDone }: { contractId: 
         </div>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
-          <button onClick={submit} disabled={saving || !f.label.trim() || !(ht > 0)} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">Ajouter</button>
+          <button onClick={submit} disabled={saving || !f.label.trim() || !(ht > 0)} className={buttonClass("primary", "md")}>Ajouter</button>
         </div>
       </div>
     </Modal>

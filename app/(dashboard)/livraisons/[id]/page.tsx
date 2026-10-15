@@ -8,6 +8,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import {apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface Delivery {
   _id:string; number:string; status:string; deliveryDate:string; deliveryAddress?:string;
   signedAt?:string; signedBy?:string; notes?:string;
@@ -51,7 +52,7 @@ export default function LivraisonDetailPage() {
       <div className="flex items-start justify-between">
         <div><Link href="/livraisons" className="text-xs text-ink2 hover:text-ink">← Bons de livraison</Link><h1 className="page-title mt-1">{delivery.number}</h1></div>
         <div className="flex gap-2 mt-2">
-          <button onClick={()=>window.print()} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Imprimer</button>
+          <button onClick={()=>window.print()} className={buttonClass("secondary", "md")}>Imprimer</button>
           {canCancelBl && <button onClick={async()=>{
             if(!(await confirmDialog({ title: "Annuler ce bon de livraison ?", message: "Les articles sortis seront remis en stock.", danger: true }))) return;
             const res=await apiSend("DELETE", `/api/livraisons/${id}`);
@@ -112,7 +113,7 @@ export default function LivraisonDetailPage() {
           <form onSubmit={handleSign} className="flex gap-3">
             <input className="flex-1 px-3 py-2 border border-line rounded-lg text-sm" value={signerName} onChange={e=>setSignerName(e.target.value)} placeholder="Nom du réceptionnaire" required/>
             <button type="submit" disabled={signing||!signerName} className="px-5 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{signing?"Signature…":"Confirmer la réception"}</button>
-            <button type="button" onClick={()=>setShowSignForm(false)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
+            <button type="button" onClick={()=>setShowSignForm(false)} className={buttonClass("secondary", "md")}>Annuler</button>
           </form>
         </div>
       )}

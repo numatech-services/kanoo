@@ -45,7 +45,7 @@ export default function ServicesPage() {
 
   const columns: Column<IServiceProduct>[] = [
     { key: "code", label: "Code", className: "font-mono font-bold text-pos" },
-    { key: "label", label: "Libellé du Service" },
+    { key: "label", label: "Libellé du Service", className: "whitespace-normal" },
     { 
       key: "unitPrice", 
       label: "Prix Unitaire (HT)", 

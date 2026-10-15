@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 import { apiJson } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface Don { _id:string; donorName?:string; donorType:string; amount:number; currency:string; campaign?:string; date:string; receiptNumber:string; }
 export default function DonsPage() {
   const [mounted,setMounted]=useState(false);
@@ -23,7 +24,7 @@ export default function DonsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div><h1 className="page-title">Dons</h1><p className="text-sm text-ink2">{total} don{total>1?"s":" reçu"} · Total FCFA : {totalXOF.toLocaleString("fr-FR")}</p></div>
-        <button onClick={() => window.location.href = "/associations/dons/new"} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Enregistrer un don</button>
+        <button onClick={() => window.location.href = "/associations/dons/new"} className={buttonClass("primary", "md")}>+ Enregistrer un don</button>
       </div>
       <DataTable columns={columns} data={items} loading={loading} keyExtractor={d=>d._id} emptyMessage="Aucun don enregistré"/>
       <Pagination page={page} totalPages={Math.ceil(total/LIMIT)} total={total} limit={LIMIT} onPage={setPage}/>

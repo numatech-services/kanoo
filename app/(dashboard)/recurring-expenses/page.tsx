@@ -69,7 +69,7 @@ export default function RecurringExpensesPage() {
         </div>
         <div className="flex gap-2 items-center">
           <label className="flex items-center gap-2 text-sm text-ink2"><input type="checkbox" className="accent-section" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} /> Désactivées</label>
-          {canCreate && <button onClick={() => setEditing("new")} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><Plus size={16} /> Nouvelle charge</button>}
+          {canCreate && <button onClick={() => setEditing("new")} className={buttonClass("primary", "md")}><Plus size={16} /> Nouvelle charge</button>}
         </div>
       </div>
       {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}

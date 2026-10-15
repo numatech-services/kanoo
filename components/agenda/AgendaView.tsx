@@ -118,7 +118,7 @@ export function AgendaView() {
           <p className="text-sm text-ink2">Vos réunions et activités, plus les agendas partagés de l'organisation.</p>
         </div>
         <button onClick={() => setEditing({ type: "reunion", visibility: "personal", startAt: new Date().toISOString() })}
-          className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+          className={buttonClass("primary", "md")}>
           <Plus size={16} /> Nouvel événement
         </button>
       </div>
@@ -136,7 +136,7 @@ export function AgendaView() {
         {grid && (
           <div className="flex items-center gap-2">
             <button onClick={() => setAnchor(shift(view, anchor, -1))} className="w-9 h-9 grid place-items-center rounded-lg border border-line text-ink2 hover:bg-surface2"><ChevronLeft size={16} /></button>
-            <button onClick={() => setAnchor(new Date())} className="px-3 h-9 rounded-lg border border-line text-sm text-ink2 hover:bg-surface2">Aujourd&apos;hui</button>
+            <button onClick={() => setAnchor(new Date())} className={buttonClass("secondary", "md")}>Aujourd&apos;hui</button>
             <button onClick={() => setAnchor(shift(view, anchor, 1))} className="w-9 h-9 grid place-items-center rounded-lg border border-line text-ink2 hover:bg-surface2"><ChevronRight size={16} /></button>
             <span className="text-sm font-semibold text-ink capitalize ml-1 min-w-[9rem]">{p!.label}</span>
           </div>

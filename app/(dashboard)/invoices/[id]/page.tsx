@@ -220,7 +220,7 @@ export default function InvoiceDetailPage() {
         <div className="flex gap-2 mt-2 flex-wrap">
           <button
             onClick={() => router.push(`/invoices/${id}/edit`)}
-            className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2"
+            className={buttonClass("secondary", "md")}
           >
             Modifier
           </button>

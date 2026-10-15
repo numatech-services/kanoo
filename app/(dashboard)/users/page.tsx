@@ -176,7 +176,7 @@ export default function UsersPage() {
           </p>
         </div>
         <button onClick={() => setInviteOpen(true)}
-          className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+          className={buttonClass("primary", "md")}>
           <UserPlus size={16} /> Nouveau compte
         </button>
       </div>
@@ -549,7 +549,7 @@ function ResetDialog({ user, onClose, onConfirm }: { user: User; onClose: () => 
         </label>
         <div className="flex justify-end gap-2 pt-2">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
-          <button disabled={busy} onClick={() => { setBusy(true); onConfirm(mode, twoFa); }} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">Réinitialiser</button>
+          <button disabled={busy} onClick={() => { setBusy(true); onConfirm(mode, twoFa); }} className={buttonClass("primary", "md")}>Réinitialiser</button>
         </div>
       </div>
     </Modal>

@@ -211,7 +211,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
           <p className="text-ink2 font-mono text-xs opacity-70">{project.code}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          {canEdit && <button onClick={() => setEditOpen(true)} className="px-3 h-9 inline-flex items-center gap-1.5 rounded-lg border border-line2 text-sm hover:bg-surface2"><Edit3 size={14} /> Modifier</button>}
+          {canEdit && <button onClick={() => setEditOpen(true)} className={buttonClass("secondary", "md")}><Edit3 size={14} /> Modifier</button>}
           {canDelete && <button onClick={deleteProject} className="px-3 h-9 inline-flex items-center gap-1.5 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Trash2 size={14} /> Supprimer</button>}
           <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${project.status === 'completed' ? 'bg-pos-50 text-pos' : 'bg-surface2 text-ink'}`}>
             {STATUS_FR[project.status] || project.status}
@@ -283,7 +283,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-black text-ink">LISTE DES TÂCHES</h2>
-              <button onClick={() => setTaskModal(true)} className="bg-section text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest">+ Ajouter</button>
+              <button onClick={() => setTaskModal(true)} className={buttonClass("primary", "md")}>+ Ajouter</button>
             </div>
             <div className="divide-y divide-line">
               {project.tasks.map(task => (
@@ -313,7 +313,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-black text-ink">JALONS</h2>
-              {canEdit && <button onClick={() => setMsModal(true)} className="bg-section text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest">+ Jalon</button>}
+              {canEdit && <button onClick={() => setMsModal(true)} className={buttonClass("primary", "md")}>+ Jalon</button>}
             </div>
             {(project.milestones ?? []).length === 0 && <p className="text-sm text-ink3">Aucun jalon. Un jalon marque une étape (livraison, validation, facturation).</p>}
             <div className="divide-y divide-line">
@@ -347,7 +347,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-black text-ink">ÉQUIPE DU PROJET</h2>
-              <button onClick={() => setMemberModal(true)} className="bg-section text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest">+ Nouveau</button>
+              <button onClick={() => setMemberModal(true)} className={buttonClass("primary", "md")}>+ Nouveau</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {project.projectMembers.map((pm) => {
@@ -376,7 +376,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
            <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-black text-ink">PIÈCES JOINTES</h2>
-                <button onClick={() => setDocModal(true)} className="bg-section text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest">+ PDF</button>
+                <button onClick={() => setDocModal(true)} className={buttonClass("primary", "md")}>+ PDF</button>
               </div>
               <div className="grid gap-3">
                 {project.documents.map(doc => (

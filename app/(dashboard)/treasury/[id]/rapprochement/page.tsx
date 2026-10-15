@@ -102,7 +102,7 @@ export default function RapprochementPage() {
           </p>
         </div>
         <button onClick={() => setImportOpen(true)}
-          className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+          className={buttonClass("primary", "md")}>
           <Upload size={16} /> Importer un relevé
         </button>
       </div>

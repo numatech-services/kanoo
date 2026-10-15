@@ -7,6 +7,7 @@ import { LEAVE_TYPES } from "@/lib/leave-types";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import {apiJson, apiSend } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface Leave {
   _id: string; type: string; startDate: string; endDate: string; days: number; reason?: string; status: string;
   employeeId?: { _id: string; firstName: string; lastName: string } | null; decisionNote?: string;
@@ -63,7 +64,7 @@ export default function LeavesPage() {
           <h1 className="page-title flex items-center gap-2"><CalendarClock size={22} className="text-section" /> Congés et absences</h1>
           <p className="text-sm text-ink2">30 jours ouvrables par an (2,5 par mois de service). Validation par le chef de service.</p>
         </div>
-        {hasEmployee && <button onClick={() => setOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><Plus size={16} /> Demander un congé</button>}
+        {hasEmployee && <button onClick={() => setOpen(true)} className={buttonClass("primary", "md")}><Plus size={16} /> Demander un congé</button>}
       </div>
       {!hasEmployee && tab === "mine" && <p className="p-3 rounded-lg bg-warn-50 text-warn text-sm">Votre compte n&apos;est rattaché à aucune fiche salarié : demandez à l&apos;Administration de faire le lien.</p>}
       {msg && <p className={`p-3 rounded-lg text-sm ${msg.ok ? "bg-pos-50 text-pos" : "bg-neg-50 text-neg"}`}>{msg.text}</p>}

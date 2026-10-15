@@ -75,7 +75,7 @@ export default function MarcheDetailPage() {
           <p className="text-sm text-ink2">{order.reference} · {order.clientId?.name} · <StatusBadge status={order.status} /></p>
         </div>
         <button onClick={() => setDeliverOpen(true)} disabled={p.toDeliver <= 0}
-          className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+          className={buttonClass("primary", "md")}>
           <Truck size={16} /> Livrer un lot
         </button>
       </div>

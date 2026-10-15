@@ -51,7 +51,7 @@ export default function MarchesCadresPage() {
           </p>
         </div>
         <button onClick={() => setOpen(true)}
-          className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+          className={buttonClass("primary", "md")}>
           <Plus size={16} /> Nouveau marché
         </button>
       </div>

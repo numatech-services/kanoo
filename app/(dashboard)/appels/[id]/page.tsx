@@ -13,6 +13,7 @@ import {apiJson, apiSend } from "@/lib/api-client";
 import { formatMoney } from "@/lib/format";
 import { GUARANTEE_TYPES } from "@/lib/guarantees";
 import { GoNoGoPanel } from "@/components/appels/GoNoGoPanel";
+import { buttonClass } from "@/components/ui/button-class";
 interface ReqDoc { _id?: string; label: string; provided: boolean }
 interface Doc { _id: string; name?: string; dataUri?: string }
 interface Appel {
@@ -121,7 +122,7 @@ export default function AppelDetailPage() {
           <p className="text-sm text-ink2">{a.organism || "—"}{a.reference ? ` · ${a.reference}` : ""}</p>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
-          {next && <button onClick={() => patch({ status: next.to })} className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 inline-flex items-center gap-1.5">{next.label} <ArrowRight size={15} /></button>}
+          {next && <button onClick={() => patch({ status: next.to })} className={buttonClass("primary", "md")}>{next.label} <ArrowRight size={15} /></button>}
           {["submitted", "evaluation"].includes(a.status) && <>
             <button onClick={() => patch({ status: "won" })} className="px-3 h-10 rounded-lg bg-pos text-white text-sm font-semibold inline-flex items-center gap-1.5"><Trophy size={15} /> Gagné</button>
             <button onClick={() => patch({ status: "lost" })} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm inline-flex items-center gap-1.5"><X size={15} /> Perdu</button>
@@ -223,7 +224,7 @@ export default function AppelDetailPage() {
             ))}
           </ul>
         )}
-        <label className="inline-flex items-center gap-2 px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2 cursor-pointer">
+        <label className={buttonClass("secondary", "md", "cursor-pointer")}>
           <Upload size={15} /> Joindre un document (2,5 Mo max)
           <input type="file" className="hidden" onChange={e => e.target.files?.[0] && uploadDoc(e.target.files[0])} />
         </label>

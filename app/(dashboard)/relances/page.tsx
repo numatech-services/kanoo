@@ -124,11 +124,11 @@ export default function RelancesPage() {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setSettingsOpen(true)}
-            className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+            className={buttonClass("secondary", "md")}>
             <Settings2 size={16} /> Barème
           </button>
           <button onClick={() => run()} disabled={busy || ready.length === 0 || !data.enabled}
-            className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+            className={buttonClass("primary", "md")}>
             <Send size={16} /> Envoyer maintenant ({ready.length})
           </button>
         </div>

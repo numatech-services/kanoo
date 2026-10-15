@@ -14,6 +14,8 @@ import type { Locale } from "@/lib/i18n";
 const FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Caveat:wght@500;600&display=swap";
 
+const THEME_BOOT = "try{var t=localStorage.getItem('kanoo.theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}";
+
 export const metadata: Metadata = {
   title: { default: "Kanoo — Gestion d'entreprise Niger", template: "%s | Kanoo" },
   description: "Plateforme SaaS de gestion pour PME, Associations et Administrations au Niger",
@@ -64,6 +66,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             "base-uri 'self'; form-action 'self'"
           }
         />
+        {/* Thème choisi à la main (clair / sombre), appliqué avant le premier
+            rendu pour éviter un éclair du mauvais thème. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href={FONTS_HREF} />

@@ -82,7 +82,7 @@ export default function InventairesPage() {
         </div>
         <button onClick={() => setOpen(true)} disabled={Boolean(running)}
           title={running ? "Un inventaire est déjà ouvert" : undefined}
-          className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+          className={buttonClass("primary", "md")}>
           <Plus size={16} /> Ouvrir un inventaire
         </button>
       </div>

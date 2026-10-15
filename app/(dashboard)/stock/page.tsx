@@ -72,7 +72,7 @@ export default function StockPage() {
 
   const columns: Column<StockItem>[] = [
     { key: "code", label: "Code", className: "font-mono text-xs w-24" },
-    { key: "label", label: "Article", render: (_v, r) => (
+    { key: "label", label: "Article", className: "whitespace-normal", render: (_v, r) => (
       <Link href={`/stock/${r._id}`} className="hover:underline">
         <span className="font-medium text-ink">{r.label}</span>
         {(r.category || r.location) && <span className="block text-[11px] text-ink3">{[r.category, r.location].filter(Boolean).join(" · ")}</span>}

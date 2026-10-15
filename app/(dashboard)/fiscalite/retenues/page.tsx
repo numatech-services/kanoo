@@ -73,7 +73,7 @@ export default function RetenuesPage() {
             <h1 className="page-title">Retenues à la source</h1>
             <p className="text-sm text-ink2">CGI Niger — Marchés, prestations, loyers, dividendes…</p>
           </div>
-          <button onClick={()=>setModalOpen(true)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Enregistrer une retenue</button>
+          <button onClick={()=>setModalOpen(true)} className={buttonClass("primary", "md")}>+ Enregistrer une retenue</button>
         </div>
       </div>
 
@@ -119,7 +119,7 @@ export default function RetenuesPage() {
             <input className={inputCls} value={form.reference} onChange={e=>u("reference",e.target.value)}/>
           </FormField>
           <div className="flex justify-end gap-3 pt-3 border-t border-line">
-            <button type="button" onClick={()=>setModalOpen(false)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
+            <button type="button" onClick={()=>setModalOpen(false)} className={buttonClass("secondary", "md")}>Annuler</button>
             <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving?"Enregistrement…":"Enregistrer + Écriture comptable"}</button>
           </div>
         </form>

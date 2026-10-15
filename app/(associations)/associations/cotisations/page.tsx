@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { urlParam } from "@/lib/url-param";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
+import { buttonClass } from "@/components/ui/button-class";
 interface Cotisation { _id:string; memberId:{firstName:string;lastName:string}|string; year:number; amount:number; paidAt?:string; receiptNumber:string; }
 export default function CotisationsPage() {
   const [mounted,setMounted]=useState(false);
@@ -34,7 +35,7 @@ export default function CotisationsPage() {
         <div><h1 className="page-title">Cotisations</h1><p className="text-sm text-ink2">{paid}/{counts.all} payées pour {year}</p></div>
         <div className="flex gap-3">
           <select value={year} onChange={e=>{setYear(Number(e.target.value));setPage(1);}} className="px-3 py-2 border border-line rounded-lg text-sm">{[year-1,year,year+1].map(y=><option key={y} value={y}>{y}</option>)}</select>
-          <button onClick={() => window.location.href = "/associations/cotisations/new"} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Enregistrer paiement</button>
+          <button onClick={() => window.location.href = "/associations/cotisations/new"} className={buttonClass("primary", "md")}>+ Enregistrer paiement</button>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-4">

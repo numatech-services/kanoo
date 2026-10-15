@@ -24,7 +24,7 @@ export default function SupportPage() {
     <div className="space-y-5 max-w-2xl">
       <div className="flex items-center justify-between">
         <h1 className="page-title">Support</h1>
-        <button onClick={()=>setShowForm(!showForm)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouveau ticket</button>
+        <button onClick={()=>setShowForm(!showForm)} className={buttonClass("primary", "md")}>+ Nouveau ticket</button>
       </div>
       {showForm && (
         <form onSubmit={handleCreate} className="bg-surface rounded-xl border border-line p-5 space-y-4">

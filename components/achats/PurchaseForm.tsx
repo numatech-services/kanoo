@@ -6,6 +6,7 @@ import { ImputationFields, type ImputationValue } from "@/components/shared/Impu
 import { EXPENSE_ACCOUNTS } from "@/lib/syscohada";
 
 import { apiJson } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 export interface PurchaseLine extends ImputationValue {
   description: string; accountCode: string; quantity: number; unitPrice: number; tvaRate: number;
 }
@@ -159,8 +160,8 @@ export function PurchaseForm({ initial, onSubmit, submitLabel }: {
       <div className="flex items-center justify-between flex-wrap gap-3 pt-2 border-t border-line">
         <p className="text-sm text-ink2">HT {fmt(totals.ht)} · TVA {fmt(totals.tva)} · <b className="text-ink">TTC {fmt(totals.ttc)} FCFA</b></p>
         <div className="flex gap-2">
-          <button type="button" disabled={saving} onClick={() => submit(false)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2 disabled:opacity-60">Enregistrer en brouillon</button>
-          <button type="button" disabled={saving} onClick={() => submit(true)} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">
+          <button type="button" disabled={saving} onClick={() => submit(false)} className={buttonClass("secondary", "md")}>Enregistrer en brouillon</button>
+          <button type="button" disabled={saving} onClick={() => submit(true)} className={buttonClass("primary", "md")}>
             {saving ? "Enregistrement…" : submitLabel ?? (f.kind === "cash" && f.pay ? "Valider et payer" : "Valider (comptabiliser)")}
           </button>
         </div>

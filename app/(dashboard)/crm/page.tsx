@@ -78,7 +78,7 @@ export default function CRMPage() {
           <p className="text-sm text-ink2">CRM · Suivez vos opportunités de la prospection à la signature</p>
         </div>
         <IfCan resource="clients">
-        <button onClick={() => setModalOpen(true)} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Nouvelle opportunité</button>
+        <button onClick={() => setModalOpen(true)} className={buttonClass("primary", "md")}>+ Nouvelle opportunité</button>
         </IfCan>
       </div>
 
@@ -205,7 +205,7 @@ export default function CRMPage() {
             </FormField>
           </div>
           <div className="flex justify-end gap-3 pt-3 border-t border-line">
-            <button type="button" onClick={()=>setModalOpen(false)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Annuler</button>
+            <button type="button" onClick={()=>setModalOpen(false)} className={buttonClass("secondary", "md")}>Annuler</button>
             <button type="submit" disabled={saving} className={buttonClass("primary", "md")}>{saving?"Création…":"Ajouter au pipeline"}</button>
           </div>
         </form>

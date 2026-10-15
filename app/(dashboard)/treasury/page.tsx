@@ -118,11 +118,11 @@ export default function TreasuryPage() {
         </div>
         <div className="flex gap-2 flex-wrap items-center">
           <label className="flex items-center gap-2 text-sm text-ink2"><input type="checkbox" className="accent-section" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} /> Comptes désactivés</label>
-          {accounts.length > 0 && <button onClick={() => setAllMoves(true)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Recettes et dépenses</button>}
-          {canEdit && active.length > 1 && <button onClick={() => setTransfer(true)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Virement interne</button>}
-          {canEdit && active.length > 0 && <button onClick={() => setManual(true)} className="px-4 h-10 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Opération</button>}
+          {accounts.length > 0 && <button onClick={() => setAllMoves(true)} className={buttonClass("secondary", "md")}>Recettes et dépenses</button>}
+          {canEdit && active.length > 1 && <button onClick={() => setTransfer(true)} className={buttonClass("secondary", "md")}>Virement interne</button>}
+          {canEdit && active.length > 0 && <button onClick={() => setManual(true)} className={buttonClass("secondary", "md")}>Opération</button>}
           <button onClick={() => setModalOpen(true)}
-            className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+            className={buttonClass("primary", "md")}>
             <Plus size={16} /> Nouveau compte
           </button>
         </div>
@@ -261,7 +261,7 @@ export default function TreasuryPage() {
 
           <div className="flex justify-end gap-3 pt-2 border-t border-line">
             <button type="button" onClick={() => setModalOpen(false)}
-              className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+              className={buttonClass("secondary", "md")}>
               Annuler
             </button>
             <button type="submit" disabled={saving}

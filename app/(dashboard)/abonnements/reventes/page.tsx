@@ -128,7 +128,7 @@ export default function ReventesPage() {
           </p>
         </div>
         <button onClick={() => setOpen(true)}
-          className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+          className={buttonClass("primary", "md")}>
           <Plus size={16} /> Nouvelle revente
         </button>
       </div>
@@ -301,7 +301,7 @@ export default function ReventesPage() {
 
           <div className="flex justify-end gap-3 pt-2 border-t border-line">
             <button type="button" onClick={() => setOpen(false)}
-              className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+              className={buttonClass("secondary", "md")}>
               Annuler
             </button>
             <button type="submit" disabled={saving}

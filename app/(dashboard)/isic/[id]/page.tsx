@@ -170,7 +170,7 @@ export default function IsicBatchPage() {
           <p className="text-sm text-ink2 font-mono">{b.reference}{b.academicYear ? ` · ${b.academicYear}` : ""}</p>
         </div>
         <div className="flex gap-2">
-          {NEXT[b.status] && <button onClick={() => patch({ status: NEXT[b.status] })} className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 inline-flex items-center gap-1.5">Étape suivante <ArrowRight size={15} /></button>}
+          {NEXT[b.status] && <button onClick={() => patch({ status: NEXT[b.status] })} className={buttonClass("primary", "md")}>Étape suivante <ArrowRight size={15} /></button>}
           {!terminal && <button onClick={async () => { if (await confirmDialog({ title: "Annuler ce lot ?", danger: true })) patch({ status: "cancelled" }); }} className="px-3 h-10 rounded-lg border border-warn/25 text-warn text-sm hover:bg-warn-50 inline-flex items-center gap-1.5"><Ban size={15} /> Annuler</button>}
           {canDelete && <button onClick={deleteBatch} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50">Supprimer</button>}
         </div>
@@ -199,11 +199,11 @@ export default function IsicBatchPage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <label className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2 cursor-pointer">
+          <label className={buttonClass("secondary", "md", "cursor-pointer")}>
             <Upload size={14} /> Importer les étudiants (CSV)
             <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && importCsv("import-students", e.target.files[0])} />
           </label>
-          <label className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2 cursor-pointer">
+          <label className={buttonClass("secondary", "md", "cursor-pointer")}>
             <Upload size={14} /> Importer les numéros ISIC (CSV)
             <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && importCsv("import-numbers", e.target.files[0])} />
           </label>
@@ -439,7 +439,7 @@ function IsicCostsPanel({ batch, fin, canEdit, canDelete, onPatch, onAdd, onDele
           <div className="flex items-end gap-2 text-xs">
             <label className="text-ink3">Impression / carte<input type="number" min={0} className="block w-28 p-1.5 border border-line rounded-lg text-sm" value={units.print} onChange={e => setUnits(u => ({ ...u, print: e.target.value }))} /></label>
             <label className="text-ink3">Tour de cou / carte<input type="number" min={0} className="block w-28 p-1.5 border border-line rounded-lg text-sm" value={units.lanyard} onChange={e => setUnits(u => ({ ...u, lanyard: e.target.value }))} /></label>
-            <button onClick={() => onPatch({ unitPrintCost: Number(units.print) || 0, unitLanyardCost: Number(units.lanyard) || 0 })} className="px-3 h-9 rounded-lg border border-line2 text-sm font-semibold hover:bg-surface2">Enregistrer</button>
+            <button onClick={() => onPatch({ unitPrintCost: Number(units.print) || 0, unitLanyardCost: Number(units.lanyard) || 0 })} className={buttonClass("secondary", "md")}>Enregistrer</button>
           </div>
         )}
       </div>

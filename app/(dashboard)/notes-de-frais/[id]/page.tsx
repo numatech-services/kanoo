@@ -20,6 +20,7 @@ import {
 import { ImputationFields } from "@/components/shared/ImputationFields";
 
 import { apiJson, apiSend } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface Line {
   _id: string;
   date: string;
@@ -168,7 +169,7 @@ export default function NoteDeFraisPage() {
             <button onClick={() => patch({ status: "submitted" })}
               disabled={busy || blocking.length > 0 || report.lines.length === 0}
               title={blocking.length > 0 ? "Des anomalies bloquent l'envoi" : undefined}
-              className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+              className={buttonClass("primary", "md")}>
               <Send size={15} /> Envoyer en validation
             </button>
           )}
@@ -261,7 +262,7 @@ export default function NoteDeFraisPage() {
             <button
               onClick={() => saveLines([...report.lines, EMPTY_LINE()])}
               disabled={busy}
-              className="px-3 h-9 inline-flex items-center gap-1.5 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+              className={buttonClass("secondary", "md")}>
               <Plus size={14} /> Ajouter une dépense
             </button>
           )}
@@ -453,7 +454,7 @@ export default function NoteDeFraisPage() {
 
           <div className="flex justify-end gap-3 pt-3 border-t border-line">
             <button onClick={() => setPayOpen(false)}
-              className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+              className={buttonClass("secondary", "md")}>
               Annuler
             </button>
             <button

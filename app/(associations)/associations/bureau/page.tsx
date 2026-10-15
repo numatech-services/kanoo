@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 import { apiJson } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface BureauMember { _id:string; firstName:string; lastName:string; role:string; customRoleLabel?:string; email?:string; phone?:string; mandateStart:string; mandateEnd?:string; isActive:boolean; projectIds:Array<{_id:string;code:string;name:string;executionRate:number;status:string}>; }
 
 const ROLES: Array<[string,string]> = [
@@ -58,7 +59,7 @@ export default function BureauPage() {
           <h1 className="page-title">Bureau de l'association</h1>
           <p className="text-sm text-ink2">{members.filter(m => m.isActive).length} membres actifs</p>
         </div>
-        <button onClick={() => window.location.href = "/associations/bureau/new"} className="px-4 py-2 bg-section text-white rounded-lg text-sm font-medium hover:brightness-95">+ Ajouter un membre</button>
+        <button onClick={() => window.location.href = "/associations/bureau/new"} className={buttonClass("primary", "md")}>+ Ajouter un membre</button>
       </div>
 
       {loading ? (

@@ -86,7 +86,7 @@ export default function ComptoirPage() {
           </p>
         </div>
         <button onClick={() => setNewDeskOpen(true)}
-          className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+          className={buttonClass("primary", "md")}>
           <Plus size={16} /> Nouveau comptoir
         </button>
       </div>
@@ -103,7 +103,7 @@ export default function ComptoirPage() {
               </select>
             </FormField>
             <button onClick={() => setSettingsOpen(true)} title="Paramètres du comptoir"
-              className="self-end px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+              className={buttonClass("secondary", "md", "self-end")}>
               <Settings2 size={15} /> Paramètres
             </button>
           </div>
@@ -267,7 +267,7 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
             disabled={saving} className="text-sm text-neg hover:underline disabled:opacity-50">Archiver le comptoir</button>
           <div className="flex gap-3">
             <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
-            <button onClick={() => save()} disabled={saving} className="px-5 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+            <button onClick={() => save()} disabled={saving} className={buttonClass("primary", "md")}>
               {saving ? "Enregistrement…" : "Enregistrer"}
             </button>
           </div>
@@ -406,7 +406,7 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <FlowFilterBar state={filter} totals={totals} />
         <div className="flex gap-2">
-        <button onClick={() => setArreteOpen(true)} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+        <button onClick={() => setArreteOpen(true)} className={buttonClass("secondary", "md")}>
           <FileText size={15} /> Arrêté de caisse
         </button>
         {entries.length > 0 && (
@@ -416,7 +416,7 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
             </button>
           </>
         )}
-        <button onClick={() => setOpen(true)} className="px-4 h-9 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+        <button onClick={() => setOpen(true)} className={buttonClass("primary", "md")}>
           <Plus size={15} /> Écriture de caisse
         </button>
         </div>
@@ -630,11 +630,11 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
           </button>
         )}
         {items.some(i => i.productId) && (
-          <button onClick={() => setSupplyOpen(true)} className="px-3 h-9 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+          <button onClick={() => setSupplyOpen(true)} className={buttonClass("secondary", "md")}>
             <Package size={15} /> Magasin ⇄ comptoir
           </button>
         )}
-        <button onClick={() => setItemOpen(true)} className="px-4 h-9 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+        <button onClick={() => setItemOpen(true)} className={buttonClass("primary", "md")}>
           <Plus size={15} /> Nouvel article
         </button>
       </div>

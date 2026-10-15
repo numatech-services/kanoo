@@ -113,9 +113,9 @@ export default function StockDetailPage() {
           <p className="text-sm text-ink2 font-mono">{p.code}{p.barcode ? ` · ${p.barcode}` : ""}{!p.isActive ? " · désactivé" : ""}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {canEdit && !p.isService && byWh.length > 0 && <button onClick={() => setTransfer(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Truck size={16} /> Transfert</button>}
-          {canEdit && !p.isService && <button onClick={() => setMoving(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold"><ArrowLeftRight size={16} /> Mouvement</button>}
-          {canEdit && <button onClick={() => setEditOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Edit3 size={16} /> Modifier</button>}
+          {canEdit && !p.isService && byWh.length > 0 && <button onClick={() => setTransfer(true)} className={buttonClass("secondary", "md")}><Truck size={16} /> Transfert</button>}
+          {canEdit && !p.isService && <button onClick={() => setMoving(true)} className={buttonClass("primary", "md")}><ArrowLeftRight size={16} /> Mouvement</button>}
+          {canEdit && <button onClick={() => setEditOpen(true)} className={buttonClass("secondary", "md")}><Edit3 size={16} /> Modifier</button>}
           {canDelete && p.isActive && <button onClick={deactivate} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Archive size={16} /> Désactiver</button>}
         </div>
       </div>

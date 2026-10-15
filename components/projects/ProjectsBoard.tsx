@@ -9,6 +9,7 @@ import { KpiCard } from "@/components/ui/KpiCard";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { fullXof } from "@/components/ui/charts/geometry";
 import { PROJECT_STATUS_FR, type ProjectVocabulary } from "@/lib/vocabulary";
+import { buttonClass } from "@/components/ui/button-class";
 
 interface Project {
   _id: string;
@@ -104,7 +105,7 @@ export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary })
           </p>
         </div>
         <button onClick={() => router.push("/projects/new")}
-          className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+          className={buttonClass("primary", "md")}>
           <Plus size={16} /> {vocabulary.createLabel}
         </button>
       </div>

@@ -12,6 +12,7 @@ import { fullXof } from "@/components/ui/charts/geometry";
 import { COUNT_STATUS_LABEL, type CountStatus } from "@/lib/inventory";
 
 import { apiJson, apiSend } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface Line {
   _id: string;
   code: string;
@@ -123,14 +124,14 @@ export default function InventaireDetailPage() {
             <button onClick={() => patch({ status: "review" })}
               disabled={summary.pending > 0}
               title={summary.pending > 0 ? `${summary.pending} ligne(s) non relevée(s)` : undefined}
-              className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+              className={buttonClass("primary", "md")}>
               Terminer le comptage
             </button>
           )}
           {review && (
             <>
               <button onClick={() => patch({ status: "counting" })}
-                className="px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2">
+                className={buttonClass("secondary", "md")}>
                 Reprendre le comptage
               </button>
               <button onClick={() => patch({ status: "validated" })}

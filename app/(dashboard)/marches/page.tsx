@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { LIBELLES_PROCEDURES } from "@/lib/niger-fiscal";
 
 import { apiJson } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface Tender { 
   _id: string; 
   reference: string; 
@@ -88,7 +89,7 @@ export default function MarchesPage() {
         <IfCan resource="publicTenders">
           <button
             onClick={() => router.push("/marches/new")}
-            className="px-4 py-2 bg-section text-white rounded-xl text-sm font-bold hover:brightness-95 transition-all shadow-md"
+            className={buttonClass("primary", "md")}
           >
             + Nouveau marché
           </button>

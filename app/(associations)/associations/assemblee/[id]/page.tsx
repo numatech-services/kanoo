@@ -97,7 +97,7 @@ export default function AGDetailPage() {
         </div>
         {!ag.convocationSentAt && (
           <button onClick={() => patch({ convocationSentAt: new Date().toISOString() }, "Convocation marquée envoyée.")} disabled={saving}
-            className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">Marquer envoyée</button>
+            className={buttonClass("primary", "md")}>Marquer envoyée</button>
         )}
       </section>
 
@@ -166,7 +166,7 @@ export default function AGDetailPage() {
               <Download size={15} /> {ag.pvFile.name || "Télécharger le PV"}
             </a>
             <div className="flex gap-2">
-              <label className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2 cursor-pointer">
+              <label className={buttonClass("secondary", "md", "cursor-pointer")}>
                 <Upload size={14} /> Remplacer
                 <input type="file" accept=".pdf,image/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadPv(e.target.files[0])} />
               </label>
@@ -174,7 +174,7 @@ export default function AGDetailPage() {
             </div>
           </div>
         ) : (
-          <label className="inline-flex items-center gap-2 px-4 h-10 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2 cursor-pointer">
+          <label className={buttonClass("secondary", "md", "cursor-pointer")}>
             <Upload size={15} /> Joindre le PV (PDF ou image, 2,5 Mo max)
             <input type="file" accept=".pdf,image/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadPv(e.target.files[0])} />
           </label>

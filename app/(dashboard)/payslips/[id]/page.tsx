@@ -10,6 +10,7 @@ import { showToast } from "@/components/ui/Toast";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import {apiJson, apiSend } from "@/lib/api-client";
+import { buttonClass } from "@/components/ui/button-class";
 interface Payslip {
   _id: string; month: number; year: number;
   grossSalary: number; grossTotal?: number; seniorityRate?: number; seniorityAmount?: number;
@@ -76,7 +77,7 @@ export default function PayslipDetailPage() {
           <h1 className="page-title mt-1">{emp ? `${emp.firstName} ${emp.lastName}` : "Bulletin"} — {MONTHS[p.month]} {p.year}</h1>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button onClick={() => window.print()} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink hover:bg-surface2">
+          <button onClick={() => window.print()} className={buttonClass("secondary", "md")}>
             <Printer size={16} /> Imprimer / PDF
           </button>
           {!p.isPaid && canDelete && (

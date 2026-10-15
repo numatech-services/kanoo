@@ -95,7 +95,7 @@ export default function SupplierDetailPage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
-          <button onClick={() => setEditOpen(true)} className="px-4 py-2 border border-line rounded-xl text-sm text-ink2 hover:bg-surface2">Modifier</button>
+          <button onClick={() => setEditOpen(true)} className={buttonClass("secondary", "md")}>Modifier</button>
           {canRemove && <button onClick={async () => {
             if (!(await confirmDialog({ title: "Désactiver ce fournisseur ?", message: "Il disparaît des listes ; ses documents restent.", danger: true }))) return;
             const res = await apiSend("DELETE", `/api/suppliers/${id}`);

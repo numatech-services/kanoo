@@ -88,7 +88,8 @@ export function DataTable<T>({
                 <th
                   key={String(col.key)}
                   scope="col"
-                  className={`${col.sortable ? "cursor-pointer hover:text-ink select-none" : ""} ${col.className || ""}`}
+                  // L'en-tête garde la police du texte : la chasse fixe est pour les numéros, pas pour leurs titres.
+                  className={`${col.sortable ? "cursor-pointer hover:text-ink select-none" : ""} ${(col.className || "").replace(/\bfont-mono\b/g, "")}`}
                   onClick={() => col.sortable && handleSort(String(col.key))}
                 >
                   <span className="flex items-center gap-1">
@@ -126,7 +127,7 @@ export function DataTable<T>({
                   {columns.map((col) => {
                     const val = (row as Record<string, unknown>)[String(col.key)];
                     return (
-                      <td key={String(col.key)} className={`text-ink ${col.className || ""}`}>
+                      <td key={String(col.key)} className={`text-ink ${/whitespace-normal/.test(col.className || "") ? "" : "whitespace-nowrap"} ${col.className || ""}`}>
                         {col.render ? col.render(val, row) : String(val ?? "—")}
                       </td>
                     );

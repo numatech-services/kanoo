@@ -46,6 +46,7 @@ export function FormField({ label, required, error, hint, children, className = 
 }
 
 // Classes partagées des champs, pour des formulaires homogènes.
-export const inputCls = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30 bg-surface disabled:bg-surface2 disabled:text-ink2";
+// Rayon et anneau de focus suivent les jetons de l'espace (charte v5 : 12 px, halo bleu).
+export const inputCls = "w-full px-3.5 py-2.5 border border-line2 rounded-[var(--r-md)] text-sm text-ink placeholder:text-ink3 transition focus:outline-none focus:border-section focus:ring-4 focus:ring-section/15 bg-surface disabled:bg-surface2 disabled:text-ink2";
 export const selectCls = inputCls;
 export const textareaCls = `${inputCls} resize-y`;

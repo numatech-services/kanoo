@@ -78,7 +78,7 @@ export default function AccountingPage() {
           <Link href="/accounting/plan" className={buttonClass("secondary", "md")}><Hash size={15} /> Plan comptable</Link>
           <Link href="/accounting/lettrage" className={buttonClass("secondary", "md")}><Link2 size={15} /> Lettrage</Link>
           {canReverse && <button onClick={() => setVariationOpen(true)} className={buttonClass("secondary", "md")}><Boxes size={15} /> Variation de stock</button>}
-          {canReverse && <button onClick={() => setClosingOpen(true)} className="px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm hover:bg-surface2"><Lock size={15} /> Clôture</button>}
+          {canReverse && <button onClick={() => setClosingOpen(true)} className={buttonClass("secondary", "md")}><Lock size={15} /> Clôture</button>}
           {canCreate && <Link href="/accounting/new" className={buttonClass("primary", "md")}><Plus size={16} /> Écriture</Link>}
         </div>
       </div>
@@ -183,7 +183,7 @@ function ClosingDialog({ lock, onClose, onDone }: { lock: { lockedUntil: string 
           <p className="text-xs text-ink2">Plus aucune écriture ne peut être datée jusqu&apos;à cette date (TVA déposée, mois arrêté). Actuellement : {lock.lockedUntil ? new Date(lock.lockedUntil).toLocaleDateString("fr-FR") : "aucun verrou"}.</p>
           <div className="flex gap-2">
             <input type="date" className={inputCls} value={until} onChange={e => setUntil(e.target.value)} aria-label="Verrouiller jusqu'au" />
-            <button disabled={busy} onClick={() => post({ action: "lock", until })} className="px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold disabled:opacity-60">Verrouiller</button>
+            <button disabled={busy} onClick={() => post({ action: "lock", until })} className={buttonClass("primary", "md")}>Verrouiller</button>
           </div>
         </div>
         <div className="space-y-2 pt-4 border-t border-line">

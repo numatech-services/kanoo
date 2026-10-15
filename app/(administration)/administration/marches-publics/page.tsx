@@ -132,7 +132,7 @@ export default function MarchesPublicsPage() {
         </div>
         <button 
           onClick={() => setModalOpen(true)} 
-          className="px-4 py-2 bg-section text-white rounded-xl text-sm font-bold shadow-sm hover:brightness-95 transition-all"
+          className={buttonClass("primary", "md")}
         >
             + Nouveau marché
         </button>

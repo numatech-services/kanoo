@@ -64,7 +64,7 @@ export default function IsicListPage() {
           <Link href="/isic/registre" className={buttonClass("secondary", "md")}>
             <BookUser size={16} /> Registre &amp; numéros
           </Link>
-          <button onClick={() => setOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95">
+          <button onClick={() => setOpen(true)} className={buttonClass("primary", "md")}>
             <Plus size={16} /> Nouveau lot
           </button>
         </div>
