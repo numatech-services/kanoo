@@ -9,6 +9,25 @@ Base de données : **MongoDB Atlas** (externe), déjà connectée.
 
 ---
 
+## 0. Version de Node.js : 20.9 au minimum
+
+Depuis le lot C, l'application tourne sur **Next.js 16 / React 19**, qui exigent
+**Node.js ≥ 20.9** (`engines` dans `package.json`). Dans hPanel → paramètres du
+site Node.js, choisir **Node 20 ou 22** avant le premier build : avec Node 18,
+le build échoue dès le départ.
+
+Commandes de l'hébergement (inchangées) : installation `npm install`, build
+`npm run build`, démarrage `npm start`.
+
+Points de la migration à connaître :
+- le filtre d'authentification s'appelle désormais `proxy.ts` (ex-`middleware.ts`) ;
+- la CSP est posée à chaque requête avec un nonce (`lib/csp.ts`) et recopiée en
+  balise `<meta>`, car le CDN d'Hostinger remplace l'en-tête ;
+- après la mise en ligne, un **rechargement forcé** (Cmd+Maj+R) évite qu'un
+  ancien service worker serve des fichiers de la version précédente.
+
+---
+
 ## 1. Mettre à jour le site : pousser sur `main`
 
 Le déploiement automatique est activé : un `push` sur `main` déclenche seul le

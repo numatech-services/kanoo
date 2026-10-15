@@ -26,6 +26,9 @@
     "indexes": "tsx scripts/ensure-indexes.ts",
     "seed:solutions": "tsx scripts/create-numatech-solutions.ts"
   },
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
     "bcryptjs": "^2.4.3",
