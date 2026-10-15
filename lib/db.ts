@@ -9,17 +9,19 @@ declare global {
   var _mongoosePromise: Promise<typeof mongoose> | null;
 }
 
-const MONGODB_URI = process.env.MONGODB_URI as string;
-
-if (!MONGODB_URI) {
-  throw new Error("MONGODB_URI is not defined in environment variables");
-}
-
 let cached = global._mongooseConn;
 let cachedPromise = global._mongoosePromise;
 
 export async function connectDB(): Promise<typeof mongoose> {
   if (cached) return cached;
+
+  // Lue à la connexion, et non au chargement du module : `next build` charge
+  // chaque route pour collecter ses métadonnées, et une variable absente à ce
+  // moment-là faisait échouer tout le build (« Failed to collect page data »).
+  const MONGODB_URI = process.env.MONGODB_URI;
+  if (!MONGODB_URI) {
+    throw new Error("MONGODB_URI is not defined in environment variables");
+  }
 
   if (!cachedPromise) {
     const opts: mongoose.ConnectOptions = {

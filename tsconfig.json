@@ -11,14 +11,14 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
   "comment:exclude": "mobile/ est une application React Native autonome : ses dépendances ne sont pas installées ici, et la vérifier depuis ce tsconfig ne produit que des « module introuvable ». Elle a son propre mobile/tsconfig.json.",
   "comment:e2e": "Les tests Playwright ont leur propre exécutable et leurs propres types (@playwright/test, non installé ici) : ils sont vérifiés par `npm run test:e2e`, pas par ce tsconfig.",
   "exclude": ["node_modules", "mobile", ".next", "__tests__/e2e"]
