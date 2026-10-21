@@ -52,7 +52,8 @@ export function DonutChart({
   const cy = size / 2;
   const circumference = 2 * Math.PI * r;
 
-  let offset = 0;
+  // Décalage cumulé de chaque part, calculé avant le rendu (pas de variable réassignée pendant le rendu).
+  const offsets = positive.reduce<number[]>((acc, _sl, i) => [...acc, i === 0 ? 0 : acc[i - 1] + (positive[i - 1].value / total) * circumference], []);
 
   return (
     <div className="flex flex-col sm:flex-row items-center gap-5">
@@ -70,7 +71,7 @@ export function DonutChart({
                   strokeOpacity={slice.color ? 1 : FALLBACK_OPACITY[i % FALLBACK_OPACITY.length]}
                   strokeWidth={hover === i ? thickness + 4 : thickness}
                   strokeDasharray={`${dash} ${circumference - dash}`}
-                  strokeDashoffset={-offset}
+                  strokeDashoffset={-offsets[i]}
                   onMouseEnter={() => setHover(i)}
                   onMouseLeave={() => setHover(null)}
                   className="draw"
@@ -80,7 +81,6 @@ export function DonutChart({
                     animationDelay: `${i * 70}ms`,
                   }} />
               );
-              offset += dash;
               return el;
             })}
           </g>

@@ -5,7 +5,7 @@ import { Types } from "mongoose";
 import { connectDB } from "./db";
 import { errorName } from "./errors";
 import { getTokenFromRequest, verifyToken, TokenPayload } from "./auth";
-import { canPerformAction, rolesCanPerform, effectiveRoles } from "./role-resources";
+import { rolesCanPerform, effectiveRoles } from "./role-resources";
 import { verifyCsrf, CSRF_MESSAGES } from "./csrf";
 import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
@@ -80,6 +80,14 @@ export function serverError(error: unknown) {
 
   const ref = crypto.randomBytes(6).toString("hex");
   console.error(`[API Error ${ref}]`, error);
+  // Journal des erreurs (écran super-administrateur, résumé quotidien) — sans
+  // attendre : la réponse à l'utilisateur ne dépend pas de l'écriture du journal.
+  void import("@/lib/error-log").then(({ recordError }) => recordError({
+    source: "api",
+    message: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+    ref,
+  })).catch(() => undefined);
   return NextResponse.json(
     {
       success: false,

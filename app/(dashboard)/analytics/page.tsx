@@ -71,7 +71,7 @@ function LineChart({ series, labels }: { series: AnalyticsSeries[]; labels: stri
       s.data.forEach((v, i) => {
         const x = padL + (i / (n - 1)) * w;
         const y = padT + h - (v / maxVal) * h;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       });
       ctx.stroke();
 
@@ -171,7 +171,7 @@ export default function AnalyticsPage() {
         <div className="flex gap-2">
           {[3, 6, 12, 24].map(m => (
             <button key={m} onClick={() => setMonths(m)}
-              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${months === m ? "bg-section text-white" : "border border-line text-ink2 hover:bg-surface2"}`}>
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${months === m ? "bg-section text-onink" : "border border-line text-ink2 hover:bg-surface2"}`}>
               {m} mois
             </button>
           ))}

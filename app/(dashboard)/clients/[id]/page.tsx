@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState, useEffect, useCallback, ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ClientForm, type ClientFormData } from "@/components/pme/ClientForm";
@@ -99,7 +100,7 @@ export default function ClientDetailPage() {
               : <span className="text-lg font-bold text-ink3">{c.name?.[0]?.toUpperCase() || "?"}</span>}
           </div>
           <div>
-            <a href="/clients" className="text-xs text-ink2 hover:text-ink">← Clients</a>
+            <Link href="/clients" className="text-xs text-ink2 hover:text-ink">← Clients</Link>
             <h1 className="page-title mt-0.5">{c.name}</h1>
             <p className="text-ink2 text-sm">{c.code} · {c.type === "company" ? "Entreprise" : "Particulier"} · <StatusBadge status={c.isActive ? "active" : "inactive"} /></p>
           </div>

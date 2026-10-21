@@ -5,7 +5,7 @@ import { TenantModel } from "@/models/Tenant";
 import { hashPassword, comparePassword, TokenPayload } from "@/lib/auth";
 import { setSessionCookies } from "@/lib/session";
 import { passwordErrors } from "@/lib/password-policy";
-import { rateLimit } from "@/lib/rate-limit";
+import { consumeRateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,7 @@ export const dynamic = "force-dynamic";
 export const POST = withAuth("notifications", "read", async (req: NextRequest, auth: TokenPayload) => {
   // Cinq tentatives par quart d'heure : assez pour une faute de frappe,
   // trop peu pour éprouver un mot de passe actuel au hasard.
-  const limit = rateLimit("password-change", auth.userId, 5, 15 * 60_000);
+  const limit = await consumeRateLimit("password-change", auth.userId, 5, 15 * 60_000);
   if (!limit.allowed) {
     return forbidden(`Trop de tentatives. Réessayez dans ${Math.ceil(limit.retryAfter / 60)} minutes.`);
   }

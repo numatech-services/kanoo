@@ -21,8 +21,20 @@ interface CmdLine {
 interface Supplier { _id: string; name: string; code: string; }
 interface Product { _id: string; label: string; code: string; unitPrice: number; purchaseCost?: number; lastPurchaseCost?: number; }
 
+// Bon de commande existant à modifier (références peuplées ou simples identifiants)
+interface CommandeInitialData {
+  supplierId?: { _id: string } | string | null;
+  orderDate?: string;
+  expectedDeliveryDate?: string;
+  notes?: string;
+  projectId?: unknown;
+  activityId?: unknown;
+  costCenter?: string;
+  lines?: Array<Partial<Omit<CmdLine, "productId">> & { productId?: unknown }>;
+}
+
 interface CommandeFormProps { 
-  initialData?: any; 
+  initialData?: CommandeInitialData; 
   onSave: (d: Record<string, unknown>) => Promise<void>; 
   onCancel: () => void; 
 }
@@ -70,28 +82,31 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
 
   useEffect(() => {
     if (initialData) {
-      setSupplierId(typeof initialData.supplierId === 'object' ? initialData.supplierId._id : initialData.supplierId || "");
+      // Fournisseur peuplé, identifiant brut ou absent (null) : `typeof null` vaut « object ».
+      const sup = initialData.supplierId;
+      setSupplierId(sup && typeof sup === "object" ? sup._id : sup || "");
       setOrderDate(initialData.orderDate ? new Date(initialData.orderDate).toISOString().split('T')[0] : "");
       setExpectedDeliveryDate(initialData.expectedDeliveryDate ? new Date(initialData.expectedDeliveryDate).toISOString().split('T')[0] : "");
       setNotes(initialData.notes || "");
       const idOf = (v: unknown) => (v && typeof v === "object" ? String((v as { _id: string })._id) : v ? String(v) : undefined);
       setImputation({ projectId: idOf(initialData.projectId), activityId: idOf(initialData.activityId), costCenter: initialData.costCenter });
-      if (initialData.lines) setLines(initialData.lines.map((l: CmdLine & { productId?: unknown }) => ({ ...l, productId: idOf(l.productId) })));
+      if (initialData.lines) setLines(initialData.lines.map((l) => ({ ...l, productId: idOf(l.productId) }) as CmdLine));
     }
   }, [initialData]);
 
   if (!mounted) return null;
 
-  function updateLine(i: number, f: keyof CmdLine, v: any) {
+  function updateLine<K extends keyof CmdLine>(i: number, f: K, v: CmdLine[K]) {
     setLines(prev => prev.map((l, idx) => {
       if (idx !== i) return l;
       
       // Si on change le produit via le sélecteur
       if (f === "productId") {
-        const prod = catalog.find(p => p._id === v);
+        const productId = v as CmdLine["productId"];
+        const prod = catalog.find(p => p._id === productId);
         return calcLine({ 
           ...l, 
-          productId: v, 
+          productId, 
           description: prod?.label || l.description,
           // Prix d'achat : dernier coût connu, sinon CMUP ; jamais le prix de vente.
           unitPrice: prod?.lastPurchaseCost || prod?.purchaseCost || l.unitPrice

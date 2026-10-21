@@ -17,6 +17,15 @@ import { MemberModel } from "@/models/Member";   // Obligatoire pour .populate("
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
+// Membre du bureau tel que lu en base, adhérent éventuellement peuplé
+interface BureauMemberRow {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  memberId?: { firstName?: string; lastName?: string; email?: string } | null;
+  [key: string]: unknown;
+}
+
 export const GET = withAuth("bureau", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   
@@ -38,12 +47,12 @@ export const GET = withAuth("bureau", "read", async (req: NextRequest, auth: Tok
         .sort({ mandateStart: -1 })
         .skip(pagination.skip)
         .limit(pagination.limit)
-        .lean(),
+        .lean<BureauMemberRow[]>(),
       BureauMemberModel.countDocuments(filter),
     ]);
 
     // Unification des données : si lié à un membre, on prend ses infos, sinon le texte saisi
-    const items = rawItems.map((item: any) => ({
+    const items = rawItems.map((item) => ({
       ...item,
       firstName: item.memberId?.firstName || item.firstName,
       lastName: item.memberId?.lastName || item.lastName,

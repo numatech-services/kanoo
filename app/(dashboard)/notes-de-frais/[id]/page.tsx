@@ -7,7 +7,7 @@ import {
   ArrowLeft, Plus, Trash2, Send, Check, X, Banknote, AlertTriangle, Info,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { Inset, Avatar, Pill } from "@/components/ui/Primitives";
+import { Inset, Avatar } from "@/components/ui/Primitives";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Modal } from "@/components/ui/Modal";
 import { promptDialog } from "@/components/ui/Dialogs";
@@ -177,7 +177,7 @@ export default function NoteDeFraisPage() {
           {report.status === "submitted" && canApprove && (
             <>
               <button onClick={() => patch({ status: "approved" })} disabled={busy}
-                className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+                className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-onink text-sm font-semibold hover:brightness-95 disabled:opacity-50">
                 <Check size={15} /> Approuver
               </button>
               <button
@@ -201,7 +201,7 @@ export default function NoteDeFraisPage() {
 
           {report.status === "approved" && canReimburse && (
             <button onClick={() => setPayOpen(true)} disabled={busy}
-              className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-white text-sm font-semibold hover:brightness-95">
+              className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-onink text-sm font-semibold hover:brightness-95">
               <Banknote size={15} /> Rembourser
             </button>
           )}
@@ -463,7 +463,7 @@ export default function NoteDeFraisPage() {
                 const done = await patch({ status: "reimbursed", treasuryAccountId: accountId, date: payDate });
                 if (done) { setPayOpen(false); router.refresh(); }
               }}
-              className="px-5 h-10 rounded-lg bg-pos text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+              className="px-5 h-10 rounded-lg bg-pos text-onink text-sm font-semibold hover:brightness-95 disabled:opacity-50">
               Enregistrer le remboursement
             </button>
           </div>

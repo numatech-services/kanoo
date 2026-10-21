@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { AlertTriangle } from "lucide-react";
 import { buttonClass } from "@/components/ui/button-class";
+import { reportClientError } from "@/components/shared/ErrorReporter";
 interface ErrorProps {
   error: Error & { digest?: string };
   reset: () => void;
@@ -12,10 +13,9 @@ interface ErrorProps {
 
 export default function GlobalError({ error, reset }: ErrorProps) {
   useEffect(() => {
-    // En production : envoyer à Sentry ou service de monitoring
-    if (process.env.NODE_ENV === "production") {
-      console.error("[Kanoo] Erreur globale:", error.message, error.digest);
-    }
+    // Journal des erreurs : la page d'erreur affiche la référence, le journal
+    // la retrouve (écran super-administrateur).
+    reportClientError({ message: error.message || "Erreur de rendu", stack: error.stack, digest: error.digest });
   }, [error]);
 
   return (

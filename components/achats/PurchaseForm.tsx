@@ -15,6 +15,8 @@ export interface PurchaseFormValue {
   kind: "invoice" | "cash"; supplierId: string; payee: string; supplierRef: string; date: string; dueDate: string;
   notes: string; lines: PurchaseLine[]; commandeId?: string;
   pay: boolean; treasuryAccountId: string;
+  /** Facture lue automatiquement, à joindre à l'achat une fois enregistré. */
+  scanned?: { blob: Blob; name: string };
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -65,7 +67,7 @@ export function PurchaseForm({ initial, onSubmit, submitLabel, scan }: {
   }, [f.lines]);
 
   /** Pré-remplissage depuis la lecture d'une facture : seules les valeurs lues remplacent la saisie. */
-  function applyScan(r: ScannedInvoice) {
+  function applyScan(r: ScannedInvoice, file: { blob: Blob; name: string }) {
     const x = r.invoice;
     setF(p => {
       const date = x.invoiceDate || p.date;
@@ -81,6 +83,7 @@ export function PurchaseForm({ initial, onSubmit, submitLabel, scan }: {
           ? x.lines.map(l => ({ ...emptyLine(), description: l.description, accountCode: l.accountCode, quantity: l.quantity, unitPrice: l.unitPriceHT, tvaRate: l.tvaRate }))
           : p.lines,
         notes: p.notes || (x.supplierNif && !r.supplier ? `NIF fournisseur : ${x.supplierNif}` : p.notes),
+        scanned: file,
       };
     });
   }
@@ -103,10 +106,16 @@ export function PurchaseForm({ initial, onSubmit, submitLabel, scan }: {
     <div className="space-y-5">
       {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
       {scan && <InvoiceScan onRead={applyScan} />}
+      {f.scanned && (
+        <p className="text-xs text-ink2 flex items-center justify-between gap-2 rounded-lg border border-line2 px-3 py-2">
+          <span>« {f.scanned.name} » sera joint à l&apos;achat comme justificatif.</span>
+          <button type="button" onClick={() => u("scanned", undefined)} className="text-ink3 hover:text-neg font-semibold">Ne pas joindre</button>
+        </p>
+      )}
       <div className="flex gap-2">
         {([["invoice", "Facture fournisseur (à payer)"], ["cash", "Dépense au comptant"]] as const).map(([k, l]) => (
           <button key={k} type="button" onClick={() => setF(p => ({ ...p, kind: k, pay: k === "cash" }))}
-            className={`px-4 h-10 rounded-lg text-sm font-semibold border ${f.kind === k ? "bg-section text-white border-section" : "border-line2 text-ink2 hover:bg-surface2"}`}>{l}</button>
+            className={`px-4 h-10 rounded-lg text-sm font-semibold border ${f.kind === k ? "bg-section text-onink border-section" : "border-line2 text-ink2 hover:bg-surface2"}`}>{l}</button>
         ))}
       </div>
 

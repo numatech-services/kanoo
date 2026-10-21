@@ -8,7 +8,8 @@ const COLORS = ["rgb(47 89 223)", "rgb(110 68 188)", "rgb(0 150 180)", "rgb(200 
 /** Créances par client : anneau des parts, et le retard de chacun. */
 export function ReceivablesDonut({ r }: { r: NonNullable<HomeData["receivables"]> }) {
   const R = 54, C = 2 * Math.PI * R;
-  let acc = 0;
+  // Début de chaque arc, cumulé avant le rendu.
+  const starts = r.clients.reduce<number[]>((acc, _c, i) => [...acc, i === 0 ? 0 : acc[i - 1] + (r.clients[i - 1].due / r.total) * C], []);
   return (
     <Card className="min-w-0">
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -22,8 +23,7 @@ export function ReceivablesDonut({ r }: { r: NonNullable<HomeData["receivables"]
               <circle cx={70} cy={70} r={R} fill="none" stroke="currentColor" className="text-surface2" strokeWidth={18} />
               {r.clients.map((c, i) => {
                 const len = (c.due / r.total) * C;
-                const el = <circle key={i} cx={70} cy={70} r={R} fill="none" stroke={COLORS[i % COLORS.length]} strokeWidth={18} strokeDasharray={`${Math.max(0, len - 2)} ${C}`} strokeDashoffset={-acc} strokeLinecap="butt" />;
-                acc += len;
+                const el = <circle key={i} cx={70} cy={70} r={R} fill="none" stroke={COLORS[i % COLORS.length]} strokeWidth={18} strokeDasharray={`${Math.max(0, len - 2)} ${C}`} strokeDashoffset={-starts[i]} strokeLinecap="butt" />;
                 return el;
               })}
             </svg>

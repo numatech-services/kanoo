@@ -6,7 +6,7 @@ import { TenantModel } from "@/models/Tenant";
 import { UserModel } from "@/models/User";
 import { generateSecureToken, hashPassword } from "@/lib/auth";
 import { passwordErrors } from "@/lib/password-policy";
-import { rateLimit } from "@/lib/rate-limit";
+import { consumeRateLimit } from "@/lib/rate-limit";
 import { sendEmail, templateActivation } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
       || req.headers.get("x-real-ip") || "unknown";
-    const limit = rateLimit("public-signup", ip, 5, 60 * 60_000);
+    const limit = await consumeRateLimit("public-signup", ip, 5, 60 * 60_000);
     if (!limit.allowed) {
       return NextResponse.json(
         { success: false, error: "Trop de tentatives d'inscription. Réessayez dans une heure." },

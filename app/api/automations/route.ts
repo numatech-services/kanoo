@@ -8,6 +8,7 @@ import { UserModel } from "@/models/User";
 import { loadAutomationSettings } from "@/lib/automation-store";
 import { normalizeAutomationSettings } from "@/lib/automations";
 import { isAiInvoiceConfigured } from "@/lib/ai-invoice";
+import { whatsappTemplateStatus } from "@/lib/whatsapp";
 import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ function channels() {
     whatsapp: configured(process.env.WHATSAPP_PROVIDER),
     sms: configured(process.env.SMS_PROVIDER),
     ai: isAiInvoiceConfigured(),
+    /** Modèles WhatsApp approuvés configurés (envois hors conversation ouverte). */
+    whatsappTemplates: whatsappTemplateStatus(),
   };
 }
 

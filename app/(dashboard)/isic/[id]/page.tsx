@@ -181,7 +181,7 @@ export default function IsicBatchPage() {
         <div className="flex items-center gap-1 min-w-max">
           {STAGES.map((st, i) => (
             <div key={st.key} className="flex items-center gap-1">
-              <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${i <= currentIdx && b.status !== "cancelled" ? "bg-section text-white" : "bg-surface2 text-ink3"}`}>{st.label}</span>
+              <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${i <= currentIdx && b.status !== "cancelled" ? "bg-section text-onink" : "bg-surface2 text-ink3"}`}>{st.label}</span>
               {i < STAGES.length - 1 && <ArrowRight size={12} className="text-ink3" />}
             </div>
           ))}
@@ -214,7 +214,7 @@ export default function IsicBatchPage() {
             </button>
           )}
           {(counts.numbered || 0) > 0 && <button disabled={busy} onClick={() => cardsAction({ action: "advance", from: "numbered", to: "printed" })} className="px-3 h-9 rounded-lg bg-ink text-onink text-sm font-semibold">Marquer imprimées</button>}
-          {(counts.printed || 0) > 0 && <button disabled={busy} onClick={() => cardsAction({ action: "advance", from: "printed", to: "delivered" })} className="px-3 h-9 rounded-lg bg-section text-white text-sm font-semibold">Marquer livrées</button>}
+          {(counts.printed || 0) > 0 && <button disabled={busy} onClick={() => cardsAction({ action: "advance", from: "printed", to: "delivered" })} className="px-3 h-9 rounded-lg bg-section text-onink text-sm font-semibold">Marquer livrées</button>}
         </div>
         {sync && (
           <div className="rounded-lg border border-section/25 bg-section/5 p-3 text-sm space-y-1.5">

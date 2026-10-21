@@ -23,7 +23,7 @@ export function NotificationsBell() {
     <Link href="/notifications" className="relative icon-pill">
       <span className="inline-flex" aria-hidden><Bell size={18} /></span>
       {unread > 0 && (
-        <span className="absolute top-2 right-2 min-w-4 h-4 px-1 bg-neg text-white text-[10px] rounded-full flex items-center justify-center font-bold leading-none">
+        <span className="absolute top-2 right-2 min-w-4 h-4 px-1 bg-neg text-onink text-[10px] rounded-full flex items-center justify-center font-bold leading-none">
           {unread > 9 ? "9+" : unread}
         </span>
       )}

@@ -71,7 +71,7 @@ export function GoNoGoPanel({ appelId, editable, onDecision }: { appelId: string
               {[0, 1, 2, 3, 4, 5].map(v => (
                 <button key={v} type="button" role="radio" aria-checked={scores[c.key] === v} disabled={!editable}
                   onClick={() => setScores(s => ({ ...s, [c.key]: v }))}
-                  className={`w-8 h-8 rounded-md text-sm font-semibold border ${scores[c.key] === v ? "bg-section text-white border-section" : "border-line text-ink2 hover:bg-surface2"} disabled:opacity-70`}>{v}</button>
+                  className={`w-8 h-8 rounded-md text-sm font-semibold border ${scores[c.key] === v ? "bg-section text-onink border-section" : "border-line text-ink2 hover:bg-surface2"} disabled:opacity-70`}>{v}</button>
               ))}
             </div>
           </div>

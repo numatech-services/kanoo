@@ -1,11 +1,9 @@
 // Scénario de bout en bout : lot 3 (créances douteuses, écarts de change, états financiers SYSCOHADA).
 import { readFileSync } from "fs";
-import { randomBytes } from "crypto";
 
 const BASE = "http://localhost:3099";
 const ROOT = process.argv[2];
 const SEED_PW = /hash\("([^"]+)"/.exec(readFileSync(`${ROOT}/scripts/seed-test.ts`, "utf-8"))[1];
-const PW = `Kz-${randomBytes(12).toString("base64url")}!9q`;
 let pass = 0, fail = 0;
 const check = (label, cond, extra = "") => { if (cond) { pass++; console.log(`  ✓ ${label}`); } else { fail++; console.log(`  ✗ ${label} ${extra}`); } };
 const J = x => JSON.stringify(x);
@@ -43,7 +41,6 @@ const today = new Date().toISOString().slice(0, 10);
 const id = r => D(r)?._id;
 const entriesOf = async (g, q) => D(await g.req("GET", `/api/accounting-entries?search=${encodeURIComponent(q)}&limit=50`)).items ?? [];
 const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.reduce((t, l) => t + l.credit, 0);
-const plusDays = n => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(12, 0, 0, 0); return d.toISOString(); };
 
 (async () => {
   for (let i = 0; i < 40; i++) { try { if ((await fetch(`${BASE}/api/health`)).ok) break; } catch {} await new Promise(r => setTimeout(r, 500)); }

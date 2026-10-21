@@ -8,6 +8,16 @@ import { useWarehouses } from "@/components/stock/useWarehouses";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import {apiSend } from "@/lib/api-client";
+
+// Ligne restant à livrer, reprise de la facture source
+interface DeliveryLineDraft {
+  description: string;
+  quantity: number;
+  unit: string;
+  productId?: string;
+  invoiceLineIndex: number;
+}
+
 export default function NewDeliveryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -23,7 +33,7 @@ export default function NewDeliveryPage() {
     deliveryDate: new Date().toISOString().split('T')[0],
     deliveryAddress: "",
     number: "",
-    lines: [] as any[],
+    lines: [] as DeliveryLineDraft[],
     notes: "",
     warehouseId: ""
   });
@@ -47,7 +57,7 @@ export default function NewDeliveryPage() {
           clientName: src.client?.name,
           deliveryAddress: src.client?.address || "",
           // Reste à livrer de chaque ligne de la facture (déjà livré déduit).
-          lines: (src.lines || []).map((l: { description: string; quantity: number; unit: string; productId?: string; invoiceLineIndex: number }) => ({
+          lines: (src.lines || []).map((l: DeliveryLineDraft) => ({
             description: l.description,
             quantity: l.quantity,
             unit: l.unit || "unité",

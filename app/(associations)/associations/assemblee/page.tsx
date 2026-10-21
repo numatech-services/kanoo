@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -22,7 +23,7 @@ export default function AssembleePage() {
   if (!mounted) return null;
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between"><h1 className="page-title">Assemblées générales</h1><button onClick={() => window.location.href = "/associations/assemblee/new"} className={buttonClass("primary", "md")}>+ Convoquer une AG</button></div>
+      <div className="flex items-center justify-between"><h1 className="page-title">Assemblées générales</h1><Link href="/associations/assemblee/new" className={buttonClass("primary", "md")}>+ Convoquer une AG</Link></div>
       <DataTable columns={columns} data={items} loading={loading} keyExtractor={a=>a._id} emptyMessage="Aucune assemblée générale" onRowClick={a=>router.push(`/associations/assemblee/${a._id}`)}/>
     </div>
   );

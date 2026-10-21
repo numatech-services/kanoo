@@ -1,12 +1,10 @@
 // Scénario de bout en bout : organisation cloisonnée (services × niveaux).
 import { readFileSync } from "fs";
-import { randomBytes } from "crypto";
 import { withDb } from "./db.mjs";
 
 const BASE = "http://localhost:3099";
 const ROOT = process.argv[2];
 const SEED_PW = /hash\("([^"]+)"/.exec(readFileSync(`${ROOT}/scripts/seed-test.ts`, "utf-8"))[1];
-const PW = `Kz-${randomBytes(12).toString("base64url")}!9q`;
 let pass = 0, fail = 0;
 const check = (label, cond, extra = "") => { if (cond) { pass++; console.log(`  ✓ ${label}`); } else { fail++; console.log(`  ✗ ${label} ${extra}`); } };
 const J = x => JSON.stringify(x);
@@ -40,7 +38,6 @@ async function login(email, pw) {
 }
 const D = r => r.data?.data ?? {};
 
-const today = new Date().toISOString().slice(0, 10);
 const id = r => D(r)?._id;
 
 (async () => {

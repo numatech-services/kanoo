@@ -287,7 +287,7 @@ function DeskView({ deskId, tab, setTab }: { deskId: string; tab: "caisse" | "st
 
   const tabCls = (active: boolean) =>
     `px-4 h-10 inline-flex items-center gap-2 rounded-lg text-sm font-semibold transition-colors ${
-      active ? "bg-section text-white" : "text-ink2 hover:bg-surface2 border border-line2"}`;
+      active ? "bg-section text-onink" : "text-ink2 hover:bg-surface2 border border-line2"}`;
 
   return (
     <div className="space-y-5">
@@ -458,6 +458,16 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
 
 // Arrêté de caisse : totaux du jour, solde théorique et rapprochement des
 // espèces comptées, imprimable pour confier/contrôler la gestion du comptoir.
+/** Ligne libellé / montant de l'arrêté de caisse. */
+function CashLine({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+  <div className="flex justify-between py-1.5 text-sm">
+    <span className="text-ink2">{label}</span>
+    <span className={strong ? "font-bold text-ink" : "font-mono text-ink"}>{value}</span>
+  </div>
+);
+}
+
 function ArreteDialog({ deskId, onClose }: { deskId: string; onClose: () => void }) {
   const [day, setDay] = useState(localDay());
   const [counted, setCounted] = useState("");
@@ -500,13 +510,6 @@ function ArreteDialog({ deskId, onClose }: { deskId: string; onClose: () => void
     if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
   }
 
-  const Line = ({ label, value, strong }: { label: string; value: string; strong?: boolean }) => (
-    <div className="flex justify-between py-1.5 text-sm">
-      <span className="text-ink2">{label}</span>
-      <span className={strong ? "font-bold text-ink" : "font-mono text-ink"}>{value}</span>
-    </div>
-  );
-
   return (
     <Modal open onClose={onClose} title="Arrêté de caisse" size="md">
       <div className="space-y-4">
@@ -514,10 +517,10 @@ function ArreteDialog({ deskId, onClose }: { deskId: string; onClose: () => void
           <input className={inputCls} type="date" value={day} onChange={e => setDay(e.target.value)} />
         </FormField>
         <div className="surface-card p-4 divide-y divide-line">
-          <Line label="Recettes du jour" value={MONEY(recettes)} />
-          <Line label="Dépenses du jour" value={MONEY(depenses)} />
-          <Line label="Solde du jour" value={MONEY(recettes - depenses)} strong />
-          <Line label="Solde théorique espèces" value={MONEY(soldeEspeces)} />
+          <CashLine label="Recettes du jour" value={MONEY(recettes)} />
+          <CashLine label="Dépenses du jour" value={MONEY(depenses)} />
+          <CashLine label="Solde du jour" value={MONEY(recettes - depenses)} strong />
+          <CashLine label="Solde théorique espèces" value={MONEY(soldeEspeces)} />
         </div>
         <FormField label="Espèces comptées (FCFA)" hint="Pour contrôler la caisse physique.">
           <input className={inputCls} type="number" min="0" value={counted} onChange={e => setCounted(e.target.value)} />
@@ -907,7 +910,7 @@ function SupplyDialog({ deskId, items, onClose, onSaved }: { deskId: string; ite
         <div className="flex gap-2">
           {[[false, "Approvisionner"], [true, "Renvoyer les invendus"]].map(([v, l]) => (
             <button key={String(v)} type="button" onClick={() => setBack(v as boolean)}
-              className={`flex-1 h-9 rounded-lg border text-sm font-semibold ${back === v ? "bg-section text-white border-section" : "border-line2 text-ink2 hover:bg-surface2"}`}>{l as string}</button>
+              className={`flex-1 h-9 rounded-lg border text-sm font-semibold ${back === v ? "bg-section text-onink border-section" : "border-line2 text-ink2 hover:bg-surface2"}`}>{l as string}</button>
           ))}
         </div>
         <p className="text-sm text-ink2">{back

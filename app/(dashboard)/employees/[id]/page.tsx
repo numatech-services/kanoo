@@ -167,7 +167,7 @@ function ExitDialog({ onClose, onSave }: { onClose: () => void; onSave: (endDate
         <FormField label="Motif">
           <select className={selectCls} value={reason} onChange={e => setReason(e.target.value)}>{EXIT_REASONS.map(r => <option key={r}>{r}</option>)}</select>
         </FormField>
-        <button onClick={async () => { try { await onSave(date, reason); } catch (e) { setError(e instanceof Error ? e.message : "Erreur"); } }} className="w-full h-10 rounded-lg bg-warn text-white text-sm font-semibold">Enregistrer le départ</button>
+        <button onClick={async () => { try { await onSave(date, reason); } catch (e) { setError(e instanceof Error ? e.message : "Erreur"); } }} className="w-full h-10 rounded-lg bg-warn text-onink text-sm font-semibold">Enregistrer le départ</button>
       </div>
     </Modal>
   );

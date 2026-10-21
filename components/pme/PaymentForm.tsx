@@ -196,7 +196,7 @@ export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: Pa
           Annuler
         </button>
         <button type="submit" disabled={saving}
-          className="px-6 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">
+          className="px-6 py-2 bg-pos text-onink rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">
           {saving ? "Enregistrement…" : "Enregistrer le paiement"}
         </button>
       </div>

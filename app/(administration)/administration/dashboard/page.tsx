@@ -48,33 +48,35 @@ export default function AdminDashboardPage() {
     setMounted(true);
 
     // Extraction sécurisée pour s'assurer d'obtenir un tableau
-    const extractArray = (d: any): any[] => {
+    const extractArray = <T,>(d: unknown): T[] => {
       if (!d) return [];
       if (Array.isArray(d)) return d;
-      if (d.data && Array.isArray(d.data)) return d.data;
-      if (d.data?.items && Array.isArray(d.data.items)) return d.data.items;
-      if (d.chapters && Array.isArray(d.chapters)) return d.chapters;
-      if (d.items && Array.isArray(d.items)) return d.items;
+      const o = d as { data?: unknown; chapters?: unknown; items?: unknown };
+      if (o.data && Array.isArray(o.data)) return o.data;
+      const nested = (o.data as { items?: unknown } | null | undefined)?.items;
+      if (nested && Array.isArray(nested)) return nested;
+      if (o.chapters && Array.isArray(o.chapters)) return o.chapters;
+      if (o.items && Array.isArray(o.items)) return o.items;
       return [];
     };
 
     apiJson("/api/budget?flat=true")
-      .then(d => setChapters(extractArray(d)))
+      .then(d => setChapters(extractArray<BudgetChapter>(d)))
       .catch((e) => console.error(e))
       .finally(() => setLoadingCh(false));
 
     apiJson("/api/budget/engagements?limit=5&page=1")
-      .then(d => setEngagements(extractArray(d)))
+      .then(d => setEngagements(extractArray<Engagement>(d)))
       .catch((e) => console.error(e))
       .finally(() => setLoadingEn(false));
 
     apiJson("/api/marches?limit=100&page=1")
-      .then(d => setMarches(extractArray(d)))
+      .then(d => setMarches(extractArray<Marche>(d)))
       .catch((e) => console.error(e))
       .finally(() => setLoadingMa(false));
 
     apiJson("/api/budget/mandatements?limit=5&page=1")
-      .then(d => setMandatements(extractArray(d)))
+      .then(d => setMandatements(extractArray<Mandatement>(d)))
       .catch((e) => console.error(e))
       .finally(() => setLoadingMn(false));
   }, []);

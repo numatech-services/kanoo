@@ -83,7 +83,7 @@ export default function PurchaseDetailPage() {
         <div className="flex gap-2 flex-wrap">
           {canUpdate && p.status === "draft" && <button onClick={() => setEditOpen(true)} className={buttonClass("secondary", "md")}><Edit3 size={16} /> Modifier</button>}
           {canUpdate && p.status === "draft" && <button onClick={validate} className={buttonClass("primary", "md")}><CheckCircle2 size={16} /> Valider</button>}
-          {canUpdate && ["validated", "partial"].includes(p.status) && <button onClick={() => setPayOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-white text-sm font-semibold"><Banknote size={16} /> Enregistrer un règlement</button>}
+          {canUpdate && ["validated", "partial"].includes(p.status) && <button onClick={() => setPayOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-onink text-sm font-semibold"><Banknote size={16} /> Enregistrer un règlement</button>}
           {canDelete && p.status === "draft" && <button onClick={async () => { if (!(await confirmDialog({ title: "Supprimer ce brouillon ?", danger: true }))) return; try { await send(`/api/achats/${id}`, "DELETE"); router.push("/depenses"); } catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); } }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Trash2 size={16} /> Supprimer</button>}
           {canDelete && p.status === "validated" && <button onClick={async () => { const reason = await promptDialog({ title: "Motif de l'annulation (l'écriture sera extournée) :", multiline: true }); if (reason) act(() => send(`/api/achats/${id}/cancel`, "POST", { reason })); }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Ban size={16} /> Annuler</button>}
         </div>
@@ -203,7 +203,7 @@ function PayDialog({ id, rest, onClose, onDone }: { id: string; rest: number; on
           </select>
         </FormField>
         <FormField label="Référence (chèque, virement…)"><input className={inputCls} value={f.reference} onChange={e => setF(p => ({ ...p, reference: e.target.value }))} /></FormField>
-        <button onClick={submit} disabled={saving} className="w-full h-10 rounded-lg bg-pos text-white text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer le règlement"}</button>
+        <button onClick={submit} disabled={saving} className="w-full h-10 rounded-lg bg-pos text-onink text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer le règlement"}</button>
       </div>
     </Modal>
   );

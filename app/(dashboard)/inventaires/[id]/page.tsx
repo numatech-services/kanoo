@@ -137,7 +137,7 @@ export default function InventaireDetailPage() {
               <button onClick={() => patch({ status: "validated" })}
                 disabled={blockers.length > 0}
                 title={blockers[0]?.message}
-                className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+                className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-onink text-sm font-semibold hover:brightness-95 disabled:opacity-50">
                 <CheckCircle2 size={15} /> Valider et régulariser
               </button>
             </>

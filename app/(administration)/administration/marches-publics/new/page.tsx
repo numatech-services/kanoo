@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useRouter } from "next/navigation";
 import { MarcheForm } from "@/components/pme/MarcheForm";
@@ -27,9 +28,9 @@ export default function NewMarchePublicPage() {
   return (
     <div className="max-w-2xl space-y-5 p-6">
       <div>
-        <a href="/administration/marches-publics" className="text-xs text-ink2 hover:text-ink">
+        <Link href="/administration/marches-publics" className="text-xs text-ink2 hover:text-ink">
           ← Retour aux marchés publics
-        </a>
+        </Link>
         <h1 className="page-title mt-1">Nouveau marché public</h1>
       </div>
       

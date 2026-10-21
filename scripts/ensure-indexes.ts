@@ -39,6 +39,8 @@ async function main() {
     import("../models/DunningSettings").then(m => m.DunningSettingsModel),
     import("../models/AutomationSettings").then(m => m.AutomationSettingsModel),
     import("../models/AutomationLog").then(m => m.AutomationLogModel),
+    import("../models/RateLimitBucket").then(m => m.RateLimitBucketModel),
+    import("../models/ErrorEvent").then(m => m.ErrorEventModel),
     import("../models/BankStatementLine").then(m => m.BankStatementLineModel),
     import("../models/TreasuryMovement").then(m => m.TreasuryMovementModel),
     import("../models/Invoice").then(m => m.InvoiceModel),

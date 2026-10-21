@@ -270,8 +270,8 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
 
       {/* TABS NAVIGATION */}
       <div className="flex gap-2 bg-surface2/30 p-1.5 rounded-2xl w-fit">
-        {["tasks", "milestones", "docs", "team", "messages"].map((t) => (
-          <button key={t} onClick={() => setActiveTab(t as any)} className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === t ? "bg-surface text-section shadow-sm" : "text-ink2 hover:bg-white/50"}`}>
+        {(["tasks", "milestones", "docs", "team", "messages"] as const).map((t) => (
+          <button key={t} onClick={() => setActiveTab(t)} className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === t ? "bg-surface text-section shadow-sm" : "text-ink2 hover:bg-white/50"}`}>
             {t === "tasks" ? "Tâches" : t === "milestones" ? "Jalons" : t === "docs" ? "Documents" : t === "team" ? "Équipe" : "Messages"}
           </button>
         ))}
@@ -414,7 +414,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
              disabled={currentExecRate < 100}
              className={`px-12 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all shadow-xl ${
                currentExecRate === 100 
-               ? "bg-pos text-white hover:brightness-95 hover:-translate-y-1 active:translate-y-0" 
+               ? "bg-pos text-onink hover:brightness-95 hover:-translate-y-1 active:translate-y-0" 
                : "bg-surface2 text-ink2 cursor-not-allowed opacity-50"
              }`}
            >

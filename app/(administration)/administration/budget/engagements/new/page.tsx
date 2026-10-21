@@ -8,7 +8,7 @@ import Link from "next/link";
 import {apiJson, apiSend } from "@/lib/api-client";
 export default function NewEngagementPage() {
   const router = useRouter();
-  type Chapter = { _id: string; code?: string; label?: string } & Record<string, unknown>;
+  type Chapter = { _id: string; code?: string; label?: string; allocatedAmount: number; engagedAmount: number } & Record<string, unknown>;
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -94,7 +94,7 @@ export default function NewEngagementPage() {
                 onChange={e => setFormData({...formData, chapterId: e.target.value})}
               >
                 <option value="">Sélectionner un chapitre...</option>
-                {chapters.map((c: any) => (
+                {chapters.map((c) => (
                   <option key={c._id} value={c._id}>
                     {c.code} - {c.label} (Disp: {(c.allocatedAmount - c.engagedAmount).toLocaleString("fr-FR")} FCFA)
                   </option>

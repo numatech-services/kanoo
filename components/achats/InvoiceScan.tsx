@@ -31,7 +31,7 @@ function dataUrlToBlob(url: string): Blob {
  * avant d'enregistrer ; les écarts de calcul sont signalés, jamais corrigés
  * en silence. Absent si la lecture n'est pas configurée sur l'instance.
  */
-export function InvoiceScan({ onRead }: { onRead: (r: ScannedInvoice) => void }) {
+export function InvoiceScan({ onRead }: { onRead: (r: ScannedInvoice, file: { blob: Blob; name: string }) => void }) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<{ configured: boolean; remaining?: number } | null>(null);
@@ -54,16 +54,20 @@ export function InvoiceScan({ onRead }: { onRead: (r: ScannedInvoice) => void })
     try {
       // Une photo de téléphone pèse souvent 4 à 10 Mo : ramenée à 2000 px, elle
       // reste lisible et part vite. Les PDF partent tels quels.
-      const upload = file.type.startsWith("image/") && file.type !== "image/gif"
-        ? dataUrlToBlob(await compressPhoto(file, 2000)) : file;
+      const compressed = file.type.startsWith("image/") && file.type !== "image/gif";
+      const upload = compressed ? dataUrlToBlob(await compressPhoto(file, 2000)) : file;
+      // Nom cohérent avec le contenu envoyé (une photo recompressée est un JPEG) :
+      // la pièce jointe est contrôlée sur l'extension ET les octets.
+      const base = (file.name || "facture").replace(/\.[^.]+$/, "") || "facture";
+      const name = compressed ? `${base}.jpg` : file.name || "facture.pdf";
       const body = new FormData();
-      body.append("file", upload, file.name || "facture");
+      body.append("file", upload, name);
       const res = await apiSend("POST", "/api/ai/lire-facture", body);
       if (!res.ok) throw new Error(res.data?.error || "Lecture impossible.");
       const r = res.data.data as ScannedInvoice;
       setWarnings(r.warnings);
       setState(s => s && { ...s, remaining: res.data.data?.quota?.remaining ?? s.remaining });
-      onRead(r);
+      onRead(r, { blob: upload, name });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lecture impossible.");
     } finally {

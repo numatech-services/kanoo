@@ -18,9 +18,17 @@ interface Revenue {
   createdAt: string;
 }
 
+// Chapitre budgétaire proposé dans la liste d'imputation
+interface ChapterOption {
+  _id: string;
+  code?: string;
+  label?: string;
+  level?: string;
+}
+
 export default function RecettesPage() {
   const [revenues, setRevenues] = useState<Revenue[]>([]);
-  const [chapters, setChapters] = useState<any[]>([]);
+  const [chapters, setChapters] = useState<ChapterOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -83,7 +91,7 @@ export default function RecettesPage() {
       } else {
         showToast("Erreur lors de l'ajout : " + (result.error || result.message), "error");
       }
-    } catch (err) {
+    } catch {
       showToast("Impossible de contacter le serveur.", "error");
     } finally {
       setSaving(false);
@@ -128,7 +136,7 @@ export default function RecettesPage() {
         </div>
         <button 
           onClick={() => setModalOpen(true)}
-          className="px-5 py-2.5 bg-pos text-white rounded-xl text-sm font-bold shadow-lg hover:brightness-95 transition-all active:scale-95"
+          className="px-5 py-2.5 bg-pos text-onink rounded-xl text-sm font-bold shadow-lg hover:brightness-95 transition-all active:scale-95"
         >
           + Nouvel Encaissement
         </button>
@@ -206,7 +214,7 @@ export default function RecettesPage() {
 
             <div>
               <label className={labelClass}>Mode de Paiement</label>
-              <select className={inputClass} value={form.paymentMethod} onChange={e => setForm({...form, paymentMethod: e.target.value as any})}>
+              <select className={inputClass} value={form.paymentMethod} onChange={e => setForm({...form, paymentMethod: e.target.value})}>
                 <option value="cash">Espèces (Cash)</option>
                 <option value="orange_money">Orange Money</option>
                 <option value="moov_money">Moov Money</option>
@@ -223,7 +231,7 @@ export default function RecettesPage() {
             <button 
               type="submit" 
               disabled={saving}
-              className="px-8 py-2 bg-pos text-white rounded-xl text-sm font-bold hover:brightness-95 shadow-md disabled:opacity-50 transition-colors"
+              className="px-8 py-2 bg-pos text-onink rounded-xl text-sm font-bold hover:brightness-95 shadow-md disabled:opacity-50 transition-colors"
             >
               {saving ? "Traitement..." : "Valider et Générer Quittance"}
             </button>

@@ -86,7 +86,7 @@ export default function PayslipDetailPage() {
             </button>
           )}
           {!p.isPaid ? (canPay && (
-            <button onClick={() => setPayOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-white text-sm font-semibold hover:brightness-95">
+            <button onClick={() => setPayOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-onink text-sm font-semibold hover:brightness-95">
               <Banknote size={16} /> Payer le salaire
             </button>
           )) : (
@@ -198,7 +198,7 @@ function PayDialog({ id, net, onClose, onPaid }: { id: string; net: number; onCl
         <FormField label="Date du versement" required hint="Date à laquelle le virement ou le paiement a réellement eu lieu.">
           <input type="date" className={inputCls} value={date} max={new Date().toISOString().slice(0, 10)} onChange={e => setDate(e.target.value)} />
         </FormField>
-        <button onClick={pay} disabled={saving} className="w-full h-10 rounded-lg bg-pos text-white text-sm font-semibold disabled:opacity-60">{saving ? "Paiement…" : "Confirmer le paiement"}</button>
+        <button onClick={pay} disabled={saving} className="w-full h-10 rounded-lg bg-pos text-onink text-sm font-semibold disabled:opacity-60">{saving ? "Paiement…" : "Confirmer le paiement"}</button>
       </div>
     </Modal>
   );

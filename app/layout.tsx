@@ -4,6 +4,7 @@ import "@/styles/globals.css";
 import { ToastProvider } from "@/components/ui/Toast";
 import { DialogHost } from "@/components/ui/Dialogs";
 import { CookieConsent } from "@/components/shared/CookieConsent";
+import { ErrorReporter } from "@/components/shared/ErrorReporter";
 import { I18nProvider } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
 import { buildCsp } from "@/lib/csp";
@@ -76,6 +77,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {children}
             <DialogHost />
             <CookieConsent />
+            <ErrorReporter />
           </ToastProvider>
         </I18nProvider>
       </body>

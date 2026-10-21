@@ -1,5 +1,5 @@
 import type {
-  SecefDriver, SecefIdentity, SecefInvoicePayload, SecefResult, SecefCertification,
+  SecefDriver, SecefResult, SecefCertification,
 } from "./types";
 
 /**

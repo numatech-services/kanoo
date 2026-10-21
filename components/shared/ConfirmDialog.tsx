@@ -37,7 +37,7 @@ export function ConfirmDialog({
           <button
             onClick={onConfirm}
             disabled={busy}
-            className={`flex-1 py-2 rounded-xl text-sm font-medium text-white transition-colors disabled:opacity-60 ${
+            className={`flex-1 py-2 rounded-xl text-sm font-medium text-onink transition-colors disabled:opacity-60 ${
               danger ? "bg-neg hover:brightness-95" : "bg-section hover:brightness-95"
             }`}
           >

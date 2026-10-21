@@ -43,6 +43,33 @@ async function api<T = unknown>(url: string, method: "POST" | "PATCH" | "DELETE"
 }
 const n = (v: number) => v.toLocaleString("fr-FR");
 
+/** Tuile de chiffre du registre. */
+function StatCard({ icon, label, value, sub, tone, action }: { icon: React.ReactNode; label: string; value: number; sub?: string; tone?: string; action?: React.ReactNode }) {
+  return (
+  <div className="surface-card p-4 flex flex-col">
+    <p className="text-xs font-semibold uppercase tracking-wide text-ink2 inline-flex items-center gap-1.5">{icon} {label}</p>
+    <p className={`mt-1.5 text-3xl font-bold ${tone ?? "text-ink"}`}>{n(value)}</p>
+    {sub && <p className="text-xs text-ink2 mt-1">{sub}</p>}
+    {action && <div className="mt-auto pt-3">{action}</div>}
+  </div>
+);
+}
+
+/** Carte d'import d'un type de fichier. */
+function ImportBlock({ mode, title, text, cols, busy, onFile }: { mode: "reprise" | "students" | "numbers"; title: string; text: string; cols: string; busy: string | false | null | undefined; onFile: (mode: "reprise" | "students" | "numbers", title: string, file: File) => void }) {
+  return (
+  <div className="surface-card p-4 flex flex-col gap-2">
+    <h3 className="font-semibold text-ink">{title}</h3>
+    <p className="text-sm text-ink2">{text}</p>
+    <p className="text-xs text-ink3">Colonnes : {cols}</p>
+    <label className={`mt-auto inline-flex items-center justify-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold cursor-pointer ${busy ? "opacity-50 pointer-events-none" : ""} ${mode === "numbers" ? "border border-section/40 text-section hover:bg-section/5" : "bg-section text-onink hover:brightness-95"}`}>
+      <Upload size={15} /> {busy === mode ? "Import en cours…" : "Choisir le fichier (Excel ou CSV)"}
+      <input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) onFile(mode, title, file); }} />
+    </label>
+  </div>
+);
+}
+
 export default function RegistrePage() {
   const [year, setYear] = useState(academicYearOf());
   const [tab, setTab] = useState<"dashboard" | "students" | "import" | "envoi">("dashboard");
@@ -56,7 +83,7 @@ export default function RegistrePage() {
   useEffect(() => { loadStats(); }, [loadStats]);
 
   const tabCls = (on: boolean) => `px-4 h-10 inline-flex items-center gap-2 rounded-lg text-sm font-semibold transition-colors ${
-    on ? "bg-section text-white" : "text-ink2 hover:bg-surface2 border border-line2"}`;
+    on ? "bg-section text-onink" : "text-ink2 hover:bg-surface2 border border-line2"}`;
   const openStudents = (school = "", coverage = "") => { setSchoolFilter(school); setCoverageFilter(coverage); setTab("students"); };
 
   return (
@@ -119,22 +146,13 @@ function Dashboard({ stats, year, onChanged, openStudents, goImport }: {
     );
   }
 
-  const Card = ({ icon, label, value, sub, tone, action }: { icon: React.ReactNode; label: string; value: number; sub?: string; tone?: string; action?: React.ReactNode }) => (
-    <div className="surface-card p-4 flex flex-col">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink2 inline-flex items-center gap-1.5">{icon} {label}</p>
-      <p className={`mt-1.5 text-3xl font-bold ${tone ?? "text-ink"}`}>{n(value)}</p>
-      {sub && <p className="text-xs text-ink2 mt-1">{sub}</p>}
-      {action && <div className="mt-auto pt-3">{action}</div>}
-    </div>
-  );
-
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
-        <Card icon={<BadgeCheck size={14} />} label={`Licences ${year}`} value={t.covered} tone="text-section"
+        <StatCard icon={<BadgeCheck size={14} />} label={`Licences ${year}`} value={t.covered} tone="text-section"
           sub={`${n(t.fresh)} nouveaux · ${n(t.renewed)} renouvelés${t.returning ? ` · ${n(t.returning)} retours` : ""}`}
           action={<button onClick={() => openStudents("", "covered")} className="text-xs font-semibold text-section hover:underline">Voir la liste →</button>} />
-        <Card icon={<RefreshCw size={14} />} label="À renouveler" value={t.toRenew} tone={t.toRenew ? "text-warn" : undefined}
+        <StatCard icon={<RefreshCw size={14} />} label="À renouveler" value={t.toRenew} tone={t.toRenew ? "text-warn" : undefined}
           sub={`Couverts en ${prev}, pas encore en ${year}`}
           action={t.toRenew > 0 && (
             <div className="flex gap-3 items-center">
@@ -142,17 +160,17 @@ function Dashboard({ stats, year, onChanged, openStudents, goImport }: {
               <button onClick={() => openStudents("", "torenew")} className="text-xs font-semibold text-section hover:underline">Choisir →</button>
             </div>
           )} />
-        <Card icon={<Hourglass size={14} />} label="En attente de numéro" value={t.coveredWithoutNumber} tone={t.coveredWithoutNumber ? "text-warn" : undefined}
+        <StatCard icon={<Hourglass size={14} />} label="En attente de numéro" value={t.coveredWithoutNumber} tone={t.coveredWithoutNumber ? "text-warn" : undefined}
           sub={`Couverts en ${year} sans numéro ISIC`}
           action={t.coveredWithoutNumber > 0 && (
             <a href={`/api/isic/registry/export?filter=pending&year=${year}`} className={buttonClass("secondary", "sm")}>
               <Download size={13} /> Liste à envoyer à ISIC
             </a>
           )} />
-        <Card icon={<Camera size={14} />} label="Sans photo" value={t.coveredWithoutPhoto} tone={t.coveredWithoutPhoto ? "text-warn" : undefined}
+        <StatCard icon={<Camera size={14} />} label="Sans photo" value={t.coveredWithoutPhoto} tone={t.coveredWithoutPhoto ? "text-warn" : undefined}
           sub={`Licences ${year} sans photo : carte impossible`}
           action={t.coveredWithoutPhoto > 0 && <button onClick={() => openStudents("", "covered-nophoto")} className="text-xs font-semibold text-section hover:underline">Voir la liste →</button>} />
-        <Card icon={<Users size={14} />} label="Étudiants au registre" value={t.students}
+        <StatCard icon={<Users size={14} />} label="Étudiants au registre" value={t.students}
           sub={`${n(t.withNumber)} avec numéro · ${n(t.withoutNumber)} sans`} />
       </div>
 
@@ -230,7 +248,7 @@ function StudentsTab({ year, schools, initialSchool, initialCoverage, onChanged 
       setSelected(new Set()); load(); onChanged();
     } catch (e) { showToast(e instanceof Error ? e.message : "Renouvellement impossible", "error"); }
   }
-  const toggle = (id: string) => setSelected(s => { const x = new Set(s); x.has(id) ? x.delete(id) : x.add(id); return x; });
+  const toggle = (id: string) => setSelected(s => { const x = new Set(s); if (x.has(id)) x.delete(id); else x.add(id); return x; });
 
   return (
     <div className="space-y-4">
@@ -425,7 +443,7 @@ function StudentDialog({ id, year, onClose, onSaved }: { id: string; year: strin
           <div className="flex gap-4 items-start">
             <div className="shrink-0 w-28 text-center space-y-1.5">
               {d.student.hasPhoto
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 ? <img src={`/api/isic/registry/students/${id}/photo?v=${photoV}`} alt="Photo" className="w-28 h-36 object-cover rounded-lg border border-line" />
                 : <div className="w-28 h-36 rounded-lg border border-dashed border-neg/40 bg-neg-50 grid place-items-center text-xs text-neg">Pas de photo</div>}
               <label className="block text-xs font-semibold text-section cursor-pointer hover:underline">
@@ -543,18 +561,6 @@ function ImportTab({ year, schools, onChanged }: { year: string; schools: string
     const a = document.createElement("a"); a.href = url; a.download = "modele-registre-isic.csv"; a.click(); URL.revokeObjectURL(url);
   }
 
-  const Block = ({ mode, title, text, cols }: { mode: "reprise" | "students" | "numbers"; title: string; text: string; cols: string }) => (
-    <div className="surface-card p-4 flex flex-col gap-2">
-      <h3 className="font-semibold text-ink">{title}</h3>
-      <p className="text-sm text-ink2">{text}</p>
-      <p className="text-xs text-ink3">Colonnes : {cols}</p>
-      <label className={`mt-auto inline-flex items-center justify-center gap-2 px-3 h-10 rounded-lg text-sm font-semibold cursor-pointer ${busy ? "opacity-50 pointer-events-none" : ""} ${mode === "numbers" ? "border border-section/40 text-section hover:bg-section/5" : "bg-section text-white hover:brightness-95"}`}>
-        <Upload size={15} /> {busy === mode ? "Import en cours…" : "Choisir le fichier (Excel ou CSV)"}
-        <input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) run(mode, title, file); }} />
-      </label>
-    </div>
-  );
-
   return (
     <div className="space-y-5">
       <div className="surface-card p-4 flex flex-wrap items-end gap-4">
@@ -569,18 +575,21 @@ function ImportTab({ year, schools, onChanged }: { year: string; schools: string
       </div>
 
       <div className="grid md:grid-cols-3 gap-3">
-        <Block mode="reprise" title="1. Reprise de l'existant" cols="Fichier reçu d'ISIC, ou : Nom, Personal ID, Établissement, Numéro ISIC…"
+        <ImportBlock busy={busy} onFile={run} mode="reprise" title="1. Reprise de l'existant" cols="Fichier reçu d'ISIC, ou : Nom, Personal ID, Établissement, Numéro ISIC…"
           text="Vos étudiants actuels avec leur numéro — idéalement les fichiers reçus d'ISIC des années passées (numéro et validité repris). Doublons détectés." />
-        <Block mode="students" title="2. Nouveaux étudiants" cols="Fichier envoyé à ISIC (24 colonnes), ou : Prénom, Nom, Personal ID…"
+        <ImportBlock busy={busy} onFile={run} mode="students" title="2. Nouveaux étudiants" cols="Fichier envoyé à ISIC (24 colonnes), ou : Prénom, Nom, Personal ID…"
           text="Ex. « Fichier ISIC Première vague 2026-2027 » : les étudiants passent « en attente de numéro » pour l'année choisie." />
-        <Block mode="numbers" title="3. Retour d'ISIC" cols="Fichier reçu d'ISIC : Card Number, Personal ID, Valid from / to"
+        <ImportBlock busy={busy} onFile={run} mode="numbers" title="3. Retour d'ISIC" cols="Fichier reçu d'ISIC : Card Number, Personal ID, Valid from / to"
           text="Le fichier « … AVEC N° ISIC » : numéros, statut et validité réelle. Aucun étudiant créé ; un numéro déjà pris est refusé." />
       </div>
 
       <div className="surface-card p-4 flex flex-wrap items-center gap-3">
         <span className="text-sm font-semibold text-ink mr-2">Exports</span>
+        {/* Téléchargements de fichiers (routes d'API) : un lien <a> classique, pas une navigation client. */}
         <a href={`/api/isic/registry/export?filter=pending&year=${year}`} className={buttonClass("primary", "md")}><Download size={15} /> À numéroter par ISIC ({year})</a>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- téléchargement de fichier */}
         <a href="/api/isic/registry/export?filter=pending" className={buttonClass("secondary", "md")}><Download size={15} /> Tous les étudiants sans numéro</a>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- téléchargement de fichier */}
         <a href="/api/isic/registry/export?filter=all" className={buttonClass("secondary", "md")}><Download size={15} /> Registre complet</a>
       </div>
 

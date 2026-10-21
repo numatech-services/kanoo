@@ -104,7 +104,7 @@ export default function MembreDetailPage() {
               <p className="text-xs text-warn">L'adhérent ne peut pas encore accéder au portail</p>
             </div>
             <button onClick={handleGenerateCode} disabled={sendingCode}
-              className="text-xs bg-warn text-white px-3 py-1.5 rounded-lg hover:bg-warn disabled:opacity-60">
+              className="text-xs bg-warn text-onink px-3 py-1.5 rounded-lg hover:bg-warn disabled:opacity-60">
               {sendingCode ? "Génération…" : "Générer le code"}
             </button>
           </div>

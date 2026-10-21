@@ -128,7 +128,7 @@ export function AgendaView() {
         <div className="flex gap-1 flex-wrap">
           {VIEWS.map((v) => (
             <button key={v.key} onClick={() => setView(v.key)}
-              className={`px-3 h-9 rounded-lg text-sm font-medium ${view === v.key ? "bg-section text-white" : "text-ink2 hover:bg-surface2 border border-line"}`}>
+              className={`px-3 h-9 rounded-lg text-sm font-medium ${view === v.key ? "bg-section text-onink" : "text-ink2 hover:bg-surface2 border border-line"}`}>
               {v.label}
             </button>
           ))}
@@ -173,7 +173,7 @@ export function AgendaView() {
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2 flex-wrap">
                           <span className={`text-sm font-semibold text-ink ${it.status === "cancelled" ? "line-through" : ""}`}>{it.title}</span>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ background: itemColor(it) }}>{TYPE_META[it.type].label}</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-onink" style={{ background: itemColor(it) }}>{TYPE_META[it.type].label}</span>
                           {it.visibility === "shared" && <span className="inline-flex items-center gap-1 text-[11px] text-ink3"><Users size={12} /> Partagé{ownerName(it.ownerId) ? ` · ${ownerName(it.ownerId)}` : ""}</span>}
                           {it.status === "done" && <span className="text-[11px] text-pos">✓ Fait</span>}
                         </span>

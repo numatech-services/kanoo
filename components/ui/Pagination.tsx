@@ -47,7 +47,7 @@ export function Pagination({ page, totalPages, total, limit, onPage }: Paginatio
               onClick={() => onPage(p as number)}
               className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
                 p === page
-                  ? "bg-section text-white"
+                  ? "bg-section text-onink"
                   : "border border-line hover:bg-surface2 text-ink"
               }`}
             >

@@ -101,8 +101,8 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
           const mine = m.senderId?._id === currentUserId;
           return (
             <div key={m._id} className={`flex gap-2 items-end ${mine ? "flex-row-reverse" : ""}`}>
-              {!mine && m.senderId && <div className="w-7 h-7 rounded-full bg-section text-white grid place-items-center text-[10px] font-semibold shrink-0">{initials(`${m.senderId.firstName} ${m.senderId.lastName}`)}</div>}
-              <div className={`max-w-[70%] px-3 py-2 text-sm rounded-2xl ${mine ? "bg-section text-white rounded-br-sm" : "bg-surface2 text-ink rounded-bl-sm"}`}>
+              {!mine && m.senderId && <div className="w-7 h-7 rounded-full bg-section text-onink grid place-items-center text-[10px] font-semibold shrink-0">{initials(`${m.senderId.firstName} ${m.senderId.lastName}`)}</div>}
+              <div className={`max-w-[70%] px-3 py-2 text-sm rounded-2xl ${mine ? "bg-section text-onink rounded-br-sm" : "bg-surface2 text-ink rounded-bl-sm"}`}>
                 {!mine && <p className="text-[10px] font-semibold mb-0.5 text-ink2">{m.senderId?.firstName} {m.senderId?.lastName}</p>}
                 <p className="whitespace-pre-wrap break-words">{m.content}</p>
                 <p className={`text-[10px] mt-1 text-right ${mine ? "text-white/60" : "text-ink3"}`}>{new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</p>
@@ -137,7 +137,7 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
           {conversations.map(conv => (
             <button key={conv._id} onClick={() => setActiveConvId(conv._id)}
               className={`w-full flex gap-2 items-center px-3.5 py-2.5 text-left border-b border-line hover:bg-surface2/50 ${activeConvId === conv._id ? "bg-surface2" : ""}`}>
-              <div className="w-9 h-9 rounded-full bg-section text-white grid place-items-center text-[11px] font-semibold shrink-0">{conv.type === "group" ? <Users size={15} /> : initials(convName(conv))}</div>
+              <div className="w-9 h-9 rounded-full bg-section text-onink grid place-items-center text-[11px] font-semibold shrink-0">{conv.type === "group" ? <Users size={15} /> : initials(convName(conv))}</div>
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-medium text-ink truncate">{convName(conv)}</p>
                 {conv.lastMessage && <p className="text-[11px] text-ink3 truncate">{conv.lastMessage.content}</p>}
@@ -162,7 +162,7 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
           <div className="flex-1 overflow-auto">
             {dir.filter(u => `${u.firstName} ${u.lastName}`.toLowerCase().includes(dq.toLowerCase())).map(u => (
               <button key={u._id} onClick={() => startDirect(u._id)} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-left hover:bg-surface2/50 border-b border-line">
-                <div className="w-8 h-8 rounded-full bg-section text-white grid place-items-center text-[11px] font-semibold">{initials(`${u.firstName} ${u.lastName}`)}</div>
+                <div className="w-8 h-8 rounded-full bg-section text-onink grid place-items-center text-[11px] font-semibold">{initials(`${u.firstName} ${u.lastName}`)}</div>
                 <span className="text-sm text-ink">{[u.firstName, u.lastName].filter(Boolean).join(" ")}</span>
               </button>
             ))}

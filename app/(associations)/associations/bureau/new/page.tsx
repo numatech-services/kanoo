@@ -44,11 +44,11 @@ export default function NewBureauMemberPage() {
     setError("");
 
     // Nettoyage du payload
-    const payload = { ...form };
-    if (!payload.email?.trim()) delete (payload as any).email;
-    if (!payload.phone?.trim()) delete (payload as any).phone;
-    if (!payload.mandateEnd) delete (payload as any).mandateEnd;
-    if (payload.role !== "autre") delete (payload as any).customRoleLabel;
+    const payload: Partial<typeof form> = { ...form };
+    if (!payload.email?.trim()) delete payload.email;
+    if (!payload.phone?.trim()) delete payload.phone;
+    if (!payload.mandateEnd) delete payload.mandateEnd;
+    if (payload.role !== "autre") delete payload.customRoleLabel;
 
     try {
 

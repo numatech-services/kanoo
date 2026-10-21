@@ -2,6 +2,10 @@ import { NextRequest } from "next/server";
 import { withAuth, ok, forbidden } from "@/lib/api-helpers";
 import { isUsableSecret, TokenPayload } from "@/lib/auth";
 import { AuditLogModel } from "@/models/AuditLog";
+import { ErrorEventModel } from "@/models/ErrorEvent";
+import { storageBackend } from "@/lib/storage";
+import { backupTarget } from "@/lib/backup";
+import { whatsappTemplateStatus, WHATSAPP_TEMPLATES, type WhatsAppTemplateKind } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -57,10 +61,16 @@ export const GET = withAuth("*", "read", async (_req: NextRequest, auth: TokenPa
   const since = new Date(Date.now() - 24 * 3600 * 1000);
 
   // Preuve que la journalisation d'audit écrit vraiment : on compte des lignes.
-  const [auditLast24h, loginFailures] = await Promise.all([
+  const [auditLast24h, loginFailures, errorGroups] = await Promise.all([
     AuditLogModel.countDocuments({ createdAt: { $gte: since } }),
     AuditLogModel.countDocuments({ createdAt: { $gte: since }, action: "LOGIN_FAILED" }),
+    ErrorEventModel.countDocuments({ lastAt: { $gte: since }, resolvedAt: { $exists: false } }),
   ]);
+  const backup = backupTarget();
+  const storage = storageBackend();
+  const whatsappReal = Boolean(process.env.WHATSAPP_PROVIDER && process.env.WHATSAPP_PROVIDER !== "console");
+  const templates = whatsappTemplateStatus();
+  const missingTemplates = (Object.keys(templates) as WhatsAppTemplateKind[]).filter(k => !templates[k]).map(k => WHATSAPP_TEMPLATES[k].label);
 
   const controls: Control[] = [
     secretControl("JWT_SECRET", "Secret de session", true),
@@ -93,6 +103,39 @@ export const GET = withAuth("*", "read", async (_req: NextRequest, auth: TokenPa
       detail: auditLast24h > 0
         ? `Dont ${loginFailures} échec(s) de connexion.`
         : "Aucune entrée sur les dernières 24 heures — normal sur une instance inactive, à vérifier sinon.",
+    },
+    {
+      key: "backup",
+      label: "Sauvegarde de la base",
+      level: backup && process.env.BACKUP_ENCRYPTION_KEY ? "ok" : isProd ? "critical" : "warn",
+      value: backup === "s3" ? "S3, chiffrée" : backup === "dir" ? "Dossier local, chiffrée" : "Non configurée",
+      detail: backup
+        ? (process.env.BACKUP_ENCRYPTION_KEY ? "Export quotidien chiffré (tâche « backup »). Vérifier une archive chaque mois : npm run restore -- --verify." : "Destination configurée mais BACKUP_ENCRYPTION_KEY absente : la tâche refuse de tourner.")
+        : "Aucune destination (BACKUP_S3_* ou BACKUP_DIR) : en cas de perte de la base, rien à restaurer hors de l'hébergeur.",
+    },
+    {
+      key: "storage",
+      label: "Stockage des pièces jointes",
+      level: storage === "s3" ? "ok" : "warn",
+      value: storage === "s3" ? "Compartiment S3" : "Disque du serveur",
+      detail: storage === "s3"
+        ? "Les pièces jointes sont dans le compartiment STORAGE_S3_*, indépendant des redéploiements."
+        : "Sur l'hébergement managé, le disque n'est pas garanti d'un redéploiement à l'autre et n'est pas sauvegardé : configurer STORAGE_S3_*.",
+    },
+    {
+      key: "whatsapp",
+      label: "Modèles WhatsApp",
+      level: !whatsappReal || missingTemplates.length === 0 ? "ok" : "warn",
+      value: !whatsappReal ? "WhatsApp inactif" : missingTemplates.length ? `${missingTemplates.length} manquant(s)` : "Tous configurés",
+      detail: !whatsappReal ? "Aucun envoi WhatsApp réel (mode console)."
+        : missingTemplates.length ? `Sans modèle approuvé, WhatsApp refuse un message spontané hors conversation ouverte : ${missingTemplates.join(", ")}.` : "Brief, relances, cotisations et billets passent par des modèles approuvés.",
+    },
+    {
+      key: "errors",
+      label: "Erreurs (24 h)",
+      level: errorGroups === 0 ? "ok" : "warn",
+      value: `${errorGroups} groupe(s) non résolu(s)`,
+      detail: errorGroups === 0 ? "Aucune erreur enregistrée sur les dernières 24 heures." : "Voir Journal des erreurs : un résumé part chaque matin aux super-administrateurs.",
     },
   ];
 

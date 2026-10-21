@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import {
-  withAuth, ok, created, badRequest, conflict, notFound,
+  withAuth, created, badRequest, conflict, notFound,
   getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody,
 } from "@/lib/api-helpers";
 import { SubscriptionPurchaseModel } from "@/models/SubscriptionPurchase";

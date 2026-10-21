@@ -50,7 +50,7 @@ export default function StatementsPage() {
       </div>
       <div className="flex gap-1 flex-wrap">
         {TABS.map(([k, l]) => (
-          <button key={k} onClick={() => { setTab(k); setData(null); }} className={`px-4 h-9 rounded-lg text-sm font-semibold ${tab === k ? "bg-section text-white" : "border border-line2 text-ink2 hover:bg-surface2"}`}>{l}</button>
+          <button key={k} onClick={() => { setTab(k); setData(null); }} className={`px-4 h-9 rounded-lg text-sm font-semibold ${tab === k ? "bg-section text-onink" : "border border-line2 text-ink2 hover:bg-surface2"}`}>{l}</button>
         ))}
       </div>
       <div className="flex gap-2 flex-wrap items-end">

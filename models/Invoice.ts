@@ -153,6 +153,8 @@ InvoiceSchema.index({ tenantId: 1, status: 1 });
 InvoiceSchema.index({ tenantId: 1, clientId: 1 });
 InvoiceSchema.index({ tenantId: 1, dueDate: 1 });
 InvoiceSchema.index({ tenantId: 1, documentType: 1, issueDate: -1 });
+// Chiffre d'affaires par période, factures et avoirs ensemble (tableau de bord).
+InvoiceSchema.index({ tenantId: 1, issueDate: -1 });
 InvoiceSchema.index({ tenantId: 1, originalInvoiceId: 1 });
 // Le code SECeF est unique par organisation : deux factures ne peuvent pas
 // porter la même certification. `sparse` laisse coexister les non certifiées.

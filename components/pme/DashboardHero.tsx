@@ -124,7 +124,7 @@ async function NeutralHero({ auth, can }: { auth: TokenPayload; can: (r: string,
         {shortcuts.map((x, i) => (
           <Link key={x.href} href={x.href}
             className={i === 0
-              ? "px-5 h-11 rounded-xl bg-section text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-95 shadow-sm"
+              ? "px-5 h-11 rounded-xl bg-section text-onink text-sm font-semibold inline-flex items-center gap-2 hover:brightness-95 shadow-sm"
               : "px-5 h-11 rounded-xl border border-line2 bg-surface text-sm font-semibold text-ink inline-flex items-center gap-2 hover:bg-surface2"}>
             {x.icon} {x.label}
           </Link>

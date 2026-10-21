@@ -129,6 +129,9 @@ describe("Cloisonnement — aucune route ne contourne le contrôle des droits", 
     /^app\/api\/(health|demo-requests|cron|webhooks)\//,
     /^app\/api\/public\//, /^app\/api\/portail\//, /^app\/api\/v1\//,
     /^app\/api\/auth\//, /^app\/api\/me\//,
+    // Rapports d'erreurs du navigateur (même origine exigée, débit limité,
+    // écriture seule dans le journal des erreurs).
+    /^app\/api\/client-errors\//,
   ];
 
   it("toute route passe par withAuth ou authorize, sauf les exceptions listées", () => {

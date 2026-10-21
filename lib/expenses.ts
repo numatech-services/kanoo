@@ -123,7 +123,7 @@ export interface LineComputation {
  * ferait disparaître du résultat une dépense réellement supportée : c'est
  * l'erreur classique sur les frais de restauration.
  */
-export function computeLine(line: ExpenseLine, policy: ExpensePolicy): LineComputation {
+export function computeLine(line: ExpenseLine, _policy: ExpensePolicy): LineComputation {
   const spec = CATEGORIES[line.category] ?? CATEGORIES.autre;
   const rate = line.exchangeRate && line.currency && line.currency !== "XOF"
     ? line.exchangeRate : 1;

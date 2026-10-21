@@ -72,7 +72,7 @@ export default function MarchesPage() {
       label: "Procédure", 
       render: (v) => (
         <span className="text-[10px] text-ink2 uppercase font-medium">
-          {(LIBELLES_PROCEDURES as any)[String(v)]?.split("(")[0] || String(v)}
+          {(LIBELLES_PROCEDURES as Record<string, string | undefined>)[String(v)]?.split("(")[0] || String(v)}
         </span>
       ) 
     },

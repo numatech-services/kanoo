@@ -22,7 +22,8 @@ interface Payment {
   date: string;
   reference?: string;
   status?: string;
-  treasuryAccountId?: { name?: string } | null;
+  cancelReason?: string;
+  treasuryAccountId?: { name?: string; label?: string } | null;
 }
 
 export default function PaymentsPage() {
@@ -105,14 +106,14 @@ export default function PaymentsPage() {
     { 
       key: "invoiceId", 
       label: "N° Facture", 
-      render: (v) => (v && typeof v === "object") ? (v as any).number : "—" 
+      render: (v) => (v && typeof v === "object") ? (v as { number?: string }).number : "—" 
     },
     { 
       key: "clientId", 
       label: "Client", 
       className: "font-medium text-ink",
       // On va chercher le nom dans invoiceId -> clientId -> name
-      render: (_, record: any) => {
+      render: (_, record) => {
         const name = record.invoiceId?.clientId?.name;
         return name ? name : <span className="text-ink2">—</span>;
       }
@@ -143,12 +144,15 @@ export default function PaymentsPage() {
     {
       key: "treasuryAccountId",
       label: "Compte",
-      render: (v: any) => (v?.label || v?.name) ? <span className="text-ink">{v.label || v.name}</span> : <span className="text-ink2 italic text-xs">Non imputé</span>
+      render: (v) => {
+        const account = v as Payment["treasuryAccountId"] | undefined;
+        return (account?.label || account?.name) ? <span className="text-ink">{account.label || account.name}</span> : <span className="text-ink2 italic text-xs">Non imputé</span>;
+      }
     },
     {
       key: "status",
       label: "État",
-      render: (v, record: any) => v === "pending"
+      render: (v, record) => v === "pending"
         ? (
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-warn-50 text-warn border border-warn/25">En attente</span>
@@ -254,7 +258,7 @@ function ConfirmDialog({ payment, onClose, onDone }: { payment: Payment; onClose
         </FormField>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
-          <button onClick={submit} disabled={saving || !date || !accountId} className="px-5 h-10 rounded-lg bg-pos text-white text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Confirmer l'encaissement"}</button>
+          <button onClick={submit} disabled={saving || !date || !accountId} className="px-5 h-10 rounded-lg bg-pos text-onink text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Confirmer l'encaissement"}</button>
         </div>
       </div>
     </Modal>

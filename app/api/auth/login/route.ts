@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/db";
 import { comparePassword, signTwoFactorChallenge } from "@/lib/auth";
 import { buildSessionPayload, setSessionCookies } from "@/lib/session";
 import { badRequest, serverError, unauthorized } from "@/lib/api-helpers";
-import { rateLimit, resetRateLimit, clientIp } from "@/lib/rate-limit";
+import { consumeRateLimit, clearRateLimit, clientIp } from "@/lib/rate-limit";
 import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
 import { logAudit } from "@/lib/audit";
@@ -20,7 +20,7 @@ const ACCOUNT_WINDOW_MS = 15 * 60_000;
 export async function POST(req: NextRequest) {
   const ip = clientIp(req);
 
-  const byIp = rateLimit("login:ip", ip, IP_MAX, IP_WINDOW_MS);
+  const byIp = await consumeRateLimit("login:ip", ip, IP_MAX, IP_WINDOW_MS);
   if (!byIp.allowed) {
     return NextResponse.json(
       { success: false, error: `Trop de tentatives. Réessayez dans ${byIp.retryAfter} secondes.` },
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     const normalizedEmail = String(email).toLowerCase().trim();
 
-    const byAccount = rateLimit("login:account", normalizedEmail, ACCOUNT_MAX, ACCOUNT_WINDOW_MS);
+    const byAccount = await consumeRateLimit("login:account", normalizedEmail, ACCOUNT_MAX, ACCOUNT_WINDOW_MS);
     if (!byAccount.allowed) {
       return NextResponse.json(
         {
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Mot de passe validé : le compte n'est plus suspect, on rend son quota.
-    resetRateLimit("login:account", normalizedEmail);
+    await clearRateLimit("login:account", normalizedEmail);
 
     // 2FA activé : ne pas ouvrir la session — exiger d'abord le code TOTP.
     if (user.twoFactorEnabled) {

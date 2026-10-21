@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Schema, model, models } from "mongoose";
-import { rateLimit } from "@/lib/rate-limit";
+import { consumeRateLimit } from "@/lib/rate-limit";
 
 const DemoRequestSchema = new Schema({
   name: String, email: String, type: String, subject: String, message: String,
@@ -23,7 +23,7 @@ const DemoRequestModel = models.DemoRequest || model("DemoRequest", DemoRequestS
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    const limit = rateLimit("demo-request", ip, 5, 60 * 60_000);
+    const limit = await consumeRateLimit("demo-request", ip, 5, 60 * 60_000);
     if (!limit.allowed) {
       return NextResponse.json(
         { success: false, error: "Trop de demandes. Réessayez plus tard." },

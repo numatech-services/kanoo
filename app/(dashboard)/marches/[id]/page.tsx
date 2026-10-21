@@ -13,7 +13,7 @@ export default function MarcheDetailPage() {
   const id = params?.id;
   const router = useRouter();
   
-  const [item, setItem] = useState<Record<string, any> | null>(null);
+  const [item, setItem] = useState<Record<string, unknown> | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +33,7 @@ export default function MarcheDetailPage() {
   }, [id]);
 
   // 2. Sauvegarde des modifications (PATCH)
-  async function handleSave(body: Record<string, any>) {
+  async function handleSave(body: Record<string, unknown>) {
     try {
       
       const res = await apiSend("PATCH", `/api/marches/${id}`, body);

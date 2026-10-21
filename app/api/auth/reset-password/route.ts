@@ -6,7 +6,7 @@ import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
 import { hashPassword } from "@/lib/auth";
 import { passwordErrors } from "@/lib/password-policy";
-import { rateLimit } from "@/lib/rate-limit";
+import { consumeRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    const limit = rateLimit("reset-password", ip, 10, 15 * 60_000);
+    const limit = await consumeRateLimit("reset-password", ip, 10, 15 * 60_000);
     if (!limit.allowed) {
       return NextResponse.json(
         { success: false, error: "Trop de tentatives. Réessayez dans quelques minutes." },

@@ -33,6 +33,7 @@ import { generatePayslip, PayrollError, type PayrollEmployee } from "@/lib/payro
 import { buildAccountantPacket } from "@/lib/accountant-packet";
 import { actualsByPrefix, type BudgetEntryRow, type BudgetLine } from "@/lib/budget";
 import { runBackup } from "@/lib/backup";
+import { ErrorEventModel } from "@/models/ErrorEvent";
 
 /**
  * Automatisations réglables par organisation (Réglages → Automatisations),
@@ -165,7 +166,13 @@ async function runMorningBrief(now = new Date()): Promise<string> {
           if (res.sent) mails++; else errors.push(`${actor.user.email} : ${res.error}`);
         }
         if (settings.morningBrief.channels.includes("whatsapp") && actor.user.phone) {
-          const res = await sendWhatsApp({ to: actor.user.phone, text: briefText(opts) });
+          const res = await sendWhatsApp({
+            to: actor.user.phone, text: briefText(opts),
+            template: { kind: "brief", params: [
+              actor.user.firstName ?? "", tenant.name, cash === null ? "non communiquée" : formatMoney(cash),
+              opts.items.length ? opts.items.map((it, i) => `${i + 1}. ${it.title}`).join(" ; ") : "rien d'urgent",
+            ] },
+          });
           if (res.sent) whatsapps++; else errors.push(`WhatsApp ${actor.user.firstName ?? ""} : ${res.error}`);
         }
       } catch (err) {
@@ -417,7 +424,10 @@ async function runCotisationReminders(now = new Date()): Promise<string> {
           if (r.sent) mails++;
         }
         if (channels.includes("sms") && member.phone && await sendSMS({ to: member.phone, message: smsCotisationRappel(m.year, m.amount) })) sms++;
-        if (channels.includes("whatsapp") && member.phone && (await sendWhatsApp({ to: member.phone, text })).sent) whatsapps++;
+        if (channels.includes("whatsapp") && member.phone && (await sendWhatsApp({
+          to: member.phone, text,
+          template: { kind: "cotisation", params: [member.firstName, String(m.year), tenant.name, formatMoney(m.amount)] },
+        })).sent) whatsapps++;
       }
     } catch (err) {
       errors.push(`${tenant.name} : ${err instanceof Error ? err.message : String(err)}`);
@@ -439,6 +449,30 @@ async function runDailyBackup(now = new Date()): Promise<string> {
   }
 }
 
+// ─── 10. Résumé quotidien des erreurs (super-administrateurs) ─────────────────
+
+async function runErrorDigest(now = new Date()): Promise<string> {
+  const since = new Date(now.getTime() - DAY);
+  const errors = await ErrorEventModel.find({ lastAt: { $gte: since }, resolvedAt: { $exists: false } })
+    .sort({ count: -1 }).limit(20).select("source message count firstAt url").lean<Array<{ source: string; message: string; count: number; firstAt: Date; url?: string }>>();
+  if (!errors.length) return "aucune erreur en 24 h";
+  if (!(await claimOnce(PLATFORM_TENANT, `errors:${dayKey(now)}`))) return "résumé déjà envoyé aujourd'hui";
+  const admins = await UserModel.find({ role: "superadmin", isActive: true }).select("email").lean<Array<{ email?: string }>>();
+  const fresh = errors.filter(e => new Date(e.firstAt) >= since).length;
+  const rows = errors.map(e => `<li style="margin-bottom:6px;"><strong>${e.count}×</strong> [${e.source}] ${e.message.replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]!))}${e.url ? ` <span style="color:#6B7280;">(${e.url})</span>` : ""}</li>`).join("");
+  let sent = 0;
+  for (const a of admins) {
+    if (!a.email) continue;
+    const r = await sendEmail({
+      to: a.email, subject: `Kanoo — ${errors.length} erreur(s) en 24 h${fresh ? `, dont ${fresh} nouvelle(s)` : ""}`,
+      html: mailBody("Erreurs des dernières 24 heures", [`${errors.length} groupe(s) d'erreurs non résolues${fresh ? `, dont ${fresh} apparue(s) aujourd'hui` : ""} :`, `<ul style="padding-left:18px;margin:0;">${rows}</ul>`], { href: "/saas/erreurs", label: "Ouvrir le journal" }),
+      text: errors.map(e => `${e.count}× [${e.source}] ${e.message}`).join("\n"),
+    });
+    if (r.sent) sent++;
+  }
+  return `${errors.length} groupe(s) d'erreurs, résumé envoyé à ${sent} super-administrateur(s)`;
+}
+
 export const AUTOMATION_JOBS: CronJob[] = [
   { id: "auto-depreciation", label: "Amortissements de l'exercice écoulé", cadence: "monthly", schedule: "30 1 1 * *", run: () => runDepreciation() },
   { id: "morning-brief", label: "Brief du matin (e-mail / WhatsApp)", cadence: "daily", schedule: "0 6 * * *", run: () => runMorningBrief() },
@@ -449,10 +483,11 @@ export const AUTOMATION_JOBS: CronJob[] = [
   { id: "budget-alerts", label: "Dépassements budgétaires", cadence: "daily", schedule: "10 7 * * *", run: () => runBudgetAlerts() },
   { id: "cotisation-reminders", label: "Cotisations impayées", cadence: "daily", schedule: "0 10 * * *", run: () => runCotisationReminders() },
   { id: "backup", label: "Sauvegarde chiffrée de la base", cadence: "daily", schedule: "0 2 * * *", run: () => runDailyBackup() },
+  { id: "error-digest", label: "Résumé quotidien des erreurs", cadence: "daily", schedule: "45 6 * * *", run: () => runErrorDigest() },
 ];
 
 /** Pour les tests et le déclenchement manuel à une date donnée. */
 export const AUTOMATION_RUNNERS = {
   runDepreciation, runMorningBrief, runTreasuryAlert, runPayroll, runAccountantPacket,
-  runApprovalReminders, runBudgetAlerts, runCotisationReminders, runDailyBackup,
+  runApprovalReminders, runBudgetAlerts, runCotisationReminders, runDailyBackup, runErrorDigest,
 };

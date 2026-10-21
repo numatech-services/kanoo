@@ -4,6 +4,15 @@ import { getServerAccess } from "@/lib/server-auth";
 import { DeliveryNoteModel } from "@/models/DeliveryNote";
 import Link from "next/link";
 
+// Bon de livraison tel que lu en base, client peuplé
+interface RecentDelivery {
+  _id: unknown;
+  number?: string;
+  clientId?: { name?: string } | string | null;
+  deliveryDate: string | Date;
+  status: string;
+}
+
 async function getRecentDeliveries() {
   try {
     const access = await getServerAccess();
@@ -15,7 +24,7 @@ async function getRecentDeliveries() {
       .populate("clientId", "name")
       .sort({ deliveryDate: -1 })
       .limit(5)
-      .lean();
+      .lean<RecentDelivery[]>();
     return items;
   } catch {
     return [];
@@ -49,7 +58,7 @@ export async function RecentDeliveries() {
         <div className="px-5 py-8 text-sm text-ink2 text-center">Aucun bon de livraison</div>
       ) : (
         <div className="divide-y divide-line">
-          {deliveries.map((d: any) => (
+          {deliveries.map((d) => (
             <Link
               key={String(d._id)}
               href={`/livraisons/${d._id}`}
@@ -57,7 +66,7 @@ export async function RecentDeliveries() {
             >
               <span className="font-mono text-xs text-section font-semibold w-20 shrink-0">{d.number}</span>
               <span className="flex-1 text-sm text-ink truncate">
-                {d.clientId && typeof d.clientId === "object" ? (d.clientId as any).name : "—"}
+                {d.clientId && typeof d.clientId === "object" ? (d.clientId as { name?: string }).name : "—"}
               </span>
               <span className="text-xs text-ink2 shrink-0">
                 {new Date(d.deliveryDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}

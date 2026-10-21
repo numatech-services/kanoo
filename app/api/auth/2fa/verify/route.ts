@@ -7,7 +7,7 @@ import { verifyTwoFactorChallenge, comparePassword } from "@/lib/auth";
 import { verifyTotp } from "@/lib/totp";
 import { decryptField } from "@/lib/crypto-field";
 import { buildSessionPayload, setSessionCookies } from "@/lib/session";
-import { rateLimit, resetRateLimit, clientIp } from "@/lib/rate-limit";
+import { consumeRateLimit, clearRateLimit, clientIp } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 
 // Un code TOTP fait six chiffres et le défi vit cinq minutes : sans plafond,
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   // Le quota est porté par l'utilisateur visé, pas par l'adresse : le défi
   // désigne déjà un compte précis.
-  const attempt = rateLimit("2fa:verify", parsed.uid, MAX_ATTEMPTS, WINDOW_MS);
+  const attempt = await consumeRateLimit("2fa:verify", parsed.uid, MAX_ATTEMPTS, WINDOW_MS);
   if (!attempt.allowed) {
     return NextResponse.json(
       { success: false, error: "Trop de codes erronés. Reconnectez-vous." },
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  resetRateLimit("2fa:verify", parsed.uid);
+  await clearRateLimit("2fa:verify", parsed.uid);
 
   user.lastLoginAt = new Date();
   await user.save();

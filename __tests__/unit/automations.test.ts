@@ -193,3 +193,21 @@ describe("lecture des factures fournisseurs", () => {
     expect(checkInvoice({ ...x, currency: "EUR" }).join(" ")).toMatch(/convertissez/);
   });
 });
+
+describe("journal des erreurs : regroupement", () => {
+  // Import local : lib/error-log tire la connexion à la base, inutile ici.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { fingerprint } = require("@/lib/error-log") as typeof import("@/lib/error-log");
+  it("navigateur : même message, avec ou sans pile, une seule ligne", () => {
+    expect(fingerprint({ source: "client", message: "TypeError: x is undefined", stack: "at f (app.js:1:2)" }))
+      .toBe(fingerprint({ source: "client", message: "TypeError: x is undefined" }));
+  });
+  it("identifiants et nombres variables ignorés", () => {
+    expect(fingerprint({ source: "api", message: "Facture 6ad8ccdba1cdbaa241349e74 introuvable (412)" }))
+      .toBe(fingerprint({ source: "api", message: "Facture 6ad8cceda1cdbaa24134a177 introuvable (9)" }));
+  });
+  it("serveur : deux pannes de même message à deux endroits restent distinctes", () => {
+    expect(fingerprint({ source: "api", message: "Error: boom", stack: "Error: boom\n    at a (/app/lib/x.js:10:5)" }))
+      .not.toBe(fingerprint({ source: "api", message: "Error: boom", stack: "Error: boom\n    at b (/app/lib/y.js:3:1)" }));
+  });
+});

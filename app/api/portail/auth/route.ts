@@ -5,7 +5,7 @@ import { SupplierModel } from "@/models/Supplier";
 import {
   signPortalToken, setPortalCookie, verifyAccessCode, hashAccessCode,
 } from "@/lib/portal-auth";
-import { rateLimit, resetRateLimit, clientIp } from "@/lib/rate-limit";
+import { consumeRateLimit, clearRateLimit, clientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ function refuse() {
 // POST /api/portail/auth — Connexion portail externe par email + code d'accès
 export async function POST(req: NextRequest) {
   const ip = clientIp(req);
-  const byIp = rateLimit("portal:ip", ip, IP_MAX, IP_WINDOW_MS);
+  const byIp = await consumeRateLimit("portal:ip", ip, IP_MAX, IP_WINDOW_MS);
   if (!byIp.allowed) {
     return NextResponse.json(
       { error: `Trop de tentatives. Réessayez dans ${byIp.retryAfter} secondes.` },
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   const normalizedEmail = String(email).toLowerCase().trim();
   const accountKey = `${type}:${normalizedEmail}`;
 
-  const byAccount = rateLimit("portal:account", accountKey, ACCOUNT_MAX, ACCOUNT_WINDOW_MS);
+  const byAccount = await consumeRateLimit("portal:account", accountKey, ACCOUNT_MAX, ACCOUNT_WINDOW_MS);
   if (!byAccount.allowed) {
     return NextResponse.json(
       {
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     await entity.save();
   }
 
-  resetRateLimit("portal:account", accountKey);
+  await clearRateLimit("portal:account", accountKey);
 
   const token = signPortalToken({
     id: entity._id.toString(),

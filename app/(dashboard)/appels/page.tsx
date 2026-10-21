@@ -198,7 +198,7 @@ export default function AppelsListPage() {
 function Kpi({ icon, chip, label, value, sub, valueCls = "" }: { icon: React.ReactNode; chip: string; label: string; value: string; sub: string; valueCls?: string }) {
   return (
     <div className="bg-surface rounded-[22px] border border-line shadow-card p-[18px] flex flex-col gap-2.5 min-w-0">
-      <span className="flex items-center gap-3"><span className="w-10 h-10 rounded-xl grid place-items-center text-white shrink-0" style={{ background: chip }}>{icon}</span><span className="text-[13.5px] font-medium text-ink2">{label}</span></span>
+      <span className="flex items-center gap-3"><span className="w-10 h-10 rounded-xl grid place-items-center text-onink shrink-0" style={{ background: chip }}>{icon}</span><span className="text-[13.5px] font-medium text-ink2">{label}</span></span>
       <span className={`text-[28px] font-extrabold tracking-tight leading-none num ${valueCls || "text-ink"}`}>{value}</span>
       <span className="text-[12px] text-ink3 truncate">{sub}</span>
     </div>
@@ -209,7 +209,7 @@ function OrgAvatar({ name }: { name: string }) {
   const ini = name.replace(/[^\p{L}\s]/gu, " ").split(/\s+/).filter(w => w.length > 2).slice(0, 2).map(w => w[0].toUpperCase()).join("") || "?";
   let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const colors = ["194 39 45", "0 150 180", "200 110 40", "47 89 223", "110 68 188", "0 120 64"];
-  return <span className="w-7 h-7 rounded-full grid place-items-center text-[10.5px] font-bold text-white shrink-0" style={{ background: `rgb(${colors[h % colors.length]})` }} aria-hidden>{ini}</span>;
+  return <span className="w-7 h-7 rounded-full grid place-items-center text-[10.5px] font-bold text-onink shrink-0" style={{ background: `rgb(${colors[h % colors.length]})` }} aria-hidden>{ini}</span>;
 }
 
 function OfferCard({ a, busy, onMove }: { a: Appel; busy: boolean; onMove: (to: string, label: string) => void }) {
@@ -242,7 +242,7 @@ function OfferCard({ a, busy, onMove }: { a: Appel; busy: boolean; onMove: (to: 
       )}
       {a.status === "evaluation" && (
         <span className="grid grid-cols-2 gap-2">
-          <button type="button" disabled={busy} onClick={() => onMove("won", "Obtenu")} className="h-9 rounded-full bg-pos text-white text-[12.5px] font-semibold inline-flex items-center justify-center gap-1 disabled:opacity-60"><Trophy size={13} /> Obtenu</button>
+          <button type="button" disabled={busy} onClick={() => onMove("won", "Obtenu")} className="h-9 rounded-full bg-pos text-onink text-[12.5px] font-semibold inline-flex items-center justify-center gap-1 disabled:opacity-60"><Trophy size={13} /> Obtenu</button>
           <button type="button" disabled={busy} onClick={() => onMove("lost", "Non retenu")} className="h-9 rounded-full border border-neg/40 text-neg text-[12.5px] font-semibold hover:bg-neg-50 disabled:opacity-60">Non retenu</button>
         </span>
       )}

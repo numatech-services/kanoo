@@ -1,12 +1,18 @@
+import { connectDB } from "@/lib/db";
+import { RateLimitBucketModel } from "@/models/RateLimitBucket";
+
 /**
- * Limitation de débit à fenêtre glissante, en mémoire du processus.
+ * Limitation de débit à fenêtre fixe.
  *
- * LIMITE CONNUE — cet état vit dans le processus Node : avec plusieurs
- * instances PM2 ou plusieurs conteneurs, chaque instance compte séparément et
- * le plafond effectif est multiplié par le nombre d'instances. Tant qu'il n'y a
- * pas de Redis dans la pile, c'est un garde-fou contre le bruteforce naïf, pas
- * une garantie. Toute route sensible doit en plus verrouiller le compte visé
- * (voir `consumeAttempt` dans les routes de connexion).
+ * Deux implémentations, même contrat :
+ *  • `consumeRateLimit` / `clearRateLimit` (celles qu'emploient les routes) :
+ *    compteur en base (RateLimitBucket), partagé entre toutes les instances
+ *    et conservé à travers les redémarrages — un redéploiement ou un second
+ *    processus ne remet plus le compteur d'un attaquant à zéro ;
+ *  • `rateLimit` / `resetRateLimit` : la même chose en mémoire du processus,
+ *    utilisée en secours si la base ne répond pas (une panne de base ne doit
+ *    pas ouvrir les vannes : on limite quand même, localement).
+ * Toute route sensible verrouille en plus le compte visé (connexion).
  */
 
 interface Bucket {
@@ -74,6 +80,48 @@ export function rateLimit(scope: string, key: string, max: number, windowMs: num
 /** Efface le quota d'une clé — à appeler après une authentification réussie. */
 export function resetRateLimit(scope: string, key: string): void {
   buckets.get(scope)?.delete(key);
+}
+
+/**
+ * Consomme une unité de quota, dans le compteur partagé en base.
+ *
+ * Une seule mise à jour atomique (pipeline) : ouvre une nouvelle fenêtre si
+ * la précédente est échue, sinon incrémente. Deux requêtes simultanées ne
+ * peuvent pas lire le même compte.
+ */
+export async function consumeRateLimit(scope: string, key: string, max: number, windowMs: number): Promise<RateLimitResult> {
+  const now = new Date();
+  const fresh = new Date(now.getTime() + windowMs);
+  try {
+    await connectDB();
+    const expired = { $or: [{ $eq: [{ $type: "$resetAt" }, "missing"] }, { $lte: ["$resetAt", now] }] };
+    const doc = await RateLimitBucketModel.findOneAndUpdate(
+      { _id: `${scope}:${key}` },
+      [{ $set: {
+        count: { $cond: [expired, 1, { $add: ["$count", 1] }] },
+        resetAt: { $cond: [expired, fresh, "$resetAt"] },
+        expireAt: { $cond: [expired, fresh, "$resetAt"] },
+      } }],
+      { upsert: true, new: true, lean: true },
+    ) as { count: number; resetAt: Date } | null;
+    if (!doc) throw new Error("compteur introuvable");
+    const retryAfter = Math.max(1, Math.ceil((new Date(doc.resetAt).getTime() - now.getTime()) / 1000));
+    return doc.count > max
+      ? { allowed: false, remaining: 0, retryAfter }
+      : { allowed: true, remaining: max - doc.count, retryAfter: 0 };
+  } catch (err) {
+    console.error("[rate-limit] compteur partagé indisponible, repli en mémoire :", err instanceof Error ? err.message : err);
+    return rateLimit(scope, key, max, windowMs);
+  }
+}
+
+/** Efface le quota d'une clé (après une authentification réussie). */
+export async function clearRateLimit(scope: string, key: string): Promise<void> {
+  resetRateLimit(scope, key);
+  try {
+    await connectDB();
+    await RateLimitBucketModel.deleteOne({ _id: `${scope}:${key}` });
+  } catch { /* le compteur expirera de lui-même */ }
 }
 
 /**

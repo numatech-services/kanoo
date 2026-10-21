@@ -102,7 +102,7 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
               {schools.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </FormField>
-          <label className={`inline-flex items-center gap-2 px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold cursor-pointer ${progress ? "opacity-50 pointer-events-none" : ""}`}>
+          <label className={`inline-flex items-center gap-2 px-4 h-10 rounded-lg bg-section text-onink text-sm font-semibold cursor-pointer ${progress ? "opacity-50 pointer-events-none" : ""}`}>
             <Camera size={15} /> {progress ? `Import ${progress.done}/${progress.total}…` : "Importer des photos (zip ou images)"}
             <input type="file" multiple accept=".zip,image/jpeg,image/png" className="hidden"
               onChange={e => { const fl = Array.from(e.target.files ?? []); e.target.value = ""; if (fl.length) importPhotos(fl); }} />
@@ -180,7 +180,7 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
             )}
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <a href={blocked ? undefined : `/api/isic/registry/submission?${qs("zip")}`} aria-disabled={blocked}
-                className={`inline-flex items-center gap-2 px-4 h-10 rounded-lg bg-section text-white text-sm font-semibold ${blocked ? "opacity-40 pointer-events-none" : "hover:brightness-95"}`}>
+                className={`inline-flex items-center gap-2 px-4 h-10 rounded-lg bg-section text-onink text-sm font-semibold ${blocked ? "opacity-40 pointer-events-none" : "hover:brightness-95"}`}>
                 <Download size={15} /> Paquet complet (Excel + photos)
               </a>
               <a href={blocked ? undefined : `/api/isic/registry/submission?${qs("xlsx")}`} aria-disabled={blocked}

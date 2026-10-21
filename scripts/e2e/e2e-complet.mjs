@@ -147,7 +147,7 @@ const id = r => D(r)?._id;
 
   console.log("\n▶ Congés");
   const PW2 = PW;
-  const devChef = id(await g.req("POST", "/api/users", { email: "dev.chef@test.ne", password: PW2, firstName: "Chef", lastName: "Dev", roles: ["svc_dev"], roleLevels: { svc_dev: "chef" } }));
+  await g.req("POST", "/api/users", { email: "dev.chef@test.ne", password: PW2, firstName: "Chef", lastName: "Dev", roles: ["svc_dev"], roleLevels: { svc_dev: "chef" } });
   const devEmp = id(await g.req("POST", "/api/users", { email: "dev.emp@test.ne", password: PW2, firstName: "Emp", lastName: "Dev", roles: ["svc_dev"], roleLevels: { svc_dev: "employe" } }));
   const t02 = emps.find(e => e.code === "EMP-T02");
   const link = await g.req("PATCH", `/api/employees/${t02._id}`, { userId: devEmp });

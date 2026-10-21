@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
@@ -24,7 +25,7 @@ export default function DonsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div><h1 className="page-title">Dons</h1><p className="text-sm text-ink2">{total} don{total>1?"s":" reçu"} · Total FCFA : {totalXOF.toLocaleString("fr-FR")}</p></div>
-        <button onClick={() => window.location.href = "/associations/dons/new"} className={buttonClass("primary", "md")}>+ Enregistrer un don</button>
+        <Link href="/associations/dons/new" className={buttonClass("primary", "md")}>+ Enregistrer un don</Link>
       </div>
       <DataTable columns={columns} data={items} loading={loading} keyExtractor={d=>d._id} emptyMessage="Aucun don enregistré"/>
       <Pagination page={page} totalPages={Math.ceil(total/LIMIT)} total={total} limit={LIMIT} onPage={setPage}/>

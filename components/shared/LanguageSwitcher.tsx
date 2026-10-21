@@ -13,7 +13,7 @@ export function LanguageSwitcher() {
           onClick={() => setLocale(lang)}
           className={`px-2.5 py-1.5 text-xs font-medium transition-colors uppercase ${
             locale === lang
-              ? "bg-section text-white"
+              ? "bg-section text-onink"
               : "text-ink2 hover:bg-surface2"
           }`}
           title={lang === "fr" ? "Français" : "English"}

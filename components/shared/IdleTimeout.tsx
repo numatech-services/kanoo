@@ -97,7 +97,7 @@ export function IdleTimeout() {
       clearInterval(tick);
     };
     // Volontairement sans dépendances : le minuteur vit toute la session.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   function stayConnected() {

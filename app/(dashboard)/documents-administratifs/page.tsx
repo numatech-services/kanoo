@@ -286,7 +286,7 @@ function DocumentPanel({
         <button
           disabled={!until}
           onClick={() => { onAction({ renewedUntil: until }); onDone(); }}
-          className="px-4 h-10 rounded-lg bg-pos text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+          className="px-4 h-10 rounded-lg bg-pos text-onink text-sm font-semibold hover:brightness-95 disabled:opacity-50">
           Enregistrer le renouvellement
         </button>
       </div>

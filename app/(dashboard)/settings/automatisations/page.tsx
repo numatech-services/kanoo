@@ -11,7 +11,7 @@ import type { AutomationSettings } from "@/lib/automations";
 
 interface Payload {
   settings: AutomationSettings;
-  channels: { email: boolean; whatsapp: boolean; sms: boolean; ai: boolean };
+  channels: { email: boolean; whatsapp: boolean; sms: boolean; ai: boolean; whatsappTemplates: Record<string, boolean> };
   users: Array<{ _id: string; name: string; role: string; hasPhone: boolean }>;
   recent: Array<{ kind: string; at: string }>;
 }
@@ -123,11 +123,12 @@ export default function AutomationsPage() {
           <Checks options={[["email", "E-mail"], ["whatsapp", "WhatsApp"]]} value={s.morningBrief.channels} onChange={v => set("morningBrief", { channels: v })} disabled={ro} />
           {s.morningBrief.channels.includes("email") && !ch.email && <Warn>Aucun fournisseur d&apos;e-mail configuré sur l&apos;instance : les envois ne partiront pas.</Warn>}
           {s.morningBrief.channels.includes("whatsapp") && !ch.whatsapp && <Warn>WhatsApp n&apos;est pas configuré sur l&apos;instance.</Warn>}
+          {s.morningBrief.channels.includes("whatsapp") && ch.whatsapp && !ch.whatsappTemplates?.brief && <Warn>Modèle WhatsApp du brief non configuré (WHATSAPP_TEMPLATE_BRIEF) : WhatsApp refuse un message spontané hors d&apos;une conversation ouverte depuis moins de 24 h.</Warn>}
           <div className="flex flex-wrap gap-2">
             {DAYS.map(([d, l]) => {
               const n = Number(d), on = s.morningBrief.days.includes(n);
               return <button key={d} type="button" disabled={ro} onClick={() => set("morningBrief", { days: on ? s.morningBrief.days.filter(x => x !== n) : [...s.morningBrief.days, n] })}
-                className={`px-2.5 h-8 rounded-lg text-xs font-semibold border ${on ? "bg-section text-white border-section" : "border-line2 text-ink2"}`}>{l}</button>;
+                className={`px-2.5 h-8 rounded-lg text-xs font-semibold border ${on ? "bg-section text-onink border-section" : "border-line2 text-ink2"}`}>{l}</button>;
             })}
           </div>
           <div>
@@ -192,6 +193,7 @@ export default function AutomationsPage() {
             <Checks options={[["email", "E-mail"], ["sms", "SMS"], ["whatsapp", "WhatsApp"]]} value={s.cotisationReminders.channels} onChange={v => set("cotisationReminders", { channels: v })} disabled={ro} />
             <NumberField label="Tous les" value={s.cotisationReminders.intervalDays} min={7} max={120} suffix="jours" disabled={ro} onChange={n => set("cotisationReminders", { intervalDays: n })} />
             {s.cotisationReminders.channels.includes("sms") && !ch.sms && <Warn>Les SMS ne sont pas configurés sur l&apos;instance.</Warn>}
+            {s.cotisationReminders.channels.includes("whatsapp") && (!ch.whatsapp || !ch.whatsappTemplates?.cotisation) && <Warn>WhatsApp : {ch.whatsapp ? "modèle de relance de cotisation non configuré (WHATSAPP_TEMPLATE_COTISATION) — les messages hors conversation ouverte seront refusés." : "non configuré sur l'instance."}</Warn>}
           </Section>
         )}
       </div>

@@ -117,7 +117,6 @@ export default function TenderDetailPage() {
   const s = STATUS[tender.status] || { label: tender.status, cls: "bg-surface2 text-ink2 border-line" };
   const terminal = tender.status === "cancelled" || tender.status === "completed";
   const canBid = ["bids_open", "bids_closed", "evaluation"].includes(tender.status);
-  const chapterLabel = chapters.find((c) => c._id === tender.budgetChapterId);
 
   // Bouton d'avancement de statut selon l'étape.
   const NEXT: Record<string, { to: string; label: string; extra?: Partial<Tender> }> = {
@@ -143,7 +142,7 @@ export default function TenderDetailPage() {
         <div className="flex gap-2 flex-wrap justify-end">
           {next && (
             <button onClick={() => patch({ status: next.to, ...next.extra }, next.label)} disabled={loading}
-              className="bg-section text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:brightness-95 disabled:opacity-50">{next.label}</button>
+              className="bg-section text-onink px-5 py-2.5 rounded-xl text-sm font-bold hover:brightness-95 disabled:opacity-50">{next.label}</button>
           )}
           {!terminal && (
             <button onClick={cancel} className="border border-warn/25 text-warn px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-warn-50 inline-flex items-center gap-1.5"><Ban size={15} /> Annuler</button>

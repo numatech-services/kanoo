@@ -124,7 +124,7 @@ export default function AppelDetailPage() {
         <div className="flex gap-2 flex-wrap justify-end">
           {next && <button onClick={() => patch({ status: next.to })} className={buttonClass("primary", "md")}>{next.label} <ArrowRight size={15} /></button>}
           {["submitted", "evaluation"].includes(a.status) && <>
-            <button onClick={() => patch({ status: "won" })} className="px-3 h-10 rounded-lg bg-pos text-white text-sm font-semibold inline-flex items-center gap-1.5"><Trophy size={15} /> Gagné</button>
+            <button onClick={() => patch({ status: "won" })} className="px-3 h-10 rounded-lg bg-pos text-onink text-sm font-semibold inline-flex items-center gap-1.5"><Trophy size={15} /> Gagné</button>
             <button onClick={() => patch({ status: "lost" })} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm inline-flex items-center gap-1.5"><X size={15} /> Perdu</button>
           </>}
           {!terminal && <button onClick={() => patch({ status: "cancelled" })} className="px-3 h-10 rounded-lg border border-line2 text-ink2 text-sm hover:bg-surface2 inline-flex items-center gap-1.5"><Ban size={14} /> Annuler</button>}
@@ -156,7 +156,7 @@ export default function AppelDetailPage() {
             </label>
           </div>
           <label className="text-sm text-ink2 inline-flex items-center gap-2"><input type="checkbox" className="accent-section" checked={award.project} onChange={e => setAward(w => ({ ...w, project: e.target.checked }))} /> Créer le projet d&apos;exécution</label>
-          <div><button onClick={toContract} disabled={busy} className="px-4 h-10 rounded-lg bg-pos text-white text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-60"><Briefcase size={15} /> {busy ? "…" : "Créer le marché"}</button></div>
+          <div><button onClick={toContract} disabled={busy} className="px-4 h-10 rounded-lg bg-pos text-onink text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-60"><Briefcase size={15} /> {busy ? "…" : "Créer le marché"}</button></div>
         </section>
       )}
 

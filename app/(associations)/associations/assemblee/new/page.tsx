@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AssembleeForm } from "@/components/associations/AssembleeForm";
@@ -38,7 +39,7 @@ export default function NewAssembleePage() {
       {!mounted ? null : (
         <div className="max-w-lg space-y-5">
           <div>
-            <a href="/associations/assemblee" className="text-xs text-ink2 hover:text-ink">← Assemblées</a>
+            <Link href="/associations/assemblee" className="text-xs text-ink2 hover:text-ink">← Assemblées</Link>
             <h1 className="page-title mt-1">Convoquer une AG</h1>
           </div>
           {error && (

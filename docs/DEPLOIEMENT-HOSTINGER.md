@@ -156,6 +156,64 @@ une base **vide** (`RESTORE_MONGODB_URI`), jamais par-dessus la production :
 voir l'en-tête de `scripts/restore-backup.ts`. Les fichiers joints (pièces
 justificatives) ne sont pas dans cette sauvegarde : seule la base l'est.
 
+### Pièces jointes : stockage S3 (lot E)
+
+Les justificatifs, contrats et bulletins joints étaient écrits sur le disque du
+serveur, que l'hébergement managé ne garantit pas d'un redéploiement à l'autre
+et qui n'entre pas dans la sauvegarde. Avec `STORAGE_S3_ENDPOINT`, `_BUCKET`,
+`_REGION`, `_ACCESS_KEY`, `_SECRET_KEY` (compartiment **privé** ; le même que la
+sauvegarde convient, avec `STORAGE_S3_PREFIX=uploads/`), ils vont dans le
+compartiment. Activer le **versionnage** du compartiment protège en plus d'une
+suppression accidentelle.
+
+Les fichiers déjà déposés restent lisibles (repli sur le disque) ; pour les
+recopier dans le compartiment, depuis une machine qui voit le dossier :
+
+```bash
+cd "/Users/alimahamandankanomansour/Desktop/Bureau - Mac/NUMATECH SERVICES/Devops projets/kanoo" && npx tsx scripts/migrate-uploads-to-s3.ts --dry-run
+```
+
+(sans `--dry-run` pour recopier ; rien n'est supprimé du disque). L'écran
+super-administrateur **Sécurité / Accès** indique où sont stockées les pièces.
+
+### Modèles WhatsApp à faire approuver par Meta
+
+WhatsApp refuse un message spontané à quelqu'un qui n'a pas écrit dans les
+24 dernières heures : brief, relances, cotisations et billets doivent passer
+par des **modèles approuvés** (Meta Business Manager → Modèles de message,
+catégorie « Utilitaire », langue français). Textes proposés — les `{{n}}` sont
+remplis par Kanoo dans cet ordre :
+
+| Variable | Texte du modèle |
+|---|---|
+| `WHATSAPP_TEMPLATE_BRIEF` | Bonjour {{1}}, voici le point du jour pour {{2}}. Trésorerie disponible : {{3}}. Priorités : {{4}}. Ouvrez Kanoo pour le détail. |
+| `WHATSAPP_TEMPLATE_RELANCE` | Bonjour {{1}}, sauf erreur de notre part, la facture {{2}} d'un montant de {{3}}, échue le {{4}}, reste à régler. Merci de votre règlement. {{5}} |
+| `WHATSAPP_TEMPLATE_COTISATION` | Bonjour {{1}}, votre cotisation {{2}} à {{3}} ({{4}}) reste à régler. Si c'est déjà fait, merci de ne pas tenir compte de ce message. |
+| `WHATSAPP_TEMPLATE_BILLET` | Bonjour {{1}}, voici votre billet pour {{2}}, le {{3}} ({{4}}). Code d'entrée : {{5}}. Présentez-le à l'accueil. |
+
+Une fois approuvés, renseigner dans hPanel le **nom** de chaque modèle (Meta)
+ou son **Content SID** `HX…` (Twilio), et `WHATSAPP_TEMPLATE_LANG=fr`. Les
+réglages des automatisations et l'écran **Sécurité / Accès** signalent un
+modèle manquant.
+
+### Journal des erreurs
+
+Les erreurs des API, du rendu serveur, des navigateurs et les violations de la
+CSP sont enregistrées et regroupées (écran super-administrateur **Journal des
+erreurs**, conservation 90 jours) ; un résumé part chaque matin aux
+super-administrateurs s'il y en a eu. Rien à configurer, hors un fournisseur
+d'e-mail pour le résumé.
+
+### Intégration continue (GitHub Actions)
+
+`.github/workflows/ci.yml` vérifie chaque `push` : typage, lint sans
+avertissement, tests unitaires, build de production, puis les 14 scénarios de
+bout en bout contre une base MongoDB jetable. **Pousser ce fichier exige un
+jeton GitHub avec le droit `workflow`** : si `git push` est refusé avec
+« refusing to allow a Personal Access Token to create or update workflow »,
+régénérez le jeton (Settings → Developer settings → Tokens) en cochant
+`workflow`. Résultats : onglet **Actions** du dépôt.
+
 ---
 
 ## 5. Après la première mise en ligne — dans cet ordre

@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import path from "path";
 import { mkdir, writeFile, readFile, unlink, stat } from "fs/promises";
+import { s3ConfigFrom, s3Request } from "@/lib/s3";
 
 /**
  * Stockage des fichiers téléversés.
@@ -17,6 +18,22 @@ import { mkdir, writeFile, readFile, unlink, stat } from "fs/promises";
  * `/api/attachments/:id`, qui vérifie l'organisation et le droit avant de
  * transmettre.
  */
+
+/**
+ * Deux emplacements possibles :
+ *  • un stockage objet compatible S3 (STORAGE_S3_ENDPOINT, _BUCKET, _REGION,
+ *    _ACCESS_KEY, _SECRET_KEY, _PREFIX) — à utiliser sur l'hébergement
+ *    managé, dont le disque n'est pas garanti d'un redéploiement à l'autre ;
+ *  • le disque local (UPLOAD_DIR), pour un VPS avec volume persistant.
+ * Avec S3 configuré, un fichier encore absent du compartiment est cherché sur
+ * le disque : les pièces déposées avant la bascule restent lisibles jusqu'à
+ * leur migration (scripts/migrate-uploads-to-s3.ts).
+ */
+const s3 = () => s3ConfigFrom("STORAGE_S3", "uploads/");
+
+export function storageBackend(): "s3" | "disk" {
+  return s3() ? "s3" : "disk";
+}
 
 /** Racine du stockage. Configurable pour pointer un volume monté sur le VPS. */
 const ROOT = process.env.UPLOAD_DIR
@@ -91,7 +108,7 @@ export const STORAGE_MESSAGES: Record<StorageError, string> = {
  */
 export function sanitizeFilename(name: string): string {
   const base = path.basename(name || "fichier")
-    // eslint-disable-next-line no-control-regex -- on retire précisément ceux-là
+     
     .replace(/[\u0000-\u001f\u007f]/g, "")
     .replace(/^\.+/, "")
     .trim();
@@ -159,12 +176,18 @@ export async function store(
     String(tenantId), sha256.slice(0, 2), sha256.slice(2, 4), `${sha256}${ext}`
   );
 
-  const full = resolveKey(key);
-  await mkdir(path.dirname(full), { recursive: true });
-
-  // Déjà présent : rien à réécrire, l'empreinte garantit l'identité.
-  const exists = await stat(full).then(() => true).catch(() => false);
-  if (!exists) await writeFile(full, buffer, { mode: 0o640 });
+  const c = s3();
+  if (c) {
+    // Même contenu = même clé : réécrire un doublon est sans effet.
+    const res = await s3Request(c, "PUT", c.prefix + key, buffer, mime);
+    if (!res.ok) throw new Error(`Dépôt du fichier refusé par le stockage (${res.status}).`);
+  } else {
+    const full = resolveKey(key);
+    await mkdir(path.dirname(full), { recursive: true });
+    // Déjà présent : rien à réécrire, l'empreinte garantit l'identité.
+    const exists = await stat(full).then(() => true).catch(() => false);
+    if (!exists) await writeFile(full, buffer, { mode: 0o640 });
+  }
 
   return { storageKey: key, sha256, size: buffer.length, mime, filename: sanitizeFilename(filename) };
 }
@@ -185,6 +208,13 @@ export function resolveKey(key: string): string {
 }
 
 export async function read(key: string): Promise<Buffer> {
+  const c = s3();
+  if (c) {
+    const res = await s3Request(c, "GET", c.prefix + key);
+    if (res.ok) return Buffer.from(await res.arrayBuffer());
+    // Pas encore migré : le disque local, s'il l'a encore.
+    if (res.status !== 404) throw new Error(`Lecture du fichier refusée par le stockage (${res.status}).`);
+  }
   return readFile(resolveKey(key));
 }
 
@@ -196,6 +226,11 @@ export async function read(key: string): Promise<Buffer> {
  * première suppression viderait les autres.
  */
 export async function remove(key: string): Promise<void> {
+  const c = s3();
+  if (c) {
+    const res = await s3Request(c, "DELETE", c.prefix + key);
+    if (!res.ok && res.status !== 404) throw new Error(`Suppression refusée par le stockage (${res.status}).`);
+  }
   await unlink(resolveKey(key)).catch(() => { /* déjà absent : rien à faire */ });
 }
 

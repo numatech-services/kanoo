@@ -199,7 +199,7 @@ export function buildCreditNote(
   }
 
   const isFull = lines.length === invoice.lines.length
-    && requested.every((req, i) => {
+    && requested.every((req) => {
       const source = invoice.lines[Number(req.lineIndex)];
       return source && Number(req.quantity) === source.quantity;
     })

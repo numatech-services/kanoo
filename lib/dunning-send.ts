@@ -127,7 +127,13 @@ export async function executeAction(
         });
         attempts.push({ channel, ok, error: ok ? undefined : "Envoi SMS refusé par le fournisseur" });
       } else if (channel === "whatsapp" && contact.phone) {
-        const res = await sendWhatsApp({ to: contact.phone, text: body });
+        const res = await sendWhatsApp({
+          to: contact.phone, text: body,
+          template: { kind: "relance", params: [
+            message.clientName ?? "", message.invoiceNumber, `${Math.round(message.outstanding).toLocaleString("fr-FR")} FCFA`,
+            new Date(message.dueDate).toLocaleDateString("fr-FR"), message.tenantName ?? "",
+          ] },
+        });
         attempts.push({ channel, ok: res.sent, error: res.error });
       } else {
         attempts.push({ channel, ok: false, error: "Coordonnée absente pour ce canal" });

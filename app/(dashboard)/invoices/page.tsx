@@ -28,6 +28,12 @@ interface Invoice {
   notes?: string;
 }
 
+// Facture complète chargée pour l'impression directe (client peuplé ou simple identifiant)
+type PrintableInvoice = Omit<Invoice, "clientId"> & {
+  clientId?: { name?: string; code?: string; address?: string; nif?: string } | string | null;
+  clientName?: string;
+};
+
 const STATUS_OPTIONS = [
   { value: "", label: "Tous les statuts" },
   { value: "draft", label: "Brouillon" },
@@ -59,7 +65,7 @@ export default function InvoicesPage() {
   const [user, setUser] = useState<{ firstName: string; lastName: string } | null>(null);
 
   // États pour l'impression directe
-  const [invoiceToPrint, setInvoiceToPrint] = useState<any>(null);
+  const [invoiceToPrint, setInvoiceToPrint] = useState<PrintableInvoice | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
 
   const LIMIT = 20;
@@ -178,7 +184,7 @@ export default function InvoicesPage() {
       render: (v) => <StatusBadge status={String(v || "draft")} />,
     },
     {
-      key: "actions" as any,
+      key: "actions",
       label: "Actions",
       render: (_v, row) => (
         <div className="flex items-center gap-2">
@@ -207,6 +213,9 @@ export default function InvoicesPage() {
       ),
     },
   ];
+
+  // Client peuplé de la facture à imprimer (null s'il n'est qu'un identifiant)
+  const printClient = invoiceToPrint && typeof invoiceToPrint.clientId === "object" ? invoiceToPrint.clientId : null;
 
   if (!mounted) return null;
 
@@ -328,8 +337,8 @@ export default function InvoicesPage() {
           <p style={{ fontSize: "14px", fontWeight: "bold", margin: "0 0 4px 0" }}>
             {typeof invoiceToPrint.clientId === "object" ? invoiceToPrint.clientId?.name : (invoiceToPrint.clientName || "Client")}
           </p>
-          {invoiceToPrint.clientId?.nif && <p style={{ margin: "2px 0", color: "#444" }}>NIF: {invoiceToPrint.clientId.nif}</p>}
-          {invoiceToPrint.clientId?.address && <p style={{ margin: "2px 0", color: "#444" }}>{invoiceToPrint.clientId.address}</p>}
+          {printClient?.nif && <p style={{ margin: "2px 0", color: "#444" }}>NIF: {printClient.nif}</p>}
+          {printClient?.address && <p style={{ margin: "2px 0", color: "#444" }}>{printClient.address}</p>}
         </div>
       </div>
 
@@ -346,7 +355,7 @@ export default function InvoicesPage() {
         </thead>
         <tbody>
           {invoiceToPrint.lines && invoiceToPrint.lines.length > 0 ? (
-            invoiceToPrint.lines.map((line: any, idx: number) => (
+            invoiceToPrint.lines.map((line, idx: number) => (
               <tr key={idx} style={{ borderBottom: "1px solid #eee" }}>
                 <td style={{ padding: "10px 12px" }}>{line.description}</td>
                 <td style={{ padding: "10px 12px", textAlign: "center" }}>{line.quantity}</td>

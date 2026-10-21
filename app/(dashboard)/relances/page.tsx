@@ -148,7 +148,7 @@ export default function RelancesPage() {
             </p>
           </div>
           <button onClick={() => toggleEnabled(true)} disabled={busy}
-            className="px-3 h-9 rounded-lg bg-warn text-white text-xs font-semibold hover:brightness-95 shrink-0">
+            className="px-3 h-9 rounded-lg bg-warn text-onink text-xs font-semibold hover:brightness-95 shrink-0">
             Activer
           </button>
         </div>
@@ -234,7 +234,7 @@ export default function RelancesPage() {
             <button
               disabled={busy || approved.size === 0}
               onClick={() => run([...approved])}
-              className="px-4 h-10 rounded-lg bg-warn text-white text-sm font-semibold hover:brightness-95 disabled:opacity-50">
+              className="px-4 h-10 rounded-lg bg-warn text-onink text-sm font-semibold hover:brightness-95 disabled:opacity-50">
               Envoyer {approved.size} mise(s) en demeure
             </button>
           </div>
@@ -473,7 +473,7 @@ function SettingsDialog({
                     sendDays: on ? f.sendDays.filter(d => d !== day) : [...f.sendDays, day].sort(),
                   }))}
                   className={`px-3 h-9 rounded-lg text-xs font-medium border transition-colors ${
-                    on ? "bg-section text-white border-section" : "border-line2 text-ink2 hover:bg-surface2"
+                    on ? "bg-section text-onink border-section" : "border-line2 text-ink2 hover:bg-surface2"
                   }`}>
                   {name}
                 </button>

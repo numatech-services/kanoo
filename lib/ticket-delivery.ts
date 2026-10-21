@@ -118,5 +118,10 @@ export function ticketWhatsAppText(t: TicketInfo): string {
 
 /** Envoie le billet par WhatsApp (best-effort, selon configuration). */
 export async function sendTicketWhatsApp(phone: string, t: TicketInfo): Promise<{ sent: boolean; error?: string }> {
-  return sendWhatsApp({ to: phone, text: ticketWhatsAppText(t) });
+  return sendWhatsApp({
+    to: phone, text: ticketWhatsAppText(t),
+    template: { kind: "billet", params: [
+      t.attendeeName, t.eventTitle, t.start.toLocaleString("fr-FR", { dateStyle: "full", timeStyle: "short" }), t.locationLabel, t.ticketCode,
+    ] },
+  });
 }

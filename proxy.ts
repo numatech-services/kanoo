@@ -13,7 +13,7 @@ const PUBLIC_EXACT_PATHS = [
 // API publique (clé d'API), webhook de paiement (signature) et portails
 // adhérent / fournisseur (jeton de portail) s'authentifient eux-mêmes : sans
 // cookie de session, le filtre les rejetait tous.
-const PUBLIC_PREFIX_PATHS = ["/_next", "/favicon.ico", "/api/auth", "/api/public", "/api/demo-requests", "/api/cron", "/api/health", "/api/v1/", "/api/webhooks/", "/api/portail/", "/portail/", "/client/", "/reunion", "/manifest.json", "/icons/", "/icon.png", "/apple-icon.png", "/sw.js", "/offline", "/robots.txt", "/sitemap.xml"];
+const PUBLIC_PREFIX_PATHS = ["/_next", "/favicon.ico", "/api/auth", "/api/public", "/api/demo-requests", "/api/cron", "/api/health", "/api/client-errors", "/api/v1/", "/api/webhooks/", "/api/portail/", "/portail/", "/client/", "/reunion", "/manifest.json", "/icons/", "/icon.png", "/apple-icon.png", "/sw.js", "/offline", "/robots.txt", "/sitemap.xml"];
 
 // ─── Sécurité ────────────────────────────────────────────────────────────────
 const DEV = process.env.NODE_ENV !== "production";

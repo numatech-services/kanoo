@@ -44,7 +44,7 @@ export default function ApprobationsPage() {
     { key: "status", label: "Statut", render: (v) => <StatusBadge status={String(v)} /> },
     { key: "createdAt", label: "Date", render: (v) => new Date(String(v)).toLocaleDateString("fr-FR") },
     { key: "_id", label: "Action", render: (v, row) => row.status === "pending" ? (
-      <button onClick={e => { e.stopPropagation(); setDecideModal({ id: String(v), resource: row.resource }); }} className="px-3 py-1 bg-section text-white text-xs rounded hover:brightness-95">Décider</button>
+      <button onClick={e => { e.stopPropagation(); setDecideModal({ id: String(v), resource: row.resource }); }} className="px-3 py-1 bg-section text-onink text-xs rounded hover:brightness-95">Décider</button>
     ) : null },
   ];
 
@@ -71,7 +71,7 @@ export default function ApprobationsPage() {
           <div><label className={lbl}>Commentaire {decision==="rejected"?"(obligatoire)":""}</label><textarea className={inp} rows={3} value={comment} onChange={e=>setComment(e.target.value)} placeholder="Motif de la décision…" /></div>
           <div className="flex justify-end gap-3">
             <button onClick={() => setDecideModal(null)} className={buttonClass("secondary", "md")}>Annuler</button>
-            <button onClick={handleDecide} disabled={deciding || (decision==="rejected" && !comment.trim())} className={`px-5 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-60 ${decision==="approved"?"bg-pos hover:brightness-95":"bg-neg hover:brightness-95"}`}>{deciding?"Traitement…":"Confirmer"}</button>
+            <button onClick={handleDecide} disabled={deciding || (decision==="rejected" && !comment.trim())} className={`px-5 py-2 text-onink rounded-lg text-sm font-medium disabled:opacity-60 ${decision==="approved"?"bg-pos hover:brightness-95":"bg-neg hover:brightness-95"}`}>{deciding?"Traitement…":"Confirmer"}</button>
           </div>
         </div>
       </Modal>

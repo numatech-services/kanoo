@@ -78,8 +78,8 @@ export default function LeavesPage() {
       )}
 
       <div className="flex gap-2 flex-wrap items-center">
-        <button onClick={() => setTab("mine")} className={`px-4 h-9 rounded-lg text-sm font-semibold ${tab === "mine" ? "bg-section text-white" : "border border-line2 text-ink2"}`}>Mes demandes</button>
-        {canDecide && <button onClick={() => setTab("team")} className={`px-4 h-9 rounded-lg text-sm font-semibold ${tab === "team" ? "bg-section text-white" : "border border-line2 text-ink2"}`}>Demandes de l&apos;équipe</button>}
+        <button onClick={() => setTab("mine")} className={`px-4 h-9 rounded-lg text-sm font-semibold ${tab === "mine" ? "bg-section text-onink" : "border border-line2 text-ink2"}`}>Mes demandes</button>
+        {canDecide && <button onClick={() => setTab("team")} className={`px-4 h-9 rounded-lg text-sm font-semibold ${tab === "team" ? "bg-section text-onink" : "border border-line2 text-ink2"}`}>Demandes de l&apos;équipe</button>}
         <select className={`${selectCls} w-auto h-9`} value={status} onChange={e => setStatus(e.target.value)} aria-label="Statut">
           <option value="">Tous statuts</option>{Object.entries(STATUS).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}
         </select>

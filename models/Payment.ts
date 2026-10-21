@@ -22,4 +22,7 @@ const PaymentSchema = new Schema<IPayment>({ tenantId: { type: Schema.Types.Obje
   cancelReason: String,
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true } }, { timestamps: true });
 PaymentSchema.index({ tenantId: 1, invoiceId: 1 });
+// Encaissements par période (tableau de bord, journal de trésorerie) : sans lui,
+// chaque lecture parcourait les règlements de toutes les organisations.
+PaymentSchema.index({ tenantId: 1, date: -1 });
 export const PaymentModel = models.Payment || model<IPayment>("Payment", PaymentSchema);

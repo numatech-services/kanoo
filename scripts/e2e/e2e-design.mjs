@@ -1,11 +1,9 @@
 // Scénario de bout en bout : refonte v5 (tableau de bord, assistant, objectif, pipeline des marchés).
 import { readFileSync } from "fs";
-import { randomBytes } from "crypto";
 
 const BASE = "http://localhost:3099";
 const ROOT = process.argv[2];
 const SEED_PW = /hash\("([^"]+)"/.exec(readFileSync(`${ROOT}/scripts/seed-test.ts`, "utf-8"))[1];
-const PW = `Kz-${randomBytes(12).toString("base64url")}!9q`;
 let pass = 0, fail = 0;
 const check = (label, cond, extra = "") => { if (cond) { pass++; console.log(`  ✓ ${label}`); } else { fail++; console.log(`  ✗ ${label} ${extra}`); } };
 const J = x => JSON.stringify(x);
@@ -41,14 +39,12 @@ const D = r => r.data?.data ?? {};
 
 const today = new Date().toISOString().slice(0, 10);
 const id = r => D(r)?._id;
-const entriesOf = async (g, q) => D(await g.req("GET", `/api/accounting-entries?search=${encodeURIComponent(q)}&limit=50`)).items ?? [];
-const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.reduce((t, l) => t + l.credit, 0);
-const plusDays = n => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(12, 0, 0, 0); return d.toISOString(); };
 
 (async () => {
   for (let i = 0; i < 40; i++) { try { if ((await fetch(`${BASE}/api/health`)).ok) break; } catch {} await new Promise(r => setTimeout(r, 500)); }
   const { s: g } = await login("admin@test.ne", SEED_PW);
-  const bank = D(await g.req("POST", "/api/treasury-accounts", { label: "Banque v5", type: "bank", openingBalance: 2000000, openingDate: "2025-01-01" }));
+  // Un compte de trésorerie, pour que le tableau de bord affiche une trésorerie.
+  await g.req("POST", "/api/treasury-accounts", { label: "Banque v5", type: "bank", openingBalance: 2000000, openingDate: "2025-01-01" });
   const cl = id(await g.req("POST", "/api/clients", { code: "C-TAH", name: "Université Djibo Hamani de Tahoua" }));
   const past = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
   const f1 = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: past(40), dueDate: past(10), lines: [{ description: "Prestation", quantity: 1, unitPrice: 500000, tvaRate: 0 }] }));

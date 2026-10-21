@@ -68,7 +68,8 @@ export async function loadDashboard(auth: TokenPayload, can: Can): Promise<HomeD
   };
   const open = { tenantId: tid, documentType: { $ne: "credit_note" }, status: { $in: ["sent", "partial", "overdue"] } };
 
-  if (canInvoices) {
+  const invoicesBlock = async () => {
+    if (!canInvoices) return;
     const signed = { $multiply: ["$totalTTC", { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] }] };
     const [ytd, prevYtd, byMonth, outstanding, overdue, recent, counts, monthInvoiced, lastYearMonth, upcoming] = await Promise.all([
       InvoiceModel.aggregate([{ $match: { tenantId: tid, issueDate: { $gte: startOfYear, $lte: now }, ...BOOKED_INVOICE_MATCH } }, { $group: { _id: null, t: { $sum: signed } } }]),
@@ -130,9 +131,10 @@ export async function loadDashboard(auth: TokenPayload, can: Can): Promise<HomeD
     };
     data.upcoming = upcoming.map(toHome);
     data.objective = { target: tenant?.monthlyRevenueTarget ?? null, invoiced: Math.round(monthInvoiced[0]?.t ?? 0), lastYear: Math.round(lastYearMonth[0]?.t ?? 0), canEdit: can("companies", "update") };
-  }
+  };
 
-  if (canPayments) {
+  const paymentsBlock = async () => {
+    if (!canPayments) return;
     const effective = { status: { $nin: ["pending", "cancelled"] } };
     const [thisMonth, prevMonth, byMonth] = await Promise.all([
       PaymentModel.aggregate([{ $match: { tenantId: tid, date: { $gte: startOfMonth }, ...effective } }, { $group: { _id: null, t: { $sum: "$amount" } } }]),
@@ -146,9 +148,10 @@ export async function loadDashboard(auth: TokenPayload, can: Can): Promise<HomeD
         return (byMonth as Array<{ _id: { y: number; m: number }; t: number }>).find(x => x._id.y === d.getFullYear() && x._id.m === d.getMonth() + 1)?.t ?? 0;
       }),
     };
-  }
+  };
 
-  if (canTreasury) {
+  const treasuryBlock = async () => {
+    if (!canTreasury) return;
     // Solde réel fin de mois sur 24 mois : soldes d'ouverture + mouvements cumulés.
     const accounts = await TreasuryAccountModel.find({ tenantId: tid, isActive: { $ne: false } }).select("openingBalance balance").lean<Array<{ openingBalance?: number; balance?: number }>>();
     const opening = accounts.reduce((t, a) => t + (a.openingBalance ?? a.balance ?? 0), 0);
@@ -176,9 +179,10 @@ export async function loadDashboard(auth: TokenPayload, can: Can): Promise<HomeD
     };
     const forecast = await Promise.all([30, 60, 90].map(async d => ({ label: `+${d} j`, balance: await horizon(d) })));
     data.treasury = { balance, months: series.slice(12), prevYear: series.slice(0, 12).map(s => s.balance), forecast };
-  }
+  };
 
-  if (canInvoices) {
+  const remindersBlock = async () => {
+    if (!canInvoices) return;
     try {
       // Prochains envois : pour chaque facture ouverte, la prochaine étape du
       // barème dont la date (échéance + décalage) n'est pas encore passée.
@@ -195,8 +199,14 @@ export async function loadDashboard(auth: TokenPayload, can: Can): Promise<HomeD
       next.sort((a, b) => a.date.localeCompare(b.date));
       data.reminders = { enabled: settings.enabled, steps: settings.steps.map(st => ({ label: st.label, offsetDays: st.offsetDays, tone: st.tone })), next: next.slice(0, 5) };
     } catch { data.reminders = null; }
-  }
+  };
 
-  try { data.brief = (await dailyBrief(auth, can, 3)).items; } catch { data.brief = []; }
+  const briefBlock = async () => {
+    try { data.brief = (await dailyBrief(auth, can, 3)).items; } catch { data.brief = []; }
+  };
+
+  // Blocs indépendants (chacun remplit ses propres champs) : en parallèle
+  // plutôt que l'un après l'autre, le temps d'affichage est celui du plus lent.
+  await Promise.all([invoicesBlock(), paymentsBlock(), treasuryBlock(), remindersBlock(), briefBlock()]);
   return data;
 }

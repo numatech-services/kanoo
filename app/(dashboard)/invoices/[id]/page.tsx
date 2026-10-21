@@ -235,12 +235,12 @@ export default function InvoiceDetailPage() {
           </button>
 
           {invoice.status === "draft" && (
-            <button onClick={sendInvoice} className="px-4 py-2 bg-info text-white rounded-xl text-sm font-medium hover:brightness-95">
+            <button onClick={sendInvoice} className="px-4 py-2 bg-info text-onink rounded-xl text-sm font-medium hover:brightness-95">
               Émettre
             </button>
           )}
           {["sent", "partial"].includes(invoice.status) && remaining > 0 && (
-            <button onClick={() => setPaymentOpen(true)} className="px-4 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95">
+            <button onClick={() => setPaymentOpen(true)} className="px-4 py-2 bg-pos text-onink rounded-xl text-sm font-medium hover:brightness-95">
               Paiement
             </button>
           )}
@@ -253,7 +253,7 @@ export default function InvoiceDetailPage() {
               <button onClick={toggleLitige} disabled={dunningBusy}
                 className={`px-4 py-2 rounded-xl text-sm disabled:opacity-50 ${
                   invoice.disputedAt
-                    ? "bg-warn text-white hover:brightness-95"
+                    ? "bg-warn text-onink hover:brightness-95"
                     : "border border-line text-ink2 hover:bg-surface2"
                 }`}>
                 {invoice.disputedAt ? "Clore le litige" : "Litige"}

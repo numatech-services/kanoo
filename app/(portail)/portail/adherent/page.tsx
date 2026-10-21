@@ -44,7 +44,7 @@ export default function PortailAdherentPage() {
   return (
     <div className="space-y-6">
       {/* En-tête */}
-      <div className="bg-section text-white rounded-2xl p-6">
+      <div className="bg-section text-onink rounded-2xl p-6">
         <p className="text-white/60 text-sm">Espace adhérent</p>
         <h1 className="page-title mt-1">{data.member.firstName} {data.member.lastName}</h1>
         <p className="text-white/70 text-sm mt-0.5">{data.member.code} · {data.member.membershipType}</p>

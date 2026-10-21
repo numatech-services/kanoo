@@ -1,12 +1,10 @@
 // Scénario de bout en bout : moteur comptable (étape 3) — fournisseur unique,
 // TVA des charges récurrentes, origine des immobilisations, banque protégée.
 import { readFileSync } from "fs";
-import { randomBytes } from "crypto";
 
 const BASE = "http://localhost:3099";
 const ROOT = process.argv[2];
 const SEED_PW = /hash\("([^"]+)"/.exec(readFileSync(`${ROOT}/scripts/seed-test.ts`, "utf-8"))[1];
-const PW = `Kz-${randomBytes(12).toString("base64url")}!9q`;
 let pass = 0, fail = 0;
 const check = (label, cond, extra = "") => { if (cond) { pass++; console.log(`  ✓ ${label}`); } else { fail++; console.log(`  ✗ ${label} ${extra}`); } };
 const J = x => JSON.stringify(x);

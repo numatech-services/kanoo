@@ -7,7 +7,7 @@ import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { moduleEnabled } from "@/lib/modules";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug } from "lucide-react";
 
 import { apiJson, apiSend } from "@/lib/api-client";
 /** Où mène la pastille d'une entrée : la liste filtrée sur ce qu'elle compte. */
@@ -210,6 +210,7 @@ const SUPERADMIN_NAV: NavGroup[] = [
   { section: "Support & Sécurité", items: [
     { label: "Support tickets", href: "/saas/support", icon: <Ticket size={18} /> },
     { label: "Sécurité / Accès", href: "/saas/security", icon: <ShieldAlert size={18} /> },
+    { label: "Journal des erreurs", href: "/saas/erreurs", icon: <Bug size={18} /> },
   ]},
 ];
 
@@ -280,7 +281,7 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   const toggleGroup = (section: string) => {
     setOpenGroups(prev => {
       const next = new Set(prev);
-      next.has(section) ? next.delete(section) : next.add(section);
+      if (next.has(section)) next.delete(section); else next.add(section);
       try { localStorage.setItem("kanoo.nav.open", JSON.stringify([...next])); } catch { /* sans persistance */ }
       return next;
     });
@@ -386,7 +387,12 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
             </span>
           </Link>
           <button type="button" aria-label="Déconnexion" title="Déconnexion"
-            onClick={async () => { await apiSend("POST", "/api/auth/logout"); window.location.href = "/login"; }}
+            onClick={async () => {
+              await apiSend("POST", "/api/auth/logout");
+              // Rechargement complet voulu après déconnexion : purge tout l'état client (caches, profil).
+              // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+              window.location.assign("/login");
+            }}
             className="w-8 h-8 rounded-[9px] grid place-items-center text-chromefg/55 hover:bg-neg/10 hover:text-neg transition-colors shrink-0">
             <LogOut size={16} />
           </button>

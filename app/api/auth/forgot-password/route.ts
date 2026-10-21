@@ -5,7 +5,7 @@ import { connectDB } from "@/lib/db";
 import { badRequest, serverError } from "@/lib/api-helpers";
 import { UserModel } from "@/models/User";
 import { generateSecureToken } from "@/lib/auth";
-import { rateLimit } from "@/lib/rate-limit";
+import { consumeRateLimit } from "@/lib/rate-limit";
 import { sendEmail, templatePasswordReset } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    const limit = rateLimit("forgot-password", ip, 5, 15 * 60_000);
+    const limit = await consumeRateLimit("forgot-password", ip, 5, 15 * 60_000);
     if (!limit.allowed) {
       return NextResponse.json(
         { success: false, error: "Trop de demandes. Réessayez dans quelques minutes." },

@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
 import { NextRequest } from "next/server";
-import { withAuth, ok, created, badRequest, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
 import { ExpenseReportModel } from "@/models/ExpenseReport";
 import { EmployeeModel } from "@/models/Employee";
 import { CATEGORIES, totals, DEFAULT_POLICY, sanitizeExpenseLine, type ExpenseLine } from "@/lib/expenses";

@@ -3,9 +3,9 @@ import mongoose from "mongoose";
 declare global {
   // `var` est la seule forme acceptée pour augmenter globalThis : `let` et
   // `const` ne s'y attachent pas. La règle no-var ne s'applique donc pas ici.
-  // eslint-disable-next-line no-var
+   
   var _mongooseConn: typeof mongoose | null;
-  // eslint-disable-next-line no-var
+   
   var _mongoosePromise: Promise<typeof mongoose> | null;
 }
 

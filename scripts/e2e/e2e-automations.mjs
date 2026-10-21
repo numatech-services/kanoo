@@ -62,7 +62,7 @@ const plusDays = n => new Date(now.getTime() + n * 86400000).toISOString().slice
   const r0 = await g.req("GET", "/api/automations");
   check("défauts : écrits et écritures désactivés, alertes internes actives",
     r0.status === 200 && D(r0).settings.morningBrief.enabled === false && D(r0).settings.depreciation.enabled === false && D(r0).settings.treasuryAlert.enabled === true, J(r0.data));
-  check("canaux non branchés signalés (instance de test)", D(r0).channels?.email === false && D(r0).channels?.ai === false);
+  check("canaux non branchés signalés (instance de test)", D(r0).channels?.email === false && D(r0).channels?.whatsapp === false);
   const refused = await g.req("PUT", "/api/automations", { ...D(r0).settings, accountantPacket: { enabled: true, emails: ["pas-une-adresse"], day: 1 } });
   check("dossier du comptable sans adresse valide : refusé", refused.status === 400, J(refused.data));
   const settings = {
@@ -119,6 +119,20 @@ const plusDays = n => new Date(now.getTime() + n * 86400000).toISOString().slice
   const pn = list.find(n => n.type === "payroll_reminder");
   check("rappel : masse estimée et fiche à compléter (jours du stagiaire)", pn && /\d+ bulletin\(s\), masse brute estimée [\d\s]+FCFA/.test(pn.message) && /Aïcha Stage/.test(pn.message) && !/Moussa Auto/.test(pn.message), J(pn));
   check("un rappel par mois", /rien à faire/.test((await cron("payroll-prep")).summary ?? ""));
+  // Génération d'office : le dernier jour du mois (heure de Niamey), simulé à cette date.
+  const s1 = D(await g.req("GET", "/api/automations")).settings;
+  await g.req("PUT", "/api/automations", { ...s1, payroll: { ...s1.payroll, autoGenerate: true } });
+  const lastDay = new Date(Date.UTC(year, now.getMonth() + 1, 0, 10, 0, 0)).toISOString();
+  const runAt = (job, at) => JSON.parse(execFileSync("npx", ["tsx", "scripts/e2e/run-job-at.ts", job, at], { cwd: ROOT, env: process.env, encoding: "utf8" }).trim().split("\n").pop()).summary;
+  check("veille du dernier jour : rien généré", !/généré/.test(runAt("runPayroll", new Date(Date.UTC(year, now.getMonth() + 1, -1, 10)).toISOString())));
+  const gen = runAt("runPayroll", lastDay);
+  check("dernier jour du mois : bulletins à salaire fixe générés d'office", /\d+ bulletin\(s\) généré\(s\)/.test(gen), gen);
+  const slips = D(await g.req("GET", `/api/payslips?month=${now.getMonth() + 1}&year=${year}&limit=100`));
+  const slipList = slips.items ?? slips;
+  check("bulletin du salarié créé, pas celui du stagiaire à la journée", Array.isArray(slipList) && slipList.some(p => (p.employeeId?.code ?? p.employeeId) === "EMP-AUTO" || p.employeeId?.lastName === "Auto") && !slipList.some(p => p.employeeId?.lastName === "Stage"), J(slipList?.map?.(p => p.employeeId?.lastName ?? p.employeeId)));
+  check("génération d'office une seule fois", !/généré/.test(runAt("runPayroll", lastDay)));
+  list = await notifList(g);
+  check("notification « Paie générée »", list.some(n => n.type === "payroll_generated"), J(list.map(n => n.type)));
 
   console.log("\n▶ Validations en attente");
   const users = D(await g.req("GET", "/api/automations")).users;
@@ -171,11 +185,14 @@ const plusDays = n => new Date(now.getTime() + n * 86400000).toISOString().slice
   try { execFileSync("npx", ["tsx", "scripts/restore-backup.ts", "--verify", `${dir}/${file}`], { cwd: ROOT, env: { ...process.env, BACKUP_ENCRYPTION_KEY: "mauvaise-cle-de-chiffrement-xx" }, encoding: "utf8", stdio: "pipe" }); wrong = "accepté"; } catch (err) { wrong = String(err.stderr ?? err); }
   check("mauvaise clé : refus", /clé incorrecte/.test(wrong), wrong.slice(0, 200));
 
-  console.log("\n▶ Lecture des factures (non configurée)");
-  const ai = await g.req("GET", "/api/ai/lire-facture");
-  check("indisponible sans clé d'API", ai.status === 200 && D(ai).configured === false, J(ai.data));
-  const fd = new FormData(); fd.append("file", new Blob([Buffer.from("%PDF-1.4 test")], { type: "application/pdf" }), "f.pdf");
-  check("envoi refusé proprement (402)", (await g.req("POST", "/api/ai/lire-facture", fd)).status === 402);
+  // Sans clé d'API, la lecture se déclare indisponible ; avec (faux service), e2e-lotE la couvre.
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.log("\n▶ Lecture des factures (non configurée)");
+    const ai = await g.req("GET", "/api/ai/lire-facture");
+    check("indisponible sans clé d'API", ai.status === 200 && D(ai).configured === false, J(ai.data));
+    const fd = new FormData(); fd.append("file", new Blob([Buffer.from("%PDF-1.4 test")], { type: "application/pdf" }), "f.pdf");
+    check("envoi refusé proprement (402)", (await g.req("POST", "/api/ai/lire-facture", fd)).status === 402);
+  }
 
   console.log("\n▶ Journal des actions");
   const recent = D(await g.req("GET", "/api/automations")).recent ?? [];

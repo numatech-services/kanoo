@@ -4,6 +4,19 @@ import { getServerAccess } from "@/lib/server-auth";
 import { InvoiceModel } from "@/models/Invoice";
 import Link from "next/link";
 
+// Facture telle que lue en base, client peuplé
+interface RecentInvoice {
+  _id: unknown;
+  number?: string;
+  clientId?: { name?: string } | string | null;
+  status: string;
+  dueDate: string | Date;
+  totalTTC: number;
+  paidAmount: number;
+  creditedAmount?: number;
+  retentionAmount?: number;
+}
+
 async function getRecentInvoices() {
   try {
     const access = await getServerAccess();
@@ -15,7 +28,7 @@ async function getRecentInvoices() {
       .populate("clientId", "name")
       .sort({ issueDate: -1 })
       .limit(8)
-      .lean();
+      .lean<RecentInvoice[]>();
     return items;
   } catch {
     return [];
@@ -52,7 +65,7 @@ export async function RecentInvoices() {
         </div>
       ) : (
         <div className="divide-y divide-line">
-          {invoices.map((inv: any) => {
+          {invoices.map((inv) => {
             const overdue = !["paid","cancelled"].includes(inv.status) && new Date(inv.dueDate) < new Date();
             const displayStatus = overdue ? "overdue" : inv.status;
             const remaining = inv.totalTTC - inv.paidAmount - (inv.creditedAmount ?? 0) - (inv.retentionAmount ?? 0);
@@ -64,7 +77,7 @@ export async function RecentInvoices() {
               >
                 <span className="font-mono text-sm text-section font-semibold w-28 shrink-0">{inv.number}</span>
                 <span className="flex-1 text-sm text-ink truncate">
-                  {inv.clientId && typeof inv.clientId === "object" ? (inv.clientId as any).name : "—"}
+                  {inv.clientId && typeof inv.clientId === "object" ? (inv.clientId as { name?: string }).name : "—"}
                 </span>
                 <span className={`text-xs font-mono shrink-0 ${overdue ? "text-neg font-semibold" : "text-ink2"}`}>
                   {new Date(inv.dueDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}

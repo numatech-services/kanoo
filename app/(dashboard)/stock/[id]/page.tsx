@@ -38,6 +38,8 @@ export default function StockDetailPage() {
   const canEdit = meCanDo(me, "products", "update");
   const canDelete = meCanDo(me, "products", "delete");
   const [p, setP] = useState<Product | null>(null);
+  // Instant de référence des péremptions, figé au montage (rendu pur).
+  const [now] = useState(() => Date.now());
   const [moves, setMoves] = useState<Movement[]>([]);
   const [filter, setFilter] = useState({ type: "", from: "", to: "" });
   const [editOpen, setEditOpen] = useState(false);
@@ -179,7 +181,7 @@ export default function StockDetailPage() {
                   <tbody>
                     {lots.map(l => {
                       const exp = l.expiryDate ? new Date(l.expiryDate) : null;
-                      const days = exp ? Math.round((exp.getTime() - Date.now()) / 86400000) : null;
+                      const days = exp ? Math.round((exp.getTime() - now) / 86400000) : null;
                       return (
                         <tr key={l._id} className="border-t border-line">
                           <td className="py-1 font-mono">{l.lotNumber}</td><td>{l.warehouseId?.name}</td>

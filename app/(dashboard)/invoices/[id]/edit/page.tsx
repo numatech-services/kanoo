@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { InvoiceForm } from "@/components/pme/InvoiceForm";
+import { InvoiceForm, type InvoiceFormData } from "@/components/pme/InvoiceForm";
 import { showToast } from "@/components/ui/Toast";
 
 import { apiJson, apiSend } from "@/lib/api-client";
@@ -11,7 +11,7 @@ export default function EditInvoicePage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [invoiceData, setInvoiceData] = useState<any>(null);
+  const [invoiceData, setInvoiceData] = useState<Partial<InvoiceFormData> | null>(null);
 
   const loadInvoice = useCallback(async () => {
     try {
@@ -55,7 +55,7 @@ export default function EditInvoicePage() {
     );
   }
 
-  async function handleUpdate(updatedData: any) {
+  async function handleUpdate(updatedData: InvoiceFormData) {
 
     const res = await apiSend("PATCH", `/api/invoices/${id}`, updatedData);
 
@@ -65,7 +65,7 @@ export default function EditInvoicePage() {
       try {
         const errorData = res.data;
         errorMessage = errorData.error || errorMessage;
-      } catch (e) {
+      } catch {
         // Le JSON était vide ou invalide mais le statut est en erreur
       }
       throw new Error(errorMessage);
@@ -87,7 +87,7 @@ export default function EditInvoicePage() {
 
       <div className="bg-surface rounded-2xl border border-line p-6">
         <InvoiceForm 
-          initial={invoiceData} 
+          initial={invoiceData ?? undefined} 
           onSave={handleUpdate} 
           onCancel={() => router.push(`/invoices/${id}`)} 
         />

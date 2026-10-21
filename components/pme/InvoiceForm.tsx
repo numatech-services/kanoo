@@ -77,8 +77,11 @@ function calcLine(line: Partial<InvoiceLine>): InvoiceLine {
 }
 
 export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
-  const today = new Date().toISOString().slice(0, 10);
-  const in30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+  // Dates par défaut figées au montage (un rendu doit rester pur).
+  const [{ today, in30 }] = useState(() => ({
+    today: new Date().toISOString().slice(0, 10),
+    in30: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+  }));
 
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);

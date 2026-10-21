@@ -112,7 +112,7 @@ export default function MarchesPublicsPage() {
         render: (id) => (
           <button 
             onClick={() => router.push(`/administration/marches-publics/${id}`)}
-            className="px-3 py-1 bg-section text-white rounded-lg text-xs font-bold hover:brightness-95 transition-all shadow-sm"
+            className="px-3 py-1 bg-section text-onink rounded-lg text-xs font-bold hover:brightness-95 transition-all shadow-sm"
           >
             Gérer
           </button>

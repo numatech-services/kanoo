@@ -54,6 +54,8 @@ const TreasuryMovementSchema = new Schema(
 
 // Le solde et les relevés se lisent par compte et par date.
 TreasuryMovementSchema.index({ tenantId: 1, accountId: 1, date: -1 });
+// Mouvements par période, tous comptes confondus (tableau de bord, prévision).
+TreasuryMovementSchema.index({ tenantId: 1, date: -1 });
 // Les mouvements non rapprochés sont la file de travail du comptable.
 TreasuryMovementSchema.index({ tenantId: 1, accountId: 1, statementLineId: 1 });
 

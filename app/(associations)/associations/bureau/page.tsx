@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 
 import { apiJson } from "@/lib/api-client";
@@ -59,7 +60,7 @@ export default function BureauPage() {
           <h1 className="page-title">Bureau de l'association</h1>
           <p className="text-sm text-ink2">{members.filter(m => m.isActive).length} membres actifs</p>
         </div>
-        <button onClick={() => window.location.href = "/associations/bureau/new"} className={buttonClass("primary", "md")}>+ Ajouter un membre</button>
+        <Link href="/associations/bureau/new" className={buttonClass("primary", "md")}>+ Ajouter un membre</Link>
       </div>
 
       {loading ? (
@@ -75,7 +76,7 @@ export default function BureauPage() {
                 {roleMembers.map(m => (
                   <div key={m._id} className="bg-surface rounded-xl border border-line p-5">
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="w-10 h-10 bg-section text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0">
+                      <div className="w-10 h-10 bg-section text-onink rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0">
                         {m.firstName[0]}{m.lastName[0]}
                       </div>
                       <div className="flex-1 min-w-0">

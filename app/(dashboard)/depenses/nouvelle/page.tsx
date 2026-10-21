@@ -7,6 +7,7 @@ import { PurchaseForm, type PurchaseFormValue } from "@/components/achats/Purcha
 
 
 import {apiJson, apiSend } from "@/lib/api-client";
+import { showToast } from "@/components/ui/Toast";
 function NewPurchase() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -44,6 +45,18 @@ function NewPurchase() {
       });
     const d = res.data;
     if (!res.ok) throw new Error(d.error || "Enregistrement impossible");
+    // Facture lue automatiquement : jointe comme justificatif. Un échec ici
+    // n'annule pas l'achat enregistré ; on le signale et on continue.
+    if (v.scanned) {
+      const body = new FormData();
+      body.append("file", v.scanned.blob, v.scanned.name);
+      body.append("host", "purchases");
+      body.append("hostId", d.data._id);
+      body.append("category", "facture");
+      body.append("label", "Facture fournisseur (lue automatiquement)");
+      const up = await apiSend("POST", "/api/attachments", body).catch(() => ({ ok: false, data: {} as { error?: string } }));
+      if (!up.ok) showToast(`Achat enregistré, mais la facture n'a pas pu être jointe : ${up.data?.error || "réessayez depuis la fiche"}.`, "error");
+    }
     router.push(`/depenses/${d.data._id}`);
   }
 

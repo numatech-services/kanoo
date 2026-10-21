@@ -3,6 +3,9 @@ import zlib from "zlib";
 import path from "path";
 import { mkdir, writeFile, readdir, stat, unlink } from "fs/promises";
 import mongoose from "mongoose";
+import { s3ConfigFrom, s3Request, type S3Config } from "@/lib/s3";
+
+export { signS3Request } from "@/lib/s3";
 
 /**
  * Sauvegarde de la base, faite par l'application elle-même.
@@ -54,66 +57,11 @@ export function decryptBackup(blob: Buffer, passphrase: string): Buffer {
   }
 }
 
-// ─── Signature AWS v4 (S3) ───────────────────────────────────────────────────
+// ─── Stockage S3 (lib/s3.ts) ─────────────────────────────────────────────────
 
-const sha256hex = (data: Buffer | string) => crypto.createHash("sha256").update(data).digest("hex");
-const hmac = (key: Buffer | string, data: string) => crypto.createHmac("sha256", key).update(data).digest();
-
-/** Encodage d'un segment de chemin selon S3 (RFC 3986, « / » conservé). */
-function encodePath(p: string): string {
-  return p.split("/").map(s => encodeURIComponent(s).replace(/[!'()*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)).join("/");
-}
-
-/**
- * En-têtes signés (AWS Signature Version 4) d'une requête S3 sans paramètres
- * de requête. `headers` peut ajouter des en-têtes à signer (Range…).
- */
-export function signS3Request(opts: {
-  method: string; url: string; region: string; accessKey: string; secretKey: string;
-  payloadHash: string; now: Date; headers?: Record<string, string>;
-}): Record<string, string> {
-  const u = new URL(opts.url);
-  const amzDate = opts.now.toISOString().replace(/[:-]|\.\d{3}/g, "");
-  const date = amzDate.slice(0, 8);
-  const headers: Record<string, string> = {
-    host: u.host,
-    "x-amz-content-sha256": opts.payloadHash,
-    "x-amz-date": amzDate,
-    ...Object.fromEntries(Object.entries(opts.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v.trim()])),
-  };
-  const names = Object.keys(headers).sort();
-  const canonical = [
-    opts.method, encodePath(decodeURIComponent(u.pathname)), "",
-    names.map(n => `${n}:${headers[n]}\n`).join(""), names.join(";"), opts.payloadHash,
-  ].join("\n");
-  const scope = `${date}/${opts.region}/s3/aws4_request`;
-  const toSign = ["AWS4-HMAC-SHA256", amzDate, scope, sha256hex(canonical)].join("\n");
-  const kSigning = hmac(hmac(hmac(hmac(`AWS4${opts.secretKey}`, date), opts.region), "s3"), "aws4_request");
-  const signature = crypto.createHmac("sha256", kSigning).update(toSign).digest("hex");
-  return {
-    ...headers,
-    authorization: `AWS4-HMAC-SHA256 Credential=${opts.accessKey}/${scope}, SignedHeaders=${names.join(";")}, Signature=${signature}`,
-  };
-}
-
-interface S3Config { endpoint: string; bucket: string; region: string; accessKey: string; secretKey: string; prefix: string }
-
+/** Configuration S3 de la sauvegarde (variables BACKUP_S3_*). */
 function s3Config(): S3Config | null {
-  const e = process.env;
-  if (!e.BACKUP_S3_ENDPOINT || !e.BACKUP_S3_BUCKET || !e.BACKUP_S3_ACCESS_KEY || !e.BACKUP_S3_SECRET_KEY) return null;
-  return {
-    endpoint: e.BACKUP_S3_ENDPOINT.replace(/\/+$/, ""), bucket: e.BACKUP_S3_BUCKET,
-    region: e.BACKUP_S3_REGION || "us-east-1", accessKey: e.BACKUP_S3_ACCESS_KEY, secretKey: e.BACKUP_S3_SECRET_KEY,
-    prefix: (e.BACKUP_S3_PREFIX ?? "kanoo/").replace(/^\/+/, ""),
-  };
-}
-
-async function s3Request(c: S3Config, method: "PUT" | "GET", key: string, body?: Buffer): Promise<Response> {
-  const url = `${c.endpoint}/${c.bucket}/${key}`;
-  const payloadHash = sha256hex(body ?? "");
-  const headers = signS3Request({ method, url, region: c.region, accessKey: c.accessKey, secretKey: c.secretKey, payloadHash, now: new Date() });
-  delete headers.host; // posé par fetch
-  return fetch(url, { method, headers: { ...headers, ...(body ? { "content-type": "application/octet-stream" } : {}) }, body: body ? new Uint8Array(body) : undefined });
+  return s3ConfigFrom("BACKUP_S3", "kanoo/");
 }
 
 /** Télécharge une archive déposée (restauration). */

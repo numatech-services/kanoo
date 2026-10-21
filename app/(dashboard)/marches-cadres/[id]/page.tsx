@@ -119,7 +119,7 @@ export default function MarcheDetailPage() {
                       ) : (
                         <IfCan resource="invoices">
                           <button onClick={() => invoiceLot(l)} disabled={busy === l._id}
-                            className="px-2.5 py-1 rounded bg-section text-white text-xs font-medium hover:brightness-95 disabled:opacity-50">
+                            className="px-2.5 py-1 rounded bg-section text-onink text-xs font-medium hover:brightness-95 disabled:opacity-50">
                             {busy === l._id ? "…" : "Facturer"}
                           </button>
                         </IfCan>

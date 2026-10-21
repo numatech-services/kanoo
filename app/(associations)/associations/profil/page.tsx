@@ -62,7 +62,7 @@ export default function ProfilPage() {
       } else {
         setStatus({ type: 'error', msg: data.error || "Erreur lors de la mise à jour" });
       }
-    } catch (err) {
+    } catch {
       setStatus({ type: 'error', msg: "Erreur de connexion réseau" });
     } finally {
       setSaving(false);
@@ -91,7 +91,7 @@ export default function ProfilPage() {
       {/* Carte d'identité visuelle */}
       <div className="flex items-center gap-6 bg-surface p-8 rounded-3xl border border-line shadow-sm">
         <div className="relative group">
-          <div className="w-24 h-24 bg-section text-white rounded-full flex items-center justify-center text-3xl font-bold shadow-inner uppercase">
+          <div className="w-24 h-24 bg-section text-onink rounded-full flex items-center justify-center text-3xl font-bold shadow-inner uppercase">
             {formData.firstName?.[0]}{formData.lastName?.[0]}
           </div>
           <button className="absolute bottom-0 right-0 p-2 bg-surface border border-line rounded-full shadow-md text-ink hover:text-section transition-transform active:scale-90">

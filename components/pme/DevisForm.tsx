@@ -16,8 +16,11 @@ function calcLine(l: Partial<DevisLine>): DevisLine {
 }
 
 export function DevisForm({ initial, onSave, onCancel }: DevisFormProps) {
-  const today = new Date().toISOString().slice(0, 10);
-  const in15 = new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10);
+  // Dates par défaut figées au montage (un rendu doit rester pur).
+  const [{ today, in15 }] = useState(() => ({
+    today: new Date().toISOString().slice(0, 10),
+    in15: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10),
+  }));
   const [mounted, setMounted] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState(String(initial?.clientId || ""));

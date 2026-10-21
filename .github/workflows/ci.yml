@@ -1,0 +1,83 @@
+# Intégration continue : à chaque push et pull request.
+#  1. vérifications : typage, lint (0 avertissement), tests unitaires, build
+#     de production (le même `npm run build` que l'hébergeur, sans variable
+#     d'environnement : un build qui en dépendrait échouerait ici d'abord) ;
+#  2. scénarios de bout en bout contre l'application compilée et une base
+#     MongoDB jetable en jeu de réplicas (transactions).
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typage
+        run: npm run typecheck
+      - name: Lint (aucun avertissement toléré)
+        run: npm run lint:strict
+      - name: Tests unitaires
+        run: npm test -- --ci
+      - name: Build de production
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+  e2e:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MONGODB_URI: mongodb://127.0.0.1:27099/kanoo_e2e?directConnection=true
+      JWT_SECRET: ci-only-secret-0123456789abcdef0123456789
+      JWT_REFRESH_SECRET: ci-only-refresh-0123456789abcdef012345678
+      NEXT_PUBLIC_APP_URL: http://localhost:3099
+      CRON_SECRET: ci-only-cron-0123456789abcdef0123456789
+      BACKUP_DIR: /tmp/kanoo-backups
+      BACKUP_ENCRYPTION_KEY: ci-only-backup-key-0123456789abcdef
+      # Faux services (scripts/e2e/fake-services.mjs) : API Claude et stockage S3.
+      ANTHROPIC_API_KEY: ci-fake-key
+      ANTHROPIC_BASE_URL: http://127.0.0.1:4599/anthropic
+      STORAGE_S3_ENDPOINT: http://127.0.0.1:4599/s3
+      STORAGE_S3_BUCKET: kanoo-test
+      STORAGE_S3_REGION: us-east-1
+      STORAGE_S3_ACCESS_KEY: test-access-key
+      STORAGE_S3_SECRET_KEY: test-secret-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: MongoDB 7 en jeu de réplicas
+        run: |
+          docker run -d --name mongo -p 127.0.0.1:27099:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do docker exec mongo mongosh --quiet --eval 'db.runCommand({ ping: 1 })' && break; sleep 2; done
+          docker exec mongo mongosh --quiet --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "127.0.0.1:27017" }] })'
+          for i in $(seq 1 30); do docker exec mongo mongosh --quiet --eval 'rs.status().myState' | grep -q 1 && break; sleep 2; done
+      - run: npm ci
+      - run: npm run build
+      - name: Démarrer les faux services et l'application
+        run: |
+          node scripts/e2e/fake-services.mjs 4599 > /tmp/fake.log 2>&1 &
+          npx next start -p 3099 > /tmp/server.log 2>&1 &
+          for i in $(seq 1 60); do curl -fsS -o /dev/null http://127.0.0.1:3099/api/health && break; sleep 1; done
+      - name: Scénarios de bout en bout
+        run: bash scripts/e2e/run-all.sh
+      - name: Journal du serveur (en cas d'échec)
+        if: failure()
+        run: tail -200 /tmp/server.log

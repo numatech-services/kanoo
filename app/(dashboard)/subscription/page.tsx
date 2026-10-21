@@ -39,7 +39,7 @@ export default function SubscriptionPage() {
     const res = await apiSend("POST", "/api/subscription/pay", { plan:planId, period });
     const d = res.data;
     if (d.data?.paymentUrl) {
-      window.location.href = d.data.paymentUrl;
+      window.location.assign(d.data.paymentUrl);
     } else {
       showToast(d.error || "Erreur lors de l'initiation du paiement", "error");
     }
@@ -88,7 +88,7 @@ export default function SubscriptionPage() {
           return (
             <div key={plan.id} className={`bg-surface rounded-xl border p-5 flex flex-col transition-all ${plan.popular?"border-section shadow-sm":"border-line"}`}>
               {plan.popular && (
-                <div className="-mt-5 -mx-5 mb-3 bg-section text-white text-xs font-semibold text-center py-1.5 rounded-t-xl">
+                <div className="-mt-5 -mx-5 mb-3 bg-section text-onink text-xs font-semibold text-center py-1.5 rounded-t-xl">
                   Recommandé
                 </div>
               )}
@@ -112,7 +112,7 @@ export default function SubscriptionPage() {
                 disabled={!!loading || isActive}
                 className={`mt-5 w-full py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-60 ${
                   isActive ? "bg-pos-50 text-pos cursor-default"
-                  : plan.popular ? "bg-section text-white hover:brightness-95"
+                  : plan.popular ? "bg-section text-onink hover:brightness-95"
                   : "border border-line text-ink2 hover:bg-surface2"
                 }`}
               >

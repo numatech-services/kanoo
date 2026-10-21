@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState, useEffect, useCallback, ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -89,7 +90,7 @@ export default function SupplierDetailPage() {
               : <span className="text-lg font-bold text-ink3">{s.name?.[0]?.toUpperCase() || "?"}</span>}
           </div>
           <div>
-            <a href="/suppliers" className="text-xs text-ink2 hover:text-ink">← Fournisseurs</a>
+            <Link href="/suppliers" className="text-xs text-ink2 hover:text-ink">← Fournisseurs</Link>
             <h1 className="page-title mt-0.5">{s.name}</h1>
             <p className="text-ink2 text-sm">{s.code} · <StatusBadge status={s.isActive ? "active" : "inactive"} /></p>
           </div>

@@ -107,7 +107,7 @@ export default function CourriersPage() {
 
   const tabCls = (active: boolean) =>
     `px-3 h-9 inline-flex items-center rounded-lg text-sm font-medium transition-colors ${
-      active ? "bg-section text-white" : "text-ink2 hover:bg-surface2 border border-line2"
+      active ? "bg-section text-onink" : "text-ink2 hover:bg-surface2 border border-line2"
     }`;
 
   return (

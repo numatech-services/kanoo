@@ -94,7 +94,7 @@ async function handleSubmit(e: React.FormEvent) {
       // Affiche l'erreur exacte du serveur (ex: code déjà existant)
       showToast("Erreur : " + (result.error || "Impossible d'enregistrer"), "error");
     }
-  } catch (err) {
+  } catch {
     showToast("Erreur réseau", "error");
   } finally {
     setSaving(false);
@@ -113,7 +113,7 @@ async function handleSubmit(e: React.FormEvent) {
         </div>
         <button 
           onClick={() => setModalOpen(true)}
-          className="px-5 py-2.5 bg-pos text-white rounded-xl text-sm font-bold shadow-lg hover:brightness-95 transition-all active:scale-95"
+          className="px-5 py-2.5 bg-pos text-onink rounded-xl text-sm font-bold shadow-lg hover:brightness-95 transition-all active:scale-95"
         >
           + Nouveau Service
         </button>
@@ -164,7 +164,7 @@ async function handleSubmit(e: React.FormEvent) {
             <button type="button" onClick={() => setModalOpen(false)} className="text-sm font-medium text-ink2">Annuler</button>
             <button 
               type="submit" disabled={saving}
-              className="px-6 py-2 bg-pos text-white rounded-xl text-sm font-bold disabled:opacity-50"
+              className="px-6 py-2 bg-pos text-onink rounded-xl text-sm font-bold disabled:opacity-50"
             >
               {saving ? "Enregistrement..." : "Enregistrer le Service"}
             </button>

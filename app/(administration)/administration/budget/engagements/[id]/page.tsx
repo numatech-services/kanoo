@@ -11,12 +11,26 @@ import Link from "next/link";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
+
+// Champs de l'engagement affichés par la fiche
+interface EngagementDetail {
+  _id?: string;
+  status?: string;
+  reference?: string;
+  description?: string;
+  provider?: string;
+  chapterCode?: string;
+  notes?: string;
+  amount?: number;
+  createdAt?: string;
+}
+
 export default function EngagementDetailsPage() {
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
 
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<EngagementDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -132,7 +146,7 @@ export default function EngagementDetailsPage() {
             <button
               disabled={updating}
               onClick={() => handleStatusUpdate('mandate')}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-section text-white text-[10px] font-black uppercase hover:brightness-95 transition-all shadow-lg disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-section text-onink text-[10px] font-black uppercase hover:brightness-95 transition-all shadow-lg disabled:opacity-50"
             >
               <CheckCircle size={14} /> {updating ? "..." : "Émettre le mandat"}
             </button>

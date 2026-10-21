@@ -90,7 +90,7 @@ export default function RecurringExpensesPage() {
                   <td className={`text-xs ${late ? "text-neg font-semibold" : ""}`}>{due.toLocaleDateString("fr-FR")}{late ? " · en retard" : ""}</td>
                   <td className="text-xs">{typeof x.treasuryAccountId === "object" && x.treasuryAccountId ? x.treasuryAccountId.label : "—"}</td>
                   <td className="text-right whitespace-nowrap">
-                    {canEdit && x.isActive && <button onClick={() => setPaying(x)} className="px-2 h-8 inline-flex items-center gap-1 rounded-md bg-pos text-white text-xs font-semibold"><Banknote size={13} /> Payer</button>}
+                    {canEdit && x.isActive && <button onClick={() => setPaying(x)} className="px-2 h-8 inline-flex items-center gap-1 rounded-md bg-pos text-onink text-xs font-semibold"><Banknote size={13} /> Payer</button>}
                     {canEdit && <button onClick={() => setEditing(x)} className="ml-1 p-1.5 text-ink3 hover:text-ink" title="Modifier"><Edit3 size={14} /></button>}
                     {canEdit && <button onClick={() => run(() => send(`/api/recurring-expenses/${x._id}`, "PATCH", { isActive: !x.isActive }))} className="p-1.5 text-ink3 hover:text-warn" title={x.isActive ? "Désactiver" : "Réactiver"}><Power size={14} /></button>}
                     {canDelete && <button onClick={async () => { if (await confirmDialog({ title: "Supprimer cette charge ?", message: "(déjà payée : elle sera seulement désactivée)", danger: true })) run(() => send(`/api/recurring-expenses/${x._id}`, "DELETE")); }} className="p-1.5 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>}
@@ -197,7 +197,7 @@ function PayDialog({ charge, accounts, onClose, onDone }: { charge: Expense; acc
           <FormField label="Date"><input type="date" className={inputCls} value={f.date} onChange={e => setF(p => ({ ...p, date: e.target.value }))} /></FormField>
         </div>
         <FormField label="Référence"><input className={inputCls} value={f.reference} onChange={e => setF(p => ({ ...p, reference: e.target.value }))} /></FormField>
-        <button onClick={submit} className="w-full h-10 rounded-lg bg-pos text-white text-sm font-semibold">Payer</button>
+        <button onClick={submit} className="w-full h-10 rounded-lg bg-pos text-onink text-sm font-semibold">Payer</button>
       </div>
     </Modal>
   );

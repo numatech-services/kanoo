@@ -184,7 +184,7 @@ export default function RapprochementPage() {
                         <button
                           disabled={busy === key}
                           onClick={() => act({ action: "match", movementId: s.movementId, lineId: s.lineId }, key)}
-                          className="px-2.5 py-1 rounded bg-section text-white text-xs font-medium hover:brightness-95 disabled:opacity-50 inline-flex items-center gap-1">
+                          className="px-2.5 py-1 rounded bg-section text-onink text-xs font-medium hover:brightness-95 disabled:opacity-50 inline-flex items-center gap-1">
                           <Link2 size={12} /> Rapprocher
                         </button>
                       </td>

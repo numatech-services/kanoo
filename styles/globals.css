@@ -37,7 +37,7 @@
   --c-pos050: 226 237 232;
   --c-neg: 178 59 46;
   --c-neg050: 246 226 221;
-  --c-warn: 154 104 0;
+  --c-warn: 140 94 0;       /* ≥ 5:1 sur fond clair et sur warn050 (WCAG AA) */
   --c-warn050: 250 243 227;
   --c-info: 36 95 166;
   --c-info050: 234 241 249;

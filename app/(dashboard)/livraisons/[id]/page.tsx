@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useMe, meCanDo } from "@/lib/useMe";
@@ -20,6 +20,7 @@ interface Delivery {
 
 export default function LivraisonDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
   const canCancelBl = meCanDo(useMe(), "livraisons", "delete");
   const [mounted, setMounted] = useState(false);
   const [delivery,setDelivery]=useState<Delivery|null>(null);
@@ -56,14 +57,14 @@ export default function LivraisonDetailPage() {
           {canCancelBl && <button onClick={async()=>{
             if(!(await confirmDialog({ title: "Annuler ce bon de livraison ?", message: "Les articles sortis seront remis en stock.", danger: true }))) return;
             const res=await apiSend("DELETE", `/api/livraisons/${id}`);
-            if(res.ok) window.location.href="/livraisons"; else { const d= res.data; showToast(d.error||"Annulation impossible", "error"); }
+            if(res.ok) router.push("/livraisons"); else { const d= res.data; showToast(d.error||"Annulation impossible", "error"); }
           }} className="px-4 py-2 border border-neg/25 rounded-xl text-sm text-neg hover:bg-neg-50">Annuler le BL</button>}
-          {!delivery.signedAt && delivery.status!=="delivered" && <button onClick={()=>setShowSignForm(true)} className="px-4 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95">Signer la livraison</button>}
+          {!delivery.signedAt && delivery.status!=="delivered" && <button onClick={()=>setShowSignForm(true)} className="px-4 py-2 bg-pos text-onink rounded-xl text-sm font-medium hover:brightness-95">Signer la livraison</button>}
         </div>
       </div>
 
       <div className="bg-surface rounded-xl border border-line overflow-hidden">
-        <div className="bg-section text-white p-5 flex justify-between">
+        <div className="bg-section text-onink p-5 flex justify-between">
           <div><p className="text-lg font-bold">BON DE LIVRAISON</p><p className="text-white/70 text-sm font-mono">{delivery.number}</p></div>
           <div className="text-right"><p className="text-sm">{new Date(delivery.deliveryDate).toLocaleDateString("fr-FR")}</p><StatusBadge status={delivery.status}/></div>
         </div>
@@ -112,7 +113,7 @@ export default function LivraisonDetailPage() {
           <h2 className="font-semibold text-ink mb-4">Confirmer la livraison</h2>
           <form onSubmit={handleSign} className="flex gap-3">
             <input className="flex-1 px-3 py-2 border border-line rounded-lg text-sm" value={signerName} onChange={e=>setSignerName(e.target.value)} placeholder="Nom du réceptionnaire" required/>
-            <button type="submit" disabled={signing||!signerName} className="px-5 py-2 bg-pos text-white rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{signing?"Signature…":"Confirmer la réception"}</button>
+            <button type="submit" disabled={signing||!signerName} className="px-5 py-2 bg-pos text-onink rounded-xl text-sm font-medium hover:brightness-95 disabled:opacity-60">{signing?"Signature…":"Confirmer la réception"}</button>
             <button type="button" onClick={()=>setShowSignForm(false)} className={buttonClass("secondary", "md")}>Annuler</button>
           </form>
         </div>

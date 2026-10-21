@@ -84,14 +84,14 @@ export default function BillingPage() {
             <button
               onClick={() => setStatus(row._id, "active")}
               disabled={busy || row.subscriptionStatus === "active"}
-              className="px-2 py-1 bg-pos text-white text-xs rounded hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-2 py-1 bg-pos text-onink text-xs rounded hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Activer
             </button>
             <button
               onClick={() => setStatus(row._id, "suspended")}
               disabled={busy || row.subscriptionStatus === "suspended"}
-              className="px-2 py-1 bg-neg text-white text-xs rounded hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-2 py-1 bg-neg text-onink text-xs rounded hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Suspendre
             </button>

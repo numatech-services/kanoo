@@ -66,9 +66,9 @@ export default function DevisPage() {
       ? <span className="text-xs text-ink3">Facturation : comptabilité</span>
       : (
         <div className="flex gap-1">
-          {canMarket && !["rejected","expired"].includes(row.status) && <button onClick={e=>{e.stopPropagation();setMarket(row);}} className="px-2 py-1 bg-section text-white text-xs rounded hover:brightness-95" title="Suivre acomptes, dépenses et marge">→ Marché</button>}
-          <button onClick={e=>{e.stopPropagation();setConvertDialog({id:String(v),number:row.number,type:"invoice"});}} className="px-2 py-1 bg-pos text-white text-xs rounded hover:brightness-95">→ Facture</button>
-          <button onClick={e=>{e.stopPropagation();setConvertDialog({id:String(v),number:row.number,type:"proforma"});}} className="px-2 py-1 bg-warn text-white text-xs rounded hover:brightness-95">→ Proforma</button>
+          {canMarket && !["rejected","expired"].includes(row.status) && <button onClick={e=>{e.stopPropagation();setMarket(row);}} className="px-2 py-1 bg-section text-onink text-xs rounded hover:brightness-95" title="Suivre acomptes, dépenses et marge">→ Marché</button>}
+          <button onClick={e=>{e.stopPropagation();setConvertDialog({id:String(v),number:row.number,type:"invoice"});}} className="px-2 py-1 bg-pos text-onink text-xs rounded hover:brightness-95">→ Facture</button>
+          <button onClick={e=>{e.stopPropagation();setConvertDialog({id:String(v),number:row.number,type:"proforma"});}} className="px-2 py-1 bg-warn text-onink text-xs rounded hover:brightness-95">→ Proforma</button>
         </div>
       )
     },

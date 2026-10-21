@@ -318,7 +318,7 @@ export function EmptyState({
       {action && (
         <Link href={action.href}
           className="mt-4 inline-flex items-center h-10 px-4 rounded-lg bg-section
-                     text-white text-sm font-semibold hover:brightness-95">
+                     text-onink text-sm font-semibold hover:brightness-95">
           {action.label}
         </Link>
       )}

@@ -90,7 +90,7 @@ function EntityRow({ entity }: { entity: Entity }) {
           {entity.canImport ? (
             <>
               <button onClick={() => fileRef.current?.click()} disabled={busy}
-                className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-section text-white text-sm font-semibold hover:brightness-95 disabled:opacity-60">
+                className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-section text-onink text-sm font-semibold hover:brightness-95 disabled:opacity-60">
                 {busy ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />} Importer
               </button>
               <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden"

@@ -54,7 +54,7 @@ export function MonthGrid({
             <button key={i} onClick={() => onDay(d)}
               className={`text-left border border-line/60 -mt-px -ml-px overflow-hidden ${compact ? "h-9 p-0.5" : "min-h-[86px] p-1"} ${inMonth ? "bg-surface hover:bg-surface2/50" : "bg-surface2/30 text-ink3"}`}>
               <div className="flex items-center justify-between">
-                <span className={`${compact ? "text-[10px]" : "text-xs"} ${today ? "bg-section text-white rounded-full w-5 h-5 grid place-items-center font-bold" : inMonth ? "text-ink2" : "text-ink3"}`}>{d.getDate()}</span>
+                <span className={`${compact ? "text-[10px]" : "text-xs"} ${today ? "bg-section text-onink rounded-full w-5 h-5 grid place-items-center font-bold" : inMonth ? "text-ink2" : "text-ink3"}`}>{d.getDate()}</span>
                 {compact && evs.length > 0 && (
                   <span className="flex gap-0.5">
                     {evs.slice(0, 3).map((e) => <span key={e._id} className="w-1.5 h-1.5 rounded-full" style={{ background: itemColor(e) }} />)}

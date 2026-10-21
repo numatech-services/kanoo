@@ -4,7 +4,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
 interface BudgetChapterFormProps { 
-  onSave: (d: Record<string, any>) => Promise<void>; 
+  onSave: (d: Record<string, unknown>) => Promise<void>; 
   onCancel: () => void; 
 }
 
@@ -26,11 +26,11 @@ export function BudgetChapterForm({ onSave, onCancel }: BudgetChapterFormProps) 
     setSaving(true);
 
     // NETTOYAGE : On prépare une copie des données
-    const payload = { ...form };
+    const payload: Omit<typeof form, "parentId"> & { parentId: string | null } = { ...form };
     
     // Si parentId est vide, on le passe à null pour éviter l'erreur "Cast to ObjectId failed"
     if (payload.parentId === "") {
-      (payload as any).parentId = null;
+      payload.parentId = null;
     }
 
     try {

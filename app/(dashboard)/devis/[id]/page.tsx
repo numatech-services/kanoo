@@ -12,7 +12,37 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import {apiJson, apiSend } from "@/lib/api-client";
-function calcLine(l: any) {
+
+// Ligne de devis : champs saisis, totaux recalculés par calcLine
+interface DevisLine {
+  description?: string;
+  quantity?: number;
+  unitPrice?: number;
+  discount?: number;
+  tvaRate?: number;
+  totalHT?: number;
+  totalTVA?: number;
+  totalTTC?: number;
+  [key: string]: unknown;
+}
+
+// Devis tel que renvoyé par /api/devis/[id] (client peuplé)
+interface DevisDetail {
+  _id: string;
+  number: string;
+  status: string;
+  contractId?: string;
+  convertedToInvoiceId?: string;
+  clientId?: { name?: string } | null;
+  totalHT: number;
+  totalTVA?: number;
+  totalTTC?: number;
+  issueDate?: string;
+  validUntil?: string;
+  lines?: DevisLine[];
+}
+
+function calcLine(l: DevisLine) {
   const qty = l.quantity || 0; 
   const price = l.unitPrice || 0; 
   const disc = l.discount || 0; 
@@ -41,10 +71,10 @@ export default function DevisDetailPage() {
   const canEditDevis = meCanDo(me, "devis", "update");
   const canMarket = meCanDo(me, "contracts", "create");
   const [marketOpen, setMarketOpen] = useState(false);
-  const [item, setItem] = useState<any>(null);
+  const [item, setItem] = useState<DevisDetail | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [editLines, setEditLines] = useState<any[]>([]);
+  const [editLines, setEditLines] = useState<DevisLine[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -55,7 +85,7 @@ export default function DevisDetailPage() {
       });
   }, [id]);
 
-  function updateLine(i: number, field: string, value: any) {
+  function updateLine(i: number, field: string, value: string | number) {
     setEditLines(prev => prev.map((l, idx) => idx === i ? calcLine({ ...l, [field]: value }) : l));
   }
 
