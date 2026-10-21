@@ -15,6 +15,7 @@
     "seed:demo": "npx tsx scripts/seed-demo.ts",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run build",
     "backup": "tsx scripts/backup.ts",
+    "restore": "tsx scripts/restore-backup.ts",
     "backup:predeploy": "tsx scripts/backup.ts --pre-deploy",
     "seed:test": "tsx scripts/seed-test.ts",
     "check:env": "tsx scripts/check-env.ts",

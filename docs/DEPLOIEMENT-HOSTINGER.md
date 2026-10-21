@@ -115,6 +115,47 @@ rend un problème visible dans les journaux cron.
 curl -H "x-cron-key: <votre secret>" "https://numapilot.numatechservices.net/api/cron?group=daily"
 ```
 
+### Automatisations (lot D)
+
+Les trois tâches cron ci-dessus suffisent : les automatisations s'ajoutent au
+groupe quotidien (brief du matin, découvert prévu, paie, dossier du comptable,
+validations en attente, budget, cotisations, sauvegarde) et au groupe mensuel
+(amortissements de l'exercice écoulé). Chaque organisation les règle dans
+**Réglages → Automatisations**. Par défaut, seules les alertes internes sont
+actives ; ce qui écrit hors de Kanoo ou passe des écritures attend d'être activé.
+
+Pour que les envois partent réellement, l'instance doit avoir un fournisseur
+d'e-mail (`EMAIL_PROVIDER`), et pour WhatsApp / SMS leurs variables
+(`WHATSAPP_PROVIDER`, `SMS_PROVIDER`) ; l'écran des réglages signale un canal
+non branché. La lecture des factures fournisseurs utilise `ANTHROPIC_API_KEY`
+et le quota `AI_MONTHLY_QUOTA` (partagé avec l'assistant de rédaction).
+
+### Sauvegarde chiffrée de la base
+
+L'hébergement managé n'a pas `mongodump` : la tâche `backup` exporte la base
+elle-même, la chiffre (AES-256-GCM) et la dépose dans un stockage compatible S3.
+
+1. Créer un compartiment **privé** (Backblaze B2 ou Cloudflare R2 : quelques
+   centimes par mois) et une clé d'accès limitée à ce compartiment.
+2. Ajouter une **règle de cycle de vie** qui supprime les objets de plus de
+   30 jours (la rétention se règle côté stockage).
+3. Dans hPanel, renseigner `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`,
+   `BACKUP_S3_REGION`, `BACKUP_S3_ACCESS_KEY`, `BACKUP_S3_SECRET_KEY` et
+   `BACKUP_ENCRYPTION_KEY` (générer : `openssl rand -base64 32`).
+4. **Conserver `BACKUP_ENCRYPTION_KEY` hors de l'hébergement** (gestionnaire
+   de mots de passe) : sans elle, aucune sauvegarde n'est récupérable.
+5. Tester : `curl -H "x-cron-key: <secret>" "https://…/api/cron?job=backup"`,
+   puis vérifier l'archive depuis votre Mac (même variables BACKUP_* exportées) :
+
+```bash
+cd "/Users/alimahamandankanomansour/Desktop/Bureau - Mac/NUMATECH SERVICES/Devops projets/kanoo" && npm run restore -- --verify --s3 kanoo/kanoo-<base>-<AAAA-MM-JJ>.knb
+```
+
+Une vérification par mois est recommandée. La restauration réelle se fait dans
+une base **vide** (`RESTORE_MONGODB_URI`), jamais par-dessus la production :
+voir l'en-tête de `scripts/restore-backup.ts`. Les fichiers joints (pièces
+justificatives) ne sont pas dans cette sauvegarde : seule la base l'est.
+
 ---
 
 ## 5. Après la première mise en ligne — dans cet ordre

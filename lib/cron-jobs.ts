@@ -1,5 +1,3 @@
-import mongoose from "mongoose";
-import { NotificationModel } from "@/models/Notification";
 import { UserModel } from "@/models/User";
 import { InvoiceModel } from "@/models/Invoice";
 import { ProductModel } from "@/models/Product";
@@ -26,6 +24,8 @@ import { buildAlerts as buildDocumentAlerts } from "@/lib/admin-documents";
 import { resetYearlySequences } from "@/lib/numbering";
 import { planForTenant } from "@/lib/dunning-context";
 import { executeAction } from "@/lib/dunning-send";
+import { notify, getAdmins, type Id } from "@/lib/cron-helpers";
+import { AUTOMATION_JOBS } from "@/lib/automation-jobs";
 
 /** Rôles qui reçoivent les relances de courriers entrants. */
 const COURRIER_ROLES = ["pme_admin", "pme_manager", "pme_accountant", "svc_admin", "asso_president", "asso_secretary", "admin_ordonnateur"];
@@ -46,7 +46,6 @@ const COURRIER_ROLES = ["pme_admin", "pme_manager", "pme_accountant", "svc_admin
  * de l'hébergeur, plus par une expression cron interne.
  */
 
-type Id = mongoose.Types.ObjectId;
 export type Cadence = "daily" | "monthly" | "yearly";
 
 export interface CronJob {
@@ -56,21 +55,6 @@ export interface CronJob {
   /** Conservée pour le scheduler VPS ; ignorée par l'endpoint. */
   schedule: string;
   run: () => Promise<string>;
-}
-
-async function notify(
-  tenantId: Id, userId: Id, type: string, title: string, message: string,
-  linkedTo?: string, linkedId?: Id
-) {
-  await NotificationModel.create({ tenantId, userId, type, title, message, linkedTo, linkedId })
-    .catch((err: unknown) => console.error("[Cron] notification non créée:", err));
-}
-
-async function getAdmins(tenantId: Id, roles: string[]): Promise<Array<{ _id: Id }>> {
-  // Rôle principal OU rôle cumulé : un comptable qui est aussi chef de service
-  // doit recevoir les alertes de ses deux casquettes.
-  return UserModel.find({ tenantId, isActive: true, $or: [{ role: { $in: roles } }, { roles: { $in: roles } }] })
-    .select("_id").lean<Array<{ _id: Id }>>();
 }
 
 export const CRON_JOBS: CronJob[] = [
@@ -485,6 +469,8 @@ export const CRON_JOBS: CronJob[] = [
       return `${count} organisation(s) réinitialisée(s)`;
     },
   },
+  // Automatisations réglables par organisation (Réglages → Automatisations).
+  ...AUTOMATION_JOBS,
 ];
 
 export interface JobResult { id: string; label: string; summary?: string; error?: string; ms: number }

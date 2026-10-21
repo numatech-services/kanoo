@@ -34,7 +34,7 @@ export const NAV_RESOURCE: Record<string, string> = {
   "/users": "users", "/audit": "auditLogs",
   "/company": "companies", "/subscription": "companies",
   "/settings/numbering": "companies", "/settings/facture-certifiee": "companies",
-  "/settings/modules": "companies",
+  "/settings/modules": "companies", "/settings/automatisations": "companies",
   // Associations
   "/associations/bureau": "bureau", "/associations/assemblee": "assemblee",
   "/associations/membres": "membres", "/associations/cotisations": "cotisations",

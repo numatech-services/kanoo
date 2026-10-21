@@ -73,6 +73,7 @@ const KEYWORDS: Record<string, string> = {
   "/abonnements/reventes": "client final licence abonnement",
   "/activites": "événement billetterie activité",
   "/settings/modules": "activer désactiver option",
+  "/settings/automatisations": "brief matin alerte découvert paie comptable relance cotisation amortissement automatique",
   "/users": "compte rôle droit",
   "/settings/securite": "mot de passe authentification",
   "/settings/facture-certifiee": "SECeF DGI MCF QR code impôts",

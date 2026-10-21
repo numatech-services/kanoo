@@ -37,6 +37,8 @@ async function main() {
   const models = await Promise.all([
     import("../models/DunningLog").then(m => m.DunningLogModel),
     import("../models/DunningSettings").then(m => m.DunningSettingsModel),
+    import("../models/AutomationSettings").then(m => m.AutomationSettingsModel),
+    import("../models/AutomationLog").then(m => m.AutomationLogModel),
     import("../models/BankStatementLine").then(m => m.BankStatementLineModel),
     import("../models/TreasuryMovement").then(m => m.TreasuryMovementModel),
     import("../models/Invoice").then(m => m.InvoiceModel),

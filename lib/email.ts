@@ -147,7 +147,7 @@ export async function sendEmail(payload: EmailPayload): Promise<{ sent: boolean;
 
 const baseStyle = `font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;color:#374151;`;
 
-function emailWrapper(content: string): string {
+export function emailWrapper(content: string): string {
   return `
     <div style="${baseStyle}">
       <div style="background:#2F3E46;padding:20px 28px;border-radius:12px 12px 0 0;">

@@ -8,7 +8,7 @@ import { withAuth, ok, created, badRequest, conflict, tenantFilter } from "@/lib
 import { BudgetModel } from "@/models/Budget";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import {
-  evaluateLine, summarize, headline, SEASONAL_PROFILES,
+  evaluateLine, summarize, headline, SEASONAL_PROFILES, actualsByPrefix, type BudgetEntryRow,
   type BudgetLine, type LineResult,
 } from "@/lib/budget";
 import { logAudit } from "@/lib/audit";
@@ -18,50 +18,6 @@ export const dynamic = "force-dynamic";
 
 const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin",
               "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-
-interface EntryRow {
-  entryDate: Date;
-  lines: Array<{ accountCode: string; debit: number; credit: number }>;
-}
-
-/**
- * Réalisé par ligne budgétaire, tiré des écritures comptables.
- *
- * La source est la comptabilité, pas un comptage parallèle : un budget
- * rapproché d'un autre total que celui du grand livre finit toujours par
- * diverger, et personne ne sait plus lequel croire.
- *
- * Le sens des comptes suit le SYSCOHADA : les charges (classe 6) se lisent au
- * débit, les produits (classe 7) au crédit. Prendre le solde brut inverserait
- * les produits et afficherait un chiffre d'affaires négatif.
- */
-function actualsByPrefix(entries: EntryRow[], lines: BudgetLine[]): Map<string, number[]> {
-  const result = new Map<string, number[]>();
-  for (const line of lines) {
-    result.set(line.accountPrefix, Array.from({ length: 12 }, () => 0));
-  }
-
-  // Les préfixes les plus longs d'abord : « 6061 » doit gagner sur « 60 »,
-  // sinon une ligne détaillée serait absorbée par la ligne générale et le
-  // même montant compterait deux fois.
-  const ordered = [...lines].sort((a, b) => b.accountPrefix.length - a.accountPrefix.length);
-
-  for (const entry of entries) {
-    const month = new Date(entry.entryDate).getMonth();
-    for (const entryLine of entry.lines) {
-      const code = String(entryLine.accountCode || "");
-      const budgetLine = ordered.find(l => code.startsWith(l.accountPrefix));
-      if (!budgetLine) continue;
-
-      const bucket = result.get(budgetLine.accountPrefix)!;
-      bucket[month] += budgetLine.nature === "revenue"
-        ? (entryLine.credit || 0) - (entryLine.debit || 0)
-        : (entryLine.debit || 0) - (entryLine.credit || 0);
-    }
-  }
-
-  return result;
-}
 
 export const GET = withAuth("accountingEntries", "read", async (req: NextRequest, auth: TokenPayload) => {
   const url = new URL(req.url);
@@ -78,7 +34,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   const entries = await AccountingEntryModel.find({
     ...tenantFilter(auth),
     entryDate: { $gte: new Date(year, 0, 1), $lt: new Date(year + 1, 0, 1) },
-  }).select("entryDate lines").limit(50_000).lean<EntryRow[]>();
+  }).select("entryDate lines").limit(50_000).lean<BudgetEntryRow[]>();
 
   const actuals = actualsByPrefix(entries, budget.lines);
 

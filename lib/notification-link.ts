@@ -19,6 +19,13 @@ export function notificationHref(n: { type?: string; linkedTo?: string; linkedId
     case "guarantee_expiry": return "/cautions";
     case "retention_claimable": return id ? `/contracts/${id}` : "/contracts";
     case "tender_deadline": return id ? `/appels/${id}` : "/appels";
+    // Automatisations (lib/automation-jobs.ts).
+    case "depreciation_posted": return "/fixed-assets";
+    case "treasury_alert": return "/treasury/prevision";
+    case "payroll_reminder": case "payroll_generated": return "/payslips";
+    case "accountant_packet": return "/accounting";
+    case "approval_reminder": return "/approbations";
+    case "budget_alert": return n.linkedTo === "budget" ? "/administration/budget" : "/budget-previsionnel";
   }
   switch (n.linkedTo) {
     case "invoices": return id ? `/invoices/${id}` : "/invoices";

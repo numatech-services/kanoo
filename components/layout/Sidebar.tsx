@@ -7,7 +7,7 @@ import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { moduleEnabled } from "@/lib/modules";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap } from "lucide-react";
 
 import { apiJson, apiSend } from "@/lib/api-client";
 /** Où mène la pastille d'une entrée : la liste filtrée sur ce qu'elle compte. */
@@ -118,6 +118,7 @@ const PME_NAV: NavGroup[] = [
   { section: "Réglages", tone: "parametres", items: [
     { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
     { label: "Modules", href: "/settings/modules", icon: <Boxes size={18} /> },
+    { label: "Automatisations", href: "/settings/automatisations", icon: <Zap size={18} /> },
     { label: "Utilisateurs et droits", href: "/users", icon: <Users size={18} /> },
     { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
@@ -159,6 +160,7 @@ const ASSO_NAV: NavGroup[] = [
     { label: "Apparence des documents", href: "/company/branding", icon: <FileText size={18} /> },
     { label: "Utilisateurs", href: "/users", icon: <Users size={18} /> },
     { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
+    { label: "Automatisations", href: "/settings/automatisations", icon: <Zap size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
     { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
     { label: "Mon profil", href: "/associations/profil", icon: <UserCircle size={18} /> },
@@ -192,6 +194,7 @@ const ADMIN_NAV: NavGroup[] = [
     { label: "Apparence des documents", href: "/company/branding", icon: <FileText size={18} /> },
     { label: "Utilisateurs", href: "/users", icon: <Users size={18} /> },
     { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
+    { label: "Automatisations", href: "/settings/automatisations", icon: <Zap size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
     { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
     { label: "Mon profil", href: "/profile", icon: <UserCircle size={18} /> },

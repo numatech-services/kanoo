@@ -11,6 +11,9 @@ Chaque script joue un parcours complet contre une instance compilée et affiche
 - `e2e-portail.mjs` : portail client (lien, documents, devis acceptés, paiement en ligne, révocation).
 - `e2e-compta.mjs` : moteur comptable — banque protégée, TVA et fournisseur des charges
   récurrentes, origine des immobilisations, retenues sur le compte fournisseur commun.
+- `e2e-automations.mjs` : automatisations (amortissements, brief, découvert prévu, paie,
+  dossier du comptable, validations, budget, cotisations, sauvegarde chiffrée relue). Exige
+  `CRON_SECRET`, `BACKUP_DIR` et `BACKUP_ENCRYPTION_KEY` dans l'environnement du serveur et du script.
 
 Lancement (base de test jetable, jamais la production). La base peut venir de
 Docker comme ci-dessous ou de tout MongoDB 7 en jeu de réplicas (transactions)

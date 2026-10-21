@@ -6,6 +6,7 @@ import { ImputationFields, type ImputationValue } from "@/components/shared/Impu
 import { EXPENSE_ACCOUNTS } from "@/lib/syscohada";
 
 import { apiJson } from "@/lib/api-client";
+import { InvoiceScan, type ScannedInvoice } from "@/components/achats/InvoiceScan";
 import { buttonClass } from "@/components/ui/button-class";
 export interface PurchaseLine extends ImputationValue {
   description: string; accountCode: string; quantity: number; unitPrice: number; tvaRate: number;
@@ -25,8 +26,10 @@ const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
  * comptant (réglée tout de suite). Chaque ligne choisit son compte de charge
  * et son imputation (projet, secteur, service).
  */
-export function PurchaseForm({ initial, onSubmit, submitLabel }: {
+export function PurchaseForm({ initial, onSubmit, submitLabel, scan }: {
   initial?: Partial<PurchaseFormValue>;
+  /** Proposer la lecture automatique d'une facture (saisie d'un nouvel achat). */
+  scan?: boolean;
   onSubmit: (v: PurchaseFormValue, validate: boolean) => Promise<void>;
   submitLabel?: string;
 }) {
@@ -61,6 +64,27 @@ export function PurchaseForm({ initial, onSubmit, submitLabel }: {
     return { ht, tva, ttc: ht + tva };
   }, [f.lines]);
 
+  /** Pré-remplissage depuis la lecture d'une facture : seules les valeurs lues remplacent la saisie. */
+  function applyScan(r: ScannedInvoice) {
+    const x = r.invoice;
+    setF(p => {
+      const date = x.invoiceDate || p.date;
+      const term = r.supplier?.paymentTermDays;
+      const dueDate = x.dueDate || (term && p.kind === "invoice" ? new Date(new Date(date).getTime() + term * 86400000).toISOString().slice(0, 10) : p.dueDate);
+      return {
+        ...p,
+        supplierId: r.supplier?._id ?? p.supplierId,
+        payee: r.supplier?.name ?? (x.supplierName || p.payee),
+        supplierRef: x.invoiceNumber || p.supplierRef,
+        date, dueDate,
+        lines: x.lines.length
+          ? x.lines.map(l => ({ ...emptyLine(), description: l.description, accountCode: l.accountCode, quantity: l.quantity, unitPrice: l.unitPriceHT, tvaRate: l.tvaRate }))
+          : p.lines,
+        notes: p.notes || (x.supplierNif && !r.supplier ? `NIF fournisseur : ${x.supplierNif}` : p.notes),
+      };
+    });
+  }
+
   async function submit(validate: boolean) {
     setError("");
     if (!f.supplierId && !f.payee.trim()) { setError("Choisissez le fournisseur ou indiquez le bénéficiaire."); return; }
@@ -78,6 +102,7 @@ export function PurchaseForm({ initial, onSubmit, submitLabel }: {
   return (
     <div className="space-y-5">
       {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
+      {scan && <InvoiceScan onRead={applyScan} />}
       <div className="flex gap-2">
         {([["invoice", "Facture fournisseur (à payer)"], ["cash", "Dépense au comptant"]] as const).map(([k, l]) => (
           <button key={k} type="button" onClick={() => setF(p => ({ ...p, kind: k, pay: k === "cash" }))}

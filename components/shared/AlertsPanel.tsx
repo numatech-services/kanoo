@@ -7,8 +7,8 @@ import { notificationHref } from "@/lib/notification-link";
 interface Notice { _id: string; type?: string; title?: string; message: string; linkedTo?: string; linkedId?: string | null; createdAt?: string }
 
 // Gravité selon la nature de l'alerte : un impayé ou une rupture passent avant une échéance.
-const HIGH = new Set(["invoice_overdue", "stock_alert", "courrier_due"]);
-const MEDIUM = new Set(["contract_expiry", "employee_contract_expiry", "expense_due", "fiscal_reminder", "admin_document"]);
+const HIGH = new Set(["invoice_overdue", "stock_alert", "courrier_due", "treasury_alert"]);
+const MEDIUM = new Set(["contract_expiry", "employee_contract_expiry", "expense_due", "fiscal_reminder", "admin_document", "budget_alert", "payroll_reminder", "approval_reminder"]);
 const SEVERITY_STYLES = {
   high: "border-l-4 border-neg/40 bg-neg-50",
   medium: "border-l-4 border-warn/40 bg-warn-50",
