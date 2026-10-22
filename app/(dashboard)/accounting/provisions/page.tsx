@@ -1,12 +1,12 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle, Scale, Ban, RefreshCw } from "lucide-react";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
 import { buttonClass } from "@/components/ui/button-class";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
-import { apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { formatMoney, formatDate } from "@/lib/format";
 
 interface Item {
@@ -23,9 +23,7 @@ const parseRate = (v: string | null) => { if (v === null) return null; const n =
  * estimé de perte, recalés à chaque inventaire, ou passés en perte (651).
  */
 export default function ProvisionsPage() {
-  const [d, setD] = useState<Data | null>(null);
-  const load = useCallback(async () => { setD((await apiJson("/api/accounting/provisions"))?.data ?? null); }, []);
-  useEffect(() => { load(); }, [load]);
+  const { data: d, reload: load } = useApi<Data | null>("/api/accounting/provisions", r => r?.data ?? null, null);
 
   async function post(body: Record<string, unknown>, ok: string) {
     const res = await apiSend("POST", "/api/accounting/provisions", body);

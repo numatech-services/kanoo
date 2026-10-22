@@ -32,13 +32,16 @@ corrigés : composants déclarés pendant le rendu (`static-components`, ils
 pendant le rendu (`purity`), variables réassignées après le rendu
 (`immutability`), liens internes en `<a>` au lieu de `<Link>`.
 
-## `react-hooks/set-state-in-effect` — désactivée
+## `react-hooks/set-state-in-effect` — réactivée (erreur)
 
-La règle signale tout `setState` synchrone dans un `useEffect`, c'est-à-dire
-la convention de chargement de l'application (`setLoading(true)` puis appel
-d'API dans l'effet) : 111 occurrences, toutes de ce schéma, aucune fautive.
-Elle vise les optimisations du compilateur React, pas un bogue. La migrer
-serait un chantier à part (un hook de chargement commun), pas un nettoyage.
+Elle signalait 111 chargements écrits à la main (`setLoading(true)` puis appel
+d'API dans un `useEffect`). Ils passent désormais par le chargement commun
+`useApi` (lib/use-api.ts) : `loading` s'y déduit de « l'adresse demandée a-t-elle
+sa réponse », une requête obsolète est annulée, et un rechargement raté garde
+les dernières données valables. Les autres cas (indicateur « monté »,
+préférences lues dans le navigateur, réinitialisation d'un formulaire à
+l'ouverture) utilisent `useSyncExternalStore` ou l'ajustement d'état pendant le
+rendu. Un nouveau chargement écrit à la main est refusé par le lint.
 
 ## `@next/next/no-img-element` — désactivée
 

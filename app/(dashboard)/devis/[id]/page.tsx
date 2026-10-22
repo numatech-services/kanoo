@@ -73,11 +73,9 @@ export default function DevisDetailPage() {
   const [marketOpen, setMarketOpen] = useState(false);
   const [item, setItem] = useState<DevisDetail | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [editLines, setEditLines] = useState<DevisLine[]>([]);
 
   useEffect(() => {
-    setMounted(true);
     apiJson(`/api/devis/${id}`)
       .then(d => {
         setItem(d.data);
@@ -116,7 +114,8 @@ export default function DevisDetailPage() {
     }
   }
 
-  if (!mounted || !item) return null;
+  // Le devis n'arrive qu'après le montage : rien à afficher côté serveur.
+  if (!item) return null;
 
   return (
     <div className="space-y-6 max-w-5xl p-4">

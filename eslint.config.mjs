@@ -16,7 +16,7 @@ const config = [
       "@typescript-eslint/ban-ts-comment": "warn",
       "react/no-unescaped-entities": "off",
       // Convention de chargement de l'application (voir eslint.notes.md).
-      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/set-state-in-effect": "error",
       // Logos en data-URI enregistrés en base : next/image n'apporte rien (voir eslint.notes.md).
       "@next/next/no-img-element": "off",
     },

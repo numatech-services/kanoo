@@ -88,6 +88,17 @@ export function DialogHost() {
   const [touched, setTouched] = useState(false);
   const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   const current = queue[0];
+  // Demande affichée au dernier rendu : une nouvelle demande de saisie repart
+  // de sa valeur par défaut dès son premier rendu (motif « ajuster l'état
+  // pendant le rendu »).
+  const [shown, setShown] = useState<Request | undefined>(undefined);
+  if (current !== shown) {
+    setShown(current);
+    if (current?.kind === "prompt") {
+      setValue(current.opts.defaultValue ?? "");
+      setTouched(false);
+    }
+  }
 
   useEffect(() => {
     enqueue = r => setQueue(q => [...q, r]);
@@ -95,11 +106,7 @@ export function DialogHost() {
   }, []);
 
   useEffect(() => {
-    if (current?.kind === "prompt") {
-      setValue(current.opts.defaultValue ?? "");
-      setTouched(false);
-      setTimeout(() => inputRef.current?.focus(), 30);
-    }
+    if (current?.kind === "prompt") setTimeout(() => inputRef.current?.focus(), 30);
   }, [current]);
 
   if (!current) return null;

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 
@@ -8,6 +8,9 @@ import { apiJson } from "@/lib/api-client";
 interface DevisLine { description: string; quantity: number; unitPrice: number; tvaRate: number; discount: number; totalHT: number; totalTVA: number; totalTTC: number; }
 interface Client { _id: string; name: string; code: string; }
 interface DevisFormProps { initial?: Record<string, unknown> & { _id?: string }; onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
+
+// Faux au rendu serveur et pendant l'hydratation (rien n'est affiché), vrai ensuite.
+const noSubscribe = () => () => {};
 
 function calcLine(l: Partial<DevisLine>): DevisLine {
   const qty = l.quantity || 0; const price = l.unitPrice || 0; const disc = l.discount || 0; const tva = l.tvaRate ?? TVA_TAUX_STANDARD;
@@ -21,7 +24,7 @@ export function DevisForm({ initial, onSave, onCancel }: DevisFormProps) {
     today: new Date().toISOString().slice(0, 10),
     in15: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10),
   }));
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState(String(initial?.clientId || ""));
   const [issueDate, setIssueDate] = useState(String(initial?.issueDate || today).slice(0, 10));
@@ -30,7 +33,7 @@ export function DevisForm({ initial, onSave, onCancel }: DevisFormProps) {
   const [lines, setLines] = useState<DevisLine[]>([calcLine({ description: "", quantity: 1, unitPrice: 0 })]);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { setMounted(true); apiJson("/api/clients?limit=100&isActive=true").then(d=>setClients(d.data?.items||[])); }, []);
+  useEffect(() => { apiJson("/api/clients?limit=100&isActive=true").then(d=>setClients(d.data?.items||[])); }, []);
 
   if (!mounted) return null;
 

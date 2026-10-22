@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
@@ -9,13 +9,15 @@ import Link from "next/link";
 import { showToast } from "@/components/ui/Toast";
 import { alertDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Tenant { _id: string; name: string; type: string; plan: string; subscriptionStatus: string; email?: string; userCount: number; createdAt: string; }
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 
 export default function TenantsPage() {
-  const [mounted, setMounted] = useState(false);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [total, setTotal] = useState(0); const [page, setPage] = useState(1); const [loading, setLoading] = useState(true);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState(""); const [search, setSearch] = useState("");
   const [type, setType] = useState(""); const [status, setStatus] = useState("");
   const [createModal, setCreateModal] = useState(false);
@@ -23,22 +25,21 @@ export default function TenantsPage() {
   const [saving, setSaving] = useState(false); const LIMIT = 20;
 
   useEffect(() => { const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 400); return () => clearTimeout(t); }, [searchInput]);
-  const load = useCallback(async () => {
-    setMounted(true);
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    if (search) params.set("search", search);
-    if (type) params.set("type", type);
-    if (status) params.set("status", status);
-    const d = await apiJson(`/api/superadmin/tenants?${params}`); setTenants(d.data?.items || []); setTotal(d.data?.pagination?.total || 0); setLoading(false);
-  }, [page, search, type, status]);
-  useEffect(() => { load(); }, [load]);
+  const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  if (search) params.set("search", search);
+  if (type) params.set("type", type);
+  if (status) params.set("status", status);
+  const { data: { tenants, total }, loading, reload } = useApi<{ tenants: Tenant[]; total: number }>(
+    `/api/superadmin/tenants?${params}`,
+    d => ({ tenants: d.data?.items || [], total: d.data?.pagination?.total || 0 }),
+    { tenants: [], total: 0 },
+  );
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
     const res = await apiSend("POST", "/api/superadmin/tenants", form);
     const d = res.data;
-    if (res.ok) { setCreateModal(false); load(); await alertDialog({ title: "Organisation créée", message: `Jeton d'activation à transmettre : ${d.data?.activationToken}` }); }
+    if (res.ok) { setCreateModal(false); reload(); await alertDialog({ title: "Organisation créée", message: `Jeton d'activation à transmettre : ${d.data?.activationToken}` }); }
     else showToast(d.error || "Création impossible.", "error");
     setSaving(false);
   }

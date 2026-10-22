@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import QRCode from "qrcode";
@@ -14,7 +14,8 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { buttonClass } from "@/components/ui/button-class";
-import {apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { TicketingAccounts } from "@/components/events/TicketingAccounts";
 interface Ev {
   _id: string; title: string; description?: string; startAt: string; endAt?: string;
@@ -52,11 +53,7 @@ function TicketQR({ payload }: { payload: string }) {
 
 export default function ActiviteDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [ev, setEv] = useState<Ev | null>(null);
-  const [attendees, setAttendees] = useState<Attendee[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
   const [filter, setFilter] = useState("");
-  const [loading, setLoading] = useState(true);
   const [showReg, setShowReg] = useState(false);
   // Accueil (inscription sur place, pointage) : équipe de l'activité et sécurité.
   // Encaissement / remboursement : équipe de l'activité seulement.
@@ -67,20 +64,16 @@ export default function ActiviteDetailPage() {
   const [saving, setSaving] = useState(false);
   const [ticket, setTicket] = useState<{ name: string; payload: string; code: string } | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const [evRes, atRes] = await Promise.all([
-        fetch(`/api/events/${id}`, { credentials: "include" }),
-        fetch(`/api/events/${id}/attendees${filter ? `?status=${filter}` : ""}`, { credentials: "include" }),
-      ]);
-      const evD = await evRes.json();
-      const atD = await atRes.json();
-      if (evRes.ok) setEv(evD.data);
-      if (atRes.ok) { setAttendees(atD.data.attendees || []); setStats(atD.data.stats); }
-    } catch { toast.error("Erreur de chargement"); } finally { setLoading(false); }
-  }, [id, filter]);
-
-  useEffect(() => { load(); }, [load]);
+  const evRes = useApi<Ev | null>(`/api/events/${id}`, d => (d.success === false ? null : d.data ?? null), null);
+  const atRes = useApi<{ attendees?: Attendee[]; stats?: Stats } | null>(
+    `/api/events/${id}/attendees${filter ? `?status=${filter}` : ""}`, d => (d.success === false ? null : d.data ?? null), null,
+  );
+  const ev = evRes.data;
+  const attendees = atRes.data?.attendees || [];
+  const stats = atRes.data?.stats ?? null;
+  // Seul le premier chargement affiche le squelette ; un changement de filtre garde l'écran.
+  const loading = !evRes.loaded || !atRes.loaded;
+  const load = () => { evRes.reload(); atRes.reload(); };
 
   async function register(e: React.FormEvent) {
     e.preventDefault();

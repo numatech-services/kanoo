@@ -33,10 +33,9 @@ export function RetentionPanel({ contractId, settings, canEdit, canCollect, onCh
   const [editing, setEditing] = useState(false);
   const [collecting, setCollecting] = useState(false);
 
-  const load = useCallback(async () => {
-    const [a, g] = await Promise.all([apiJson(`/api/contracts/${contractId}/retention`), apiJson(`/api/cautions?contractId=${contractId}`)]);
-    setR(a?.data ?? null); setGuarantees(g?.data?.items ?? []);
-  }, [contractId]);
+  // Écrit à l'arrivée des réponses (`.then`), jamais avant : appelable depuis l'effet.
+  const load = useCallback(() => Promise.all([apiJson(`/api/contracts/${contractId}/retention`), apiJson(`/api/cautions?contractId=${contractId}`)])
+    .then(([a, g]) => { setR(a?.data ?? null); setGuarantees(g?.data?.items ?? []); }), [contractId]);
   useEffect(() => { load(); }, [load]);
 
   async function cancelRelease(releaseId: string) {

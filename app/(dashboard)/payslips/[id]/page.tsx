@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Printer, Banknote, Trash2 } from "lucide-react";
@@ -10,6 +10,7 @@ import { showToast } from "@/components/ui/Toast";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import {apiJson, apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
 interface Payslip {
   _id: string; month: number; year: number;
@@ -33,16 +34,10 @@ export default function PayslipDetailPage() {
   const me = useMe();
   const canPay = meCanDo(me, "payslips", "update");
   const canDelete = meCanDo(me, "payslips", "delete");
-  const [p, setP] = useState<Payslip | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Squelette au premier chargement seulement : après un paiement, le bulletin reste affiché pendant la relecture.
+  const { data: p, loaded, reload: load } = useApi<Payslip | null>(id ? `/api/payslips/${id}` : null, d => d?.data ?? null, null);
+  const loading = !loaded;
   const [payOpen, setPayOpen] = useState(false);
-
-  const load = useCallback(async () => {
-    const d = await apiJson(`/api/payslips/${id}`).catch(() => null);
-    setP(d?.data ?? null);
-    setLoading(false);
-  }, [id]);
-  useEffect(() => { if (id) load(); }, [id, load]);
 
   async function remove() {
     if (!(await confirmDialog({ title: "Supprimer ce bulletin ?", message: "Son écriture de paie sera extournée.", danger: true, confirmLabel: "Supprimer" }))) return;

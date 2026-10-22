@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
@@ -219,6 +219,13 @@ export const NAV_MAP: Record<ProfileType, NavGroup[]> = {
 };
 
 
+// Groupes ouverts retenus dans le navigateur (texte brut : instantané stable).
+// Aucun au rendu serveur et pendant l'hydratation, la valeur gardée ensuite.
+const noSubscribe = () => () => {};
+function savedOpenGroups(): string {
+  try { return localStorage.getItem("kanoo.nav.open") || "[]"; } catch { return "[]"; /* localStorage indisponible */ }
+}
+
 export function Sidebar({ profile }: { profile: ProfileType }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -230,7 +237,12 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
     window.addEventListener("kanoo:nav", toggle);
     return () => window.removeEventListener("kanoo:nav", toggle);
   }, []);
-  useEffect(() => { setMobileOpen(false); }, [pathname]);
+  // Refermé à chaque changement de page (motif « ajuster l'état pendant le rendu »).
+  const [menuPath, setMenuPath] = useState(pathname);
+  if (pathname !== menuPath) {
+    setMenuPath(pathname);
+    setMobileOpen(false);
+  }
   const rawNav = NAV_MAP[profile] || PME_NAV;
   const { tenant, resources, loading, user } = useMe();
 
@@ -271,16 +283,20 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
   const isActiveItem = (href: string) => href === activeHref;
   const activeSection = nav.find(g => g.items.some(i => isActiveItem(i.href)))?.section;
 
-  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
-  useEffect(() => {
+  const savedRaw = useSyncExternalStore(noSubscribe, savedOpenGroups, () => "[]");
+  const savedGroups = useMemo(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem("kanoo.nav.open") || "[]");
-      if (Array.isArray(saved)) setOpenGroups(new Set(saved));
-    } catch { /* localStorage indisponible : on part replié, ce n'est pas grave */ }
-  }, []);
+      const saved = JSON.parse(savedRaw);
+      if (Array.isArray(saved)) return new Set<string>(saved);
+    } catch { /* valeur illisible : on part replié, ce n'est pas grave */ }
+    return new Set<string>();
+  }, [savedRaw]);
+  // Choix faits pendant la visite ; avant le premier clic, la valeur gardée.
+  const [toggledGroups, setOpenGroups] = useState<Set<string> | null>(null);
+  const openGroups = toggledGroups ?? savedGroups;
   const toggleGroup = (section: string) => {
     setOpenGroups(prev => {
-      const next = new Set(prev);
+      const next = new Set(prev ?? savedGroups);
       if (next.has(section)) next.delete(section); else next.add(section);
       try { localStorage.setItem("kanoo.nav.open", JSON.stringify([...next])); } catch { /* sans persistance */ }
       return next;

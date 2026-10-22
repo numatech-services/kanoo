@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Banknote, Ban, Trash2, Undo2, Edit3 } from "lucide-react";
@@ -12,6 +12,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { formatMoney, formatDate } from "@/lib/format";
 import { buttonClass } from "@/components/ui/button-class";
 type Ref = { _id: string; code?: string; name?: string; label?: string; type?: string } | null | undefined;
@@ -42,22 +43,17 @@ export default function PurchaseDetailPage() {
   const me = useMe();
   const canUpdate = meCanDo(me, "purchases", "update");
   const canDelete = meCanDo(me, "purchases", "delete");
-  const [p, setP] = useState<Purchase | null>(null);
+  const { data: p, reload: load } = useApi<Purchase | null>(`/api/achats/${id}`, d => d?.data ?? null, null);
   const [error, setError] = useState("");
   const [payOpen, setPayOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  const load = useCallback(async () => {
-    const d = await apiJson(`/api/achats/${id}`).catch(() => null);
-    setP(d?.data ?? null);
-  }, [id]);
-  useEffect(() => { load(); }, [load]);
-  async function act(fn: () => Promise<unknown>) { setError(""); try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Action impossible"); } }
+  async function act(fn: () => Promise<unknown>) { setError(""); try { await fn(); load(); } catch (e) { setError(e instanceof Error ? e.message : "Action impossible"); } }
   // Facture supérieure à la réception : le serveur refuse ; on propose alors
   // de valider malgré l'écart, décision tracée sur l'achat.
   async function validate() {
     setError("");
-    try { await send(`/api/achats/${id}/validate`, "POST"); await load(); }
+    try { await send(`/api/achats/${id}/validate`, "POST"); load(); }
     catch (e) {
       const msg = e instanceof Error ? e.message : "Validation impossible";
       if (/supérieure à la marchandise reçue/.test(msg) && await confirmDialog({ title: "Valider malgré l'écart ?", message: msg, confirmLabel: "Valider malgré l'écart", danger: true })) {

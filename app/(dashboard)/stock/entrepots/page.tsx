@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Plus, Star, Power, Trash2, Warehouse } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
@@ -10,7 +10,8 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { StockTabs } from "@/components/stock/StockTabs";
-import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
 async function send(url: string, method: string, body?: unknown) {
   const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -25,16 +26,11 @@ export default function WarehousesPage() {
   const canCreate = meCanDo(me, "products", "create");
   const canEdit = meCanDo(me, "products", "update");
   const canDelete = meCanDo(me, "products", "delete");
-  const [items, setItems] = useState<WarehouseLite[]>([]);
   const [all, setAll] = useState(false);
+  const { data: items, reload: load } = useApi<WarehouseLite[]>(`/api/warehouses?all=${all}`, d => d?.data ?? [], []);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
-  const load = useCallback(async () => {
-    const d = await apiJson(`/api/warehouses?all=${all}`).catch(() => null);
-    setItems(d?.data ?? []);
-  }, [all]);
-  useEffect(() => { load(); }, [load]);
-  async function run(fn: () => Promise<unknown>) { setError(""); try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Erreur"); } }
+  async function run(fn: () => Promise<unknown>) { setError(""); try { await fn(); load(); } catch (e) { setError(e instanceof Error ? e.message : "Erreur"); } }
 
   return (
     <div className="space-y-5 max-w-5xl">

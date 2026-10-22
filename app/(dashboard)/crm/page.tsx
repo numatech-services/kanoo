@@ -1,11 +1,12 @@
 "use client";
 import { IfCan } from "@/components/shared/IfCan";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { apiJson, api, apiErrorMessage  } from "@/lib/api-client";
+import { api, apiErrorMessage  } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { showToast } from "@/components/ui/Toast";
 interface Opp {
   _id: string; reference: string; title: string; stage: string;
@@ -25,11 +26,11 @@ const STAGES: Array<{ key: string; label: string; color: string; bg: string }> =
   { key:"lost",        label:"Perdu",         color:"text-neg",    bg:"bg-neg-50"    },
 ];
 
+const noSubscribe = () => () => {};
+
 export default function CRMPage() {
-  const [mounted, setMounted] = useState(false);
-  const [pipeline, setPipeline] = useState<Pipeline>({});
-  const [stats, setStats] = useState<Stats>({});
-  const [loading, setLoading] = useState(true);
+  // Rendu côté navigateur uniquement.
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -39,14 +40,10 @@ export default function CRMPage() {
     expectedCloseDate: "", nextFollowUpDate: "", source: "outbound", notes: "",
   });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const d = await apiJson("/api/crm/opportunities?view=pipeline");
-    setPipeline(d.data?.pipeline || {});
-    setStats(d.data?.stats || {});
-    setLoading(false);
-  }, []);
-  useEffect(() => { setMounted(true); load(); }, [load]);
+  const board = useApi<{ pipeline?: Pipeline; stats?: Stats } | null>("/api/crm/opportunities?view=pipeline", d => d.data ?? null, null);
+  const pipeline: Pipeline = board.data?.pipeline || {};
+  const stats: Stats = board.data?.stats || {};
+  const { loading, reload: load } = board;
 
   if (!mounted) return null;
 

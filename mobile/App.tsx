@@ -1,30 +1,32 @@
-import React, { useState, useEffect } from "react";
-import { NavigationContainer } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useState } from "react";
+import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { useColorScheme } from "react-native";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { AppNavigator } from "./src/navigation/AppNavigator";
+import { restoreSession, onSessionChange } from "./src/api/client";
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const scheme = useColorScheme();
+  // null tant que le trousseau n'a pas été lu : rien n'est affiché.
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
-    AsyncStorage.getItem("auth_token").then(token => {
-      setIsAuthenticated(!!token);
-      setLoading(false);
-    });
+    let live = true;
+    restoreSession().then(ok => { if (live) setSignedIn(ok); });
+    // Connexion, déconnexion, ou jeton expiré (401) : l'écran suit.
+    const off = onSessionChange(setSignedIn);
+    return () => { live = false; off(); };
   }, []);
 
-  if (loading) return null;
-
+  if (signedIn === null) return null;
   return (
-    <NavigationContainer>
-      <StatusBar style="light" backgroundColor="#2F3E46"/>
-      {isAuthenticated
-        ? <AppNavigator />
-        : <LoginScreen onLogin={() => setIsAuthenticated(true)}/>
-      }
-    </NavigationContainer>
+    <SafeAreaProvider>
+      <NavigationContainer theme={scheme === "dark" ? DarkTheme : DefaultTheme}>
+        <StatusBar style="auto" />
+        {signedIn ? <AppNavigator /> : <LoginScreen />}
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }

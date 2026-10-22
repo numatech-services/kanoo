@@ -25,9 +25,8 @@ export function TransferDialog({ onClose, onDone, product, fromWarehouseId }: {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!from && warehouses.length) setFrom((warehouses.find(w => w.isDefault) ?? warehouses[0])._id);
-  }, [warehouses, from]);
+  // Entrepôt de départ par défaut dès que la liste arrive (ajusté pendant le rendu).
+  if (!from && warehouses.length) setFrom((warehouses.find(w => w.isDefault) ?? warehouses[0])._id);
   useEffect(() => {
     if (product) return;
     apiJson("/api/products?isService=false&limit=100").then(d => setProducts(d.data?.items ?? [])).catch(() => {});

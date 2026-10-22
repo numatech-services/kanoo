@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus, Link2, AlertTriangle } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
@@ -11,6 +11,7 @@ import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Sale {
   _id: string;
   reference: string;
@@ -51,27 +52,21 @@ const EMPTY = {
 };
 
 export default function ReventesPage() {
-  const [items, setItems] = useState<Sale[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [purchases, setPurchases] = useState<PurchaseOption[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ limit: "100" });
-    if (filter === "unbilled") params.set("unbilled", "true");
-    else if (filter) params.set("status", filter);
-    apiJson(`/api/abonnements/reventes?${params}`)
-      .then(d => setItems(d.data?.items || []))
-      .finally(() => setLoading(false));
-  }, [filter]);
+  const params = new URLSearchParams({ limit: "100" });
+  if (filter === "unbilled") params.set("unbilled", "true");
+  else if (filter) params.set("status", filter);
+  const { data: items, loading, reload: load } = useApi<Sale[]>(
+    `/api/abonnements/reventes?${params}`, d => d.data?.items || [], [],
+  );
 
-  useEffect(() => { load(); }, [load]);
   useEffect(() => {
     apiJson("/api/clients?limit=200").then(d => setClients(d.data?.items || [])).catch(() => setClients([]));
     apiJson("/api/abonnements/achats?limit=200&status=active").then(d => setPurchases(d.data?.items || [])).catch(() => setPurchases([]));

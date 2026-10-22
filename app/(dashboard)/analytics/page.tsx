@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 
 import { BarChart3 } from "lucide-react";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface AnalyticsSeries {
   data: number[];
   label: string;
@@ -134,17 +134,10 @@ function BarChart({ data, labels, color }: { data: number[]; labels: string[]; c
 }
 
 export default function AnalyticsPage() {
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [months, setMonths] = useState(12);
   const [activeMetrics, setActiveMetrics] = useState<string[]>(["ca", "encaissements"]);
 
-  useEffect(() => {
-    setLoading(true);
-    apiJson(`/api/reports/analytics?months=${months}`)
-      .then(d => setData(d.data))
-      .finally(() => setLoading(false));
-  }, [months]);
+  const { data, loading } = useApi<AnalyticsData | null>(`/api/reports/analytics?months=${months}`, d => d.data ?? null, null);
 
   const toggleMetric = (key: string) => {
     setActiveMetrics(prev =>

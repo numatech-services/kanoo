@@ -19,12 +19,13 @@ export function StockVariationDialog({ onClose, onDone }: { onClose: () => void;
     const d = new Date(); d.setDate(0); // dernier jour du mois précédent
     return d.toISOString().slice(0, 10);
   });
-  const [preview, setPreview] = useState<Preview | null>(null);
+  // Aperçu gardé avec la date qui l'a produit : une autre date = pas encore d'aperçu.
+  const [computed, setComputed] = useState<{ date: string; preview: Preview } | null>(null);
+  const preview = computed?.date === date ? computed.preview : null;
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setPreview(null);
-    api.get<Preview>("/api/accounting/stock-variation", { query: { date } }).then(setPreview)
+    api.get<Preview>("/api/accounting/stock-variation", { query: { date } }).then(p => setComputed({ date, preview: p }))
       .catch(e => showToast(apiErrorMessage(e, "Calcul impossible."), "error"));
   }, [date]);
 

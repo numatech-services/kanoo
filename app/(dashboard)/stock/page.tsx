@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Plus, AlertTriangle, ArrowLeftRight, Search, History, Warehouse, Truck, CalendarX } from "lucide-react";
 import { TransferDialog } from "@/components/stock/TransferDialog";
@@ -13,7 +13,7 @@ import { useUrlReady } from "@/lib/url-param";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { StockTabs } from "@/components/stock/StockTabs";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface StockItem {
   _id: string; code: string; label: string; unit?: string; category?: string; location?: string;
   stockQty: number; totalQty?: number; stockMinAlert: number; trackingMode?: string; stockMaxAlert?: number; purchaseCost?: number; unitPrice: number;
@@ -25,10 +25,7 @@ export default function StockPage() {
   const me = useMe();
   const canCreate = meCanDo(me, "products", "create");
   const canMove = meCanDo(me, "products", "update");
-  const [items, setItems] = useState<StockItem[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   // Filtres repris de l'adresse (« Voir le stock » d'un entrepôt, pastille
   // « sous le seuil ») dès le premier chargement : une seule requête, pas de
   // réponse non filtrée qui écraserait la filtrée.
@@ -36,32 +33,29 @@ export default function StockPage() {
   const ready = useUrlReady(p => setFilters(f => ({ ...f, alertOnly: p.get("alertOnly") === "true", warehouseId: p.get("warehouseId") ?? "" })));
   const { warehouses } = useWarehouses();
   const [transfer, setTransfer] = useState(false);
-  const [lotAlerts, setLotAlerts] = useState({ expired: 0, soon: 0 });
   const [searchInput, setSearchInput] = useState("");
-  const [meta, setMeta] = useState({ alertCount: 0, totalStockValue: 0, totalStockValueAtPrice: 0, uncostedCount: 0, categories: [] as string[], locations: [] as string[] });
   const [moving, setMoving] = useState<StockItem | null>(null);
   const LIMIT = 25;
 
-  const load = useCallback(async () => {
-    if (!ready) return;
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    if (filters.search) params.set("search", filters.search);
-    if (filters.category) params.set("category", filters.category);
-    if (filters.location) params.set("location", filters.location);
-    if (filters.alertOnly) params.set("alertOnly", "true");
-    if (filters.warehouseId) params.set("warehouseId", filters.warehouseId);
-    const d = await apiJson(`/api/stock?${params}`).catch(() => null);
-    if (d?.data) {
-      setItems(d.data.items || []);
-      setTotal(d.data.pagination?.total || 0);
-      setMeta({ alertCount: d.data.alertCount, totalStockValue: d.data.totalStockValue, totalStockValueAtPrice: d.data.totalStockValueAtPrice,
-        uncostedCount: d.data.uncostedCount, categories: d.data.categories || [], locations: d.data.locations || [] });
-      setLotAlerts({ expired: d.data.expiredLots ?? 0, soon: d.data.expiringLots ?? 0 });
-    }
-    setLoading(false);
-  }, [page, filters, ready]);
-  useEffect(() => { load(); }, [load]);
+  const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  if (filters.search) params.set("search", filters.search);
+  if (filters.category) params.set("category", filters.category);
+  if (filters.location) params.set("location", filters.location);
+  if (filters.alertOnly) params.set("alertOnly", "true");
+  if (filters.warehouseId) params.set("warehouseId", filters.warehouseId);
+  const { data: { items, total, meta, lotAlerts }, loading: reading, reload: load } = useApi(ready ? `/api/stock?${params}` : null, d => ({
+    items: (d?.data?.items || []) as StockItem[],
+    total: (d?.data?.pagination?.total || 0) as number,
+    meta: { alertCount: d?.data?.alertCount ?? 0, totalStockValue: d?.data?.totalStockValue ?? 0, totalStockValueAtPrice: d?.data?.totalStockValueAtPrice ?? 0,
+      uncostedCount: d?.data?.uncostedCount ?? 0, categories: (d?.data?.categories || []) as string[], locations: (d?.data?.locations || []) as string[] },
+    lotAlerts: { expired: (d?.data?.expiredLots ?? 0) as number, soon: (d?.data?.expiringLots ?? 0) as number },
+  }), {
+    items: [] as StockItem[], total: 0,
+    meta: { alertCount: 0, totalStockValue: 0, totalStockValueAtPrice: 0, uncostedCount: 0, categories: [] as string[], locations: [] as string[] },
+    lotAlerts: { expired: 0, soon: 0 },
+  });
+  // Tant que les filtres de l'adresse ne sont pas lus, la liste reste « en chargement ».
+  const loading = !ready || reading;
   useEffect(() => {
     const t = setTimeout(() => {
       // Pas de nouvel état (donc pas de requête) tant que la recherche ne change pas.

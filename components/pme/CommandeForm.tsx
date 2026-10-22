@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
@@ -39,6 +39,9 @@ interface CommandeFormProps {
   onCancel: () => void; 
 }
 
+// Faux au rendu serveur et pendant l'hydratation (rien n'est affiché), vrai ensuite.
+const noSubscribe = () => () => {};
+
 function calcLine(l: Partial<CmdLine>): CmdLine {
   const qty = l.quantity || 0; 
   const price = l.unitPrice || 0; 
@@ -58,7 +61,7 @@ function calcLine(l: Partial<CmdLine>): CmdLine {
 }
 
 export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [catalog, setCatalog] = useState<Product[]>([]); // État pour le catalogue de produits
   
@@ -72,7 +75,6 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
 
   // Charger les fournisseurs ET le catalogue de produits
   useEffect(() => { 
-    setMounted(true); 
     // Charger fournisseurs
     apiJson("/api/suppliers?limit=100").then(d=>setSuppliers(d.data?.items||[])); 
     
@@ -80,7 +82,11 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
     apiJson("/api/stock?limit=100").then(d=>setCatalog(d.data?.items||[]));
   }, []);
 
-  useEffect(() => {
+  // Bon existant : le formulaire en reprend les valeurs dès le rendu où il
+  // arrive (motif « ajuster l'état pendant le rendu »).
+  const [appliedData, setAppliedData] = useState<CommandeInitialData | undefined>(undefined);
+  if (initialData !== appliedData) {
+    setAppliedData(initialData);
     if (initialData) {
       // Fournisseur peuplé, identifiant brut ou absent (null) : `typeof null` vaut « object ».
       const sup = initialData.supplierId;
@@ -92,7 +98,7 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
       setImputation({ projectId: idOf(initialData.projectId), activityId: idOf(initialData.activityId), costCenter: initialData.costCenter });
       if (initialData.lines) setLines(initialData.lines.map((l) => ({ ...l, productId: idOf(l.productId) }) as CmdLine));
     }
-  }, [initialData]);
+  }
 
   if (!mounted) return null;
 

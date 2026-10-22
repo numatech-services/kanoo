@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
 
@@ -32,8 +32,11 @@ function StatusPill({ status }: { status: string }) {
 
 function pct(engaged: number, total: number) { return total > 0 ? Math.min(100, Math.round((engaged / total) * 100)) : 0; }
 
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
+
 export default function AdminDashboardPage() {
-  const [mounted, setMounted]         = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [chapters, setChapters]       = useState<BudgetChapter[]>([]);
   const [engagements, setEngagements] = useState<Engagement[]>([]);
   const [marches, setMarches]         = useState<Marche[]>([]);
@@ -45,8 +48,6 @@ export default function AdminDashboardPage() {
   const [loadingMn, setLoadingMn]     = useState(true);
 
   useEffect(() => {
-    setMounted(true);
-
     // Extraction sécurisée pour s'assurer d'obtenir un tableau
     const extractArray = <T,>(d: unknown): T[] => {
       if (!d) return [];

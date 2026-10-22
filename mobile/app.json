@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Kanoo",
+    "slug": "kanoo",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "ne.numatech.kanoo",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "ne.numatech.kanoo",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#2F59DF"
+      }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
@@ -13,6 +13,7 @@ import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Purchase {
   _id: string;
   reference: string;
@@ -54,9 +55,7 @@ const EMPTY = {
 };
 
 export default function AchatsAbonnementsPage() {
-  const [items, setItems] = useState<Purchase[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [open, setOpen] = useState(false);
   const [docsFor, setDocsFor] = useState<Purchase | null>(null);
@@ -64,16 +63,12 @@ export default function AchatsAbonnementsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ limit: "100" });
-    if (status) params.set("status", status);
-    apiJson(`/api/abonnements/achats?${params}`)
-      .then(d => setItems(d.data?.items || []))
-      .finally(() => setLoading(false));
-  }, [status]);
+  const params = new URLSearchParams({ limit: "100" });
+  if (status) params.set("status", status);
+  const { data: items, loading, reload: load } = useApi<Purchase[]>(
+    `/api/abonnements/achats?${params}`, d => d.data?.items || [], [],
+  );
 
-  useEffect(() => { load(); }, [load]);
   useEffect(() => {
     apiJson("/api/suppliers?limit=200")
       .then(d => setSuppliers(d.data?.items || []))

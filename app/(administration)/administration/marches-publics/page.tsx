@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -8,7 +8,8 @@ import { Modal } from "@/components/ui/Modal";
 import { LIBELLES_PROCEDURES, determineProcedureMarche } from "@/lib/niger-fiscal";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Tender { 
   _id: string; 
   reference: string; 
@@ -19,13 +20,13 @@ interface Tender {
   bidsDeadline?: string; 
 }
 
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
+
 export default function MarchesPublicsPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [tenders, setTenders] = useState<Tender[]>([]);
-  const [total, setTotal] = useState(0); 
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [page, setPage] = useState(1); 
-  const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState(""); 
   const LIMIT = 20;
   const [modalOpen, setModalOpen] = useState(false);
@@ -33,26 +34,13 @@ export default function MarchesPublicsPage() {
   const [saving, setSaving] = useState(false);
 
   // --- CHARGEMENT DES DONNÉES ---
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    if (status) params.set("status", status);
-    
-    try {
-      const d = await apiJson(`/api/marches?${params}`); 
-      setTenders(d.data?.items || []); 
-      setTotal(d.data?.pagination?.total || 0);
-    } catch (error) {
-      console.error("Erreur de chargement:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, status]);
-
-  useEffect(() => { 
-    setMounted(true); 
-    load(); 
-  }, [load]);
+  const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  if (status) params.set("status", status);
+  const { data: { tenders, total }, loading, reload } = useApi<{ tenders: Tender[]; total: number }>(
+    `/api/marches?${params}`,
+    d => ({ tenders: d.data?.items || [], total: d.data?.pagination?.total || 0 }),
+    { tenders: [], total: 0 },
+  );
 
   const detectedProcedure = form.estimatedAmount > 0 ? determineProcedureMarche(form.estimatedAmount) : null;
 
@@ -67,7 +55,7 @@ export default function MarchesPublicsPage() {
       if (res.ok) {
         setModalOpen(false); 
         setForm({ object: "", estimatedAmount: 0, notes: "" });
-        load();
+        reload();
       }
     } catch (error) {
       console.error("Erreur de création:", error);

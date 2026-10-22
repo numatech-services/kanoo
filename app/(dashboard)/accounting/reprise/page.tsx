@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, CheckCircle2 } from "lucide-react";
 import { inputCls, selectCls } from "@/components/ui/FormField";
@@ -7,7 +7,8 @@ import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
-import { apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { formatMoney, formatDate } from "@/lib/format";
 
 interface Treasury { _id: string; label: string; type: string; ledgerCode?: string; openingBalance?: number }
@@ -17,6 +18,8 @@ interface Line { accountCode: string; accountLabel: string; side: "debit" | "cre
 interface Existing { _id: string; entryDate: string; lines: Array<{ accountCode: string; accountLabel: string; debit: number; credit: number }> }
 
 const blank = (accountCode = "", side: Line["side"] = "debit", accountLabel = ""): Line => ({ accountCode, accountLabel, side, amount: "", thirdPartyId: "" });
+const NO_LEDGER: Ledger[] = [];
+const NO_TREASURY: Treasury[] = [];
 const num = (s: string) => Math.round(Number(String(s).replace(/\s/g, "").replace(",", ".")) || 0);
 
 /**
@@ -25,31 +28,27 @@ const num = (s: string) => Math.round(Number(String(s).replace(/\s/g, "").replac
  * se reprennent compte par compte pour que la trésorerie parte du même chiffre.
  */
 export default function ReprisePage() {
-  const [existing, setExisting] = useState<Existing | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [treasury, setTreasury] = useState<Treasury[]>([]);
+  const opening = useApi<{ entry?: Existing | null; accounts?: Treasury[] } | null>("/api/accounting/opening", o => o?.data ?? null, null);
+  const ledgerAccounts = useApi<Ledger[]>("/api/ledger-accounts", l => l?.data ?? NO_LEDGER, NO_LEDGER);
+  const clientsRes = useApi<Party[]>("/api/clients?limit=100&isActive=true", c => c?.data?.items ?? [], []);
+  const suppliersRes = useApi<Party[]>("/api/suppliers?limit=100", s => s?.data?.items ?? [], []);
+  const existing = opening.data?.entry ?? null;
+  const treasury = opening.data?.accounts ?? NO_TREASURY;
+  const ledger = useMemo(() => ledgerAccounts.data.filter(a => /^[1-5]/.test(a.code) && !/^5[27]/.test(a.code)), [ledgerAccounts.data]);
+  const clients = clientsRes.data, suppliers = suppliersRes.data;
+  const loaded = opening.loaded && ledgerAccounts.loaded && clientsRes.loaded && suppliersRes.loaded;
+  // Les soldes de trésorerie saisis repartent de ceux du serveur à chaque lecture.
   const [tAmounts, setTAmounts] = useState<Record<string, string>>({});
-  const [ledger, setLedger] = useState<Ledger[]>([]);
-  const [clients, setClients] = useState<Party[]>([]);
-  const [suppliers, setSuppliers] = useState<Party[]>([]);
+  const [amountsFor, setAmountsFor] = useState(opening.data);
+  if (opening.data !== amountsFor) {
+    setAmountsFor(opening.data);
+    setTAmounts(Object.fromEntries(treasury.map(a => [a._id, a.openingBalance ? String(a.openingBalance) : ""])));
+  }
   const [date, setDate] = useState(() => `${new Date().getFullYear()}-01-01`);
   const [lines, setLines] = useState<Line[]>([blank("101000", "credit", "Capital social"), blank("411000"), blank("401000", "credit")]);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    const [o, l, c, s] = await Promise.all([
-      apiJson("/api/accounting/opening"), apiJson("/api/ledger-accounts"),
-      apiJson("/api/clients?limit=100&isActive=true"), apiJson("/api/suppliers?limit=100"),
-    ]);
-    setExisting(o?.data?.entry ?? null);
-    const accounts: Treasury[] = o?.data?.accounts ?? [];
-    setTreasury(accounts);
-    setTAmounts(Object.fromEntries(accounts.map(a => [a._id, a.openingBalance ? String(a.openingBalance) : ""])));
-    setLedger((l?.data ?? []).filter((a: Ledger) => /^[1-5]/.test(a.code) && !/^5[27]/.test(a.code)));
-    setClients(c?.data?.items ?? []); setSuppliers(s?.data?.items ?? []);
-    setLoaded(true);
-  }, []);
-  useEffect(() => { load(); }, [load]);
+  const load = () => { opening.reload(); ledgerAccounts.reload(); clientsRes.reload(); suppliersRes.reload(); };
 
   const labelOf = useMemo(() => new Map(ledger.map(a => [a.code, a.label])), [ledger]);
   const setLine = (i: number, patch: Partial<Line>) => setLines(ls => ls.map((l, j) => j === i ? { ...l, ...patch } : l));

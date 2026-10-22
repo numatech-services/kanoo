@@ -1,26 +1,27 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { urlParam } from "@/lib/url-param";
+import { useApi } from "@/lib/use-api";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 import { buttonClass } from "@/components/ui/button-class";
 interface Cotisation { _id:string; memberId:{firstName:string;lastName:string}|string; year:number; amount:number; paidAt?:string; receiptNumber:string; }
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 export default function CotisationsPage() {
-  const [mounted,setMounted]=useState(false);
-  const [items,setItems]=useState<Cotisation[]>([]); const [total,setTotal]=useState(0); const [page,setPage]=useState(1); const [loading,setLoading]=useState(true);
+  const mounted=useSyncExternalStore(noSubscribe,()=>true,()=>false);
+  const [page,setPage]=useState(1);
   const [year,setYear]=useState(new Date().getFullYear()); const LIMIT=30;
   // Filtre payées / impayées, repris de l'adresse (raccourci « Impayés » du tableau de bord).
   const [paidFilter,setPaidFilter]=useState<""|"true"|"false">(()=>{const v=urlParam("paid");return v==="true"||v==="false"?v:"";});
-  const [counts,setCounts]=useState({all:0,paid:0});
-  const load=useCallback(async()=>{setLoading(true);
-    const q=`/api/cotisations?year=${year}&page=${page}&limit=${LIMIT}${paidFilter?`&paid=${paidFilter}`:""}`;
-    const [res,all,paidRes]=await Promise.all([fetch(q,{credentials:"include"}),fetch(`/api/cotisations?year=${year}&limit=1`,{credentials:"include"}),fetch(`/api/cotisations?year=${year}&paid=true&limit=1`,{credentials:"include"})]);
-    const d=await res.json();setItems(d.data?.items||[]);setTotal(d.data?.pagination?.total||0);
-    // Compteurs sur toute l'année, pas sur la page affichée.
-    const [a,p]=await Promise.all([all.json(),paidRes.json()]);setCounts({all:a.data?.pagination?.total||0,paid:p.data?.pagination?.total||0});
-    setLoading(false);},[page,year,paidFilter]);
-  useEffect(()=>{setMounted(true);load();},[load]);
+  const q=`/api/cotisations?year=${year}&page=${page}&limit=${LIMIT}${paidFilter?`&paid=${paidFilter}`:""}`;
+  const list=useApi<{items:Cotisation[];total:number}>(q,d=>({items:d.data?.items||[],total:d.data?.pagination?.total||0}),{items:[],total:0},{quiet:true});
+  // Compteurs sur toute l'année, pas sur la page affichée.
+  const all=useApi<number>(`/api/cotisations?year=${year}&limit=1`,a=>a.data?.pagination?.total||0,0,{quiet:true});
+  const paidRes=useApi<number>(`/api/cotisations?year=${year}&paid=true&limit=1`,p=>p.data?.pagination?.total||0,0,{quiet:true});
+  const {items,total}=list.data; const counts={all:all.data,paid:paidRes.data};
+  const loading=list.loading||all.loading||paidRes.loading;
   if (!mounted) return null;
   const paid=counts.paid;
   const columns: Column<Cotisation>[] = [

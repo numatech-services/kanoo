@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Banknote, Edit3, Trash2, Power } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
@@ -11,6 +11,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 type Ref = { _id: string; label?: string; name?: string } | null;
 interface Expense {
   _id: string; label: string; category: string; amount: number; frequency: string; nextDueDate: string; accountCode?: string; tvaRate?: number;
@@ -37,26 +38,21 @@ export default function RecurringExpensesPage() {
   const canCreate = meCanDo(me, "recurringCharges", "create");
   const canEdit = meCanDo(me, "recurringCharges", "update");
   const canDelete = meCanDo(me, "recurringCharges", "delete");
-  const [items, setItems] = useState<Expense[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [monthlyTotal, setMonthlyTotal] = useState(0);
   const [showInactive, setShowInactive] = useState(false);
   const [editing, setEditing] = useState<Expense | "new" | null>(null);
   const [paying, setPaying] = useState<Expense | null>(null);
   const [error, setError] = useState("");
   const LIMIT = 20;
 
-  const load = useCallback(async () => {
-    const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    if (!showInactive) q.set("isActive", "true");
-    const d = await apiJson(`/api/recurring-expenses?${q}`).catch(() => null);
-    setItems(d?.data?.items ?? []); setTotal(d?.data?.pagination?.total ?? 0); setMonthlyTotal(d?.data?.monthlyTotal ?? 0);
-  }, [page, showInactive]);
-  useEffect(() => { load(); }, [load]);
+  const q = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  if (!showInactive) q.set("isActive", "true");
+  const { data: { items, total, monthlyTotal }, reload: load } = useApi(`/api/recurring-expenses?${q}`, d => ({
+    items: (d?.data?.items ?? []) as Expense[], total: (d?.data?.pagination?.total ?? 0) as number, monthlyTotal: (d?.data?.monthlyTotal ?? 0) as number,
+  }), { items: [] as Expense[], total: 0, monthlyTotal: 0 });
   useEffect(() => { apiJson("/api/treasury-accounts").then(d => setAccounts(d.data?.items ?? [])).catch(() => {}); }, []);
-  async function run(fn: () => Promise<unknown>) { setError(""); try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Erreur"); } }
+  async function run(fn: () => Promise<unknown>) { setError(""); try { await fn(); load(); } catch (e) { setError(e instanceof Error ? e.message : "Erreur"); } }
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
 

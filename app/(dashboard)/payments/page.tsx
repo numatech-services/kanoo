@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 import { useMe, meCanDo } from "@/lib/useMe";
@@ -11,6 +11,8 @@ import { showToast } from "@/components/ui/Toast";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, apiSend } from "@/lib/api-client";
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 interface Payment {
   _id: string;
   invoiceId: { 
@@ -29,7 +31,7 @@ interface Payment {
 export default function PaymentsPage() {
   const me = useMe();
   const canDelete = meCanDo(me, "payments", "delete");
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [items, setItems] = useState<Payment[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -38,39 +40,48 @@ export default function PaymentsPage() {
   const [confirming, setConfirming] = useState<Payment | null>(null);
   const LIMIT = 20;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(LIMIT),
-      });
-      const res = await fetch(`/api/payments?${params}`, { credentials: "include" });
-      if (!res.ok) {
-        // On rend l'échec visible plutôt que d'afficher une page vide qui donne
-        // l'impression que « rien ne s'ouvre » : accès refusé, session expirée…
-        const d = await res.json().catch(() => ({}));
-        setError(res.status === 403
-          ? "Votre profil n'a pas accès aux paiements. Demandez le droit « Paiements » à un administrateur."
-          : (d.error || "Impossible de charger les paiements. Réessayez."));
-        setItems([]); setTotal(0);
-        return;
-      }
-      const d = await res.json();
-      setItems(d.data?.items || []);
-      setTotal(d.data?.pagination?.total || 0);
-    } catch {
-      setError("Connexion impossible au serveur des paiements. Vérifiez votre réseau puis réessayez.");
-    } finally {
-      setLoading(false);
-    }
+  // Lecture d'une page : renvoie la liste ou le message d'échec, l'état n'est
+  // modifié qu'à l'arrivée de la réponse (`apply`).
+  const fetchPayments = useCallback((): Promise<{ items: Payment[] | null; total: number; error: string | null }> => {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(LIMIT),
+    });
+    return fetch(`/api/payments?${params}`, { credentials: "include" })
+      .then(async res => {
+        if (!res.ok) {
+          // On rend l'échec visible plutôt que d'afficher une page vide qui donne
+          // l'impression que « rien ne s'ouvre » : accès refusé, session expirée…
+          const d = await res.json().catch(() => ({}));
+          return { items: [], total: 0, error: res.status === 403
+            ? "Votre profil n'a pas accès aux paiements. Demandez le droit « Paiements » à un administrateur."
+            : (d.error || "Impossible de charger les paiements. Réessayez.") };
+        }
+        const d = await res.json();
+        return { items: d.data?.items || [], total: d.data?.pagination?.total || 0, error: null };
+      })
+      // Coupure réseau : la liste affichée est conservée, seul le message change.
+      .catch(() => ({ items: null, total: 0, error: "Connexion impossible au serveur des paiements. Vérifiez votre réseau puis réessayez." }));
   }, [page]);
 
+  function apply(r: { items: Payment[] | null; total: number; error: string | null }) {
+    setError(r.error);
+    if (r.items) { setItems(r.items); setTotal(r.total); }
+    setLoading(false);
+  }
+
   useEffect(() => {
-    setMounted(true);
-    load();
-  }, [load]);
+    let live = true;
+    fetchPayments().then(r => { if (live) apply(r); });
+    return () => { live = false; };
+  }, [fetchPayments]);
+
+  // Relecture après une action (annulation, confirmation, « Réessayer »).
+  function load() {
+    setLoading(true);
+    setError(null);
+    fetchPayments().then(apply);
+  }
 
   // L'encaissement d'un paiement en attente se confirme avec sa date réelle et le compte crédité.
 
@@ -212,7 +223,7 @@ export default function PaymentsPage() {
         totalPages={Math.ceil(total / LIMIT)} 
         total={total} 
         limit={LIMIT} 
-        onPage={setPage} 
+        onPage={p => { if (p !== page) { setLoading(true); setError(null); } setPage(p); }} 
       />
       {confirming && <ConfirmDialog payment={confirming} onClose={() => setConfirming(null)} onDone={() => { setConfirming(null); load(); }} />}
     </div>

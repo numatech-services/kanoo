@@ -1,6 +1,6 @@
 "use client";
 import { IfCan } from "@/components/shared/IfCan";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -8,27 +8,27 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { SupplierForm } from "@/components/pme/SupplierForm";
 
-import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 interface Supplier { _id: string; code: string; name: string; nif?: string; phone?: string; email?: string; logo?: string; paymentTermDays: number; bankAccount?: string; isActive: boolean; }
 
 export default function SuppliersPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [total, setTotal] = useState(0); const [page, setPage] = useState(1); const [loading, setLoading] = useState(true);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState(""); const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false); const [editing, setEditing] = useState<Supplier|null>(null);
   const LIMIT = 20;
 
   useEffect(() => { const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 400); return () => clearTimeout(t); }, [searchInput]);
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    if (search) params.set("search", search);
-    const d = await apiJson(`/api/suppliers?${params}`); setSuppliers(d.data?.items || []); setTotal(d.data?.pagination?.total || 0); setLoading(false);
-  }, [page, search]);
-  useEffect(() => { setMounted(true); load(); }, [load]);
+  const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  if (search) params.set("search", search);
+  const { data: { suppliers, total }, loading, reload: load } = useApi(`/api/suppliers?${params}`, d => ({
+    suppliers: (d.data?.items || []) as Supplier[], total: (d.data?.pagination?.total || 0) as number,
+  }), { suppliers: [] as Supplier[], total: 0 });
 
   const columns: Column<Supplier>[] = [
     { key: "code", label: "Code", className: "font-mono text-xs w-24", sortable: true },

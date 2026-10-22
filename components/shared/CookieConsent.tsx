@@ -1,25 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 
 const KEY = "kanoo_cookie_consent";
 type Choice = { necessary: true; analytics: boolean; marketing: boolean; ts: string };
 
+// Aucun choix enregistré ? Faux au rendu serveur et pendant l'hydratation
+// (le bandeau n'apparaît qu'ensuite, comme avant), et si le stockage manque.
+const noSubscribe = () => () => {};
+function noChoiceYet(): boolean {
+  try { return !localStorage.getItem(KEY); } catch { return false; /* stockage indispo */ }
+}
+
 export function CookieConsent() {
-  const [open, setOpen] = useState(false);
+  const needed = useSyncExternalStore(noSubscribe, noChoiceYet, () => false);
+  const [answered, setAnswered] = useState(false);
+  const open = needed && !answered;
   const [custom, setCustom] = useState(false);
   const [analytics, setAnalytics] = useState(false);
   const [marketing, setMarketing] = useState(false);
 
-  useEffect(() => {
-    try { if (!localStorage.getItem(KEY)) setOpen(true); } catch { /* stockage indispo */ }
-  }, []);
-
   function save(a: boolean, m: boolean) {
     const choice: Choice = { necessary: true, analytics: a, marketing: m, ts: new Date().toISOString() };
     try { localStorage.setItem(KEY, JSON.stringify(choice)); } catch { /* ignore */ }
-    setOpen(false);
+    setAnswered(true);
   }
 
   if (!open) return null;

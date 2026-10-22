@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { FileCheck, Search, ArrowUpRight, Loader2, Landmark, Printer } from "lucide-react";
 import Link from "next/link";
 
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Mandat {
   _id: string;
   reference: string;
@@ -16,23 +16,15 @@ interface Mandat {
 }
 
 export default function MandatementsPage() {
-  const [items, setItems] = useState<Mandat[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   // « À mandater » = engagements approuvés en attente ; « Émis » = déjà mandatés.
   const [tab, setTab] = useState<"approuve" | "mandate">("approuve");
 
-  useEffect(() => {
-    setLoading(true);
-    apiJson(`/api/budget/engagements?status=${tab}`)
-      .then((response) => {
-        const data = response.data || response;
-        // La liste peut renvoyer tous les engagements : on filtre par statut au cas où.
-        setItems(Array.isArray(data) ? data.filter((x: Mandat) => x.status === tab) : []);
-      })
-      .catch((err) => console.error("Erreur chargement:", err))
-      .finally(() => setLoading(false));
-  }, [tab]);
+  const { data: items, loading } = useApi<Mandat[]>(`/api/budget/engagements?status=${tab}`, response => {
+    const data = response.data || response;
+    // La liste peut renvoyer tous les engagements : on filtre par statut au cas où.
+    return Array.isArray(data) ? data.filter((x: Mandat) => x.status === tab) : [];
+  }, []);
 
   const filteredItems = items.filter(item => 
     item.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||

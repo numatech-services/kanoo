@@ -1,17 +1,16 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { DonForm } from "@/components/associations/DonForm";
 
 import { apiSend } from "@/lib/api-client";
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
+
 export default function NewDonPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   async function handleSave(data: Record<string, unknown>) {
     try {

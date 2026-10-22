@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, CheckCircle2, AlertTriangle } from "lucide-react";
 import { selectCls } from "@/components/ui/FormField";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 
 interface Line { ref: string; label: string; amount: number; gross?: number; depreciation?: number; total?: boolean }
 interface Data {
@@ -55,12 +55,10 @@ export default function FinancialStatementsPage() {
   const current = new Date().getFullYear();
   const [year, setYear] = useState(current - (new Date().getMonth() < 4 ? 1 : 0));
   const [tab, setTab] = useState<Tab>("actif");
-  const [d, setD] = useState<Data | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    setD(null); setError("");
-    apiJson(`/api/accounting/financial-statements?annee=${year}`).then(r => { if (r?.success) setD(r.data); else setError(r?.error ?? "Chargement impossible"); });
-  }, [year]);
+  const statements = useApi<Data | null>(`/api/accounting/financial-statements?annee=${year}`, r => (r?.success ? r.data : null), null);
+  // Changement d'exercice : l'écran se vide le temps de la lecture.
+  const d = statements.loading ? null : statements.data;
+  const error = statements.error;
 
   const balanced = d && Math.abs(d.balanceSheet.totalActif - d.balanceSheet.totalPassif) < 1;
   return (

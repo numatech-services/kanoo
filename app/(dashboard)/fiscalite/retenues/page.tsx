@@ -1,12 +1,13 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { DataTable, Column } from "@/components/ui/DataTable";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
-import { apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { TreasuryAccountSelect } from "@/components/shared/TreasuryAccountSelect";
 import { SufferedWithholdings } from "@/components/fiscal/SufferedWithholdings";
 interface Retenue { _id:string; type:string; beneficiaire:string; nifBeneficiaire?:string; montantBrut:number; montantRetenue:number; montantNet:number; article:string; date:string; isPaid:boolean; }
@@ -15,26 +16,15 @@ interface TypeInfo { key:string; taux:number; description:string; article:string
 const TYPE_LABELS: Record<string,string> = { marche_public:"Marché public",prestation_service:"Prestation service",loyer_immeuble:"Loyer immeuble",dividendes:"Dividendes",honoraires:"Honoraires",commissions:"Commissions",interet_pret:"Intérêt de prêt",transport_inter:"Transport international" };
 
 export default function RetenuesPage() {
-  const [retenues, setRetenues] = useState<Retenue[]>([]);
-  const [types, setTypes] = useState<TypeInfo[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [totalRetenues, setTotalRetenues] = useState(0);
-  const [nonVersees, setNonVersees] = useState(0);
   const [form, setForm] = useState({ type:"marche_public", beneficiaire:"", nifBeneficiaire:"", montantBrut:0, reference:"", treasuryAccountId:"" });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const d = await apiJson(`/api/fiscal/retenues?annee=${new Date().getFullYear()}`);
-    setRetenues(d.data?.items||[]); setTotal(d.data?.pagination?.total||0);
-    setTotalRetenues(d.data?.totalRetenues||0); setNonVersees(d.data?.nonVersees||0);
-    setTypes(d.data?.typesDisponibles||[]);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const { data: { retenues, total, totalRetenues, nonVersees, types }, loading, reload: load } = useApi(`/api/fiscal/retenues?annee=${new Date().getFullYear()}`, d => ({
+    retenues: (d.data?.items||[]) as Retenue[], total: (d.data?.pagination?.total||0) as number,
+    totalRetenues: (d.data?.totalRetenues||0) as number, nonVersees: (d.data?.nonVersees||0) as number,
+    types: (d.data?.typesDisponibles||[]) as TypeInfo[],
+  }), { retenues: [] as Retenue[], total: 0, totalRetenues: 0, nonVersees: 0, types: [] as TypeInfo[] });
 
   // Simulation en temps réel
   const selectedType = types.find(t => t.key === form.type);

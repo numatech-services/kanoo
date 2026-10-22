@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface BudgetChapter {
   _id: string;
   code: string;
@@ -74,17 +74,12 @@ function ChapterRow({ chapter, depth = 0 }: { chapter: BudgetChapter; depth?: nu
 }
 
 export default function BudgetPage() {
-  const [data, setData] = useState<{ year: number; tree: BudgetChapter[]; totals: { allocated: number; engaged: number; paid: number } } | null>(null);
   const [year, setYear] = useState(new Date().getFullYear());
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    apiJson(`/api/budget?year=${year}`)
-      .then((d) => setData(d.data))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  }, [year]);
+  const { data, loading } = useApi<{ year: number; tree: BudgetChapter[]; totals: { allocated: number; engaged: number; paid: number } } | null>(
+    `/api/budget?year=${year}`,
+    (d) => d.data ?? null,
+    null,
+  );
 
   return (
     <div className="space-y-6">

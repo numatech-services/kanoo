@@ -1,12 +1,12 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download } from "lucide-react";
 import { inputCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 type Tab = "balance" | "ledger" | "pl" | "bs";
 const TABS: Array<[Tab, string]> = [["balance", "Balance générale"], ["ledger", "Grand livre"], ["pl", "Compte de résultat"], ["bs", "Bilan"]];
 const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
@@ -23,8 +23,6 @@ export default function StatementsPage() {
   const [from, setFrom] = useState(`${y}-01-01`);
   const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
   const [account, setAccount] = useState("");
-  const [data, setData] = useState<unknown>(null);
-  const [error, setError] = useState("");
 
   const qs = useCallback((extra: Record<string, string> = {}) => {
     const p = new URLSearchParams({ type: tab, to, ...extra });
@@ -33,13 +31,18 @@ export default function StatementsPage() {
     return p;
   }, [tab, from, to, account]);
 
-  useEffect(() => {
-    if (tab === "ledger" && !account) { setData(null); return; }
-    setError("");
-    apiJson(`/api/accounting/reports?${qs()}`)
-      .then(d => { if (d.success) setData(d.data); else { setError(d.error ?? "Chargement impossible"); setData(null); } })
-      .catch(() => setError("Chargement impossible"));
-  }, [qs, tab, account]);
+  const report = useApi<unknown>(
+    tab === "ledger" && !account ? null : `/api/accounting/reports?${qs()}`,
+    d => (d.success ? d.data : null),
+    null,
+  );
+  const error = report.error;
+  // Changement d'onglet : rien n'est affiché tant que l'état du nouvel onglet
+  // n'est pas arrivé (les formats diffèrent d'un onglet à l'autre) ; un
+  // changement de dates garde l'état affiché pendant la lecture.
+  const [dataTab, setDataTab] = useState(tab);
+  if (!report.loading && dataTab !== tab) setDataTab(tab);
+  const data = dataTab === tab ? report.data : null;
 
   return (
     <div className="space-y-5">
@@ -50,7 +53,7 @@ export default function StatementsPage() {
       </div>
       <div className="flex gap-1 flex-wrap">
         {TABS.map(([k, l]) => (
-          <button key={k} onClick={() => { setTab(k); setData(null); }} className={`px-4 h-9 rounded-lg text-sm font-semibold ${tab === k ? "bg-section text-onink" : "border border-line2 text-ink2 hover:bg-surface2"}`}>{l}</button>
+          <button key={k} onClick={() => setTab(k)} className={`px-4 h-9 rounded-lg text-sm font-semibold ${tab === k ? "bg-section text-onink" : "border border-line2 text-ink2 hover:bg-surface2"}`}>{l}</button>
         ))}
       </div>
       <div className="flex gap-2 flex-wrap items-end">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { Modal } from "@/components/ui/Modal";
 
 import { buttonClass } from "@/components/ui/button-class";
@@ -16,6 +16,9 @@ interface Plan {
   highlighted: boolean;
 }
 
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
+
 export default function PlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,10 +26,9 @@ export default function PlansPage() {
   const [selectedPlan, setSelectedPlan] = useState<Partial<Plan> | null>(null);
   
   // Empêche l'erreur d'hydratation (window is not defined)
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
 
   useEffect(() => {
-    setMounted(true);
     const loadPlans = async () => {
       try {
         const d = await apiJson("/api/public/plans");

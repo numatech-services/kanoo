@@ -1,18 +1,17 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { AssembleeForm } from "@/components/associations/AssembleeForm";
 
 import { apiSend } from "@/lib/api-client";
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
+
 export default function NewAssembleePage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   async function handleSave(data: Record<string, unknown>) {
     try {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { AreaChart } from "@/components/ui/charts/AreaChart";
 import { BarChart } from "@/components/ui/charts/BarChart";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -25,21 +25,22 @@ type View = "flux" | "solde";
  * d'œil, là où deux courbes qui se croisent demandent un effort.
  */
 export function CashflowChart() {
-  const [data, setData] = useState<MonthData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
   const [range, setRange] = useState<Range>("6");
   const [view, setView] = useState<View>("flux");
+  // Réponse gardée avec la période qui l'a produite : « chargement » se déduit
+  // (la période affichée n'a pas encore de réponse), sans setState avant la lecture.
+  const [result, setResult] = useState<{ range: Range; months: MonthData[]; error: boolean } | null>(null);
+  const loading = result?.range !== range;
+  const data = result?.months ?? [];
+  const error = result?.error ?? false;
 
-  const load = useCallback(() => {
-    setLoading(true);
+  useEffect(() => {
+    let alive = true;
     apiJson(`/api/reports/cashflow?months=${range}`)
-      .then(d => { setData(d.data?.months || []); setError(false); })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+      .then(d => { if (alive) setResult({ range, months: d.data?.months || [], error: false }); })
+      .catch(() => { if (alive) setResult(prev => ({ range, months: prev?.months ?? [], error: true })); });
+    return () => { alive = false; };
   }, [range]);
-
-  useEffect(() => { load(); }, [load]);
 
   const labels = data.map(d => d.mois);
   const net = data.reduce((sum, d) => sum + (d.solde ?? 0), 0);

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Edit3, LogOut, UserCheck, Link2, CalendarClock, FileSpreadsheet, RotateCcw } from "lucide-react";
@@ -14,6 +14,7 @@ import { COST_CENTERS } from "@/lib/cost-centers";
 import { LEAVE_TYPES } from "@/lib/leave-types";
 
 import {apiJson, apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
 interface Employee {
   _id: string; code: string; firstName: string; lastName: string; position: string; department?: string; costCenter?: string;
@@ -50,27 +51,24 @@ export default function EmployeeDetailPage() {
   const payroll = meCan(me.resources, "payslips");
   const canEdit = meCanDo(me, "employees", "update");
   const canUsers = meCan(me.resources, "users");
-  const [e, setE] = useState<Employee | null>(null);
   const [slips, setSlips] = useState<Array<{ _id: string; month: number; year: number; netSalary: number; isPaid: boolean }>>([]);
-  const [leaves, setLeaves] = useState<{ items: Array<{ _id: string; type: string; startDate: string; endDate: string; days: number; status: string }>; balance: { acquired: number; taken: number; pending: number; available: number } | null } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    const x = await apiJson(`/api/employees/${id}`).catch(() => null);
-    setE(x?.data ?? null);
-    fetch(`/api/leaves?employeeId=${id}`, { credentials: "include" }).then(r => r.ok ? r.json() : null).then(l => setLeaves(l?.data ?? null)).catch(() => {});
-  }, [id]);
-  useEffect(() => { load(); }, [load]);
+  const { data: e, reload: reloadEmployee } = useApi<Employee | null>(`/api/employees/${id}`, x => x?.data ?? null, null);
+  // Congés lus « au cas où » : un refus masque simplement la section, sans message.
+  const { data: leaves, reload: reloadLeaves } = useApi<{ items: Array<{ _id: string; type: string; startDate: string; endDate: string; days: number; status: string }>; balance: { acquired: number; taken: number; pending: number; available: number } | null } | null>(
+    `/api/leaves?employeeId=${id}`, l => (l?.success === false ? null : l?.data ?? null), null, { quiet: true });
+  const load = () => { reloadEmployee(); reloadLeaves(); };
   useEffect(() => {
     if (!payroll) return;
     fetch(`/api/payslips?employeeId=${id}&limit=24`, { credentials: "include" }).then(r => r.ok ? r.json() : null).then(x => setSlips(x?.data?.items ?? [])).catch(() => {});
   }, [id, payroll]);
 
-  async function run(fn: () => Promise<unknown>) { setError(""); try { await fn(); await load(); } catch (err) { setError(err instanceof Error ? err.message : "Erreur"); } }
+  async function run(fn: () => Promise<unknown>) { setError(""); try { await fn(); load(); } catch (err) { setError(err instanceof Error ? err.message : "Erreur"); } }
 
   if (!e) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-line" /></div>;
   const rows = (items: Array<[string, React.ReactNode]>) => items.map(([k, v]) => (

@@ -1,17 +1,19 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { buttonClass } from "@/components/ui/button-class";
 import { TreasuryAccountSelect } from "@/components/shared/TreasuryAccountSelect";
 import { apiJson } from "@/lib/api-client";
 interface Member { _id: string; firstName: string; lastName: string; code: string; }
 interface CotisationFormProps { onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
+// Faux au rendu serveur et pendant l'hydratation (rien n'est affiché), vrai ensuite.
+const noSubscribe = () => () => {};
 export function CotisationForm({ onSave, onCancel }: CotisationFormProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [members, setMembers] = useState<Member[]>([]);
   const [form, setForm] = useState({ memberId:"", year:new Date().getFullYear(), amount:0, paymentMethod:"cash", paid:true, treasuryAccountId:"" });
   const [saving, setSaving] = useState(false);
-  useEffect(()=>{ setMounted(true); apiJson("/api/membres?limit=200&status=active").then(d=>setMembers(d.data?.items||[])); },[]);
+  useEffect(()=>{ apiJson("/api/membres?limit=200&status=active").then(d=>setMembers(d.data?.items||[])); },[]);
   const u = (f: string, v: unknown) => setForm(p => ({ ...p, [f]: v }));
   if (!mounted) return null;
   return (

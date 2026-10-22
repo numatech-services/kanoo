@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
@@ -16,26 +16,30 @@ const STATUS_COLORS: Record<string,string> = {
 };
 const STATUS_FR: Record<string,string> = { active:"Actif", inactive:"Inactif", suspended:"Suspendu", expelled:"Exclu" };
 
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
+
 export default function MembreDetailPage() {
   const { id } = useParams();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [member, setMember] = useState<Member|null>(null);
   const [codeStatus, setCodeStatus] = useState<CodeStatus|null>(null);
   const [loading, setLoading] = useState(true);
   const [sendingCode, setSendingCode] = useState(false);
   const [codeResult, setCodeResult] = useState<{code:string;sentSMS:boolean;sentEmail:boolean}|null>(null);
 
-  const load = useCallback(async () => {
-    const [mRes, cRes] = await Promise.all([
-      fetch(`/api/membres/${id}`, { credentials:"include" }),
-      fetch(`/api/membres/${id}/access-code`, { credentials:"include" }),
-    ]);
-    const [mData, cData] = await Promise.all([mRes.json(), cRes.json()]);
-    setMember(mData.data);
-    setCodeStatus(cData.data);
-    setLoading(false);
-  }, [id]);
-  useEffect(() => { setMounted(true); load(); }, [load]);
+  // Relecture sans repasser par le squelette : l'état n'est mis à jour qu'à l'arrivée des réponses.
+  const load = useCallback(() => Promise.all([
+    fetch(`/api/membres/${id}`, { credentials:"include" }),
+    fetch(`/api/membres/${id}/access-code`, { credentials:"include" }),
+  ])
+    .then(([mRes, cRes]) => Promise.all([mRes.json(), cRes.json()]))
+    .then(([mData, cData]) => {
+      setMember(mData.data);
+      setCodeStatus(cData.data);
+      setLoading(false);
+    }), [id]);
+  useEffect(() => { load(); }, [load]);
 
   async function handleGenerateCode() {
     setSendingCode(true); setCodeResult(null);

@@ -37,14 +37,14 @@ export default function ClientPortalPage({ params }: { params: Promise<{ token: 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/public/client-portal/${token}`);
+  // Les mises à jour d'état arrivent toutes après la réponse (jamais pendant l'effet).
+  const load = useCallback(() => fetch(`/api/public/client-portal/${token}`)
+    .then(async res => {
       const d = await res.json().catch(() => null);
       if (!res.ok || !d?.success) { setError(d?.error || "Ce lien n'est pas valide."); return; }
       setData(d.data);
-    } catch { setError("Connexion impossible. Vérifiez votre réseau."); }
-  }, [token]);
+    })
+    .catch(() => setError("Connexion impossible. Vérifiez votre réseau.")), [token]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     const paid = new URLSearchParams(window.location.search).get("paid");

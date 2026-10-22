@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
 interface BureauMember { _id:string; firstName:string; lastName:string; role:string; customRoleLabel?:string; email?:string; phone?:string; mandateStart:string; mandateEnd?:string; isActive:boolean; projectIds:Array<{_id:string;code:string;name:string;executionRate:number;status:string}>; }
 
@@ -15,23 +15,16 @@ const ROLES: Array<[string,string]> = [
 ];
 const ROLE_ORDER = ["president","vice_president","secretaire_general","secretaire_adjoint","tresorier","tresorier_adjoint","commissaire_aux_comptes","conseiller","charge_de_mission","autre"];
 
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
+
 export default function BureauPage() {
-  const [mounted, setMounted] = useState(false);
-  const [members, setMembers] = useState<BureauMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const pageVisibleRef = useRef(true);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const d = await apiJson("/api/bureau");
-    setMembers(d.data?.items || []);
-    setLoading(false);
-  }, []);
+  const { data: members, loading, reload: load } = useApi<BureauMember[]>("/api/bureau", d => d.data?.items || [], []);
   
   useEffect(() => { 
-    setMounted(true);
-    load();
-
     // Reload data when tab becomes visible (user returns from new page)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && pageVisibleRef.current === false) {

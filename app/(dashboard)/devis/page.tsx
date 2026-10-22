@@ -1,7 +1,7 @@
 "use client";
 import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
 import { useUrlReady } from "@/lib/url-param";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useMe, meCan, meCanDo } from "@/lib/useMe";
 import { ToMarketDialog } from "@/components/devis/ToMarketDialog";
@@ -12,11 +12,12 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
-import { apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Devis { _id:string; number:string; clientId:{name:string}|null|string; totalHT:number; totalTTC:number; status:string; issueDate:string; validUntil:string; convertedToInvoiceId?:string; contractId?:string; }
 
 export default function DevisPage() {
-  const [devis,setDevis]=useState<Devis[]>([]); const [total,setTotal]=useState(0); const [page,setPage]=useState(1); const [loading,setLoading]=useState(true);
+  const [page,setPage]=useState(1);
   const [status,setStatus]=useState(""); const LIMIT=20;
   const [clientId,setClientId]=useState("");
   const ready=useUrlReady(p=>{ setClientId(p.get("clientId")??""); setStatus(p.get("status")??""); });
@@ -27,15 +28,12 @@ export default function DevisPage() {
   const canMarket = meCanDo(me, "contracts", "create");
   const [market,setMarket]=useState<Devis|null>(null);
 
-  const load=useCallback(async()=>{
-    setLoading(true);
-    const params=new URLSearchParams({page:String(page),limit:String(LIMIT)});
-    if(status) params.set("status",status);
-    if(clientId) params.set("clientId",clientId);
-    if(!ready) return;
-    const d = await apiJson(`/api/devis?${params}`); setDevis(d.data?.items||[]); setTotal(d.data?.pagination?.total||0); setLoading(false);
-  },[page,status,clientId,ready]);
-  useEffect(()=>{load();},[load]);
+  const params=new URLSearchParams({page:String(page),limit:String(LIMIT)});
+  if(status) params.set("status",status);
+  if(clientId) params.set("clientId",clientId);
+  const {data:{devis,total},loading:reading,reload:load}=useApi(ready?`/api/devis?${params}`:null,d=>({devis:(d.data?.items||[]) as Devis[],total:(d.data?.pagination?.total||0) as number}),{devis:[] as Devis[],total:0});
+  // Tant que les filtres de l'adresse ne sont pas lus, la liste reste « en chargement ».
+  const loading=!ready||reading;
 
   async function handleConvert() {
     if(!convertDialog) return;

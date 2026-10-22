@@ -1,28 +1,29 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Log { _id: string; userEmail: string; userRole: string; action: string; resource: string; resourceId?: string; ip?: string; createdAt: string; }
 
 const ACTION_COLORS: Record<string, string> = { CREATE:"bg-pos-50 text-pos", UPDATE:"bg-info-50 text-info", DELETE:"bg-neg-50 text-neg", LOGIN:"bg-section-soft text-section", PAYMENT:"bg-warn-50 text-warn", APPROVE:"bg-teal-100 text-teal-700", REJECT:"bg-neg-50 text-neg" };
 
+const noSubscribe = () => () => {};
+
 export default function AuditPage() {
-  const [mounted, setMounted] = useState(false);
-  const [logs, setLogs] = useState<Log[]>([]);
-  const [total, setTotal] = useState(0); const [page, setPage] = useState(1); const [loading, setLoading] = useState(true);
+  // Rendu côté navigateur uniquement (dates au format local).
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const [page, setPage] = useState(1);
   const [resource, setResource] = useState(""); const [from, setFrom] = useState(""); const [to, setTo] = useState(""); const LIMIT = 30;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    if (resource) params.set("resource", resource);
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
-    const d = await apiJson(`/api/audit-logs?${params}`); setLogs(d.data?.items || []); setTotal(d.data?.pagination?.total || 0); setLoading(false);
-  }, [page, resource, from, to]);
-  useEffect(() => { setMounted(true); load(); }, [load]);
+  const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  if (resource) params.set("resource", resource);
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  const list = useApi<{ items?: Log[]; pagination?: { total?: number } } | null>(`/api/audit-logs?${params}`, d => d.data ?? null, null);
+  const logs = list.data?.items || [];
+  const total = list.data?.pagination?.total || 0;
+  const loading = list.loading;
 
   if (!mounted) return null;
 

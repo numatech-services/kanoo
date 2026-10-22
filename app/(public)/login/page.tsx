@@ -10,11 +10,16 @@
  * d'énumération des comptes), affichage du mot de passe, redirection par rôle.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, AlertCircle, Check, ArrowRight, Lock, ShieldCheck } from "lucide-react";
 
 import { apiSend } from "@/lib/api-client";
+
+// L'adresse ne change pas tant que la page est affichée : rien à écouter.
+const noSubscribe = () => () => {};
+const IDLE_NOTICE = "Vous avez été déconnecté pour inactivité. Reconnectez-vous.";
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,15 +28,15 @@ export default function LoginPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
   const [twoFactor, setTwoFactor] = useState(false);
   const [code, setCode] = useState("");
-  const [notice, setNotice] = useState("");
 
-  // Message d'inactivité : lu depuis la query (?reason=idle) après montage, pour
-  // éviter la frontière Suspense qu'imposerait useSearchParams.
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("reason") === "idle") {
-      setNotice("Vous avez été déconnecté pour inactivité. Reconnectez-vous.");
-    }
-  }, []);
+  // Message d'inactivité : lu depuis la query (?reason=idle) côté navigateur
+  // seulement (vide au rendu serveur), pour éviter la frontière Suspense
+  // qu'imposerait useSearchParams.
+  const notice = useSyncExternalStore(
+    noSubscribe,
+    () => (new URLSearchParams(window.location.search).get("reason") === "idle" ? IDLE_NOTICE : ""),
+    () => "",
+  );
 
   // Page d'arrivée : les rôles « étroits » atterrissent directement sur leur
   // module, plutôt que sur un tableau de bord dont ils ne peuvent rien lire.

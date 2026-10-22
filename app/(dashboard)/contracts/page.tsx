@@ -1,7 +1,7 @@
 "use client";
 import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
 import { useUrlReady } from "@/lib/url-param";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -9,7 +9,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Contract { _id:string; reference:string; title:string; type:string; clientId:{name:string}|null; amount:number; paymentMode:string; isRecurring:boolean; billingFrequency:string; status:string; startDate?:string; endDate?:string; nextBillingDate?:string; invoiceIds:string[]; }
 
 const PAYMENT_MODE_LABELS: Record<string,string> = {
@@ -17,26 +17,27 @@ const PAYMENT_MODE_LABELS: Record<string,string> = {
   tresor_prive:"Trésor privé", especes:"Espèces", mobile_money:"Mobile Money", autre:"Autre"
 };
 
+const noSubscribe = () => () => {};
+
 export default function ContractsPage() {
   // Marges : gérant et comptabilité (accès au journal).
   const canSeeMargins = meCanDo(useMe(), "accountingEntries", "read");
-  const [mounted,setMounted]=useState(false);
-  const [contracts,setContracts]=useState<Contract[]>([]); const [total,setTotal]=useState(0); const [page,setPage]=useState(1); const [loading,setLoading]=useState(true);
+  // Rendu côté navigateur uniquement.
+  const mounted=useSyncExternalStore(noSubscribe,()=>true,()=>false);
+  const [page,setPage]=useState(1);
   const [status,setStatus]=useState(""); const [type,setType]=useState(""); const [isRecurring,setIsRecurring]=useState(""); const LIMIT=20;
   const [clientId,setClientId]=useState("");
   const ready=useUrlReady(p=>setClientId(p.get("clientId")??""));
 
-  const load=useCallback(async()=>{
-    setLoading(true);
-    const params=new URLSearchParams({page:String(page),limit:String(LIMIT)});
-    if(status) params.set("status",status);
-    if(type) params.set("type",type);
-    if(isRecurring) params.set("isRecurring",isRecurring);
-    if(clientId) params.set("clientId",clientId);
-    if(!ready) return;
-    const d = await apiJson(`/api/contracts?${params}`); setContracts(d.data?.items||[]); setTotal(d.data?.pagination?.total||0); setLoading(false);
-  },[page,status,type,isRecurring,clientId,ready]);
-  useEffect(()=>{setMounted(true);load();;},[load]);
+  const params=new URLSearchParams({page:String(page),limit:String(LIMIT)});
+  if(status) params.set("status",status);
+  if(type) params.set("type",type);
+  if(isRecurring) params.set("isRecurring",isRecurring);
+  if(clientId) params.set("clientId",clientId);
+  // Pas de lecture avant que le filtre client de l'adresse soit lu.
+  const list=useApi<{items?:Contract[];pagination?:{total?:number}}|null>(ready?`/api/contracts?${params}`:null,d=>d.data??null,null);
+  const contracts=list.data?.items||[]; const total=list.data?.pagination?.total||0;
+  const loading=!ready||list.loading;
 
   if(!mounted) return null;
 

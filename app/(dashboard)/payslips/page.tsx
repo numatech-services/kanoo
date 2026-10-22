@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, Plus, Users, X } from "lucide-react";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -12,6 +12,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
 import {apiJson, apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Employee {
   _id: string; firstName: string; lastName: string; code: string;
   employeeType?: string; indemnityPeriod?: string; grossSalary?: number;
@@ -39,26 +40,18 @@ export default function PayslipsPage() {
   const canDelete = meCanDo(me, "payslips", "delete");
   const now = new Date();
   const [filter, setFilter] = useState({ year: now.getFullYear(), month: 0 });
-  const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [single, setSingle] = useState(false);
   const [batch, setBatch] = useState(false);
   const LIMIT = 20;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT), year: String(filter.year) });
-    if (filter.month) params.set("month", String(filter.month));
-    const d = await apiJson(`/api/payslips?${params}`).catch(() => null);
-    setPayslips(d?.data?.items || []);
-    setTotal(d?.data?.pagination?.total || 0);
-    setLoading(false);
-  }, [page, filter]);
-
-  useEffect(() => { load(); }, [load]);
+  const params = new URLSearchParams({ page: String(page), limit: String(LIMIT), year: String(filter.year) });
+  if (filter.month) params.set("month", String(filter.month));
+  const { data: { payslips, total }, loading, reload: load } = useApi(`/api/payslips?${params}`, d => ({
+    payslips: (d?.data?.items || []) as Payslip[],
+    total: (d?.data?.pagination?.total || 0) as number,
+  }), { payslips: [] as Payslip[], total: 0 });
   useEffect(() => {
     // Seuls les salariés actifs peuvent recevoir un bulletin.
     apiJson("/api/employees?limit=100&isActive=true").then(d => setEmployees(d.data?.items || [])).catch(() => {});

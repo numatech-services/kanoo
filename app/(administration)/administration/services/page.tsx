@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/Modal";
 
 import { showToast } from "@/components/ui/Toast";
-import {apiJson, apiSend } from "@/lib/api-client";
+import {apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface IServiceProduct {
   _id: string;
   code: string;
@@ -17,8 +18,6 @@ interface IServiceProduct {
 }
 
 export default function ServicesPage() {
-  const [services, setServices] = useState<IServiceProduct[]>([]);
-  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -31,17 +30,12 @@ export default function ServicesPage() {
     description: ""
   });
 
-  const loadServices = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await apiJson("/api/services");
-      setServices(data.data || data);
-    } finally {
-      setLoading(false);
-    }
+  const { data: services, loading, reload: loadServices } = useApi<IServiceProduct[]>("/api/services", data => {
+    // Liste directe ou enveloppée ; une réponse d'erreur donne une liste vide
+    // (elle donnait l'enveloppe d'erreur elle-même, que l'écran parcourait).
+    const list = data?.data ?? data;
+    return Array.isArray(list) ? list : Array.isArray(list?.items) ? list.items : [];
   }, []);
-
-  useEffect(() => { loadServices(); }, [loadServices]);
 
   const columns: Column<IServiceProduct>[] = [
     { key: "code", label: "Code", className: "font-mono font-bold text-pos" },

@@ -1,12 +1,13 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
+import { api, apiErrorMessage, apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { formatMoney } from "@/lib/format";
 interface DepreciationEntry { year: number; annuity: number; cumulative: number; netValue: number; posted: boolean; }
 interface FixedAsset {
@@ -21,12 +22,11 @@ const CAT_LABELS: Record<string,string> = {
   furniture:"Mobilier", computer:"Informatique", software:"Logiciel", land:"Terrain", other:"Autre"
 };
 const CAT_LIFE: Record<string,number> = { building:20, equipment:10, vehicle:5, furniture:10, computer:3, software:3, land:0, other:5 };
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 
 export default function FixedAssetsPage() {
-  const [mounted, setMounted] = useState(false);
-  const [assets, setAssets] = useState<FixedAsset[]>([]);
-  const [stats, setStats] = useState<{ totalAcquisitionCost?: number; totalNetValue?: number; count?: number }>({});
-  const [loading, setLoading] = useState(true);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [modalOpen, setModalOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -48,14 +48,10 @@ export default function FixedAssetsPage() {
     fetch("/api/suppliers?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => setSuppliers(d?.data?.items ?? [])).catch(() => {});
   }, [modalOpen]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const d = await apiJson("/api/fixed-assets");
-    setAssets(d.data?.items || []);
-    setStats(d.data?.stats || {});
-    setLoading(false);
-  }, []);
-  useEffect(() => { setMounted(true); load(); }, [load]);
+  const { data: { assets, stats }, loading, reload: load } = useApi("/api/fixed-assets", d => ({
+    assets: (d.data?.items || []) as FixedAsset[],
+    stats: (d.data?.stats || {}) as { totalAcquisitionCost?: number; totalNetValue?: number; count?: number },
+  }), { assets: [] as FixedAsset[], stats: {} });
 
   if (!mounted) return null;
 

@@ -1,22 +1,17 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
-import { apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 export default function ISBICPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear() - 1);
   const [secteur, setSecteur] = useState<"normal"|"agricole">("normal");
-  const [data, setData] = useState<Record<string,unknown>|null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data, loading } = useApi<Record<string,unknown>|null>(`/api/fiscal/isbic?annee=${year}&secteur=${secteur}`, d=>d.data ?? null, null);
   const [submitting, setSubmitting] = useState(false);
   const inp = "px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
-
-  useEffect(() => {
-    setLoading(true);
-    apiJson(`/api/fiscal/isbic?annee=${year}&secteur=${secteur}`).then(d=>setData(d.data)).finally(()=>setLoading(false));
-  }, [year, secteur]);
 
   async function handleSubmit() {
     setSubmitting(true);

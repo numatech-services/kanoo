@@ -1,7 +1,7 @@
 "use client";
 
 import { IfCan } from "@/components/shared/IfCan";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Megaphone, Plus, Clock, Eye, FolderOpen, Send, Scale, Trophy, Archive, CalendarClock, Briefcase } from "lucide-react";
@@ -12,7 +12,8 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
-import {apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 export interface Appel {
   _id: string; title: string; organism?: string; reference?: string;
   submissionDeadline?: string; status: string; estimatedAmount: number;
@@ -66,21 +67,17 @@ const daysTo = (iso?: string) => (iso ? Math.ceil((new Date(iso).setHours(0, 0, 
  */
 export default function AppelsListPage() {
   const router = useRouter();
-  const [items, setItems] = useState<Appel[]>([]);
-  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("open");
-  const [executing, setExecuting] = useState<Executing | null>(null);
-  const [won, setWon] = useState<WonContract[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    Promise.all([apiJson("/api/appels?limit=200"), apiJson("/api/appels/pipeline")])
-      .then(([d, p]) => { setItems(d?.data?.items || []); setExecuting(p?.data?.executing ?? null); setWon(p?.data?.contracts ?? []); })
-      .finally(() => setLoading(false));
-  }, []);
-  useEffect(() => { load(); }, [load]);
+  const list = useApi<Appel[]>("/api/appels?limit=200", d => d?.data?.items || [], []);
+  const pipeline = useApi<{ executing?: Executing; contracts?: WonContract[] } | null>("/api/appels/pipeline", p => p?.data ?? null, null);
+  const items = list.data;
+  const executing = pipeline.data?.executing ?? null;
+  const won = pipeline.data?.contracts ?? [];
+  const loading = list.loading || pipeline.loading;
+  const load = () => { list.reload(); pipeline.reload(); };
 
   async function move(a: Appel, to: string, label: string) {
     if (to === "lost" && !(await confirmDialog({ title: `« ${a.title} » non retenu ?`, message: "Le suivi passe aux archives ; il compte dans le taux de réussite.", confirmLabel: "Marquer non retenu" }))) return;

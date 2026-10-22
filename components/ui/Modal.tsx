@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -16,6 +16,10 @@ interface ModalProps {
   size?: "sm" | "md" | "lg" | "xl";
 }
 
+// Aucun abonnement : l'instantané distingue seulement le rendu serveur (et
+// l'hydratation), où `document` n'existe pas, du rendu dans le navigateur.
+const noSubscribe = () => () => {};
+
 const SIZE_CLASSES = {
   sm: "max-w-sm",
   md: "max-w-lg",
@@ -24,11 +28,10 @@ const SIZE_CLASSES = {
 };
 
 export function Modal({ open, onClose, title, description, children, footer, size = "md" }: ModalProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const titleId = useId();
 
   useEffect(() => {
-    setMounted(true);
     if (!open) return;
 
     function handleKey(e: KeyboardEvent) {

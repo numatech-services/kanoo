@@ -82,7 +82,13 @@ export function EnvoiIsic({ year, schools, onChanged }: { year: string; schools:
       setCheck(r.data);
     } catch (e) { showToast(e instanceof Error ? e.message : "Contrôle impossible", "error"); } finally { setChecking(false); }
   }
-  useEffect(() => { setCheck(null); }, [year, school, scope]);
+  // Autres critères : le contrôle précédent ne vaut plus (vidé pendant le rendu).
+  const criteria = `${year}|${school}|${scope}`;
+  const [checkedCriteria, setCheckedCriteria] = useState(criteria);
+  if (criteria !== checkedCriteria) {
+    setCheckedCriteria(criteria);
+    setCheck(null);
+  }
 
   const blocked = !check || check.count === 0 || check.renewalCodeMissing;
 

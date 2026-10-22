@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Users, MapPin, Video, Trash2, CalendarDays, ChevronLeft, ChevronRight, Link2, Copy, Check } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, textareaCls, selectCls } from "@/components/ui/FormField";
@@ -11,6 +11,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken, apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
 import { showToast } from "@/components/ui/Toast";
+import { useApi } from "@/lib/use-api";
 async function csrf() {
   const csrfToken = await getCsrfToken();
   return csrfToken as string;
@@ -74,28 +75,25 @@ function shift(view: View, anchor: Date, dir: 1 | -1): Date {
   return d;
 }
 
+const NO_ITEMS: AgendaItem[] = [];
+
 export function AgendaView() {
-  const [items, setItems] = useState<AgendaItem[]>([]);
   const [scope, setScope] = useState<Scope>("all");
   const [view, setView] = useState<View>("month");
   const [anchor, setAnchor] = useState<Date>(() => new Date());
-  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Partial<AgendaItem> | null>(null);
 
   // Fenêtre de récupération : la liste montre 90 jours à venir ; les grilles
   // suivent la période affichée.
   const grid = view !== "list";
-  const load = useCallback(() => {
-    setLoading(true);
+  const url = useMemo(() => {
     let from: Date, to: Date;
     if (grid) { const p = period(view, anchor); from = p.from; to = p.to; }
     else { from = new Date(); from.setHours(0, 0, 0, 0); to = new Date(from); to.setDate(to.getDate() + 90); }
     const q = new URLSearchParams({ from: from.toISOString(), to: to.toISOString(), scope });
-    apiJson(`/api/agenda?${q}`)
-      .then((d) => setItems(d.success ? d.data : []))
-      .finally(() => setLoading(false));
+    return `/api/agenda?${q}`;
   }, [scope, view, anchor, grid]);
-  useEffect(() => { load(); }, [load]);
+  const { data: items, loading, reload: load } = useApi<AgendaItem[]>(url, (d) => (d.success ? d.data : []), NO_ITEMS);
 
   // Regroupement par jour (heure locale).
   const byDay: Record<string, AgendaItem[]> = {};

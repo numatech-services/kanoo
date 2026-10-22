@@ -1,10 +1,10 @@
 "use client";
 
 import { IfCan } from "@/components/shared/IfCan";
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Calendar, MapPin, Video, Users, Plus, Ticket } from "lucide-react";
-import toast from "react-hot-toast";
+import { useApi } from "@/lib/use-api";
 
 interface Ev {
   _id: string;
@@ -43,25 +43,10 @@ function fmtTime(s: string) {
 }
 
 export default function ActivitesPage() {
-  const [events, setEvents] = useState<Ev[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/events${filter ? `?status=${filter}` : ""}`, { credentials: "include" });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || "Erreur de chargement");
-      setEvents(d.data?.items || []);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
-
-  useEffect(() => { load(); }, [load]);
+  // Une erreur de lecture est signalée par `useApi` (message du serveur).
+  const { data: events, loading } = useApi<Ev[]>(`/api/events${filter ? `?status=${filter}` : ""}`, d => d.data?.items || [], []);
 
   return (
     <div className="space-y-5 max-w-6xl">

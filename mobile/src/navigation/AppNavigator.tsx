@@ -1,34 +1,34 @@
 import React from "react";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Text } from "react-native";
-import { DashboardScreen } from "../screens/DashboardScreen";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { HomeScreen } from "../screens/HomeScreen";
+import { InvoicesScreen } from "../screens/InvoicesScreen";
+import { ClientsScreen } from "../screens/ClientsScreen";
+import { ProfileScreen } from "../screens/ProfileScreen";
+import { useTheme } from "../ui/theme";
 
 const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const ICONS: Record<string, string> = { Accueil: "⌂", Factures: "▤", Clients: "☺", Profil: "●" };
 
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const icons: Record<string, string> = { Dashboard:"🏠", Factures:"🧾", Clients:"👥", CRM:"📊", Profil:"👤" };
-  return <Text style={{ fontSize:20, opacity: focused ? 1 : 0.5 }}>{icons[name] || "●"}</Text>;
-}
-
+/** Quatre onglets, quatre écrans réels (les onglets factices de la V1 sont retirés). */
 export function AppNavigator() {
+  const t = useTheme();
   return (
     <Tab.Navigator screenOptions={({ route }) => ({
-      tabBarIcon: ({ focused }) => <TabIcon name={route.name} focused={focused}/>,
-      tabBarActiveTintColor: "#2F3E46",
-      tabBarInactiveTintColor: "#9CA3AF",
-      tabBarStyle: { borderTopColor: "#E5E7EB", paddingBottom: 8, height: 60 },
-      tabBarLabelStyle: { fontSize: 11, fontWeight: "500" },
-      headerStyle: { backgroundColor: "#2F3E46" },
-      headerTintColor: "#fff",
-      headerTitleStyle: { fontWeight: "700", fontSize: 16 },
+      tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>{ICONS[route.name]}</Text>,
+      tabBarActiveTintColor: t.accent,
+      tabBarInactiveTintColor: t.ink3,
+      tabBarStyle: { backgroundColor: t.surface, borderTopColor: t.line },
+      tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+      headerStyle: { backgroundColor: t.surface },
+      headerTintColor: t.ink,
+      headerTitleStyle: { fontWeight: "800" },
+      headerShadowVisible: false,
     })}>
-      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title:"Accueil" }}/>
-      <Tab.Screen name="Factures" component={DashboardScreen} options={{ title:"Factures" }}/>
-      <Tab.Screen name="Clients" component={DashboardScreen} options={{ title:"Clients" }}/>
-      <Tab.Screen name="CRM" component={DashboardScreen} options={{ title:"Pipeline" }}/>
-      <Tab.Screen name="Profil" component={DashboardScreen} options={{ title:"Profil" }}/>
+      <Tab.Screen name="Accueil" component={HomeScreen} options={{ title: "Kanoo" }} />
+      <Tab.Screen name="Factures" component={InvoicesScreen} />
+      <Tab.Screen name="Clients" component={ClientsScreen} />
+      <Tab.Screen name="Profil" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }

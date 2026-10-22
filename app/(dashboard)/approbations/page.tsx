@@ -1,31 +1,34 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 
-import { apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
 interface Approbation { _id: string; resource: string; resourceId: string; requestedBy: { firstName: string; lastName: string } | string; amount?: number; status: string; currentLevel: number; notes?: string; createdAt: string; }
 
+const noSubscribe = () => () => {};
+
 export default function ApprobationsPage() {
-  const [mounted, setMounted] = useState(false);
-  const [items, setItems] = useState<Approbation[]>([]);
-  const [total, setTotal] = useState(0); const [page, setPage] = useState(1); const [loading, setLoading] = useState(true);
+  // Rendu côté navigateur uniquement (dates au format local).
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const [page, setPage] = useState(1);
   const [mineOnly, setMineOnly] = useState(false); const [status, setStatus] = useState("");
   const [decideModal, setDecideModal] = useState<{ id: string; resource: string } | null>(null);
   const [decision, setDecision] = useState<"approved"|"rejected">("approved"); const [comment, setComment] = useState(""); const [deciding, setDeciding] = useState(false);
   const LIMIT = 20;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    if (mineOnly) params.set("mine", "true");
-    if (status) params.set("status", status);
-    const d = await apiJson(`/api/approbations?${params}`); setItems(d.data?.items || []); setTotal(d.data?.pagination?.total || 0); setLoading(false);
-  }, [page, mineOnly, status]);
-  useEffect(() => { setMounted(true); load(); }, [load]);
+  const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  if (mineOnly) params.set("mine", "true");
+  if (status) params.set("status", status);
+  const list = useApi<{ items?: Approbation[]; pagination?: { total?: number } } | null>(`/api/approbations?${params}`, d => d.data ?? null, null);
+  const items = list.data?.items || [];
+  const total = list.data?.pagination?.total || 0;
+  const loading = list.loading;
+  const load = list.reload;
 
   async function handleDecide() {
     if (!decideModal) return; setDeciding(true);

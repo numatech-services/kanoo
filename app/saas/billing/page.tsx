@@ -1,8 +1,9 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 
-import { apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface BillingRow {
   _id: string;
   name: string;
@@ -20,22 +21,15 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 export default function BillingPage() {
-  const [tenants, setTenants] = useState<BillingRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Statuts changés depuis l'écran : appliqués sur la liste lue, sans la relire.
+  const [statusById, setStatusById] = useState<Record<string, string>>({});
 
-  const load = useCallback(() => {
-    setLoading(true);
-    // La liste était filtrée sur `status=trial` alors que l'écran affiche les
-    // compteurs « Actifs » et « Suspendus » : ils valaient donc toujours zéro.
-    apiJson("/api/superadmin/tenants?limit=50")
-      .then(d => setTenants(d.data?.items || []))
-      .catch(() => setError("Chargement impossible."))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  // La liste était filtrée sur `status=trial` alors que l'écran affiche les
+  // compteurs « Actifs » et « Suspendus » : ils valaient donc toujours zéro.
+  const { data: rows, loading } = useApi<BillingRow[]>("/api/superadmin/tenants?limit=50", d => d.data?.items || [], []);
+  const tenants = rows.map(t => (statusById[t._id] ? { ...t, subscriptionStatus: statusById[t._id] } : t));
 
   /**
    * Les boutons « Activer » et « Suspendre » n'avaient aucun gestionnaire : ils
@@ -48,7 +42,7 @@ export default function BillingPage() {
       const res = await apiSend("PATCH", `/api/superadmin/tenants/${id}`, { subscriptionStatus });
       const d = res.data;
       if (!res.ok) throw new Error(d.error || "Mise à jour refusée.");
-      setTenants(prev => prev.map(t => (t._id === id ? { ...t, subscriptionStatus } : t)));
+      setStatusById(prev => ({ ...prev, [id]: subscriptionStatus }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Mise à jour impossible.");
     } finally {

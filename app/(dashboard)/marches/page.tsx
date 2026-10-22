@@ -1,14 +1,16 @@
 "use client";
 import { IfCan } from "@/components/shared/IfCan";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { useRouter } from "next/navigation";
 import { LIBELLES_PROCEDURES } from "@/lib/niger-fiscal";
 
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 interface Tender { 
   _id: string; 
   reference: string; 
@@ -21,31 +23,15 @@ interface Tender {
 
 export default function MarchesPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [tenders, setTenders] = useState<Tender[]>([]);
-  const [total, setTotal] = useState(0);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const LIMIT = 20;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      // L'API utilise withAuth("publicTenders", "read")
-      const d = await apiJson(`/api/marches?page=${page}&limit=${LIMIT}`);
-      setTenders(d.data?.items || []);
-      setTotal(d.data?.pagination?.total || 0);
-    } catch (err) {
-      console.error("Erreur chargement marchés:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [page]);
-
-  useEffect(() => {
-    setMounted(true);
-    load();
-  }, [load]);
+  // L'API utilise withAuth("publicTenders", "read")
+  const { data: { tenders, total }, loading } = useApi(`/api/marches?page=${page}&limit=${LIMIT}`, d => ({
+    tenders: (d.data?.items || []) as Tender[],
+    total: (d.data?.pagination?.total || 0) as number,
+  }), { tenders: [] as Tender[], total: 0 });
 
   if (!mounted) return null;
 

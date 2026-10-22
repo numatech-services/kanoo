@@ -2,14 +2,16 @@
 import { IfCan } from "@/components/shared/IfCan";
 import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
 import { useUrlReady } from "@/lib/url-param";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 interface Delivery {
   _id: string;
   number: string;
@@ -21,29 +23,22 @@ interface Delivery {
 }
 
 export default function LivraisonsPage() {
-  const [mounted, setMounted] = useState(false);
-  const [items, setItems] = useState<Delivery[]>([]);
-  const [total, setTotal] = useState(0);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [clientId, setClientId] = useState("");
   const ready = useUrlReady(p => setClientId(p.get("clientId") ?? ""));
   const LIMIT = 20;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    if (status) params.set("status", status);
-    if (clientId) params.set("clientId", clientId);
-    if (!ready) return;
-    const d = await apiJson(`/api/livraisons?${params}`);
-    setItems(d.data?.items || []);
-    setTotal(d.data?.pagination?.total || 0);
-    setLoading(false);
-  }, [page, status, clientId, ready]);
-
-  useEffect(() => { setMounted(true); load(); }, [load]);
+  const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  if (status) params.set("status", status);
+  if (clientId) params.set("clientId", clientId);
+  const { data: { items, total }, loading: reading } = useApi(ready ? `/api/livraisons?${params}` : null, d => ({
+    items: (d.data?.items || []) as Delivery[],
+    total: (d.data?.pagination?.total || 0) as number,
+  }), { items: [] as Delivery[], total: 0 });
+  // Tant que les filtres de l'adresse ne sont pas lus, la liste reste « en chargement ».
+  const loading = !ready || reading;
 
   if (!mounted) return null;
 

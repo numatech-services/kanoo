@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { 
   Users, 
   CreditCard, 
@@ -27,8 +27,11 @@ interface DashboardStats {
   pendingContributionsCount: number;
 }
 
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
+
 export default function AssoDashboardPage() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -37,7 +40,6 @@ export default function AssoDashboardPage() {
   };
 
   useEffect(() => {
-    setMounted(true);
     const fetchDashboard = async () => {
       try {
         const d = await apiJson("/api/stats/dashboard");

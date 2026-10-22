@@ -1,14 +1,16 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson } from "@/lib/api-client";
 interface Tender { _id:string; reference:string; object:string; estimatedAmount:number; bidsDeadline?:string; procedure:string; status:string; }
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 export default function AppelsOffresPage() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(()=>{ setMounted(true); apiJson("/api/portail/fournisseur").then(d=>setTenders(d.data?.openTenders||[])).finally(()=>setLoading(false)); },[]);
+  useEffect(()=>{ apiJson("/api/portail/fournisseur").then(d=>setTenders(d.data?.openTenders||[])).finally(()=>setLoading(false)); },[]);
   
   if (!mounted) return null;
   

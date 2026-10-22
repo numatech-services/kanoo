@@ -35,9 +35,8 @@ export function MovementDialog({ product, onClose, onDone, defaultWarehouseId }:
   const isIn = f.type === "entry" || f.type === "return";
   const isAdj = f.type === "adjustment";
 
-  useEffect(() => {
-    if (!f.warehouseId && warehouses.length) setF(p => ({ ...p, warehouseId: (warehouses.find(w => w.isDefault) ?? warehouses[0])._id }));
-  }, [warehouses, f.warehouseId]);
+  // Entrepôt par défaut dès que la liste arrive (ajusté pendant le rendu).
+  if (!f.warehouseId && warehouses.length) setF(p => ({ ...p, warehouseId: (warehouses.find(w => w.isDefault) ?? warehouses[0])._id }));
   useEffect(() => {
     apiJson(`/api/products/${product._id}/stock`).then(d => {
       setAvail(d.data?.lots ?? []);

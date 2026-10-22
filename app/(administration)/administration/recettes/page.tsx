@@ -1,11 +1,12 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 
 import { showToast } from "@/components/ui/Toast";
 import {apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Revenue {
   _id: string;
   reference: string;
@@ -27,9 +28,6 @@ interface ChapterOption {
 }
 
 export default function RecettesPage() {
-  const [revenues, setRevenues] = useState<Revenue[]>([]);
-  const [chapters, setChapters] = useState<ChapterOption[]>([]);
-  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -45,29 +43,13 @@ export default function RecettesPage() {
 
   const [form, setForm] = useState(initialForm);
 
-  // Chargement des données
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [revRes, chapRes] = await Promise.all([
-        fetch("/api/recettes"),
-        fetch("/api/budget?flat=true") 
-      ]);
-      
-      const revData = await revRes.json();
-      const chapData = await chapRes.json();
-
-      setRevenues(Array.isArray(revData) ? revData : (revData.data || []));
-      setChapters(Array.isArray(chapData) ? chapData : (chapData.data || []));
-      
-    } catch (err) {
-      console.error("Erreur de chargement:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
+  // Chargement des données (sans toast d'erreur, comme la lecture d'origine)
+  const revenuesApi = useApi<Revenue[]>("/api/recettes", revData => (Array.isArray(revData) ? revData : (revData.data || [])), [], { quiet: true });
+  const chaptersApi = useApi<ChapterOption[]>("/api/budget?flat=true", chapData => (Array.isArray(chapData) ? chapData : (chapData.data || [])), [], { quiet: true });
+  const revenues = revenuesApi.data;
+  const chapters = chaptersApi.data;
+  const loading = revenuesApi.loading || chaptersApi.loading;
+  const loadData = () => { revenuesApi.reload(); chaptersApi.reload(); };
 
   // Calcul du total encaissé
   const totalCollecte = Array.isArray(revenues) 

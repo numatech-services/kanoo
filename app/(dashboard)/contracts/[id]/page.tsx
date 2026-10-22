@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { PenLine, ReceiptText, FolderKanban, Plus, Trash2, Wallet, FileText } from "lucide-react";
@@ -18,6 +18,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 async function send(url: string, method: string, body?: unknown) {
   const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: body === undefined ? undefined : JSON.stringify(body) });
   const d = await res.json().catch(() => ({}));
@@ -41,29 +42,24 @@ export default function ContractDetailPage() {
   const canEdit = meCanDo(me, "contracts", "update");
   const canInvoice = meCanDo(me, "invoices", "create");
   const canBuy = meCanDo(me, "purchases", "create");
-  const [contract, setContract] = useState<Contract | null>(null);
-  const [finance, setFinance] = useState<MarketFinance | null>(null);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [invoiceFor, setInvoiceFor] = useState<null | { mode: "deposit" | "standard" }>(null);
   const [milestoneOpen, setMilestoneOpen] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!id) return;
-    const [c, f] = await Promise.all([
-      fetch(`/api/contracts/${id}`, { credentials: "include" }).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`/api/contracts/${id}/finance`, { credentials: "include" }).then(r => r.ok ? r.json() : null).catch(() => null),
-    ]);
-    setContract(c?.data ?? null);
-    setFinance(f?.data ?? null);
-    setLoading(false);
-  }, [id]);
-  useEffect(() => { load(); }, [load]);
+  // Lectures silencieuses : l'écran dit lui-même « introuvable ».
+  const contractRes = useApi<Contract | null>(id ? `/api/contracts/${id}` : null, c => (c?.success === false ? null : c?.data ?? null), null, { quiet: true });
+  const financeRes = useApi<MarketFinance | null>(id ? `/api/contracts/${id}/finance` : null, f => (f?.success === false ? null : f?.data ?? null), null, { quiet: true });
+  const contract = contractRes.data;
+  const finance = financeRes.data;
+  // Seul le premier chargement affiche « Chargement… ».
+  const loading = !contractRes.loaded || !financeRes.loaded;
+  const reloadContract = contractRes.reload, reloadFinance = financeRes.reload;
+  const load = useCallback(() => { reloadContract(); reloadFinance(); }, [reloadContract, reloadFinance]);
 
   async function run(fn: () => Promise<unknown>, okText: string) {
     setBusy(true); setMsg(null);
-    try { await fn(); setMsg({ ok: true, text: okText }); await load(); }
+    try { await fn(); setMsg({ ok: true, text: okText }); load(); }
     catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : "Action impossible" }); }
     finally { setBusy(false); }
   }

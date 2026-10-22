@@ -1,19 +1,21 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { getPendingCount, triggerSync } from "@/lib/offline/sync-queue";
 
 import { WifiOff } from "lucide-react";
 import { buttonClass } from "@/components/ui/button-class";
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
+
 export default function OfflinePage() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [pending, setPending] = useState(0);
-  const [online, setOnline] = useState(false);
+  // État réseau lu à l'ouverture (rien n'est affiché côté serveur, voir `mounted`).
+  const [online, setOnline] = useState(() => typeof navigator !== "undefined" && navigator.onLine);
   const router = useRouter();
 
   useEffect(() => {
-    setMounted(true);
-    setOnline(navigator.onLine);
     getPendingCount().then(setPending);
 
     const goOnline = () => { setOnline(true); router.back(); };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   UserPlus, KeyRound, LogOut, ShieldCheck, Copy, Check, Link2, Trash2,
 } from "lucide-react";
@@ -17,6 +17,7 @@ import { AccessEditor, accessPayload, accessChip, emptyAccess, type Access, type
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface User {
   _id: string;
   firstName: string;
@@ -39,15 +40,11 @@ interface Employee { _id: string; firstName: string; lastName: string; code?: st
 
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [group, setGroup] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [tenantType, setTenantType] = useState("pme");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [reset, setReset] = useState<{ user: User; password: string } | null>(null);
   const [resetFor, setResetFor] = useState<User | null>(null);
@@ -56,28 +53,19 @@ export default function UsersPage() {
   const [service, setService] = useState("");
   const LIMIT = 20;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [u, me] = await Promise.all([
-        apiJson(`/api/users?page=${page}&limit=${LIMIT}`),
-        apiJson("/api/auth/me").catch(() => null),
-      ]);
-      setUsers(u.data?.items || []);
-      setTotal(u.data?.pagination?.total || 0);
-      // /api/auth/me renvoie le type sous tenant.type (tenantType n'existe pas) :
-      // sans cela, une association se voyait proposer les rôles d'une PME.
-      const type = me?.data?.tenant?.type ?? me?.data?.tenantType;
-      if (type) setTenantType(type);
-      setError(null);
-    } catch {
-      setError("Lecture des comptes impossible.");
-    } finally {
-      setLoading(false);
-    }
-  }, [page]);
-
-  useEffect(() => { load(); }, [load]);
+  const usersRes = useApi(`/api/users?page=${page}&limit=${LIMIT}`, u => ({
+    users: (u.data?.items || []) as User[],
+    total: (u.data?.pagination?.total || 0) as number,
+  }), { users: [] as User[], total: 0 });
+  // /api/auth/me renvoie le type sous tenant.type (tenantType n'existe pas) :
+  // sans cela, une association se voyait proposer les rôles d'une PME.
+  const meRes = useApi<string | undefined>("/api/auth/me", me => me?.data?.tenant?.type ?? me?.data?.tenantType, undefined);
+  const tenantType = meRes.data || "pme";
+  const { users, total } = usersRes.data;
+  const loading = usersRes.loading || meRes.loading;
+  // Relecture après une action : l'ancien message d'erreur disparaît avec elle.
+  const reloadUsers = usersRes.reload;
+  const load = () => { setError(null); reloadUsers(); };
   useEffect(() => {
     apiJson("/api/employees?limit=300")
       .then(d => setEmployees(d.data?.items || []))
@@ -344,7 +332,7 @@ export default function UsersPage() {
       )}
 
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT) || 1}
-        total={total} limit={LIMIT} onPage={setPage} />
+        total={total} limit={LIMIT} onPage={p => { if (p !== page) setError(null); setPage(p); }} />
 
       {editing && (
         <EditAccessDialog user={editing} roles={roles} onClose={() => setEditing(null)}

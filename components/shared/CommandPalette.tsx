@@ -138,9 +138,12 @@ export function CommandPalette({ profile = "pme" }: { profile?: ProfileType }) {
   // Recherche de fiches (clients, factures) en plus des écrans : la barre du
   // haut annonce « Rechercher une facture, un client… ».
   const [found, setFound] = useState<Command[]>([]);
+  // Requête trop courte : plus de fiches proposées (vidé pendant le rendu).
+  const noSearch = profile !== "pme" || query.trim().length < 2;
+  if (noSearch && found.length > 0) setFound([]);
   useEffect(() => {
     const q = query.trim();
-    if (profile !== "pme" || q.length < 2) { setFound([]); return; }
+    if (noSearch) return;
     const t = setTimeout(async () => {
       const get = (url: string) => fetch(url, { credentials: "include" }).then(r => (r.ok ? r.json() : null)).catch(() => null);
       const [c, i, l] = await Promise.all([
@@ -155,7 +158,7 @@ export function CommandPalette({ profile = "pme" }: { profile?: ProfileType }) {
       ]);
     }, 250);
     return () => clearTimeout(t);
-  }, [query, profile, resources]);
+  }, [query, noSearch, resources]);
 
   const results = useMemo(() => {
     const q = normalize(query.trim());
@@ -206,7 +209,12 @@ export function CommandPalette({ profile = "pme" }: { profile?: ProfileType }) {
     if (open) inputRef.current?.focus();
   }, [open]);
 
-  useEffect(() => { setActive(0); }, [query]);
+  // Nouvelle saisie : la sélection revient en tête (ajustée pendant le rendu).
+  const [activeQuery, setActiveQuery] = useState(query);
+  if (query !== activeQuery) {
+    setActiveQuery(query);
+    setActive(0);
+  }
 
   // La ligne active suit les flèches, y compris hors du cadre visible.
   useEffect(() => {

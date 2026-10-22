@@ -1,17 +1,17 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
+import { useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/ui/DataTable";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
 interface AG { _id:string; title:string; type:string; date:string; location:string; quorumRequired:number; quorumAchieved:number; decisions:Array<{text:string;passed:boolean}>; }
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 export default function AssembleePage() {
   const router=useRouter();
-  const [mounted,setMounted]=useState(false);
-  const [items,setItems]=useState<AG[]>([]); const [loading,setLoading]=useState(true);
-  const load=useCallback(async()=>{setLoading(true);const d = await apiJson("/api/assemblee");setItems(d.data?.items||[]);setLoading(false);},[]);
-  useEffect(()=>{setMounted(true);load();},[load]);
+  const mounted=useSyncExternalStore(noSubscribe,()=>true,()=>false);
+  const {data:items,loading}=useApi<AG[]>("/api/assemblee",d=>d.data?.items||[],[]);
   const columns: Column<AG>[] = [
     {key:"title",label:"Intitulé"},
     {key:"type",label:"Type",render:(v)=><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${v==="ordinary"?"bg-info-50 text-info":"bg-warn-50 text-warn"}`}>{v==="ordinary"?"Ordinaire":"Extraordinaire"}</span>},

@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Plus, ShieldCheck, ShieldOff, AlertTriangle, CalendarClock, Trash2 } from "lucide-react";
@@ -10,6 +10,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { useMe, meCanDo } from "@/lib/useMe";
 import { formatMoney, formatDate } from "@/lib/format";
 import { GUARANTEE_TYPES } from "@/lib/guarantees";
@@ -38,15 +39,12 @@ function CautionsScreen() {
   const canCreate = meCanDo(me, "appels", "create");
   const canPost = meCanDo(me, "accountingEntries", "read");
   const [status, setStatus] = useState("active");
-  const [items, setItems] = useState<Guarantee[]>([]);
-  const [com, setCom] = useState<Commitments | null>(null);
   const [creating, setCreating] = useState(sp.get("new") === "1");
 
-  const load = useCallback(async () => {
-    const d = await apiJson(`/api/cautions${status ? `?status=${status}` : ""}`);
-    setItems(d?.data?.items ?? []); setCom(d?.data?.commitments ?? null);
-  }, [status]);
-  useEffect(() => { load(); }, [load]);
+  const list = useApi<{ items?: Guarantee[]; commitments?: Commitments } | null>(`/api/cautions${status ? `?status=${status}` : ""}`, d => d?.data ?? null, null);
+  const items = list.data?.items ?? [];
+  const com = list.data?.commitments ?? null;
+  const load = list.reload;
 
   async function act(g: Guarantee, kind: "release" | "call" | "extend" | "delete") {
     let res;

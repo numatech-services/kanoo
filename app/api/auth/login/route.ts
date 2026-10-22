@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { comparePassword, signTwoFactorChallenge } from "@/lib/auth";
-import { buildSessionPayload, setSessionCookies } from "@/lib/session";
+import { comparePassword, signTwoFactorChallenge, signToken } from "@/lib/auth";
+import { buildSessionPayload, setSessionCookies, isMobileClient } from "@/lib/session";
 import { badRequest, serverError, unauthorized } from "@/lib/api-helpers";
 import { consumeRateLimit, clearRateLimit, clientIp } from "@/lib/rate-limit";
 import { UserModel } from "@/models/User";
@@ -99,7 +99,8 @@ export async function POST(req: NextRequest) {
     // 2FA activé : ne pas ouvrir la session — exiger d'abord le code TOTP.
     if (user.twoFactorEnabled) {
       const challenge = signTwoFactorChallenge(user._id.toString());
-      const res2 = NextResponse.json({ success: true, data: { twoFactorRequired: true } });
+      // Mobile : pas de cookie, le défi voyage dans la réponse (5 minutes, usage 2FA seul).
+      const res2 = NextResponse.json({ success: true, data: { twoFactorRequired: true, ...(isMobileClient(req) ? { challenge } : {}) } });
       res2.cookies.set("twofa_token", challenge, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -127,9 +128,11 @@ export async function POST(req: NextRequest) {
         // redirige vers le changement. Le signaler ici plutôt que de laisser
         // un mot de passe connu de deux personnes vivre des mois.
         mustChangePassword: Boolean(user.mustChangePassword),
+        // Application mobile : le jeton, à présenter en `Authorization: Bearer`.
+        ...(isMobileClient(req) ? { token: signToken(tokenPayload) } : {}),
       },
     });
-    setSessionCookies(response, tokenPayload);
+    if (!isMobileClient(req)) setSessionCookies(response, tokenPayload);
     return response;
   } catch (err) {
     return serverError(err);

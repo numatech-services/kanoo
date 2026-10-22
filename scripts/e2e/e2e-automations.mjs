@@ -23,7 +23,10 @@ function session() {
   async function req(method, p, body) {
     if (!csrf && method !== "GET") { const r = await fetch(`${BASE}/api/auth/csrf`, { headers: { cookie: cookie() } }); store(r); csrf = (await r.json()).csrfToken; }
     const form = body instanceof FormData;
-    const res = await fetch(`${BASE}${p}`, { method, redirect: "manual", headers: { cookie: cookie(), ...(form ? {} : { "content-type": "application/json" }), ...(method !== "GET" ? { "x-csrf-token": csrf } : {}) }, body: body === undefined ? undefined : form ? body : JSON.stringify(body) });
+    const send = () => fetch(`${BASE}${p}`, { method, redirect: "manual", headers: { cookie: cookie(), ...(form ? {} : { "content-type": "application/json" }), ...(method !== "GET" ? { "x-csrf-token": csrf } : {}) }, body: body === undefined ? undefined : form ? body : JSON.stringify(body) });
+    // Connexion « keep-alive » fermée par le serveur pendant une pause du
+    // scénario (lancement d'une tâche datée) : une lecture est rejouée une fois.
+    const res = await send().catch(err => (method === "GET" && err?.cause?.code === "ECONNRESET" ? send() : Promise.reject(err)));
     store(res);
     const type = res.headers.get("content-type") || "";
     const data = type.includes("json") ? await res.json().catch(() => null) : await res.text();

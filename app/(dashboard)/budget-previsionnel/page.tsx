@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus, Target, TrendingUp, TrendingDown, Trash2 } from "lucide-react";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -15,7 +15,8 @@ import {
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken, apiJson, apiSend } from "@/lib/api-client";
+import { csrfToken as getCsrfToken, apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Profile { label: string; weights: number[] }
 
 interface Payload {
@@ -48,26 +49,20 @@ async function csrf() {
 
 export default function BudgetPrevisionnelPage() {
   const [year, setYear] = useState(new Date().getFullYear());
-  const [data, setData] = useState<Payload | null>(null);
-  const [loading, setLoading] = useState(true);
   const [flow, setFlow] = useState<"" | "in" | "out">("");
-  const [error, setError] = useState<string | null>(null);
+  // Erreur d'une action (suppression) ; effacée à la lecture suivante.
+  const [actionError, setActionError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    apiJson(`/api/budget-previsionnel?year=${year}`)
-      .then(d => {
-        if (!d.success) throw new Error(d.error || "Lecture impossible");
-        setData(d.data);
-        setError(null);
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [year]);
-
-  useEffect(() => { load(); }, [load]);
+  const budgetRes = useApi<Payload | null>(`/api/budget-previsionnel?year=${year}`, d => (d.success ? d.data : null), null);
+  const { loading } = budgetRes;
+  // Une lecture en échec garde le dernier budget affiché (avec le message d'erreur).
+  const [lastData, setLastData] = useState<Payload | null>(null);
+  if (budgetRes.data && budgetRes.data !== lastData) setLastData(budgetRes.data);
+  const data = budgetRes.data ?? lastData;
+  const error = budgetRes.error ?? actionError;
+  const load = () => { setActionError(null); budgetRes.reload(); };
 
   if (loading && !data) return <div className="h-96 surface-card animate-pulse" />;
   if (!data) {
@@ -93,7 +88,7 @@ export default function BudgetPrevisionnelPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <select value={year} onChange={e => setYear(Number(e.target.value))}
+          <select value={year} onChange={e => { setActionError(null); setYear(Number(e.target.value)); }}
             className="h-10 px-3 rounded-lg border border-line2 bg-surface text-sm text-ink">
             {[year + 1, year, year - 1, year - 2].filter((v, i, a) => a.indexOf(v) === i)
               .sort((a, b) => b - a)
@@ -105,7 +100,7 @@ export default function BudgetPrevisionnelPage() {
               <button onClick={async () => {
                 if (!(await confirmDialog({ title: `Supprimer le budget ${year} ?`, message: `Le réalisé comptable n'est pas touché.`, danger: true }))) return;
                 const res = await apiSend("DELETE", `/api/budget-previsionnel?year=${year}`);
-                if (res.ok) load(); else setError("Suppression impossible");
+                if (res.ok) load(); else setActionError("Suppression impossible");
               }} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50" title="Supprimer le budget"><Trash2 size={15} /></button>
             </>
           )}

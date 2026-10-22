@@ -1,10 +1,16 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { NotificationsBell } from "@/components/shared/NotificationsBell";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Search, CalendarDays, Menu } from "lucide-react";
 import { useMe } from "@/lib/useMe";
+
+// Valeurs propres au navigateur, sans abonnement : le rendu serveur et
+// l'hydratation utilisent la valeur « serveur », puis React relit aussitôt.
+const noSubscribe = () => () => {};
+const shortcutLabel = () => (navigator.platform?.toUpperCase().includes("MAC") ? "⌘ K" : "Ctrl K");
+const todayLabel = () => new Date().toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 
 /**
  * Barre du haut (charte v5) : recherche en pilule, date, notifications. Sur
@@ -13,18 +19,12 @@ import { useMe } from "@/lib/useMe";
  */
 export function TopBar() {
   const { user } = useMe();
-  const [mounted, setMounted] = useState(false);
-  // Le libellé du raccourci dépend de la plateforme, et n'est connu qu'après
-  // montage : l'afficher côté serveur produirait une divergence d'hydratation.
-  const [shortcut, setShortcut] = useState("Ctrl K");
-  // La date est calculée après montage, pour la même raison.
-  const [today, setToday] = useState("");
-
-  useEffect(() => {
-    setMounted(true);
-    if (navigator.platform?.toUpperCase().includes("MAC")) setShortcut("⌘ K");
-    setToday(new Date().toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", year: "numeric" }));
-  }, []);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
+  // Le libellé du raccourci dépend de la plateforme, et n'est connu que dans
+  // le navigateur : l'afficher côté serveur produirait une divergence d'hydratation.
+  const shortcut = useSyncExternalStore(noSubscribe, shortcutLabel, () => "Ctrl K");
+  // La date est lue dans le navigateur, pour la même raison.
+  const today = useSyncExternalStore(noSubscribe, todayLabel, () => "");
 
   return (
     <header className="flex items-center gap-2.5 px-4 sm:px-7 pt-4 lg:pt-5 pb-2 flex-shrink-0">

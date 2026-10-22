@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { 
   ArrowLeft, Printer, CheckCircle, XCircle, 
@@ -11,6 +11,7 @@ import Link from "next/link";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 
 // Champs de l'engagement affichés par la fiche
 interface EngagementDetail {
@@ -30,35 +31,14 @@ export default function EngagementDetailsPage() {
   const id = params?.id as string;
   const router = useRouter();
 
-  const [data, setData] = useState<EngagementDetail | null>(null);
-  const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const fetchEngagement = useCallback(async () => {
-    if (!id) return;
-    try {
-      setLoading(true);
-      const res = await fetch(`/api/budget/engagements/${id}`);
-      const result = await res.json();
-      
-      if (!res.ok) {
-        setErrorMsg(result.message || "Impossible de charger l'engagement");
-      } else {
-        // On récupère result.data car ton API enveloppe maintenant la réponse
-        setData(result.data || result);
-      }
-    } catch (err) {
-      console.error("Erreur de chargement:", err);
-      setErrorMsg("Erreur réseau ou serveur");
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    fetchEngagement();
-  }, [fetchEngagement]);
+  // On récupère result.data car l'API enveloppe la réponse.
+  const { data, loading, error: errorMsg, reload } = useApi<EngagementDetail | null>(
+    id ? `/api/budget/engagements/${id}` : null,
+    result => (result.success === false ? null : result.data || result),
+    null,
+    { quiet: true },
+  );
 
   const handleStatusUpdate = async (newStatus: 'approuve' | 'rejete' | 'mandate') => {
     if (!(await confirmDialog({ title: `Confirmez-vous le passage au statut : ${newStatus}?` }))) return;
@@ -74,7 +54,7 @@ export default function EngagementDetailsPage() {
       });
 
       if (res.ok) {
-        await fetchEngagement();
+        reload();
         router.refresh();
       } else {
         const errData = await res.json();

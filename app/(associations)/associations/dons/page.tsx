@@ -1,17 +1,18 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
 interface Don { _id:string; donorName?:string; donorType:string; amount:number; currency:string; campaign?:string; date:string; receiptNumber:string; }
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 export default function DonsPage() {
-  const [mounted,setMounted]=useState(false);
-  const [items,setItems]=useState<Don[]>([]); const [total,setTotal]=useState(0); const [page,setPage]=useState(1); const [loading,setLoading]=useState(true);
+  const mounted=useSyncExternalStore(noSubscribe,()=>true,()=>false);
+  const [page,setPage]=useState(1);
   const LIMIT=20;
-  const load=useCallback(async()=>{setLoading(true);const d = await apiJson(`/api/dons?page=${page}&limit=${LIMIT}`);setItems(d.data?.items||[]);setTotal(d.data?.pagination?.total||0);setLoading(false);},[page]);
-  useEffect(()=>{setMounted(true);load();},[load]);
+  const {data:{items,total},loading}=useApi<{items:Don[];total:number}>(`/api/dons?page=${page}&limit=${LIMIT}`,d=>({items:d.data?.items||[],total:d.data?.pagination?.total||0}),{items:[],total:0});
   if (!mounted) return null;
   const totalXOF=items.filter(d=>d.currency==="XOF").reduce((s,d)=>s+d.amount,0);
   const columns: Column<Don>[] = [

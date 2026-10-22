@@ -1,24 +1,26 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { InvoiceForm, type InvoiceFormData } from "@/components/pme/InvoiceForm";
 import { showToast } from "@/components/ui/Toast";
 
 import { apiJson, apiSend } from "@/lib/api-client";
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 export default function EditInvoicePage() {
   const { id } = useParams();
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [loading, setLoading] = useState(true);
   const [invoiceData, setInvoiceData] = useState<Partial<InvoiceFormData> | null>(null);
 
-  const loadInvoice = useCallback(async () => {
-    try {
-      const d = await apiJson(`/api/invoices/${id}`);
-      const invoice = d.data || d;
-      
-      if (invoice) {
+  // Pré-remplissage du formulaire : les états ne changent qu'à l'arrivée de la réponse.
+  useEffect(() => {
+    apiJson(`/api/invoices/${id}`)
+      .then(d => {
+        const invoice = d.data || d;
+        if (!invoice) return;
         if (["paid", "cancelled"].includes(invoice.status)) {
           showToast("Une facture soldée ou annulée ne peut plus être modifiée.", "warning");
           router.push(`/invoices/${id}`);
@@ -32,18 +34,10 @@ export default function EditInvoicePage() {
           lines: invoice.lines || [],
           notes: invoice.notes || "",
         });
-      }
-    } catch (err) {
-      console.error("Erreur de chargement de la facture :", err);
-    } finally {
-      setLoading(false);
-    }
+      })
+      .catch(err => console.error("Erreur de chargement de la facture :", err))
+      .finally(() => setLoading(false));
   }, [id, router]);
-
-  useEffect(() => {
-    setMounted(true);
-    loadInvoice();
-  }, [loadInvoice]);
 
   if (!mounted) return null;
   

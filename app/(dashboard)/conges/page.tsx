@@ -1,12 +1,13 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { CalendarClock, Plus, Check, X, Ban, Trash2 } from "lucide-react";
 import { selectCls } from "@/components/ui/FormField";
 import { RequestDialog } from "@/components/hr/LeaveRequestDialog";
 import { LEAVE_TYPES } from "@/lib/leave-types";
 
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
-import {apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
 interface Leave {
   _id: string; type: string; startDate: string; endDate: string; days: number; reason?: string; status: string;
@@ -23,24 +24,21 @@ const d = (s: string) => new Date(s).toLocaleDateString("fr-FR");
 /** Congés : mes demandes et mon solde ; pour un responsable, les demandes à valider. */
 export default function LeavesPage() {
   const [tab, setTab] = useState<"mine" | "team">("mine");
-  const [items, setItems] = useState<Leave[]>([]);
   const [balance, setBalance] = useState<Balance | null>(null);
-  const [canDecide, setCanDecide] = useState(false);
-  const [hasEmployee, setHasEmployee] = useState(true);
   const [status, setStatus] = useState("");
   const [open, setOpen] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const load = useCallback(async () => {
-    const p = new URLSearchParams({ scope: tab === "mine" ? "mine" : "team" });
-    if (status) p.set("status", status);
-    const d = await apiJson(`/api/leaves?${p}`).catch(() => null);
-    setItems(d?.data?.items ?? []);
-    if (tab === "mine") setBalance(d?.data?.balance ?? null);
-    setCanDecide(!!d?.data?.canDecide);
-    setHasEmployee(!!d?.data?.ownEmployeeId);
-  }, [tab, status]);
-  useEffect(() => { load(); }, [load]);
+  const p = new URLSearchParams({ scope: tab === "mine" ? "mine" : "team" });
+  if (status) p.set("status", status);
+  const list = useApi<{ items?: Leave[]; balance?: Balance; canDecide?: boolean; ownEmployeeId?: string } | null>(`/api/leaves?${p}`, r => r?.data ?? null, null);
+  const items = list.data?.items ?? [];
+  const canDecide = !!list.data?.canDecide;
+  const hasEmployee = list.loaded ? !!list.data?.ownEmployeeId : true;
+  const load = list.reload;
+  // Le solde n'est lu que sur l'onglet « mes demandes » : on garde le dernier reçu.
+  const mineBalance = !list.loading && tab === "mine" ? list.data?.balance ?? null : undefined;
+  if (mineBalance !== undefined && mineBalance !== balance) setBalance(mineBalance);
 
   async function act(id: string, action: string) {
     const note = action === "reject" ? await promptDialog({ title: "Motif du refus :", multiline: true }) ?? undefined : undefined;

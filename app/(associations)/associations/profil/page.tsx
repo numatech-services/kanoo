@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { User, Mail, Shield, Camera, Save, Lock, ArrowLeft, Phone, Loader2, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
 import { buttonClass } from "@/components/ui/button-class";
 import {apiJson, apiSend } from "@/lib/api-client";
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
+
 export default function ProfilPage() {
   // 1. État complet du formulaire pour correspondre à ton UserModel
   const [formData, setFormData] = useState({
@@ -19,12 +22,11 @@ export default function ProfilPage() {
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
 
   // 2. Chargement des données
   useEffect(() => {
-    setMounted(true);
     apiJson("/api/auth/me")
       .then((d) => {
         if (d.success) {

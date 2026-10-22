@@ -1,7 +1,7 @@
 "use client";
 
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { CreditNoteDialog } from "@/components/pme/CreditNoteDialog";
@@ -14,6 +14,9 @@ import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
 import { RefundPanel } from "@/components/invoices/RefundPanel";
 import { showToast } from "@/components/ui/Toast";
+import { useApi } from "@/lib/use-api";
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 interface InvoiceLine { 
   description: string; 
   quantity: number; 
@@ -57,12 +60,10 @@ export default function InvoiceDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [creditOpen, setCreditOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [dunningBusy, setDunningBusy] = useState(false);
   const [dunningNote, setDunningNote] = useState<{ ok: boolean; text: string } | null>(null);
-  const [loading, setLoading] = useState(true);
 
   
   
@@ -70,7 +71,6 @@ export default function InvoiceDetailPage() {
 
   const [user, setUser] = useState<{ firstName: string; lastName: string } | null>(null);
   useEffect(() => {
-    setMounted(true);
     apiJson("/api/auth/me")
       .then((d) => setUser(d.data?.user || null))
       .catch(() => {});
@@ -89,27 +89,13 @@ export default function InvoiceDetailPage() {
   // État de gestion pour l'état d'impression
   const [isPrinting, setIsPrinting] = useState(false);
 
- const load = useCallback(async () => {
-  setLoading(true);
-  try {
-    const res = await fetch(`/api/invoices/${id}`, { 
-      credentials: "include",
-      cache: "no-store" //   mis à jour
-    });
-    const d = await res.json();
-    setInvoice(d.data || d);
-  } catch (err) {
-    console.error("Erreur de récupération :", err);
-  } finally {
-    setLoading(false);
-  }
-}, [id]);
-
-
-  useEffect(() => { 
-    setMounted(true); 
-    load(); 
-  }, [load]);
+  // Facture relue après chaque action ; une lecture refusée affiche « Facture introuvable ».
+  const { data: invoice, loading, reload: load } = useApi<Invoice | null>(
+    `/api/invoices/${id}`,
+    d => (d.success === false ? null : d.data || d),
+    null,
+    { quiet: true },
+  );
 
   if (!mounted) return null;
 

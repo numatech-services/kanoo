@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Printer, Edit3, ArrowLeft, CheckCircle2, PackageCheck, Ban, Trash2, FileText } from "lucide-react";
@@ -12,7 +12,8 @@ import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEdi
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Line {
   productId?: { _id: string; code: string; label: string; unit?: string; trackingMode?: string } | string;
   description: string; quantity: number; unitPrice: number; totalHT: number; receivedQty?: number;
@@ -39,22 +40,19 @@ export default function CommandeDetailPage() {
   const canEdit = meCanDo(me, "commandes", "update");
   const canDelete = meCanDo(me, "commandes", "delete");
   const canPurchase = meCanDo(me, "purchases", "create");
-  const [item, setItem] = useState<Commande | null>(null);
-  const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    const d = await apiJson(`/api/commandes/${id}`).catch(() => null);
-    setItem(d?.data ?? null);
-    setLoading(false);
-  }, [id]);
-  useEffect(() => { load(); }, [load]);
+  const commande = useApi<Commande | null>(`/api/commandes/${id}`, d => d?.data ?? null, null);
+  const item = commande.data;
+  // Seul le premier chargement affiche le squelette.
+  const loading = !commande.loaded;
+  const load = commande.reload;
 
   async function act(fn: () => Promise<unknown>) {
     setError("");
-    try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Action impossible"); }
+    try { await fn(); load(); } catch (e) { setError(e instanceof Error ? e.message : "Action impossible"); }
   }
 
   if (loading) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-line" /></div>;

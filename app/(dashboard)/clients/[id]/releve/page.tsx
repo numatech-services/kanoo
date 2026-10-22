@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Download, Mail, FileText, Receipt, Banknote } from "lucide-react";
@@ -10,7 +10,7 @@ import { fullXof, compactXof } from "@/components/ui/charts/geometry";
 import { KIND_LABEL, type Statement, type StatementKind } from "@/lib/statement";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Payload {
   client: { name: string; code?: string; email?: string; nif?: string; address?: string };
   statement: Statement;
@@ -37,23 +37,14 @@ export default function RelevePage() {
   const { id } = useParams();
   const [from, setFrom] = useState(firstOfYear());
   const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
-  const [data, setData] = useState<Payload | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    apiJson(`/api/clients/${id}/releve?from=${from}&to=${to}`)
-      .then(d => {
-        if (!d.success) throw new Error(d.error || "Lecture impossible");
-        setData(d.data);
-        setError(null);
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [id, from, to]);
-
-  useEffect(() => { load(); }, [load]);
+  const releve = useApi<Payload | null>(
+    `/api/clients/${id}/releve?from=${from}&to=${to}`, d => (d.success ? d.data : null), null,
+  );
+  const { loading, error } = releve;
+  // Une lecture en échec garde le dernier relevé affiché (avec le message d'erreur).
+  const [lastData, setLastData] = useState<Payload | null>(null);
+  if (releve.data && releve.data !== lastData) setLastData(releve.data);
+  const data = releve.data ?? lastData;
 
   if (loading && !data) return <div className="h-96 surface-card animate-pulse" />;
   if (!data) {

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Plus, Search, Receipt } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
@@ -8,7 +8,7 @@ import { inputCls, selectCls } from "@/components/ui/FormField";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { useUrlReady } from "@/lib/url-param";
 interface Purchase {
   _id: string; number: string; kind: "invoice" | "cash"; date: string; dueDate?: string; payee?: string; supplierRef?: string;
@@ -21,9 +21,6 @@ const STATUS: Record<string, string> = { draft: "Brouillon", validated: "À paye
 export default function PurchasesPage() {
   const me = useMe();
   const canCreate = meCanDo(me, "purchases", "create");
-  const [items, setItems] = useState<Purchase[]>([]);
-  const [total, setTotal] = useState(0);
-  const [totals, setTotals] = useState({ totalTTC: 0, paid: 0, remaining: 0 });
   const [page, setPage] = useState(1);
   const [f, setF] = useState({ status: "", kind: "", from: "", to: "", q: "", due: "" });
   const [q, setQ] = useState("");
@@ -31,14 +28,13 @@ export default function PurchasesPage() {
 
   // Filtres repris de l'adresse (liens du brief du jour, des pastilles…).
   const ready = useUrlReady(p => setF(x => ({ ...x, status: p.get("status") ?? "", due: p.get("due") ?? "", kind: p.get("kind") ?? "" })));
-  const load = useCallback(async () => {
-    if (!ready) return;
-    const p = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    for (const [k, v] of Object.entries(f)) if (v) p.set(k, v);
-    const d = await apiJson(`/api/achats?${p}`).catch(() => null);
-    setItems(d?.data?.items ?? []); setTotal(d?.data?.pagination?.total ?? 0); setTotals(d?.data?.totals ?? { totalTTC: 0, paid: 0, remaining: 0 });
-  }, [page, f, ready]);
-  useEffect(() => { load(); }, [load]);
+  const p = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  for (const [k, v] of Object.entries(f)) if (v) p.set(k, v);
+  const { data: { items, total, totals } } = useApi(ready ? `/api/achats?${p}` : null, d => ({
+    items: (d?.data?.items ?? []) as Purchase[],
+    total: (d?.data?.pagination?.total ?? 0) as number,
+    totals: (d?.data?.totals ?? { totalTTC: 0, paid: 0, remaining: 0 }) as { totalTTC: number; paid: number; remaining: number },
+  }), { items: [], total: 0, totals: { totalTTC: 0, paid: 0, remaining: 0 } });
   useEffect(() => { const t = setTimeout(() => { setPage(1); setF(x => ({ ...x, q: q.trim() })); }, 300); return () => clearTimeout(t); }, [q]);
   const setFilter = (patch: Partial<typeof f>) => { setPage(1); setF(x => ({ ...x, ...patch })); };
 

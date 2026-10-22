@@ -1,18 +1,13 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 export default function TVAPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()+1);
-  const [data, setData] = useState<{tvaCollectee:number;tvaDeductible:number;tvaNette:number;aVerser:number;creditReporte:number;statut:string}|null>(null);
-  const [loading, setLoading] = useState(false);
-  useEffect(()=>{
-    setLoading(true);
-    apiJson(`/api/fiscal/tva?annee=${year}&mois=${month}`).then(d=>setData(d.data)).finally(()=>setLoading(false));
-  },[year,month]);
+  const { data, loading } = useApi<{tvaCollectee:number;tvaDeductible:number;tvaNette:number;aVerser:number;creditReporte:number;statut:string}|null>(`/api/fiscal/tva?annee=${year}&mois=${month}`, d=>d.data ?? null, null);
   const inp = "px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
   const MONTHS = ["","Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
   return (

@@ -78,6 +78,31 @@ jobs:
           for i in $(seq 1 60); do curl -fsS -o /dev/null http://127.0.0.1:3099/api/health && break; sleep 1; done
       - name: Scénarios de bout en bout
         run: bash scripts/e2e/run-all.sh
+      - name: Test de fumée navigateur (toutes les pages)
+        run: |
+          bash scripts/e2e/run-all.sh e2e-complet
+          node scripts/e2e/ui-smoke.mjs "$PWD"
       - name: Journal du serveur (en cas d'échec)
         if: failure()
         run: tail -200 /tmp/server.log
+
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Typage
+        run: npx tsc --noEmit
+      - name: Compatibilité avec le SDK Expo
+        run: CI=1 npx expo install --check
+      - name: Construction des paquets iOS et Android
+        run: CI=1 npx expo export --platform ios --platform android --output-dir /tmp/mobile-export

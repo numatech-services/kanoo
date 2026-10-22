@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useSyncExternalStore } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, XCircle, ArrowLeft, Keyboard, Camera, Wifi, WifiOff, DownloadCloud, RefreshCw } from "lucide-react";
@@ -11,6 +11,8 @@ interface Result { valid: boolean; reason?: string; name?: string; ticketTypeNam
 interface Ticket { code: string; name: string; present: boolean }
 interface Manifest { ts: number; byId: Record<string, Ticket>; byCode: Record<string, string> }
 interface QueueItem { code: string; at: number }
+
+const noSubscribe = () => () => {};
 
 // Parse local du QR (pas de vérif de signature côté client — faite au serveur).
 function parseQr(payload: string): { id: string; code: string } | null {
@@ -172,18 +174,27 @@ export default function CheckinPage() {
     };
   }, [verify]);
 
-  // État réseau + init compteurs + sync auto au retour en ligne.
-  useEffect(() => {
+  // État réseau + compteurs, lus une fois dans le navigateur (le rendu serveur
+  // n'a ni réseau ni stockage local) : ajustés au premier rendu côté client.
+  const inBrowser = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const [initialized, setInitialized] = useState(false);
+  if (inBrowser && !initialized) {
+    setInitialized(true);
     setOnline(navigator.onLine);
     setCached(Object.keys(readManifest()?.byId || {}).length);
     setPending(readQueue().length);
+  }
+
+  // Sync auto au retour en ligne.
+  useEffect(() => {
     const goOnline = () => { setOnline(true); sync(); };
     const goOffline = () => setOnline(false);
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
-    if (navigator.onLine) sync();
+    // La synchro ne touche l'état qu'après ses envois : lancée en tâche différée.
+    if (navigator.onLine) queueMicrotask(sync);
     return () => { window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); };
-  }, [readManifest, readQueue, sync]);
+  }, [sync]);
 
   return (
     <div className="max-w-md mx-auto space-y-4">

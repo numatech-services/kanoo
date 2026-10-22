@@ -2,7 +2,7 @@
 
 import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
 import { useUrlReady } from "@/lib/url-param";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, FolderKanban } from "lucide-react";
 import { KpiCard } from "@/components/ui/KpiCard";
@@ -50,32 +50,37 @@ function progressTone(rate: number): string {
 export function ProjectsBoard({ vocabulary }: { vocabulary: ProjectVocabulary }) {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [clientId, setClientId] = useState("");
   const ready = useUrlReady(p => setClientId(p.get("clientId") ?? ""));
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ limit: "100" });
-      if (statusFilter) params.set("status", statusFilter);
-      if (clientId) params.set("clientId", clientId);
-      if (!ready) return;
-      const res = await fetch(`/api/projects?${params}`, { credentials: "include" });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || "Chargement impossible");
-      setProjects(d.data?.items || []);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Chargement impossible");
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, clientId, ready]);
+  const params = new URLSearchParams({ limit: "100" });
+  if (statusFilter) params.set("status", statusFilter);
+  if (clientId) params.set("clientId", clientId);
+  const url = `/api/projects?${params}`;
+  // Adresse de la dernière réponse : « chargement » se déduit (l'adresse
+  // demandée n'a pas encore de réponse), sans setState avant la lecture.
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const loading = !ready || loadedUrl !== url;
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!ready) return;
+    let alive = true;
+    fetch(url, { credentials: "include" })
+      .then(res => res.json().then(d => {
+        if (!res.ok) throw new Error(d.error || "Chargement impossible");
+        return d;
+      }))
+      .then(d => {
+        if (!alive) return;
+        setProjects(d.data?.items || []);
+        setError(null);
+      })
+      .catch(err => { if (alive) setError(err instanceof Error ? err.message : "Chargement impossible"); })
+      .finally(() => { if (alive) setLoadedUrl(url); });
+    return () => { alive = false; };
+  }, [url, ready]);
 
   // Les totaux portent sur les projets chargés (100 au plus, filtre compris),
   // pas sur l'ensemble du portefeuille : l'intitulé le dit.

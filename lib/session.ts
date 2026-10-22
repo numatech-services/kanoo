@@ -117,3 +117,14 @@ export function clearSessionCookies(response: NextResponse): void {
     response.cookies.set(name, "", { httpOnly: true, path: "/", maxAge: 0 });
   }
 }
+
+/**
+ * Appel venant de l'application mobile (en-tête `x-kanoo-client: mobile`).
+ * Elle n'a pas de cookies : la connexion lui rend le jeton dans la réponse,
+ * qu'elle range dans le trousseau du téléphone (SecureStore) et renvoie en
+ * `Authorization: Bearer`. Même jeton, même durée et même révocation (version
+ * de session) que la session web.
+ */
+export function isMobileClient(req: { headers: { get(name: string): string | null } }): boolean {
+  return req.headers.get("x-kanoo-client") === "mobile";
+}

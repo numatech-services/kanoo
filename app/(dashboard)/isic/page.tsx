@@ -1,7 +1,7 @@
 "use client";
 
 import { isicBatchFinance } from "@/lib/isic-finance";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CreditCard, Plus, GraduationCap, BookUser } from "lucide-react";
@@ -11,7 +11,8 @@ import { useMe, meCan } from "@/lib/useMe";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
-import {apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 export interface Batch {
   _id: string; reference: string; universityName: string; academicYear?: string;
   status: string; totalCards: number; unitLicenseFee: number; unitSalePrice: number;
@@ -39,16 +40,9 @@ export default function IsicListPage() {
   const router = useRouter();
   const { resources } = useMe();
   const canFinance = meCan(resources, "isicFinance");
-  const [items, setItems] = useState<Batch[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items, loading } = useApi<Batch[]>("/api/isic", d => d.data?.items || [], []);
   const [open, setOpen] = useState(false);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    apiJson("/api/isic")
-      .then(d => setItems(d.data?.items || [])).finally(() => setLoading(false));
-  }, []);
-  useEffect(() => { load(); }, [load]);
 
   // Marge à terminaison : revente − licences, impression, tours de cou, frais opérationnels et autres.
   const totalMargin = items.reduce((s, b) => s + isicBatchFinance(b).forecastMargin, 0);

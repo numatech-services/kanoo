@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Link2, Unlink, Wand2 } from "lucide-react";
 import { selectCls } from "@/components/ui/FormField";
@@ -7,24 +7,26 @@ import { selectCls } from "@/components/ui/FormField";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
-import {apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Row { entryId: string; date: string; reference: string; label: string; account: string; debit: number; credit: number; thirdParty: string | null; thirdPartyId: string | null; isLettered: boolean; letterRef: string | null }
 const fmt = (n: number) => n.toLocaleString("fr-FR");
+const NO_ROWS: Row[] = [];
 
 /** Lettrage : rapprocher factures et règlements d'un compte de tiers, par sélection. */
 export default function LettragePage() {
   const [account, setAccount] = useState("411");
   const [state, setState] = useState<"open" | "lettered">("open");
-  const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [party, setParty] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const load = useCallback(async () => {
-    const d = await apiJson(`/api/accounting-entries/lettrage?account=${account}&state=${state}`).catch(() => null);
-    setRows(d?.data ?? []); setSelected(new Set());
-  }, [account, state]);
-  useEffect(() => { load(); }, [load]);
+  const { data: rows, reload: load } = useApi<Row[]>(
+    `/api/accounting-entries/lettrage?account=${account}&state=${state}`, d => d?.data ?? NO_ROWS, NO_ROWS,
+  );
+  // Chaque nouvelle lecture vide la sélection.
+  const [shownRows, setShownRows] = useState(rows);
+  if (rows !== shownRows) { setShownRows(rows); setSelected(new Set()); }
 
   const parties = useMemo(() => [...new Map(rows.filter(r => r.thirdPartyId).map(r => [r.thirdPartyId!, r.thirdParty ?? "?"])).entries()], [rows]);
   const visible = rows.filter(r => !party || r.thirdPartyId === party);

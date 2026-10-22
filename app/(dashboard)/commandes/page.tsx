@@ -1,35 +1,30 @@
 "use client";
 import { IfCan } from "@/components/shared/IfCan";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { buttonClass } from "@/components/ui/button-class";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import Link from "next/link"; // Import indispensable
 
 interface Commande { _id:string; number:string; supplierId:{name:string}|string; totalTTC:number; status:string; orderDate:string; expectedDeliveryDate?:string; }
 
+const noSubscribe = () => () => {};
+
 export default function CommandesPage() {
-  const [mounted, setMounted] = useState(false);
-  const [commandes, setCommandes] = useState<Commande[]>([]);
-  const [total, setTotal] = useState(0); 
+  // Rendu côté navigateur uniquement (dates au format local).
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [page, setPage] = useState(1); 
-  const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState(""); 
   const LIMIT = 20;
 
-  const load = useCallback(async()=>{
-    setLoading(true);
-    const params = new URLSearchParams({page:String(page),limit:String(LIMIT)});
-    if(status) params.set("status",status);
-    const d = await apiJson(`/api/commandes?${params}`); 
-    setCommandes(d.data?.items||[]); 
-    setTotal(d.data?.pagination?.total||0); 
-    setLoading(false);
-  },[page,status]);
-
-  useEffect(()=>{setMounted(true);load();},[load]);
+  const params = new URLSearchParams({page:String(page),limit:String(LIMIT)});
+  if(status) params.set("status",status);
+  const list = useApi<{ items?: Commande[]; pagination?: { total?: number } } | null>(`/api/commandes?${params}`, d => d.data ?? null, null);
+  const commandes = list.data?.items||[];
+  const total = list.data?.pagination?.total||0;
+  const loading = list.loading;
 
   if(!mounted) return null;
 const columns: Column<Commande>[] = [

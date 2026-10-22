@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Modal } from "@/components/ui/Modal";
@@ -44,6 +44,9 @@ interface Project {
 
 // Les libellés viennent de lib/vocabulary : la table locale mélangeait états
 // de projet et états de tâche sous les mêmes clés.
+// Faux au rendu serveur et pendant l'hydratation (rien n'est affiché), vrai ensuite.
+const noSubscribe = () => () => {};
+
 const STATUS_FR: Record<string, string> = { ...PROJECT_STATUS_FR, ...TASK_STATUS_FR };
 
 /**
@@ -69,7 +72,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
   const [msModal, setMsModal] = useState(false);
   const [newMs, setNewMs] = useState<Milestone>({ label: "", dueDate: "", amount: 0 });
 
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<Project | null>(null);
   const [userId, setUserId] = useState("");
@@ -85,21 +88,20 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
   const [bureauMembers, setBureauMembers] = useState<BureauMember[]>([]);
   const [newMember, setNewMember] = useState({ userId: "", role: "contributor" });
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [authRes, projRes] = await Promise.all([
-        fetch("/api/auth/me", { credentials: "include" }),
-        fetch(`/api/projects/${id}`, { credentials: "include" })
-      ]);
-      const authData = await authRes.json();
-      const projData = await projRes.json();
+  // Écrit à l'arrivée des réponses (`.then`), jamais avant : appelable depuis l'effet.
+  const fetchData = useCallback((): Promise<void> => Promise.all([
+      fetch("/api/auth/me", { credentials: "include" }),
+      fetch(`/api/projects/${id}`, { credentials: "include" })
+    ])
+    .then(([authRes, projRes]) => Promise.all([authRes.json(), projRes.json()]))
+    .then(([authData, projData]) => {
       setUserId(authData.data?.user?._id || "");
       setProject(projData.data);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, [id]);
+    })
+    .catch(err => { console.error(err); })
+    .finally(() => { setLoading(false); }), [id]);
 
   useEffect(() => {
-    setMounted(true);
     fetchData();
   }, [fetchData]);
 

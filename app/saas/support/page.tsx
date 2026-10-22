@@ -1,14 +1,16 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson } from "@/lib/api-client";
 interface Ticket { _id:string; subject:string; priority:string; status:string; userId:string; createdAt:string; }
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 export default function SupportPage() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => { setMounted(true); apiJson("/api/support/tickets?limit=50").then(d=>setTickets(d.data?.items||[])).finally(()=>setLoading(false)); },[]);
+  useEffect(() => { apiJson("/api/support/tickets?limit=50").then(d=>setTickets(d.data?.items||[])).finally(()=>setLoading(false)); },[]);
   const PRIO:Record<string,string> = {low:"bg-surface2 text-ink2",medium:"bg-info-50 text-info",high:"bg-warn-50 text-warn",critical:"bg-neg-50 text-neg"};
   const columns: Column<Ticket>[] = [
     { key:"subject", label:"Sujet" },

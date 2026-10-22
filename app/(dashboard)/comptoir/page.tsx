@@ -775,10 +775,11 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Pré-remplit l'encaissement d'une vente à partir du prix de vente indicatif.
-  useEffect(() => {
-    if (type === "out" && item.salePrice && quantity) setCashAmount(String(item.salePrice * Number(quantity)));
-  }, [type, quantity, item.salePrice]);
+  // Pré-remplit l'encaissement d'une vente à partir du prix de vente indicatif
+  // (au choix du type comme à la saisie de la quantité).
+  const prefillCash = (t: "in" | "out" | "adjust", q: string) => {
+    if (t === "out" && item.salePrice && q) setCashAmount(String(item.salePrice * Number(q)));
+  };
 
   async function save() {
     const n = Number(quantity);
@@ -796,7 +797,7 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
   }
 
   const typeBtn = (t: "in" | "out" | "adjust", label: string) => (
-    <button type="button" onClick={() => setType(t)}
+    <button type="button" onClick={() => { setType(t); prefillCash(t, quantity); }}
       className={`h-10 rounded-lg border text-sm font-semibold ${type === t ? "border-section bg-section/10 text-section" : "border-line2 text-ink2 hover:bg-surface2"}`}>
       {label}
     </button>
@@ -811,7 +812,7 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
           {typeBtn("in", "Entrée")}{typeBtn("out", "Sortie / vente")}{typeBtn("adjust", "Ajustement")}
         </div>
         <FormField label={type === "adjust" ? "Nouveau stock" : "Quantité"} required>
-          <input className={inputCls} type="number" min="0" value={quantity} onChange={e => setQuantity(e.target.value)} />
+          <input className={inputCls} type="number" min="0" value={quantity} onChange={e => { setQuantity(e.target.value); prefillCash(type, e.target.value); }} />
         </FormField>
         {tracking && type === "in" && Number(quantity) > 0 && <LotsEditor mode={tracking} quantity={Number(quantity)} value={lots} onChange={setLots} />}
         {tracking && type !== "in" && <p className="text-[11px] text-ink3">Article suivi par lot : la sortie prend d&apos;office le lot qui périme le plus tôt.</p>}

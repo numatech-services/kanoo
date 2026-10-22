@@ -52,8 +52,12 @@ export async function proxy(req: NextRequest) {
     return pass(req);
   }
 
-  // 2. Récupérer le token depuis les cookies (plus fiable dans le middleware)
-  const token = req.cookies.get("auth_token")?.value;
+  // 2. Jeton de session : cookie (navigateur) ou, pour l'API seulement, en-tête
+  // `Authorization: Bearer` (application mobile, qui n'a pas de cookies).
+  // Les routes revérifient le jeton et la version de session (withAuth) ; un
+  // Bearer est exempté du contrôle CSRF, qui ne concerne que les cookies.
+  const bearer = pathname.startsWith("/api") ? req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/)?.[1] : undefined;
+  const token = req.cookies.get("auth_token")?.value || bearer;
 
   if (!token) {
     if (pathname.startsWith("/api")) {

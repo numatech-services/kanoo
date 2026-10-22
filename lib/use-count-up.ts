@@ -2,6 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 
+/** Valeur posée d'emblée, sans animation (valeur non finie, durée nulle, mouvement réduit). */
+function instant(target: number, durationMs: number): boolean {
+  if (!Number.isFinite(target) || durationMs <= 0) return true;
+  return typeof window !== "undefined"
+    && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+}
+
 /**
  * Comptage progressif d'une valeur.
  *
@@ -15,19 +22,28 @@ import { useEffect, useRef, useState } from "react";
  */
 export function useCountUp(target: number, durationMs = 520): number {
   const [value, setValue] = useState(target);
+  const [shown, setShown] = useState(target);
   const frame = useRef<number | undefined>(undefined);
   const previous = useRef(target);
+
+  // Sans animation, la nouvelle valeur est posée pendant le rendu, sans
+  // attendre l'effet (motif « ajuster l'état pendant le rendu »).
+  if (!Object.is(target, shown)) {
+    setShown(target);
+    if (instant(target, durationMs)) setValue(target);
+  }
 
   useEffect(() => {
     const from = previous.current;
     previous.current = target;
 
-    if (!Number.isFinite(target)) { setValue(target); return; }
     if (from === target) return;
-
-    const reduced = typeof window !== "undefined"
-      && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduced || durationMs <= 0) { setValue(target); return; }
+    if (instant(target, durationMs)) {
+      // Déjà posée au rendu ; reposée à l'image suivante au cas où une image
+      // d'une animation précédente serait passée entre-temps.
+      frame.current = requestAnimationFrame(() => setValue(target));
+      return () => { if (frame.current) cancelAnimationFrame(frame.current); };
+    }
 
     const start = performance.now();
     const delta = target - from;

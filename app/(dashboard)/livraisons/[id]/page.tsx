@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -7,8 +7,11 @@ import { useMe, meCanDo } from "@/lib/useMe";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
-import {apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
+import { api, apiErrorMessage, apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 interface Delivery {
   _id:string; number:string; status:string; deliveryDate:string; deliveryAddress?:string;
   signedAt?:string; signedBy?:string; notes?:string;
@@ -22,17 +25,14 @@ export default function LivraisonDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const canCancelBl = meCanDo(useMe(), "livraisons", "delete");
-  const [mounted, setMounted] = useState(false);
-  const [delivery,setDelivery]=useState<Delivery|null>(null);
-  const [loading,setLoading]=useState(true);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
+  // Squelette au premier chargement seulement : après une signature, la fiche reste affichée pendant la relecture.
+  const { data: delivery, loaded, reload: load } = useApi<Delivery|null>(`/api/livraisons/${id}`, d => d.data ?? null, null);
+  const loading = !loaded;
   const [signing,setSigning]=useState(false);
   const [signerName,setSignerName]=useState("");
   const [showSignForm,setShowSignForm]=useState(false);
 
-  const load = useCallback(async () => {
-    const d = await apiJson(`/api/livraisons/${id}`); setDelivery(d.data); setLoading(false);
-  }, [id]);
-  useEffect(() => { setMounted(true); load(); }, [load]);
 
   async function handleSign(e: React.FormEvent) {
     e.preventDefault(); setSigning(true);

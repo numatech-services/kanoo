@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import {
   registerServiceWorker, triggerSync, getPendingCount, getFailedCount,
   getFailedSyncItems, clearFailedQueue,
@@ -30,9 +30,19 @@ function labelFromUrl(url: string): string {
   }
 }
 
+// État de la connexion, lu sur le navigateur ; « en ligne » au rendu serveur
+// et pendant l'hydratation (le bandeau n'apparaît qu'ensuite).
+function subscribeOnline(onChange: () => void) {
+  window.addEventListener("online", onChange);
+  window.addEventListener("offline", onChange);
+  return () => {
+    window.removeEventListener("online", onChange);
+    window.removeEventListener("offline", onChange);
+  };
+}
+
 export function OfflineBanner() {
-  const [mounted, setMounted] = useState(false);
-  const [isOnline, setIsOnline] = useState(true);
+  const isOnline = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
   const [pendingCount, setPendingCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
   const [failedItems, setFailedItems] = useState<FailedSyncItem[]>([]);
@@ -41,29 +51,27 @@ export function OfflineBanner() {
   const [needsAuth, setNeedsAuth] = useState(false);
   const [justSynced, setJustSynced] = useState(0);
 
-  const refreshCounts = useCallback(async () => {
-    setPendingCount(await getPendingCount());
-    setFailedCount(await getFailedCount());
-  }, []);
+  // Écrit dans `.then` (après lecture de la file), jamais avant : appelable
+  // depuis l'effet de montage sans rendu synchrone supplémentaire.
+  const refreshCounts = useCallback(
+    () => getPendingCount()
+      .then(n => { setPendingCount(n); return getFailedCount(); })
+      .then(n => { setFailedCount(n); }),
+    [],
+  );
 
   useEffect(() => {
-    setMounted(true);
     registerServiceWorker();
-    setIsOnline(navigator.onLine);
     refreshCounts();
 
     const handleOnline = async () => {
-      setIsOnline(true);
       setSyncing(true);
       await triggerSync();
       setSyncing(false);
       await refreshCounts();
     };
 
-    const handleOffline = () => {
-      setIsOnline(false);
-      setNeedsAuth(false);
-    };
+    const handleOffline = () => setNeedsAuth(false);
 
     // Émis par le service worker à la fin d'un cycle de rejeu.
     const handleSynced = async (event: Event) => {
@@ -107,8 +115,8 @@ export function OfflineBanner() {
     await refreshCounts();
   }
 
-  if (!mounted) return null;
-
+  // Rendu serveur et hydratation : tous les états valent leur valeur de
+  // départ, le bandeau ne s'affiche donc qu'une fois dans le navigateur.
   const shell = "fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-xl text-sm font-medium max-w-[min(32rem,92vw)]";
 
   // Les échecs priment : ils demandent une décision et ne disparaissent pas seuls.

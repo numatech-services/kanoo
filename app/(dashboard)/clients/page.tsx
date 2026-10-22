@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -9,7 +9,8 @@ import { Modal } from "@/components/ui/Modal";
 import { ClientForm } from "@/components/pme/ClientForm";
 import { useMe, meCan } from "@/lib/useMe";
 
-import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
 interface Client {
   _id: string;
@@ -25,38 +26,30 @@ interface Client {
   isActive: boolean;
 }
 
+const noSubscribe = () => () => {};
+
 export default function ClientsPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  // Rendu côté navigateur uniquement.
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   // Le solde est une information financière : colonne masquée hors comptabilité.
   const { resources } = useMe();
   const seeBalance = meCan(resources, "invoices");
-  const [clients, setClients] = useState<Client[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
   // « Nouveau client » depuis la recherche (⌘K) : /clients?new=1 ouvre le formulaire.
-  useEffect(() => { if (new URLSearchParams(window.location.search).get("new") === "1") setModalOpen(true); }, []);
+  // Lu à l'initialisation : l'écran ne s'affiche qu'une fois dans le navigateur.
+  const [modalOpen, setModalOpen] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("new") === "1");
   const [editing, setEditing] = useState<Client | null>(null);
 
   const LIMIT = 20;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    if (search) params.set("search", search);
-    try {
-      const d = await apiJson(`/api/clients?${params}`);
-      setClients(d.data?.items || []);
-      setTotal(d.data?.pagination?.total || 0);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search]);
-
-  useEffect(() => { setMounted(true); load(); }, [load]);
+  const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  if (search) params.set("search", search);
+  const list = useApi<{ items?: Client[]; pagination?: { total?: number } } | null>(`/api/clients?${params}`, d => d.data ?? null, null);
+  const clients = list.data?.items || [];
+  const total = list.data?.pagination?.total || 0;
+  const { loading, reload: load } = list;
 
   // Debounce search
   const [searchInput, setSearchInput] = useState("");

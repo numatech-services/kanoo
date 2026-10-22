@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Member {
   _id: string;
   code: string;
@@ -20,14 +21,14 @@ interface Member {
   status: string;
 }
 
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
+
 export default function MembresPage() {
-  const [mounted, setMounted] = useState(false);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [total, setTotal] = useState(0);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
   const LIMIT = 20;
@@ -37,20 +38,13 @@ export default function MembresPage() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    if (search) params.set("search", search);
-    try {
-      const d = await apiJson(`/api/membres?${params}`);
-      setMembers(d.data?.items || []);
-      setTotal(d.data?.pagination?.total || 0);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search]);
-
-  useEffect(() => { setMounted(true); load(); }, [load]);
+  const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  if (search) params.set("search", search);
+  const { data: { members, total }, loading, reload: load } = useApi<{ members: Member[]; total: number }>(
+    `/api/membres?${params}`,
+    d => ({ members: d.data?.items || [], total: d.data?.pagination?.total || 0 }),
+    { members: [], total: 0 },
+  );
 
   const columns: Column<Member>[] = [
     { key: "code", label: "N°", className: "font-mono text-xs w-20", sortable: true },

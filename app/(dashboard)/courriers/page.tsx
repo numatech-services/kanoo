@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Plus, FileText, Trash2, Download, Sparkles, Archive, ArchiveRestore, Paperclip, ArrowUpRight, ArrowDownLeft, CheckCircle2, Clock } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, textareaCls, selectCls } from "@/components/ui/FormField";
@@ -11,6 +11,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken, apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Letter {
   _id: string; reference?: string; kind: string; subject: string;
   recipient?: string; status: string; direction?: string; archived?: boolean;
@@ -38,12 +39,11 @@ async function csrf() {
   return csrfToken as string;
 }
 
+const noSubscribe = () => () => {};
+
 export default function CourriersPage() {
   // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
   const canDelete = meCanDo(useMe(), "documents", "delete");
-  const [items, setItems] = useState<Letter[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Partial<Letter> & { body?: string; place?: string; signatory?: string } | null>(null);
   // Filtres de suivi : actifs / archivés, et sens (tous / entrant / sortant).
   const [showArchived, setShowArchived] = useState(false);
@@ -51,32 +51,26 @@ export default function CourriersPage() {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const LIMIT = 50;
   useEffect(() => { const t = setTimeout(() => { setPage(1); setQuery(search.trim()); }, 300); return () => clearTimeout(t); }, [search]);
-  // Recherche transmise par l'adresse (résultat de la recherche ⌘K).
-  useEffect(() => { const v = new URLSearchParams(window.location.search).get("q"); if (v) setSearch(v); }, []);
+  // Recherche transmise par l'adresse (résultat de la recherche ⌘K), lue une
+  // fois dans le navigateur.
+  const urlSearch = useSyncExternalStore(noSubscribe, () => new URLSearchParams(window.location.search).get("q") ?? "", () => "");
+  const [appliedUrlSearch, setAppliedUrlSearch] = useState("");
+  if (urlSearch && urlSearch !== appliedUrlSearch) { setAppliedUrlSearch(urlSearch); setSearch(urlSearch); }
 
-  const load = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    const q = new URLSearchParams({ limit: String(LIMIT), page: String(page) });
-    if (showArchived) q.set("archived", "1");
-    if (direction) q.set("direction", direction);
-    if (query) q.set("q", query);
-    fetch(`/api/courriers?${q.toString()}`, { credentials: "include" })
-      .then(async r => {
-        const d = await r.json().catch(() => ({}));
-        // Une lecture refusée ou en erreur s'affiche : elle ne se fait plus passer pour « aucun courrier ».
-        if (!r.ok) throw new Error(d.error || `Lecture impossible (erreur ${r.status}).`);
-        setItems(d.data?.items || []);
-        setTotal(d.data?.pagination?.total ?? 0);
-      })
-      .catch(e => { setItems([]); setError(e instanceof Error ? e.message : "Lecture impossible."); })
-      .finally(() => setLoading(false));
-  }, [showArchived, direction, query, page]);
-  useEffect(() => { load(); }, [load]);
+  const q = new URLSearchParams({ limit: String(LIMIT), page: String(page) });
+  if (showArchived) q.set("archived", "1");
+  if (direction) q.set("direction", direction);
+  if (query) q.set("q", query);
+  // Une lecture refusée ou en erreur s'affiche : elle ne se fait plus passer pour « aucun courrier ».
+  const list = useApi<{ items?: Letter[]; pagination?: { total?: number } } | null>(
+    `/api/courriers?${q.toString()}`, d => (d.success === false ? null : d.data ?? null), null, { quiet: true },
+  );
+  const items = list.data?.items || [];
+  const total = list.data?.pagination?.total ?? 0;
+  const { loading, error, reload: load } = list;
 
   async function del(id: string) {
     if (!(await confirmDialog({ title: "Supprimer ce courrier ?", danger: true }))) return;

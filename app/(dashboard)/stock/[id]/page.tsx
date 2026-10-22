@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Edit3, ArrowLeftRight, Undo2, Archive, Download, Truck } from "lucide-react";
@@ -14,7 +14,8 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
-import {apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 interface Product {
   _id: string; code: string; label: string; description?: string; unit?: string; category?: string; barcode?: string; location?: string;
   unitPrice: number; tvaRate: number; stockQty: number; stockMinAlert: number; stockMaxAlert?: number; purchaseCost?: number; lastPurchaseCost?: number;
@@ -37,35 +38,28 @@ export default function StockDetailPage() {
   const me = useMe();
   const canEdit = meCanDo(me, "products", "update");
   const canDelete = meCanDo(me, "products", "delete");
-  const [p, setP] = useState<Product | null>(null);
   // Instant de référence des péremptions, figé au montage (rendu pur).
   const [now] = useState(() => Date.now());
-  const [moves, setMoves] = useState<Movement[]>([]);
   const [filter, setFilter] = useState({ type: "", from: "", to: "" });
   const [editOpen, setEditOpen] = useState(false);
   const [moving, setMoving] = useState(false);
   const [transfer, setTransfer] = useState(false);
-  const [byWh, setByWh] = useState<ByWarehouse[]>([]);
   const { warehouses } = useWarehouses();
-  const [lots, setLots] = useState<LotRowView[]>([]);
   const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    const params = new URLSearchParams({ productId: String(id), limit: "100" });
-    if (filter.type) params.set("type", filter.type);
-    if (filter.from) params.set("from", filter.from);
-    if (filter.to) params.set("to", filter.to);
-    const [a, b] = await Promise.all([
-      apiJson(`/api/products/${id}`).catch(() => null),
-      apiJson(`/api/stock/movements?${params}`).catch(() => null),
-    ]);
-    setP(a?.data ?? null);
-    setMoves(b?.data?.items ?? []);
-    const st = await apiJson(`/api/products/${id}/stock`).catch(() => null);
-    setByWh(st?.data?.warehouses ?? []);
-    setLots(st?.data?.lots ?? []);
-  }, [id, filter]);
-  useEffect(() => { load(); }, [load]);
+  const params = new URLSearchParams({ productId: String(id), limit: "100" });
+  if (filter.type) params.set("type", filter.type);
+  if (filter.from) params.set("from", filter.from);
+  if (filter.to) params.set("to", filter.to);
+  const product = useApi<Product | null>(`/api/products/${id}`, a => a?.data ?? null, null);
+  // Seuls les mouvements dépendent des filtres.
+  const movements = useApi<Movement[]>(`/api/stock/movements?${params}`, b => b?.data?.items ?? [], []);
+  const stock = useApi(`/api/products/${id}/stock`, st => ({
+    byWh: (st?.data?.warehouses ?? []) as ByWarehouse[],
+    lots: (st?.data?.lots ?? []) as LotRowView[],
+  }), { byWh: [] as ByWarehouse[], lots: [] as LotRowView[] });
+  const p = product.data, moves = movements.data, { byWh, lots } = stock.data;
+  const load = () => { product.reload(); movements.reload(); stock.reload(); };
 
   // Entrepôts actifs (même vides, pour y fixer un seuil) + ceux où il reste du stock.
   const whRows = [

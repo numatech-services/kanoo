@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, Fragment } from "react";
+import { useState, useEffect, Fragment } from "react";
 import Link from "next/link";
 import { FlowFilterBar, useFlowFilter, type FlowTotals } from "@/components/ui/FlowFilterBar";
 import { Plus, Search, ChevronDown, ChevronRight, Undo2, Lock, FileSpreadsheet, Hash, Link2, Boxes } from "lucide-react";
@@ -11,7 +11,8 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
-import {apiJson, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { StockVariationDialog } from "@/components/accounting/StockVariationDialog";
 interface Line { accountCode: string; accountLabel: string; debit: number; credit: number; projectId?: string; activityId?: string; costCenter?: string }
 interface Entry {
@@ -20,38 +21,38 @@ interface Entry {
 }
 const JOURNALS: Record<string, string> = { VT: "Ventes", AC: "Achats", BQ: "Banque", CA: "Caisse", OD: "Opérations diverses", AN: "À-nouveaux", EX: "Extournes" };
 const fmt = (n: number) => n.toLocaleString("fr-FR");
+type Lock = { lockedUntil: string | null; closedYears: number[] };
+const NO_LOCK: Lock = { lockedUntil: null, closedYears: [] };
 
 export default function AccountingPage() {
   const me = useMe();
   const canCreate = meCanDo(me, "accountingEntries", "create");
   const canReverse = meCanDo(me, "accountingEntries", "delete");
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [f, setF] = useState({ journal: "", lettered: "", search: "", account: "" });
   const flowFilter = useFlowFilter();
-  const [totals, setTotals] = useState<FlowTotals | null>(null);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<Set<string>>(new Set());
-  const [lock, setLock] = useState<{ lockedUntil: string | null; closedYears: number[] }>({ lockedUntil: null, closedYears: [] });
   const [closingOpen, setClosingOpen] = useState(false);
   const [variationOpen, setVariationOpen] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const LIMIT = 30;
 
-  const load = useCallback(async () => {
-    const p = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    for (const [k, v] of Object.entries(f)) if (v) p.set(k, v);
-    new URLSearchParams(flowFilter.query).forEach((v, k) => p.set(k, v));
-    const [d, l] = await Promise.all([
-      apiJson(`/api/accounting-entries?${p}`).catch(() => null),
-      apiJson("/api/accounting/closing").catch(() => null),
-    ]);
-    setEntries(d?.data?.items ?? []); setTotal(d?.data?.pagination?.total ?? 0); setTotals(d?.data?.totals ?? null);
-    if (l?.data) setLock(l.data);
-  }, [page, f, flowFilter.query]);
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [flowFilter.query]);
+  // Changement de période : retour à la première page.
+  const [prevFlowQuery, setPrevFlowQuery] = useState(flowFilter.query);
+  if (flowFilter.query !== prevFlowQuery) { setPrevFlowQuery(flowFilter.query); setPage(1); }
+  const p = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  for (const [k, v] of Object.entries(f)) if (v) p.set(k, v);
+  new URLSearchParams(flowFilter.query).forEach((v, k) => p.set(k, v));
+  const list = useApi<{ items?: Entry[]; pagination?: { total?: number }; totals?: FlowTotals } | null>(
+    `/api/accounting-entries?${p}`, d => d?.data ?? null, null,
+  );
+  const entries = list.data?.items ?? [];
+  const total = list.data?.pagination?.total ?? 0;
+  const totals = list.data?.totals ?? null;
+  const closing = useApi<Lock>("/api/accounting/closing", l => l?.data ?? NO_LOCK, NO_LOCK);
+  const lock = closing.data;
+  const load = () => { list.reload(); closing.reload(); };
   useEffect(() => { const t = setTimeout(() => { setPage(1); setF(x => ({ ...x, search: q.trim() })); }, 300); return () => clearTimeout(t); }, [q]);
   const setFilter = (patch: Partial<typeof f>) => { setPage(1); setF(x => ({ ...x, ...patch })); };
   const toggle = (id: string) => setOpen(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });

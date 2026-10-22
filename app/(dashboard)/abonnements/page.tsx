@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   Repeat, TrendingUp, Wallet, Layers, AlertTriangle, ArrowRight, Landmark,
@@ -13,7 +13,7 @@ import { DonutChart } from "@/components/ui/charts/DonutChart";
 import { compactXof, fullXof } from "@/components/ui/charts/geometry";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 const MONTHS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jui", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 
 interface Reconciliation {
@@ -71,25 +71,14 @@ const ALERT_STYLE: Record<Alert["level"], string> = {
 };
 
 export default function AbonnementsPage() {
-  const [data, setData] = useState<Payload | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [year, setYear] = useState(new Date().getFullYear());
   const [chart, setChart] = useState<"flux" | "marge">("flux");
 
-  const load = useCallback(() => {
-    setLoading(true);
-    apiJson(`/api/abonnements/rapprochement?year=${year}`)
-      .then(d => {
-        if (!d.success) throw new Error(d.error || "Lecture impossible");
-        setData(d.data);
-        setError(null);
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [year]);
-
-  useEffect(() => { load(); }, [load]);
+  const { data, loading, error } = useApi<Payload | null>(
+    `/api/abonnements/rapprochement?year=${year}`,
+    d => (d.success ? d.data : null),
+    null,
+  );
 
   if (loading && !data) {
     return (

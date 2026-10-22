@@ -3,10 +3,10 @@ import { connectDB } from "@/lib/db";
 import { badRequest, unauthorized } from "@/lib/api-helpers";
 import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
-import { verifyTwoFactorChallenge, comparePassword } from "@/lib/auth";
+import { verifyTwoFactorChallenge, comparePassword, signToken } from "@/lib/auth";
 import { verifyTotp } from "@/lib/totp";
 import { decryptField } from "@/lib/crypto-field";
-import { buildSessionPayload, setSessionCookies } from "@/lib/session";
+import { buildSessionPayload, setSessionCookies, isMobileClient } from "@/lib/session";
 import { consumeRateLimit, clearRateLimit, clientIp } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 
@@ -17,7 +17,9 @@ const WINDOW_MS = 5 * 60_000;
 
 // Étape 2 de la connexion : valide le code TOTP (ou un code de secours) puis ouvre la session.
 export async function POST(req: NextRequest) {
-  const challenge = req.cookies.get("twofa_token")?.value;
+  // Navigateur : cookie ; application mobile : défi renvoyé dans le corps.
+  const body = await req.json().catch(() => ({} as { token?: string; challenge?: string }));
+  const challenge = req.cookies.get("twofa_token")?.value || (isMobileClient(req) && typeof body.challenge === "string" ? body.challenge : undefined);
   const parsed = challenge ? verifyTwoFactorChallenge(challenge) : null;
   if (!parsed) return unauthorized("Session 2FA expirée. Reconnectez-vous.");
 
@@ -31,8 +33,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { token } = await req.json();
-  const code = String(token || "").trim();
+  const code = String(body.token || "").trim();
 
   await connectDB();
   const user = await UserModel.findById(parsed.uid);
@@ -88,9 +89,12 @@ export async function POST(req: NextRequest) {
 
   const response = NextResponse.json({
     success: true,
-    data: { user: { id: user._id, email: user.email, role: user.role }, tenantType: tenant.type, role: user.role },
+    data: {
+      user: { id: user._id, email: user.email, role: user.role }, tenantType: tenant.type, role: user.role,
+      ...(isMobileClient(req) ? { token: signToken(tokenPayload) } : {}),
+    },
   });
-  setSessionCookies(response, tokenPayload);
+  if (!isMobileClient(req)) setSessionCookies(response, tokenPayload);
   response.cookies.set("twofa_token", "", { httpOnly: true, path: "/", maxAge: 0 });
   return response;
 }

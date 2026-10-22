@@ -214,6 +214,15 @@ jeton GitHub avec le droit `workflow`** : si `git push` est refusé avec
 régénérez le jeton (Settings → Developer settings → Tokens) en cochant
 `workflow`. Résultats : onglet **Actions** du dépôt.
 
+### Application mobile (dossier `mobile/`)
+
+Application Expo (SDK 58) : tableau de bord, factures, clients, profil. Elle
+utilise l'API du site, sans configuration serveur supplémentaire : la
+connexion lui rend un jeton (en-tête `x-kanoo-client: mobile`), rangé dans le
+trousseau du téléphone et présenté en `Authorization: Bearer` ; mêmes droits,
+même durée (8 h) et même révocation que la session web ; la double
+authentification fonctionne. Démarrage, test et publication : `mobile/README.md`.
+
 ---
 
 ## 5. Après la première mise en ligne — dans cet ordre

@@ -1,7 +1,7 @@
 "use client";
 
 import { IfCan } from "@/components/shared/IfCan";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { FilterChips } from "@/components/ui/Primitives";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -13,6 +13,9 @@ import { urlParam } from "@/lib/url-param";
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
 import { apiJson } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 interface Invoice {
   _id: string;
   number: string;
@@ -52,16 +55,13 @@ function formatDate(d: string) {
 }
 
 export default function InvoicesPage() {
-  const [mounted, setMounted] = useState(false);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [total, setTotal] = useState(0);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [page, setPage] = useState(1);
   // Filtres repris de l'adresse : les raccourcis (tableau de bord, menu, fiche
   // client) ouvrent la liste déjà filtrée.
   const [status, setStatus] = useState(() => urlParam("status"));
   const [overdueOnly, setOverdueOnly] = useState(() => urlParam("overdue") === "true");
   const [clientId, setClientId] = useState(() => urlParam("clientId"));
-  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{ firstName: string; lastName: string } | null>(null);
 
   // États pour l'impression directe
@@ -77,30 +77,16 @@ export default function InvoicesPage() {
       .catch(() => {});
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    if (status) params.set("status", status);
-    if (overdueOnly) params.set("overdue", "true");
-    if (clientId) params.set("clientId", clientId);
+  const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  if (status) params.set("status", status);
+  if (overdueOnly) params.set("overdue", "true");
+  if (clientId) params.set("clientId", clientId);
 
-    try {
-      const d = await apiJson(`/api/invoices?${params}`);
-      setInvoices(d.data?.items || d.items || []);
-      setTotal(d.data?.pagination?.total || d.total || 0);
-    } catch (err) {
-      console.error("Erreur de chargement des factures :", err);
-      setInvoices([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, status, overdueOnly, clientId]);
-
-  useEffect(() => {
-    setMounted(true);
-    load();
-  }, [load]);
+  // Une lecture refusée donne une liste vide (le message est affiché par apiJson).
+  const { data: { invoices, total }, loading } = useApi(`/api/invoices?${params}`, d => ({
+    invoices: (d.data?.items || d.items || []) as Invoice[],
+    total: (d.data?.pagination?.total || d.total || 0) as number,
+  }), { invoices: [] as Invoice[], total: 0 });
 
   const handlePrintDirect = async (invoiceId: string) => {
     if (printingId) return;

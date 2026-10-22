@@ -32,7 +32,10 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // Conversation dont le fil est chargé : « chargement » se déduit (la
+  // conversation ouverte n'a pas encore de réponse), sans setState avant la lecture.
+  const [loadedConvId, setLoadedConvId] = useState<string | null>(null);
+  const loading = !!activeConvId && loadedConvId !== activeConvId;
   const [picking, setPicking] = useState(false);
   const [dir, setDir] = useState<DirUser[]>([]);
   const [dq, setDq] = useState("");
@@ -43,15 +46,15 @@ export function MessageComposer({ currentUserId, conversationId: initConvId, com
   }, []);
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
-  const loadMessages = useCallback(async (convId: string) => {
-    setLoading(true);
-    const d = await apiJson(`/api/conversations/${convId}/messages`);
-    // L'API renvoie du plus récent au plus ancien : on inverse pour un fil de discussion.
-    setMessages((d.data || []).slice().reverse());
-    setLoading(false);
-    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
-  }, []);
-  useEffect(() => { if (activeConvId) loadMessages(activeConvId); }, [activeConvId, loadMessages]);
+  useEffect(() => {
+    if (!activeConvId) return;
+    apiJson(`/api/conversations/${activeConvId}/messages`).then(d => {
+      // L'API renvoie du plus récent au plus ancien : on inverse pour un fil de discussion.
+      setMessages((d.data || []).slice().reverse());
+      setLoadedConvId(activeConvId);
+      setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
+    });
+  }, [activeConvId]);
 
   useEffect(() => {
     if (!picking || dir.length) return;

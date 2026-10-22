@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Mail, FileClock, Download, Search, ArrowRight } from "lucide-react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { showToast } from "@/components/ui/Toast";
 import { inputCls, selectCls } from "@/components/ui/FormField";
-import { api, apiErrorMessage } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 
 interface Attachment {
   _id: string;
@@ -59,10 +58,7 @@ function formatSize(bytes?: number) {
 const LIMIT = 20;
 
 export default function DocumentsPage() {
-  const [items, setItems] = useState<Attachment[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
   const [host, setHost] = useState("");
@@ -74,21 +70,13 @@ export default function DocumentsPage() {
     return () => clearTimeout(t);
   }, [q]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const d = await api.get<{ items: Attachment[]; pagination: { total: number } }>("/api/documents", {
-        query: { page, limit: LIMIT, q: search, host, category },
-      });
-      setItems(d.items);
-      setTotal(d.pagination.total);
-    } catch (e) {
-      showToast(apiErrorMessage(e, "Lecture des documents impossible."), "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, host, category]);
-  useEffect(() => { load(); }, [load]);
+  // Critères vides ignorés : l'adresse ne porte que les filtres choisis.
+  const query = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+  for (const [k, v] of Object.entries({ q: search, host, category })) if (v) query.set(k, v);
+  const { data: { items, total }, loading } = useApi(`/api/documents?${query}`, d => ({
+    items: (d.data?.items ?? []) as Attachment[],
+    total: (d.data?.pagination?.total ?? 0) as number,
+  }), { items: [] as Attachment[], total: 0 });
 
   const columns: Column<Attachment>[] = [
     { key: "filename", label: "Fichier", render: (_, a) => (

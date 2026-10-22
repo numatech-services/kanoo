@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -9,7 +9,8 @@ import { EmployeeForm, type EmployeeFormData } from "@/components/pme/EmployeeFo
 import { useMe, meCan } from "@/lib/useMe";
 
 import { AlertTriangle } from "lucide-react";
-import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
+import { csrfToken as getCsrfToken } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
 interface Employee {
   _id:string; code:string; firstName:string; lastName:string; position:string; department?:string;
@@ -21,25 +22,22 @@ interface Employee {
 const TYPE_LABELS: Record<string,string> = { employee:"Employé", intern:"Stagiaire", freelance:"Freelance" };
 const TYPE_COLORS: Record<string,string> = { employee:"bg-info-50 text-info", intern:"bg-warn-50 text-warn", freelance:"bg-section-soft text-section" };
 const CONTRACT_LABELS: Record<string,string> = { cdi:"CDI", cdd:"CDD", stage:"Stage", freelance:"Freelance", consultant:"Consultant" };
+// Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
+const noSubscribe = () => () => {};
 
 export default function EmployeesPage() {
-  const [mounted, setMounted] = useState(false);
-  const [employees,setEmployees]=useState<Employee[]>([]); const [total,setTotal]=useState(0); const [page,setPage]=useState(1); const [loading,setLoading]=useState(true);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const [page,setPage]=useState(1);
   const [search,setSearch]=useState(""); const [searchInput,setSearchInput]=useState(""); const [employeeType,setEmployeeType]=useState("");
-  const [alertCount,setAlertCount]=useState(0);
   const [modalOpen,setModalOpen]=useState(false); const [editing,setEditing]=useState<Employee|null>(null);
   const LIMIT=20;
 
   useEffect(()=>{const t=setTimeout(()=>{setSearch(searchInput);setPage(1);},400);return()=>clearTimeout(t);},[searchInput]);
 
-  const load=useCallback(async()=>{
-    setLoading(true);
-    const params=new URLSearchParams({page:String(page),limit:String(LIMIT)});
-    if(search) params.set("search",search);
-    if(employeeType) params.set("employeeType",employeeType);
-    const d = await apiJson(`/api/employees?${params}`); setEmployees(d.data?.items||[]); setTotal(d.data?.pagination?.total||0); setAlertCount(d.data?.alertCount||0); setLoading(false);
-  },[page,search,employeeType]);
-  useEffect(()=>{setMounted(true);load();},[load]);
+  const params=new URLSearchParams({page:String(page),limit:String(LIMIT)});
+  if(search) params.set("search",search);
+  if(employeeType) params.set("employeeType",employeeType);
+  const {data:{employees,total,alertCount},loading,reload:load}=useApi(`/api/employees?${params}`,d=>({employees:(d.data?.items||[]) as Employee[],total:(d.data?.pagination?.total||0) as number,alertCount:(d.data?.alertCount||0) as number}),{employees:[] as Employee[],total:0,alertCount:0});
 
   const { resources } = useMe();
   const payroll = meCan(resources, "payslips");
@@ -53,7 +51,7 @@ export default function EmployeesPage() {
       // Remonter l'erreur au formulaire (il l'affiche) au lieu de fermer en silence.
       throw new Error((d as {error?:string}).error||"Enregistrement impossible");
     }
-    setModalOpen(false); setEditing(null); await load();
+    setModalOpen(false); setEditing(null); load();
   }
 
   const isExpiringSoon = (dateStr?: string) => {
