@@ -1,38 +1,17 @@
 import { NextRequest } from "next/server";
 import { withAuth, forbidden, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { ClientModel } from "@/models/Client";
-import { InvoiceModel } from "@/models/Invoice";
-import { PaymentModel } from "@/models/Payment";
 import { TenantModel } from "@/models/Tenant";
+import { clientStatementData } from "@/lib/statement-server";
 import {
   buildStatement, withOpenItems, summarySentence,
-  type StatementSource, type OpenItem,
 } from "@/lib/statement";
 import { TokenPayload } from "@/lib/auth";
 import { authCan } from "@/lib/role-resources";
 
 export const dynamic = "force-dynamic";
 
-interface InvoiceRow {
-  _id: unknown;
-  number: string;
-  documentType?: string;
-  status: string;
-  issueDate: Date;
-  dueDate?: Date;
-  totalTTC: number;
-  paidAmount?: number;
-  creditedAmount?: number;
-}
 
-interface PaymentRow {
-  _id: unknown;
-  date: Date;
-  amount: number;
-  reference?: string;
-  method?: string;
-  invoiceId?: unknown;
-}
 
 /**
  * GET /api/clients/:id/releve?from=…&to=…
@@ -71,58 +50,15 @@ export const GET = withAuth("clients", "read", async (req: NextRequest, auth: To
   }
   if (from > to) return badRequest("La date de début est postérieure à la date de fin.");
 
-  const scope = { ...tenantFilter(auth), clientId: params.id };
-
-  const [invoices, payments, tenant] = await Promise.all([
-    InvoiceModel.find({ ...scope, status: { $ne: "draft" } })
-      .select("number documentType status issueDate dueDate totalTTC paidAmount creditedAmount")
-      .sort({ issueDate: 1 }).limit(3_000).lean<InvoiceRow[]>(),
-    PaymentModel.find({ ...scope, status: { $nin: ["pending", "cancelled"] } })
-      .select("date amount reference method invoiceId")
-      .sort({ date: 1 }).limit(3_000).lean<PaymentRow[]>(),
+  const [{ sources, openItems }, tenant] = await Promise.all([
+    clientStatementData(tenantFilter(auth).tenantId, String(params.id), to),
     TenantModel.findById(auth.tenantId).select("name address phone email nif rccm").lean(),
   ]);
-
-  // Le signe est posé une seule fois, ici : positif quand le client doit
-  // davantage, négatif quand la dette diminue.
-  const sources: StatementSource[] = [
-    ...invoices
-      .filter(i => i.status !== "cancelled")
-      .map<StatementSource>(i => ({
-        _id: i._id,
-        kind: i.documentType === "credit_note" ? "credit_note" : "invoice",
-        date: i.issueDate,
-        reference: i.number,
-        amount: i.documentType === "credit_note" ? -i.totalTTC : i.totalTTC,
-        dueDate: i.dueDate,
-      })),
-    ...payments.map<StatementSource>(p => ({
-      _id: p._id,
-      kind: "payment",
-      date: p.date,
-      reference: p.reference || "Règlement",
-      label: p.method,
-      amount: -Math.abs(p.amount),
-    })),
-  ];
 
   // Solde d'ouverture : tous les mouvements strictement antérieurs à `from`.
   const openingBalance = sources
     .filter(s => new Date(s.date) < new Date(from.getFullYear(), from.getMonth(), from.getDate()))
     .reduce((sum, s) => sum + s.amount, 0);
-
-  // Pièces encore ouvertes à la date d'arrêté — l'ancienneté se lit
-  // pièce par pièce, jamais sur le solde global.
-  const openItems: OpenItem[] = invoices
-    .filter(i => i.documentType !== "credit_note"
-      && i.status !== "cancelled" && i.dueDate
-      && new Date(i.issueDate) <= to)
-    .map(i => ({
-      reference: i.number,
-      dueDate: i.dueDate!,
-      outstanding: Math.max(0, i.totalTTC - (i.paidAmount || 0) - (i.creditedAmount || 0)),
-    }))
-    .filter(i => i.outstanding > 0);
 
   const statement = withOpenItems(
     buildStatement(sources, openingBalance, from, to),

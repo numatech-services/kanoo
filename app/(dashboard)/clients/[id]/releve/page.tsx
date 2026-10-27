@@ -21,12 +21,16 @@ const KIND_ICON: Record<StatementKind, typeof FileText> = {
   invoice: FileText,
   credit_note: Receipt,
   payment: Banknote,
+  refund: Banknote,
+  write_off: Receipt,
 };
 
 const KIND_TONE: Record<StatementKind, "info" | "warn" | "pos"> = {
   invoice: "info",
   credit_note: "warn",
   payment: "pos",
+  refund: "warn",
+  write_off: "warn",
 };
 
 function firstOfYear() {

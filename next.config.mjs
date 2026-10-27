@@ -73,4 +73,14 @@ const nextConfig = {
   },
 };
 
+// Build sans cache webpack persistant (KANOO_BUILD_NO_CACHE=1) : le cache
+// (.next/cache, environ 1 Go) remplissait le disque des postes à court
+// d'espace. Sans effet sur Hostinger, qui ne définit pas la variable.
+if (process.env.KANOO_BUILD_NO_CACHE === "1") {
+  nextConfig.webpack = (config) => {
+    config.cache = false;
+    return config;
+  };
+}
+
 export default nextConfig;

@@ -232,9 +232,15 @@ export interface InvoiceForPdf {
   issueDate?: Date | string;
   dueDate?: Date | string;
   status?: string;
-  lines?: Array<{ description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; totalTTC?: number }>;
+  lines?: Array<{ description?: string; quantity?: number; unit?: string; unitPrice?: number; discount?: number; tvaRate?: number; totalTTC?: number }>;
   totalHT?: number; totalTVA?: number; totalDTS?: number; totalTTC?: number;
+  /** Notes INTERNES : jamais imprimées (elles l'étaient, dans « Conditions »). */
   paidAmount?: number; creditedAmount?: number; notes?: string;
+  /** Conditions destinées au client, imprimées sur le document. */
+  termsAndConditions?: string;
+  /** Avoir : facture qu'il annule ou réduit, et motif (mentions obligatoires). */
+  originalInvoiceId?: { number?: string; issueDate?: Date | string } | null;
+  creditReason?: string;
   /** Retenue de garantie du marché, gardée par le client jusqu'à la réception définitive. */
   retentionAmount?: number; retentionRate?: number;
   clientId?: { name?: string; nif?: string; rccm?: string; code?: string; address?: string; phone?: string } | null;
@@ -271,6 +277,8 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
       partyLabel: isCredit ? "Avoir à" : "Facturé à",
       lines: [
         ["Émis le", inv.issueDate ? new Date(inv.issueDate).toLocaleDateString("fr-FR") : "—"],
+        // Un avoir sans référence à la facture d'origine est inopposable.
+        ...(isCredit && inv.originalInvoiceId?.number ? [["Sur facture", `${inv.originalInvoiceId.number}${inv.originalInvoiceId.issueDate ? ` du ${new Date(inv.originalInvoiceId.issueDate).toLocaleDateString("fr-FR")}` : ""}`] as [string, string]] : []),
         ...(!isCredit && inv.dueDate ? [["Échéance", new Date(inv.dueDate).toLocaleDateString("fr-FR")] as [string, string]] : []),
         ["Statut", STATUS_FR[inv.status || ""] || inv.status || "—"],
       ],
@@ -294,8 +302,10 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
       if (i % 2 === 0) { doc.rect(50, y, 495, 20).fill("#F7F7F5"); }
       doc.fillColor(c.secondary).font("Helvetica-Bold").text(String(i + 1), 56, y + 5, { width: 20 });
       doc.fillColor(c.ink).font("Helvetica");
-      doc.text(String(line.description || "").slice(0, 58), 78, y + 5, { width: 216 });
-      doc.text(String(line.quantity ?? 0), 300, y + 5, { width: 34, align: "center" });
+      // Remise imprimée : sans elle, prix unitaire × quantité ne redonnait pas le total.
+      const disc = Number(line.discount) || 0;
+      doc.text(`${String(line.description || "").slice(0, disc ? 44 : 58)}${disc ? ` (remise ${disc} %)` : ""}`, 78, y + 5, { width: 216 });
+      doc.text(`${line.quantity ?? 0}${line.unit && line.unit !== "unité" ? ` ${line.unit}` : ""}`.slice(0, 9), 300, y + 5, { width: 34, align: "center" });
       doc.text(num(line.unitPrice || 0), 340, y + 5, { width: 62, align: "right" });
       doc.text(`${Math.round((line.tvaRate || 0) * 100)} %`, 408, y + 5, { width: 38, align: "center" });
       doc.text(FCFA(line.totalTTC || 0), 452, y + 5, { width: 88, align: "right" });
@@ -346,8 +356,10 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
       }
     }
 
-    // Conditions / notes — encadré discret à la manière du modèle.
-    const terms = inv.notes || tenant.branding?.defaultTerms;
+    // Conditions destinées au client (jamais les notes internes) ; motif de
+    // l'avoir en tête de l'encadré.
+    const terms = [isCredit && inv.creditReason ? `Motif de l'avoir : ${inv.creditReason}` : "", inv.termsAndConditions || tenant.branding?.defaultTerms || ""]
+      .filter(Boolean).join("\n");
     if (terms) {
       const ty = Math.min(y + 24, 686);
       const th = Math.min(70, 24 + Math.ceil(terms.length / 90) * 11);

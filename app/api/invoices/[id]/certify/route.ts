@@ -47,6 +47,20 @@ export const POST = withAuth("invoices", "update", async (req: NextRequest, auth
   const body = await req.json().catch(() => ({}));
   const driver = activeSecefDriver();
 
+  // Type déduit du document, jamais du formulaire : un avoir certifié comme
+  // une vente (FV) faussait la déclaration DGI. Un avoir porte le code SECeF
+  // de la facture qu'il annule, qui doit donc être certifiée d'abord.
+  const isCreditNote = invoice.documentType === "credit_note";
+  const invoiceType: "FV" | "FA" = isCreditNote ? "FA" : "FV";
+  let referencedCode: string | undefined;
+  if (isCreditNote) {
+    const original = invoice.originalInvoiceId
+      ? await InvoiceModel.findOne({ _id: invoice.originalInvoiceId, ...tenantFilter(auth) }).select("secef.code number").lean<{ number: string; secef?: { code?: string } } | null>()
+      : null;
+    referencedCode = original?.secef?.code;
+    if (!referencedCode) return badRequest(`Certifiez d'abord la facture d'origine${original ? ` ${original.number}` : ""} : l'avoir doit porter son code SECeF.`);
+  }
+
   // ── Mode portail : l'opérateur reporte ce que la DGI a délivré ──────────
   if (!driver.automatic || body.mode === "portal") {
     const result = portalDriver.record({
@@ -58,11 +72,7 @@ export const POST = withAuth("invoices", "update", async (req: NextRequest, auth
     });
     if (!result.ok) return badRequest(result.error);
 
-    invoice.secef = {
-      ...result.certification,
-      invoiceType: body.invoiceType === "FA" ? "FA" : "FV",
-      referencedCode: body.referencedCode || undefined,
-    };
+    invoice.secef = { ...result.certification, invoiceType, ...(referencedCode ? { referencedCode } : {}) };
     await invoice.save();
 
     await logAudit(auth, "UPDATE", "invoices", {
@@ -88,7 +98,8 @@ export const POST = withAuth("invoices", "update", async (req: NextRequest, auth
   if (!client) return notFound("Client de la facture introuvable");
 
   const payload: SecefInvoicePayload = {
-    type: "FV",
+    type: invoiceType,
+    ...(referencedCode ? { referencedInvoiceCode: referencedCode } : {}),
     number: invoice.number,
     issueDate: invoice.issueDate,
     client: { name: client.name, nif: client.nif, address: client.address },
@@ -130,7 +141,7 @@ export const POST = withAuth("invoices", "update", async (req: NextRequest, auth
       : conflict(result.error);
   }
 
-  invoice.secef = { ...result.certification, invoiceType: "FV" };
+  invoice.secef = { ...result.certification, invoiceType, ...(referencedCode ? { referencedCode } : {}) };
   await invoice.save();
 
   await logAudit(auth, "UPDATE", "invoices", {

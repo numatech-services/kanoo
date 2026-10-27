@@ -6,6 +6,8 @@ const InvoiceLineSchema = new Schema(
     productId: { type: Schema.Types.ObjectId, ref: "Product" },
     description: { type: String, required: true },
     quantity: { type: Number, required: true, min: 0 },
+    /** Unité saisie (kg, heure, forfait…) : elle était jetée faute de champ. */
+    unit: { type: String, maxlength: 20 },
     // Négatif seulement sur une ligne de déduction d'acompte.
     unitPrice: {
       type: Number, required: true,
@@ -18,6 +20,8 @@ const InvoiceLineSchema = new Schema(
     totalTTC: { type: Number, required: true },
     kind: { type: String, enum: ["deposit_deduction"] },
     depositInvoiceId: { type: Schema.Types.ObjectId, ref: "Invoice" },
+    /** Avoir : ligne de la facture d'origine qu'il crédite (cumul des avoirs partiels). */
+    sourceLineIndex: { type: Number, min: 0 },
   },
   { _id: false }
 );

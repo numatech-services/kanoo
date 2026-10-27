@@ -5,6 +5,7 @@ import { treasuryLedger, recordMovement } from "@/lib/treasury";
 import { FixedAssetModel } from "@/models/FixedAsset";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { logAudit } from "@/lib/audit";
+import { postDepreciation, DepreciationError } from "@/lib/fixed-asset-posting";
 import { TokenPayload } from "@/lib/auth";
 
 export const GET = withAuth("fixedAssets", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
@@ -18,33 +19,20 @@ export const PATCH = withAuth("fixedAssets", "update", async (req: NextRequest, 
   await connectDB();
   const body = await req.json();
 
-  // Si on passe une dotation en comptabilité
+  // Dotation d'une annuité : même chemin que l'écran et l'automatisation
+  // (lib/fixed-asset-posting) — annuité réservée avant l'écriture, donc une
+  // seule dotation même sur double appel, et extourne possible. L'ancienne
+  // version écrivait sans garde ni lien vers l'immobilisation.
   if (body.action === "post_depreciation") {
-    const asset = await FixedAssetModel.findOne({ _id: params.id, ...tenantFilter(auth) });
-    if (!asset) return notFound();
-    const year = body.year || new Date().getFullYear();
-    const entry = asset.depreciationSchedule?.find((e: {year: number; posted: boolean}) => e.year === year && !e.posted);
-    if (!entry) return ok({ message: "Aucune dotation à passer pour cet exercice" });
-
-    const acEntry = await AccountingEntryModel.create({
-      tenantId: auth.tenantId, journalCode: "OD",
-      entryDate: new Date(year, 11, 31), // 31 décembre
-      reference: `AMORT-${asset.code}-${year}`,
-      label: `Dotation amortissement ${asset.name} — ${year}`,
-      lines: [
-        { accountCode: asset.dotationAccount || "681", accountLabel: "Dotations aux amortissements", debit: entry.annuity, credit: 0 },
-        { accountCode: asset.depreciationAccount || "28", accountLabel: `Amort. ${asset.name}`, debit: 0, credit: entry.annuity },
-      ],
-      createdBy: auth.userId,
-    });
-
-    await FixedAssetModel.updateOne(
-      { _id: params.id, "depreciationSchedule.year": year },
-      { $set: { "depreciationSchedule.$.posted": true, "depreciationSchedule.$.postedAt": new Date(), "depreciationSchedule.$.accountingEntryId": acEntry._id, currentNetValue: entry.netValue } }
-    );
-
-    await logAudit(auth, "UPDATE", "fixedAssets", { resourceId: params.id, after: { action: "depreciation_posted", year, amount: entry.annuity } });
-    return ok({ message: `Dotation ${entry.annuity.toLocaleString("fr-FR")} FCFA passée en comptabilité`, entry: acEntry });
+    const year = Number(body.year) || new Date().getFullYear();
+    try {
+      const r = await withTransaction(session => postDepreciation({ tenantId: auth.tenantId, userId: auth.userId }, params.id, year, session));
+      await logAudit(auth, "UPDATE", "fixedAssets", { resourceId: params.id, after: { action: "depreciation_posted", year, amount: r.annuity } });
+      return ok({ message: `Dotation ${r.annuity.toLocaleString("fr-FR")} FCFA passée en comptabilité`, entry: r.accountingEntry });
+    } catch (e) {
+      if (e instanceof DepreciationError) return e.notFound ? notFound(e.message) : badRequest(e.message);
+      throw e;
+    }
   }
 
   // Cession / mise au rebut : sortie de l'actif en comptabilité.
@@ -56,8 +44,18 @@ export const PATCH = withAuth("fixedAssets", "update", async (req: NextRequest, 
     if (isNaN(date.getTime())) return badRequest("Date invalide.");
     const reason = ["sale", "scrap", "transfer", "other"].includes(body.reason) ? body.reason : "other";
     const price = Math.max(0, Math.round(Number(body.price) || 0));
-    const cumulated = (asset.depreciationSchedule ?? []).filter((e: { posted?: boolean }) => e.posted)
+    const postedCum = (asset.depreciationSchedule ?? []).filter((e: { posted?: boolean }) => e.posted)
       .reduce((m: number, e: { cumulative: number }) => Math.max(m, e.cumulative), 0);
+    // Dotation complémentaire de l'année de sortie, au prorata jusqu'à la date
+    // de cession (mois commencé compté) : sans elle, la VNC sortie de l'actif
+    // était surévaluée de l'amortissement de l'année.
+    const yearRow = (asset.depreciationSchedule ?? []).find((e: { year: number; posted?: boolean; annuity: number }) => e.year === date.getFullYear() && !e.posted && e.annuity > 0) as { year: number; annuity: number } | undefined;
+    const acq = new Date(asset.acquisitionDate);
+    const sameYear = acq.getFullYear() === date.getFullYear();
+    const covered = sameYear ? 12 - acq.getMonth() : 12;
+    const held = sameYear ? date.getMonth() - acq.getMonth() + 1 : date.getMonth() + 1;
+    const complement = yearRow ? Math.min(Math.round(yearRow.annuity * Math.max(0, held) / covered), Math.max(0, asset.acquisitionCost - postedCum)) : 0;
+    const cumulated = postedCum + complement;
     const vnc = Math.max(0, asset.acquisitionCost - cumulated);
     let ledger: { accountCode: string; accountLabel: string } = { accountCode: "485000", accountLabel: "Créances sur cessions d'immobilisations" };
     if (price > 0 && body.treasuryAccountId) {
@@ -66,6 +64,19 @@ export const PATCH = withAuth("fixedAssets", "update", async (req: NextRequest, 
       ledger = tl;
     }
     await withTransaction(async session => {
+      if (complement > 0) {
+        await AccountingEntryModel.create([{
+          tenantId: auth.tenantId, journalCode: "OD", entryDate: date, reference: `CESS-AMT-${asset.code}-${date.getFullYear()}`,
+          label: `Dotation complémentaire (prorata jusqu'à la sortie) — ${asset.name}`,
+          lines: [
+            { accountCode: asset.dotationAccount || "681", accountLabel: "Dotations aux amortissements", debit: complement, credit: 0 },
+            { accountCode: asset.depreciationAccount || "28", accountLabel: `Amort. ${asset.name}`, debit: 0, credit: complement },
+          ],
+          linkedDocType: "fixed_asset", linkedDocId: asset._id, createdBy: auth.userId,
+        }], { session });
+        await FixedAssetModel.updateOne({ _id: asset._id, "depreciationSchedule.year": date.getFullYear() },
+          { $set: { "depreciationSchedule.$.posted": true, "depreciationSchedule.$.postedAt": new Date(), "depreciationSchedule.$.annuity": complement } }, { session });
+      }
       const lines = [
         ...(cumulated > 0 ? [{ accountCode: asset.depreciationAccount || "28", accountLabel: `Amortissements ${asset.name}`, debit: cumulated, credit: 0 }] : []),
         ...(vnc > 0 ? [{ accountCode: "812000", accountLabel: "Valeur comptable des cessions d'immobilisations", debit: vnc, credit: 0 }] : []),

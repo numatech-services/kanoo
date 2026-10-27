@@ -20,6 +20,13 @@ export const POST = withAuth("invoices", "update", async (_req: NextRequest, aut
   if (invoice.status === "paid") return badRequest("Impossible d'annuler une facture soldée");
   if (invoice.paidAmount > 0) return badRequest("Impossible d'annuler une facture partiellement payée");
   if (invoice.secef?.code) return badRequest("Facture certifiée : elle s'annule par un avoir.");
+  // Cas où l'extourne de la vente fausserait la comptabilité : l'avoir déjà
+  // émis resterait comptabilisé (411 crédité deux fois), la créance douteuse
+  // ou la perte (416, 491, 651) resteraient en place.
+  if (invoice.documentType === "credit_note") return badRequest("Un avoir ne s'annule pas ici.");
+  if ((invoice.creditedAmount ?? 0) > 0) return badRequest("Un avoir a déjà été émis sur cette facture : émettez un avoir complémentaire plutôt que d'annuler.");
+  if (invoice.status === "written_off") return badRequest("Facture passée en perte : elle ne s'annule plus.");
+  if (invoice.doubtfulAt) return badRequest("Créance douteuse : régularisez par un avoir (la dépréciation est reprise avec lui).");
   if (invoice.kind === "deposit" && (invoice.depositUsedHT ?? 0) > 0) return badRequest("Acompte déjà déduit sur une facture du marché : annulez d'abord celle-ci.");
   await withTransaction(async session => {
     invoice.status = "cancelled";

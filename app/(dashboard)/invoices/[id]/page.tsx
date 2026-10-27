@@ -225,7 +225,7 @@ export default function InvoiceDetailPage() {
               Émettre
             </button>
           )}
-          {["sent", "partial"].includes(invoice.status) && remaining > 0 && (
+          {!isCreditNote && ["sent", "partial", "overdue"].includes(invoice.status) && remaining > 0 && (
             <button onClick={() => setPaymentOpen(true)} className="px-4 py-2 bg-pos text-onink rounded-xl text-sm font-medium hover:brightness-95">
               Paiement
             </button>

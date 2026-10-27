@@ -52,7 +52,8 @@ export function normalizeLabel(value: string): string {
  *
  * Deux lignes réellement identiques le même jour — deux retraits de 10 000 au
  * même distributeur — produiraient la même empreinte. L'index d'unicité en
- * rejetterait la seconde à tort ; le rang dans le fichier est donc inclus.
+ * rejetterait la seconde à tort ; le rang parmi les lignes identiques du
+ * fichier est donc inclus (0 pour la première, 1 pour la deuxième…).
  */
 export function lineFingerprint(
   accountId: string,
@@ -294,13 +295,17 @@ export function parseAmount(raw: string): number | null {
   text = text.replace(/[^\d,.\-+]/g, "");
   if (!text) return null;
 
-  const lastComma = text.lastIndexOf(",");
-  const lastDot = text.lastIndexOf(".");
-  if (lastComma > lastDot) {
-    // Virgule décimale : les points sont des séparateurs de milliers.
-    text = text.replace(/\./g, "").replace(",", ".");
+  // Le FCFA n'a pas de centimes : un séparateur suivi d'exactement trois
+  // chiffres est un séparateur de milliers, jamais une virgule décimale.
+  // Lu autrement, « 150.000 » (format français) et « 150,000 » (export
+  // anglais) donnaient 150 FCFA, et « 1.500.000 » était rejeté.
+  // Seul un dernier séparateur suivi d'un ou deux chiffres est décimal.
+  const lastSep = Math.max(text.lastIndexOf(","), text.lastIndexOf("."));
+  const decimals = lastSep >= 0 ? text.length - lastSep - 1 : 0;
+  if (lastSep >= 0 && decimals >= 1 && decimals <= 2) {
+    text = text.slice(0, lastSep).replace(/[.,]/g, "") + "." + text.slice(lastSep + 1);
   } else {
-    text = text.replace(/,/g, "");
+    text = text.replace(/[.,]/g, "");
   }
 
   const value = Number(text);
@@ -357,6 +362,12 @@ export function parseStatementCsv(
   const rows = content.split(/\r?\n/).filter(r => r.trim().length > 0);
   const lines: ParsedStatementLine[] = [];
   const rejected: ParseResult["rejected"] = [];
+  // Rang parmi les lignes IDENTIQUES (même jour, montant, libellé), pas dans le
+  // fichier : réimporter un relevé qui chevauche le précédent redonne la même
+  // empreinte aux lignes communes, qui sont alors reconnues comme déjà
+  // importées. Avec le rang dans le fichier, toutes les lignes communes
+  // changeaient d'empreinte et étaient dupliquées.
+  const seen = new Map<string, number>();
 
   rows.slice(skip).forEach((row, index) => {
     const rowNumber = index + skip + 1;
@@ -394,7 +405,12 @@ export function parseStatementCsv(
       amount,
       label,
       reference: mapping.reference !== undefined ? cells[mapping.reference] || undefined : undefined,
-      rank: lines.length,
+      rank: (() => {
+        const key = `${date.toDateString()}|${amount}|${normalizeLabel(label)}`;
+        const r = seen.get(key) ?? 0;
+        seen.set(key, r + 1);
+        return r;
+      })(),
     });
   });
 

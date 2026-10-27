@@ -40,8 +40,8 @@ export async function computeForecast(tenantId: string, weeks: number, at: Date 
       .lean<Array<{ number: string; dueDate?: Date; totalTTC: number; paidAmount?: number; creditedAmount?: number; retentionAmount?: number; clientId?: { name?: string } }>>(),
     PurchaseModel.find({ ...tf, status: { $in: ["validated", "partial"] } }).select("number dueDate date totalTTC paidAmount payee")
       .lean<Array<{ number: string; dueDate?: Date; date: Date; totalTTC: number; paidAmount: number; payee?: string }>>(),
-    RecurringExpenseModel.find({ ...tf, isActive: true }).select("label amount frequency nextDueDate")
-      .lean<Array<{ label: string; amount: number; frequency: string; nextDueDate: Date }>>(),
+    RecurringExpenseModel.find({ ...tf, isActive: true }).select("label amount frequency nextDueDate endDate")
+      .lean<Array<{ label: string; amount: number; frequency: string; nextDueDate: Date; endDate?: Date }>>(),
     EmployeeModel.find({ ...tf, isActive: true }).select("_id grossSalary indemnity employeeType").lean<Array<{ _id: Types.ObjectId; grossSalary?: number; indemnity?: number; employeeType?: string }>>(),
     PayslipModel.find({ ...tf, isPaid: false }).select("netSalary month year").lean<Array<{ netSalary: number; month: number; year: number }>>(),
     ExpenseReportModel.find({ ...tf, status: "approved" }).select("reference totalTTC").lean<Array<{ reference: string; totalTTC: number }>>(),
@@ -63,7 +63,9 @@ export async function computeForecast(tenantId: string, weeks: number, at: Date 
   for (const r of recurring) {
     let d = new Date(r.nextDueDate);
     const next = step[r.frequency] ?? step.monthly;
-    for (let n = 0; d <= horizon && n < 400; n++, d = next(d)) flows.push({ label: r.label, amount: r.amount, kind: "out", source: "Charges récurrentes", date: d });
+    // Une charge qui prend fin (bail, contrat) ne se prolonge pas jusqu'à l'horizon.
+    const until = r.endDate && new Date(r.endDate) < horizon ? new Date(r.endDate) : horizon;
+    for (let n = 0; d <= until && n < 400; n++, d = next(d)) flows.push({ label: r.label, amount: r.amount, kind: "out", source: "Charges récurrentes", date: d });
   }
   // Salaires : bulletins générés non payés, puis estimation des mois à venir
   // (dernier net connu par salarié, sinon 85 % du brut ou l'indemnité).

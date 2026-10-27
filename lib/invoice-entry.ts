@@ -66,11 +66,17 @@ export async function saleEntryLines(
     { accountCode: "411000", accountLabel: "Clients", debit: inv.totalTTC - retention, credit: 0, thirdPartyId: inv.clientId },
     ...(retention > 0 ? [{ ...RETENTION_ACCOUNT, debit: retention, credit: 0, thirdPartyId: inv.clientId }] : []),
     ...(deduction > 0 ? [{ ...DEPOSIT_ACCOUNT, debit: deduction, credit: 0, thirdPartyId: inv.clientId }] : []),
+    // Un solde négatif (déduction d'acompte supérieure aux lignes d'un compte)
+    // passe au débit : un crédit négatif rend l'écriture invalide.
     ...[...byAccount.entries()].filter(([, v]) => v !== 0).map(([code, v]) => ({
-      accountCode: code, accountLabel: LABELS[code] ?? "Ventes", debit: 0, credit: v,
+      accountCode: code, accountLabel: LABELS[code] ?? "Ventes", debit: v < 0 ? -v : 0, credit: v > 0 ? v : 0,
       ...(code === DEPOSIT_ACCOUNT.accountCode ? { thirdPartyId: inv.clientId } : tags),
     })),
-    ...(inv.totalTVA > 0 ? [{ accountCode: "443000", accountLabel: "TVA collectée", debit: 0, credit: inv.totalTVA }] : []),
+    // TVA nette négative (acompte à 19 %, solde à 0 %) : elle était omise, et
+    // l'écriture déséquilibrée faisait échouer l'émission. Elle régularise la
+    // TVA collectée sur l'acompte, au débit.
+    ...(inv.totalTVA > 0 ? [{ accountCode: "443000", accountLabel: "TVA collectée", debit: 0, credit: inv.totalTVA }]
+      : inv.totalTVA < 0 ? [{ accountCode: "443000", accountLabel: "TVA collectée (régularisation d'acompte)", debit: -inv.totalTVA, credit: 0 }] : []),
     ...(inv.totalDTS > 0 ? [{ accountCode: "447000", accountLabel: "Droits de timbre", debit: 0, credit: inv.totalDTS }] : []),
   ];
 }

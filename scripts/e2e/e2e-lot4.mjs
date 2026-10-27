@@ -49,7 +49,7 @@ const id = r => D(r)?._id;
 
   console.log("\n▶ Lettrage automatique — clients");
   const cl = id(await g.req("POST", "/api/clients", { code: "C-LET", name: "Client lettrage" }));
-  const mk = async (amount) => { const i = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ description: "Prestation", quantity: 1, unitPrice: amount, tvaRate: 0 }] })); await g.req("POST", `/api/invoices/${i._id}/send`); return i; };
+  const mk = async (amount) => { const i = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ description: "Prestation", quantity: 1, unitPrice: amount, tvaRate: 0 }] })); await g.req("POST", `/api/invoices/${i._id}/send`); Object.assign(i ?? {}, D(await g.req("GET", `/api/invoices/${i?._id}`))); return i; };
   const pay = (inv, amount) => g.req("POST", "/api/payments", { invoiceId: inv._id, amount, method: "bank_transfer", date: today, treasuryAccountId: bank._id });
   const f1 = await mk(100000), f2 = await mk(250000), f3 = await mk(80000);
   await pay(f1, 60000); await pay(f1, f1.totalTTC - 60000);       // f1 soldée en deux règlements (timbre compris)

@@ -161,7 +161,7 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   console.log("\n▶ Remboursement d'un avoir");
   const cl = id(await g.req("POST", "/api/clients", { code: "C-RMB", name: "Client remboursé" }));
   const fi = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ description: "Prestation", quantity: 1, unitPrice: 100000, tvaRate: 0 }] }));
-  await g.req("POST", `/api/invoices/${fi._id}/send`);
+  await g.req("POST", `/api/invoices/${fi._id}/send`); Object.assign(fi ?? {}, D(await g.req("GET", `/api/invoices/${fi?._id}`)));
   await g.req("POST", "/api/payments", { invoiceId: fi._id, amount: fi.totalTTC, method: "bank_transfer", date: today, treasuryAccountId: b1._id });
   const av = D(await g.req("POST", `/api/invoices/${fi._id}/credit-note`, { mode: "full", reason: "Prestation annulée" })).creditNote;
   const st = D(await g.req("GET", `/api/invoices/${av?._id}/refund`));
@@ -173,7 +173,7 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
     && rbE.lines.some(l => l.accountCode === "411000" && l.debit === 40000) && rbE.lines.some(l => l.accountCode === b1.ledgerCode && l.credit === 40000), `${rb.status} ${J(rb.data).slice(0, 150)} ${J(rbE?.lines)}`);
   check("reste remboursable", D(await g.req("GET", `/api/invoices/${av?._id}/refund`)).refundable === fi.totalTTC - 40000);
   const unpaidInv = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ description: "Autre", quantity: 1, unitPrice: 50000, tvaRate: 0 }] }));
-  await g.req("POST", `/api/invoices/${unpaidInv._id}/send`);
+  await g.req("POST", `/api/invoices/${unpaidInv._id}/send`); Object.assign(unpaidInv ?? {}, D(await g.req("GET", `/api/invoices/${unpaidInv?._id}`)));
   const av2 = D(await g.req("POST", `/api/invoices/${unpaidInv._id}/credit-note`, { mode: "full", reason: "Erreur" })).creditNote;
   check("avoir sur facture impayée : rien à rembourser", D(await g.req("GET", `/api/invoices/${av2?._id}/refund`)).refundable === 0
     && (await g.req("POST", `/api/invoices/${av2?._id}/refund`, { treasuryAccountId: b1._id })).status === 400);
@@ -181,7 +181,7 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   console.log("\n▶ Livraisons plafonnées au facturé");
   const art = D(await g.req("POST", "/api/products", { code: "ART-LIV", label: "Rame de papier", unitPrice: 4000, initialQty: 20, initialCost: 2500 }));
   const fl = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ productId: art._id, description: "Rame de papier", quantity: 5, unitPrice: 4000, tvaRate: 0.19 }] }));
-  await g.req("POST", `/api/invoices/${fl._id}/send`);
+  await g.req("POST", `/api/invoices/${fl._id}/send`); Object.assign(fl ?? {}, D(await g.req("GET", `/api/invoices/${fl?._id}`)));
   const src1 = D(await g.req("GET", `/api/livraisons/source?number=${encodeURIComponent(fl.number)}`));
   check("source : 5 à livrer sur la ligne 0", src1.lines?.[0]?.remaining === 5 && src1.lines?.[0]?.invoiceLineIndex === 0, J(src1.lines));
   const bl1 = await g.req("POST", "/api/livraisons", { invoiceId: fl._id, deliveryDate: today, lines: [{ invoiceLineIndex: 0, productId: art._id, description: "Rame de papier", quantity: 3 }] });
@@ -221,7 +221,7 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   console.log("\n▶ Chiffre d'affaires et avoirs totaux");
   const caBefore = D(await g.req("GET", "/api/reports/analytics?months=12")).kpis?.totalCA;
   const fx = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ description: "Vente annulée", quantity: 1, unitPrice: 80000, tvaRate: 0 }] }));
-  await g.req("POST", `/api/invoices/${fx._id}/send`);
+  await g.req("POST", `/api/invoices/${fx._id}/send`); Object.assign(fx ?? {}, D(await g.req("GET", `/api/invoices/${fx?._id}`)));
   const caIssued = D(await g.req("GET", "/api/reports/analytics?months=12")).kpis?.totalCA;
   await g.req("POST", `/api/invoices/${fx._id}/credit-note`, { mode: "full", reason: "Annulation de la vente" });
   const caAfter = D(await g.req("GET", "/api/reports/analytics?months=12")).kpis?.totalCA;

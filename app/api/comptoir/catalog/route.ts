@@ -27,7 +27,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   }
   const canSupply = authCan(auth, "products", "update") || allDesks(auth);
   const [products, warehouses] = await Promise.all([
-    ProductModel.find(filter).select("code label unit unitPrice trackingMode").sort({ label: 1 }).limit(500).lean(),
+    ProductModel.find(filter).select("code label unit unitPrice tvaRate trackingMode").sort({ label: 1 }).limit(500).lean(),
     canSupply
       ? defaultWarehouse(auth.tenantId).then(() => WarehouseModel.find({ ...tenantFilter(auth), isActive: true, kind: { $ne: "comptoir" } })
           .select("code name kind isDefault").sort({ isDefault: -1, name: 1 }).lean())

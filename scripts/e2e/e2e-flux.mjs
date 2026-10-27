@@ -85,7 +85,7 @@ const id = r => D(r)?._id;
 
   console.log("\n▶ Contrats : champs protégés, facture équilibrée");
   const cli = id(await g.req("POST", "/api/clients", { code: "C-FLUX", name: "Client flux" }));
-  const ct = await g.req("POST", "/api/contracts", { title: "Maintenance", type: "client", clientId: cli, amount: 100000, reference: "PIRATE", invoiceIds: ["000000000000000000000000"] });
+  const ct = await g.req("POST", "/api/contracts", { title: "Maintenance", type: "client", clientId: cli, amount: 100000, reference: "PIRATE", invoiceIds: ["000000000000000000000000"], status: "active", isRecurring: true, billingFrequency: "monthly" });
   const ctId = id(ct);
   check("création : référence et factures liées ignorées", ct.status === 201 && D(ct).reference !== "PIRATE" && (D(ct).invoiceIds ?? []).length === 0, J(D(ct)).slice(0, 150));
   const hijack = await g.req("PATCH", `/api/contracts/${ctId}`, { tenantId: "000000000000000000000000", title: "Maintenance annuelle" });
@@ -96,7 +96,7 @@ const id = r => D(r)?._id;
   const inv = D(gen).invoice;
   check("facture de contrat créée en brouillon, sans écriture", inv?.status === "draft"
     && !(D(await g.req("GET", `/api/accounting-entries?search=${encodeURIComponent(inv?.number ?? "x")}`)).items ?? []).length);
-  await g.req("POST", `/api/invoices/${inv?._id}/send`);
+  await g.req("POST", `/api/invoices/${inv?._id}/send`); Object.assign(inv ?? {}, D(await g.req("GET", `/api/invoices/${inv?._id}`)));
   const vt = (D(await g.req("GET", `/api/accounting-entries?search=${encodeURIComponent(inv?.number ?? "x")}`)).items ?? [])[0];
   const deb = vt?.lines?.reduce((t, l) => t + l.debit, 0), cred = vt?.lines?.reduce((t, l) => t + l.credit, 0);
   check("facture depuis un contrat : écriture équilibrée, timbre en 447", gen.status === 200 && vt && deb === cred && deb === inv.totalTTC && (inv.totalDTS === 0 || vt.lines.some(l => l.accountCode === "447000")), `${gen.status} ${deb}/${cred} TTC ${inv?.totalTTC} DTS ${inv?.totalDTS}`);

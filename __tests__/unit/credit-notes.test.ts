@@ -118,7 +118,26 @@ describe("Avoir partiel", () => {
   it("refuse une quantité supérieure à celle facturée", () => {
     const res = buildCreditNote(invoice(), [{ lineIndex: 0, quantity: 11 }]);
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toContain("11 demandé pour 10 facturé");
+    if (!res.ok) expect(res.error).toContain("11 demandé, 10 encore créditable sur 10 facturé");
+  });
+
+  it("cumule les avoirs partiels : une ligne déjà créditée ne se crédite plus", () => {
+    const res = buildCreditNote(invoice({ creditedAmount: 357_000 }), [{ lineIndex: 1, quantity: 1 }], [0, 2]);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toContain("déjà entièrement créditée");
+  });
+
+  it("l'avoir qui complète les précédents reprend le timbre et solde la facture", () => {
+    // Formation déjà créditée par un premier avoir (357 000) ; le second
+    // crédite les licences : la facture est couverte, timbre compris.
+    const res = buildCreditNote(invoice({ creditedAmount: 357_000 }), [{ lineIndex: 0, quantity: 10 }], [0, 2]);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.draft.isFull).toBe(true);
+      expect(res.draft.totalDTS).toBe(1_000);
+      expect(res.draft.totalTTC).toBe(596_000);
+      expect(res.draft.lines[0].sourceLineIndex).toBe(0);
+    }
   });
 
   it("refuse une quantité nulle ou négative", () => {

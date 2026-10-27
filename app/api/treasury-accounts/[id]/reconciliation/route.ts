@@ -35,11 +35,18 @@ export const GET = withAuth("treasuryAccounts", "read", async (req: NextRequest,
   const asOf = asOfParam ? new Date(asOfParam) : new Date();
   if (Number.isNaN(asOf.getTime())) return notFound("Date d'arrêté invalide");
 
-  const [movements, lines] = await Promise.all([
-    TreasuryMovementModel.find({ ...tenantFilter(auth), accountId: params.id })
-      .sort({ date: -1 }).limit(500).lean<MovementLike[]>(),
-    BankStatementLineModel.find({ ...tenantFilter(auth), accountId: params.id })
-      .sort({ date: -1 }).limit(500).lean<StatementLineLike[]>(),
+  const scope = { ...tenantFilter(auth), accountId: params.id };
+  // Soldes calculés sur TOUS les mouvements et lignes (projection minimale) :
+  // limités à 500, ils devenaient faux au-delà et l'écart affiché était
+  // fictif. Seules les listes affichées restent bornées ; les propositions de
+  // rapprochement portent sur les éléments encore ouverts.
+  const [allMovements, allLines, movements, lines, openMovements, openLines] = await Promise.all([
+    TreasuryMovementModel.find(scope).select("date amount statementLineId").lean<MovementLike[]>(),
+    BankStatementLineModel.find(scope).select("date amount movementId ignoredAt").lean<StatementLineLike[]>(),
+    TreasuryMovementModel.find(scope).sort({ date: -1 }).limit(500).lean<MovementLike[]>(),
+    BankStatementLineModel.find(scope).sort({ date: -1 }).limit(500).lean<StatementLineLike[]>(),
+    TreasuryMovementModel.find({ ...scope, statementLineId: null }).sort({ date: -1 }).limit(1000).lean<MovementLike[]>(),
+    BankStatementLineModel.find({ ...scope, movementId: null, ignoredAt: null }).sort({ date: -1 }).limit(1000).lean<StatementLineLike[]>(),
   ]);
 
   // Reprise : les comptes créés avant ce module portent leur solde dans
@@ -50,8 +57,9 @@ export const GET = withAuth("treasuryAccounts", "read", async (req: NextRequest,
   return ok({
     account: { _id: account._id, label: account.label, type: account.type },
     asOf: asOf.toISOString(),
-    summary: reconciliationSummary(openingBalance, movements, lines, asOf),
-    suggestions: suggestMatches(movements, lines),
+    summary: reconciliationSummary(openingBalance, allMovements, allLines, asOf),
+    suggestions: suggestMatches(openMovements, openLines),
+    truncated: allMovements.length > movements.length || allLines.length > lines.length,
     movements,
     lines,
   });

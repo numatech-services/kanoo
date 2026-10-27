@@ -8,7 +8,11 @@
  * personne à payer.
  */
 
-export type StatementKind = "invoice" | "credit_note" | "payment";
+/**
+ * `refund` : avoir remboursé au client (la dette remonte d'autant) ;
+ * `write_off` : créance passée en perte (elle ne sera plus réclamée).
+ */
+export type StatementKind = "invoice" | "credit_note" | "payment" | "refund" | "write_off";
 
 export interface StatementSource {
   _id: unknown;
@@ -89,7 +93,7 @@ export function buildStatement(
   from: Date,
   to: Date
 ): Statement {
-  const ORDER: Record<StatementKind, number> = { invoice: 0, credit_note: 1, payment: 2 };
+  const ORDER: Record<StatementKind, number> = { invoice: 0, credit_note: 1, payment: 2, refund: 3, write_off: 4 };
 
   const inPeriod = sources
     .filter(s => {
@@ -118,10 +122,13 @@ export function buildStatement(
 
   const invoiced = inPeriod.filter(s => s.kind === "invoice")
     .reduce((sum, s) => sum + s.amount, 0);
-  const credited = inPeriod.filter(s => s.kind === "credit_note")
+  // Pertes comptées avec les avoirs (créance éteinte sans règlement) ;
+  // remboursements retranchés des règlements (argent rendu au client).
+  const credited = inPeriod.filter(s => s.kind === "credit_note" || s.kind === "write_off")
     .reduce((sum, s) => sum + Math.abs(s.amount), 0);
   const paid = inPeriod.filter(s => s.kind === "payment")
-    .reduce((sum, s) => sum + Math.abs(s.amount), 0);
+    .reduce((sum, s) => sum + Math.abs(s.amount), 0)
+    - inPeriod.filter(s => s.kind === "refund").reduce((sum, s) => sum + Math.abs(s.amount), 0);
 
   return {
     from, to, rows,
@@ -214,4 +221,6 @@ export const KIND_LABEL: Record<StatementKind, string> = {
   invoice: "Facture",
   credit_note: "Avoir",
   payment: "Règlement",
+  refund: "Remboursement",
+  write_off: "Passage en perte",
 };

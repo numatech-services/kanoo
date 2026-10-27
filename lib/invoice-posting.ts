@@ -1,3 +1,4 @@
+import { nextDocumentNumber, isProvisionalNumber } from "@/lib/numbering";
 import type { ClientSession } from "mongoose";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { ClientModel } from "@/models/Client";
@@ -68,6 +69,11 @@ export async function issueInvoice(actor: PostingActor, invoice: InvoiceDoc, ses
     for (const d of drafts) await issueInvoice(actor, d as unknown as InvoiceDoc, session);
   }
 
+  // Numéro définitif tiré ICI, dans la transaction de l'émission : la série
+  // ne compte que les factures émises, sans trou.
+  if (isProvisionalNumber(invoice.number)) {
+    invoice.number = await nextDocumentNumber(actor.tenantId, "invoice", { issueDate: invoice.issueDate, session });
+  }
   invoice.status = "sent";
   await invoice.save({ session });
   await postInvoice(actor, invoice, session);

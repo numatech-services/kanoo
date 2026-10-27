@@ -93,8 +93,12 @@ export function syscohadaBalanceSheet(rows: AccountAmounts[], opts: { currentYea
   // Exercices antérieurs non clôturés : leur résultat attend l'affectation, il va au report à nouveau.
   const cumulated = resultOf(rows);
   const current = opts.currentYearResult ?? cumulated;
-  const CH = cr(["12"]) + (cumulated - current);
-  const CJ = cr(["13"]) + current;
+  // Résultat d'un exercice antérieur clôturé mais pas encore affecté (130) :
+  // présenté avec le report à nouveau, comme celui des exercices non
+  // clôturés. Ajouté à CJ, il faisait afficher « résultat N + résultat N+1 »
+  // comme résultat de l'exercice.
+  const CH = cr(["12"]) + cr(["13"]) + (cumulated - current);
+  const CJ = current;
   const CL = cr(["14"]);
   const CM = cr(["15"]);
   const CP = CA + CB + CD + CE + CF + CG + CH + CJ + CL + CM;

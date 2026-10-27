@@ -106,9 +106,12 @@ export function lotTotals(qty: number, unitPrice: number, tvaRate = 0.19): LineT
   return { ht, tva, ttc: ht + tva };
 }
 
-/** Intrants consommés par un lot (ex. numéros ISIC). Défaut : 1 par unité. */
+/**
+ * Intrants consommés par un lot (ex. numéros ISIC). Défaut : 1 par unité.
+ * 0 désactive la consommation (il était remplacé par 1).
+ */
 export function inputConsumption(order: FrameworkOrderLike, qty: number): number {
-  const per = order.inputPerUnit && order.inputPerUnit > 0 ? order.inputPerUnit : 1;
+  const per = typeof order.inputPerUnit === "number" && order.inputPerUnit >= 0 ? order.inputPerUnit : 1;
   return Math.round(qty * per);
 }
 

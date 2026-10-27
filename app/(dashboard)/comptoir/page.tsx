@@ -741,7 +741,11 @@ function ItemDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
         <FormField label="Article du catalogue" hint="Relié : son stock est la réserve du comptoir, approvisionnée par transfert depuis le magasin.">
           <select className={selectCls} value={form.productId} onChange={e => {
             const p = catalog.find(x => x._id === e.target.value);
-            setForm(f => ({ ...f, productId: e.target.value, name: p ? p.label : f.name, unit: p?.unit ?? f.unit, salePrice: p?.unitPrice ? String(p.unitPrice) : f.salePrice }));
+            // Le prix du catalogue est HT ; le comptoir encaisse TTC (la TVA en
+            // est extraite à la comptabilisation). Reprendre le HT tel quel
+            // sous-évaluait le chiffre d'affaires de la TVA.
+            const ttc = p?.unitPrice ? Math.round(p.unitPrice * (1 + (p.tvaRate ?? 0))) : null;
+            setForm(f => ({ ...f, productId: e.target.value, name: p ? p.label : f.name, unit: p?.unit ?? f.unit, salePrice: ttc ? String(ttc) : f.salePrice }));
           }}>
             <option value="">— Article propre au comptoir (plat, boisson préparée…) —</option>
             {catalog.map(p => <option key={p._id} value={p._id}>{p.code} — {p.label}</option>)}
@@ -754,7 +758,7 @@ function ItemDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
           <FormField label="Unité"><input className={inputCls} value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} /></FormField>
           {!form.productId && <FormField label="Stock initial"><input className={inputCls} type="number" min="0" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></FormField>}
           {!form.productId && <FormField label="Coût unitaire (FCFA)"><input className={inputCls} type="number" min="0" value={form.unitCost} onChange={e => setForm(f => ({ ...f, unitCost: e.target.value }))} /></FormField>}
-          <FormField label="Prix de vente (FCFA)" hint="Indicatif"><input className={inputCls} type="number" min="0" value={form.salePrice} onChange={e => setForm(f => ({ ...f, salePrice: e.target.value }))} /></FormField>
+          <FormField label="Prix de vente TTC (FCFA)" hint="Prix encaissé, TVA comprise"><input className={inputCls} type="number" min="0" value={form.salePrice} onChange={e => setForm(f => ({ ...f, salePrice: e.target.value }))} /></FormField>
           <FormField label="Seuil d'alerte" hint="Facultatif"><input className={inputCls} type="number" min="0" value={form.threshold} onChange={e => setForm(f => ({ ...f, threshold: e.target.value }))} /></FormField>
         </div>
         <div className="flex justify-end gap-3 pt-2">
@@ -848,7 +852,7 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
 }
 
 
-interface CatalogProduct { _id: string; code: string; label: string; unit?: string; unitPrice?: number; trackingMode?: string }
+interface CatalogProduct { _id: string; code: string; label: string; unit?: string; unitPrice?: number; tvaRate?: number; trackingMode?: string }
 /** Articles stockés du catalogue (pour relier un article de comptoir). */
 function useCatalog() {
   const [list, setList] = useState<CatalogProduct[]>([]);

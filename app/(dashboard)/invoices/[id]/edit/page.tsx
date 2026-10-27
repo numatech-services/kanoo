@@ -33,6 +33,7 @@ export default function EditInvoicePage() {
           dueDate: invoice.dueDate,
           lines: invoice.lines || [],
           notes: invoice.notes || "",
+          termsAndConditions: invoice.termsAndConditions || "",
         });
       })
       .catch(err => console.error("Erreur de chargement de la facture :", err))

@@ -52,7 +52,7 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
 
   console.log("\n▶ Créances douteuses");
   const inv = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: daysAgo(210), dueDate: daysAgo(200), lines: [{ description: "Prestation", quantity: 1, unitPrice: 1000000, tvaRate: 0.19 }] }));
-  await g.req("POST", `/api/invoices/${inv._id}/send`);
+  await g.req("POST", `/api/invoices/${inv._id}/send`); Object.assign(inv ?? {}, D(await g.req("GET", `/api/invoices/${inv?._id}`)));
   let pv = D(await g.req("GET", "/api/accounting/provisions"));
   const w = pv.items?.find(i => i._id === inv._id);
   check("retard de 200 jours : à examiner, 50 % suggérés", w && !w.doubtful && w.suggestedRate === 0.5 && w.due === inv.totalTTC, J(w));
@@ -84,7 +84,7 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
 
   console.log("\n▶ Écarts de change");
   const inv2 = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ description: "Export", quantity: 1, unitPrice: 1000000, tvaRate: 0 }] }));
-  await g.req("POST", `/api/invoices/${inv2._id}/send`);
+  await g.req("POST", `/api/invoices/${inv2._id}/send`); Object.assign(inv2 ?? {}, D(await g.req("GET", `/api/invoices/${inv2?._id}`)));
   check("écart au-delà de 10 % : refusé", (await g.req("POST", "/api/payments", { invoiceId: inv2._id, amount: 800000, exchangeDifference: inv2.totalTTC - 800000, method: "bank_transfer", date: today, treasuryAccountId: bank._id })).status === 400);
   const loss = inv2.totalTTC - 985000;
   const fx = await g.req("POST", "/api/payments", { invoiceId: inv2._id, amount: 985000, exchangeDifference: loss, method: "bank_transfer", date: today, treasuryAccountId: bank._id });

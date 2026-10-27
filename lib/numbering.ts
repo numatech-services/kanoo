@@ -3,7 +3,8 @@
  * Gère les préfixes personnalisés par tenant avec réinitialisation annuelle
  */
 
-import type { ClientSession } from "mongoose";
+import crypto from "crypto";
+import type { ClientSession, Model } from "mongoose";
 import { connectDB } from "./db";
 import { TenantModel } from "@/models/Tenant";
 import type { NumberingConfig as TenantNumberingConfig } from "@/types";
@@ -80,35 +81,119 @@ export async function nextDocumentNumber(
 ): Promise<string> {
   await connectDB();
 
-  const seqField = `numberingConfig.${SEQUENCE_FIELD[docType]}`;
+  const field = SEQUENCE_FIELD[docType];
   const issued = options.issueDate ? new Date(options.issueDate) : new Date();
   const year = Number.isNaN(issued.getTime()) ? new Date().getFullYear() : issued.getFullYear();
+  const session = options.session;
 
-  // Incrément atomique MongoDB, dans la transaction de l'appelant s'il y en a une.
-  const query = TenantModel.findByIdAndUpdate(
-    tenantId,
-    { $inc: { [seqField]: 1 } },
-    { new: true, upsert: false }
-  ).select("numberingConfig");
+  const current = await TenantModel.findById(tenantId).select("numberingConfig").session(session ?? null)
+    .lean<{ numberingConfig?: TenantNumberingConfig } | null>();
+  if (!current) throw new Error(`Tenant introuvable: ${tenantId}`);
+  const cfg = (current.numberingConfig as unknown as NumberingConfig) || ({} as NumberingConfig);
+  const fmt = formatOf(cfg, docType);
 
-  if (options.session) query.session(options.session);
+  let counter: number;
+  if (fmt.perYear) {
+    // Une série par année : le compteur de l'année de la PIÈCE, jamais celui
+    // de l'horloge. Créé à la première pièce de l'année, à partir du plus
+    // grand numéro déjà émis pour cette année (reprise sans collision).
+    const path = `numberingConfig.yearCounters.${field}_${year}`;
+    let t = await TenantModel.findOneAndUpdate(
+      { _id: tenantId, [path]: { $exists: true } }, { $inc: { [path]: 1 } },
+      { new: true, session },
+    ).select("numberingConfig.yearCounters").lean<{ numberingConfig?: { yearCounters?: Record<string, number> } } | null>();
+    if (!t) {
+      const seed = await highestIssued(tenantId, docType, fmt, year, session);
+      t = await TenantModel.findOneAndUpdate(
+        { _id: tenantId, [path]: { $exists: false } }, { $set: { [path]: seed + 1 } },
+        { new: true, session },
+      ).select("numberingConfig.yearCounters").lean<{ numberingConfig?: { yearCounters?: Record<string, number> } } | null>();
+      // Créé entre-temps par une requête concurrente : on incrémente le sien.
+      if (!t) t = await TenantModel.findOneAndUpdate({ _id: tenantId }, { $inc: { [path]: 1 } }, { new: true, session })
+        .select("numberingConfig.yearCounters").lean<{ numberingConfig?: { yearCounters?: Record<string, number> } } | null>();
+    }
+    counter = Number((t?.numberingConfig?.yearCounters as Record<string, number> | undefined)?.[`${field}_${year}`] ?? 1);
+  } else {
+    // Série continue sans remise à zéro (ou sans année dans le numéro).
+    const t = await TenantModel.findByIdAndUpdate(tenantId, { $inc: { [`numberingConfig.${field}`]: 1 } }, { new: true, session })
+      .select("numberingConfig").lean<{ numberingConfig?: TenantNumberingConfig } | null>();
+    counter = Number((t?.numberingConfig as unknown as NumberingConfig | undefined)?.[field as keyof NumberingConfig] ?? 1);
+  }
+  return render(fmt, year, counter);
+}
 
-  const tenant = await query.lean<{ numberingConfig?: TenantNumberingConfig } | null>();
+interface NumberFormat { prefix: string; sep: string; digits: number; useYear: boolean; startAt: number; perYear: boolean }
 
-  if (!tenant) throw new Error(`Tenant introuvable: ${tenantId}`);
+function formatOf(cfg: NumberingConfig, docType: DocType): NumberFormat {
+  const useYear = cfg.yearInNumber ?? true;
+  return {
+    prefix: (cfg[PREFIX_FIELD[docType] as keyof NumberingConfig] as string) || defaultPrefix(docType),
+    sep: cfg.separator ?? "-",
+    digits: cfg.digitCount ?? 5,
+    useYear,
+    startAt: docType === "invoice" ? (cfg.invoiceStartAt ?? 1) : 1,
+    perYear: useYear && (cfg.resetYearly ?? true),
+  };
+}
 
-  const cfg = (tenant.numberingConfig as NumberingConfig) || {};
-  const prefix    = (cfg[PREFIX_FIELD[docType] as keyof NumberingConfig] as string) || defaultPrefix(docType);
-  const sep       = cfg.separator ?? "-";
-  const digits    = cfg.digitCount ?? 5;
-  const useYear   = cfg.yearInNumber ?? true;
-  const startAt   = docType === "invoice" ? (cfg.invoiceStartAt ?? 1) : 1;
+/** Le compteur c (1 pour la première pièce) donne le numéro c − 1 + startAt. */
+function render(f: NumberFormat, year: number, counter: number): string {
+  const seqStr = String(counter - 1 + f.startAt).padStart(f.digits, "0");
+  return f.useYear ? `${f.prefix}${f.sep}${year}${f.sep}${seqStr}` : `${f.prefix}${f.sep}${seqStr}`;
+}
 
-  const seq = (cfg[SEQUENCE_FIELD[docType] as keyof NumberingConfig] as number) - 1 + startAt;
-  const seqStr = String(seq).padStart(digits, "0");
+/** Collections et champs qui portent les numéros d'une série. */
+async function numberedCollections(docType: DocType): Promise<Array<{ model: Model<unknown>; field: string }>> {
+  const m = (x: unknown) => x as Model<unknown>;
+  switch (docType) {
+    case "invoice": case "credit_note": return [{ model: m((await import("@/models/Invoice")).InvoiceModel), field: "number" }];
+    case "quote": return [{ model: m((await import("@/models/Devis")).DevisModel), field: "number" }];
+    case "order": return [
+      { model: m((await import("@/models/Commande")).CommandeModel), field: "number" },
+      { model: m((await import("@/models/FrameworkOrder")).FrameworkOrderModel), field: "reference" },
+    ];
+    case "delivery": return [
+      { model: m((await import("@/models/DeliveryNote")).DeliveryNoteModel), field: "number" },
+      { model: m((await import("@/models/DeliveryLot")).DeliveryLotModel), field: "reference" },
+    ];
+    case "contract": return [{ model: m((await import("@/models/Contract")).ContractModel), field: "reference" }];
+    case "purchase": return [{ model: m((await import("@/models/Purchase")).PurchaseModel), field: "number" }];
+  }
+}
 
-  if (useYear) return `${prefix}${sep}${year}${sep}${seqStr}`;
-  return `${prefix}${sep}${seqStr}`;
+const escapeRx = (x: string) => x.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+
+/**
+ * Plus haut compteur déjà utilisé pour une année (0 si aucun) : reprise des
+ * séries émises avant les compteurs annuels, et garantie qu'un numéro déjà
+ * attribué ne ressort jamais.
+ */
+async function highestIssued(tenantId: string, docType: DocType, f: NumberFormat, year: number, session?: ClientSession): Promise<number> {
+  const rx = new RegExp(`^${escapeRx(f.prefix)}${escapeRx(f.sep)}${year}${escapeRx(f.sep)}(\\d+)$`);
+  let max = 0;
+  for (const { model, field } of await numberedCollections(docType)) {
+    const docs = await model.find({ tenantId, [field]: rx }).select(field).session(session ?? null).lean<Array<Record<string, string>>>();
+    for (const d of docs) {
+      const n = Number(rx.exec(String(d[field]))?.[1] ?? 0);
+      if (n > max) max = n;
+    }
+  }
+  // Numéro affiché N ↔ compteur N − startAt + 1.
+  return max > 0 ? max - f.startAt + 1 : 0;
+}
+
+/**
+ * Numéro provisoire d'un brouillon de facture. Le numéro définitif n'est
+ * attribué qu'à l'ÉMISSION (lib/invoice-posting) : pris dès le brouillon,
+ * chaque brouillon supprimé laissait un trou dans une série que la DGI veut
+ * continue.
+ */
+export const PROVISIONAL_PREFIX = "BROUILLON-";
+export function provisionalNumber(): string {
+  return `${PROVISIONAL_PREFIX}${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
+}
+export function isProvisionalNumber(n?: string | null): boolean {
+  return !!n && n.startsWith(PROVISIONAL_PREFIX);
 }
 
 function defaultPrefix(docType: DocType): string {
@@ -129,8 +214,13 @@ function defaultPrefix(docType: DocType): string {
  */
 export async function resetYearlySequences(): Promise<number> {
   await connectDB();
+  const year = new Date().getFullYear();
+  // Idempotent : seulement les organisations pas encore remises à zéro cette
+  // année. Rejouée (nouvelle tentative de l'hébergeur, deux planificateurs),
+  // la tâche remettait les compteurs à zéro en cours d'année. Les séries avec
+  // l'année dans le numéro ont leur compteur annuel et n'en dépendent plus.
   const result = await TenantModel.updateMany(
-    { "numberingConfig.resetYearly": true },
+    { "numberingConfig.resetYearly": true, $or: [{ "numberingConfig.sequenceYear": { $exists: false } }, { "numberingConfig.sequenceYear": { $lt: year } }] },
     {
       $set: {
         "numberingConfig.invoiceSequence":  0,
@@ -140,7 +230,7 @@ export async function resetYearlySequences(): Promise<number> {
         "numberingConfig.contractSequence": 0,
         "numberingConfig.creditNoteSequence": 0,
         "numberingConfig.purchaseSequence": 0,
-        "numberingConfig.sequenceYear":     new Date().getFullYear(),
+        "numberingConfig.sequenceYear":     year,
       },
     }
   );
@@ -160,20 +250,20 @@ export async function previewNextNumber(
     .lean<{ numberingConfig?: TenantNumberingConfig } | null>();
   if (!tenant) return defaultPreview(docType);
 
-  const cfg = (tenant.numberingConfig as NumberingConfig) || {};
-  const prefix    = (cfg[PREFIX_FIELD[docType] as keyof NumberingConfig] as string) || defaultPrefix(docType);
-  const sep       = cfg.separator ?? "-";
-  const digits    = cfg.digitCount ?? 5;
-  const useYear   = cfg.yearInNumber ?? true;
-  const startAt   = docType === "invoice" ? (cfg.invoiceStartAt ?? 1) : 1;
-  const issued    = issueDate ? new Date(issueDate) : new Date();
-  const year      = Number.isNaN(issued.getTime()) ? new Date().getFullYear() : issued.getFullYear();
-
-  const seq = (cfg[SEQUENCE_FIELD[docType] as keyof NumberingConfig] as number ?? 0) + startAt;
-  const seqStr = String(seq).padStart(digits, "0");
-
-  if (useYear) return `${prefix}${sep}${year}${sep}${seqStr}`;
-  return `${prefix}${sep}${seqStr}`;
+  const cfg = (tenant.numberingConfig as unknown as NumberingConfig) || ({} as NumberingConfig);
+  const f = formatOf(cfg, docType);
+  const issued = issueDate ? new Date(issueDate) : new Date();
+  const year = Number.isNaN(issued.getTime()) ? new Date().getFullYear() : issued.getFullYear();
+  const field = SEQUENCE_FIELD[docType];
+  let used: number;
+  if (f.perYear) {
+    const counters = (tenant.numberingConfig as { yearCounters?: Record<string, number> } | undefined)?.yearCounters ?? {};
+    const k = `${field}_${year}`;
+    used = k in counters ? Number(counters[k]) : await highestIssued(tenantId, docType, f, year);
+  } else {
+    used = Number(cfg[field as keyof NumberingConfig] ?? 0);
+  }
+  return render(f, year, used + 1);
 }
 
 function defaultPreview(docType: DocType): string {

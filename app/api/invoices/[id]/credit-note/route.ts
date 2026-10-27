@@ -9,7 +9,8 @@ import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { ClientModel } from "@/models/Client";
 import { releaseMarketInvoice } from "@/lib/market-invoice";
 import { nextDocumentNumber } from "@/lib/numbering";
-import { buildCreditNote, reversalEntryLines, creditableAmount, type InvoiceLike } from "@/lib/credit-notes";
+import { saleEntryLines } from "@/lib/invoice-entry";
+import { buildCreditNote, creditableAmount, type InvoiceLike } from "@/lib/credit-notes";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -48,9 +49,21 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
   if (retention > 0 && body.mode !== "full") {
     return badRequest("Facture avec retenue de garantie : faites un avoir total, puis refacturez le bon montant.");
   }
+  // Quantités déjà créditées, ligne par ligne, par les avoirs précédents.
+  // Avoirs antérieurs à ce suivi (sans index de ligne) : rapprochés par
+  // libellé et prix unitaire.
+  const previous = await InvoiceModel.find({ ...tenantFilter(auth), documentType: "credit_note", originalInvoiceId: invoice._id })
+    .select("lines").lean<Array<{ lines: Array<{ sourceLineIndex?: number; description: string; unitPrice: number; quantity: number }> }>>();
+  const alreadyCredited: number[] = invoice.lines.map(() => 0);
+  for (const cn of previous) for (const l of cn.lines) {
+    const i = typeof l.sourceLineIndex === "number" ? l.sourceLineIndex
+      : invoice.lines.findIndex((o: { description: string; unitPrice: number }) => o.description === l.description && o.unitPrice === l.unitPrice);
+    if (i >= 0 && i < alreadyCredited.length) alreadyCredited[i] += Number(l.quantity) || 0;
+  }
   const draftResult = buildCreditNote(
     invoice.toObject() as unknown as InvoiceLike,
-    body.mode === "full" ? "full" : body.lines
+    body.mode === "full" ? "full" : body.lines,
+    alreadyCredited,
   );
   if (!draftResult.ok) return badRequest(draftResult.error);
   const draft = draftResult.draft;
@@ -64,7 +77,15 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
 
   // L'avoir porte l'imputation de la facture : il réduit les recettes du projet.
   const tags = { ...(invoice.projectId ? { projectId: invoice.projectId } : {}), ...(invoice.activityId ? { activityId: invoice.activityId } : {}) };
-  const entryLines = reversalEntryLines(draft, invoice.clientId, { kind: invoice.kind, tags });
+  // Miroir EXACT de l'écriture de vente, compte par compte : l'extourne
+  // débitait toujours le 706, alors que la vente avait pu créditer le 701 ou
+  // le compte propre de l'article (701 surévalué, 706 négatif).
+  const mirror = await saleEntryLines(auth.tenantId, {
+    clientId: invoice.clientId, lines: draft.lines, totalTVA: draft.totalTVA, totalDTS: draft.totalDTS, totalTTC: draft.totalTTC,
+    projectId: invoice.projectId, activityId: invoice.activityId, kind: invoice.kind,
+  });
+  const entryLines: Array<{ accountCode: string; accountLabel: string; debit: number; credit: number; thirdPartyId?: unknown }> =
+    mirror.map(l => ({ ...l, debit: l.credit, credit: l.debit }));
   if (retention > 0) {
     // La vente avait porté la retenue au 4117 : l'avoir la solde aussi.
     const client411 = entryLines.find(l => l.accountCode === "411000" && l.credit >= retention);

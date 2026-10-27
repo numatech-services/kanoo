@@ -75,7 +75,10 @@ export const CRON_JOBS: CronJob[] = [
     cadence: "daily", schedule: "30 6 * * *",
     run: async () => {
       const overdue = await InvoiceModel.find({
-        status: { $in: ["sent", "partial"] }, dueDate: { $lt: new Date() },
+        // « overdue » compris (posé par l'annulation d'un encaissement) ; ni
+        // les avoirs ni les factures en litige.
+        status: { $in: ["sent", "partial", "overdue"] }, dueDate: { $lt: new Date() },
+        documentType: { $ne: "credit_note" }, disputedAt: { $exists: false },
       }).lean<Array<{ _id: Id; tenantId: Id; number: string; totalTTC: number }>>();
       for (const inv of overdue) {
         const admins = await getAdmins(inv.tenantId, ["pme_admin", "pme_accountant", "pme_manager", "svc_compta"]);

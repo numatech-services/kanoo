@@ -5,7 +5,7 @@ import { DevisModel } from "@/models/Devis";
 import { InvoiceModel } from "@/models/Invoice";
 import { withTransaction } from "@/lib/db";
 import { calculerDTS } from "@/lib/niger-fiscal";
-import { nextDocumentNumber } from "@/lib/numbering";
+import { provisionalNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { authCan } from "@/lib/role-resources";
@@ -46,7 +46,8 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
   dueDate.setDate(dueDate.getDate() + (body.paymentTermDays || 30));
 
   const result = await withTransaction(async (session) => {
-    const number = await nextDocumentNumber(auth.tenantId, "invoice", { issueDate, session });
+    // Brouillon : numéro définitif attribué à l'émission.
+    const number = provisionalNumber();
     const [invoice] = await InvoiceModel.create([{
       tenantId: auth.tenantId,
       number,

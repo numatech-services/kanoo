@@ -91,6 +91,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
   const [issueDate, setIssueDate] = useState(initial?.issueDate?.slice(0, 10) || today);
   const [dueDate, setDueDate] = useState(initial?.dueDate?.slice(0, 10) || in30);
   const [notes, setNotes] = useState(initial?.notes || "");
+  const [terms, setTerms] = useState(initial?.termsAndConditions || "");
   const idOf = (v: unknown) => (v && typeof v === "object" ? String((v as { _id: string })._id) : v ? String(v) : undefined);
   const [imputation, setImputation] = useState<ImputationValue>({ projectId: idOf(initial?.projectId), activityId: idOf(initial?.activityId) });
   const [lines, setLines] = useState<InvoiceLine[]>(
@@ -137,7 +138,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
     setError("");
     
     try {
-      await onSave({ clientId, issueDate, dueDate, lines, notes, projectId: imputation.projectId ?? null, activityId: imputation.activityId ?? null });
+      await onSave({ clientId, issueDate, dueDate, lines, notes, termsAndConditions: terms, projectId: imputation.projectId ?? null, activityId: imputation.activityId ?? null });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue");
     } finally {
@@ -249,8 +250,11 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
         <ImputationFields value={imputation} onChange={setImputation} hideCostCenter />
       </div>
 
-      <FormField label="Notes internes">
-        <textarea className={inputCls + " resize-y"} rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Conditions de paiement, mentions spéciales..." />
+      <FormField label="Conditions (imprimées sur la facture)" hint="Vide : les conditions par défaut de l'organisation">
+        <textarea className={inputCls + " resize-y"} rows={2} value={terms} onChange={e => setTerms(e.target.value)} placeholder="Paiement à 30 jours, pénalités de retard, mentions spéciales…" />
+      </FormField>
+      <FormField label="Notes internes" hint="Jamais imprimées">
+        <textarea className={inputCls + " resize-y"} rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="À usage interne" />
       </FormField>
 
       <div className="flex justify-end gap-3 pt-4 border-t border-line">

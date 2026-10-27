@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { connectDB } from "@/lib/db";
+import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { FixedAssetModel } from "@/models/FixedAsset";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
@@ -85,34 +85,42 @@ export const POST = withAuth("fixedAssets", "create", async (req: NextRequest, a
     serviceDate
   );
 
-  const asset = await FixedAssetModel.create({
-    ...body,
-    acquisitionCost, origin, purchaseId, supplierId,
-    tenantId: auth.tenantId,
-    usefulLifeYears: usefulLife,
-    depreciationSchedule: schedule,
-    currentNetValue: acquisitionCost, // VNC initiale = coût d'acquisition
-    accountCode: body.accountCode || catInfo.compte,
-    createdBy: auth.userId,
-  });
-
-  // Écriture d'acquisition : seulement pour une dette fournisseur, sur le
-  // compte fournisseur commun (401100) et au nom du fournisseur s'il est connu.
-  if (origin === "supplier") {
-    await AccountingEntryModel.create({
+  // Fiche et écriture d'acquisition dans la MÊME transaction : si l'écriture
+  // est refusée (période verrouillée…), la fiche n'est pas créée non plus.
+  // Avant, elle restait sans écriture et son code était ensuite « déjà
+  // utilisé ». Champs d'état (statut, sortie) jamais repris du formulaire.
+  const { status: _s, disposalDate: _d, disposalPrice: _p, disposalReason: _r, currentNetValue: _v, depreciationSchedule: _sch, ...fields } = body as Record<string, unknown>;
+  const asset = await withTransaction(async session => {
+    const [a] = await FixedAssetModel.create([{
+      ...fields,
+      acquisitionCost, origin, purchaseId, supplierId,
       tenantId: auth.tenantId,
-      journalCode: "AC",
-      entryDate: new Date(body.acquisitionDate),
-      reference: body.code,
-      label: `Acquisition ${body.name}`,
-      lines: [
-        { accountCode: asset.accountCode, accountLabel: body.name, debit: acquisitionCost, credit: 0 },
-        { ...SUPPLIER_ACCOUNT, debit: 0, credit: acquisitionCost, ...(supplierId ? { thirdPartyId: supplierId } : {}) },
-      ],
-      linkedDocType: "fixed_asset", linkedDocId: asset._id,
+      usefulLifeYears: usefulLife,
+      depreciationSchedule: schedule,
+      currentNetValue: acquisitionCost, // VNC initiale = coût d'acquisition
+      accountCode: body.accountCode || catInfo.compte,
       createdBy: auth.userId,
-    });
-  }
+    }], { session });
+
+    // Écriture d'acquisition : seulement pour une dette fournisseur, sur le
+    // compte fournisseur commun (401100) et au nom du fournisseur s'il est connu.
+    if (origin === "supplier") {
+      await AccountingEntryModel.create([{
+        tenantId: auth.tenantId,
+        journalCode: "AC",
+        entryDate: new Date(body.acquisitionDate),
+        reference: body.code,
+        label: `Acquisition ${body.name}`,
+        lines: [
+          { accountCode: a.accountCode, accountLabel: body.name, debit: acquisitionCost, credit: 0 },
+          { ...SUPPLIER_ACCOUNT, debit: 0, credit: acquisitionCost, ...(supplierId ? { thirdPartyId: supplierId } : {}) },
+        ],
+        linkedDocType: "fixed_asset", linkedDocId: a._id,
+        createdBy: auth.userId,
+      }], { session });
+    }
+    return a;
+  });
 
   await logAudit(auth, "CREATE", "fixedAssets", { resourceId: asset._id.toString(), after: { code: body.code, name: body.name, cost: body.acquisitionCost } });
   return created(asset);

@@ -7,7 +7,7 @@ import { ClientModel } from "@/models/Client";
 import { logAudit } from "@/lib/audit";
 import { computeInvoiceLines } from "@/lib/invoice-entry";
 import { pickImputation, checkImputations } from "@/lib/imputation";
-import { nextDocumentNumber } from "@/lib/numbering";
+import { provisionalNumber } from "@/lib/numbering";
 import { withTransaction } from "@/lib/db";
 import { TokenPayload } from "@/lib/auth";
 
@@ -85,13 +85,10 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
   const { lines, totalHT, totalTVA, totalDTS, totalTTC } = computeInvoiceLines(body.lines);
 
   const result = await withTransaction(async (session) => {
-    // La séquence est consommée DANS la transaction : si la création échoue
-    // ensuite, l'incrément est annulé avec elle et la numérotation reste
-    // continue. Elle était tirée avant, et tout échec laissait un trou.
-    const number = await nextDocumentNumber(auth.tenantId, "invoice", {
-      issueDate: body.issueDate,
-      session,
-    });
+    // Brouillon : numéro provisoire. Le numéro définitif est tiré à
+    // l'émission (lib/invoice-posting), dans la transaction de l'émission :
+    // un brouillon supprimé ne laisse plus de trou dans la série.
+    const number = provisionalNumber();
 
     // 1. Créer la facture
     const [invoice] = await InvoiceModel.create(

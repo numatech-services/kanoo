@@ -172,8 +172,10 @@ function ChargeDialog({ charge, accounts, onClose, onDone }: { charge: Expense |
 }
 
 function PayDialog({ charge, accounts, onClose, onDone }: { charge: Expense; accounts: Account[]; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ treasuryAccountId: idOf(charge.treasuryAccountId), amount: charge.amount, date: new Date().toISOString().slice(0, 10), reference: "" });
+  const [f, setF] = useState({ treasuryAccountId: idOf(charge.treasuryAccountId), amount: charge.amount, date: new Date().toISOString().slice(0, 10), reference: "", advance: false });
   const [error, setError] = useState("");
+  // Échéance dans plus de 7 jours : le serveur demande une confirmation de paiement anticipé.
+  const [early] = useState(() => new Date(charge.nextDueDate).getTime() > Date.now() + 7 * 86_400_000);
   async function submit() {
     try { await send(`/api/recurring-expenses/${charge._id}`, "POST", f); onDone(); }
     catch (e) { setError(e instanceof Error ? e.message : "Paiement impossible"); }
@@ -193,6 +195,12 @@ function PayDialog({ charge, accounts, onClose, onDone }: { charge: Expense; acc
           <FormField label="Date"><input type="date" className={inputCls} value={f.date} onChange={e => setF(p => ({ ...p, date: e.target.value }))} /></FormField>
         </div>
         <FormField label="Référence"><input className={inputCls} value={f.reference} onChange={e => setF(p => ({ ...p, reference: e.target.value }))} /></FormField>
+        {early && (
+          <label className="flex items-center gap-2 text-sm text-warn cursor-pointer">
+            <input type="checkbox" checked={f.advance} onChange={e => setF(p => ({ ...p, advance: e.target.checked }))} className="accent-section" />
+            Échéance pas encore due : je confirme un paiement anticipé
+          </label>
+        )}
         <button onClick={submit} className="w-full h-10 rounded-lg bg-pos text-onink text-sm font-semibold">Payer</button>
       </div>
     </Modal>

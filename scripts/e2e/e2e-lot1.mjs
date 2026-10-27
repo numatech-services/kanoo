@@ -52,7 +52,7 @@ const plusDays = n => { const d = new Date(); d.setDate(d.getDate() + n); d.setH
   console.log("\n▶ Retenue à la source subie");
   const cl = id(await g.req("POST", "/api/clients", { code: "C-RAS", name: "Ministère des Finances" }));
   const inv = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ description: "Prestation", quantity: 1, unitPrice: 1000000, tvaRate: 0 }] }));
-  await g.req("POST", `/api/invoices/${inv._id}/send`);
+  await g.req("POST", `/api/invoices/${inv._id}/send`); Object.assign(inv ?? {}, D(await g.req("GET", `/api/invoices/${inv?._id}`)));
   const ttc = inv.totalTTC;
   check("retenue au-delà du reste à payer : refusée", (await g.req("POST", "/api/payments", { invoiceId: inv._id, amount: ttc, withholdingAmount: 50000, method: "bank_transfer", date: today, treasuryAccountId: bank._id })).status === 400);
   const pay = await g.req("POST", "/api/payments", { invoiceId: inv._id, amount: ttc - 50000, withholdingAmount: 50000, method: "bank_transfer", date: today, treasuryAccountId: bank._id });

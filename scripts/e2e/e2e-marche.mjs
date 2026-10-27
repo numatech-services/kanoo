@@ -97,6 +97,9 @@ const id = r => D(r)?._id;
   check("facture du solde : travaux 1 000 000 − acompte 300 000 = 700 000 HT net (l'échéance)", sol.status === 201 && solInv?.totalHT === 700000 && solInv.lines.some(l => l.kind === "deposit_deduction" && l.totalHT === -300000) && solInv.lines.some(l => l.kind !== "deposit_deduction" && l.totalHT === 1000000), `${sol.status} ${J(sol.data).slice(0, 200)}`);
   // Émettre le solde émet aussi l'acompte qu'il déduit, resté au brouillon.
   check("facture du solde émise", (await g.req("POST", `/api/invoices/${solInv._id}/send`)).status < 300);
+  // Numéros définitifs attribués à l'émission (le brouillon porte un numéro provisoire).
+  Object.assign(solInv, D(await g.req("GET", `/api/invoices/${solInv._id}`)));
+  Object.assign(depInv, D(await g.req("GET", `/api/invoices/${depInv._id}`)));
   const depEntry = await balanced(depInv.number);
   check("acompte émis avec le solde : écriture équilibrée, avance en 419, pas de produit", depEntry && depEntry.lines.some(l => l.accountCode === "419000" && l.credit === 300000) && !depEntry.lines.some(l => /^7/.test(l.accountCode)), J(depEntry?.lines));
   const solEntry = await balanced(solInv.number);

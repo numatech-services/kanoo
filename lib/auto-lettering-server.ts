@@ -3,6 +3,9 @@ import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { PaymentModel } from "@/models/Payment";
 import { InvoiceModel } from "@/models/Invoice";
 import { proposeLetters, type LetterLine } from "@/lib/auto-lettering";
+import { applyLetter, migrateLegacyLettering } from "@/lib/lettering";
+import { withTransaction } from "@/lib/db";
+import { BusinessRuleError } from "@/lib/errors";
 
 /**
  * Lignes ouvertes d'un compte de tiers (411, 401…), avec la clé du document
@@ -12,8 +15,8 @@ import { proposeLetters, type LetterLine } from "@/lib/auto-lettering";
 export async function openLetterLines(tenantId: string, account: string): Promise<LetterLine[]> {
   const tid = new Types.ObjectId(tenantId);
   const rows = await AccountingEntryModel.aggregate<{ _id: Types.ObjectId; entryDate: Date; linkedDocType?: string; linkedDocId?: Types.ObjectId; reverses?: Types.ObjectId; reversedBy?: Types.ObjectId; amount: number; thirdPartyId?: Types.ObjectId; parties: number }>([
-    { $match: { tenantId: tid, isLettered: { $ne: true }, "lines.accountCode": { $regex: `^${account}` } } },
-    { $unwind: "$lines" }, { $match: { "lines.accountCode": { $regex: `^${account}` } } },
+    { $match: { tenantId: tid, "lines.accountCode": { $regex: `^${account}` } } },
+    { $unwind: "$lines" }, { $match: { "lines.accountCode": { $regex: `^${account}` }, "lines.letterRef": { $exists: false } } },
     { $group: {
       _id: "$_id", entryDate: { $first: "$entryDate" }, linkedDocType: { $first: "$linkedDocType" }, linkedDocId: { $first: "$linkedDocId" },
       reverses: { $first: "$reverses" }, reversedBy: { $first: "$reversedBy" },
@@ -56,20 +59,19 @@ export async function openLetterLines(tenantId: string, account: string): Promis
 
 /** Propose (ou applique) le lettrage automatique d'un compte de tiers. */
 export async function autoLetter(tenantId: string, account: string, apply: boolean) {
+  await migrateLegacyLettering(tenantId);
   const groups = proposeLetters(await openLetterLines(tenantId, account));
   if (!apply || !groups.length) return { groups, applied: 0 };
-  const year = new Date().getFullYear();
-  let n = (await AccountingEntryModel.distinct("letterRef", { tenantId, letterRef: { $regex: `^LET-${year}-` } })).length;
   let applied = 0;
   for (const g of groups) {
-    const letterRef = `LET-${year}-${String(++n).padStart(4, "0")}`;
-    // Garde : aucune de ces écritures n'a été lettrée entre-temps.
-    const r = await AccountingEntryModel.updateMany({ tenantId, _id: { $in: g.entryIds }, isLettered: { $ne: true } }, { $set: { isLettered: true, letterRef } });
-    if (r.modifiedCount !== g.entryIds.length) {
-      await AccountingEntryModel.updateMany({ tenantId, letterRef }, { $set: { isLettered: false }, $unset: { letterRef: "" } });
-      continue;
+    // Chaque groupe dans sa transaction : un groupe lettré entre-temps (ou
+    // mêlant des tiers) est simplement sauté, sans défaire les autres.
+    try {
+      await withTransaction(session => applyLetter(tenantId, g.entryIds, account, { session }));
+      applied++;
+    } catch (e) {
+      if (!(e instanceof BusinessRuleError)) throw e;
     }
-    applied++;
   }
   return { groups, applied };
 }

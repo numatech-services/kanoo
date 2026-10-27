@@ -80,3 +80,25 @@ export async function postDepreciation(
     throw err;
   }
 }
+
+/**
+ * Annule la comptabilisation d'une annuité (son écriture vient d'être
+ * extournée) : elle redevient à passer, et la valeur nette comptable revient
+ * à celle de la dernière annuité encore comptabilisée.
+ */
+export async function unpostDepreciation(tenantId: string, assetId: unknown, entryId: unknown, session?: ClientSession) {
+  const asset = await FixedAssetModel.findOne({ _id: assetId, tenantId }).session(session ?? null);
+  if (!asset) return;
+  const schedule = asset.depreciationSchedule as Array<ScheduleEntry & { accountingEntryId?: unknown }>;
+  const row = schedule.find(r => r.accountingEntryId && String(r.accountingEntryId) === String(entryId));
+  if (!row) return;
+  const lastPosted = schedule.filter(r => r.posted && r.year < row.year).sort((a, b) => b.year - a.year)[0];
+  await FixedAssetModel.updateOne(
+    { _id: asset._id, "depreciationSchedule.year": row.year },
+    {
+      $set: { "depreciationSchedule.$.posted": false, currentNetValue: lastPosted?.netValue ?? asset.acquisitionCost, status: "active" },
+      $unset: { "depreciationSchedule.$.postedAt": "", "depreciationSchedule.$.accountingEntryId": "" },
+    },
+    { session },
+  );
+}

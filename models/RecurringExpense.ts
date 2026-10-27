@@ -49,6 +49,8 @@ const RecurringExpenseSchema = new Schema({
 
   // Prochaine échéance
   nextDueDate: { type: Date, required: true },
+  /** Dernière réservation d'échéance (garde contre la double exécution). */
+  lastExecutionClaim: Date,
   alertDaysBefore: { type: Number, default: 5 },
 
   // Imputation analytique (projet, secteur d'activité, service)

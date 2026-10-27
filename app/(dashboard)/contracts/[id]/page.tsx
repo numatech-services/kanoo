@@ -46,6 +46,7 @@ export default function ContractDetailPage() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [invoiceFor, setInvoiceFor] = useState<null | { mode: "deposit" | "standard" }>(null);
   const [milestoneOpen, setMilestoneOpen] = useState(false);
+  const [signOpen, setSignOpen] = useState(false);
 
   // Lectures silencieuses : l'écran dit lui-même « introuvable ».
   const contractRes = useApi<Contract | null>(id ? `/api/contracts/${id}` : null, c => (c?.success === false ? null : c?.data ?? null), null, { quiet: true });
@@ -91,7 +92,7 @@ export default function ContractDetailPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={contract.status} />
           {contract.status === "draft" && canEdit && (
-            <button onClick={() => run(() => send(`/api/contracts/${id}/sign`, "POST"), "Contrat signé.")} disabled={busy}
+            <button onClick={() => setSignOpen(true)} disabled={busy}
               className={buttonClass("primary", "md")}><PenLine size={15} /> Signer</button>
           )}
           {isMarket && !contract.projectId && canEdit && (
@@ -190,6 +191,10 @@ export default function ContractDetailPage() {
       {invoiceFor && finance && (
         <InvoiceDialog contractId={id} mode={invoiceFor.mode} f={finance} onClose={() => setInvoiceFor(null)}
           onDone={text => { setInvoiceFor(null); setMsg({ ok: true, text }); load(); }} />
+      )}
+      {signOpen && (
+        <SignDialog onClose={() => setSignOpen(false)}
+          onSign={body => { setSignOpen(false); run(() => send(`/api/contracts/${id}/sign`, "POST", body), "Contrat signé : il est actif."); }} />
       )}
       {milestoneOpen && (
         <MilestoneDialog contractId={id} amount={contract.amount} onClose={() => setMilestoneOpen(false)}
@@ -366,6 +371,34 @@ function MilestoneDialog({ contractId, amount, onClose, onDone }: { contractId: 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
           <button onClick={submit} disabled={saving || !f.label.trim() || !(ht > 0)} className={buttonClass("primary", "md")}>Ajouter</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Signature du contrat : on enregistre QUI a signé, en quelle qualité et
+ * QUAND. L'original signé (papier) se joint dans « Documents ». Le bouton
+ * envoyait une requête vide, refusée à chaque fois par le serveur.
+ */
+function SignDialog({ onClose, onSign }: { onClose: () => void; onSign: (b: { signerName: string; signerRole: string; signedDate: string }) => void }) {
+  const [signerName, setName] = useState("");
+  const [signerRole, setRole] = useState("");
+  const [signedDate, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [error, setError] = useState("");
+  return (
+    <Modal open onClose={onClose} title="Signer le contrat" size="sm">
+      <div className="space-y-4">
+        {error && <p className="px-3 py-2 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg">{error}</p>}
+        <FormField label="Signataire" required><input className={inputCls} value={signerName} onChange={e => setName(e.target.value)} placeholder="Nom et prénom" /></FormField>
+        <FormField label="Qualité"><input className={inputCls} value={signerRole} onChange={e => setRole(e.target.value)} placeholder="Gérant, directeur…" /></FormField>
+        <FormField label="Date de signature" required><input type="date" className={inputCls} value={signedDate} max={new Date().toISOString().slice(0, 10)} onChange={e => setDate(e.target.value)} /></FormField>
+        <p className="text-xs text-ink2">Joignez l&apos;original signé dans « Documents » ci-dessous.</p>
+        <div className="flex justify-end gap-3">
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button onClick={() => { if (!signerName.trim()) { setError("Indiquez le signataire."); return; } onSign({ signerName: signerName.trim(), signerRole: signerRole.trim(), signedDate }); }}
+            className={buttonClass("primary", "md")}><PenLine size={15} /> Signer</button>
         </div>
       </div>
     </Modal>

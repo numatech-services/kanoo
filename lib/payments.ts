@@ -1,4 +1,6 @@
 import { AccountingEntryModel } from "@/models/AccountingEntry";
+import { InvoiceModel } from "@/models/Invoice";
+import { BusinessRuleError } from "@/lib/errors";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { TokenPayload } from "@/lib/auth";
 import { ledgerFor, treasuryLedger, registerLedgerAccount } from "@/lib/treasury";
@@ -38,8 +40,21 @@ export const EXCHANGE_GAIN = { accountCode: "776000", accountLabel: "Gains de ch
 export const MAX_EXCHANGE_RATE = 0.1;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export async function applyPaymentEffects(payment: any, invoice: any, auth: TokenPayload, session: any) {
+export async function applyPaymentEffects(payment: any, invoiceIn: any, auth: TokenPayload, session: any) {
   const amount = payment.amount;
+  // La facture est RELUE dans la transaction. Lue avant, deux encaissements
+  // simultanés partaient du même `paidAmount` : le second écrasait le premier
+  // (un règlement perdu alors que ses deux écritures existaient). Relue ici,
+  // l'écriture concurrente provoque un conflit, la transaction est rejouée et
+  // repart du montant à jour.
+  const invoice = await InvoiceModel.findOne({ _id: invoiceIn._id, tenantId: invoiceIn.tenantId }).session(session ?? null);
+  if (!invoice) throw new BusinessRuleError("Facture introuvable.");
+  if (invoice.documentType === "credit_note") throw new BusinessRuleError("Un avoir ne s'encaisse pas : il se rembourse (bouton « Rembourser »).");
+  if (["paid", "cancelled", "written_off"].includes(invoice.status)) throw new BusinessRuleError("Cette facture est déjà soldée, annulée ou passée en perte.");
+  const due = invoiceDue(invoice);
+  if (amount + Math.round(payment.withholdingAmount || 0) + Math.round(payment.exchangeDifference || 0) > due + 1) {
+    throw new BusinessRuleError(`Montant supérieur au reste à payer (${due} FCFA) : la facture a été réglée entre-temps.`);
+  }
   // Retenue subie : le client a payé le net ; la facture est soldée du brut, la
   // retenue devient une créance sur l'État (4492), imputable sur l'IS/BIC.
   const withheld = Math.round(payment.withholdingAmount || 0);
@@ -87,6 +102,18 @@ export async function applyPaymentEffects(payment: any, invoice: any, auth: Toke
   }
   // Créance douteuse en partie réglée : sa dépréciation suit le reste dû.
   if (invoice.doubtfulAt) await adjustProvision({ tenantId: auth.tenantId, userId: auth.userId }, invoice, invoice.provisionRate ?? 0, new Date(payment.date), session);
+  return invoice;
+}
+
+/**
+ * Statut d'une facture après l'annulation d'un encaissement : une facture
+ * annulée par avoir ou passée en perte le reste ; sinon, selon ce qui reste dû.
+ */
+export function statusAfterPaymentRemoved(inv: { status?: string; paidAmount?: number; dueDate?: Date | string | null; totalTTC: number; creditedAmount?: number; retentionAmount?: number }): string {
+  if (inv.status === "cancelled" || inv.status === "written_off") return inv.status;
+  if (invoiceDue(inv) <= 1 && (inv.paidAmount || 0) > 0) return "paid";
+  if ((inv.paidAmount || 0) > 0) return "partial";
+  return inv.dueDate && new Date(inv.dueDate) < new Date() ? "overdue" : "sent";
 }
 
 /**

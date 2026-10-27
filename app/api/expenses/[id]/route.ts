@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { BusinessRuleError } from "@/lib/errors";
 import { withTransaction } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, forbidden, conflict, tenantFilter } from "@/lib/api-helpers";
 import { ExpenseReportModel } from "@/models/ExpenseReport";
@@ -198,6 +199,18 @@ export const PATCH = withAuth("expenses", "read", async (req: NextRequest, auth:
         return badRequest("Écriture déséquilibrée : vérifiez les montants et les taux de conversion.");
       }
       await withTransaction(async (session) => {
+        // La transition de statut passe d'abord, gardée : un double clic (ou
+        // une transaction rejouée après conflit) créait deux écritures, car
+        // l'écriture précédait la mise à jour dont le résultat n'était pas lu.
+        const r = await ExpenseReportModel.updateOne(
+          { _id: report._id, ...tenantFilter(auth), status: "submitted" },
+          { $set: {
+            status: "approved", approvedAt: now, approvedBy: auth.userId,
+            totalTTC: t.totalTTC, totalVatDeducted: t.totalVatDeducted, totalCharge: t.totalCharge,
+          } },
+          { session }
+        );
+        if (r.modifiedCount !== 1) throw new BusinessRuleError("Cette note vient d'être traitée.");
         await AccountingEntryModel.create([{
           tenantId: auth.tenantId,
           journalCode: "OD",
@@ -209,15 +222,6 @@ export const PATCH = withAuth("expenses", "read", async (req: NextRequest, auth:
           linkedDocId: report._id,
           createdBy: auth.userId,
         }], { session });
-
-        await ExpenseReportModel.updateOne(
-          { _id: report._id, ...tenantFilter(auth), status: "submitted" },
-          { $set: {
-            status: "approved", approvedAt: now, approvedBy: auth.userId,
-            totalTTC: t.totalTTC, totalVatDeducted: t.totalVatDeducted, totalCharge: t.totalCharge,
-          } },
-          { session }
-        );
       });
 
       await logAudit(auth, "UPDATE", "expenses", {
@@ -242,6 +246,13 @@ export const PATCH = withAuth("expenses", "read", async (req: NextRequest, auth:
       const entry = reimbursementEntry(amount, ledger);
 
       await withTransaction(async (session) => {
+        // Même garde que l'approbation : un seul remboursement, même sur double clic.
+        const r = await ExpenseReportModel.updateOne(
+          { _id: report._id, ...tenantFilter(auth), status: "approved" },
+          { $set: { status: "reimbursed", reimbursedAt: paidAt, treasuryAccountId: accountId } },
+          { session }
+        );
+        if (r.modifiedCount !== 1) throw new BusinessRuleError("Cette note vient d'être remboursée.");
         await AccountingEntryModel.create([{
           tenantId: auth.tenantId,
           journalCode: ledger.journalCode,
@@ -267,12 +278,6 @@ export const PATCH = withAuth("expenses", "read", async (req: NextRequest, auth:
           linkedDocId: report._id,
           createdBy: auth.userId,
         }], { session });
-
-        await ExpenseReportModel.updateOne(
-          { _id: report._id, ...tenantFilter(auth), status: "approved" },
-          { $set: { status: "reimbursed", reimbursedAt: paidAt, treasuryAccountId: accountId } },
-          { session }
-        );
       });
 
       await logAudit(auth, "UPDATE", "expenses", {

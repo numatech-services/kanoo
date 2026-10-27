@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, ctx: Params) {
     if (!q) return NextResponse.json({ success: false, error: "Document introuvable." }, { status: 404 });
     pdf = await generateQuotePdf(q, tenant ?? { name: "Organisation" }); name = q.number ?? "devis";
   } else {
-    const inv = await InvoiceModel.findOne({ ...scope, ...BOOKED_INVOICE_MATCH }).populate("clientId", "name nif rccm code address phone").lean<InvoiceForPdf & { number?: string } | null>();
+    const inv = await InvoiceModel.findOne({ ...scope, ...BOOKED_INVOICE_MATCH }).populate("clientId", "name nif rccm code address phone").populate("originalInvoiceId", "number issueDate").lean<InvoiceForPdf & { number?: string } | null>();
     if (!inv) return NextResponse.json({ success: false, error: "Document introuvable." }, { status: 404 });
     pdf = await generateInvoicePdf(inv, tenant ?? { name: "Organisation" }); name = inv.number ?? "facture";
   }

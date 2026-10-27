@@ -167,13 +167,40 @@ function ClosingDialog({ lock, onClose, onDone }: { lock: { lockedUntil: string 
   const [year, setYear] = useState(new Date().getFullYear() - 1);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [alloc, setAlloc] = useState({ year: Math.max(0, ...lock.closedYears) || new Date().getFullYear() - 1, reserve: "", report: "", dividends: "" });
   async function post(body: unknown) {
     setBusy(true); setError("");
     const res = await apiSend("POST", "/api/accounting/closing", body);
     const d = res.data;
     setBusy(false);
-    if (!res.ok) { setError(d.error || "Opération refusée"); return; }
+    if (!res.ok) { setError(d.error || "Opération refusée"); return false; }
     onDone();
+    return true;
+  }
+  // Clôture : contrôles d'abord (dotations, stock, compte d'attente,
+  // brouillons) ; les avertissements se confirment explicitement.
+  async function close() {
+    setBusy(true); setError("");
+    const r = await apiSend("POST", "/api/accounting/closing", { action: "check", year });
+    setBusy(false);
+    if (!r.ok) { setError(r.data?.error || "Contrôle impossible"); return; }
+    const checks = (r.data?.data?.checks ?? []) as Array<{ level: string; message: string }>;
+    const blocking = checks.filter(c => c.level === "block");
+    if (blocking.length) { setError(blocking.map(c => c.message).join(" ")); return; }
+    const message = checks.length
+      ? `Points relevés :\n• ${checks.map(c => c.message).join("\n• ")}\n\nClôturer quand même ? L'exercice sera verrouillé.`
+      : "Les à-nouveaux seront générés et l'exercice verrouillé. Irréversible.";
+    if (await confirmDialog({ title: `Clôturer définitivement l'exercice ${year} ?`, message, danger: true })) {
+      await post({ action: "close", year, acknowledgeWarnings: checks.length > 0 });
+    }
+  }
+  async function allocate() {
+    const allocations = [
+      { accountCode: "111000", amount: Number(alloc.reserve) || 0 },
+      { accountCode: "121000", amount: Number(alloc.report) || 0 },
+      { accountCode: "465000", amount: Number(alloc.dividends) || 0 },
+    ].filter(a => a.amount > 0);
+    await post({ action: "allocate", year: alloc.year, allocations });
   }
   return (
     <Modal open onClose={onClose} title="Verrouillage et clôture">
@@ -192,9 +219,26 @@ function ClosingDialog({ lock, onClose, onDone }: { lock: { lockedUntil: string 
           <p className="text-xs text-ink2">Génère les à-nouveaux au 1er janvier suivant (comptes de bilan et résultat en instance d&apos;affectation) et verrouille l&apos;exercice. Irréversible. Exercices clôturés : {lock.closedYears.length ? lock.closedYears.join(", ") : "aucun"}.</p>
           <div className="flex gap-2">
             <FormField label="Exercice"><input type="number" className={inputCls} value={year} onChange={e => setYear(Number(e.target.value))} /></FormField>
-            <button disabled={busy} onClick={async () => { if (await confirmDialog({ title: `Clôturer définitivement l'exercice ${year} ?`, danger: true })) post({ action: "close", year }); }} className="self-end px-4 h-10 rounded-lg border border-neg/30 text-neg text-sm font-semibold hover:bg-neg-50 disabled:opacity-60">Clôturer {year}</button>
+            <button disabled={busy} onClick={close} className="self-end px-4 h-10 rounded-lg border border-neg/30 text-neg text-sm font-semibold hover:bg-neg-50 disabled:opacity-60">Clôturer {year}</button>
           </div>
         </div>
+        {lock.closedYears.length > 0 && (
+          <div className="space-y-2 pt-4 border-t border-line">
+            <p className="text-sm font-semibold text-ink">Affecter le résultat</p>
+            <p className="text-xs text-ink2">Selon la décision de l&apos;assemblée : le résultat en instance (130) est réparti entre réserve légale, report à nouveau et dividendes. La somme doit égaler le résultat.</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <FormField label="Exercice">
+                <select className={inputCls} value={alloc.year} onChange={e => setAlloc(a => ({ ...a, year: Number(e.target.value) }))}>
+                  {lock.closedYears.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </FormField>
+              <FormField label="Réserve légale"><input type="number" min="0" className={inputCls} value={alloc.reserve} onChange={e => setAlloc(a => ({ ...a, reserve: e.target.value }))} /></FormField>
+              <FormField label="Report à nouveau"><input type="number" min="0" className={inputCls} value={alloc.report} onChange={e => setAlloc(a => ({ ...a, report: e.target.value }))} /></FormField>
+              <FormField label="Dividendes"><input type="number" min="0" className={inputCls} value={alloc.dividends} onChange={e => setAlloc(a => ({ ...a, dividends: e.target.value }))} /></FormField>
+            </div>
+            <button disabled={busy} onClick={allocate} className={buttonClass("secondary", "md")}>Passer l&apos;écriture d&apos;affectation</button>
+          </div>
+        )}
       </div>
     </Modal>
   );

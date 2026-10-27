@@ -51,6 +51,8 @@ export const POST = withAuth("payments", "create", async (req: NextRequest, auth
 
   const invoice = await InvoiceModel.findOne({ _id: body.invoiceId, tenantId: auth.tenantId });
   if (!invoice) return notFound("Facture introuvable");
+  // Un avoir ne s'encaisse pas : « payer » un avoir doublait le crédit du client.
+  if (invoice.documentType === "credit_note") return badRequest("Un avoir ne s'encaisse pas : il se rembourse (bouton « Rembourser » de l'avoir).");
   if (["paid", "cancelled", "written_off"].includes(invoice.status)) {
     return badRequest(`Cette facture est déjà ${invoice.status === "paid" ? "soldée" : invoice.status === "cancelled" ? "annulée" : "passée en perte"}`);
   }

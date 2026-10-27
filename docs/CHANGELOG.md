@@ -1,5 +1,86 @@
 # Kanoo — Changelog
 
+## Lot H1 — Argent et comptabilité justes (octobre 2026)
+
+Correctifs du lot H1 de `docs/AUDIT-2026-10.md`.
+
+**Encaissements et factures**
+- Facture relue dans la transaction de l'encaissement : deux encaissements
+  simultanés ne perdent plus de règlement ; transitions de paiement gardées
+  (confirmation, annulation) ; un paiement annulé ne se reconfirme plus.
+- Un avoir ne s'encaisse plus (il se rembourse) ; bouton « Paiement » visible
+  aussi en retard, jamais sur un avoir.
+- Annulation de facture refusée si un avoir a été émis, si la créance est
+  douteuse ou passée en perte.
+- Annuler un encaissement ne remet plus « émise » une facture annulée ou
+  passée en perte.
+- Paiement en ligne : trop-perçu comptabilisé en avance client (419).
+
+**Relevé client** (écran et PDF, une seule source : `lib/statement-server.ts`)
+- **Les règlements n'y figuraient jamais** (filtre sur un champ client absent
+  des paiements) : chaque client paraissait devoir tout ce qui lui avait été
+  facturé.
+- Factures annulées par avoir compensées, retenues subies et écarts de change
+  comptés, remboursements d'avoir et passages en perte affichés.
+
+**Numérotation continue (exigence DGI)**
+- Numéro provisoire au brouillon (`BROUILLON-…`), numéro définitif tiré à
+  l'émission : un brouillon supprimé ne laisse plus de trou.
+- Compteur par série ET par année, initialisé sur les numéros déjà émis :
+  une facture datée de décembre saisie en janvier ne percute plus la série
+  de l'année. Remise à zéro annuelle idempotente.
+
+**Avoirs**
+- Extourne miroir de la vente, compte par compte (701, compte de l'article),
+  et non plus toujours au 706.
+- Quantités déjà créditées cumulées par ligne ; l'avoir qui complète les
+  précédents reprend le timbre et solde la facture.
+- Certification SECeF : type FA et code de la facture d'origine déduits du
+  document. PDF : facture d'origine, motif, remise, unité ; les notes
+  internes ne sont plus imprimées (nouveau champ « Conditions »).
+
+**Banque et trésorerie**
+- Import de relevé : « 150.000 » et « 150,000 » lus 150 000 FCFA.
+- Rapprochement : soldes calculés sur tous les mouvements (plus de limite à
+  500) ; un relevé réimporté qui chevauche le précédent ne crée plus de
+  doublons.
+
+**Doubles clics** : note de frais (approbation, remboursement), charge
+récurrente (échéance future : paiement anticipé à confirmer), facture de
+période d'un contrat récurrent.
+
+**Comptoir** : suppression d'une écriture de caisse extournée (comptabilité,
+trésorerie, stock de la vente) ; paiements mobile money / carte / virement
+sur le bon compte de trésorerie ; prix du catalogue repris TTC.
+
+**Marchés** : modification des marchés-cadres (liste blanche — elle
+fonctionnait à l'envers) ; signature des contrats (signataire, qualité,
+date) ; facture de période réservée aux contrats récurrents actifs, une par
+échéance ; TVA nette négative comptabilisée ; brouillon de marché supprimé
+libérant échéance et acompte ; intrant à 0 respecté ; bon de livraison
+retourné remis en stock.
+
+**Comptabilité**
+- Clôture : possible malgré un verrou de janvier ; exercice en cours refusé ;
+  contrôles préalables (brouillons, dotations, compte 47, variation de stock)
+  à confirmer ; à-nouveaux des comptes de tiers ventilés par tiers.
+- Affectation du résultat (réserves, report à nouveau, dividendes) ; au bilan,
+  le résultat non affecté passe en report à nouveau (CJ = résultat de
+  l'exercice seul).
+- Lettrage par ligne, même tiers obligatoire, références uniques ; reprise
+  automatique des lettrages existants.
+- Référence d'une écriture produite par un document non modifiable ; rien de
+  modifiable en période verrouillée ; variation de stock et dotation
+  extournables.
+- Immobilisations : dotation gardée (plus de double dotation), fiche et
+  écriture d'acquisition dans la même transaction, dotation complémentaire à
+  la cession.
+
+Scénario `scripts/e2e/e2e-h1.mjs` (24 vérifications). Les scénarios existants
+relisent le numéro définitif après émission.
+
+Build local sans cache webpack : `KANOO_BUILD_NO_CACHE=1 npm run build`.
+
 ## Lot H0 — Sécurité (octobre 2026)
 
 Correctifs des constats S1 à S11 et K4 de `docs/AUDIT-2026-10.md`.

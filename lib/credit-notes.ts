@@ -25,6 +25,8 @@ export interface InvoiceLineLike {
   totalTVA: number;
   totalTTC: number;
   productId?: unknown;
+  /** Sur un avoir : index de la ligne d'origine créditée. */
+  sourceLineIndex?: number;
 }
 
 export interface InvoiceLike {
@@ -110,7 +112,13 @@ export function canCredit(invoice: InvoiceLike): { ok: true } | { ok: false; err
  */
 export function buildCreditNote(
   invoice: InvoiceLike,
-  requested: CreditLineRequest[] | "full"
+  requested: CreditLineRequest[] | "full",
+  /**
+   * Quantités déjà créditées par les avoirs précédents, par index de ligne.
+   * Sans ce cumul, deux avoirs partiels pouvaient créditer deux fois la même
+   * ligne (tant que le total restait sous le plafond) et jamais la suivante.
+   */
+  alreadyCredited: number[] = [],
 ): CreditNoteResult {
   const eligibility = canCredit(invoice);
   if (!eligibility.ok) return { ok: false, error: eligibility.error };
@@ -170,10 +178,13 @@ export function buildCreditNote(
     if (!Number.isFinite(quantity) || quantity <= 0) {
       return { ok: false, error: `Quantité invalide sur la ligne ${index + 1}.` };
     }
-    if (quantity > source.quantity) {
+    const left = source.quantity - (alreadyCredited[index] || 0);
+    if (quantity > left) {
       return {
         ok: false,
-        error: `Ligne ${index + 1} : ${quantity} demandé pour ${source.quantity} facturé.`,
+        error: left <= 0
+          ? `Ligne ${index + 1} : déjà entièrement créditée.`
+          : `Ligne ${index + 1} : ${quantity} demandé, ${left} encore créditable sur ${source.quantity} facturé.`,
       };
     }
 
@@ -195,18 +206,17 @@ export function buildCreditNote(
       totalHT: lineHT,
       totalTVA: lineTVA,
       totalTTC: lineHT + lineTVA,
+      sourceLineIndex: index,
     });
   }
 
-  const isFull = lines.length === invoice.lines.length
-    && requested.every((req) => {
-      const source = invoice.lines[Number(req.lineIndex)];
-      return source && Number(req.quantity) === source.quantity;
-    })
-    && requested.length === invoice.lines.length;
-
-  // Le timbre est un forfait par document : repris intégralement sur un avoir
-  // total, jamais fractionné sur un avoir partiel.
+  // Avoir qui, AVEC les précédents, crédite toutes les lignes en totalité :
+  // c'est lui qui solde la facture, il reprend donc le timbre (un forfait par
+  // document, jamais fractionné). Sans ce cumul, deux avoirs partiels couvrant
+  // toutes les lignes laissaient le timbre dû, impossible à solder.
+  const nowCredited = invoice.lines.map((_, i) => (alreadyCredited[i] || 0)
+    + requested.filter(r => Number(r.lineIndex) === i).reduce((t, r) => t + Number(r.quantity), 0));
+  const isFull = invoice.lines.every((l, i) => l.kind === "deposit_deduction" || nowCredited[i] >= l.quantity);
   const totalDTS = isFull ? (invoice.totalDTS || 0) : 0;
   const totalTTC = totalHT + totalTVA + totalDTS;
 

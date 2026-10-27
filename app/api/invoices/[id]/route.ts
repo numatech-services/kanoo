@@ -4,6 +4,7 @@ import { withAuth, ok, badRequest, notFound, noContent, tenantFilter } from "@/l
 import { InvoiceModel } from "@/models/Invoice";
 import { ClientModel } from "@/models/Client";
 import { retentionFor } from "@/lib/retention";
+import { releaseMarketInvoice } from "@/lib/market-invoice";
 import { computeInvoiceLines, saleEntryLines, findSaleEntry, reverseSaleEntry } from "@/lib/invoice-entry";
 import { pickImputation, checkImputations } from "@/lib/imputation";
 import { logAudit } from "@/lib/audit";
@@ -89,6 +90,9 @@ export const DELETE = withAuth("invoices", "delete", async (_req: NextRequest, a
   await withTransaction(async session => {
     inv.status = "cancelled";
     await inv.save({ session });
+    // Brouillon de marché : l'échéance redevient facturable et les acomptes
+    // qu'il déduisait sont libérés (ils restaient bloqués à jamais).
+    await releaseMarketInvoice(auth.tenantId, inv, session);
     await reverseSaleEntry({ tenantId: auth.tenantId, userId: auth.userId, invoiceId: inv._id, reason: "brouillon supprimé" }, session);
   });
   await logAudit(auth, "DELETE", "invoices", { resourceId: params.id });

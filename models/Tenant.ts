@@ -158,6 +158,16 @@ TenantSchema.add({
     purchaseSequence: { type: Number, default: 0 },
     // Pour migration : numéro de départ personnalisé
     invoiceStartAt:   { type: Number, default: 1 },
+    /**
+     * Compteurs par série ET par année (clé « invoiceSequence_2026 ») quand
+     * l'année figure dans le numéro et que la série repart chaque année. Un
+     * compteur unique remis à zéro le 1er janvier attribuait à une facture
+     * datée de décembre, saisie en janvier, un numéro déjà pris. Voir
+     * lib/numbering.ts.
+     */
+    yearCounters: { type: Map, of: Number, default: {} },
+    /** Année de la dernière remise à zéro des compteurs uniques (garde d'idempotence). */
+    sequenceYear: Number,
   },
 });
 

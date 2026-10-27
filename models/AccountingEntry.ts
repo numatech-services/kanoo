@@ -15,6 +15,11 @@ const AccountingLineSchema = new Schema(
     projectId: { type: Schema.Types.ObjectId, ref: "Project" },
     activityId: { type: Schema.Types.ObjectId, ref: "Activity" },
     costCenter: { type: String, maxlength: 20 },
+    /**
+     * Lettrage de LA LIGNE (lib/lettering). Porté par l'écriture, un lettrage
+     * du 421 d'un bulletin empêchait de lettrer ensuite son 431 (CNSS).
+     */
+    letterRef: { type: String, maxlength: 40 },
   },
   { _id: false }
 );
@@ -31,7 +36,9 @@ const AccountingEntrySchema = new Schema<IAccountingEntry>(
     reference: { type: String, required: true },
     label: { type: String, required: true },
     lines: { type: [AccountingLineSchema], required: true },
+    /** Toutes les lignes de tiers (classe 4) de l'écriture sont lettrées. */
     isLettered: { type: Boolean, default: false },
+    /** Référence de lettrage affichée (la première de ses lignes). */
     letterRef: String,
     linkedDocType: {
       type: String,
@@ -40,7 +47,9 @@ const AccountingEntrySchema = new Schema<IAccountingEntry>(
         // Encaissements au comptant des modules (lib/cash-posting).
         "desk_cash", "attendee", "membership", "donation",
         // Retenue de garantie reversée (marché) ; caution bancaire (commission, dépôt, mainlevée, appel).
-        "retention", "guarantee"],
+        "retention", "guarantee",
+        // Affectation du résultat d'un exercice clôturé (décision d'assemblée).
+        "result_allocation"],
     },
     /** Extourne : l'écriture qui annule celle-ci, et inversement. */
     reversedBy: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },
@@ -75,6 +84,9 @@ AccountingEntrySchema.pre("save", function (next) {
  */
 AccountingEntrySchema.pre("save", async function () {
   if (!this.isNew && !this.isModified("entryDate") && !this.isModified("lines")) return;
+  // Seule exception, posée par le code et jamais par une requête : les
+  // à-nouveaux de la clôture, datés du 1er janvier souvent déjà verrouillé.
+  if (this.$locals?.bypassPeriodLock === true) return;
   const Tenant = models.Tenant;
   if (!Tenant) return;
   const t = await Tenant.findById(this.tenantId).select("accountingLockedUntil").lean<{ accountingLockedUntil?: Date } | null>();

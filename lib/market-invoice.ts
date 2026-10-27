@@ -3,7 +3,7 @@ import { InvoiceModel } from "@/models/Invoice";
 import { ContractModel } from "@/models/Contract";
 import { ClientModel } from "@/models/Client";
 import { computeInvoiceLines, type InvoiceLineIn } from "@/lib/invoice-entry";
-import { nextDocumentNumber } from "@/lib/numbering";
+import { provisionalNumber } from "@/lib/numbering";
 import { TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { BusinessRuleError } from "@/lib/errors";
 import { retentionFor, RETENTION_ACCOUNT } from "@/lib/retention";
@@ -130,7 +130,8 @@ export async function invoiceMarket(auth: TokenPayload, contract: MarketContract
   const dueDate = new Date(issueDate);
   dueDate.setDate(dueDate.getDate() + (Number(input.dueDays) > 0 ? Number(input.dueDays) : 30));
 
-  const number = await nextDocumentNumber(auth.tenantId, "invoice", { issueDate, session });
+  // Brouillon : numéro définitif attribué à l'émission.
+  const number = provisionalNumber();
   const [invoice] = await InvoiceModel.create([{
     tenantId: auth.tenantId, number, clientId: contract.clientId, kind: mode, contractId: contract._id,
     ...(milestone ? { milestoneId: milestone._id } : {}),

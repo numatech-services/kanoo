@@ -31,6 +31,7 @@ export async function GET(req: NextRequest, ctx: RouteParams) {
     const [invoice, tenant] = await Promise.all([
       InvoiceModel.findOne({ _id: id, ...tenantFilter(auth) })
         .populate("clientId", "name nif rccm code address phone")
+        .populate("originalInvoiceId", "number issueDate")
         .lean<InvoiceForPdf | null>(),
       TenantModel.findById(auth.tenantId)
         .select("name logo branding nif rccm address phone email")

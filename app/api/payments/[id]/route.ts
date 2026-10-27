@@ -7,6 +7,7 @@ import { InvoiceModel } from "@/models/Invoice";
 import { applyPaymentEffects, invoiceDue } from "@/lib/payments";
 import { logAudit } from "@/lib/audit";
 import { paymentDate } from "@/lib/payment-date";
+import { BusinessRuleError } from "@/lib/errors";
 import { treasuryKind } from "@/lib/treasury";
 
 export const dynamic = "force-dynamic";
@@ -25,10 +26,13 @@ export const PATCH = withAuth("payments", "update", async (req: NextRequest, aut
 
   // Seule transition supportée : encaisser un paiement en attente.
   if (body.status && body.status !== "effective") return badRequest("Transition de statut non supportée.");
-  if (payment.status === "effective") return badRequest("Ce paiement est déjà encaissé.");
+  // Seul un paiement EN ATTENTE se confirme : un paiement annulé (chèque
+  // impayé) reconfirmé était comptabilisé une seconde fois.
+  if (payment.status !== "pending") return badRequest(payment.status === "effective" ? "Ce paiement est déjà encaissé." : "Paiement annulé : enregistrez un nouvel encaissement.");
 
   const invoice = await InvoiceModel.findOne({ _id: payment.invoiceId, ...tenantFilter(auth) });
   if (!invoice) return notFound("Facture introuvable");
+  if (invoice.documentType === "credit_note") return badRequest("Un avoir ne s'encaisse pas : il se rembourse.");
   if (["paid", "cancelled", "written_off"].includes(invoice.status)) {
     return badRequest(`Cette facture est déjà ${invoice.status === "paid" ? "soldée" : invoice.status === "cancelled" ? "annulée" : "passée en perte"}.`);
   }
@@ -44,9 +48,12 @@ export const PATCH = withAuth("payments", "update", async (req: NextRequest, aut
   if (!payment.treasuryAccountId) return badRequest("Choisissez le compte (banque, caisse, mobile money) qui a reçu l'argent.");
 
   await withTransaction(async (session) => {
+    // Transition gardée : deux confirmations simultanées ne comptabilisent
+    // qu'une fois (la seconde ne trouve plus le paiement « en attente »).
+    const r = await PaymentModel.updateOne({ _id: payment._id, status: "pending" },
+      { $set: { status: "effective", date: payment.date, treasuryAccountId: payment.treasuryAccountId } }, { session });
+    if (r.modifiedCount !== 1) throw new BusinessRuleError("Ce paiement vient d'être traité.");
     await applyPaymentEffects(payment, invoice, auth, session);
-    payment.status = "effective";
-    await payment.save({ session });
   });
 
   await logAudit(auth, "PAYMENT", "payments", { resourceId: String(params.id), after: { status: "effective" } });

@@ -101,6 +101,7 @@ export interface NumberingConfig {
   contractSequence?: number;
   creditNoteSequence?: number;
   purchaseSequence?: number;
+  yearCounters?: Record<string, number> | Map<string, number>;
   invoiceStartAt?: number;
   /** Année couverte par les séquences courantes — sert au remise à zéro annuelle. */
   sequenceYear?: number;

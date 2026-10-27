@@ -209,6 +209,13 @@ describe("Lecture des montants", () => {
     expect(parseAmount("1 234,56")).toBe(1235);
     expect(parseAmount("1,234.56")).toBe(1235);
     expect(parseAmount("250000")).toBe(250_000);
+    // FCFA : un séparateur suivi de trois chiffres est un millier.
+    expect(parseAmount("150.000")).toBe(150_000);
+    expect(parseAmount("150,000")).toBe(150_000);
+    expect(parseAmount("1.500.000")).toBe(1_500_000);
+    expect(parseAmount("1,500,000")).toBe(1_500_000);
+    expect(parseAmount("1.500.000,50")).toBe(1_500_001);
+    expect(parseAmount("-25.000")).toBe(-25_000);
     expect(parseAmount("-1234")).toBe(-1234);
   });
 
@@ -259,6 +266,16 @@ describe("Import d'un relevé CSV", () => {
     // Un débit est une sortie, même exporté en valeur absolue.
     expect(lines[1].amount).toBe(-12_500);
     expect(lines[2].amount).toBe(-80_000);
+  });
+
+  it("un relevé réimporté qui chevauche le précédent redonne les mêmes empreintes", () => {
+    const fp = (l: { date: Date; amount: number; label: string; rank: number }) => lineFingerprint("acc", l.date, l.amount, l.label, l.rank);
+    const a = parseStatementCsv("date;libelle;montant\n01/10/2026;Retrait DAB;-10000\n02/10/2026;Virement client;250000", { date: 0, label: 1, amount: 2 }).lines;
+    const b = parseStatementCsv("date;libelle;montant\n02/10/2026;Virement client;250000\n03/10/2026;Frais;-1500", { date: 0, label: 1, amount: 2 }).lines;
+    expect(fp(a[1])).toBe(fp(b[0]));
+    // Deux retraits identiques le même jour restent deux lignes distinctes.
+    const twin = parseStatementCsv("date;libelle;montant\n01/10/2026;Retrait DAB;-10000\n01/10/2026;Retrait DAB;-10000", { date: 0, label: 1, amount: 2 }).lines;
+    expect(fp(twin[0])).not.toBe(fp(twin[1]));
   });
 
   it("lit une colonne unique de montant signé", () => {

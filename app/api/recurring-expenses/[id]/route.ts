@@ -8,6 +8,7 @@ import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { withTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { BusinessRuleError } from "@/lib/errors";
 
 import { SUPPLIER_ACCOUNT, VAT_ACCOUNT } from "@/lib/purchases";
 export const GET = withAuth("recurringCharges", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
@@ -51,7 +52,25 @@ export const POST = withAuth("recurringCharges", "update", async (req: NextReque
   const date = body.date ? new Date(body.date) : new Date();
   if (isNaN(date.getTime())) return badRequest("Date invalide.");
 
+  if (expense.endDate && new Date(expense.nextDueDate || date) > new Date(expense.endDate)) {
+    return badRequest(`Charge terminée le ${new Date(expense.endDate).toLocaleDateString("fr-FR")} : plus d'échéance à payer.`);
+  }
+  const dueRead = expense.nextDueDate;
+  // Échéance encore lointaine : on ne la paie pas sur un simple clic. Sans
+  // cette règle, un second clic (une fois le premier terminé) payait aussitôt
+  // l'échéance du mois suivant. Paiement anticipé : demande explicite.
+  const horizon = new Date(); horizon.setDate(horizon.getDate() + 7);
+  if (dueRead && new Date(dueRead) > horizon && body.advance !== true) {
+    return badRequest(`Prochaine échéance le ${new Date(dueRead).toLocaleDateString("fr-FR")} : pas encore due. Confirmez un paiement anticipé si c'est voulu.`);
+  }
+
   await withTransaction(async (session) => {
+    // Échéance réservée d'abord, gardée sur la valeur lue : un double clic
+    // décaissait deux fois et faisait sauter deux échéances.
+    const claim = await RecurringExpenseModel.updateOne(
+      { _id: expense._id, ...tenantFilter(auth), nextDueDate: dueRead ?? null },
+      { $set: { lastExecutionClaim: new Date() } }, { session });
+    if (claim.modifiedCount !== 1) throw new BusinessRuleError("Cette échéance vient d'être payée.");
     await recordMovement({
       tenantId: auth.tenantId,
       accountId: String(accountId),

@@ -22,6 +22,12 @@ export async function recurringFields(tenantId: string, body: Record<string, unk
   if (has("tvaRate")) { const r = Number(body.tvaRate) || 0; if (!(r >= 0 && r < 0.5)) return { data, error: "Taux de TVA invalide." }; data.tvaRate = r; }
   if (has("alertDaysBefore")) data.alertDaysBefore = Math.max(0, Math.min(60, Number(body.alertDaysBefore) || 0));
   if (has("isActive")) data.isActive = !!body.isActive;
+  // Fin de la charge (bail, contrat d'abonnement) : au-delà, plus d'exécution
+  // ni de prévision. Vide = sans fin.
+  if (has("endDate")) {
+    if (body.endDate) { const d = new Date(String(body.endDate)); if (isNaN(d.getTime())) return { data, error: "Date de fin invalide." }; data.endDate = d; }
+    else data.endDate = null;
+  }
   if (has("nextDueDate") && body.nextDueDate) { const d = new Date(String(body.nextDueDate)); if (isNaN(d.getTime())) return { data, error: "Échéance invalide." }; data.nextDueDate = d; }
   if (has("treasuryAccountId")) {
     const v = body.treasuryAccountId;

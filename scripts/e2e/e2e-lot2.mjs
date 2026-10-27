@@ -60,7 +60,7 @@ const plusDays = n => { const d = new Date(); d.setDate(d.getDate() + n); d.setH
   const f1 = D(await g.req("POST", `/api/contracts/${ct._id}/invoice`, { amountHT: 1000000, deductDeposits: false })).invoice;
   const ret = Math.round(f1.totalTTC * 0.05);
   check("facture de travaux : retenue de 5 % du TTC", f1.retentionAmount === ret && f1.retentionRate === 0.05, J({ r: f1.retentionAmount, ttc: f1.totalTTC }));
-  await g.req("POST", `/api/invoices/${f1._id}/send`);
+  await g.req("POST", `/api/invoices/${f1._id}/send`); Object.assign(f1 ?? {}, D(await g.req("GET", `/api/invoices/${f1?._id}`)));
   const e1 = (await entriesOf(g, f1.number)).find(e => e.journalCode === "VT" && !e.reverses);
   check("écriture de vente : 411 au net, 411700 à la retenue", e1 && balancedE(e1) && e1.lines.some(l => l.accountCode === "411000" && l.debit === f1.totalTTC - ret) && e1.lines.some(l => l.accountCode === "411700" && l.debit === ret), J(e1?.lines));
   check("encaisser au-delà de l'exigible : refusé", (await g.req("POST", "/api/payments", { invoiceId: f1._id, amount: f1.totalTTC, method: "bank_transfer", date: today, treasuryAccountId: bank._id })).status === 400);
@@ -89,7 +89,7 @@ const plusDays = n => { const d = new Date(); d.setDate(d.getDate() + n); d.setH
 
   console.log("\n▶ Avoirs sur facture avec retenue");
   const f2 = D(await g.req("POST", `/api/contracts/${ct._id}/invoice`, { amountHT: 300000, deductDeposits: false })).invoice;
-  await g.req("POST", `/api/invoices/${f2._id}/send`);
+  await g.req("POST", `/api/invoices/${f2._id}/send`); Object.assign(f2 ?? {}, D(await g.req("GET", `/api/invoices/${f2?._id}`)));
   check("avoir partiel : refusé", (await g.req("POST", `/api/invoices/${f2._id}/credit-note`, { reason: "Erreur", lines: [{ lineIndex: 0, quantity: 0.5 }] })).status === 400);
   const av = await g.req("POST", `/api/invoices/${f2._id}/credit-note`, { mode: "full", reason: "Erreur de quantité" });
   const ae = (await entriesOf(g, D(av).creditNote?.number ?? "??"))[0];

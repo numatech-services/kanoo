@@ -48,7 +48,7 @@ const id = r => D(r)?._id;
   const cl = id(await g.req("POST", "/api/clients", { code: "C-TAH", name: "Université Djibo Hamani de Tahoua" }));
   const past = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
   const f1 = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: past(40), dueDate: past(10), lines: [{ description: "Prestation", quantity: 1, unitPrice: 500000, tvaRate: 0 }] }));
-  await g.req("POST", `/api/invoices/${f1._id}/send`);
+  await g.req("POST", `/api/invoices/${f1._id}/send`); Object.assign(f1 ?? {}, D(await g.req("GET", `/api/invoices/${f1?._id}`)));
   const f2 = D(await g.req("POST", "/api/invoices", { clientId: cl, issueDate: today, dueDate: today, lines: [{ description: "Brouillon", quantity: 1, unitPrice: 70000, tvaRate: 0 }] }));
 
   console.log("\n▶ Pages");

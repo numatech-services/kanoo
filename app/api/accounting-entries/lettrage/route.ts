@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { Types } from "mongoose";
-import { connectDB } from "@/lib/db";
+import { connectDB, withTransaction } from "@/lib/db";
+import { applyLetter, removeLetter, migrateLegacyLettering } from "@/lib/lettering";
+import { BusinessRuleError } from "@/lib/errors";
 import { withAuth, ok, badRequest, conflict, tenantFilter } from "@/lib/api-helpers";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { ClientModel } from "@/models/Client";
@@ -20,12 +22,13 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   const account = (url.searchParams.get("account") || "411").replace(/\D/g, "");
   if (!/^4\d{0,7}$/.test(account)) return badRequest("Le lettrage porte sur un compte de tiers (classe 4).");
   const state = url.searchParams.get("state") ?? "open";
-  const match: Record<string, unknown> = { ...tenantFilter(auth), "lines.accountCode": { $regex: `^${account}` } };
-  if (state === "open") match.isLettered = { $ne: true };
-  if (state === "lettered") match.isLettered = true;
-  const rows = await AccountingEntryModel.aggregate<{ _id: Types.ObjectId; entryDate: Date; reference: string; label: string; isLettered?: boolean; letterRef?: string; line: { accountCode: string; debit: number; credit: number; thirdPartyId?: Types.ObjectId } }>([
-    { $match: match }, { $unwind: "$lines" }, { $match: { "lines.accountCode": { $regex: `^${account}` } } },
-    { $project: { entryDate: 1, reference: 1, label: 1, isLettered: 1, letterRef: 1, line: "$lines" } },
+  await migrateLegacyLettering(auth.tenantId);
+  const lineMatch: Record<string, unknown> = { "lines.accountCode": { $regex: `^${account}` } };
+  if (state === "open") lineMatch["lines.letterRef"] = { $exists: false };
+  if (state === "lettered") lineMatch["lines.letterRef"] = { $exists: true };
+  const rows = await AccountingEntryModel.aggregate<{ _id: Types.ObjectId; entryDate: Date; reference: string; label: string; line: { accountCode: string; debit: number; credit: number; thirdPartyId?: Types.ObjectId; letterRef?: string } }>([
+    { $match: { ...tenantFilter(auth), "lines.accountCode": { $regex: `^${account}` } } }, { $unwind: "$lines" }, { $match: lineMatch },
+    { $project: { entryDate: 1, reference: 1, label: 1, line: "$lines" } },
     { $sort: { entryDate: 1 } }, { $limit: 2000 },
   ]);
   const ids = [...new Set(rows.map(r => r.line.thirdPartyId).filter(Boolean).map(String))];
@@ -38,7 +41,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
     entryId: String(r._id), date: r.entryDate, reference: r.reference, label: r.label, account: r.line.accountCode,
     debit: r.line.debit, credit: r.line.credit, thirdPartyId: r.line.thirdPartyId ? String(r.line.thirdPartyId) : null,
     thirdParty: r.line.thirdPartyId ? names.get(String(r.line.thirdPartyId)) ?? null : null,
-    isLettered: !!r.isLettered, letterRef: r.letterRef ?? null,
+    isLettered: !!r.line.letterRef, letterRef: r.line.letterRef ?? null,
   })));
 });
 
@@ -55,29 +58,16 @@ export const POST = withAuth("accountingEntries", "update", async (req: NextRequ
   const account = String(body.account ?? "4").replace(/\D/g, "");
   if (!/^4\d{0,7}$/.test(account)) return badRequest("Le lettrage porte sur un compte de tiers (classe 4).");
   await connectDB();
-
-  const entries = await AccountingEntryModel.find({ _id: { $in: ids }, ...tenantFilter(auth) });
-  if (entries.length !== ids.length) return badRequest("Certaines écritures sont introuvables ou n'appartiennent pas à cette organisation");
-  const already = entries.find(e => e.isLettered);
-  if (already) return conflict(`L'écriture ${already.reference} est déjà lettrée (${already.letterRef}). Délettrez-la d'abord.`);
-
-  let totalDebit = 0, totalCredit = 0;
-  for (const entry of entries) for (const line of entry.lines) if (line.accountCode.startsWith(account)) { totalDebit += line.debit; totalCredit += line.credit; }
-  if (totalDebit === 0 && totalCredit === 0) return badRequest(`Aucune de ces écritures ne mouvemente le compte ${account}.`);
-  if (Math.abs(totalDebit - totalCredit) > 1) return badRequest(`Lettrage déséquilibré sur ${account} : débits=${totalDebit} ≠ crédits=${totalCredit}`);
-
-  let letterRef = String(body.letterRef ?? "").trim().slice(0, 40);
-  if (letterRef) {
-    if (await AccountingEntryModel.exists({ ...tenantFilter(auth), letterRef })) return conflict(`La référence ${letterRef} est déjà utilisée.`);
-  } else {
-    const year = new Date().getFullYear();
-    const n = (await AccountingEntryModel.distinct("letterRef", { ...tenantFilter(auth), letterRef: { $regex: `^LET-${year}-` } })).length + 1;
-    letterRef = `LET-${year}-${String(n).padStart(4, "0")}`;
+  await migrateLegacyLettering(auth.tenantId);
+  let result: { letterRef: string; lines: number };
+  try {
+    result = await withTransaction(session => applyLetter(auth.tenantId, ids, account, { letterRef: body.letterRef ? String(body.letterRef) : undefined, session }));
+  } catch (e) {
+    if (e instanceof BusinessRuleError) return /déjà utilisée|vient d'être/.test(e.message) ? conflict(e.message) : badRequest(e.message);
+    throw e;
   }
-
-  await AccountingEntryModel.updateMany({ _id: { $in: ids }, ...tenantFilter(auth) }, { $set: { isLettered: true, letterRef } });
-  await logAudit(auth, "UPDATE", "accountingEntries", { metadata: { action: "lettrage", entryIds: ids, letterRef, account } });
-  return ok({ letterRef, message: `${entries.length} écritures lettrées (${letterRef})` });
+  await logAudit(auth, "UPDATE", "accountingEntries", { metadata: { action: "lettrage", entryIds: ids, letterRef: result.letterRef, account } });
+  return ok({ letterRef: result.letterRef, message: `${result.lines} écritures lettrées (${result.letterRef})` });
 });
 
 // DELETE /api/accounting-entries/lettrage?ref=… — annuler un lettrage
@@ -85,7 +75,8 @@ export const DELETE = withAuth("accountingEntries", "update", async (req: NextRe
   const letterRef = new URL(req.url).searchParams.get("ref");
   if (!letterRef) return badRequest("Référence de lettrage requise (?ref=…)");
   await connectDB();
-  const result = await AccountingEntryModel.updateMany({ ...tenantFilter(auth), letterRef }, { $set: { isLettered: false }, $unset: { letterRef: "" } });
-  await logAudit(auth, "UPDATE", "accountingEntries", { metadata: { action: "delettrage", letterRef, count: result.modifiedCount } });
-  return ok({ message: `Lettrage '${letterRef}' annulé sur ${result.modifiedCount} écriture(s)` });
+  await migrateLegacyLettering(auth.tenantId);
+  const count = await withTransaction(session => removeLetter(auth.tenantId, letterRef, session));
+  await logAudit(auth, "UPDATE", "accountingEntries", { metadata: { action: "delettrage", letterRef, count } });
+  return ok({ message: `Lettrage '${letterRef}' annulé sur ${count} écriture(s)` });
 });
