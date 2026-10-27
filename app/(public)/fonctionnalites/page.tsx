@@ -14,7 +14,7 @@ const SECTIONS = [
       { h: "Ventes & facturation", items: ["Devis, factures et avoirs conformes DGI — TVA 19 %, retenues, droit de timbre", "Certification SECeF : socle en place, portail e-SECeF utilisable dès aujourd'hui", "Caisse : vente, facture, mouvement de stock et écriture, d'un seul geste"] },
       { h: "Encaissement & trésorerie", items: ["Solde de trésorerie calculé, jamais saisi : ouverture plus mouvements", "Rapprochement bancaire par import de relevé, appariements proposés et validés à la main", "Orange, Moov et Airtel Money, rapprochés en comptabilité"] },
       { h: "Recouvrement", items: ["Relances graduées, du rappel avant échéance à la mise en demeure", "La mise en demeure attend toujours une validation humaine", "Relevé de compte client, à l'écran et en PDF, avec balance âgée"] },
-      { h: "Finance & paie", items: ["Comptabilité OHADA / SYSCOHADA, journaux automatiques", "Notes de frais, justificatif photographié au comptoir", "Bulletins de paie, CNSS 3,6 %/16,4 %, IR, déclarations prêtes"] },
+      { h: "Finance & paie", items: ["Comptabilité OHADA / SYSCOHADA, journaux automatiques", "Notes de frais, justificatif photographié au comptoir", "Bulletins de paie, CNSS 2024, ITS 2026, déclarations prêtes"] },
     ],
   },
   {

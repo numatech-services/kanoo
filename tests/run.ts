@@ -44,14 +44,14 @@ async function testFiscalNiger() {
     assert(calculerTTC(100_000) === 119_000, "TTC 100k = 119k");
   });
 
-  await test("CNSS salarié 3.6%", () => {
-    const { salarie } = calculerCNSS(200_000);
-    assert(salarie === 7_200, `CNSS salarié 200k = 7200, got ${salarie}`);
+  await test("CNSS salarié 5,25 %", () => {
+    const { salarie } = calculerCNSS(200_000, new Date(2026, 4, 31));
+    assert(salarie === 10_500, `CNSS salarié 200k = 10500, got ${salarie}`);
   });
 
-  await test("CNSS patronal 16.4%", () => {
-    const { patronal } = calculerCNSS(200_000);
-    assert(patronal === 32_800, `CNSS patronal 200k = 32800, got ${patronal}`);
+  await test("CNSS patronal 17,40 %", () => {
+    const { patronal } = calculerCNSS(200_000, new Date(2026, 4, 31));
+    assert(patronal === 34_800, `CNSS patronal 200k = 34800, got ${patronal}`);
   });
 
   await test("DTS 0 si < 10k XOF", () => {

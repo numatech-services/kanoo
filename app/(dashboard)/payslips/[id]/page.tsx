@@ -17,7 +17,12 @@ interface Payslip {
   grossSalary: number; grossTotal?: number; seniorityRate?: number; seniorityAmount?: number;
   cnssEmployee: number; cnssEmployer: number; incomeTax?: number; netImposable?: number;
   otherDeductions: number; netSalary: number; employerCost?: number; isPaid: boolean; paidAt?: string;
-  items?: Array<{ label: string; amount: number; type: "addition" | "deduction" }>;
+  items?: Array<{ label: string; amount: number; type: "addition" | "deduction"; subject?: boolean }>;
+  cnssBase?: number; cnssRates?: { employee: number; employer: number }; cnssCategory?: string;
+  cnssBranches?: { pf: number; atmp: number; pensions: number; anpe: number };
+  benefitsInKind?: number; benefitsDetail?: Array<{ label: string; amount: number }>; expatAllowance?: number;
+  familyCharges?: number;
+  itsDetail?: { bareme: string; tauxFamille: number; retraite: number; expatrie: number; assurance: number; fraisProfessionnels: number; chargesFamille: number };
   employeeId: {
     firstName: string; lastName: string; code: string; position?: string; department?: string; employeeType?: string;
     cnssNumber?: string; nif?: string; bankAccount?: string; bankName?: string; startDate?: string; contractNature?: string;
@@ -27,6 +32,7 @@ interface Payslip {
 
 const MONTHS = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const fmt = (n: unknown) => Number(n || 0).toLocaleString("fr-FR");
+const pct = (t: number) => `${(t * 100).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} %`;
 
 export default function PayslipDetailPage() {
   const { id } = useParams();
@@ -54,13 +60,19 @@ export default function PayslipDetailPage() {
   const additions = (p.items ?? []).filter(i => i.type === "addition");
   const deductions = (p.items ?? []).filter(i => i.type === "deduction");
   const isEmployee = (emp?.employeeType ?? "employee") === "employee";
+  // Bulletins émis avant la mise à jour : ni taux enregistrés ni détail ITS ;
+  // on affiche les taux que Kanoo appliquait alors.
+  const cnssRate = p.cnssRates?.employee ?? 0.036;
+  const itsNew = p.itsDetail?.bareme === "its";
   const rows: Array<[string, string, number, "gain" | "retenue" | "total"]> = [
     [isEmployee ? "Salaire de base" : emp?.employeeType === "intern" ? "Indemnité de stage" : "Honoraires", "", p.grossSalary, "gain"],
-    ...(p.seniorityAmount ? [["Prime d'ancienneté", `${p.seniorityRate ?? 0} %`, p.seniorityAmount, "gain"] as [string, string, number, "gain"]] : []),
-    ...additions.map(i => [i.label, "", i.amount, "gain"] as [string, string, number, "gain"]),
-    ["Salaire brut total", "", p.grossTotal ?? p.grossSalary, "total"],
-    ...(p.cnssEmployee ? [["Cotisation CNSS salariale", "3,6 %", p.cnssEmployee, "retenue"] as [string, string, number, "retenue"]] : []),
-    ...(p.incomeTax ? [["Impôt sur le revenu (IR)", "barème", p.incomeTax, "retenue"] as [string, string, number, "retenue"]] : []),
+    // Taux d'ancienneté stocké en fraction (0,04 = 4 %).
+    ...(p.seniorityAmount ? [["Prime d'ancienneté", pct(p.seniorityRate ?? 0), p.seniorityAmount, "gain"] as [string, string, number, "gain"]] : []),
+    ...(p.expatAllowance ? [["Indemnité de dépaysement", "", p.expatAllowance, "gain"] as [string, string, number, "gain"]] : []),
+    ...additions.map(i => [i.subject === false ? `${i.label} (non soumis)` : i.label, "", i.amount, "gain"] as [string, string, number, "gain"]),
+    ["Salaire brut", "", p.grossTotal ?? p.grossSalary, "total"],
+    ...(p.cnssEmployee ? [["Cotisation CNSS salariale", p.cnssBase ? `${pct(cnssRate)} × ${fmt(p.cnssBase)}` : pct(cnssRate), p.cnssEmployee, "retenue"] as [string, string, number, "retenue"]] : []),
+    ...(p.incomeTax ? [[itsNew ? "Impôt sur les traitements et salaires (ITS)" : "Impôt sur le revenu (IR)", itsNew ? `base ${fmt(p.netImposable)}` : "barème", p.incomeTax, "retenue"] as [string, string, number, "retenue"]] : []),
     ...deductions.map(i => [i.label, "", i.amount, "retenue"] as [string, string, number, "retenue"]),
   ];
 
@@ -142,13 +154,19 @@ export default function PayslipDetailPage() {
         </table></div>
 
         <div className="p-6 grid sm:grid-cols-3 gap-4 border-t border-line">
-          <div><p className="text-xs text-ink3">Net imposable</p><p className="font-mono font-semibold">{fmt(p.netImposable ?? (p.grossTotal ?? p.grossSalary) - p.cnssEmployee)} FCFA</p></div>
-          <div><p className="text-xs text-ink3">Charges patronales (CNSS)</p><p className="font-mono font-semibold">{fmt(p.cnssEmployer)} FCFA</p></div>
+          <div><p className="text-xs text-ink3">{itsNew ? "Base imposable ITS" : "Net imposable"}</p><p className="font-mono font-semibold">{fmt(p.netImposable ?? (p.grossTotal ?? p.grossSalary) - p.cnssEmployee)} FCFA</p></div>
+          <div><p className="text-xs text-ink3">Charges patronales (CNSS{p.cnssRates?.employer ? ` ${pct(p.cnssRates.employer)}` : ""})</p><p className="font-mono font-semibold">{fmt(p.cnssEmployer)} FCFA</p></div>
           <div className="rounded-xl bg-pos-50 border border-pos/25 p-3 text-right">
             <p className="text-xs text-pos font-semibold uppercase">Net à payer</p>
             <p className="text-2xl font-bold text-pos font-mono">{fmt(p.netSalary)} FCFA</p>
           </div>
         </div>
+        {(p.benefitsInKind || itsNew) ? (
+          <div className="px-6 pb-4 text-xs text-ink2 space-y-1">
+            {!!p.benefitsInKind && <p>Avantages en nature (forfaits CGI art. 144, soumis à la CNSS et à l&apos;ITS, non versés) : {(p.benefitsDetail ?? []).map(b => `${b.label} ${fmt(b.amount)}`).join(" · ")} — total {fmt(p.benefitsInKind)} FCFA.</p>}
+            {itsNew && p.itsDetail && <p>Base ITS : retraite {fmt(p.itsDetail.retraite)}{p.itsDetail.expatrie ? `, abattement expatrié ${fmt(p.itsDetail.expatrie)}` : ""}{p.itsDetail.assurance ? `, assurance ${fmt(p.itsDetail.assurance)}` : ""}, frais professionnels 13 % {fmt(p.itsDetail.fraisProfessionnels)}, charges de famille ({p.familyCharges ?? 0}, {pct(p.itsDetail.tauxFamille)}) {fmt(p.itsDetail.chargesFamille)} ; arrondie au millier inférieur.</p>}
+          </div>
+        ) : null}
         <p className="px-6 pb-6 text-[11px] text-ink3">Coût total employeur : {fmt(p.employerCost ?? (p.grossTotal ?? p.grossSalary) + p.cnssEmployer)} FCFA. Pour faire valoir ce que de droit — à conserver sans limitation de durée.</p>
       </div>
 

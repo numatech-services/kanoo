@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 import { COST_CENTERS } from "@/lib/cost-centers";
+import { calculerBulletinDePaie } from "@/lib/payslip-calc";
+import { AVANTAGES_EN_NATURE, AVANTAGES_KEYS, pourcent, tauxCnss, type AvantageEnNature } from "@/lib/paie-parametres";
 
 import { buttonClass } from "@/components/ui/button-class";
 export interface EmployeeFormData {
@@ -11,6 +13,8 @@ export interface EmployeeFormData {
   startDate: string; endDate: string; contractEndDate: string;
   cnssNumber: string; nif: string; phone: string; email: string; bankAccount: string; bankName: string;
   includeCnss: boolean; includeIr: boolean;
+  familyCharges: number; cnssCategory: string; expatAllowance: number; insurancePremium: number;
+  benefitsInKind: Array<{ kind: string; count: number }>;
   otherDeductionLabel: string; otherDeductionAmount: number;
   isActive: boolean; notes: string;
 }
@@ -37,6 +41,9 @@ export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { in
     phone: initial?.phone||"", email: initial?.email||"",
     bankAccount: initial?.bankAccount||"", bankName: initial?.bankName||"",
     includeCnss: initial?.includeCnss??true, includeIr: initial?.includeIr??true,
+    familyCharges: initial?.familyCharges??0, cnssCategory: initial?.cnssCategory||"standard",
+    expatAllowance: initial?.expatAllowance??0, insurancePremium: initial?.insurancePremium??0,
+    benefitsInKind: initial?.benefitsInKind??[],
     otherDeductionLabel: initial?.otherDeductionLabel||"",
     otherDeductionAmount: initial?.otherDeductionAmount??0,
     isActive: initial?.isActive??true, notes: initial?.notes||"",
@@ -49,12 +56,25 @@ export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { in
   const isIntern = form.employeeType === "intern";
   const isFreelance = form.employeeType === "freelance";
 
-  // Calculs paie
-  const cnssEmployee = isEmployee && form.includeCnss ? Math.round(form.grossSalary * 0.036) : 0;
-  const cnssEmployer = isEmployee && form.includeCnss ? Math.round(form.grossSalary * 0.164) : 0;
-  const netSalary = isEmployee
-    ? form.grossSalary - cnssEmployee - form.otherDeductionAmount
-    : form.indemnity - form.otherDeductionAmount;
+  // Aperçu : le même moteur que le bulletin, pour le mois en cours.
+  const now = new Date();
+  const preview = calculerBulletinDePaie({
+    grossSalary: form.grossSalary, startDate: form.startDate ? new Date(form.startDate) : now,
+    employeeType: form.employeeType as "employee" | "intern" | "freelance", indemnity: form.indemnity,
+    includeCnss: form.includeCnss, includeIr: form.includeIr, includeSeniority: true,
+    familyCharges: form.familyCharges, cnssCategory: form.cnssCategory as "standard" | "detache",
+    expatAllowance: form.expatAllowance, insurancePremium: form.insurancePremium, benefitsInKind: form.benefitsInKind,
+    manualItems: form.otherDeductionAmount > 0 ? [{ label: "Retenue", amount: form.otherDeductionAmount, type: "deduction" }] : [],
+    periodEnd: new Date(now.getFullYear(), now.getMonth() + 1, 0),
+  });
+  const rates = tauxCnss(isIntern ? "stagiaire" : form.cnssCategory as "standard" | "detache");
+  const hasBenefit = (k: AvantageEnNature) => form.benefitsInKind.find(b => b.kind === k);
+  function toggleBenefit(k: AvantageEnNature, on: boolean) {
+    u("benefitsInKind", on ? [...form.benefitsInKind, { kind: k, count: 1 }] : form.benefitsInKind.filter(b => b.kind !== k));
+  }
+  function setBenefitCount(k: AvantageEnNature, count: number) {
+    u("benefitsInKind", form.benefitsInKind.map(b => b.kind === k ? { ...b, count: Math.max(1, Math.floor(count) || 1) } : b));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,7 +84,7 @@ export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { in
     if (payroll && isEmployee && form.grossSalary <= 0) return setError("Le salaire brut est requis");
     if (payroll && (isIntern || isFreelance) && form.indemnity <= 0) return setError("L'indemnité est requise");
     setError(""); setSaving(true);
-    const PAYROLL_KEYS = ["grossSalary", "indemnity", "indemnityPeriod", "otherDeductionLabel", "otherDeductionAmount", "bankAccount", "bankName", "includeCnss", "includeIr"];
+    const PAYROLL_KEYS = ["grossSalary", "indemnity", "indemnityPeriod", "otherDeductionLabel", "otherDeductionAmount", "bankAccount", "bankName", "includeCnss", "includeIr", "familyCharges", "cnssCategory", "expatAllowance", "insurancePremium", "benefitsInKind"];
     const body = payroll ? form : Object.fromEntries(Object.entries(form).filter(([k]) => !PAYROLL_KEYS.includes(k))) as unknown as EmployeeFormData;
     try { await onSave(body); } catch (err: unknown) { setError(err instanceof Error ? err.message : "Erreur"); }
     setSaving(false);
@@ -123,8 +143,8 @@ export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { in
               <input type="number" className={inputCls} value={form.grossSalary} onChange={e=>u("grossSalary",Number(e.target.value))} min={0} required/>
             </FormField>
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={form.includeCnss} onChange={e=>u("includeCnss",e.target.checked)} className="accent-section"/><span>Inclure CNSS (3,6% + 16,4%)</span></label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={form.includeIr} onChange={e=>u("includeIr",e.target.checked)} className="accent-section"/><span>Inclure IR (impôt revenu)</span></label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={form.includeCnss} onChange={e=>u("includeCnss",e.target.checked)} className="accent-section"/><span>Inclure CNSS ({pourcent(rates.salarie)} + {pourcent(rates.employeur)})</span></label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={form.includeIr} onChange={e=>u("includeIr",e.target.checked)} className="accent-section"/><span>Retenir l&apos;ITS (impôt sur salaire)</span></label>
             </div>
           </div>
         ) : (
@@ -139,20 +159,68 @@ export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { in
             </FormField>
           </div>
         )}
+        {isIntern && (
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={form.includeCnss} onChange={e=>u("includeCnss",e.target.checked)} className="accent-section"/><span>CNSS des apprentis et stagiaires ({pourcent(rates.salarie)} + {pourcent(rates.employeur)})</span></label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={form.includeIr} onChange={e=>u("includeIr",e.target.checked)} className="accent-section"/><span>Retenir l&apos;ITS</span></label>
+          </div>
+        )}
+        {!isFreelance && (
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Charges de famille" hint="Conjoint sans revenu + enfants à charge (7 au plus, dont 6 enfants) : abattement ITS de 0 à 30 %">
+              <input type="number" className={inputCls} value={form.familyCharges} onChange={e=>u("familyCharges",Math.min(7,Math.max(0,Math.floor(Number(e.target.value))||0)))} min={0} max={7}/>
+            </FormField>
+            {isEmployee && <FormField label="Catégorie CNSS">
+              <select className={selectCls} value={form.cnssCategory} onChange={e=>u("cnssCategory",e.target.value)}>
+                <option value="standard">Salarié du secteur privé (22,65 %)</option>
+                <option value="detache">Fonctionnaire détaché (6,65 %, employeur)</option>
+              </select>
+            </FormField>}
+          </div>
+        )}
+        {isEmployee && (
+          <details className="rounded-xl border border-line p-3" open={form.benefitsInKind.length > 0 || form.expatAllowance > 0 || form.insurancePremium > 0}>
+            <summary className="text-sm font-medium cursor-pointer">Avantages en nature, expatriation, assurance</summary>
+            <div className="mt-3 space-y-3">
+              <p className="text-xs text-ink2">Avantages évalués aux forfaits du CGI (art. 144), ajoutés à l&apos;assiette CNSS et à la base ITS sans être versés.</p>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {AVANTAGES_KEYS.map(k => {
+                  const a = AVANTAGES_EN_NATURE[k]; const b = hasBenefit(k);
+                  return (
+                    <div key={k} className="flex items-center gap-2 text-sm">
+                      <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0"><input type="checkbox" checked={!!b} onChange={e=>toggleBenefit(k,e.target.checked)} className="accent-section shrink-0"/>
+                        <span>{a.libelle}{a.forfait ? ` — ${a.forfait.toLocaleString("fr-FR")}${a.unite ? ` / ${a.unite}` : ""}` : " — 1/3 du logement"}</span></label>
+                      {b && a.unite && <div className="w-20 shrink-0"><input type="number" aria-label={`Nombre (${a.unite})`} className={inputCls} value={b.count} min={1} onChange={e=>setBenefitCount(k,Number(e.target.value))}/></div>}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Indemnité de dépaysement (FCFA / mois)" hint="Expatrié : abattement ITS de 17 % si elle atteint 40 % du salaire de base">
+                  <input type="number" className={inputCls} value={form.expatAllowance} onChange={e=>u("expatAllowance",Math.max(0,Number(e.target.value)||0))} min={0}/>
+                </FormField>
+                <FormField label="Primes d'assurance du salarié (FCFA / mois)" hint="Déductibles de la base ITS jusqu'à 20 000 FCFA">
+                  <input type="number" className={inputCls} value={form.insurancePremium} onChange={e=>u("insurancePremium",Math.max(0,Number(e.target.value)||0))} min={0}/>
+                </FormField>
+              </div>
+            </div>
+          </details>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Libellé autre retenue"><input className={inputCls} value={form.otherDeductionLabel} onChange={e=>u("otherDeductionLabel",e.target.value)} placeholder="Ex: Avance sur salaire"/></FormField>
           <FormField label="Montant retenue (FCFA)"><input type="number" className={inputCls} value={form.otherDeductionAmount} onChange={e=>u("otherDeductionAmount",Number(e.target.value))} min={0}/></FormField>
         </div>
 
-        {/* Simulation paie */}
+        {/* Simulation paie — même calcul que le bulletin */}
         {(isEmployee ? form.grossSalary : form.indemnity) > 0 && (
-          <div className="bg-info-50 border border-info/25 rounded-xl p-3 grid grid-cols-4 gap-3 text-xs">
-            {isEmployee && form.includeCnss && <>
-              <div className="text-center"><p className="font-semibold text-info">{cnssEmployee.toLocaleString("fr-FR")} FCFA</p><p className="text-info mt-0.5">CNSS salarié</p></div>
-              <div className="text-center"><p className="font-semibold text-info">{cnssEmployer.toLocaleString("fr-FR")} FCFA</p><p className="text-info mt-0.5">CNSS patronal</p></div>
+          <div className="bg-info-50 border border-info/25 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            {preview.cnssEmployee + preview.cnssEmployer > 0 && <>
+              <div className="text-center"><p className="font-semibold text-info">{preview.cnssEmployee.toLocaleString("fr-FR")} FCFA</p><p className="text-info mt-0.5">CNSS salarié</p></div>
+              <div className="text-center"><p className="font-semibold text-info">{preview.cnssEmployer.toLocaleString("fr-FR")} FCFA</p><p className="text-info mt-0.5">CNSS patronal</p></div>
             </>}
+            {preview.ir > 0 && <div className="text-center"><p className="font-semibold text-info">{preview.ir.toLocaleString("fr-FR")} FCFA</p><p className="text-info mt-0.5">ITS</p></div>}
             {form.otherDeductionAmount > 0 && <div className="text-center"><p className="font-semibold text-warn">{form.otherDeductionAmount.toLocaleString("fr-FR")} FCFA</p><p className="text-warn mt-0.5">Autre retenue</p></div>}
-            <div className="text-center"><p className="font-bold text-pos">{Math.max(0,netSalary).toLocaleString("fr-FR")} FCFA</p><p className="text-pos mt-0.5">{isEmployee?"Net avant IR (estimation)":"Montant net"}</p></div>
+            <div className="text-center"><p className="font-bold text-pos">{Math.max(0,preview.netAPayer).toLocaleString("fr-FR")} FCFA</p><p className="text-pos mt-0.5">{isFreelance?"Montant net":"Net à payer (estimation, mois en cours)"}</p></div>
           </div>
         )}
       </fieldset>}

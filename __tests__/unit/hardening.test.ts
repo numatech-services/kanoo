@@ -11,7 +11,7 @@ import { isUsableSecret, PLACEHOLDER_SECRET_PREFIX } from "@/lib/auth";
 import { canPerformAction, canAccessResource, ROLE_PERMISSIONS } from "@/lib/role-resources";
 import { sanitizeBody } from "@/lib/api-helpers";
 import {
-  calculerIR, calculerPrimeAnciennete, calculerAmortissementLineaire, BAREME_IR_MENSUEL,
+  calculerITS, calculerPrimeAnciennete, calculerAmortissementLineaire,
 } from "@/lib/niger-fiscal";
 import { calculerBulletinDePaie } from "@/lib/payslip-calc";
 import { generateAccessCode, hashAccessCode, verifyAccessCode } from "@/lib/portal-auth";
@@ -221,33 +221,25 @@ describe("Prime d'ancienneté — appréciée à la période de paie", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// IR — les bornes du barème étaient disjointes (35 000 puis 35 001) : une base
-// non entière tombant entre deux tranches ressortait à zéro.
+// ITS — barème par tranches : continu, jamais négatif, retenu par le moteur.
+// (L'ancien barème avait des bornes disjointes, 35 000 puis 35 001 : une base
+// non entière ressortait à zéro.)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("Impôt sur le revenu", () => {
-  it("aucune base ne tombe entre deux tranches", () => {
-    for (const tranche of BAREME_IR_MENSUEL) {
-      if (tranche.min === 0) continue;
-      const juste_avant = tranche.min - 0.5;
-      expect(calculerIR(juste_avant)).toBeGreaterThanOrEqual(0);
-      // La base intermédiaire trouve désormais la tranche inférieure.
-      expect(calculerIR(juste_avant)).toBeLessThanOrEqual(calculerIR(tranche.min));
-    }
-  });
+describe("Impôt sur les traitements et salaires", () => {
+  const MAI_2026 = new Date(2026, 4, 31);
+  const its = (brut: number) => calculerITS({ revenuBrut: brut, remunerationPrincipale: brut, retraite: Math.round(brut * 0.0525) }, MAI_2026).impot;
 
-  it("le barème reste continu aux bornes", () => {
-    for (const tranche of BAREME_IR_MENSUEL) {
-      if (!Number.isFinite(tranche.max)) continue;
-      const ecart = Math.abs(calculerIR(tranche.max + 1) - calculerIR(tranche.max));
-      // Un franc d'assiette ne peut pas produire un saut d'impôt.
-      expect(ecart).toBeLessThanOrEqual(1);
+  it("le barème reste continu : 1 000 FCFA de plus ne coûte jamais plus de 350 FCFA", () => {
+    for (let brut = 0; brut <= 2_000_000; brut += 7_919) {
+      expect(its(brut + 1_000) - its(brut)).toBeLessThanOrEqual(350);
+      expect(its(brut + 1_000)).toBeGreaterThanOrEqual(its(brut));
     }
   });
 
   it("n'est jamais négatif", () => {
-    for (const base of [0, 1, 35_000, 35_001, 50_000, 120_000, 900_000]) {
-      expect(calculerIR(base)).toBeGreaterThanOrEqual(0);
+    for (const base of [0, 1, 25_000, 25_001.5, 50_000, 120_000, 900_000]) {
+      expect(its(base)).toBeGreaterThanOrEqual(0);
     }
   });
 
@@ -257,10 +249,10 @@ describe("Impôt sur le revenu", () => {
       startDate: new Date("2020-01-01"),
       employeeType: "employee",
       includeCnss: true, includeIr: true, includeSeniority: false,
-      periodEnd: new Date("2026-01-31"),
+      periodEnd: new Date(2026, 0, 31),
     });
     expect(bulletin.ir).toBeGreaterThan(0);
-    expect(bulletin.netAPayer).toBe(bulletin.netImposable - bulletin.ir);
+    expect(bulletin.netAPayer).toBe(bulletin.grossTotal - bulletin.cnssEmployee - bulletin.ir);
   });
 });
 

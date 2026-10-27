@@ -11,6 +11,8 @@ Chaque script joue un parcours complet contre une instance compilée et affiche
 - `e2e-portail.mjs` : portail client (lien, documents, devis acceptés, paiement en ligne, révocation).
 - `e2e-compta.mjs` : moteur comptable — banque protégée, TVA et fournisseur des charges
   récurrentes, origine des immobilisations, retenues sur le compte fournisseur commun.
+- `e2e-paie.mjs` : paie 2026 — CNSS (plafond, branches, stagiaires, détachés), ITS (charges de famille,
+  arrondi), avantages en nature, déclaration CNSS mensuelle ou trimestrielle.
 - `e2e-automations.mjs` : automatisations (amortissements, brief, découvert prévu, paie,
   dossier du comptable, validations, budget, cotisations, sauvegarde chiffrée relue). Exige
   `CRON_SECRET`, `BACKUP_DIR` et `BACKUP_ENCRYPTION_KEY` dans l'environnement du serveur et du script.

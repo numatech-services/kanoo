@@ -1,6 +1,6 @@
 /**
  * Tests unitaires — Calculs fiscaux Niger
- * Couvre : TVA, CNSS, IR progressif, SMIG, prime d'ancienneté, IS/BIC, retenues
+ * Couvre : TVA, CNSS 2024, ITS 2026, SMIG, prime d'ancienneté, IS/BIC, retenues
  *
  * Exécuter : npx jest __tests__/unit/fiscal.test.ts
  */
@@ -8,8 +8,8 @@
 import {
   calculerTVA, calculerTTC, calculerDTS,
   calculerCNSS,
-  calculerIR, BAREME_IR_MENSUEL,
-  verifierSMIG, SMIG_MENSUEL,
+  calculerITS, parametresPaie, calculerCotisationsCnss,
+  verifierSMIG,
   calculerPrimeAnciennete, calculerTauxAnciennete,
   calculerIS, calculerAcomptesIS,
   calculerRetenue, calculerRetenueDetaillee,
@@ -58,104 +58,159 @@ describe("TVA Niger (19%)", () => {
   });
 });
 
-describe("CNSS Niger (3,6% + 16,4%)", () => {
-  test("Part salariale 3,6% sur 100 000 = 3 600", () => {
-    const r = calculerCNSS(100_000);
-    expect(r.salarie).toBe(3_600);
+// Périodes de référence : les paramètres sont datés.
+const MAI_2026 = new Date(2026, 4, 31);
+const MAI_2023 = new Date(2023, 4, 31);
+
+describe("CNSS Niger — taux 2024 (22,65 %)", () => {
+  test("Part salariale 5,25 % sur 100 000 = 5 250", () => {
+    expect(calculerCNSS(100_000, MAI_2026).salarie).toBe(5_250);
   });
 
-  test("Part patronale 16,4% sur 100 000 = 16 400", () => {
-    const r = calculerCNSS(100_000);
-    expect(r.patronal).toBe(16_400);
+  test("Part patronale 17,40 % sur 100 000 = 17 400", () => {
+    expect(calculerCNSS(100_000, MAI_2026).patronal).toBe(17_400);
   });
 
-  test("CNSS total = 20% sur 100 000 = 20 000", () => {
-    const r = calculerCNSS(100_000);
-    expect(r.total).toBe(20_000);
+  test("Total 22,65 % sur 100 000 = 22 650", () => {
+    expect(calculerCNSS(100_000, MAI_2026).total).toBe(22_650);
   });
 
-  test("CNSS sur salaire SMIG (41 000)", () => {
-    const r = calculerCNSS(41_000);
-    expect(r.salarie).toBe(Math.round(41_000 * 0.036));
-    expect(r.patronal).toBe(Math.round(41_000 * 0.164));
+  test("Plafond 500 000 : cotisation maximale 113 250 (87 000 + 26 250)", () => {
+    const r = calculerCNSS(2_000_000, MAI_2026);
+    expect(r.assiette).toBe(500_000);
+    expect(r.patronal).toBe(87_000);
+    expect(r.salarie).toBe(26_250);
+    expect(r.total).toBe(113_250);
+  });
+
+  test("Ventilation par branche : PF 4,90 · AT 1,75 · pensions 9,75 · ANPE 1,00", () => {
+    const { branches, patronal } = calculerCNSS(500_000, MAI_2026);
+    expect(branches).toEqual({ pf: 24_500, atmp: 8_750, pensions: 48_750, anpe: 5_000 });
+    expect(branches.pf + branches.atmp + branches.pensions + branches.anpe).toBe(patronal);
+  });
+
+  test("Ventilation exacte même avec des arrondis", () => {
+    const { branches, patronal } = calculerCNSS(123_457, MAI_2026);
+    expect(branches.pf + branches.atmp + branches.pensions + branches.anpe).toBe(patronal);
+  });
+
+  test("Apprentis et stagiaires : 16,75 % (5,25 salarié + 11,50 employeur), ni PF ni ANPE", () => {
+    const r = calculerCotisationsCnss(100_000, "stagiaire", MAI_2026);
+    expect(r.salarie).toBe(5_250);
+    expect(r.patronal).toBe(11_500);
+    expect(r.branches.pf).toBe(0);
+    expect(r.branches.anpe).toBe(0);
+  });
+
+  test("Fonctionnaire détaché : 6,65 % à la charge de l'employeur", () => {
+    const r = calculerCotisationsCnss(100_000, "detache", MAI_2026);
+    expect(r.salarie).toBe(0);
+    expect(r.patronal).toBe(6_650);
+  });
+
+  test("Plancher : l'assiette d'un salarié est relevée au SMIG", () => {
+    const r = calculerCotisationsCnss(20_000, "standard", MAI_2026, { plancher: true });
+    expect(r.relevee).toBe(true);
+    expect(r.assiette).toBe(30_047);
+  });
+
+  test("Avant 2024 : ancien taux Kanoo (3,6 % + 16,4 %), sans plafond", () => {
+    const r = calculerCNSS(1_000_000, MAI_2023);
+    expect(r.salarie).toBe(36_000);
+    expect(r.patronal).toBe(164_000);
   });
 
   test("CNSS résultats entiers (pas de centimes)", () => {
-    const r = calculerCNSS(123_456);
+    const r = calculerCNSS(123_456, MAI_2026);
     expect(Number.isInteger(r.salarie)).toBe(true);
     expect(Number.isInteger(r.patronal)).toBe(true);
   });
 });
 
-describe("IR progressif Niger — barème 5 tranches", () => {
-  test("Tranche 0% : revenu ≤ 35 000 → IR = 0", () => {
-    expect(calculerIR(35_000)).toBe(0);
-    expect(calculerIR(30_000)).toBe(0);
-    expect(calculerIR(0)).toBe(0);
+describe("ITS — CGI 2026, art. 143 à 150", () => {
+  const its = (revenu: number, opts: Partial<Parameters<typeof calculerITS>[0]> = {}) =>
+    calculerITS({ revenuBrut: revenu, remunerationPrincipale: revenu, retraite: Math.round(revenu * 0.0525), ...opts }, MAI_2026);
+
+  test("Exemple de référence : 300 000 brut, 2 charges → base 217 000, ITS 27 000", () => {
+    const r = its(300_000, { chargesFamille: 2 });
+    expect(r.base).toBe(217_000);
+    expect(r.impot).toBe(27_000);
+    expect(r.bareme).toBe("its");
   });
 
-  test("Tranche 8% : 35 001 – 50 000", () => {
-    // IR = 50 000 × 8% - 2 800 = 1 200
-    const ir = calculerIR(50_000);
-    expect(ir).toBe(Math.round(50_000 * 0.08 - 2_800));
+  test("Barème progressif par tranches (1 % à 35 %)", () => {
+    const tranches = parametresPaie(MAI_2026).its!.tranches;
+    // 25 000 × 1 % + 25 000 × 2 % + 50 000 × 6 % = 3 750 pour une base de 100 000.
+    let impot = 0, bas = 0;
+    for (const t of tranches) { if (100_000 <= bas) break; impot += (Math.min(100_000, t.jusqua) - bas) * t.taux; bas = t.jusqua; }
+    expect(impot).toBe(3_750);
+    expect(tranches.at(-1)!.taux).toBe(0.35);
   });
 
-  test("Tranche 15% : 50 001 – 100 000", () => {
-    // IR = 100 000 × 15% - 6 300 = 8 700
-    const ir = calculerIR(100_000);
-    expect(ir).toBe(Math.round(100_000 * 0.15 - 6_300));
+  test("Base arrondie au millier inférieur", () => {
+    const r = its(123_456);
+    expect(r.base % 1_000).toBe(0);
   });
 
-  test("Tranche 20% : 100 001 – 200 000", () => {
-    // IR = 150 000 × 20% - 11 300 = 18 700
-    const ir = calculerIR(150_000);
-    expect(ir).toBe(Math.round(150_000 * 0.20 - 11_300));
+  test("Retraite déductible plafonnée à 6 % de la rémunération principale", () => {
+    const r = calculerITS({ revenuBrut: 500_000, remunerationPrincipale: 100_000, retraite: 26_250 }, MAI_2026);
+    expect(r.deductions.retraite).toBe(6_000);
   });
 
-  test("Tranche 25% : 200 001 – 400 000", () => {
-    const ir = calculerIR(300_000);
-    expect(ir).toBe(Math.round(300_000 * 0.25 - 21_300));
+  test("Abattement familial : 0 % à 30 %, plafonné à 7 charges", () => {
+    expect(its(300_000, { chargesFamille: 0 }).tauxFamille).toBe(0);
+    expect(its(300_000, { chargesFamille: 7 }).tauxFamille).toBe(0.30);
+    expect(its(300_000, { chargesFamille: 12 }).tauxFamille).toBe(0.30);
+    expect(its(300_000, { chargesFamille: 3 }).impot).toBeLessThan(its(300_000, { chargesFamille: 1 }).impot);
   });
 
-  test("Tranche 30% : > 400 000", () => {
-    const ir = calculerIR(500_000);
-    expect(ir).toBe(Math.round(500_000 * 0.30 - 41_300));
+  test("Assurance déductible jusqu'à 20 000", () => {
+    expect(its(300_000, { assurance: 50_000 }).deductions.assurance).toBe(20_000);
   });
 
-  test("IR toujours positif ou nul", () => {
-    for (const montant of [0, 10_000, 35_000, 36_000, 50_000, 100_000, 500_000]) {
-      expect(calculerIR(montant)).toBeGreaterThanOrEqual(0);
+  test("Expatrié : 17 % si le dépaysement atteint 40 % de la rémunération principale", () => {
+    const avec = calculerITS({ revenuBrut: 1_400_000, remunerationPrincipale: 1_000_000, indemniteDepaysement: 400_000, retraite: 26_250 }, MAI_2026);
+    expect(avec.deductions.expatrie).toBe(238_000);
+    const sans = calculerITS({ revenuBrut: 1_300_000, remunerationPrincipale: 1_000_000, indemniteDepaysement: 300_000, retraite: 26_250 }, MAI_2026);
+    expect(sans.deductions.expatrie).toBe(0);
+  });
+
+  test("ITS toujours positif ou nul et croissant", () => {
+    let prev = -1;
+    for (const m of [0, 10_000, 50_000, 100_000, 300_000, 1_000_000, 3_000_000]) {
+      const v = its(m).impot;
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeGreaterThanOrEqual(prev);
+      prev = v;
     }
   });
 
-  test("IR progressif : revenu plus élevé → IR plus élevé", () => {
-    const ir1 = calculerIR(100_000);
-    const ir2 = calculerIR(200_000);
-    const ir3 = calculerIR(300_000);
-    expect(ir1).toBeLessThan(ir2);
-    expect(ir2).toBeLessThan(ir3);
+  test("Avant 2026 : ancien barème Kanoo (brut − CNSS)", () => {
+    const r = calculerITS({ revenuBrut: 100_000, remunerationPrincipale: 100_000, retraite: 3_600 }, MAI_2023);
+    expect(r.bareme).toBe("ancien");
+    expect(r.impot).toBe(Math.round(96_400 * 0.15 - 6_300));
   });
 });
 
-describe("SMIG Niger (41 000 XOF)", () => {
-  test("SMIG_MENSUEL = 41 000", () => {
-    expect(SMIG_MENSUEL).toBe(41_000);
+describe("SMIG Niger (30 047 FCFA, guide CNSS 2025)", () => {
+  test("SMIG en vigueur = 30 047", () => {
+    expect(parametresPaie(MAI_2026).smig).toBe(30_047);
   });
 
   test("Salaire conforme au SMIG", () => {
-    const r = verifierSMIG(50_000);
+    const r = verifierSMIG(50_000, MAI_2026);
     expect(r.conforme).toBe(true);
-    expect(r.ecart).toBe(9_000);
+    expect(r.ecart).toBe(50_000 - 30_047);
   });
 
   test("Salaire égal au SMIG = conforme", () => {
-    expect(verifierSMIG(41_000).conforme).toBe(true);
+    expect(verifierSMIG(30_047, MAI_2026).conforme).toBe(true);
   });
 
   test("Salaire inférieur au SMIG = non conforme", () => {
-    const r = verifierSMIG(30_000);
+    const r = verifierSMIG(25_000, MAI_2026);
     expect(r.conforme).toBe(false);
-    expect(r.ecart).toBe(-11_000);
+    expect(r.ecart).toBe(-5_047);
     expect(r.message).toMatch(/inférieur|SMIG|risque/i);
   });
 });
@@ -280,11 +335,13 @@ describe("Retenues à la source (CGI Niger)", () => {
 describe("Moteur de paie (payslip-calc)", () => {
   const baseInput = {
     grossSalary: 100_000,
-    startDate: new Date(new Date().setFullYear(new Date().getFullYear() - 3)),
+    // 3 ans d'ancienneté à la fin de la période (mai 2026).
+    startDate: new Date(2023, 0, 15),
     employeeType: "employee" as const,
     includeCnss: true,
     includeIr: true,
     includeSeniority: true,
+    periodEnd: new Date(2026, 4, 31),
   };
 
   test("Bulletin complet — structure correcte", () => {
@@ -298,19 +355,51 @@ describe("Moteur de paie (payslip-calc)", () => {
     expect(r).toHaveProperty("seniority");
   });
 
-  test("CNSS salarié = 3,6% du brut total", () => {
+  test("CNSS salarié = 5,25 % du brut total", () => {
     const r = calculerBulletinDePaie({ ...baseInput, includeSeniority: false });
-    expect(r.cnssEmployee).toBe(Math.round(100_000 * 0.036));
+    expect(r.cnssEmployee).toBe(5_250);
   });
 
-  test("CNSS patronal = 16,4% du brut total", () => {
+  test("CNSS patronal = 17,40 % du brut total", () => {
     const r = calculerBulletinDePaie({ ...baseInput, includeSeniority: false });
-    expect(r.cnssEmployer).toBe(Math.round(100_000 * 0.164));
+    expect(r.cnssEmployer).toBe(17_400);
   });
 
-  test("Net imposable = Brut − CNSS salarié", () => {
-    const r = calculerBulletinDePaie({ ...baseInput, includeSeniority: false });
-    expect(r.netImposable).toBe(r.grossTotal - r.cnssEmployee);
+  test("Exemple de référence : 300 000, 2 charges → ITS 27 000, net 257 250", () => {
+    const r = calculerBulletinDePaie({ ...baseInput, grossSalary: 300_000, includeSeniority: false, familyCharges: 2 });
+    expect(r.cnssEmployee).toBe(15_750);
+    expect(r.netImposable).toBe(217_000);
+    expect(r.ir).toBe(27_000);
+    expect(r.netAPayer).toBe(300_000 - 15_750 - 27_000);
+  });
+
+  test("Plafond CNSS : un salaire de 800 000 cotise sur 500 000", () => {
+    const r = calculerBulletinDePaie({ ...baseInput, grossSalary: 800_000, includeSeniority: false });
+    expect(r.cnssBase).toBe(500_000);
+    expect(r.cnssEmployee).toBe(26_250);
+    expect(r.cnssEmployer).toBe(87_000);
+  });
+
+  test("Avantages en nature : soumis à la CNSS et à l'ITS, absents du net", () => {
+    const sans = calculerBulletinDePaie({ ...baseInput, grossSalary: 300_000, includeSeniority: false });
+    const avec = calculerBulletinDePaie({ ...baseInput, grossSalary: 300_000, includeSeniority: false, benefitsInKind: [{ kind: "logement", count: 3 }, { kind: "vehicule" }] });
+    expect(avec.benefitsInKind).toBe(80_000);
+    expect(avec.grossTotal).toBe(300_000);
+    expect(avec.cnssBase).toBe(380_000);
+    expect(avec.ir).toBeGreaterThan(sans.ir);
+    expect(avec.netAPayer).toBe(300_000 - avec.cnssEmployee - avec.ir);
+  });
+
+  test("Logement plafonné au tiers du salaire de base", () => {
+    const r = calculerBulletinDePaie({ ...baseInput, grossSalary: 90_000, includeSeniority: false, benefitsInKind: [{ kind: "logement", count: 5 }] });
+    expect(r.benefitsInKind).toBe(30_000);
+  });
+
+  test("Frais non soumis : versés, hors assiette", () => {
+    const r = calculerBulletinDePaie({ ...baseInput, includeSeniority: false, manualItems: [{ label: "Mission", amount: 40_000, type: "addition", subject: false }] });
+    expect(r.grossTotal).toBe(140_000);
+    expect(r.cnssBase).toBe(100_000);
+    expect(r.netAPayer).toBe(140_000 - r.cnssEmployee - r.ir);
   });
 
   test("Ancienneté 3 ans = 6%", () => {
@@ -319,8 +408,9 @@ describe("Moteur de paie (payslip-calc)", () => {
     expect(r.seniority.montant).toBe(6_000);
   });
 
-  test("Salaire inférieur au SMIG → alerte", () => {
-    const r = calculerBulletinDePaie({ ...baseInput, grossSalary: 30_000 });
+  test("Salaire inférieur au SMIG → alerte et assiette CNSS relevée", () => {
+    const r = calculerBulletinDePaie({ ...baseInput, grossSalary: 25_000, includeSeniority: false });
+    expect(r.cnssBase).toBe(30_047);
     expect(r.smigCheck.conforme).toBe(false);
     expect(r.alerts.length).toBeGreaterThan(0);
   });
@@ -331,20 +421,33 @@ describe("Moteur de paie (payslip-calc)", () => {
     expect(r.cnssEmployer).toBe(0);
   });
 
-  test("Stagiaire → pas de CNSS ni IR", () => {
-    const r = calculerBulletinDePaie({
-      ...baseInput, employeeType: "intern", indemnity: 50_000
-    });
+  test("Stagiaire (2026) → CNSS des apprentis 16,75 %, sans ancienneté ni plancher", () => {
+    const r = calculerBulletinDePaie({ ...baseInput, employeeType: "intern", indemnity: 20_000 });
+    expect(r.cnssCategory).toBe("stagiaire");
+    expect(r.cnssBase).toBe(20_000);
+    expect(r.cnssEmployee).toBe(1_050);
+    expect(r.cnssEmployer).toBe(2_300);
+    expect(r.seniority.montant).toBe(0);
+  });
+
+  test("Stagiaire avant 2024 → ni CNSS ni impôt (calcul antérieur conservé)", () => {
+    const r = calculerBulletinDePaie({ ...baseInput, employeeType: "intern", indemnity: 50_000, periodEnd: new Date(2023, 4, 31) });
     expect(r.cnssEmployee).toBe(0);
     expect(r.ir).toBe(0);
   });
 
-  test("Net à payer = net imposable − IR − déductions manuelles", () => {
+  test("Freelance → ni CNSS ni ITS", () => {
+    const r = calculerBulletinDePaie({ ...baseInput, employeeType: "freelance", indemnity: 200_000 });
+    expect(r.cnssEmployee + r.cnssEmployer + r.ir).toBe(0);
+    expect(r.netAPayer).toBe(200_000);
+  });
+
+  test("Net à payer = brut − CNSS salarié − ITS − déductions manuelles", () => {
     const r = calculerBulletinDePaie({
       ...baseInput, includeSeniority: false,
       manualItems: [{ label: "Avance", amount: 10_000, type: "deduction" }]
     });
-    expect(r.netAPayer).toBe(r.netImposable - r.ir - 10_000);
+    expect(r.netAPayer).toBe(r.grossTotal - r.cnssEmployee - r.ir - 10_000);
   });
 
   test("Récapitulatif mensuel — agrégations correctes", () => {

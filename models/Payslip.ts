@@ -13,7 +13,27 @@ const PayslipSchema = new Schema<IPayslip>({ tenantId: { type: Schema.Types.Obje
   otherDeductions: { type: Number, default: 0 },
   // Détail des primes et retenues du mois (libellé, montant, sens) — le bulletin
   // imprimé les liste une à une.
-  items: [{ _id: false, label: { type: String, maxlength: 120 }, amount: Number, type: { type: String, enum: ["addition", "deduction"] } }],
+  items: [{ _id: false, label: { type: String, maxlength: 120 }, amount: Number, type: { type: String, enum: ["addition", "deduction"] }, subject: Boolean }],
+  // ── Détail des cotisations et de l'impôt, figé à l'émission ──────────────
+  // Les taux changent (CNSS 2024, ITS 2026) : le bulletin garde ceux qui lui
+  // ont été appliqués, pour être réimprimé et déclaré à l'identique.
+  /** Date d'effet des paramètres appliqués (AAAA-MM-JJ). */
+  paramsVersion: String,
+  cnssCategory: { type: String, enum: ["standard", "stagiaire", "detache"] },
+  /** Assiette CNSS après plancher et plafond. */
+  cnssBase: Number,
+  cnssRates: { _id: false, employee: Number, employer: Number },
+  cnssBranches: { _id: false, pf: Number, atmp: Number, pensions: Number, anpe: Number },
+  /** Avantages en nature (valeur forfaitaire, non versée). */
+  benefitsInKind: { type: Number, default: 0 },
+  benefitsDetail: [{ _id: false, kind: String, label: String, amount: Number }],
+  expatAllowance: { type: Number, default: 0 },
+  familyCharges: Number,
+  /** Détail de la base ITS : déductions de l'art. 143, abattement familial. */
+  itsDetail: {
+    _id: false, bareme: String, tauxFamille: Number,
+    retraite: Number, expatrie: Number, assurance: Number, fraisProfessionnels: Number, chargesFamille: Number,
+  },
   netImposable: { type: Number, default: 0 },
   /** Écriture OD de constatation de la paie (annulée par extourne si le bulletin est supprimé). */
   accountingEntryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },

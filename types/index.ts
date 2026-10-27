@@ -477,10 +477,23 @@ export interface IPayslip {
   seniorityAmount: number;
   cnssEmployee: number;
   cnssEmployer: number;
-  /** Impôt sur le revenu retenu à la source (barème mensuel CGI art. 84). */
+  /** Impôt sur les traitements et salaires retenu (CGI 2026, art. 150 ; ancien barème avant 2026). */
   incomeTax: number;
   otherDeductions: number;
-  items?: Array<{ label: string; amount: number; type: "addition" | "deduction" }>;
+  items?: Array<{ label: string; amount: number; type: "addition" | "deduction"; subject?: boolean }>;
+  paramsVersion?: string;
+  cnssCategory?: "standard" | "stagiaire" | "detache";
+  cnssBase?: number;
+  cnssRates?: { employee: number; employer: number };
+  cnssBranches?: { pf: number; atmp: number; pensions: number; anpe: number };
+  benefitsInKind?: number;
+  benefitsDetail?: Array<{ kind: string; label: string; amount: number }>;
+  expatAllowance?: number;
+  familyCharges?: number;
+  itsDetail?: {
+    bareme: string; tauxFamille: number;
+    retraite: number; expatrie: number; assurance: number; fraisProfessionnels: number; chargesFamille: number;
+  };
   netImposable?: number;
   accountingEntryId?: Types.ObjectId;
   netSalary: number;

@@ -48,7 +48,26 @@ const EmployeeSchema = new Schema({
 
   // Paramètres paie
   includeCnss: { type: Boolean, default: true },
+  /** Retenue de l'impôt sur les traitements et salaires (ITS). Nom historique. */
   includeIr: { type: Boolean, default: true },
+  /**
+   * Charges de famille au sens de l'ITS (CGI art. 148) : conjoint sans revenu
+   * et enfants à charge, 7 au plus dont 6 enfants. Abattement de 0 à 30 %.
+   */
+  familyCharges: { type: Number, default: 0, min: 0, max: 7 },
+  /** Catégorie CNSS d'un salarié : `detache` = fonctionnaire détaché (6,65 %, employeur seul). */
+  cnssCategory: { type: String, enum: ["standard", "detache"], default: "standard" },
+  /** Indemnité de dépaysement mensuelle d'un expatrié (abattement ITS de 17 % si ≥ 40 % du salaire de base). */
+  expatAllowance: { type: Number, default: 0, min: 0 },
+  /** Primes d'assurance payées par le salarié, déductibles de l'ITS jusqu'à 20 000 FCFA par mois. */
+  insurancePremium: { type: Number, default: 0, min: 0 },
+  /** Avantages en nature, évalués aux forfaits du CGI (art. 144) et soumis à la CNSS et à l'ITS. */
+  benefitsInKind: [{
+    _id: false,
+    kind: { type: String, enum: ["logement", "ameublement", "electricite", "eau", "telephone", "vehicule", "domestique", "nourriture"], required: true },
+    /** Pièces (logement), véhicules ou domestiques ; 1 pour les autres. */
+    count: { type: Number, default: 1, min: 1, max: 50 },
+  }],
   otherDeductionLabel: String,
   otherDeductionAmount: { type: Number, default: 0 },
 

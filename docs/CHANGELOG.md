@@ -1,5 +1,34 @@
 # Kanoo — Changelog
 
+## Lot G1 — Paie conforme CNSS 2024 et CGI 2026 (octobre 2026)
+
+Référentiel et sources : `docs/REFERENTIEL-FISCAL-SOCIAL-2026.md`.
+
+| Avant | Maintenant |
+|---|---|
+| CNSS 3,6 % + 16,4 %, sans plafond | **5,25 % + 17,40 %** (PF 4,90 · AT 1,75 · pensions 9,75 · ANPE 1,00), assiette plafonnée à **500 000 FCFA/mois**, relevée au SMIG |
+| Stagiaires : aucune cotisation | **16,75 %** (apprentis et stagiaires) ; fonctionnaires détachés **6,65 %** |
+| « IR » : barème 0 à 30 % sur brut − CNSS | **ITS** (art. 143-150) : retraite ≤ 6 %, 17 % expatriés, assurance ≤ 20 000, **13 % frais professionnels**, **abattement familial 0 à 30 %**, base arrondie au millier, barème 1 % à 35 % |
+| Pas d'avantages en nature | Forfaits de l'art. 144 (logement, véhicule…), soumis à la CNSS et à l'ITS, hors net |
+| Primes toutes soumises | Option « frais non soumis » (mission, remboursement) |
+| SMIG 41 000 | **30 047** (guide de l'employeur CNSS, juillet 2025) |
+| Déclaration CNSS trimestrielle, échéance 10 jours, écran factice | Trimestrielle ou **mensuelle dès 20 salariés**, échéance **30 jours**, ventilation par branche, bordereau PDF, enregistrement |
+| Aperçu de la fiche salarié ≠ bulletin ; ancienneté affichée « 0,04 % » | Même moteur que le bulletin ; taux en pourcentage |
+
+**Paramètres datés** (`lib/paie-parametres.ts`) : un bulletin est calculé avec
+les taux de SA période — avant 2024 (anciens taux Kanoo), 2024-2025 (CNSS 2024),
+2026 (CNSS 2024 + ITS). Chaque bulletin fige les taux, l'assiette, la
+ventilation et le détail de l'ITS appliqués : il se réimprime et se déclare à
+l'identique. Les bulletins déjà émis ne changent pas.
+
+Nouveaux champs de la fiche salarié (réservés à la paie) : charges de famille,
+catégorie CNSS, avantages en nature, indemnité de dépaysement, primes
+d'assurance. Alerte à la génération si le numéro CNSS manque (immatriculation
+due sous 8 jours).
+
+Tests : `__tests__/unit/fiscal.test.ts` (exemple de référence : 300 000 FCFA,
+2 charges → ITS 27 000), scénario `scripts/e2e/e2e-paie.mjs` (31 vérifications).
+
 ## V1.8.0 — Septembre 2026
 
 ### Audit de la gestion des collaborateurs — sept trous

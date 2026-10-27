@@ -8,6 +8,7 @@ import { authCan, hasFinanceAccess, type AuthLike } from "@/lib/role-resources";
 export const PAYROLL_FIELDS = [
   "grossSalary", "indemnity", "indemnityPeriod", "otherDeductionLabel", "otherDeductionAmount",
   "bankAccount", "bankName", "paymentTreasuryAccountId", "includeCnss", "includeIr",
+  "familyCharges", "cnssCategory", "expatAllowance", "insurancePremium", "benefitsInKind",
 ] as const;
 
 export function canSeePayroll(auth: AuthLike): boolean {

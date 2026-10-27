@@ -22,7 +22,7 @@ interface Payslip {
   month: number; year: number; grossSalary: number; grossTotal?: number; cnssEmployee: number; cnssEmployer: number;
   incomeTax?: number; netSalary: number; isPaid: boolean;
 }
-interface Item { label: string; amount: number; type: "addition" | "deduction" }
+interface Item { label: string; amount: number; type: "addition" | "deduction"; subject?: boolean }
 interface BatchResult {
   created: Array<{ name: string; netSalary: number; alerts: string[] }>;
   skipped: Array<{ name: string; reason: string }>;
@@ -76,7 +76,7 @@ export default function PayslipsPage() {
     { key: "month", label: "Période", render: (v, row) => `${MONTHS[Number(v)]} ${row.year}` },
     { key: "grossTotal", label: "Brut total", className: "text-right font-mono", render: (v, row) => fmt(v ?? row.grossSalary) },
     { key: "cnssEmployee", label: "CNSS sal.", className: "text-right font-mono text-warn", render: v => `−${fmt(v)}` },
-    { key: "incomeTax", label: "IR", className: "text-right font-mono text-warn", render: v => `−${fmt(v)}` },
+    { key: "incomeTax", label: "ITS", className: "text-right font-mono text-warn", render: v => `−${fmt(v)}` },
     { key: "netSalary", label: "Net à payer", className: "text-right font-mono font-bold text-pos", render: v => fmt(v) },
     { key: "cnssEmployer", label: "CNSS pat.", className: "text-right font-mono text-ink2", render: v => fmt(v) },
     {
@@ -140,8 +140,10 @@ function ItemsEditor({ items, onChange }: { items: Item[]; onChange: (i: Item[])
       <p className="text-xs font-semibold text-ink2">Primes et retenues du mois</p>
       {items.map((it, i) => (
         <div key={i} className="flex gap-2 items-center">
-          <select className={`${selectCls} w-32`} value={it.type} onChange={e => set(i, { type: e.target.value as Item["type"] })} aria-label="Sens">
+          <select className={`${selectCls} w-40`} value={it.type === "addition" && it.subject === false ? "free" : it.type} aria-label="Sens"
+            onChange={e => set(i, e.target.value === "free" ? { type: "addition", subject: false } : { type: e.target.value as Item["type"], subject: undefined })}>
             <option value="addition">Prime</option>
+            <option value="free">Frais (non soumis)</option>
             <option value="deduction">Retenue</option>
           </select>
           <input className={inputCls} placeholder="Libellé (ex. prime de rendement, avance)" value={it.label} onChange={e => set(i, { label: e.target.value })} />
@@ -152,7 +154,7 @@ function ItemsEditor({ items, onChange }: { items: Item[]; onChange: (i: Item[])
       <button type="button" onClick={() => onChange([...items, { label: "", amount: 0, type: "addition" }])} className="text-xs text-section font-semibold hover:underline">
         + Ajouter une prime ou une retenue
       </button>
-      <p className="text-[11px] text-ink3">La retenue permanente de la fiche (avance, prêt…) s&apos;ajoute automatiquement.</p>
+      <p className="text-[11px] text-ink3">« Frais (non soumis) » : remboursement de frais, mission… versé sans CNSS ni ITS. La retenue permanente de la fiche (avance, prêt…) s&apos;ajoute automatiquement.</p>
     </div>
   );
 }
@@ -220,7 +222,7 @@ function SingleDialog({ employees, onClose, onDone }: { employees: Employee[]; o
             </FormField>
           )}
           <ItemsEditor items={items} onChange={setItems} />
-          <p className="text-[11px] text-ink3">CNSS, IR, ancienneté et retenue permanente sont calculés d&apos;après la fiche du salarié.</p>
+          <p className="text-[11px] text-ink3">CNSS, ITS (charges de famille, avantages en nature), ancienneté et retenue permanente sont calculés d&apos;après la fiche du salarié.</p>
           <button type="submit" disabled={saving} className={buttonClass("primary", "md", "w-full")}>
             {saving ? "Génération…" : "Générer le bulletin"}
           </button>

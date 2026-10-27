@@ -11,6 +11,10 @@ export interface PayrollEmployee {
   employeeType?: "employee" | "intern" | "freelance";
   grossSalary?: number; indemnity?: number; indemnityPeriod?: string;
   includeCnss?: boolean; includeIr?: boolean;
+  familyCharges?: number; cnssCategory?: "standard" | "detache";
+  expatAllowance?: number; insurancePremium?: number;
+  benefitsInKind?: Array<{ kind: string; count?: number }>;
+  cnssNumber?: string;
   otherDeductionLabel?: string; otherDeductionAmount?: number;
   startDate: Date; department?: string; costCenter?: string;
 }
@@ -36,6 +40,8 @@ export function cleanItems(raw: unknown): ManualDeduction[] {
       label: String(i?.label ?? "").trim().slice(0, 120),
       amount: Math.round(Number(i?.amount)),
       type: i?.type === "deduction" ? "deduction" as const : "addition" as const,
+      // Prime hors assiette CNSS / ITS (remboursement de frais, mission…).
+      ...(i?.type !== "deduction" && i?.subject === false ? { subject: false } : {}),
     }))
     .filter(i => i.label && Number.isFinite(i.amount) && i.amount > 0);
 }
@@ -84,9 +90,18 @@ export async function generatePayslip(auth: TokenPayload, employee: PayrollEmplo
     includeCnss: employee.includeCnss ?? true,
     includeIr: employee.includeIr ?? true,
     includeSeniority: opts.includeSeniority ?? true,
+    familyCharges: employee.familyCharges ?? 0,
+    cnssCategory: employee.cnssCategory ?? "standard",
+    expatAllowance: employee.expatAllowance ?? 0,
+    insurancePremium: employee.insurancePremium ?? 0,
+    benefitsInKind: employee.benefitsInKind ?? [],
     manualItems: items,
     periodEnd,
   });
+  const alerts = [...payroll.alerts];
+  if (type !== "freelance" && payroll.cnssEmployee + payroll.cnssEmployer > 0 && !employee.cnssNumber) {
+    alerts.push(`${employee.firstName} ${employee.lastName} n'a pas de numéro CNSS : l'immatriculation est due dans les 8 jours qui suivent l'embauche.`);
+  }
 
   const otherDeductions = payroll.totalManualDeductions;
   const netSalary = payroll.netAPayer;
@@ -96,8 +111,14 @@ export async function generatePayslip(auth: TokenPayload, employee: PayrollEmplo
     grossSalary: payroll.grossSalary, grossTotal: payroll.grossTotal,
     seniorityRate: payroll.seniority.taux, seniorityAmount: payroll.seniority.montant,
     cnssEmployee: payroll.cnssEmployee, cnssEmployer: payroll.cnssEmployer,
-    incomeTax: payroll.ir, otherDeductions, items, netImposable: payroll.netImposable,
+    incomeTax: payroll.ir, otherDeductions, items: payroll.manualItems, netImposable: payroll.netImposable,
     netSalary, employerCost: payroll.totalEmployerCost, isPaid: false,
+    paramsVersion: payroll.paramsVersion, cnssCategory: type === "freelance" ? undefined : payroll.cnssCategory,
+    cnssBase: payroll.cnssBase, cnssRates: payroll.cnssRates, cnssBranches: payroll.cnssBranches,
+    benefitsInKind: payroll.benefitsInKind, benefitsDetail: payroll.benefitsDetail,
+    expatAllowance: payroll.expatAllowance,
+    familyCharges: payroll.its?.bareme === "its" ? employee.familyCharges ?? 0 : undefined,
+    itsDetail: payroll.its ? { bareme: payroll.its.bareme, tauxFamille: payroll.its.tauxFamille, ...payroll.its.deductions } : undefined,
   }], { session });
 
   // Écriture OD : charges de personnel. Stagiaires et freelances : indemnités /
@@ -113,7 +134,7 @@ export async function generatePayslip(auth: TokenPayload, employee: PayrollEmplo
     ...(payroll.cnssEmployer > 0 ? [{ accountCode: "664000", accountLabel: "Charges sociales patronales (CNSS)", debit: payroll.cnssEmployer, credit: 0, ...imput }] : []),
     ...(payroll.cnssEmployee > 0 ? [{ accountCode: "431000", accountLabel: "CNSS salariale à payer", debit: 0, credit: payroll.cnssEmployee }] : []),
     ...(payroll.cnssEmployer > 0 ? [{ accountCode: "431100", accountLabel: "CNSS patronale à payer", debit: 0, credit: payroll.cnssEmployer }] : []),
-    ...(payroll.ir > 0 ? [{ accountCode: "447100", accountLabel: "IR sur salaires à reverser", debit: 0, credit: payroll.ir }] : []),
+    ...(payroll.ir > 0 ? [{ accountCode: "447100", accountLabel: "ITS sur salaires à reverser", debit: 0, credit: payroll.ir }] : []),
     ...(otherDeductions > 0 ? [{ accountCode: "427000", accountLabel: "Retenues sur salaires", debit: 0, credit: otherDeductions }] : []),
     { accountCode: "421000", accountLabel: "Rémunérations dues", debit: 0, credit: netSalary },
   ];
@@ -129,5 +150,5 @@ export async function generatePayslip(auth: TokenPayload, employee: PayrollEmplo
   payslip.accountingEntryId = entry._id;
   await payslip.save({ session });
 
-  return { payslip, alerts: payroll.alerts };
+  return { payslip, alerts };
 }

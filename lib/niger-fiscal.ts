@@ -1,4 +1,5 @@
 import { buildLinearSchedule } from "./depreciation";
+import { parametresPaie, calculerCotisationsCnss } from "./paie-parametres";
 
 /**
  * Règles fiscales Niger — conformes au Code Général des Impôts (CGI Niger)
@@ -32,17 +33,20 @@ export function calculerTTC(montantHT: number, taux: number = TVA_TAUX_STANDARD)
 }
 
 // ─── CNSS ─────────────────────────────────────────────────────────────────────
+//
+// Taux, plafond et SMIG sont datés dans lib/paie-parametres.ts : un bulletin
+// est calculé avec les paramètres de sa période.
 
-export const CNSS_SALARIE = 0.036;     // 3,6% part salariale
-export const CNSS_PATRONAL = 0.164;   // 16,4% part patronale
-export const CNSS_TOTAL = CNSS_SALARIE + CNSS_PATRONAL; // 20%
+export {
+  parametresPaie, tauxCnss, calculerCotisationsCnss, calculerITS, impotParTranches,
+  evaluerAvantagesEnNature, pourcent, AVANTAGES_EN_NATURE, AVANTAGES_KEYS, CHARGES_FAMILLE_MAX,
+  type CategorieCnss, type ResultatCnss, type ResultatITS, type AvantageEnNature,
+} from "./paie-parametres";
 
-export function calculerCNSS(salaireBrut: number) {
-  return {
-    salarie: Math.round(salaireBrut * CNSS_SALARIE),
-    patronal: Math.round(salaireBrut * CNSS_PATRONAL),
-    total: Math.round(salaireBrut * CNSS_TOTAL),
-  };
+/** Cotisations CNSS d'un salarié du secteur privé (plafond appliqué, sans plancher). */
+export function calculerCNSS(salaireBrut: number, date: Date = new Date()) {
+  const r = calculerCotisationsCnss(salaireBrut, "standard", date);
+  return { salarie: r.salarie, patronal: r.patronal, total: r.total, assiette: r.assiette, branches: r.branches };
 }
 
 // ─── IS / Impôt sur les Sociétés ─────────────────────────────────────────────
@@ -193,53 +197,22 @@ export function calculerAcomptesIS(isAnneeN1: number): {
   };
 }
 
-// ─── Barème IR progressif (Impôt sur le Revenu) ───────────────────────────────
-
-/** Tranches IR Niger — CGI art. 84 (barème mensuel) */
-export const BAREME_IR_MENSUEL: Array<{ min: number; max: number; taux: number; abattement: number }> = [
-  { min: 0, max: 35_000, taux: 0, abattement: 0 },
-  { min: 35_001, max: 50_000, taux: 0.08, abattement: 2_800 },
-  { min: 50_001, max: 100_000, taux: 0.15, abattement: 6_300 },
-  { min: 100_001, max: 200_000, taux: 0.20, abattement: 11_300 },
-  { min: 200_001, max: 400_000, taux: 0.25, abattement: 21_300 },
-  { min: 400_001, max: Infinity, taux: 0.30, abattement: 41_300 },
-];
-
-/**
- * Calcule l'IR mensuel sur salaire net imposable
- * @param salaireNetImposable Salaire brut − CNSS salarié
- */
-export function calculerIR(salaireNetImposable: number): number {
-  if (salaireNetImposable <= 0) return 0;
-  // Les bornes du barème sont disjointes (35 000 puis 35 001) : une base non
-  // entière tombant entre deux tranches ne trouvait aucune correspondance et
-  // l'impôt ressortait à zéro. On sélectionne sur la borne basse seule, la
-  // dernière tranche satisfaite l'emportant — le barème étant ordonné.
-  const tranche = [...BAREME_IR_MENSUEL]
-    .reverse()
-    .find(t => salaireNetImposable >= t.min);
-  if (!tranche || tranche.taux === 0) return 0;
-  return Math.max(0, Math.round(salaireNetImposable * tranche.taux - tranche.abattement));
-}
-
 // ─── SMIG Niger ───────────────────────────────────────────────────────────────
 
-export const SMIG_MENSUEL = 41_000; // FCFA/mois — arrêté 2023
-export const SMIG_JOURNALIER = Math.round(SMIG_MENSUEL / 26); // base 26 jours ouvrables
-
 /**
- * Vérifie si un salaire respecte le SMIG Niger
- * @returns { conforme, ecart, message }
+ * Vérifie qu'un salaire de base atteint le SMIG en vigueur à la date donnée
+ * (30 047 FCFA selon le guide de l'employeur CNSS de juillet 2025).
  */
-export function verifierSMIG(salaireBrut: number): { conforme: boolean; ecart: number; message: string } {
-  const conforme = salaireBrut >= SMIG_MENSUEL;
-  const ecart = salaireBrut - SMIG_MENSUEL;
+export function verifierSMIG(salaireBrut: number, date: Date = new Date()): { conforme: boolean; ecart: number; message: string } {
+  const smig = parametresPaie(date).smig;
+  const conforme = salaireBrut >= smig;
+  const ecart = salaireBrut - smig;
   return {
     conforme,
     ecart,
     message: conforme
       ? `Conforme SMIG (${ecart >= 0 ? "+" : ""}${ecart.toLocaleString("fr-FR")} FCFA au-dessus du minimum)`
-      : `⚠ Inférieur au SMIG de ${Math.abs(ecart).toLocaleString("fr-FR")} FCFA — risque légal`,
+      : `⚠ Inférieur au SMIG (${smig.toLocaleString("fr-FR")} FCFA) de ${Math.abs(ecart).toLocaleString("fr-FR")} FCFA — risque légal`,
   };
 }
 

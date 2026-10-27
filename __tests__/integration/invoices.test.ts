@@ -213,7 +213,7 @@ describe("API Bulletins de paie — Flux CNSS + IR", () => {
     if (r.data.data) {
       payslipId = r.data.data._id;
       // Vérifier les calculs
-      expect(r.data.data.cnssEmployee).toBe(Math.round(r.data.data.grossTotal * 0.036));
+      expect(r.data.data.cnssEmployee).toBe(Math.round(Math.min(500_000, r.data.data.grossTotal) * 0.0525));
       expect(r.data.data.ir).toBeGreaterThanOrEqual(0);
       expect(r.data.data.netAPayer).toBeLessThan(r.data.data.grossTotal);
     }

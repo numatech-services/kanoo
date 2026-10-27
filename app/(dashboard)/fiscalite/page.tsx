@@ -5,7 +5,7 @@ import { ScreenTabs } from "@/components/shared/ScreenTabs";
 export default function FiscalitePage() {
   const modules = [
     { href:"/fiscalite/tva", icon: <BarChart3 size={20} />, title:"Déclaration TVA", desc:"Mensuelle — taux 19% standard, 10% réduit. Date limite : 20 du mois suivant.", badge:"Mensuelle" },
-    { href:"/fiscalite/cnss", icon: <HeartPulse size={20} />, title:"CNSS trimestriel", desc:"Part salariale 3,6% + patronale 16,4%. Date limite : 10 jours après la fin du trimestre.", badge:"Trimestrielle" },
+    { href:"/fiscalite/cnss", icon: <HeartPulse size={20} />, title:"Déclaration CNSS", desc:"Salarié 5,25 % + employeur 17,40 %, assiette plafonnée à 500 000 FCFA par mois. Trimestrielle (mensuelle à partir de 20 salariés), à payer dans les 30 jours.", badge:"Trimestrielle / mensuelle" },
     { href:"/fiscalite/isbic", icon: <Landmark size={20} />, title:"IS/BIC annuel", desc:"Impôt sur les Sociétés 30%. Minimum forfaitaire 1 000 000 FCFA. Acomptes en mars et juillet.", badge:"Annuelle" },
     { href:"/fiscalite/retenues", icon: <Scissors size={20} />, title:"Retenues à la source", desc:"Marchés publics 10%, prestations 5%, honoraires 10%, loyers 5%, dividendes 10%.", badge:"Au fil de l'eau" },
   ];
