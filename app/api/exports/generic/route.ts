@@ -1,3 +1,4 @@
+import { neutralizeFormula } from "@/lib/csv";
 import { NextRequest, NextResponse } from "next/server";
 import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { connectDB } from "@/lib/db";
@@ -86,8 +87,8 @@ export async function GET(req: NextRequest) {
           e.journalCode,
           dateStr,
           line.accountCode,
-          `"${(line.accountLabel || "").replace(/"/g, "'")}"`,
-          `"${(e.label || "").slice(0, 80).replace(/"/g, "'")}"`,
+          `"${neutralizeFormula(line.accountLabel || "").replace(/"/g, "'")}"`,
+          `"${neutralizeFormula((e.label || "").slice(0, 80)).replace(/"/g, "'")}"`,
           line.debit > 0 ? line.debit.toFixed(2).replace(".", ",") : "0,00",
           line.credit > 0 ? line.credit.toFixed(2).replace(".", ",") : "0,00",
           e.reference || "",
@@ -131,14 +132,14 @@ export async function GET(req: NextRequest) {
       for (const line of e.lines) {
         if (line.debit > 0) {
           rows.push([e.journalCode, dateStr, e.reference || "0",
-            line.accountCode, `"${(line.accountLabel||"").replace(/"/g,"'")}"`,
-            `"${(e.label||"").slice(0,60).replace(/"/g,"'")}"`,
+            line.accountCode, `"${neutralizeFormula(line.accountLabel||"").replace(/"/g,"'")}"`,
+            `"${neutralizeFormula((e.label||"").slice(0,60)).replace(/"/g,"'")}"`,
             line.debit.toFixed(2), "D", "XOF"].join(sep));
         }
         if (line.credit > 0) {
           rows.push([e.journalCode, dateStr, e.reference || "0",
-            line.accountCode, `"${(line.accountLabel||"").replace(/"/g,"'")}"`,
-            `"${(e.label||"").slice(0,60).replace(/"/g,"'")}"`,
+            line.accountCode, `"${neutralizeFormula(line.accountLabel||"").replace(/"/g,"'")}"`,
+            `"${neutralizeFormula((e.label||"").slice(0,60)).replace(/"/g,"'")}"`,
             line.credit.toFixed(2), "C", "XOF"].join(sep));
         }
       }

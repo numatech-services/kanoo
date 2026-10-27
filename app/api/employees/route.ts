@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, conflict, getPagination, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, conflict, getPagination, tenantFilter, requireFields, escapeRegex } from "@/lib/api-helpers";
 import { EmployeeModel } from "@/models/Employee";
 import { maskPayroll, stripPayrollWrites, canSeePayroll } from "@/lib/payroll-mask";
 import { logAudit } from "@/lib/audit";
@@ -10,7 +10,7 @@ export const GET = withAuth("employees", "read", async (req: NextRequest, auth: 
   await connectDB();
   const pagination = getPagination(req);
   const url = new URL(req.url);
-  const search = url.searchParams.get("search") || "";
+  const search = escapeRegex(url.searchParams.get("search"));
   const employeeType = url.searchParams.get("employeeType");
   const isActive = url.searchParams.get("isActive");
   const expiringIn = url.searchParams.get("expiringIn"); // nb de jours

@@ -1,3 +1,4 @@
+import { csvCell } from "@/lib/csv";
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { connectDB, withTransaction } from "@/lib/db";
@@ -46,7 +47,7 @@ export const GET = withAuth("products", "read", async (req: NextRequest, auth: T
     const rows = await StockMovementModel.find(filter).sort({ createdAt: -1 }).limit(20000)
       .populate("productId", "code label unit").populate("createdBy", "firstName lastName").populate("warehouseId", "code name")
       .lean<Array<Record<string, unknown>>>();
-    const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const cell = csvCell;
     const lines = [["Date", "Code", "Article", "Entrepôt", "Type", "Quantité", "Avant", "Après", "Lots", "Coût unitaire", "CMUP après", "Motif", "Document", "Par"].join(";")];
     for (const m of rows) {
       const p = (m.productId ?? {}) as { code?: string; label?: string };

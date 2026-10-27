@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, created, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
+import { authCan } from "@/lib/role-resources";
 import { LeaveModel } from "@/models/Leave";
 import { EmployeeModel } from "@/models/Employee";
 import { expenseAuthority } from "@/lib/expense-scope";
@@ -74,7 +75,11 @@ export const POST = withAuth("leaves", "create", async (req: NextRequest, auth: 
   if (overlap) return badRequest("Une autre demande couvre déjà une partie de ces dates.");
   if (type === "annual") {
     const bal = await leaveBalance(auth.tenantId, employee);
-    if (days > bal.available && !body.allowNegative) return badRequest(`Solde insuffisant : ${bal.available} jour(s) disponible(s), ${days} demandé(s).`);
+    // Dépassement du solde (anticipation de congés) : décision d'un valideur
+    // de ce salarié, jamais du demandeur — le drapeau venait du client et
+    // n'importe qui contournait son solde.
+    const mayOverdraw = !!body.allowNegative && authCan(auth, "leaves", "approve") && String(own?._id ?? "") !== employeeId;
+    if (days > bal.available && !mayOverdraw) return badRequest(`Solde insuffisant : ${bal.available} jour(s) disponible(s), ${days} demandé(s).`);
   }
   const leave = await LeaveModel.create({
     tenantId: auth.tenantId, employeeId, type, startDate: start, endDate: end, days,

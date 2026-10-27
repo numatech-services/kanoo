@@ -77,6 +77,8 @@ export async function verifyTwoFactor(challenge: string, code: string): Promise<
   return { done: true };
 }
 
+/** Déconnexion : le serveur révoque le jeton (sinon valable jusqu'à son expiration), puis on l'oublie. */
 export async function signOut(): Promise<void> {
+  await api("POST", "/api/auth/logout").catch(() => undefined);
   await setToken(null);
 }

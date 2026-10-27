@@ -1,4 +1,5 @@
 "use client";
+import { csvCell } from "@/lib/csv";
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -135,10 +136,10 @@ export default function ActiviteDetailPage() {
       scope === "all" ? true : scope === "present" ? a.status === "present" : a.status !== "present" && a.status !== "cancelled" && a.status !== "refunded"
     );
     const header = ["Prénom", "Nom", "Email", "Téléphone", "Billet", "Montant", "Statut", "Pointé le"];
-    const csv = [header.join(";"), ...rows.map((a) => [
+    const csv = [header.map(csvCell).join(";"), ...rows.map((a) => [
       a.firstName, a.lastName, a.email || "", a.phone || "", a.ticketTypeName || "", a.amount || 0,
       A_STATUS[a.status]?.label || a.status, a.checkedInAt ? new Date(a.checkedInAt).toLocaleString("fr-FR") : "",
-    ].join(";"))].join("\n");
+    ].map(csvCell).join(";"))].join("\r\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

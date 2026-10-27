@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, created, badRequest, conflict, getPagination, paginatedResponse, requireFields, forbidden } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, conflict, getPagination, paginatedResponse, requireFields, forbidden, escapeRegex } from "@/lib/api-helpers";
 import { TenantModel } from "@/models/Tenant";
 import { generateSecureToken, hashPassword } from "@/lib/auth";
 import { UserModel } from "@/models/User";
@@ -15,7 +15,7 @@ export const GET = withAuth("companies", "read", async (req: NextRequest, auth: 
   await connectDB();
   const pagination = getPagination(req);
   const url = new URL(req.url);
-  const search = url.searchParams.get("search") || "";
+  const search = escapeRegex(url.searchParams.get("search"));
   const type = url.searchParams.get("type");
   const status = url.searchParams.get("status");
 

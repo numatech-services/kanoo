@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { Types } from "mongoose";
 import { withTransaction } from "@/lib/db";
-import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { DevisModel } from "@/models/Devis";
+import { ClientModel } from "@/models/Client";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
@@ -28,6 +29,10 @@ export const POST = withAuth("devis", "create", async (req: NextRequest, auth: T
   const body = await req.json();
   const err = requireFields(body, ["clientId", "lines", "issueDate", "validUntil"]);
   if (err) return badRequest(err);
+  if (!Array.isArray(body.lines) || body.lines.length === 0) return badRequest("Au moins une ligne.");
+  // Le client doit appartenir à l'organisation : sinon son nom et son NIF
+  // (populate) s'affichaient, puis passaient sur la facture.
+  if (!(await ClientModel.exists({ _id: body.clientId, ...tenantFilter(auth) }))) return badRequest("Client introuvable.");
   // Totaux : somme des lignes arrondies, pour que le pied corresponde à
   // l'addition des lignes imprimées.
   let totalHT = 0, totalTVA = 0;
@@ -41,7 +46,10 @@ export const POST = withAuth("devis", "create", async (req: NextRequest, auth: T
   const devis = await withTransaction(async (session) => {
     const number = await nextDocumentNumber(auth.tenantId, "quote", { issueDate: body.issueDate, session });
     const [doc] = await DevisModel.create([{
-      ...sanitizeBody(body, ["number", "status", "totalHT", "totalTVA", "totalTTC"]),
+      // Liste blanche : la preuve d'acceptation en ligne et le lien vers un
+      // marché sont posés par leurs routes, jamais par le formulaire.
+      clientId: body.clientId, issueDate: body.issueDate, validUntil: body.validUntil,
+      notes: body.notes === undefined ? undefined : String(body.notes ?? "").slice(0, 4000),
       lines, number, totalHT, totalTVA, totalTTC: totalHT + totalTVA,
       tenantId: auth.tenantId, createdBy: auth.userId,
     }], { session });

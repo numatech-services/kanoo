@@ -38,13 +38,23 @@ async function handle(req: NextRequest) {
     );
   }
 
-  // Le secret peut venir d'un en-tête (préféré) ou d'un paramètre (certaines
-  // interfaces cron n'ajoutent pas d'en-têtes).
+  // Le secret vient d'un en-tête. Dans l'adresse (`?key=`), il s'inscrit dans
+  // les journaux d'accès de l'hébergeur et de tout proxy : ce mode n'est
+  // accepté que si l'exploitant l'a explicitement autorisé
+  // (CRON_ALLOW_URL_KEY=true), pour une interface cron qui n'envoie pas
+  // d'en-tête.
   const url = new URL(req.url);
-  const provided = req.headers.get("x-cron-key")
+  const headerKey = req.headers.get("x-cron-key")
     || req.headers.get("authorization")?.replace(/^Bearer\s+/i, "")
-    || url.searchParams.get("key")
     || "";
+  const urlKey = url.searchParams.get("key") || "";
+  if (!headerKey && urlKey && process.env.CRON_ALLOW_URL_KEY !== "true") {
+    return NextResponse.json(
+      { success: false, error: "Secret dans l'URL refusé : envoyez-le dans l'en-tête x-cron-key (ou définissez CRON_ALLOW_URL_KEY=true)." },
+      { status: 401 }
+    );
+  }
+  const provided = headerKey || urlKey;
 
   const a = Buffer.from(provided);
   const b = Buffer.from(secret);

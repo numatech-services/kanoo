@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { escapeRegex } from "@/lib/api-helpers";
 import { connectDB } from "@/lib/db";
 import { validateApiKey } from "@/lib/api-v1-middleware";
 import { ClientModel } from "@/models/Client";
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const page = parseInt(url.searchParams.get("page") || "1");
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "20"), 100);
-  const search = url.searchParams.get("search") || "";
+  const search = escapeRegex(url.searchParams.get("search"));
 
   const filter: Record<string, unknown> = { tenantId: auth.context.tenantId, isActive: true };
   if (search) filter.$or = [{ name: { $regex: search, $options: "i" } }, { code: { $regex: search, $options: "i" } }];

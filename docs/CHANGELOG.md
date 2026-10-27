@@ -1,5 +1,32 @@
 # Kanoo — Changelog
 
+## Lot H0 — Sécurité (octobre 2026)
+
+Correctifs des constats S1 à S11 et K4 de `docs/AUDIT-2026-10.md`.
+
+| # | Faille | Correction |
+|---|---|---|
+| S1 | Plans et tarifs modifiables **sans authentification** (`/api/public/plans`) | Écriture déplacée sous `/api/superadmin/plans` (superadministrateur seul), champs filtrés et validés, journal d'audit ; la lecture reste publique |
+| S2 | Exercice clôturé ou verrou comptable réouvrables par `PATCH /api/companies` | `accountingLockedUntil`, `closedFiscalYears`, `aiUsage`, `activatedAt` non modifiables |
+| S3 | Compteurs des notes de frais calculés sur toutes les organisations | `await` manquant |
+| S4 | Création de facture : champs internes acceptés (faux QR SECeF, facture soldée sans paiement, vente en 419…) | Liste blanche |
+| S5 | Références d'une autre organisation acceptées et affichées | Contrôle d'appartenance : client du devis, client / équipe / responsable / factures / contrats d'un projet, chapitre d'une recette, salarié d'une note de frais. Lien devis → marché et preuve d'acceptation non modifiables. Ancienne route de conversion devis → facture supprimée |
+| S6 | Code d'accès au portail fournisseur écrit par le formulaire ; RIB changé sans trace | Champs protégés ; changement de RIB journalisé avant / après |
+| S7 | Dépassement du solde de congés décidé par le demandeur ; suppression de congés approuvés | Réservé à un valideur, dans son périmètre ; un congé commencé s'annule, il ne s'efface pas |
+| S8 | Recherches : expression régulière non échappée (erreur 500, ReDoS) | `escapeRegex` |
+| S9 | Exports CSV : injection de formule | `lib/csv.ts` : apostrophe devant `= + - @` (nombres préservés), retirée à la réimportation |
+| S10 | Secret cron dans l'URL | Refusé sauf `CRON_ALLOW_URL_KEY=true` ; en-tête `x-cron-key` |
+| S11 | Déconnexion mobile sans révocation | Identifiant `jti` sur chaque jeton, révocation à la déconnexion (`RevokedToken`, TTL) |
+| K4 | Arrêté de caisse : libellé injecté dans la fenêtre d'impression | Échappement HTML |
+
+Les recettes de l'administration ne journalisent plus les données des
+contribuables en console. Scénario `scripts/e2e/e2e-securite.mjs`
+(21 vérifications).
+
+**À vérifier au déploiement** : si la tâche planifiée Hostinger appelle
+`/api/cron?…&key=…`, passer à l'en-tête `x-cron-key` ou définir
+`CRON_ALLOW_URL_KEY=true`.
+
 ## Lot G1 — Paie conforme CNSS 2024 et CGI 2026 (octobre 2026)
 
 Référentiel et sources : `docs/REFERENTIEL-FISCAL-SOCIAL-2026.md`.

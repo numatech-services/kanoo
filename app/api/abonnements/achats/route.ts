@@ -2,8 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import {
   withAuth, created, badRequest, conflict, notFound,
-  getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody,
-} from "@/lib/api-helpers";
+  getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody, escapeRegex } from "@/lib/api-helpers";
 import { SubscriptionPurchaseModel } from "@/models/SubscriptionPurchase";
 import { SupplierModel } from "@/models/Supplier";
 import { suggestedWithholding } from "@/lib/subscriptions";
@@ -19,7 +18,7 @@ export const GET = withAuth("subscriptions", "read", async (req: NextRequest, au
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   const status = url.searchParams.get("status");
   const supplierId = url.searchParams.get("supplierId");
-  const search = url.searchParams.get("search");
+  const search = escapeRegex(url.searchParams.get("search"));
   if (status) filter.status = status;
   if (supplierId) filter.supplierId = supplierId;
   if (search) {

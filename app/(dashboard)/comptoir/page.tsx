@@ -1,4 +1,5 @@
 "use client";
+import { csvCell } from "@/lib/csv";
 
 import { useCallback, useEffect, useState } from "react";
 import { Store, Plus, Wallet, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText, Settings2 } from "lucide-react";
@@ -37,7 +38,7 @@ async function csrf() {
 
 // Export CSV côté client (séparateur « ; », compatible Excel FR ; BOM UTF-8).
 function downloadCsv(filename: string, rows: (string | number)[][]) {
-  const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+  const esc = csvCell;
   const csv = "﻿" + rows.map(r => r.map(esc).join(";")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a");
@@ -487,8 +488,11 @@ function ArreteDialog({ deskId, onClose }: { deskId: string; onClose: () => void
   const ecart = counted ? Number(counted) - soldeEspeces : null;
 
   function print() {
+    // Libellés saisis par les caissiers : échappés avant d'être écrits dans la
+    // fenêtre d'impression (même origine) — « <img onerror=…> » s'y exécutait.
+    const h = (v: unknown) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
     const rows = dayEntries.map(e =>
-      `<tr><td>${e.label}</td><td>${METHOD_LABEL[e.method] || e.method}</td><td style="text-align:right">${e.direction === "in" ? "+" : "−"}${MONEY(e.amount)}</td></tr>`
+      `<tr><td>${h(e.label)}</td><td>${h(METHOD_LABEL[e.method] || e.method)}</td><td style="text-align:right">${e.direction === "in" ? "+" : "−"}${MONEY(e.amount)}</td></tr>`
     ).join("");
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Arrêté de caisse ${day}</title>
       <style>body{font-family:system-ui,Arial,sans-serif;padding:32px;color:#111}h1{font-size:18px}

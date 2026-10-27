@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { projectScope } from "@/lib/project-scope";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
-import { withAuth, sanitizeBody, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, sanitizeBody, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields, escapeRegex } from "@/lib/api-helpers";
 import { ProjectModel } from "@/models/Project";
 import { ConversationModel } from "@/models/Conversation";
 import { logAudit } from "@/lib/audit";
@@ -10,6 +10,7 @@ import { TokenPayload } from "@/lib/auth";
 import { maskProjectMoney, stripProjectMoneyWrites } from "@/lib/payroll-mask";
 import { projectFinance } from "@/lib/project-finance";
 import { hasFinanceAccess } from "@/lib/role-resources";
+import { checkProjectRefs } from "@/lib/project-refs";
 
 export const GET = withAuth("projects", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
@@ -17,7 +18,7 @@ export const GET = withAuth("projects", "read", async (req: NextRequest, auth: T
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
   const type = url.searchParams.get("projectType");
-  const search = url.searchParams.get("search");
+  const search = escapeRegex(url.searchParams.get("search"));
 
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   // Raccourci « Voir les … » de la fiche client.
@@ -49,6 +50,9 @@ export const POST = withAuth("projects", "create", async (req: NextRequest, auth
   const body = stripProjectMoneyWrites(sanitizeBody(await req.json(), ["conversationId"]), auth);
   const err = requireFields(body, ["code", "name"]);
   if (err) return badRequest(err);
+
+  const refErr = await checkProjectRefs(auth.tenantId, body);
+  if (refErr) return badRequest(refErr);
 
   const existing = await ProjectModel.findOne({ tenantId: auth.tenantId, code: body.code });
   if (existing) return conflict(`Code '${body.code}' déjà utilisé`);

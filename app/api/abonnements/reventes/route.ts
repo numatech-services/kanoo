@@ -2,8 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import {
   withAuth, created, badRequest, conflict, notFound,
-  getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody,
-} from "@/lib/api-helpers";
+  getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody, escapeRegex } from "@/lib/api-helpers";
 import { SubscriptionSaleModel } from "@/models/SubscriptionSale";
 import { SubscriptionPurchaseModel } from "@/models/SubscriptionPurchase";
 import { ClientModel } from "@/models/Client";
@@ -23,7 +22,7 @@ export const GET = withAuth("subscriptions", "read", async (req: NextRequest, au
   const clientId = url.searchParams.get("clientId");
   const purchaseId = url.searchParams.get("purchaseId");
   const unbilled = url.searchParams.get("unbilled");
-  const search = url.searchParams.get("search");
+  const search = escapeRegex(url.searchParams.get("search"));
 
   if (status) filter.status = status;
   if (clientId) filter.clientId = clientId;

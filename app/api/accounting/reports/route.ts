@@ -1,3 +1,4 @@
+import { csvCell } from "@/lib/csv";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, forbidden } from "@/lib/api-helpers";
@@ -8,7 +9,7 @@ import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 
 export const dynamic = "force-dynamic";
 
-const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+const cell = csvCell;
 const csv = (name: string, rows: unknown[][]) => new NextResponse("﻿" + rows.map(r => r.map(cell).join(";")).join("\r\n"), {
   headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${name}.csv"` },
 });

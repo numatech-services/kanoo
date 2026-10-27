@@ -4,7 +4,8 @@ import { useState, useEffect, useSyncExternalStore } from "react";
 import { Modal } from "@/components/ui/Modal";
 
 import { buttonClass } from "@/components/ui/button-class";
-import { apiJson } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
+import { showToast } from "@/components/ui/Toast";
 interface Plan {
   _id?: string;
   code: string;
@@ -76,13 +77,10 @@ export default function PlansPage() {
     };
 
     const method = data._id ? "PATCH" : "POST";
-    const res = await fetch("/api/public/plans", {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    });
+    const res = await apiSend(method, "/api/superadmin/plans", data);
 
-    if (res.ok) {
+    if (!res.ok) { showToast(res.data?.error || "Enregistrement impossible", "error"); return; }
+    {
       setIsEditOpen(false);
       // Rafraîchir la liste
       const d = await apiJson("/api/public/plans");

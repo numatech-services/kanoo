@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, created, badRequest, conflict, paginatedResponse, getPagination, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, conflict, paginatedResponse, getPagination, tenantFilter, requireFields, escapeRegex } from "@/lib/api-helpers";
 import { ClientModel } from "@/models/Client";
 import { InvoiceModel } from "@/models/Invoice";
 import { logAudit } from "@/lib/audit";
@@ -12,7 +12,7 @@ export const GET = withAuth("clients", "read", async (req: NextRequest, auth: To
   await connectDB();
   const pagination = getPagination(req);
   const url = new URL(req.url);
-  const search = url.searchParams.get("search") || "";
+  const search = escapeRegex(url.searchParams.get("search"));
   const isActive = url.searchParams.get("isActive");
 
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };

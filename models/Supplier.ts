@@ -10,3 +10,6 @@ const SupplierSchema = new Schema<ISupplier>({ tenantId: { type: Schema.Types.Ob
 SupplierSchema.index({ tenantId: 1, code: 1 }, { unique: true });
 SupplierSchema.index({ email: 1 });
 export const SupplierModel = models.Supplier || model<ISupplier>("Supplier", SupplierSchema);
+
+/** Champs jamais écrits par le formulaire fournisseur (code d'accès au portail : route dédiée). */
+export const SUPPLIER_PROTECTED = ["accessCodeHash", "accessCodeGeneratedAt", "accessCode"];

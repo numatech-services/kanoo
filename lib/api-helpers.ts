@@ -7,6 +7,7 @@ import { errorName } from "./errors";
 import { getTokenFromRequest, verifyToken, TokenPayload } from "./auth";
 import { rolesCanPerform, effectiveRoles } from "./role-resources";
 import { verifyCsrf, CSRF_MESSAGES } from "./csrf";
+import { RevokedTokenModel } from "@/models/RevokedToken";
 import { UserModel } from "@/models/User";
 import { TenantModel } from "@/models/Tenant";
 import { IdempotencyRecordModel } from "@/models/IdempotencyRecord";
@@ -163,6 +164,8 @@ type SecurityCheck =
  * C'est le prix d'une révocation qui révoque vraiment.
  */
 export async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
+  // Jeton révoqué par une déconnexion : lu en parallèle de l'utilisateur.
+  const revokedP = auth.jti ? RevokedTokenModel.exists({ _id: auth.jti }) : Promise.resolve(null);
   const user = await UserModel.findById(auth.userId)
     .select("sessionVersion isActive role roles roleLevels siteIds accessUntil allowedResources tenantId")
     .lean<{
@@ -177,6 +180,7 @@ export async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
       tenantId?: { toString(): string };
     } | null>();
 
+  if (await revokedP) return { ok: false, response: unauthorized("Session fermée. Reconnectez-vous.") };
   if (!user) return { ok: false, response: unauthorized("Compte introuvable") };
   if (!user.isActive) return { ok: false, response: unauthorized("Compte désactivé") };
   // Stagiaire : l'accès s'arrête de lui-même à la date de fin de stage.
@@ -471,4 +475,13 @@ export function sanitizeBody(
     if (field.startsWith("$")) delete clean[field];
   }
   return clean;
+}
+
+/**
+ * Texte saisi dans une recherche, rendu littéral pour un `$regex`. Sans
+ * échappement, « ( » provoquait une erreur 500 et un motif comme « (a+)+$ »
+ * pouvait bloquer le serveur (ReDoS). Longueur bornée pour la même raison.
+ */
+export function escapeRegex(input: string | null | undefined): string {
+  return String(input ?? "").slice(0, 100).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

@@ -53,7 +53,14 @@ export const DELETE = withAuth("leaves", "read", async (_req: NextRequest, auth:
   if (!leave) return notFound();
   const own = await EmployeeModel.findOne({ tenantId: auth.tenantId, userId: auth.userId }).select("_id").lean<{ _id: unknown } | null>();
   const isMine = !!own && String(own._id) === String(leave.employeeId);
-  if (!(isMine && leave.status === "pending") && !authCan(auth, "leaves", "delete")) return forbidden("Seule une demande en attente se supprime par son auteur.");
+  if (!(isMine && leave.status === "pending")) {
+    // Un valideur ne supprime que dans son périmètre, et jamais un congé
+    // approuvé déjà commencé : il s'annule (trace conservée), il ne s'efface pas.
+    if (!authCan(auth, "leaves", "delete")) return forbidden("Seule une demande en attente se supprime par son auteur.");
+    const allowed = await scopeEmployees(auth);
+    if (allowed && !allowed.includes(String(leave.employeeId))) return forbidden("Ce salarié n'est pas dans votre périmètre.");
+    if (leave.status === "approved" && new Date(leave.startDate) <= new Date()) return badRequest("Congé approuvé déjà commencé : annulez-le plutôt que de le supprimer.");
+  }
   await LeaveModel.deleteOne({ _id: leave._id });
   await logAudit(auth, "DELETE", "leaves", { resourceId: params.id });
   return noContent();

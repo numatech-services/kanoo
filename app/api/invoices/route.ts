@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Types } from "mongoose";
-import { withAuth, created, badRequest, notFound, paginatedResponse, getPagination, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, notFound, paginatedResponse, getPagination, tenantFilter, requireFields, escapeRegex } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
 import { ClientModel } from "@/models/Client";
 import { logAudit } from "@/lib/audit";
@@ -18,7 +18,7 @@ export const GET = withAuth("invoices", "read", async (req: NextRequest, auth: T
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
   const clientId = url.searchParams.get("clientId");
-  const search = url.searchParams.get("search") || "";
+  const search = escapeRegex(url.searchParams.get("search"));
   const overdue = url.searchParams.get("overdue");
 
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
@@ -68,6 +68,7 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
   const body = await req.json();
   const missing = requireFields(body, ["clientId", "lines", "issueDate", "dueDate"]);
   if (missing) return badRequest(missing);
+  if (!Array.isArray(body.lines) || body.lines.length === 0) return badRequest("Au moins une ligne.");
 
   await connectDB();
 
@@ -95,7 +96,14 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
     // 1. Créer la facture
     const [invoice] = await InvoiceModel.create(
       [{
-        ...sanitizeBody(body, ["number", "status", "paidAmount", "totalHT", "totalTVA", "totalDTS", "totalTTC"]),
+        // Liste blanche : le corps recopié laissait passer des champs internes
+        // (secef → faux QR « vérifié », creditedAmount → facture soldée sans
+        // paiement, kind: deposit → vente en 419, doubtfulAt, documentType,
+        // contractId → contournement du plafond du marché…). Ces champs sont
+        // posés par leurs routes dédiées (certification, avoir, marché).
+        clientId: client._id, issueDate: body.issueDate, dueDate: body.dueDate,
+        notes: body.notes === undefined ? undefined : String(body.notes ?? "").slice(0, 4000),
+        termsAndConditions: body.termsAndConditions === undefined ? undefined : String(body.termsAndConditions ?? "").slice(0, 4000),
         lines, number, totalHT, totalTVA, totalDTS, totalTTC, projectId: imp.projectId, activityId: imp.activityId,
         paidAmount: 0, tenantId: auth.tenantId, createdBy: auth.userId, status: "draft",
       }],

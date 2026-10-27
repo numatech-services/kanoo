@@ -83,8 +83,11 @@ numapilot en production).
 | Mensuel (1er, 1h) | `0 1 1 * *` | `curl -fsS -H "x-cron-key: VOTRE_SECRET" "https://numapilot.numatechservices.net/api/cron?group=monthly"` |
 | Annuel (1er janv.) | `1 0 1 1 *` | `curl -fsS -H "x-cron-key: VOTRE_SECRET" "https://numapilot.numatechservices.net/api/cron?group=yearly"` |
 
-Si le champ Hostinger n'accepte qu'une URL (sans en-tête), utilisez plutôt :
-`…/api/cron?group=daily&key=VOTRE_SECRET`.
+Si le champ Hostinger n'accepte qu'une URL (sans en-tête), utilisez
+`…/api/cron?group=daily&key=VOTRE_SECRET` **et** ajoutez la variable
+d'environnement `CRON_ALLOW_URL_KEY=true` : sans elle, le secret passé dans
+l'adresse est refusé, car il apparaît dans les journaux d'accès. Préférez
+l'en-tête `x-cron-key` dès que possible.
 
 ---
 

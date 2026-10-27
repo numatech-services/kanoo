@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { projectScope } from "@/lib/project-scope";
 import { Types } from "mongoose";
-import { withAuth, ok, notFound, noContent, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, noContent, badRequest, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { ProjectModel } from "@/models/Project";
 // Modèles référencés par le populate : sans cet import, ils ne sont pas
 // enregistrés dans ce bundle de route et la fiche projet répondait 500
@@ -15,6 +15,7 @@ import { connectDB } from "@/lib/db";
 import { maskProjectMoney, stripProjectMoneyWrites } from "@/lib/payroll-mask";
 import { projectFinance } from "@/lib/project-finance";
 import { hasFinanceAccess } from "@/lib/role-resources";
+import { checkProjectRefs } from "@/lib/project-refs";
 
 const MEMBERS = "projectMembers.userId projectMembers.memberId projectMembers.bureauMemberId";
 
@@ -49,6 +50,8 @@ export const PATCH = withAuth("projects", "update", async (req: NextRequest, aut
     }
   }
   for (const k of ["clientId", "managerId"]) if (body[k] === "") body[k] = null;
+  const refErr = await checkProjectRefs(auth.tenantId, body);
+  if (refErr) return badRequest(refErr);
 
   const item = await ProjectModel.findOne({ _id: params.id, ...tenantFilter(auth), ...projectScope(auth) });
   if (!item) return notFound();

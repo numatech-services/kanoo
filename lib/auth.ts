@@ -56,15 +56,21 @@ export interface TokenPayload {
   /** The Spot : comptoirs attribués (vide = aucun, sauf chef / gérant / compta). */
   siteIds?: string[];
   sessionVersion?: number;
+  /** Identifiant du jeton, pour le révoquer à la déconnexion (models/RevokedToken). */
+  jti?: string;
   iat?: number;
   exp?: number;
   // iat et exp étaient en double ici, j'ai supprimé la répétition
 }
 
 export function signToken(payload: Omit<TokenPayload, "iat" | "exp">): string {
-  return jwt.sign(payload, getJwtSecret(), {
+  // Chaque jeton reçoit son propre identifiant (un jeton recopié d'un
+  // précédent ne doit pas hériter du sien : jwt.sign refuserait les deux).
+  const { jti: _previous, ...claims } = payload as TokenPayload;
+  return jwt.sign(claims, getJwtSecret(), {
     expiresIn: JWT_EXPIRES_IN,
     algorithm: "HS256",
+    jwtid: crypto.randomUUID(),
   } as jwt.SignOptions);
 }
 

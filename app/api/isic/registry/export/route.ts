@@ -1,3 +1,4 @@
+import { csvCell } from "@/lib/csv";
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
@@ -10,7 +11,7 @@ import { isAcademicYear } from "@/lib/isic-registry";
 
 export const dynamic = "force-dynamic";
 
-const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+const cell = csvCell;
 
 /**
  * GET /api/isic/registry/export?filter=pending|all&school=&year=

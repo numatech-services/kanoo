@@ -1,3 +1,4 @@
+import { csvCell } from "@/lib/csv";
 import { NextRequest, NextResponse } from "next/server";
 import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { connectDB } from "@/lib/db";
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
   if (format === "grandlivre") {
     const rows = ["N°Compte;Libellé;Total Débit;Total Crédit;Solde Débiteur;Solde Créditeur"];
     for (const a of balance) {
-      rows.push([a.code, `"${a.label}"`, a.debit, a.credit, a.soldeDebiteur, a.soldeCrediteur].join(";"));
+      rows.push([a.code, csvCell(a.label), a.debit, a.credit, a.soldeDebiteur, a.soldeCrediteur].join(";"));
     }
     return new NextResponse(rows.join("\r\n"), {
       headers: {

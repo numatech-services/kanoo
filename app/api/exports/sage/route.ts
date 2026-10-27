@@ -1,3 +1,4 @@
+import { neutralizeFormula } from "@/lib/csv";
 import { NextRequest, NextResponse } from "next/server";
 import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { connectDB } from "@/lib/db";
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
         entry.journalCode,
         dateStr,
         line.accountCode,
-        `"${(line.accountLabel || entry.label).replace(/"/g, "'")}"`,
+        `"${neutralizeFormula(line.accountLabel || entry.label).replace(/"/g, "'")}"`,
         entry.reference || "",
         line.debit > 0 ? line.debit.toString().replace(".", ",") : "0",
         line.credit > 0 ? line.credit.toString().replace(".", ",") : "0",

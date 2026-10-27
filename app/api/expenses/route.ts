@@ -64,7 +64,7 @@ export const GET = withAuth("expenses", "read", async (req: NextRequest, auth: T
   // Les compteurs par état alimentent les chips de filtre : sans eux,
   // « En validation » ne dit pas s'il y en a une ou quarante.
   const counts = await ExpenseReportModel.aggregate<{ _id: string; n: number }>([
-    { $match: scope(auth, await ownEmployee(auth)) },
+    { $match: await scope(auth, await ownEmployee(auth)) },
     { $group: { _id: "$status", n: { $sum: 1 } } },
   ]);
 
@@ -97,6 +97,9 @@ export const POST = withAuth("expenses", "create", async (req: NextRequest, auth
     );
   }
   employeeId = String(employeeId);
+  // Un valideur « toute l'organisation » peut désigner un autre salarié, mais
+  // seulement de SON organisation.
+  if (!(await EmployeeModel.exists({ _id: employeeId, ...tenantFilter(auth) }))) return badRequest("Salarié introuvable.");
 
   const rawLines = Array.isArray(body.lines) ? body.lines : [];
   const lines = rawLines.map(sanitizeExpenseLine).filter(Boolean) as ExpenseLine[];

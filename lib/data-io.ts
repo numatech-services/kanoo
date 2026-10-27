@@ -1,3 +1,4 @@
+import { neutralizeFormula, restoreFormulaPrefix } from "@/lib/csv";
 /**
  * Import / export de données, piloté par un registre d'entités.
  *
@@ -174,7 +175,7 @@ export const ENTITIES: Record<string, DataEntity> = {
 // ─── CSV ─────────────────────────────────────────────────────────────────────
 
 function esc(v: unknown): string {
-  const s = v === null || v === undefined ? "" : String(v);
+  const s = neutralizeFormula(v);
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -204,7 +205,9 @@ export function parseCSV(text: string): { headers: string[]; rows: string[][] } 
   if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
   const nonEmpty = rows.filter((r) => r.some((c) => c.trim() !== ""));
   if (nonEmpty.length === 0) return { headers: [], rows: [] };
-  return { headers: nonEmpty[0].map((h) => h.trim()), rows: nonEmpty.slice(1) };
+  // Un fichier exporté par Kanoo porte une apostrophe devant les textes qui
+  // ressemblent à une formule (lib/csv) : on la retire à la relecture.
+  return { headers: nonEmpty[0].map((h) => h.trim()), rows: nonEmpty.slice(1).map(r => r.map(restoreFormulaPrefix)) };
 }
 
 /** Convertit une valeur texte selon le type déclaré du champ d'import. */

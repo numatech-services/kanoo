@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, conflict, getPagination, paginatedResponse, tenantFilter, requireFields, sanitizeBody, escapeRegex } from "@/lib/api-helpers";
 import { MemberModel } from "@/models/Member";
 import { logAudit } from "@/lib/audit";
 import { generateAccessCode, hashAccessCode } from "@/lib/portal-auth";
@@ -10,7 +10,7 @@ export const GET = withAuth("membres", "read", async (req: NextRequest, auth: To
   await connectDB();
   const pagination = getPagination(req);
   const url = new URL(req.url);
-  const search = url.searchParams.get("search") || "";
+  const search = escapeRegex(url.searchParams.get("search"));
   const status = url.searchParams.get("status");
 
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
