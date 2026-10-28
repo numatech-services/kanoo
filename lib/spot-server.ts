@@ -19,7 +19,7 @@ const DAY = 86_400_000;
  * Perte, casse, offert, consommation du personnel : sortie de stock motivée,
  * valorisée au coût. Elle compte dans la marge de la semaine.
  */
-export async function recordLoss(auth: TokenPayload, input: { deskId: string; itemId: string; quantity: number; reason: string; note?: string; date?: string }, session?: ClientSession) {
+export async function recordLoss(auth: TokenPayload, input: { deskId: string; itemId: string; quantity: number; reason: string; note?: string; date?: string; lenient?: boolean }, session?: ClientSession) {
   const tenantId = auth.tenantId;
   if (!(input.reason in LOSS_REASONS)) throw new BusinessRuleError("Motif de perte inconnu.");
   const qty = Number(input.quantity);
@@ -34,11 +34,12 @@ export async function recordLoss(auth: TokenPayload, input: { deskId: string; it
   let unitCost = item.unitCost || 0, stockMovementId: unknown, after: number;
   if (item.productId) {
     const wh = await deskWarehouse(tenantId, input.deskId, session);
-    const r = await applyMovement({ tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: "loss", quantity: qty, reason, linkedDocType: "comptoir", linkedDocId: item.deskId }, session);
+    const r = await applyMovement({ tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: "loss", quantity: qty, reason, linkedDocType: "comptoir", linkedDocId: item.deskId, ...(input.lenient ? { allowPartial: true } : {}) }, session);
     unitCost = Number(r.movement.unitCost) || unitCost; stockMovementId = r.movement._id; after = r.after;
   } else {
-    if (qty > (item.quantity || 0)) throw new BusinessRuleError(`Stock insuffisant pour ${item.name} (${item.quantity} ${item.unit}).`);
-    after = Math.round(((item.quantity || 0) - qty) * 1000) / 1000;
+    // Perte déclarée à la caisse reliée (déjà constatée) : le stock tombe à 0 au pire.
+    if (!input.lenient && qty > (item.quantity || 0)) throw new BusinessRuleError(`Stock insuffisant pour ${item.name} (${item.quantity} ${item.unit}).`);
+    after = Math.max(0, Math.round(((item.quantity || 0) - qty) * 1000) / 1000);
   }
   const lossValue = Math.round(qty * unitCost);
   const [move] = await ActivityStockMoveModel.create([{ tenantId, deskId: item.deskId, itemId: item._id, type: "out", quantity: qty, quantityAfter: after, unitCost, reason, stockMovementId, lossReason: input.reason, lossValue, date, createdBy: auth.userId }], { session });
@@ -133,9 +134,10 @@ export async function cycleCountPlan(tenantId: string, deskId: string) {
 }
 
 /** Enregistre les comptages du jour et aligne le stock (écart valorisé). */
-export async function recordCounts(auth: TokenPayload, deskId: string, counts: Array<{ itemId: string; counted: number }>, session?: ClientSession) {
+export async function recordCounts(auth: TokenPayload, deskId: string, counts: Array<{ itemId: string; counted: number }>, session?: ClientSession, opts: { recount?: boolean; reason?: string } = {}) {
   const tenantId = auth.tenantId;
   const day = localDay(new Date());
+  const reason = opts.reason ?? "Inventaire tournant";
   await assertDayOpen(tenantId, deskId, new Date(), session);
   const results = [];
   for (const c of counts) {
@@ -143,17 +145,18 @@ export async function recordCounts(auth: TokenPayload, deskId: string, counts: A
     if (!(counted >= 0)) throw new BusinessRuleError("Quantité comptée invalide.");
     const item = await ActivityItemModel.findOne({ _id: c.itemId, tenantId, deskId }).session(session ?? null);
     if (!item) throw new BusinessRuleError("Article introuvable.");
-    if (await ItemCountModel.exists({ tenantId, deskId, itemId: item._id, day }).session(session ?? null)) throw new BusinessRuleError(`${item.name} : déjà compté aujourd'hui.`);
+    // Inventaire reçu de la caisse reliée : un second comptage du jour est permis (il fait foi).
+    if (!opts.recount && await ItemCountModel.exists({ tenantId, deskId, itemId: item._id, day }).session(session ?? null)) throw new BusinessRuleError(`${item.name} : déjà compté aujourd'hui.`);
     const expected = item.quantity || 0;
     const gap = Math.round((counted - expected) * 1000) / 1000;
     let unitCost = item.unitCost || 0, stockMovementId: unknown;
     if (gap !== 0) {
       if (item.productId) {
         const wh = await deskWarehouse(tenantId, deskId, session);
-        const r = await applyMovement({ tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: gap < 0 ? "loss" : "return", quantity: Math.abs(gap), allowPartial: true, reason: "Inventaire tournant", linkedDocType: "comptoir", linkedDocId: item.deskId }, session);
+        const r = await applyMovement({ tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: gap < 0 ? "loss" : "return", quantity: Math.abs(gap), allowPartial: true, reason, linkedDocType: "comptoir", linkedDocId: item.deskId }, session);
         unitCost = Number(r.movement.unitCost) || unitCost; stockMovementId = r.movement._id;
       }
-      await ActivityStockMoveModel.create([{ tenantId, deskId, itemId: item._id, type: "adjust", quantity: Math.abs(gap), quantityAfter: counted, unitCost, reason: "Inventaire tournant", stockMovementId,
+      await ActivityStockMoveModel.create([{ tenantId, deskId, itemId: item._id, type: "adjust", quantity: Math.abs(gap), quantityAfter: counted, unitCost, reason, stockMovementId,
         ...(gap < 0 ? { lossReason: "inventory", lossValue: Math.round(-gap * unitCost) } : {}), date: new Date(), createdBy: auth.userId }], { session });
       item.quantity = counted;
       await item.save({ session });

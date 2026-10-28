@@ -2,6 +2,8 @@ import { Types } from "mongoose";
 import { DeskScheduleModel } from "@/models/DeskSchedule";
 import { ComptoirSaleModel } from "@/models/ComptoirSale";
 import { ActivityItemModel } from "@/models/ActivityItem";
+import { DeskPreorderModel } from "@/models/DeskPreorder";
+import { withPreorders } from "@/lib/easypay";
 import { localDay } from "@/lib/comptoir-sale";
 import { learnRates, forecastDay, presenceFor, DEFAULT_SERVICES, type Schedule, type SaleFact } from "@/lib/campus";
 
@@ -49,6 +51,16 @@ function expand(total: Map<string, number>, items: Map<string, ItemLite>) {
   return need;
 }
 
+/** Quantités déjà pré-commandées (appli EasyPay) pour un jour, par article. */
+export async function preorderedFor(tenantId: string, deskId: string, day: string) {
+  const rows = await DeskPreorderModel.aggregate<{ _id: Types.ObjectId; q: number; n: number }>([
+    { $match: { tenantId: new Types.ObjectId(tenantId), deskId: new Types.ObjectId(deskId), pickupDay: day, status: { $in: ["booked", "ready"] } } },
+    { $unwind: "$lines" },
+    { $group: { _id: "$lines.itemId", q: { $sum: "$lines.quantity" }, n: { $sum: 1 } } },
+  ]);
+  return new Map(rows.map(r => [String(r._id), r.q]));
+}
+
 /**
  * Plan de production d'un jour : présence attendue par service, articles à
  * préparer, ingrédients nécessaires comparés au stock (manques), et aperçu
@@ -59,11 +71,15 @@ export async function productionPlan(tenantId: string, deskId: string, day: stri
   const itemsArr = await ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true } })
     .select("name unit quantity salePrice unitCost recipe").lean<ItemLite[]>();
   const items = new Map(itemsArr.map(i => [String(i._id), i]));
-  if (!s) return { configured: false as const, day };
+  const name = (id: string) => items.get(id)?.name ?? "—";
+  // Pré-commandes de l'appli : préparées quoi qu'il arrive.
+  const pre = await preorderedFor(tenantId, deskId, day);
+  const preorders = [...pre.entries()].map(([itemId, quantity]) => ({ itemId, name: name(itemId), unit: items.get(itemId)?.unit ?? "", quantity })).sort((a, b) => b.quantity - a.quantity);
+  if (!s) return { configured: false as const, day, preorders };
   const r = await rates(tenantId, deskId, s, day);
   const f = forecastDay(new Date(`${day}T12:00:00`), s, r);
-  const need = expand(f.total, items);
-  const name = (id: string) => items.get(id)?.name ?? "—";
+  const planned = withPreorders(f.total, pre);
+  const need = expand(new Map(planned.map(p => [p.itemId, p.planned])), items);
   const ingredients = [...need.entries()].map(([id, q]) => {
     const it = items.get(id);
     const quantity = Math.round(q * 1000) / 1000;
@@ -88,6 +104,9 @@ export async function productionPlan(tenantId: string, deskId: string, day: stri
       items: b.items.map(i => ({ ...i, name: name(i.itemId), unit: items.get(i.itemId)?.unit ?? "", prepared: !!items.get(i.itemId)?.recipe?.length })).sort((a, b) => b.quantity - a.quantity),
     })),
     ingredients, shortfall: ingredients.filter(i => i.missing > 0), week,
+    preorders,
+    // Par article : prévision, déjà pré-commandé, à préparer (le plus grand des deux).
+    planned: planned.map(p => ({ ...p, name: name(p.itemId), unit: items.get(p.itemId)?.unit ?? "" })).sort((a, b) => b.planned - a.planned),
   };
 }
 

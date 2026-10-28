@@ -46,6 +46,11 @@ async function main() {
     import("../models/ItemCount").then(m => m.ItemCountModel),
     import("../models/DeskPromo").then(m => m.DeskPromoModel),
     import("../models/DeskSchedule").then(m => m.DeskScheduleModel),
+    // Liaison EasyPay : clés de l'API, événements reçus (une fois chacun), pré-commandes.
+    import("../models/ApiKey").then(m => m.ApiKeyModel),
+    import("../models/IntegrationEvent").then(m => m.IntegrationEventModel),
+    import("../models/DeskPreorder").then(m => m.DeskPreorderModel),
+    import("../models/ActivityItem").then(m => m.ActivityItemModel),
     import("../models/CronRun").then(m => m.CronRunModel),
     import("../models/Notification").then(m => m.NotificationModel),
     import("../models/DunningSettings").then(m => m.DunningSettingsModel),

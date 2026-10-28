@@ -2,7 +2,7 @@
 import { csvCell } from "@/lib/csv";
 
 import { useCallback, useEffect, useState } from "react";
-import { Store, Plus, Wallet, Receipt, CalendarCheck2, Percent, BookUser, Tag, Zap, Smartphone, ShoppingCart, GraduationCap, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText, Settings2 } from "lucide-react";
+import { Store, Plus, Wallet, Receipt, CalendarCheck2, Percent, BookUser, Tag, Zap, Smartphone, ShoppingCart, GraduationCap, PlugZap, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText, Settings2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
@@ -17,6 +17,7 @@ import { SalesTab } from "@/components/comptoir/SalesTab";
 import { CreditTab } from "@/components/comptoir/CreditTab";
 import { PromosTab } from "@/components/comptoir/PromosTab";
 import { PlanningTab } from "@/components/comptoir/PlanningTab";
+import { EasypayTab } from "@/components/comptoir/EasypayTab";
 import { ReorderDialog, CycleCountPanel, LossDialog } from "@/components/comptoir/StockTools";
 import { MomoDialog } from "@/components/comptoir/SpotControls";
 import Link from "next/link";
@@ -68,7 +69,7 @@ async function post(url: string, body: unknown, method: "POST" | "PATCH" | "DELE
   return res.status === 204 ? null : res.json();
 }
 
-type Tab = "tickets" | "semaine" | "caisse" | "stock" | "rentabilite" | "ardoises" | "promos" | "planning";
+type Tab = "tickets" | "semaine" | "caisse" | "stock" | "rentabilite" | "ardoises" | "promos" | "planning" | "easypay";
 
 export default function ComptoirPage() {
   const [desks, setDesks] = useState<Desk[]>([]);
@@ -347,6 +348,7 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
         <button className={tabCls(tab === "ardoises")} onClick={() => setTab("ardoises")}><BookUser size={16} /> Ardoises</button>
         <button className={tabCls(tab === "promos")} onClick={() => setTab("promos")}><Tag size={16} /> Promotions</button>
         <button className={tabCls(tab === "planning")} onClick={() => setTab("planning")}><GraduationCap size={16} /> Planning</button>
+        {summary && summary.stockValue !== null && <button className={tabCls(tab === "easypay")} onClick={() => setTab("easypay")}><PlugZap size={16} /> EasyPay</button>}
         <Link href={`/comptoir/rapide?deskId=${deskId}`} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg text-sm font-semibold border border-section/40 text-section hover:bg-section/10"><Zap size={16} /> Caisse rapide</Link>
         <button onClick={() => setReportOpen(true)}
           className="ml-auto px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
@@ -367,6 +369,8 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
         ? <PromosTab deskId={deskId} />
         : tab === "planning"
         ? <PlanningTab deskId={deskId} deskName={deskName} />
+        : tab === "easypay"
+        ? <EasypayTab deskId={deskId} onChange={reloadSummary} />
         : tab === "caisse"
         ? <CaisseTab deskId={deskId} deskName={deskName} onChange={reloadSummary} />
         : <StockTab deskId={deskId} onChange={reloadSummary} />}

@@ -1,5 +1,36 @@
 # Kanoo — Changelog
 
+## The Spot — liaison avec EasyPay (octobre 2026)
+
+Onglet « EasyPay » du comptoir, API `/api/v1/spot`, `lib/easypay.ts`, `lib/easypay-server.ts`. Contrat complet : `docs/API-EASYPAY.md`.
+
+**Répartition**
+- Kanoo fait foi pour les articles et les prix ; EasyPay les lit (`GET /catalogue`, avec ETag).
+- EasyPay envoie ses ventes (formules comprises), annulations, recharges en espèces, réceptions, pertes, inventaires et pré-commandes (`POST /events`, par lots). Chaque événement n'est écrit qu'une fois.
+- Numatech détient l'argent des cartes. Une vente par carte est une créance sur Numatech et une recharge encaissée au comptoir lui est due : les deux passent par le compte courant 467100, soldé par les reversements (onglet EasyPay).
+- Aucune donnée personnelle reçue : le profil tarifaire seulement.
+
+**Dans Kanoo**
+- Une vente reçue ne se refuse pas :
+  - elle garde le prix de la caisse ;
+  - un stock insuffisant est toléré (ramené à 0) ;
+  - un article inconnu est créé ;
+  - une journée déjà arrêtée reporte l'écriture au premier jour ouvert.
+- Les événements refusés par une règle (annulation avant sa vente…) sont gardés, rejouables ou à écarter depuis l'onglet.
+- Les pré-commandes entrent dans le plan de production : on prépare au moins ce qui est commandé. `GET /production` les rend à EasyPay.
+- Le bilan de la semaine montre à part les ventes payées par carte et les recharges, qui ne sont pas des recettes.
+
+**Sécurité**
+- `POST /api/v1/auth` : réservé à l'administration de l'entreprise, protégé contre le CSRF, droits limités à `invoices:read` et `clients:read`. Avant, tout utilisateur connecté pouvait créer une clé avec tous les droits.
+- Clés du comptoir :
+  - liées à un comptoir ;
+  - valables 2 ans, révocables ;
+  - limitées à 600 appels par minute ;
+  - inactives si leur auteur perd l'accès.
+- Le modèle `ApiKey`, défini deux fois et de façon différente, est unifié. La date du dernier appel n'était pas enregistrée.
+
+**Mise en production** : lancer `npm run indexes` (index uniques des événements, des pré-commandes et des articles reliés), puis `easypay:kanoo-link` sur le serveur EasyPay.
+
 ## The Spot — quantités du restaurant selon l'emploi du temps du campus (octobre 2026)
 
 Onglet « Planning » du comptoir, `lib/campus.ts`, `lib/campus-server.ts`, `models/DeskSchedule.ts`.

@@ -21,9 +21,12 @@ import { saleLine, type SaleLineInput } from "@/lib/margins";
 import { DeskPromoModel } from "@/models/DeskPromo";
 import { DeskCustomerModel, DeskCustomerMoveModel } from "@/models/DeskCustomer";
 import { bestPromoPrice, creditCheck, type Promo } from "@/lib/spot";
+import { EASYPAY_ACCOUNT } from "@/lib/easypay";
 import type { TokenPayload } from "@/lib/auth";
 
-export const SALE_METHODS = ["cash", "orange_money", "card", "bank_transfer", "check", "other", "credit"] as const;
+export const SALE_METHODS = ["cash", "orange_money", "card", "bank_transfer", "check", "other", "credit", "easypay"] as const;
+/** Moyens qui n'entrent pas dans la caisse du comptoir : ardoise (créance du client), solde de carte EasyPay (créance sur Numatech). */
+const NOT_IN_DRAWER = ["credit", "easypay"];
 /** Ardoises des clients du comptoir (créances). */
 export const CREDIT_ACCOUNT = { accountCode: "411800", accountLabel: "Clients — ardoises du comptoir" };
 const COLLECTED_VAT = { accountCode: "443000", accountLabel: "TVA collectée" };
@@ -39,10 +42,27 @@ export async function assertDayOpen(tenantId: string, deskId: unknown, date: Dat
   if (closed) throw new BusinessRuleError(`La caisse est arrêtée au ${date.toLocaleDateString("fr-FR")} (ou après) : cette journée ne se modifie plus.`);
 }
 
+/**
+ * Date d'écriture d'une opération déjà faite à une caisse reliée (EasyPay) :
+ * son heure réelle si la journée est ouverte ; sinon (journée arrêtée, caisse
+ * restée hors connexion) le premier jour ouvert après le dernier arrêté — au
+ * plus tôt maintenant. L'opération n'est jamais perdue ni refusée pour ça.
+ */
+export async function firstOpenDate(tenantId: string, deskId: unknown, at: Date, session?: ClientSession): Promise<Date> {
+  const last = await CashClosingModel.findOne({ tenantId, deskId, day: { $gte: localDay(at) } }).sort({ day: -1 }).select("day").session(session ?? null).lean<{ day: string } | null>();
+  if (!last) return at;
+  const next = new Date(`${last.day}T08:00:00`); next.setDate(next.getDate() + 1);
+  return next > new Date() ? next : new Date();
+}
+
 export interface SaleInput {
   deskId: string;
   date?: string;
-  lines: Array<{ itemId: string; quantity: number; unitPriceTTC?: number; discount?: number }>;
+  lines: Array<{
+    itemId: string; quantity: number; unitPriceTTC?: number; discount?: number;
+    /** Formule composée à la vente (EasyPay) : composants sortis du stock, par unité de la ligne. */
+    components?: Array<{ itemId: string; quantity: number }>;
+  }>;
   payments: Array<{ method: string; amount: number }>;
   /** Espèces remises par le client (pour le rendu monnaie). */
   cashGiven?: number;
@@ -56,6 +76,13 @@ export interface SaleInput {
    * rapide) : le prix fait foi au serveur (promotions comprises).
    */
   payMethod?: string;
+  /**
+   * Ticket venu d'une caisse reliée (EasyPay) : la vente a DÉJÀ eu lieu, le
+   * client est servi. Elle ne se refuse donc pas : prix de la caisse, stock
+   * insuffisant toléré (il tombe à 0, l'écart est signalé), et une journée
+   * déjà arrêtée reporte l'écriture au jour même (heure réelle gardée).
+   */
+  external?: { source: "easypay" };
 }
 
 type DeskLite = { _id: Types.ObjectId; name: string };
@@ -66,7 +93,7 @@ type ItemDoc = InstanceType<typeof ActivityItemModel>;
  * sortie pour un article du catalogue, le coût de l'article pour un article
  * propre. Trace dans le stock matière du comptoir.
  */
-async function stockOut(auth: TokenPayload, desk: DeskLite, item: ItemDoc, qty: number, number: string, date: Date, session?: ClientSession) {
+async function stockOut(auth: TokenPayload, desk: DeskLite, item: ItemDoc, qty: number, number: string, date: Date, session?: ClientSession, lenient = false) {
   const tenantId = auth.tenantId;
   let unitCost = item.unitCost || 0, stockMovementId: unknown, after: number;
   if (item.productId) {
@@ -74,13 +101,14 @@ async function stockOut(auth: TokenPayload, desk: DeskLite, item: ItemDoc, qty: 
     const r = await applyMovement({
       tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: "exit", quantity: qty,
       reason: `Ticket ${number}`, linkedDocType: "comptoir", linkedDocId: desk._id, linkedDocNumber: number,
+      ...(lenient ? { allowPartial: true } : {}),
     }, session);
     unitCost = Number(r.movement.unitCost) || 0;
     stockMovementId = r.movement._id;
     after = r.after;
   } else {
-    if (qty > (item.quantity || 0)) throw new BusinessRuleError(`Stock insuffisant pour ${item.name} (${item.quantity} ${item.unit}).`);
-    after = Math.round(((item.quantity || 0) - qty) * 1000) / 1000;
+    if (!lenient && qty > (item.quantity || 0)) throw new BusinessRuleError(`Stock insuffisant pour ${item.name} (${item.quantity} ${item.unit}).`);
+    after = Math.max(0, Math.round(((item.quantity || 0) - qty) * 1000) / 1000);
   }
   const [move] = await ActivityStockMoveModel.create([{
     tenantId, deskId: desk._id, itemId: item._id, type: "out", quantity: qty, quantityAfter: after,
@@ -102,14 +130,22 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
   const desk = await ActivityDeskModel.findOne({ _id: input.deskId, tenantId }).session(session ?? null)
     .lean<{ _id: Types.ObjectId; name: string; activityId?: unknown; treasuryAccountId?: unknown; revenueAccount?: string; vatRate?: number } | null>();
   if (!desk) throw new BusinessRuleError("Comptoir introuvable.");
-  const date = input.date ? new Date(input.date) : new Date();
+  const external = input.external?.source === "easypay" ? input.external : undefined;
+  let date = input.date ? new Date(input.date) : new Date();
   if (isNaN(date.getTime())) throw new BusinessRuleError("Date invalide.");
+  let occurredAt: Date | undefined;
+  if (external) {
+    // Vente servie un jour déjà arrêté (caisse restée hors connexion) : passée au premier jour ouvert.
+    const booked = await firstOpenDate(tenantId, desk._id, date, session);
+    if (booked !== date) { occurredAt = date; date = booked; }
+  }
   await assertDayOpen(tenantId, desk._id, date, session);
   if (!Array.isArray(input.lines) || input.lines.length === 0) throw new BusinessRuleError("Le ticket est vide.");
   if (input.lines.length > 100) throw new BusinessRuleError("Ticket trop long (100 lignes au plus).");
 
   // Caisse rapide hors connexion : le même ticket renvoyé n'est pas doublé.
   const clientRef = input.clientRef && /^[A-Za-z0-9_-]{8,64}$/.test(input.clientRef) ? input.clientRef : undefined;
+  if (external && !clientRef) throw new BusinessRuleError("Ticket EasyPay sans identifiant.");
   if (clientRef) {
     const existing = await ComptoirSaleModel.findOne({ tenantId, deskId: desk._id, clientRef }).session(session ?? null);
     if (existing) return { sale: existing, warnings: [] as string[], duplicate: true };
@@ -143,22 +179,38 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
     // stock ; le coût de la ligne est leur somme. Sinon, l'article lui-même.
     let unitCost: number, stockMovementId: Types.ObjectId | undefined, moveId: Types.ObjectId | undefined, after: number | null = null;
     const ingredients: NonNullable<ISaleLine["ingredients"]> = [];
-    if (item.recipe?.length) {
+    const parts = raw.components?.length ? raw.components : item.recipe;
+    if (parts?.length) {
       let total = 0;
-      for (const r of item.recipe) {
+      for (const r of parts) {
         const ing = await ActivityItemModel.findOne({ _id: r.itemId, tenantId, deskId: desk._id }).session(session ?? null);
         if (!ing) throw new BusinessRuleError(`Ingrédient introuvable dans la recette de ${item.name}.`);
-        const q = Math.round(r.quantity * qty * 1000) / 1000;
+        const q = Math.round(Number(r.quantity) * qty * 1000) / 1000;
         if (!(q > 0)) continue;
-        const o = await stockOut(auth, desk, ing, q, number, date, session);
+        // Un composant qui a lui-même une recette sort ses ingrédients (plat d'une formule).
+        if (ing.recipe?.length) {
+          for (const g of ing.recipe) {
+            const sub = await ActivityItemModel.findOne({ _id: g.itemId, tenantId, deskId: desk._id }).session(session ?? null);
+            if (!sub) throw new BusinessRuleError(`Ingrédient introuvable dans la recette de ${ing.name}.`);
+            const sq = Math.round(g.quantity * q * 1000) / 1000;
+            if (!(sq > 0)) continue;
+            const so = await stockOut(auth, desk, sub, sq, number, date, session, !!external);
+            total += so.unitCost * sq;
+            ingredients.push({ itemId: sub._id, quantity: sq, unitCost: so.unitCost, stockMovementId: so.stockMovementId, stockMoveId: so.moveId });
+          }
+          continue;
+        }
+        const o = await stockOut(auth, desk, ing, q, number, date, session, !!external);
         total += o.unitCost * q;
         ingredients.push({ itemId: ing._id, quantity: q, unitCost: o.unitCost, stockMovementId: o.stockMovementId, stockMoveId: o.moveId });
         if (ing.threshold != null && o.after <= ing.threshold) warnings.push(`${ing.name} : stock bas (${o.after} ${ing.unit}).`);
       }
       unitCost = Math.round((total / qty) * 100) / 100;
     } else {
-      const o = await stockOut(auth, desk, item, qty, number, date, session);
+      const before = item.quantity || 0;
+      const o = await stockOut(auth, desk, item, qty, number, date, session, !!external);
       unitCost = o.unitCost; stockMovementId = o.stockMovementId; moveId = o.moveId; after = o.after;
+      if (external && !item.productId && qty > before) warnings.push(`${item.name} : vendu ${qty} pour ${before} en stock dans Kanoo (stock ramené à 0).`);
     }
 
     const line = saleLine({ quantity: qty, unitPriceTTC: price, discount: Number(raw.discount) || 0, tvaRate, unitCost } as SaleLineInput);
@@ -183,7 +235,7 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
 
   // Paiements : leur somme fait le total du ticket (le rendu monnaie est à part).
   const payments = (Array.isArray(input.payments) && input.payments.length ? input.payments : [{ method: input.payMethod || "cash", amount: totalTTC }])
-    .map(p => ({ method: (SALE_METHODS as readonly string[]).includes(p.method) ? p.method : "other", amount: Math.round(Number(p.amount) || 0) }))
+    .map(p => ({ method: (SALE_METHODS as readonly string[]).includes(p.method) && (p.method !== "easypay" || external) ? p.method : "other", amount: Math.round(Number(p.amount) || 0) }))
     .filter(p => p.amount > 0);
   const paid = payments.reduce((t, p) => t + p.amount, 0);
   if (paid !== totalTTC) throw new BusinessRuleError(`Les paiements (${paid.toLocaleString("fr-FR")}) doivent égaler le total du ticket (${totalTTC.toLocaleString("fr-FR")} FCFA).`);
@@ -207,12 +259,13 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
   const changeGiven = input.cashGiven && input.cashGiven > cashDue ? Math.round(input.cashGiven - cashDue) : 0;
 
   const withAccounts = [] as Array<{ method: string; amount: number; treasuryAccountId?: unknown }>;
-  for (const p of payments) withAccounts.push({ ...p, ...(desk.treasuryAccountId && p.method !== "credit" ? { treasuryAccountId: await accountForMethod(tenantId, desk.treasuryAccountId, p.method, session) } : {}) });
+  for (const p of payments) withAccounts.push({ ...p, ...(desk.treasuryAccountId && !NOT_IN_DRAWER.includes(p.method) ? { treasuryAccountId: await accountForMethod(tenantId, desk.treasuryAccountId, p.method, session) } : {}) });
 
   const [sale] = await ComptoirSaleModel.create([{
     tenantId, deskId: desk._id, number, date, lines, totalTTC, totalHT, totalTVA, costTotal, marginHT,
     payments: withAccounts, changeGiven, customerName: customer?.name ?? (input.customerName ? String(input.customerName).slice(0, 120) : undefined),
     ...(customer ? { customerId: customer._id } : {}), ...(clientRef ? { clientRef } : {}),
+    ...(external ? { source: external.source } : {}), ...(occurredAt ? { occurredAt } : {}),
     cashierId: auth.userId,
   }], { session });
   if (customer) {
@@ -221,7 +274,7 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
 
   // Encaissements de la caisse du comptoir (un par moyen) : ils alimentent
   // l'onglet Caisse et l'arrêté ; la comptabilité vient du ticket.
-  for (const p of withAccounts.filter(x => x.method !== "credit")) {
+  for (const p of withAccounts.filter(x => !NOT_IN_DRAWER.includes(x.method))) {
     await ActivityCashEntryModel.create([{
       tenantId, deskId: desk._id, direction: "in", amount: p.amount, label: `Ticket ${number}`,
       method: p.method, date, saleId: sale._id, createdBy: auth.userId,
@@ -238,6 +291,12 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
       if (p.method === "credit") {
         await registerLedgerAccount(tenantId, CREDIT_ACCOUNT.accountCode, CREDIT_ACCOUNT.accountLabel, session);
         debit.push({ ...CREDIT_ACCOUNT, debit: p.amount, credit: 0 });
+        continue;
+      }
+      // Payé sur le solde de la carte EasyPay : Numatech, qui détient l'argent des cartes, le doit au comptoir.
+      if (p.method === "easypay") {
+        await registerLedgerAccount(tenantId, EASYPAY_ACCOUNT.accountCode, EASYPAY_ACCOUNT.accountLabel, session);
+        debit.push({ ...EASYPAY_ACCOUNT, debit: p.amount, credit: 0 });
         continue;
       }
       const ledger = await treasuryLedger(tenantId, p.treasuryAccountId, session);

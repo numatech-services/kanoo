@@ -60,9 +60,9 @@ export async function periodReport(tenantId: string, deskId: unknown, fromDay: s
       { $sort: { _id: 1 } },
     ]),
     productSales(tenantId, deskId, fromDay, toDay),
-    ComptoirSaleModel.aggregate<{ total: number }>([
-      { $match: { tenantId: tid, deskId: did, status: "paid", date: range } }, { $unwind: "$payments" }, { $match: { "payments.method": "credit" } },
-      { $group: { _id: null, total: { $sum: "$payments.amount" } } },
+    ComptoirSaleModel.aggregate<{ _id: string; total: number }>([
+      { $match: { tenantId: tid, deskId: did, status: "paid", date: range } }, { $unwind: "$payments" }, { $match: { "payments.method": { $in: ["credit", "easypay"] } } },
+      { $group: { _id: "$payments.method", total: { $sum: "$payments.amount" } } },
     ]),
     lossesReport(tenantId, deskId, fromDay, toDay),
   ]);
@@ -84,11 +84,15 @@ export async function periodReport(tenantId: string, deskId: unknown, fromDay: s
       markupRate: s.ht > 0 ? Math.round((s.margin / s.ht) * 1000) / 10 : null },
     receipts, expenses, balance: receipts - expenses,
     // Ardoises : vendu à crédit (dans le CA, pas dans les recettes) et réglé.
-    creditSales: credit[0]?.total ?? 0,
+    creditSales: credit.find(c => c._id === "credit")?.total ?? 0,
+    // Cartes EasyPay : vendu sur le solde des cartes (dû par Numatech) ; recharges
+    // encaissées en espèces (dans le tiroir, mais dues à Numatech, pas des recettes).
+    easypaySales: credit.find(c => c._id === "easypay")?.total ?? 0,
+    easypayTopups: sum(e => e._id.d === "in" && e._id.c === "easypay_topup"),
     creditSettled: sum(e => e._id.d === "in" && e._id.k),
     shrinkage: { total: losses.total, byReason: losses.byReason },
     netMargin: Math.round(s.margin) - losses.total,
-    otherReceipts: sum(e => e._id.d === "in" && !e._id.t && !e._id.k),
+    otherReceipts: sum(e => e._id.d === "in" && !e._id.t && !e._id.k && e._id.c !== "easypay_topup"),
     byMethod: methods, expensesByCategory: cats,
     openingFloat, expectedCash: openingFloat + (cash?.receipts ?? 0) - (cash?.expenses ?? 0),
     byDay: byDay.map(d => ({ day: d._id, revenueTTC: d.ttc, margin: Math.round(d.margin), tickets: d.n })),

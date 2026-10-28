@@ -55,7 +55,9 @@ const AccountingEntrySchema = new Schema<IAccountingEntry>(
         // Droits d'enregistrement et timbres d'un marché (lib/registration-server).
         "registration",
         // Tickets de caisse et arrêtés de caisse des comptoirs.
-        "comptoir_sale", "cash_closing"],
+        "comptoir_sale", "cash_closing",
+        // Reversements entre Numatech et le comptoir (cartes EasyPay, compte 467100).
+        "easypay_remittance"],
     },
     /** Extourne : l'écriture qui annule celle-ci, et inversement. */
     reversedBy: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },

@@ -34,7 +34,7 @@ export interface ISaleLine {
   listPrice?: number;
   promoId?: Types.ObjectId;
   promoName?: string;
-  /** Préparation : ingrédients sortis du stock (fiche recette). */
+  /** Préparation : ingrédients sortis du stock (fiche recette), ou composants d'une formule EasyPay. */
   ingredients?: Array<{ itemId: Types.ObjectId; quantity: number; unitCost: number; stockMovementId?: Types.ObjectId; stockMoveId?: Types.ObjectId }>;
 }
 
@@ -91,6 +91,10 @@ const ComptoirSaleSchema = new Schema({
    * renvoyé deux fois n'est enregistré qu'une fois.
    */
   clientRef: { type: String, maxlength: 64 },
+  /** Ticket venu d'une caisse reliée (« easypay ») ; clientRef porte alors son id. */
+  source: { type: String, maxlength: 30 },
+  /** Heure réelle de la vente, quand le ticket est passé un autre jour (journée déjà arrêtée). */
+  occurredAt: Date,
   status: { type: String, enum: ["paid", "cancelled"], default: "paid", index: true },
   cancelledAt: Date,
   cancelReason: String,

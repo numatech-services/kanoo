@@ -36,6 +36,8 @@ export interface IActivityItem {
    */
   recipe?: Array<{ itemId: Types.ObjectId; quantity: number }>;
   archived: boolean;
+  /** Identifiant de l'article dans EasyPay (caisse reliée), pour relier les ventes reçues. */
+  easypayId?: string;
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -60,9 +62,11 @@ const ActivityItemSchema = new Schema<IActivityItem>({
     cost: { type: Number, min: 0 },
   },
   archived: { type: Boolean, default: false },
+  easypayId: { type: String, maxlength: 64, trim: true },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: true });
 
 ActivityItemSchema.index({ tenantId: 1, deskId: 1, name: 1 });
+ActivityItemSchema.index({ tenantId: 1, deskId: 1, easypayId: 1 }, { unique: true, partialFilterExpression: { easypayId: { $type: "string" } } });
 
 export const ActivityItemModel = models.ActivityItem || model<IActivityItem>("ActivityItem", ActivityItemSchema);

@@ -14,7 +14,7 @@ import { bestPromoPrice, type Promo } from "@/lib/spot";
 
 const MONEY = (n: number) => `${Number(n || 0).toLocaleString("fr-FR")} FCFA`;
 export const SALE_METHOD_LABEL: Record<string, string> = {
-  cash: "Espèces", orange_money: "OM / Moov / Airtel", card: "Carte", bank_transfer: "Virement", check: "Chèque", other: "Autre", credit: "Ardoise (crédit)",
+  cash: "Espèces", orange_money: "OM / Moov / Airtel", card: "Carte", bank_transfer: "Virement", check: "Chèque", other: "Autre", credit: "Ardoise (crédit)", easypay: "Carte EasyPay",
 };
 const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const h = (v: unknown) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
