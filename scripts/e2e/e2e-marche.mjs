@@ -89,7 +89,8 @@ const id = r => D(r)?._id;
   check("matières 400 000 réalisées + 50 000 engagées (commande)", cat.materials?.actual === 400000 && cat.materials?.committed === 50000, J(cat.materials));
   check("transport 25 000 engagé (achat en brouillon)", cat.transport?.committed === 25000, J(cat.transport));
   check("reste à payer fournisseur : 476 000 TTC", f.costs?.supplierDueTTC === 476000, J(f.costs?.supplierDueTTC));
-  check("marge à terminaison = 1 000 000 − 430 000 − 75 000", f.margin?.atCompletion === 495000, J(f.margin));
+  // + 20 000 engagés : droit d'enregistrement du contrat privé (2 % HT, CGI art. 470-5).
+  check("marge à terminaison = 1 000 000 − 430 000 − 75 000 − 20 000 (enregistrement)", f.margin?.atCompletion === 475000 && f.registration?.estimate === 20000, J({ m: f.margin, r: f.registration }));
 
   console.log("\n▶ Solde avec déduction de l'acompte");
   const sol = await g.req("POST", `/api/contracts/${mc}/invoice`, { milestoneId: ct.milestones[1]._id });

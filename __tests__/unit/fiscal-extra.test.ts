@@ -8,7 +8,7 @@
  */
 
 import {
-  calculerDTS,
+  calculerDTS, timbreQuittanceDu,
   SEUILS_MARCHES,
   determineProcedureMarche,
   getExerciceFiscal,
@@ -25,27 +25,18 @@ import {
   DEFAULT_PREFIXES,
 } from "@/lib/niger-fiscal";
 
-// ─── Droits de Timbre sur Factures (DTS) ─────────────────────────────────────
-describe("Droits de timbre (DTS) — tranches forfaitaires", () => {
-  test("Factures < 10 000 XOF : exonérées", () => {
-    expect(calculerDTS(0)).toBe(0);
-    expect(calculerDTS(9_999)).toBe(0);
+// ─── Timbre (CGI 2026, art. 560) ─────────────────────────────────────────────
+describe("Timbre : plus de droit sur la facture, timbre-quittance à l'encaissement", () => {
+  test("aucun droit de timbre ajouté au TTC d'une facture", () => {
+    for (const m of [0, 9_999, 50_000, 1_000_000, 50_000_000]) expect(calculerDTS(m)).toBe(0);
   });
-  test("De 10 000 à 99 999 XOF : 200 XOF", () => {
-    expect(calculerDTS(10_000)).toBe(200);
-    expect(calculerDTS(99_999)).toBe(200);
+  test("timbre-quittance de 200 FCFA sur un paiement en espèces d'au moins 5 000 FCFA", () => {
+    expect(timbreQuittanceDu({ cash: true, montantTTC: 5_000 })).toBe(200);
+    expect(timbreQuittanceDu({ cash: true, montantTTC: 4_999 })).toBe(0);
   });
-  test("De 100 000 à 499 999 XOF : 500 XOF", () => {
-    expect(calculerDTS(100_000)).toBe(500);
-    expect(calculerDTS(499_999)).toBe(500);
-  });
-  test("De 500 000 à 999 999 XOF : 1 000 XOF", () => {
-    expect(calculerDTS(500_000)).toBe(1_000);
-    expect(calculerDTS(999_999)).toBe(1_000);
-  });
-  test("À partir de 1 000 000 XOF : 2 000 XOF", () => {
-    expect(calculerDTS(1_000_000)).toBe(2_000);
-    expect(calculerDTS(50_000_000)).toBe(2_000);
+  test("exonérés : paiement scriptural, client public", () => {
+    expect(timbreQuittanceDu({ cash: false, montantTTC: 1_000_000 })).toBe(0);
+    expect(timbreQuittanceDu({ cash: true, montantTTC: 1_000_000, clientPublic: true })).toBe(0);
   });
 });
 

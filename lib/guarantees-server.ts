@@ -64,16 +64,18 @@ export async function createGuarantee(actor: Actor, input: GuaranteeInput, opts:
   if ((fee || collateral) && !opts.canPost) throw new BusinessRuleError("Commission et dépôt passent en comptabilité : réservé au gérant et à la comptabilité.");
 
   let beneficiary = String(input.beneficiary ?? "").trim();
-  let appelId: Types.ObjectId | undefined, contractId: Types.ObjectId | undefined;
+  let appelId: Types.ObjectId | undefined, contractId: Types.ObjectId | undefined, marketProjectId: Types.ObjectId | undefined;
   if (input.appelId) {
     const a = Types.ObjectId.isValid(String(input.appelId)) ? await AppelCandidatureModel.findOne({ _id: input.appelId, tenantId: tid }).select("organism").session(session ?? null).lean<{ _id: Types.ObjectId; organism?: string } | null>() : null;
     if (!a) throw new BusinessRuleError("Appel d'offres introuvable.");
     appelId = a._id; beneficiary ||= a.organism ?? "";
   }
   if (input.contractId) {
-    const c = Types.ObjectId.isValid(String(input.contractId)) ? await ContractModel.findOne({ _id: input.contractId, tenantId: tid }).select("clientId").populate("clientId", "name").session(session ?? null).lean<{ _id: Types.ObjectId; clientId?: { name?: string } } | null>() : null;
+    const c = Types.ObjectId.isValid(String(input.contractId)) ? await ContractModel.findOne({ _id: input.contractId, tenantId: tid }).select("clientId projectId").populate("clientId", "name").session(session ?? null).lean<{ _id: Types.ObjectId; clientId?: { name?: string }; projectId?: Types.ObjectId } | null>() : null;
     if (!c) throw new BusinessRuleError("Marché introuvable.");
     contractId = c._id; beneficiary ||= c.clientId?.name ?? "";
+    // Commission de la caution : charge DU MARCHÉ (elle n'entrait pas dans sa marge).
+    marketProjectId = c.projectId;
   }
   if (!beneficiary) throw new BusinessRuleError("Indiquez le bénéficiaire (maître d'ouvrage).");
   let treasuryAccountId: Types.ObjectId | undefined;
@@ -90,7 +92,7 @@ export async function createGuarantee(actor: Actor, input: GuaranteeInput, opts:
   }], { session });
   const what = `${GUARANTEE_TYPES[type]} — ${g.beneficiary}`;
   if (fee) {
-    g.feeEntryId = await post(actor, g, { date: issueDate, label: `Commission ${what}`, lines: [{ ...GUARANTEE_FEE_ACCOUNT, debit: fee, credit: 0 }, BANK(0, fee)], cash: -fee }, session);
+    g.feeEntryId = await post(actor, g, { date: issueDate, label: `Commission ${what}`, lines: [{ ...GUARANTEE_FEE_ACCOUNT, debit: fee, credit: 0, ...(marketProjectId ? { projectId: marketProjectId } : {}) }, BANK(0, fee)], cash: -fee }, session);
   }
   if (collateral) {
     await registerLedgerAccount(actor.tenantId, GUARANTEE_DEPOSIT_ACCOUNT.accountCode, GUARANTEE_DEPOSIT_ACCOUNT.accountLabel, session);

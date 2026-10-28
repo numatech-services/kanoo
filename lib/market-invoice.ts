@@ -16,7 +16,7 @@ type Milestone = { _id: Types.ObjectId; label: string; amount: number; dueDate?:
 export type MarketContract = {
   _id: Types.ObjectId; reference: string; title: string; type: string; status: string; amount: number;
   clientId?: unknown; projectId?: unknown; devisId?: unknown; invoiceIds: unknown[]; milestones: Milestone[];
-  lastBilledDate?: Date; retentionRate?: number;
+  lastBilledDate?: Date; retentionRate?: number; tvaRate?: number;
   save: (o?: { session?: ClientSession }) => Promise<unknown>;
   markModified: (p: string) => void;
 };
@@ -42,8 +42,14 @@ export async function marketBilling(tenantId: string, contractId: unknown, sessi
     .sort({ issueDate: 1, createdAt: 1 }).session(session ?? null)
     .lean<Array<{ _id: Types.ObjectId; number: string; kind?: string; totalHT: number; depositUsedHT?: number; lines: Array<{ totalHT: number; tvaRate?: number; kind?: string }> }>>();
   const deposits = invoices.filter(i => i.kind === "deposit");
+  // Avoirs PARTIELS sur les factures de travaux : retranchés, comme dans la
+  // situation du marché (sinon la fiche affichait un reste à facturer que
+  // la facturation refusait ensuite).
+  const credits = await InvoiceModel.find({ tenantId, documentType: "credit_note", originalInvoiceId: { $in: invoices.filter(i => i.kind !== "deposit").map(i => i._id) } })
+    .select("totalHT").session(session ?? null).lean<Array<{ totalHT: number }>>();
   const workHT = invoices.filter(i => i.kind !== "deposit")
-    .reduce((t, i) => t + i.lines.filter(l => l.kind !== "deposit_deduction").reduce((u, l) => u + l.totalHT, 0), 0);
+    .reduce((t, i) => t + i.lines.filter(l => l.kind !== "deposit_deduction").reduce((u, l) => u + l.totalHT, 0), 0)
+    - credits.reduce((t, c) => t + (c.totalHT || 0), 0);
   const available = deposits.map(d => ({ _id: d._id, number: d.number, rate: d.lines[0]?.tvaRate ?? TVA_TAUX_STANDARD, free: d.totalHT - (d.depositUsedHT ?? 0) }))
     .filter(d => d.free > 0);
   return { workHT, depositsHT: deposits.reduce((t, d) => t + d.totalHT, 0), available, availableHT: available.reduce((t, d) => t + d.free, 0) };
@@ -100,13 +106,21 @@ export async function invoiceMarket(auth: TokenPayload, contract: MarketContract
   if (amountHT > ceiling) {
     throw new MarketError(`Le montant dépasse le reste à facturer du marché (${Math.max(0, ceiling).toLocaleString("fr-FR")} FCFA HT).`);
   }
-  const tvaRate = input.tvaRate !== undefined && input.tvaRate !== "" ? Number(input.tvaRate) : TVA_TAUX_STANDARD;
+  // Taux du marché (repris du devis : un marché exonéré le reste), sinon le taux normal.
+  const tvaRate = input.tvaRate !== undefined && input.tvaRate !== "" ? Number(input.tvaRate) : (contract.tvaRate ?? TVA_TAUX_STANDARD);
   if (!(tvaRate >= 0 && tvaRate < 1)) throw new MarketError("Taux de TVA invalide.");
 
   const raw: InvoiceLineIn[] = [{
     description: description || (mode === "deposit" ? `Acompte — ${contract.title} (${contract.reference})` : `${contract.title} — ${contract.reference}`),
     quantity: 1, unitPrice: amountHT, tvaRate, discount: 0,
   }];
+  // Hors échéancier : l'acompte se rembourse AU PRORATA des travaux facturés
+  // (la dernière facture solde le reste). Il était déduit en totalité sur la
+  // première situation, qui pouvait tomber à 0 FCFA.
+  if (depositShare === null && deducting && outstanding > 0) {
+    const remainingWork = Math.max(1, contract.amount - billing.workHT);
+    depositShare = amountHT >= remainingWork ? outstanding : Math.min(outstanding, Math.round(outstanding * amountHT / remainingWork));
+  }
   // Déduction des acomptes, du plus ancien au plus récent, dans la limite du montant facturé.
   const used: Array<{ _id: Types.ObjectId; amount: number }> = [];
   if (deducting) {
@@ -122,7 +136,8 @@ export async function invoiceMarket(auth: TokenPayload, contract: MarketContract
   const { lines, totalHT, totalTVA, totalDTS, totalTTC } = computeInvoiceLines(raw, { allowDeduction: true });
   // Retenue de garantie du marché, sur le TTC de chaque facture de travaux.
   const retentionRate = contract.retentionRate ?? 0;
-  const retentionAmount = retentionFor(totalTTC, retentionRate, mode);
+  // Base de la retenue : HT + TVA, jamais le timbre (forfait fiscal).
+  const retentionAmount = retentionFor(totalTTC - (totalDTS || 0), retentionRate, mode);
   if (retentionAmount > 0) await registerLedgerAccount(auth.tenantId, RETENTION_ACCOUNT.accountCode, RETENTION_ACCOUNT.accountLabel, session);
 
   const issueDate = input.issueDate ? new Date(String(input.issueDate)) : new Date();
@@ -166,9 +181,23 @@ export async function invoiceMarket(auth: TokenPayload, contract: MarketContract
  */
 export async function releaseMarketInvoice(
   tenantId: string,
-  inv: { contractId?: unknown; milestoneId?: unknown; lines: Array<{ kind?: string; depositInvoiceId?: unknown; totalHT: number }> },
+  inv: { _id?: unknown; contractId?: unknown; milestoneId?: unknown; lines: Array<{ kind?: string; depositInvoiceId?: unknown; totalHT: number }> },
   session?: ClientSession,
 ) {
+  // Lot de marché-cadre facturé par cette facture : il redevient « livré » et
+  // refacturable, la quantité facturée du marché diminue d'autant. Sans cela,
+  // un avoir total ou une annulation bloquaient le lot à jamais.
+  if (inv._id) {
+    const { DeliveryLotModel } = await import("@/models/DeliveryLot");
+    const { FrameworkOrderModel } = await import("@/models/FrameworkOrder");
+    const lots = await DeliveryLotModel.find({ tenantId, invoiceId: inv._id, status: "invoiced" }).session(session ?? null)
+      .lean<Array<{ _id: unknown; frameworkOrderId: unknown; quantity: number }>>();
+    for (const lot of lots) {
+      await DeliveryLotModel.updateOne({ _id: lot._id }, { $set: { status: "delivered" }, $unset: { invoiceId: 1 } }, { session });
+      await FrameworkOrderModel.updateOne({ _id: lot.frameworkOrderId, tenantId }, { $inc: { invoicedQuantity: -lot.quantity } }, { session });
+      await FrameworkOrderModel.updateOne({ _id: lot.frameworkOrderId, tenantId, status: "completed" }, { $set: { status: "active" } }, { session });
+    }
+  }
   for (const l of inv.lines.filter(x => x.kind === "deposit_deduction")) {
     await InvoiceModel.updateOne({ _id: l.depositInvoiceId, tenantId }, { $inc: { depositUsedHT: l.totalHT } }, { session });
   }

@@ -76,6 +76,47 @@ const ContractSchema = new Schema({
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   }],
 
+  // ── Enregistrement et timbres (CGI art. 470, 471, 481, 548, 584) ─────────
+  /** Nature de l'acheteur : commande publique (5 %) ou contrat privé (2 %). Voir lib/registration. */
+  buyerType: { type: String, enum: ["state", "local_authority", "public_establishment", "sem", "project", "state_funded", "private", "ngo"] },
+  /** Nature de l'acte : marché, bon de commande, délégation de service public, PPP, contrat. */
+  instrument: { type: String, enum: ["market", "purchase_order", "dsp", "ppp", "private_contract"], default: "market" },
+  /** Approbation du marché : point de départ du délai d'enregistrement d'un mois. */
+  approvalDate: Date,
+  /** Contrat de sous-traitance prévu au marché principal (droit fixe de 50 000 FCFA). */
+  isSubcontract: { type: Boolean, default: false },
+  parentContractId: { type: Schema.Types.ObjectId, ref: "Contract" },
+  /** Pages de l'acte (timbre de dimension d'un petit bon de commande). */
+  pages: { type: Number, min: 1, max: 500 },
+  /** Financement : budget de l'État, bailleur extérieur, ressources propres. */
+  fundingSource: { type: String, enum: ["state_budget", "external", "own"] },
+  /** Taux de TVA du marché (repris du devis) ; 0 pour un marché exonéré. */
+  tvaRate: { type: Number, min: 0, max: 0.99 },
+  /**
+   * Droits constatés et payés. Le droit est une charge du marché : il entre
+   * dans sa marge (catégorie « Enregistrement, impôts et taxes »).
+   */
+  registration: {
+    kind: String,
+    article: String,
+    duty: { type: Number, default: 0 },
+    stamp: { type: Number, default: 0 },
+    receptionStamp: { type: Number, default: 0 },
+    /** Total constaté (droit + timbres), dette envers l'État (447300). */
+    assessed: { type: Number, default: 0 },
+    paid: { type: Number, default: 0 },
+    dueDate: Date,
+    assessedAt: Date,
+    entryIds: [{ type: Schema.Types.ObjectId, ref: "AccountingEntry" }],
+    payments: [{
+      _id: false, date: Date, amount: Number, treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount" },
+      entryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" }, movementId: { type: Schema.Types.ObjectId, ref: "TreasuryMovement" },
+    }],
+    /** Quittance de la recette des impôts. */
+    number: String,
+    date: Date,
+  },
+
   // Factures liées
   invoiceIds: [{ type: Schema.Types.ObjectId, ref: "Invoice" }],
   milestones: [MilestoneSchema],
@@ -95,14 +136,16 @@ ContractSchema.index({ tenantId: 1, status: 1 });
 ContractSchema.index({ tenantId: 1, clientId: 1 });
 ContractSchema.index({ tenantId: 1, isRecurring: 1, nextBillingDate: 1 });
 
-// Génération de la référence automatique
-ContractSchema.pre("save", async function (next) {
+// Référence automatique : série « contrat » de l'organisation (compteur annuel
+// atomique, préfixe paramétrable). Elle était « nombre de contrats + 1 » :
+// doublons en cas de créations simultanées, compteur jamais remis à zéro.
+// (Pas d'index unique : des doublons hérités de l'ancien calcul en
+// empêcheraient la création en production.)
+ContractSchema.pre("save", async function () {
   if (!this.reference) {
-    const year = new Date().getFullYear();
-    const count = await (this.constructor as typeof ContractModel).countDocuments({ tenantId: this.tenantId });
-    this.reference = `CTR-${year}-${String(count + 1).padStart(4, "0")}`;
+    const { nextDocumentNumber } = await import("@/lib/numbering");
+    this.reference = await nextDocumentNumber(String(this.tenantId), "contract", { session: this.$session() ?? undefined });
   }
-  next();
 });
 
 export const ContractModel = models.Contract || model("Contract", ContractSchema);

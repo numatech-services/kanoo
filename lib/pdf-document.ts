@@ -241,6 +241,8 @@ export interface InvoiceForPdf {
   /** Avoir : facture qu'il annule ou réduit, et motif (mentions obligatoires). */
   originalInvoiceId?: { number?: string; issueDate?: Date | string } | null;
   creditReason?: string;
+  /** Marché : référence et enregistrement (quittance), imprimés en en-tête. */
+  contractId?: { reference?: string; registration?: { number?: string; date?: Date | string } } | null;
   /** Retenue de garantie du marché, gardée par le client jusqu'à la réception définitive. */
   retentionAmount?: number; retentionRate?: number;
   clientId?: { name?: string; nif?: string; rccm?: string; code?: string; address?: string; phone?: string } | null;
@@ -280,6 +282,7 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
         // Un avoir sans référence à la facture d'origine est inopposable.
         ...(isCredit && inv.originalInvoiceId?.number ? [["Sur facture", `${inv.originalInvoiceId.number}${inv.originalInvoiceId.issueDate ? ` du ${new Date(inv.originalInvoiceId.issueDate).toLocaleDateString("fr-FR")}` : ""}`] as [string, string]] : []),
         ...(!isCredit && inv.dueDate ? [["Échéance", new Date(inv.dueDate).toLocaleDateString("fr-FR")] as [string, string]] : []),
+        ...(inv.contractId?.reference ? [["Marché", `${inv.contractId.reference}${inv.contractId.registration?.number ? ` — enregistré n° ${inv.contractId.registration.number}${inv.contractId.registration.date ? ` du ${new Date(inv.contractId.registration.date).toLocaleDateString("fr-FR")}` : ""}` : ""}`] as [string, string]] : []),
         ["Statut", STATUS_FR[inv.status || ""] || inv.status || "—"],
       ],
     }, inv.clientId || undefined);

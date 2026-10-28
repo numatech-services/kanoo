@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, created, badRequest, conflict, paginatedResponse, getPagination, tenantFilter, requireFields, escapeRegex } from "@/lib/api-helpers";
-import { ClientModel } from "@/models/Client";
+import { ClientModel, CLIENT_PROTECTED } from "@/models/Client";
 import { InvoiceModel } from "@/models/Invoice";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -83,6 +83,7 @@ export const POST = withAuth("clients", "create", async (req: NextRequest, auth:
   const existing = await ClientModel.findOne({ tenantId: auth.tenantId, code: body.code });
   if (existing) return conflict(`Un client avec le code '${body.code}' existe déjà`);
 
+  for (const k of CLIENT_PROTECTED) delete body[k];
   const client = await ClientModel.create({
     ...body,
     tenantId: auth.tenantId,

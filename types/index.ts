@@ -202,6 +202,8 @@ export interface IUser {
 // ─── PME Types ────────────────────────────────────────────────────────────────
 
 export interface IClient {
+  /** Nature du client (acheteur public ou privé), voir lib/registration. */
+  buyerType?: string;
   portalTokenHash?: string;
   portalTokenEnc?: string;
   portalLinkAt?: Date;

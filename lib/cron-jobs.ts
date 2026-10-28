@@ -1,3 +1,4 @@
+import { registrationDueDate } from "@/lib/registration";
 import { UserModel } from "@/models/User";
 import { InvoiceModel } from "@/models/Invoice";
 import { ProductModel } from "@/models/Product";
@@ -296,6 +297,35 @@ export const CRON_JOBS: CronJob[] = [
         }
       }
       return `${sent} rappel(s) de retenue`;
+    },
+  },
+  {
+    id: "registration-due", label: "Droits d'enregistrement des marchés",
+    cadence: "daily", schedule: "58 7 * * *",
+    run: async () => {
+      // Délai d'un mois après l'approbation (CGI art. 481) : rappel à J-7, J-1
+      // et le lendemain de l'échéance, tant que les droits ne sont pas payés.
+      const now = new Date();
+      const list = await ContractModel.find({
+        type: "client", status: { $in: ["active", "renewed"] }, amount: { $gt: 0 },
+        $or: [{ approvalDate: { $exists: true } }, { "registration.assessedAt": { $exists: true } }],
+      }).select("tenantId reference approvalDate signedDate registration")
+        .lean<Array<{ _id: Id; tenantId: Id; reference: string; approvalDate?: Date; signedDate?: Date; registration?: { assessedAt?: Date; assessed?: number; paid?: number; dueDate?: Date } }>>();
+      let sent = 0;
+      for (const c of list) {
+        const due = c.registration?.dueDate ?? registrationDueDate(c.approvalDate, c.signedDate);
+        if (!due) continue;
+        const paid = c.registration?.assessedAt && (c.registration.paid ?? 0) >= (c.registration.assessed ?? 0);
+        if (paid) continue;
+        const d = daysUntil(due, now);
+        if (![7, 1, -1].includes(d)) continue;
+        for (const admin of await getAdmins(c.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "svc_compta"])) {
+          await notify(c.tenantId, admin._id, "registration_due", d < 0 ? "Enregistrement du marché en retard" : "Enregistrement du marché à faire",
+            `Marché ${c.reference} : droits d'enregistrement à payer ${d < 0 ? "depuis le" : "avant le"} ${new Date(due).toLocaleDateString("fr-FR")}.`, "contracts", c._id);
+          sent++;
+        }
+      }
+      return `${sent} rappel(s) d'enregistrement`;
     },
   },
   {

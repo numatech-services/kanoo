@@ -65,7 +65,7 @@ export default function TenderDetailPage() {
     patch({ commissionMemberIds: next }, "Commission mise à jour");
   }
 
-  async function patch(updates: Partial<Tender>, msg = "Marché mis à jour") {
+  async function patch(updates: Partial<Tender> & { winnerBidId?: string }, msg = "Marché mis à jour") {
     setLoading(true);
     try {
       const res = await apiSend("PATCH", `/api/marches/${id}`, updates);
@@ -94,7 +94,7 @@ export default function TenderDetailPage() {
   function attribute() {
     const bid = (tender!.bids || []).find((b) => (b._id || "") === winnerBidId);
     if (!bid) return toast.error("Sélectionnez le soumissionnaire retenu.");
-    patch({ status: "attributed", winnerName: bid.bidderName, winnerAmount: bid.amount, attributionDate: new Date().toISOString() }, "Marché attribué");
+    patch({ status: "attributed", winnerBidId: bid._id, winnerName: bid.bidderName, winnerAmount: bid.amount, attributionDate: new Date().toISOString() }, "Marché attribué");
   }
 
   async function createEngagement() {

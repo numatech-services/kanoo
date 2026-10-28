@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill } from "@/components/ui/Primitives";
 import { RetentionPanel } from "@/components/contracts/RetentionPanel";
+import { RegistrationPanel } from "@/components/contracts/RegistrationPanel";
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 import { ImputedFlows } from "@/components/shared/ImputedFlows";
 import { useMe, meCanDo } from "@/lib/useMe";
@@ -33,6 +34,7 @@ interface Contract {
   clientId?: { name?: string } | null; projectId?: { _id: string; code: string; name: string } | null; devisId?: { _id: string; number: string } | null;
   milestones?: Milestone[];
   retentionRate?: number; receptionProvisoireDate?: string; receptionDefinitiveDate?: string; guaranteeMonths?: number;
+  buyerType?: string; instrument?: string; approvalDate?: string; pages?: number; isSubcontract?: boolean; tvaRate?: number;
 }
 
 export default function ContractDetailPage() {
@@ -170,6 +172,8 @@ export default function ContractDetailPage() {
         </section>
       )}
 
+      {isMarket && canInvoice && <RegistrationPanel contractId={id} settings={contract} canEdit={canEdit} onChange={load} />}
+
       {isMarket && <RetentionPanel contractId={id} settings={contract} canEdit={canEdit} canCollect={meCanDo(me, "payments", "create")} onChange={load} />}
 
       {finance && contract.projectId && <ImputedFlows projectId={contract.projectId._id} />}
@@ -250,7 +254,8 @@ function MarketPanel({ f, hasProject }: { f: MarketFinance; hasProject: boolean 
         </section>
         <section className="surface-card p-5 lg:col-span-2">
           <h2 className="font-semibold text-ink mb-1">Dépenses du marché</h2>
-          {!hasProject ? <p className="text-sm text-warn">Créez le projet d&apos;exécution : les dépenses s&apos;imputent à ce projet (achats, commandes, notes de frais, charges).</p> : (
+          {!hasProject && <p className="text-sm text-warn mb-2">Créez le projet d&apos;exécution : les dépenses s&apos;imputent à ce projet (achats, commandes, notes de frais, charges). Seuls les droits d&apos;enregistrement sont comptés sans lui.</p>}
+          {(
             <>
               <p className="text-[11px] text-ink3 mb-2">Classées selon le compte de charge. Engagé : bons de commande et achats pas encore comptabilisés. Réalisé : comptabilisé.</p>
               <div className="overflow-x-auto">
@@ -276,7 +281,7 @@ function MarketPanel({ f, hasProject }: { f: MarketFinance; hasProject: boolean 
       <section className="surface-card p-5">
         <h2 className="font-semibold text-ink mb-2">Marges</h2>
         <div className="grid sm:grid-cols-3 gap-4">
-          <div><p className="text-xs text-ink2">Marge prévue au devis</p><p className="text-sm text-ink3 mt-1">À venir : coût estimé par ligne de devis.</p></div>
+          <div><p className="text-xs text-ink2">Marge prévue au devis</p><p className="text-sm text-ink3 mt-1">{m.quoted !== null ? `Devis ${formatMoney(m.quoted)} HT` : "Pas de devis lié"}</p></div>
           <div><p className="text-xs text-ink2">Marge réelle (travaux facturés − dépenses réalisées)</p><p className={`text-xl font-bold ${m.actual < 0 ? "text-neg" : "text-pos"}`}>{formatMoney(m.actual)} <span className="text-sm font-normal text-ink2">{pct(m.actualRate)}</span></p></div>
           <div><p className="text-xs text-ink2">Marge à terminaison (marché − réalisé − engagé)</p><p className={`text-xl font-bold ${m.atCompletion < 0 ? "text-neg" : "text-pos"}`}>{formatMoney(m.atCompletion)} <span className="text-sm font-normal text-ink2">{pct(m.atCompletionRate)}</span></p></div>
         </div>

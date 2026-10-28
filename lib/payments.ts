@@ -1,6 +1,9 @@
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { InvoiceModel } from "@/models/Invoice";
 import { BusinessRuleError } from "@/lib/errors";
+import { ClientModel } from "@/models/Client";
+import { timbreQuittanceDu } from "@/lib/niger-fiscal";
+import { isPublicBuyer } from "@/lib/registration";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { TokenPayload } from "@/lib/auth";
 import { ledgerFor, treasuryLedger, registerLedgerAccount } from "@/lib/treasury";
@@ -30,6 +33,10 @@ export function invoiceDue(inv: { totalTTC: number; paidAmount?: number; credite
 export const INVOICE_DUE_EXPR = {
   $subtract: ["$totalTTC", { $add: [{ $ifNull: ["$paidAmount", 0] }, { $ifNull: ["$creditedAmount", 0] }, { $ifNull: ["$retentionAmount", 0] }] }],
 };
+
+/** Timbre-quittance : charge et dette envers l'État. */
+export const STAMP_CHARGE = { accountCode: "646200", accountLabel: "Droits de timbre" };
+export const STAMP_DEBT = { accountCode: "447000", accountLabel: "État, droits de timbre (timbre-quittance)" };
 
 /** Retenues à la source subies sur les encaissements : acomptes d'impôt sur l'État. */
 export const WITHHOLDING_SUFFERED = { accountCode: "449200", accountLabel: "État — retenues à la source subies" };
@@ -92,6 +99,26 @@ export async function applyPaymentEffects(payment: any, invoiceIn: any, auth: To
     ],
     linkedDocType: "payment", linkedDocId: payment._id, createdBy: auth.userId,
   }], { session });
+
+  // Timbre-quittance (CGI art. 560) : 200 FCFA par reçu d'un paiement en
+  // ESPÈCES d'au moins 5 000 FCFA TTC ; exonéré pour un client public et pour
+  // les paiements scripturaux. Charge de l'entreprise (646200), dette envers
+  // l'État (447000) reversée sur état mensuel (« Timbre fiscal acquitté »).
+  const cash = ledger.journalCode === "CA" || (!payment.treasuryAccountId && payment.method === "cash");
+  if (cash) {
+    const client = await ClientModel.findOne({ _id: invoice.clientId, tenantId: auth.tenantId }).select("buyerType").session(session ?? null).lean<{ buyerType?: string } | null>();
+    const stamp = timbreQuittanceDu({ cash: true, montantTTC: amount + withheld + fx, clientPublic: isPublicBuyer(client?.buyerType) });
+    if (stamp > 0) {
+      await registerLedgerAccount(auth.tenantId, STAMP_CHARGE.accountCode, STAMP_CHARGE.accountLabel, session);
+      await AccountingEntryModel.create([{
+        tenantId: auth.tenantId, journalCode: "OD", entryDate: new Date(payment.date),
+        reference: `TQ-${payment._id.toString().slice(-6).toUpperCase()}`,
+        label: `Timbre-quittance — règlement en espèces de la facture ${invoice.number}`,
+        lines: [{ ...STAMP_CHARGE, debit: stamp, credit: 0 }, { ...STAMP_DEBT, debit: 0, credit: stamp }],
+        linkedDocType: "payment", linkedDocId: payment._id, createdBy: auth.userId,
+      }], { session });
+    }
+  }
 
   if (payment.treasuryAccountId) {
     await TreasuryMovementModel.create([{

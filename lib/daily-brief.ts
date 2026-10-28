@@ -14,7 +14,7 @@
 export type BriefKind =
   | "treasury_shortfall" | "vat_deadline" | "overdue_receivables" | "supplier_overdue" | "supplier_due"
   | "admin_doc_expired" | "admin_doc_expiring" | "draft_invoices" | "approvals_pending"
-  | "expenses_to_validate" | "quotes_expiring" | "stock_low" | "desk_unlinked" | "tender_deadline" | "retention_claimable" | "guarantee_due";
+  | "expenses_to_validate" | "quotes_expiring" | "stock_low" | "desk_unlinked" | "tender_deadline" | "retention_claimable" | "guarantee_due" | "registration_due";
 
 export interface BriefCandidate {
   kind: BriefKind;
@@ -40,6 +40,8 @@ const WEIGHT: Record<BriefKind, number> = {
   tender_deadline: 6,
   guarantee_due: 5,
   retention_claimable: 5,
+  // Droits d'enregistrement d'un marché : pénalité de retard (CGI art. 481).
+  registration_due: 6,
   supplier_due: 4,
   draft_invoices: 4,
   approvals_pending: 4,
@@ -52,7 +54,7 @@ const WEIGHT: Record<BriefKind, number> = {
 
 const TONE: Partial<Record<BriefKind, BriefItem["tone"]>> = {
   treasury_shortfall: "neg", vat_deadline: "warn", overdue_receivables: "neg", supplier_overdue: "neg",
-  admin_doc_expired: "neg", supplier_due: "warn", admin_doc_expiring: "warn", tender_deadline: "warn", guarantee_due: "warn",
+  admin_doc_expired: "neg", supplier_due: "warn", admin_doc_expiring: "warn", tender_deadline: "warn", guarantee_due: "warn", registration_due: "warn",
 };
 
 export function scoreCandidate(c: BriefCandidate): number {

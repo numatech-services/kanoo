@@ -54,12 +54,8 @@ async function testFiscalNiger() {
     assert(patronal === 34_800, `CNSS patronal 200k = 34800, got ${patronal}`);
   });
 
-  await test("DTS 0 si < 10k XOF", () => {
-    assert(calculerDTS(5_000) === 0, "Pas de DTS sous 10k");
-  });
-
-  await test("DTS 200 pour tranche 10k-100k", () => {
-    assert(calculerDTS(50_000) === 200, "DTS = 200 XOF");
+  await test("Plus de droit de timbre sur la facture (CGI 2026, art. 560)", () => {
+    assert(calculerDTS(50_000) === 0, "DTS = 0");
   });
 
   await test("Achat direct < 5M XOF", () => {

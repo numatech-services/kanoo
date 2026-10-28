@@ -109,7 +109,7 @@ const inv = (id) => withDb(ROOT, db => db.collection("invoices").findOne({ _id: 
   const c2 = await g.req("POST", `/api/invoices/${i4._id}/credit-note`, { reason: "Annulation installation", lines: [{ lineIndex: 1, quantity: 2 }] });
   const c2doc = c2.data?.data?.creditNote ?? c2.data?.data;
   const i4after = await inv(i4._id);
-  check("l'avoir qui complète reprend le timbre et solde la facture", (i4d.totalDTS ?? 0) > 0 && c2doc?.totalDTS === i4d.totalDTS && i4after.status === "cancelled", J({ dts: i4d.totalDTS, c2: c2doc?.totalDTS, st: i4after.status }));
+  check("l'avoir qui complète les précédents solde la facture", c2doc?.totalDTS === (i4d.totalDTS ?? 0) && i4after.status === "cancelled", J({ dts: i4d.totalDTS, c2: c2doc?.totalDTS, st: i4after.status }));
 
   console.log("\n▶ Relevé client (V3)");
   const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);

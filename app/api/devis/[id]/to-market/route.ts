@@ -42,6 +42,11 @@ export const POST = withAuth("contracts", "create", async (req: NextRequest, aut
       tenantId: auth.tenantId, title: String(body.title || `Marché — devis ${devis.number}`).slice(0, 200), type: "client", status: "active",
       clientId: devis.clientId, amount, devisId: devis._id, milestones, startDate: date(body.startDate) ?? new Date(), endDate: date(body.endDate),
       signedDate: new Date(), createdBy: auth.userId,
+      // Taux de TVA du devis repris par le marché : un devis exonéré (bailleur
+      // extérieur) était ensuite facturé à 19 %. Taux mixtes : taux effectif.
+      tvaRate: devisRate(devis),
+      approvalDate: date(body.approvalDate),
+      ...(body.buyerType ? { buyerType: String(body.buyerType) } : {}),
       // Facture déjà émise depuis ce devis : rattachée au marché.
       invoiceIds: devis.convertedToInvoiceId ? [devis.convertedToInvoiceId] : [],
     }], { session });
@@ -57,3 +62,10 @@ export const POST = withAuth("contracts", "create", async (req: NextRequest, aut
   await logAudit(auth, "CREATE", "contracts", { resourceId: String(result.contract._id), after: { fromDevis: devis.number, amount } });
   return created({ contractId: result.contract._id, reference: result.contract.reference, projectId: result.project?._id ?? null });
 });
+
+/** Taux de TVA du marché d'après le devis : commun à toutes les lignes, sinon le taux effectif. */
+function devisRate(devis: { lines?: Array<{ tvaRate?: number }>; totalHT?: number; totalTVA?: number }): number | undefined {
+  const rates = [...new Set((devis.lines ?? []).map(l => l.tvaRate ?? 0.19))];
+  if (rates.length === 1) return rates[0];
+  return devis.totalHT ? Math.round(((devis.totalTVA ?? 0) / devis.totalHT) * 1000) / 1000 : undefined;
+}

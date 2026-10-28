@@ -114,7 +114,7 @@ const id = r => D(r)?._id;
   const fac = await g.req("POST", `/api/marches-cadres/${fo}/lots/${lotId}/facturer`, {});
   const facInv = D(fac);
   const vtF = (D(await g.req("GET", `/api/accounting-entries?search=${encodeURIComponent(facInv.number ?? "x")}`)).items ?? [])[0];
-  check("facture de lot : timbre et écriture de vente équilibrée", fac.status === 201 && facInv.totalDTS > 0 && vtF && vtF.lines.reduce((t, l) => t + l.debit, 0) === vtF.lines.reduce((t, l) => t + l.credit, 0), `${fac.status} ${J(facInv).slice(0, 120)}`);
+  check("facture de lot : sans droit de timbre (CGI 2026), écriture de vente équilibrée", fac.status === 201 && facInv.totalDTS === 0 && vtF && vtF.lines.reduce((t, l) => t + l.debit, 0) === vtF.lines.reduce((t, l) => t + l.credit, 0), `${fac.status} ${J(facInv).slice(0, 120)}`);
   check("encaissement effectif sans compte de trésorerie : refusé", (await g.req("POST", "/api/payments", { invoiceId: facInv._id, amount: 1000, method: "cash", date: today })).status === 400);
   await g.req("POST", `/api/invoices/${facInv._id}/credit-note`, { reason: "Remise", lines: [{ lineIndex: 0, quantity: 2 }] });
   const over = await g.req("POST", "/api/payments", { invoiceId: facInv._id, amount: facInv.totalTTC, method: "bank_transfer", date: today, treasuryAccountId: bank });

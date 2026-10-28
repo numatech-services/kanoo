@@ -6,6 +6,7 @@ import { CommandeModel } from "@/models/Commande";
 import { PurchaseModel } from "@/models/Purchase";
 import { retentionState, type RetentionState } from "@/lib/retention";
 import { COST_CATEGORIES, costCategory, type CostCategoryKey } from "@/lib/cost-categories";
+import { registrationEstimate } from "@/lib/registration-server";
 
 export interface MarketFinance {
   quote: { _id: string; number: string; status: string; totalHT: number; totalTTC: number } | null;
@@ -31,11 +32,15 @@ export interface MarketFinance {
     supplierDueTTC: number;
   };
   margin: { actual: number; actualRate: number | null; atCompletion: number; atCompletionRate: number | null; quoted: number | null };
+  /** Droits d'enregistrement et timbres : estimés, constatés, payés, échéance. */
+  registration: { estimate: number; kind: string; article: string; assessed: number; paid: number; dueDate: Date | null } | null;
   invoices: Array<{ _id: string; number: string; kind: string; documentType: string; status: string; issueDate: Date; totalHT: number; totalTTC: number; paidAmount: number; milestoneId?: string }>;
 }
 
 type ContractLike = {
   _id: unknown; amount: number; projectId?: unknown; devisId?: unknown; invoiceIds?: unknown[];
+  type?: string; buyerType?: string; clientId?: unknown; instrument?: string; isSubcontract?: boolean; pages?: number; approvalDate?: Date; signedDate?: Date;
+  registration?: { assessedAt?: Date; assessed?: number; paid?: number; dueDate?: Date } | null;
   retentionRate?: number; retentionReleases?: Array<{ amount: number }>; receptionProvisoireDate?: Date; receptionDefinitiveDate?: Date; guaranteeMonths?: number;
 };
 type InvoiceRow = {
@@ -69,19 +74,29 @@ export async function marketFinance(tenantId: string, contract: ContractLike): P
     .select("number kind documentType status issueDate originalInvoiceId totalHT totalTTC paidAmount lines.totalHT lines.kind").lean<InvoiceRow[]>();
   const all = [...base, ...credits];
   const cancelled = new Set(all.filter(i => i.documentType === "invoice" && i.status === "cancelled").map(i => String(i._id)));
+  // Deux lectures. Le PLAFOND du marché (acomptes, travaux, reste à facturer)
+  // compte les brouillons, comme la facturation qui les refuse au-delà. Le
+  // facturé, l'encaissé, le dû, la retenue et la MARGE RÉELLE ne comptent que
+  // les factures émises : un brouillon de 5 M faisait monter la marge et le
+  // « dû » avant toute émission.
   const live = all.filter(i => i.documentType === "invoice" && !cancelled.has(String(i._id)));
+  const issued = new Set(live.filter(i => i.status !== "draft").map(i => String(i._id)));
   // Avoir total → facture annulée : les deux sortent du calcul. Avoir partiel : retranché.
   const partials = all.filter(i => i.documentType === "credit_note" && !cancelled.has(String(i.originalInvoiceId)));
 
-  let workHT = 0, depositsHT = 0, deducted = 0, invoicedTTC = 0, collectedTTC = 0;
+  let workHT = 0, workIssuedHT = 0, depositsHT = 0, deducted = 0, invoicedTTC = 0, collectedTTC = 0;
   for (const i of live) {
-    invoicedTTC += i.totalTTC; collectedTTC += i.paidAmount || 0;
+    const done = issued.has(String(i._id));
+    if (done) { invoicedTTC += i.totalTTC; collectedTTC += i.paidAmount || 0; }
     if (i.kind === "deposit") { depositsHT += i.totalHT; deducted += i.depositUsedHT ?? 0; }
-    else workHT += i.lines.filter(l => l.kind !== "deposit_deduction").reduce((t, l) => t + l.totalHT, 0);
+    else {
+      const w = i.lines.filter(l => l.kind !== "deposit_deduction").reduce((t, l) => t + l.totalHT, 0);
+      workHT += w; if (done) workIssuedHT += w;
+    }
   }
   for (const c of partials) {
     invoicedTTC -= c.totalTTC;
-    if (c.kind === "deposit") depositsHT -= c.totalHT; else workHT -= c.totalHT;
+    if (c.kind === "deposit") depositsHT -= c.totalHT; else { workHT -= c.totalHT; workIssuedHT -= c.totalHT; }
   }
   const outstanding = depositsHT - deducted;
 
@@ -111,11 +126,26 @@ export async function marketFinance(tenantId: string, contract: ContractLike): P
       supplierDueTTC += Math.round((p.totalTTC - (p.paidAmount || 0)) * share);
     }
   }
+  // Droits d'enregistrement et timbres du marché : engagés tant qu'ils ne sont
+  // que dus (estimation), réalisés une fois constatés. Avec un projet
+  // d'exécution, le constat (646 imputé au projet) est déjà compté ci-dessus.
+  let registration: MarketFinance["registration"] = null;
+  if (contract.type === "client" && (contract.amount ?? 0) > 0) {
+    const est = await registrationEstimate(tenantId, contract as Parameters<typeof registrationEstimate>[1]);
+    const reg = contract.registration;
+    if (!reg?.assessedAt) cats.get("registration")!.committed += est.total;
+    else if (!contract.projectId) cats.get("registration")!.actual += reg.assessed ?? 0;
+    registration = {
+      estimate: est.total, kind: est.kind, article: est.article,
+      assessed: reg?.assessed ?? 0, paid: reg?.paid ?? 0,
+      dueDate: (reg?.dueDate ?? est.dueDate ?? null) as Date | null,
+    };
+  }
   const categories = COST_CATEGORIES.map(c => ({ key: c.key, label: c.label, hint: c.hint, committed: Math.round(cats.get(c.key)!.committed), actual: Math.round(cats.get(c.key)!.actual) }));
   const committed = categories.reduce((t, c) => t + c.committed, 0);
   const actualCost = categories.reduce((t, c) => t + c.actual, 0);
   const contractHT = contract.amount || 0;
-  const retention = retentionState(live, contract);
+  const retention = retentionState(live.filter(i => issued.has(String(i._id))), contract);
 
   return {
     quote: quote ? { _id: String(quote._id), number: quote.number, status: quote.status, totalHT: quote.totalHT, totalTTC: quote.totalTTC } : null,
@@ -129,10 +159,11 @@ export async function marketFinance(tenantId: string, contract: ContractLike): P
     retention: { ...retention, rate: contract.retentionRate ?? 0 },
     costs: { categories, committed, actual: actualCost, supplierDueTTC },
     margin: {
-      actual: workHT - actualCost, actualRate: rate(workHT - actualCost, workHT),
+      actual: workIssuedHT - actualCost, actualRate: rate(workIssuedHT - actualCost, workIssuedHT),
       atCompletion: contractHT - actualCost - committed, atCompletionRate: rate(contractHT - actualCost - committed, contractHT),
       quoted: quote ? quote.totalHT : null,
     },
+    registration,
     invoices: all.map(i => ({
       _id: String(i._id), number: i.number, kind: i.kind ?? "standard", documentType: i.documentType, status: i.status, issueDate: i.issueDate,
       totalHT: i.totalHT, totalTTC: i.totalTTC, paidAmount: i.paidAmount || 0, ...(i.milestoneId ? { milestoneId: String(i.milestoneId) } : {}),

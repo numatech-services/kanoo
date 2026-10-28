@@ -50,6 +50,27 @@ export const PATCH = withAuth("publicTenders", "update", async (req: NextRequest
       if (v && Types.ObjectId.isValid(String(v))) set[f] = v;
       else set[f] = undefined; // vide ou invalide → on retire le lien
     }
+    // Cycle de vie : statut connu, et pas de retour en arrière après
+    // attribution (hors annulation) ; on n'attribue qu'une offre conforme.
+    if ("status" in set) {
+      const ORDER = ["planning", "draft", "published", "bids_open", "bids_closed", "evaluation", "attributed", "completed"];
+      const to = String(set.status), from = String(existing.status);
+      if (to !== "cancelled" && !ORDER.includes(to)) return badRequest("Statut invalide.");
+      if (from === "cancelled" || from === "completed") return badRequest("Marché clos : son statut ne change plus.");
+      if (to !== "cancelled" && ORDER.indexOf(to) < ORDER.indexOf(from) && ["attributed"].includes(from)) return badRequest("Marché attribué : il ne revient pas en arrière (annulez-le si besoin).");
+      if (to === "attributed") {
+        const bids = (Array.isArray(body.bids) ? body.bids : existing.bids ?? []) as Array<{ _id?: unknown; bidderName: string; supplierId?: unknown; amount: number; compliant?: boolean }>;
+        const winner = body.winnerBidId ? bids.find(b => String(b._id) === String(body.winnerBidId)) : bids.find(b => b.bidderName === (set.winnerName ?? existing.winnerName));
+        if (!winner) return badRequest("Désignez l'offre retenue parmi les offres dépouillées.");
+        if (winner.compliant === false) return badRequest("Une offre non conforme ne peut pas être retenue.");
+        // L'attributaire est reporté depuis l'offre (fournisseur et montant) :
+        // l'écran n'envoyait que le nom, le fournisseur restait inconnu.
+        set.winnerName = winner.bidderName;
+        set.winnerAmount = winner.amount;
+        if (winner.supplierId && Types.ObjectId.isValid(String(winner.supplierId))) set.winnerId = winner.supplierId;
+        if (!set.attributionDate && !existing.attributionDate) set.attributionDate = new Date();
+      }
+    }
     if (Array.isArray(body.commissionMemberIds)) {
       set.commissionMemberIds = body.commissionMemberIds.filter((x: unknown) => typeof x === "string" && Types.ObjectId.isValid(x));
     }

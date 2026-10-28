@@ -15,6 +15,8 @@ const EDITABLE = [
   "renewalReminderDays", "documentIds", "description", "notes", "tags",
   // Retenue de garantie et réceptions.
   "retentionRate", "receptionProvisoireDate", "receptionDefinitiveDate", "guaranteeMonths",
+  // Enregistrement (le constat et le paiement passent par leur route).
+  "buyerType", "instrument", "approvalDate", "isSubcontract", "parentContractId", "pages", "fundingSource", "tvaRate",
 ] as const;
 
 /** Champs autorisés du corps, et refus si une partie liée n'appartient pas à l'organisation. */
@@ -36,6 +38,11 @@ export async function contractFields(tenantId: string, body: Record<string, unkn
     const r = Number(data.retentionRate ?? 0);
     if (!(r >= 0 && r <= MAX_RETENTION_RATE)) return { data, error: "Retenue de garantie : entre 0 et 10 %." };
     data.retentionRate = r;
+  }
+  if ("tvaRate" in data && data.tvaRate !== undefined && !(Number(data.tvaRate) >= 0 && Number(data.tvaRate) < 1)) return { data, error: "Taux de TVA invalide (fraction : 0,19)." };
+  if ("parentContractId" in data && data.parentContractId) {
+    const { ContractModel } = await import("@/models/Contract");
+    if (!Types.ObjectId.isValid(String(data.parentContractId)) || !(await ContractModel.exists({ _id: data.parentContractId, tenantId }))) return { data, error: "Marché principal introuvable." };
   }
   if ("guaranteeMonths" in data && !(Number(data.guaranteeMonths) >= 0 && Number(data.guaranteeMonths) <= 60)) return { data, error: "Délai de garantie : entre 0 et 60 mois." };
   return { data };

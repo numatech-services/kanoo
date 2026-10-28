@@ -4,10 +4,13 @@ import { useState } from "react";
 import { LogoPicker } from "@/components/ui/LogoPicker";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { BUYER_TYPES } from "@/lib/registration";
 export interface ClientFormData {
   code: string;
   name: string;
   type: "individual" | "company";
+  /** Acheteur public (commande publique : enregistrement à 5 %, pas de timbre-quittance) ou privé. */
+  buyerType?: string;
   nif?: string;
   rccm?: string;
   email?: string;
@@ -31,6 +34,7 @@ export function ClientForm({ initial, onSave, onCancel }: ClientFormProps) {
     code: initial?.code || "",
     name: initial?.name || "",
     type: initial?.type || "company",
+    buyerType: initial?.buyerType || "private",
     nif: initial?.nif || "",
     rccm: initial?.rccm || "",
     email: initial?.email || "",
@@ -92,6 +96,13 @@ export function ClientForm({ initial, onSave, onCancel }: ClientFormProps) {
               <option value="individual">Particulier</option>
             </select>
           </div>
+        </div>
+        <div>
+          <label className={labelCls} htmlFor="client-buyer">Nature du client</label>
+          <select id="client-buyer" className={inputCls} value={form.buyerType} onChange={(e) => update("buyerType", e.target.value)}>
+            {Object.entries(BUYER_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+          <p className="text-[11px] text-ink3 mt-1">Acheteur public : marchés enregistrés à 5 % HT, factures exonérées de timbre-quittance. Privé ou ONG : 2 % HT.</p>
         </div>
         <div>
           <label className={labelCls}>Nom / Raison sociale *</label>

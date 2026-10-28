@@ -49,7 +49,9 @@ const AccountingEntrySchema = new Schema<IAccountingEntry>(
         // Retenue de garantie reversée (marché) ; caution bancaire (commission, dépôt, mainlevée, appel).
         "retention", "guarantee",
         // Affectation du résultat d'un exercice clôturé (décision d'assemblée).
-        "result_allocation"],
+        "result_allocation",
+        // Droits d'enregistrement et timbres d'un marché (lib/registration-server).
+        "registration"],
     },
     /** Extourne : l'écriture qui annule celle-ci, et inversement. */
     reversedBy: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },

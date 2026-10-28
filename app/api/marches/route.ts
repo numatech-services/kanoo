@@ -75,13 +75,15 @@ export const POST = withAuth("publicTenders", "create", async (req: NextRequest,
     const amount = Number(body.estimatedAmount);
     const procedure = body.procedure || determineProcedureMarche(amount);
 
+    // Référence : plus grand numéro de l'année + 1, et non « nombre de marchés
+    // + 1 » — après une suppression, ce dernier ressortait un numéro existant
+    // (index unique → erreur 500). Nouvelle tentative en cas de collision.
     const year = new Date().getFullYear();
-    const count = await PublicTenderModel.countDocuments({ 
-      tenantId: auth.tenantId,
-      createdAt: { $gte: new Date(`${year}-01-01`) } 
-    });
-    
-    const reference = `MRC-${year}-${String(count + 1).padStart(4, "0")}`;
+    const existingRefs = await PublicTenderModel.find({ tenantId: auth.tenantId, reference: { $regex: `^MRC-${year}-\\d+$` } })
+      .select("reference").lean<Array<{ reference: string }>>();
+    let next = 1 + existingRefs.reduce((m, r) => Math.max(m, Number(r.reference.split("-").pop()) || 0), 0);
+    let reference = `MRC-${year}-${String(next).padStart(4, "0")}`;
+    while (await PublicTenderModel.exists({ tenantId: auth.tenantId, reference })) reference = `MRC-${year}-${String(++next).padStart(4, "0")}`;
 
     // 4. Création du document
     const tender = await PublicTenderModel.create({

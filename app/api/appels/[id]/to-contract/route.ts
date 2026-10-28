@@ -59,7 +59,9 @@ export const POST = withAuth("contracts", "create", async (req: NextRequest, aut
     const [contract] = await ContractModel.create([{
       tenantId: auth.tenantId, title: String(body.title || appel.title).slice(0, 200), type: "client", status: "active",
       clientId, amount, appelId: appel._id, startDate: date(body.startDate) ?? new Date(), endDate: date(body.endDate),
-      signedDate: new Date(), createdBy: auth.userId,
+      signedDate: new Date(), createdBy: auth.userId, approvalDate: date(body.approvalDate),
+      // Un appel d'offres gagné est, sauf indication contraire, une commande publique.
+      buyerType: body.buyerType ? String(body.buyerType) : "state",
       notes: appel.reference ? `Appel d'offres ${appel.reference}${appel.organism ? ` — ${appel.organism}` : ""}` : undefined,
     }], { session });
     const project = withProject ? await createExecutionProject(auth.tenantId, contract, auth.userId, session) : null;

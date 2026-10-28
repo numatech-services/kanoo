@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { withAuth, ok, notFound, noContent, tenantFilter } from "@/lib/api-helpers";
-import { ClientModel } from "@/models/Client";
+import { ClientModel, CLIENT_PROTECTED } from "@/models/Client";
 import { InvoiceModel } from "@/models/Invoice";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -37,7 +37,9 @@ export const PATCH = withAuth("clients", "update", async (req: NextRequest, auth
   if (!client) return notFound("Client introuvable");
   const before = { name: client.name };
   // Champs protégés : jamais réaffectés depuis le corps (cross-tenant, solde).
-  for (const k of ["_id", "tenantId", "currentBalance", "createdAt", "updatedAt"]) delete body[k];
+  // Le lien du portail client (empreinte et jeton) se génère par sa route :
+  // écrit ici, il ouvrait le portail sous l'identité du client.
+  for (const k of ["_id", "tenantId", "currentBalance", "createdAt", "updatedAt", ...CLIENT_PROTECTED]) delete body[k];
   Object.assign(client, body);
   await client.save();
   await logAudit(auth, "UPDATE", "clients", { resourceId: params.id, before, after: { name: client.name } });

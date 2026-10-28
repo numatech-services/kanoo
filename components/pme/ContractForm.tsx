@@ -70,7 +70,7 @@ export function ContractForm({ initial, onSave, onCancel }: ContractFormProps) {
       <fieldset className="space-y-4">
         <legend className="text-sm font-semibold text-ink border-b border-line pb-2 w-full">Conditions financières</legend>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Montant (FCFA)">
+          <FormField label="Montant HT (FCFA)" hint="Hors TVA : base de la facturation et des droits d'enregistrement">
             <input type="number" className={inputCls} value={form.amount} onChange={e=>u("amount",Number(e.target.value))} min={0}/>
           </FormField>
           <FormField label="Mode de paiement">

@@ -1,3 +1,4 @@
+import { registrationDueDate } from "@/lib/registration";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import { InvoiceModel } from "@/models/Invoice";
@@ -215,6 +216,28 @@ export async function briefCandidates(auth: TokenPayload, can: Can, now = new Da
       title: one ? `Réclamer la retenue de garantie du marché ${one.reference}` : `Réclamer ${plural(claimable.length, "retenue")} de garantie`,
       why: `${formatMoney(amount)} retenus par vos clients, délai de garantie écoulé : demandez la réception définitive et le reversement.`,
       href: one ? `/contracts/${String(one._id)}` : "/contracts/rentabilite", cta: "Voir le marché" });
+  });
+
+  // Droits d'enregistrement des marchés : à constater (approuvé, rien de
+  // constaté) ou à payer (constatés, échéance dans 10 jours ou dépassée).
+  if (can("contracts") && can("invoices")) await safe(async () => {
+    const list = await ContractModel.find({
+      tenantId: tid, type: "client", status: { $in: ["active", "renewed"] }, amount: { $gt: 0 },
+      $or: [{ approvalDate: { $exists: true } }, { "registration.assessedAt": { $exists: true } }],
+    }).select("reference title approvalDate signedDate registration").lean<Array<{ _id: unknown; reference: string; title: string; approvalDate?: Date; signedDate?: Date; registration?: { assessedAt?: Date; assessed?: number; paid?: number; dueDate?: Date } }>>();
+    const pending = list.map(c => {
+      const due = c.registration?.dueDate ?? registrationDueDate(c.approvalDate, c.signedDate);
+      const open = !c.registration?.assessedAt || (c.registration.assessed ?? 0) > (c.registration.paid ?? 0);
+      return { c, due, open, amount: Math.max(0, (c.registration?.assessed ?? 0) - (c.registration?.paid ?? 0)) };
+    }).filter(x => x.open && x.due && new Date(x.due).getTime() <= now.getTime() + 10 * DAY);
+    if (!pending.length) return;
+    const one = pending.length === 1 ? pending[0] : null;
+    const late = pending.reduce((m, x) => Math.max(m, days(new Date(x.due!))), 0);
+    const amount = pending.reduce((t, x) => t + x.amount, 0);
+    out.push({ kind: "registration_due", amount, ...(late > 0 ? { daysLate: late } : { daysLeft: Math.max(0, Math.round((new Date(pending[0].due!).getTime() - now.getTime()) / DAY)) }),
+      title: one ? `Enregistrer le marché ${one.c.reference}` : `Enregistrer ${plural(pending.length, "marché")}`,
+      why: `Droits d'enregistrement à payer dans le mois qui suit l'approbation${one ? ` (avant le ${new Date(one.due!).toLocaleDateString("fr-FR")})` : ""} : 5 % HT pour une commande publique, 2 % entre personnes privées.`,
+      href: one ? `/contracts/${String(one.c._id)}` : "/contracts", cta: "Voir le marché" });
   });
 
   // Cautions bancaires échues (mainlevée à demander) ou qui arrivent à échéance.

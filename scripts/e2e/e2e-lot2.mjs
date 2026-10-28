@@ -70,7 +70,8 @@ const plusDays = n => { const d = new Date(); d.setDate(d.getDate() + n); d.setH
   let rs = D(await g.req("GET", `/api/contracts/${ct._id}/retention`));
   check("retenue suivie sur le marché, pas encore réclamable", rs.held === ret && rs.outstanding === ret && rs.claimable === false && rs.releasableFrom === null, J(rs).slice(0, 200));
   const fin = D(await g.req("GET", `/api/contracts/${ct._id}/finance`));
-  check("situation du marché : dû hors retenue, retenue à part", fin.retention?.outstanding === ret && fin.billing.dueTTC === dep.totalTTC, J({ due: fin.billing.dueTTC, r: fin.retention }));
+  // L'acompte est resté en brouillon : pas encore dû. La facture de travaux est soldée du net.
+  check("situation du marché : dû hors retenue (brouillon non dû), retenue à part", fin.retention?.outstanding === ret && fin.billing.dueTTC === 0, J({ due: fin.billing.dueTTC, r: fin.retention, dep: dep.status }));
   await g.req("PATCH", `/api/contracts/${ct._id}`, { receptionProvisoireDate: "2024-06-30", guaranteeMonths: 12 });
   rs = D(await g.req("GET", `/api/contracts/${ct._id}/retention`));
   check("délai de garantie écoulé : réclamable", rs.claimable === true, J(rs).slice(0, 150));

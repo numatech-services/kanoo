@@ -1,5 +1,70 @@
 # Kanoo — Changelog
 
+## Lot H2 — Enregistrement et timbres des marchés (octobre 2026)
+
+**Droits d'enregistrement** (`lib/registration.ts`, `lib/registration-server.ts`)
+
+| Acte | Droit | Article |
+|---|---|---|
+| Commande publique (État, collectivités, établissements publics, SEM, projets, bénéficiaires d'un concours de l'État) | 5 % HT + timbre de 25 000 FCFA sur l'original | art. 470-1/2, 584 e) |
+| Contrat entre personnes privées, ONG comprises | 2 % HT | art. 470-5 (LF 2026) |
+| Sous-traitance prévue au marché | 50 000 FCFA | art. 471 |
+| Bon de commande public de moins de 1 000 000 FCFA | Timbre de dimension, 1 500 FCFA par page | art. 548-8°, 552 |
+| PV de réception définitive (marché public) | Timbre de 25 000 FCFA | art. 584 e) |
+
+- **Sur le marché** : nature de l'acheteur, nature de l'acte, date
+  d'approbation, sous-traitance, pages, financement. Sur le client : nature
+  (public ou privé), proposée par défaut.
+- **Panneau « Enregistrement et timbres »** de la fiche du marché :
+  - estimation expliquée ;
+  - constat (646100 / 646200 imputés au projet d'exécution, 447300 au crédit) ;
+  - paiement à la recette (447300 / banque, mouvement de trésorerie,
+    n° de quittance) ;
+  - timbre du PV de réception ;
+  - annulation d'un constat non payé.
+- **Marge du marché** : droits engagés dès l'estimation, réalisés au constat.
+- **Échéance** : approbation + 1 mois (art. 481). Rappels à J-7, J-1 et J+1,
+  et élément du brief quotidien.
+- **Factures du marché** : référence du marché et numéro d'enregistrement
+  imprimés.
+
+**Timbre**
+- **Plus de droit de timbre ajouté au TTC des factures.** L'ancien barème
+  allait de 200 à 2 000 FCFA et s'appliquait même aux factures de l'État. Les
+  factures déjà émises restent inchangées.
+- **Timbre-quittance de 200 FCFA** (art. 560) sur chaque règlement en
+  espèces d'au moins 5 000 FCFA, sauf pour un client public : charge 646200
+  et dette 447000.
+
+**Défauts des marchés corrigés** (audit M4 à M17)
+- Montant du contrat libellé « HT ».
+- Taux de TVA du devis repris par le marché (un devis exonéré n'est plus
+  facturé à 19 %).
+- Avance remboursée au prorata des situations hors échéancier.
+- Brouillons :
+  - comptés dans le reste à facturer ;
+  - exclus du facturé, du dû et de la marge réelle.
+- Avoirs partiels retranchés du plafond de facturation.
+- Avoir ou annulation d'une facture de lot : le lot du marché-cadre est
+  rouvert.
+- Rattachement d'une facture au marché :
+  - pas de doublon ;
+  - `contractId` posé sur la facture ;
+  - client contrôlé.
+- Commission de caution imputée au marché.
+- Numérotation :
+  - références de contrat tirées de la série annuelle ;
+  - références de marché public calculées sans collision.
+- Attribution d'un marché public :
+  - offre retenue reportée (fournisseur, montant) ;
+  - statuts contrôlés.
+
+**Sécurité** : le lien du portail client (empreinte, jeton) n'est plus
+modifiable par le formulaire client.
+
+Scénario `scripts/e2e/e2e-h2.mjs` (22 vérifications) ; tests unitaires
+`__tests__/unit/registration.test.ts`.
+
 ## Lot H1 — Argent et comptabilité justes (octobre 2026)
 
 Correctifs du lot H1 de `docs/AUDIT-2026-10.md`.

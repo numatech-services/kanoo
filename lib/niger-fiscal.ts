@@ -68,15 +68,35 @@ export function calculerRetenue(montant: number, type: keyof typeof RETENUES_A_L
   return Math.round(montant * RETENUES_A_LA_SOURCE[type]);
 }
 
-// ─── Droits de Timbre sur Factures (DTS) ─────────────────────────────────────
+// ─── Timbre ───────────────────────────────────────────────────────────────────
 
-/** DTS — appliqué sur les factures commerciales (montant forfaitaire par tranche) */
-export function calculerDTS(montantTTC: number): number {
-  if (montantTTC < 10_000) return 0;
-  if (montantTTC < 100_000) return 200;
-  if (montantTTC < 500_000) return 500;
-  if (montantTTC < 1_000_000) return 1_000;
-  return 2_000;
+/**
+ * Droit de timbre ajouté au TTC d'une facture : supprimé (0).
+ *
+ * Kanoo appliquait un barème par tranches (200 à 2 000 FCFA) sur toutes les
+ * factures, y compris celles payées par l'État. Le CGI 2026 (art. 560) ne
+ * connaît que le timbre-quittance de 200 FCFA, dû sur le reçu d'un paiement
+ * en espèces : il est constaté à l'encaissement (voir `timbreQuittanceDu`).
+ * Les factures déjà émises gardent leur timbre.
+ */
+export function calculerDTS(_montantTTC: number): number {
+  return 0;
+}
+
+/** Timbre-quittance (CGI art. 560) : par reçu de paiement en espèces. */
+export const TIMBRE_QUITTANCE = 200;
+/** En deçà de ce montant TTC, le reçu est exonéré. */
+export const SEUIL_TIMBRE_QUITTANCE = 5_000;
+
+/**
+ * Timbre-quittance dû sur l'encaissement d'une facture : paiement en
+ * espèces, d'au moins 5 000 FCFA TTC, d'un client qui n'est pas une
+ * collectivité publique (exonérée). Les paiements scripturaux (virement,
+ * chèque, mobile money) ne sont pas soumis.
+ */
+export function timbreQuittanceDu(opts: { cash: boolean; montantTTC: number; clientPublic?: boolean }): number {
+  if (!opts.cash || opts.clientPublic) return 0;
+  return opts.montantTTC >= SEUIL_TIMBRE_QUITTANCE ? TIMBRE_QUITTANCE : 0;
 }
 
 // ─── Code des Marchés Publics Niger 2017 ─────────────────────────────────────
