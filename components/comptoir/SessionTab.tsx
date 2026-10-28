@@ -10,6 +10,7 @@ import { showToast } from "@/components/ui/Toast";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { SALE_METHOD_LABEL } from "@/components/comptoir/SalesTab";
+import { CashiersPanel } from "@/components/comptoir/SpotControls";
 
 const MONEY = (n: number | null | undefined) => (n === null || n === undefined ? "—" : `${Math.round(n).toLocaleString("fr-FR")} FCFA`);
 const fr = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
@@ -26,8 +27,12 @@ interface Report {
   byDay: Array<{ day: string; revenueTTC: number; margin?: number; tickets: number }>;
   topByRevenue: Product[]; topByQuantity: Product[]; topByMargin: Product[]; losses: Product[];
   countedCash?: number; gap?: number;
+  creditSales?: number; creditSettled?: number; netMargin?: number;
+  shrinkage?: { total?: number; byReason: Array<{ reason: string; label: string; value?: number }> };
 }
-interface Session { _id: string; openDay: string; closeDay?: string; openingFloat: number; label?: string; status: string; summary?: Report; report?: Report; openedBy?: { firstName?: string; lastName?: string } }
+interface Progress { rate: number; expected: number; behind: boolean; perDayNeeded: number | null }
+interface Session { _id: string; openDay: string; closeDay?: string; openingFloat: number; label?: string; status: string; summary?: Report; report?: Report; openedBy?: { firstName?: string; lastName?: string };
+  targets?: { revenue?: number; margin?: number }; progress?: { elapsedDays: number; revenue: Progress | null; margin: Progress | null } | null }
 interface Data { showCosts: boolean; current: Session | null; previous: Report | null; history: Session[] }
 
 /**
@@ -66,7 +71,16 @@ export function SessionTab({ deskId, deskName, onChange }: { deskId: string; des
         </div>
       )}
 
+      {cur?.progress && (cur.progress.revenue || cur.progress.margin) && (
+        <div className="grid sm:grid-cols-2 gap-3">
+          {cur.progress.revenue && cur.targets?.revenue && <Gauge label="Objectif de chiffre d'affaires" actual={r?.sales.revenueTTC ?? 0} target={cur.targets.revenue} p={cur.progress.revenue} day={cur.progress.elapsedDays} />}
+          {cur.progress.margin && cur.targets?.margin && <Gauge label="Objectif de marge" actual={r?.sales.margin ?? 0} target={cur.targets.margin} p={cur.progress.margin} day={cur.progress.elapsedDays} />}
+        </div>
+      )}
+
       {r && <ReportView r={r} prev={prev} showCosts={data.showCosts} />}
+
+      {data.showCosts && <CashiersPanel deskId={deskId} />}
 
       <section>
         <h3 className="text-sm font-bold text-ink mb-2">Semaines précédentes</h3>
@@ -122,6 +136,9 @@ function ReportView({ r, prev, showCosts }: { r: Report; prev: Report | null; sh
         {showCosts && <Card label="Marge brute HT" value={MONEY(r.sales.margin)} tone={(r.sales.margin ?? 0) < 0 ? "neg" : "pos"} sub={<Trend now={r.sales.margin ?? 0} before={prev?.sales.margin} />} />}
         {showCosts && <Card label="Taux de marque" value={r.sales.markupRate === null || r.sales.markupRate === undefined ? "—" : `${r.sales.markupRate.toLocaleString("fr-FR")} %`} />}
         {r.otherReceipts > 0 && <Card label="Recettes hors tickets" value={MONEY(r.otherReceipts)} />}
+        {(r.creditSales ?? 0) > 0 && <Card label="Vendu à l'ardoise" value={MONEY(r.creditSales)} sub={<span className="text-xs text-ink3">réglé : {MONEY(r.creditSettled ?? 0)}</span>} />}
+        {showCosts && r.shrinkage && (r.shrinkage.total ?? 0) > 0 && <Card label="Pertes et casse (au coût)" value={MONEY(r.shrinkage.total)} tone="neg" />}
+        {showCosts && r.netMargin !== undefined && (r.shrinkage?.total ?? 0) > 0 && <Card label="Marge après pertes" value={MONEY(r.netMargin)} tone={(r.netMargin ?? 0) < 0 ? "neg" : "pos"} />}
       </div>
 
       {r.byDay.length > 0 && (
@@ -154,11 +171,30 @@ function ReportView({ r, prev, showCosts }: { r: Report; prev: Report | null; sh
           ))}
         </section>
         {showCosts && <section className="surface-card p-4">
-          <h4 className="text-sm font-bold text-ink mb-2">Moyens de paiement</h4>
+          {r.shrinkage && r.shrinkage.byReason.length > 0 && <>
+            <h4 className="text-sm font-bold text-ink mb-2">Pertes par motif</h4>
+            {r.shrinkage.byReason.map(x => <p key={x.reason} className="text-sm flex justify-between py-0.5"><span className="text-ink2">{x.label}</span><span className="font-mono text-neg">{MONEY(x.value)}</span></p>)}
+          </>}
+          <h4 className="text-sm font-bold text-ink mb-2 mt-2">Moyens de paiement</h4>
           {r.byMethod.map(m => <p key={m.method} className="text-sm flex justify-between py-0.5"><span className="text-ink2">{SALE_METHOD_LABEL[m.method] ?? m.method}</span><span className="font-mono">+{MONEY(m.receipts)}{m.expenses ? ` / −${MONEY(m.expenses)}` : ""}</span></p>)}
           {r.losses.length > 0 && <p className="mt-2 text-xs text-neg">Vendus à perte : {r.losses.map(l => l.label).join(", ")}.</p>}
         </section>}
       </div>
+    </div>
+  );
+}
+
+function Gauge({ label, actual, target, p, day }: { label: string; actual: number; target: number; p: Progress; day: number }) {
+  const pct = Math.min(100, Math.max(0, p.rate));
+  const pace = Math.min(100, (p.expected / target) * 100);
+  return (
+    <div className="surface-card p-4">
+      <div className="flex justify-between text-sm"><span className="font-semibold text-ink">{label}</span><span className={p.behind ? "text-neg font-semibold" : "text-pos font-semibold"}>{p.rate.toLocaleString("fr-FR")} %</span></div>
+      <div className="relative h-3 mt-2 rounded-full bg-surface2 overflow-hidden">
+        <div className={`absolute inset-y-0 left-0 ${p.behind ? "bg-neg" : "bg-pos"}`} style={{ width: `${pct}%` }} />
+        <div className="absolute inset-y-0 w-0.5 bg-ink" style={{ left: `${pace}%` }} title="Rythme attendu" />
+      </div>
+      <p className="text-xs text-ink2 mt-1.5">{MONEY(actual)} sur {MONEY(target)} · jour {Math.min(day, 7)}/7{p.behind ? ` · en retard (attendu ${MONEY(p.expected)})` : ""}{p.perDayNeeded !== null ? ` · ${MONEY(p.perDayNeeded)} par jour d'ici la fin` : ""}</p>
     </div>
   );
 }
@@ -189,10 +225,13 @@ function List({ title, icon, rows, value, extra }: { title: string; icon?: React
 function OpenDialog({ deskId, suggested, onClose, onDone }: { deskId: string; suggested?: number; onClose: () => void; onDone: () => void }) {
   const [float, setFloat] = useState(suggested !== undefined ? String(suggested) : "");
   const [label, setLabel] = useState("");
+  const [rev, setRev] = useState("");
+  const [mar, setMar] = useState("");
   const [busy, setBusy] = useState(false);
   async function save() {
     setBusy(true);
-    const res = await apiSend("POST", "/api/comptoir/sessions", { deskId, openingFloat: Number(float) || 0, label: label || undefined });
+    const res = await apiSend("POST", "/api/comptoir/sessions", { deskId, openingFloat: Number(float) || 0, label: label || undefined,
+      ...(rev || mar ? { targets: { ...(rev ? { revenue: Number(rev) } : {}), ...(mar ? { margin: Number(mar) } : {}) } } : {}) });
     setBusy(false);
     if (!res.ok) { showToast(res.data?.error || "Ouverture refusée.", "error"); return; }
     showToast("Caisse ouverte.", "success"); onDone();
@@ -204,6 +243,10 @@ function OpenDialog({ deskId, suggested, onClose, onDone }: { deskId: string; su
           <input type="number" min={0} className={inputCls} value={float} onChange={e => setFloat(e.target.value)} />
         </FormField>
         <FormField label="Nom (facultatif)"><input className={inputCls} maxLength={80} placeholder="Semaine 44" value={label} onChange={e => setLabel(e.target.value)} /></FormField>
+        <div className="grid grid-cols-2 gap-2">
+          <FormField label="Objectif de CA (semaine)" hint="Vide : celui du comptoir"><input type="number" min={0} className={inputCls} value={rev} onChange={e => setRev(e.target.value)} /></FormField>
+          <FormField label="Objectif de marge"><input type="number" min={0} className={inputCls} value={mar} onChange={e => setMar(e.target.value)} /></FormField>
+        </div>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
           <button disabled={busy} onClick={save} className={buttonClass("primary", "md")}><Unlock size={15} /> Ouvrir</button>

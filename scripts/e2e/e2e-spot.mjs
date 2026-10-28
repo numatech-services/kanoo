@@ -2,12 +2,10 @@
 // paquet, revente à l'unité), marge attendue, meilleures ventes, caisse de la
 // semaine (ouverture, bilan, fermeture), coûts visibles du seul chef.
 import { readFileSync } from "fs";
-import { randomBytes } from "crypto";
 import { withDb } from "./db.mjs";
 
 const BASE = "http://localhost:3099";
 const ROOT = process.argv[2];
-const PW = `Kz-${randomBytes(12).toString("base64url")}!9q`;
 const SEED_PW = /hash\("([^"]+)"/.exec(readFileSync(`${ROOT}/scripts/seed-test.ts`, "utf-8"))[1];
 let pass = 0, fail = 0;
 const check = (label, cond, extra = "") => { if (cond) { pass++; console.log(`  ✓ ${label}`); } else { fail++; console.log(`  ✗ ${label} ${extra}`); } };

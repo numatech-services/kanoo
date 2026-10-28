@@ -28,6 +28,19 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
   if ("sku" in clean) update.sku = String(clean.sku || "").slice(0, 60);
   if ("archived" in clean) update.archived = Boolean(clean.archived);
   if ("category" in clean) update.category = String(clean.category || "").trim().slice(0, 60) || undefined;
+  // Fiche recette : ingrédients = autres articles du même comptoir, sans recette eux-mêmes.
+  if ("recipe" in clean) {
+    const raw = Array.isArray(clean.recipe) ? clean.recipe as Array<{ itemId?: string; quantity?: number }> : [];
+    const lines = raw.filter(r => isId(r.itemId) && Number(r.quantity) > 0).map(r => ({ itemId: String(r.itemId), quantity: Math.round(Number(r.quantity) * 10000) / 10000 }));
+    if (lines.some(r => r.itemId === params.id)) return badRequest("Un article ne peut pas être son propre ingrédient.");
+    if (lines.length) {
+      const cur = await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth) }).select("deskId").lean<{ deskId: unknown } | null>();
+      const ings = await ActivityItemModel.find({ _id: { $in: lines.map(r => r.itemId) }, ...tenantFilter(auth), deskId: cur?.deskId }).select("recipe").lean<Array<{ recipe?: unknown[] }>>();
+      if (ings.length !== new Set(lines.map(r => r.itemId)).size) return badRequest("Ingrédient introuvable sur ce comptoir.");
+      if (ings.some(i => i.recipe?.length)) return badRequest("Un ingrédient ne peut pas être lui-même une préparation.");
+    }
+    update.recipe = lines;
+  }
   if ("pack" in clean) {
     const pack = parsePack(clean.pack);
     if (pack === "invalid") return badRequest("Conditionnement invalide (nombre d'unités par paquet, prix du paquet).");

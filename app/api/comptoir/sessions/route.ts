@@ -4,7 +4,7 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
 import { isId, ownDesk, canSeeDeskCosts } from "@/lib/comptoir";
 import { CashSessionModel } from "@/models/CashSession";
-import { periodReport, openSession } from "@/lib/comptoir-session";
+import { periodReport, openSession, sessionProgress } from "@/lib/comptoir-session";
 import { localDay } from "@/lib/comptoir-sale";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -18,7 +18,7 @@ function strip(r: Report | Record<string, unknown> | null | undefined, costs: bo
   if (!r || costs) return r;
   const x = r as Report;
   const lite = (p: Report["topByRevenue"][number]) => ({ itemId: p.itemId, label: p.label, category: p.category, quantity: p.quantity, revenueTTC: p.revenueTTC, tickets: p.tickets });
-  return { ...x, sales: { ...x.sales, cost: undefined, margin: undefined, markupRate: undefined }, byDay: x.byDay?.map(d => ({ ...d, margin: undefined })),
+  return { ...x, sales: { ...x.sales, cost: undefined, margin: undefined, markupRate: undefined }, netMargin: undefined, shrinkage: x.shrinkage ? { total: undefined, byReason: x.shrinkage.byReason.map(r => ({ ...r, value: undefined })) } : undefined, byDay: x.byDay?.map(d => ({ ...d, margin: undefined })),
     topByRevenue: x.topByRevenue?.map(lite), topByQuantity: x.topByQuantity?.map(lite), topByMargin: [], losses: [] };
 }
 
@@ -38,9 +38,11 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
       .populate("openedBy closedBy", "firstName lastName").lean<Array<Record<string, unknown> & { summary?: Report }>>(),
   ]);
   const live = current ? await periodReport(auth.tenantId, deskId, current.openDay, localDay(new Date()), current.openingFloat) : null;
+  const targets = (current as { targets?: { revenue?: number; margin?: number } } | null)?.targets;
+  const progress = current && live ? sessionProgress(costs ? targets : { revenue: targets?.revenue }, live.sales.revenueTTC, live.sales.margin, current.openDay) : null;
   return ok({
     showCosts: costs,
-    current: current ? { ...current, report: strip(live, costs) } : null,
+    current: current ? { ...current, ...(costs ? {} : { targets: targets?.revenue ? { revenue: targets.revenue } : undefined }), report: strip(live, costs), progress } : null,
     previous: history[0] ? strip(history[0].summary, costs) : null,
     history: history.map(h => ({ ...h, summary: strip(h.summary, costs) })),
   });
@@ -51,7 +53,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   await connectDB();
   const body = await req.json().catch(() => ({}));
   if (!(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
-  const s = await openSession(auth, { deskId: String(body.deskId), openingFloat: Number(body.openingFloat ?? 0), day: body.day, label: body.label ? String(body.label) : undefined });
+  const s = await openSession(auth, { deskId: String(body.deskId), openingFloat: Number(body.openingFloat ?? 0), day: body.day, label: body.label ? String(body.label) : undefined, targets: body.targets });
   await logAudit(auth, "CREATE", "comptoir", { resourceId: String(s._id), metadata: { cashSession: "open", float: s.openingFloat } });
   return created(s);
 });

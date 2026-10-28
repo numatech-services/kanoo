@@ -31,7 +31,9 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   await connectDB();
   const body = await req.json().catch(() => ({}));
   if (!(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
-  const { sale, warnings } = await withTransaction(session => createSale(auth, body, session));
+  const { sale, warnings, duplicate } = await withTransaction(session => createSale(auth, body, session));
+  // Ticket déjà reçu (caisse rapide qui renvoie après une coupure) : on rend l'original.
+  if (duplicate) { const o = sale.toObject(); return ok({ sale: canSeeDeskCosts(auth) ? o : hideCosts(o), warnings: [], duplicate: true }); }
   await logAudit(auth, "CREATE", "comptoir", { resourceId: String(sale._id), metadata: { sale: sale.number, total: sale.totalTTC } });
   // Vente à perte : la direction et la comptabilité sont prévenues.
   const loss = (sale.lines as Array<{ label: string; marginHT: number | null }>).filter(l => l.marginHT !== null && l.marginHT < 0);

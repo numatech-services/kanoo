@@ -5,6 +5,7 @@ import { isId, deskFilter } from "@/lib/comptoir";
 import { cancelSale } from "@/lib/comptoir-sale";
 import { ComptoirSaleModel } from "@/models/ComptoirSale";
 import { logAudit } from "@/lib/audit";
+import { cancellationWatch } from "@/lib/cashier-watch";
 import { TokenPayload } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export const POST = withAuth("comptoir", "delete", async (req: NextRequest, auth
   if (reason.length < 3) return badRequest("Motif d'annulation obligatoire.");
   if (!(await ComptoirSaleModel.exists({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }))) return notFound("Ticket introuvable");
   const sale = await withTransaction(session => cancelSale(auth, params.id, reason, session));
+  await cancellationWatch(auth, sale.deskId, sale.cashierId);
   await logAudit(auth, "DELETE", "comptoir", { resourceId: String(sale._id), before: { sale: sale.number, total: sale.totalTTC }, metadata: { reason } });
   return ok({ cancelled: true, number: sale.number });
 });

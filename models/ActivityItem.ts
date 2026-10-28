@@ -29,6 +29,12 @@ export interface IActivityItem {
    * `cost`, on revend à l'unité. Donne le coût de revient unitaire.
    */
   pack?: { label?: string; size?: number; cost?: number };
+  /**
+   * Fiche recette d'une préparation (pastel maison, café, jus) : ingrédients
+   * (autres articles du comptoir) et quantité par unité vendue. La vente sort
+   * les ingrédients du stock ; le coût est leur somme.
+   */
+  recipe?: Array<{ itemId: Types.ObjectId; quantity: number }>;
   archived: boolean;
   createdBy: Types.ObjectId;
   createdAt: Date;
@@ -47,6 +53,7 @@ const ActivityItemSchema = new Schema<IActivityItem>({
   threshold: { type: Number, min: 0 },
   productId: { type: Schema.Types.ObjectId, ref: "Product", index: true },
   category: { type: String, trim: true, maxlength: 60 },
+  recipe: [{ _id: false, itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true }, quantity: { type: Number, required: true, min: 0 } }],
   pack: {
     label: { type: String, trim: true, maxlength: 30 },
     size: { type: Number, min: 1 },

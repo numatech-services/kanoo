@@ -76,6 +76,7 @@ pointé sur la base de production :
 
 ```bash
 cd "…/kanoo" && MONGODB_URI="<votre URL Atlas de prod>" npm run indexes
+# À relancer après chaque mise à jour qui ajoute un index (ex. comptoirs, octobre 2026).
 ```
 
 Tant que ce n'est pas passé au vert, **n'activez pas les relances automatiques** :

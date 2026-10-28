@@ -18,9 +18,14 @@ import { nextDocumentNumber } from "@/lib/numbering";
 import { timbreQuittanceDu } from "@/lib/niger-fiscal";
 import { STAMP_CHARGE, STAMP_DEBT } from "@/lib/payments";
 import { saleLine, type SaleLineInput } from "@/lib/margins";
+import { DeskPromoModel } from "@/models/DeskPromo";
+import { DeskCustomerModel, DeskCustomerMoveModel } from "@/models/DeskCustomer";
+import { bestPromoPrice, creditCheck, type Promo } from "@/lib/spot";
 import type { TokenPayload } from "@/lib/auth";
 
-export const SALE_METHODS = ["cash", "orange_money", "card", "bank_transfer", "check", "other"] as const;
+export const SALE_METHODS = ["cash", "orange_money", "card", "bank_transfer", "check", "other", "credit"] as const;
+/** Ardoises des clients du comptoir (créances). */
+export const CREDIT_ACCOUNT = { accountCode: "411800", accountLabel: "Clients — ardoises du comptoir" };
 const COLLECTED_VAT = { accountCode: "443000", accountLabel: "TVA collectée" };
 
 /** Journée locale AAAA-MM-JJ. */
@@ -42,6 +47,48 @@ export interface SaleInput {
   /** Espèces remises par le client (pour le rendu monnaie). */
   cashGiven?: number;
   customerName?: string;
+  /** Client à l'ardoise (obligatoire pour un paiement « credit »). */
+  customerId?: string;
+  /** Référence de l'écran : un ticket renvoyé (hors connexion) n'est enregistré qu'une fois. */
+  clientRef?: string;
+  /**
+   * Paiement en un seul moyen, montant calculé par le serveur (caisse
+   * rapide) : le prix fait foi au serveur (promotions comprises).
+   */
+  payMethod?: string;
+}
+
+type DeskLite = { _id: Types.ObjectId; name: string };
+type ItemDoc = InstanceType<typeof ActivityItemModel>;
+
+/**
+ * Sortie de stock d'un article pour une vente, au coût FIGÉ : le CMUP lu à la
+ * sortie pour un article du catalogue, le coût de l'article pour un article
+ * propre. Trace dans le stock matière du comptoir.
+ */
+async function stockOut(auth: TokenPayload, desk: DeskLite, item: ItemDoc, qty: number, number: string, date: Date, session?: ClientSession) {
+  const tenantId = auth.tenantId;
+  let unitCost = item.unitCost || 0, stockMovementId: unknown, after: number;
+  if (item.productId) {
+    const wh = await deskWarehouse(tenantId, desk._id, session);
+    const r = await applyMovement({
+      tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: "exit", quantity: qty,
+      reason: `Ticket ${number}`, linkedDocType: "comptoir", linkedDocId: desk._id, linkedDocNumber: number,
+    }, session);
+    unitCost = Number(r.movement.unitCost) || 0;
+    stockMovementId = r.movement._id;
+    after = r.after;
+  } else {
+    if (qty > (item.quantity || 0)) throw new BusinessRuleError(`Stock insuffisant pour ${item.name} (${item.quantity} ${item.unit}).`);
+    after = Math.round(((item.quantity || 0) - qty) * 1000) / 1000;
+  }
+  const [move] = await ActivityStockMoveModel.create([{
+    tenantId, deskId: desk._id, itemId: item._id, type: "out", quantity: qty, quantityAfter: after,
+    unitCost, reason: `Ticket ${number}`, stockMovementId, date, createdBy: auth.userId,
+  }], { session });
+  item.quantity = Math.max(0, after);
+  await item.save({ session });
+  return { unitCost, stockMovementId: stockMovementId as Types.ObjectId | undefined, moveId: move._id as Types.ObjectId, after };
 }
 
 /**
@@ -61,6 +108,15 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
   if (!Array.isArray(input.lines) || input.lines.length === 0) throw new BusinessRuleError("Le ticket est vide.");
   if (input.lines.length > 100) throw new BusinessRuleError("Ticket trop long (100 lignes au plus).");
 
+  // Caisse rapide hors connexion : le même ticket renvoyé n'est pas doublé.
+  const clientRef = input.clientRef && /^[A-Za-z0-9_-]{8,64}$/.test(input.clientRef) ? input.clientRef : undefined;
+  if (clientRef) {
+    const existing = await ComptoirSaleModel.findOne({ tenantId, deskId: desk._id, clientRef }).session(session ?? null);
+    if (existing) return { sale: existing, warnings: [] as string[], duplicate: true };
+  }
+  const promos = (await DeskPromoModel.find({ tenantId, deskId: desk._id, active: true }).session(session ?? null).lean<Array<Promo & { _id: Types.ObjectId; itemIds?: Types.ObjectId[] }>>())
+    .map(p => ({ ...p, _id: String(p._id), itemIds: (p.itemIds ?? []).map(String) }));
+
   const number = await nextDocumentNumber(tenantId, "sale", { issueDate: date, session });
   const lines: ISaleLine[] = [];
   const warnings: string[] = [];
@@ -75,39 +131,45 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
       : null;
     // TVA de l'ARTICLE (comptoir assujetti) ; un comptoir non assujetti (taux 0) vend sans TVA.
     const tvaRate = !desk.vatRate ? 0 : product?.tvaRate ?? desk.vatRate;
-    const price = raw.unitPriceTTC !== undefined && raw.unitPriceTTC !== null ? Number(raw.unitPriceTTC) : item.salePrice ?? 0;
+    // Prix : saisi en caisse, sinon le prix affiché, ou le meilleur prix d'une
+    // promotion en cours (happy hour, prix de gros…).
+    const manual = raw.unitPriceTTC !== undefined && raw.unitPriceTTC !== null;
+    const listPrice = item.salePrice ?? 0;
+    const promo = manual ? null : bestPromoPrice(listPrice, promos, { _id: String(item._id), category: item.category }, qty, date);
+    const price = manual ? Number(raw.unitPriceTTC) : promo ? promo.price : listPrice;
     if (!(price >= 0)) throw new BusinessRuleError(`Prix invalide pour ${item.name}.`);
 
-    // Sortie de stock et coût FIGÉ : le CMUP lu au moment de la sortie pour un
-    // article du catalogue, le coût de l'article pour un article propre.
-    let unitCost = item.unitCost || 0, stockMovementId: unknown, after: number;
-    if (item.productId) {
-      const wh = await deskWarehouse(tenantId, desk._id, session);
-      const r = await applyMovement({
-        tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: "exit", quantity: qty,
-        reason: `Ticket ${number}`, linkedDocType: "comptoir", linkedDocId: desk._id, linkedDocNumber: number,
-      }, session);
-      unitCost = Number(r.movement.unitCost) || 0;
-      stockMovementId = r.movement._id;
-      after = r.after;
+    // Préparation (fiche recette) : ce sont les ingrédients qui sortent du
+    // stock ; le coût de la ligne est leur somme. Sinon, l'article lui-même.
+    let unitCost: number, stockMovementId: Types.ObjectId | undefined, moveId: Types.ObjectId | undefined, after: number | null = null;
+    const ingredients: NonNullable<ISaleLine["ingredients"]> = [];
+    if (item.recipe?.length) {
+      let total = 0;
+      for (const r of item.recipe) {
+        const ing = await ActivityItemModel.findOne({ _id: r.itemId, tenantId, deskId: desk._id }).session(session ?? null);
+        if (!ing) throw new BusinessRuleError(`Ingrédient introuvable dans la recette de ${item.name}.`);
+        const q = Math.round(r.quantity * qty * 1000) / 1000;
+        if (!(q > 0)) continue;
+        const o = await stockOut(auth, desk, ing, q, number, date, session);
+        total += o.unitCost * q;
+        ingredients.push({ itemId: ing._id, quantity: q, unitCost: o.unitCost, stockMovementId: o.stockMovementId, stockMoveId: o.moveId });
+        if (ing.threshold != null && o.after <= ing.threshold) warnings.push(`${ing.name} : stock bas (${o.after} ${ing.unit}).`);
+      }
+      unitCost = Math.round((total / qty) * 100) / 100;
     } else {
-      if (qty > (item.quantity || 0)) throw new BusinessRuleError(`Stock insuffisant pour ${item.name} (${item.quantity} ${item.unit}).`);
-      after = (item.quantity || 0) - qty;
+      const o = await stockOut(auth, desk, item, qty, number, date, session);
+      unitCost = o.unitCost; stockMovementId = o.stockMovementId; moveId = o.moveId; after = o.after;
     }
-    const [move] = await ActivityStockMoveModel.create([{
-      tenantId, deskId: desk._id, itemId: item._id, type: "out", quantity: qty, quantityAfter: after,
-      unitCost, reason: `Ticket ${number}`, stockMovementId, date, createdBy: auth.userId,
-    }], { session });
-    item.quantity = Math.max(0, after);
-    await item.save({ session });
 
     const line = saleLine({ quantity: qty, unitPriceTTC: price, discount: Number(raw.discount) || 0, tvaRate, unitCost } as SaleLineInput);
     if (line.marginHT !== null && line.marginHT < 0) warnings.push(`${item.name} : vendu sous son coût (marge ${line.marginHT.toLocaleString("fr-FR")} FCFA).`);
     if (!unitCost) warnings.push(`${item.name} : sans coût d'achat, marge non calculée.`);
-    if (item.threshold != null && after <= item.threshold) warnings.push(`${item.name} : stock bas (${after} ${item.unit}).`);
+    if (after !== null && item.threshold != null && after <= item.threshold) warnings.push(`${item.name} : stock bas (${after} ${item.unit}).`);
     lines.push({
       itemId: item._id, ...(item.productId ? { productId: item.productId } : {}), label: item.name, category: item.category || product?.category,
-      ...line, stockMovementId: stockMovementId as Types.ObjectId | undefined, stockMoveId: move._id,
+      ...line, stockMovementId, stockMoveId: moveId,
+      ...(promo ? { listPrice, promoId: new Types.ObjectId(promo.promo._id), promoName: promo.promo.name } : {}),
+      ...(ingredients.length ? { ingredients } : {}),
     });
     const account = product?.accountCode && /^7\d{2,7}$/.test(product.accountCode) ? product.accountCode : desk.revenueAccount || "701100";
     revenueByAccount.set(account, (revenueByAccount.get(account) ?? 0) + line.totalHT);
@@ -120,26 +182,46 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
   const marginHT = lines.reduce((t, l) => t + (l.marginHT ?? 0), 0);
 
   // Paiements : leur somme fait le total du ticket (le rendu monnaie est à part).
-  const payments = (Array.isArray(input.payments) && input.payments.length ? input.payments : [{ method: "cash", amount: totalTTC }])
+  const payments = (Array.isArray(input.payments) && input.payments.length ? input.payments : [{ method: input.payMethod || "cash", amount: totalTTC }])
     .map(p => ({ method: (SALE_METHODS as readonly string[]).includes(p.method) ? p.method : "other", amount: Math.round(Number(p.amount) || 0) }))
     .filter(p => p.amount > 0);
   const paid = payments.reduce((t, p) => t + p.amount, 0);
   if (paid !== totalTTC) throw new BusinessRuleError(`Les paiements (${paid.toLocaleString("fr-FR")}) doivent égaler le total du ticket (${totalTTC.toLocaleString("fr-FR")} FCFA).`);
   const cashDue = payments.filter(p => p.method === "cash").reduce((t, p) => t + p.amount, 0);
+  // Ardoise : client du comptoir obligatoire, plafond respecté (réservation atomique).
+  const creditDue = payments.filter(p => p.method === "credit").reduce((t, p) => t + p.amount, 0);
+  let customer: { _id: Types.ObjectId; name: string } | null = null;
+  if (creditDue > 0) {
+    if (!input.customerId || !Types.ObjectId.isValid(input.customerId)) throw new BusinessRuleError("Vente à l'ardoise : choisissez le client.");
+    const c = await DeskCustomerModel.findOne({ _id: input.customerId, tenantId, deskId: desk._id, active: true }).session(session ?? null)
+      .lean<{ _id: Types.ObjectId; name: string; balance: number; creditLimit: number } | null>();
+    if (!c) throw new BusinessRuleError("Client de l'ardoise introuvable.");
+    const refused = creditCheck(c.balance, c.creditLimit, creditDue);
+    if (refused) throw new BusinessRuleError(`${c.name} : ${refused}`);
+    const r = await DeskCustomerModel.updateOne(
+      { _id: c._id, balance: { $lte: c.creditLimit - creditDue } },
+      { $inc: { balance: creditDue }, ...(c.balance <= 0 ? { $set: { oldestDebtAt: date } } : {}) }, { session });
+    if (r.modifiedCount !== 1) throw new BusinessRuleError(`${c.name} : plafond de l'ardoise atteint.`);
+    customer = { _id: c._id, name: c.name };
+  }
   const changeGiven = input.cashGiven && input.cashGiven > cashDue ? Math.round(input.cashGiven - cashDue) : 0;
 
   const withAccounts = [] as Array<{ method: string; amount: number; treasuryAccountId?: unknown }>;
-  for (const p of payments) withAccounts.push({ ...p, ...(desk.treasuryAccountId ? { treasuryAccountId: await accountForMethod(tenantId, desk.treasuryAccountId, p.method, session) } : {}) });
+  for (const p of payments) withAccounts.push({ ...p, ...(desk.treasuryAccountId && p.method !== "credit" ? { treasuryAccountId: await accountForMethod(tenantId, desk.treasuryAccountId, p.method, session) } : {}) });
 
   const [sale] = await ComptoirSaleModel.create([{
     tenantId, deskId: desk._id, number, date, lines, totalTTC, totalHT, totalTVA, costTotal, marginHT,
-    payments: withAccounts, changeGiven, customerName: input.customerName ? String(input.customerName).slice(0, 120) : undefined,
+    payments: withAccounts, changeGiven, customerName: customer?.name ?? (input.customerName ? String(input.customerName).slice(0, 120) : undefined),
+    ...(customer ? { customerId: customer._id } : {}), ...(clientRef ? { clientRef } : {}),
     cashierId: auth.userId,
   }], { session });
+  if (customer) {
+    await DeskCustomerMoveModel.create([{ tenantId, deskId: desk._id, customerId: customer._id, kind: "sale", amount: creditDue, saleId: sale._id, date, label: `Ticket ${number}`, createdBy: auth.userId }], { session });
+  }
 
   // Encaissements de la caisse du comptoir (un par moyen) : ils alimentent
   // l'onglet Caisse et l'arrêté ; la comptabilité vient du ticket.
-  for (const p of withAccounts) {
+  for (const p of withAccounts.filter(x => x.method !== "credit")) {
     await ActivityCashEntryModel.create([{
       tenantId, deskId: desk._id, direction: "in", amount: p.amount, label: `Ticket ${number}`,
       method: p.method, date, saleId: sale._id, createdBy: auth.userId,
@@ -152,6 +234,12 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
     const debit: Array<{ accountCode: string; accountLabel: string; debit: number; credit: number }> = [];
     let journal: "BQ" | "CA" = "CA";
     for (const p of withAccounts) {
+      // Vente à l'ardoise : une créance (411800), pas un encaissement.
+      if (p.method === "credit") {
+        await registerLedgerAccount(tenantId, CREDIT_ACCOUNT.accountCode, CREDIT_ACCOUNT.accountLabel, session);
+        debit.push({ ...CREDIT_ACCOUNT, debit: p.amount, credit: 0 });
+        continue;
+      }
       const ledger = await treasuryLedger(tenantId, p.treasuryAccountId, session);
       if (!ledger) throw new BusinessRuleError("Compte de trésorerie du comptoir introuvable.");
       if (p === withAccounts[0]) journal = ledger.journalCode;
@@ -177,7 +265,7 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
     sale.entryId = entry._id;
     await sale.save({ session });
   }
-  return { sale, warnings };
+  return { sale, warnings, duplicate: false };
 }
 
 /** Annule un ticket : stock rendu, encaissements retirés, écriture et trésorerie extournées. */
@@ -190,7 +278,25 @@ export async function cancelSale(auth: TokenPayload, saleId: string, reason: str
   const claim = await ComptoirSaleModel.updateOne({ _id: sale._id, status: "paid" }, { $set: { status: "cancelled", cancelledAt: new Date(), cancelReason: reason.slice(0, 300) } }, { session });
   if (claim.modifiedCount !== 1) throw new BusinessRuleError("Ticket déjà annulé.");
 
+  // Retour en stock d'une sortie (article ou ingrédient).
+  const restock = async (itemId: unknown, quantity: number, unitCost: number, stockMovementId?: unknown) => {
+    const item = await ActivityItemModel.findOne({ _id: itemId, tenantId }).session(session ?? null);
+    let after = (item?.quantity ?? 0) + quantity;
+    if (stockMovementId) {
+      const r = await reverseMovement({ tenantId, userId: auth.userId, movementId: stockMovementId, reason: `ticket ${sale.number} annulé` }, session);
+      if (typeof (r as { after?: number }).after === "number") after = (r as { after: number }).after;
+    }
+    if (item) { item.quantity = Math.max(0, after); await item.save({ session }); }
+    await ActivityStockMoveModel.create([{
+      tenantId, deskId: sale.deskId, itemId, type: "in", quantity, quantityAfter: Math.max(0, after),
+      unitCost, reason: `Annulation du ticket ${sale.number}`, date: new Date(), createdBy: auth.userId,
+    }], { session });
+  };
   for (const l of sale.lines as ISaleLine[]) {
+    if (l.ingredients?.length) {
+      for (const g of l.ingredients) await restock(g.itemId, g.quantity, g.unitCost, g.stockMovementId);
+      continue;
+    }
     const item = await ActivityItemModel.findOne({ _id: l.itemId, tenantId }).session(session ?? null);
     let after = (item?.quantity ?? 0) + l.quantity;
     if (l.stockMovementId) {
@@ -204,6 +310,12 @@ export async function cancelSale(auth: TokenPayload, saleId: string, reason: str
     }], { session });
   }
   await ActivityCashEntryModel.deleteMany({ tenantId, saleId: sale._id }, { session });
+  // Ardoise : la dette du ticket s'efface.
+  const credit = (sale.payments as Array<{ method: string; amount: number }>).filter(p => p.method === "credit").reduce((t, p) => t + p.amount, 0);
+  if (credit > 0 && sale.customerId) {
+    await DeskCustomerModel.updateOne({ _id: sale.customerId, tenantId }, { $inc: { balance: -credit } }, { session });
+    await DeskCustomerMoveModel.create([{ tenantId, deskId: sale.deskId, customerId: sale.customerId, kind: "cancel", amount: -credit, saleId: sale._id, date: new Date(), label: `Annulation du ticket ${sale.number}`, createdBy: auth.userId }], { session });
+  }
   if (sale.entryId) await reverseEntry({ tenantId, userId: auth.userId, entryId: sale.entryId, reason: `ticket ${sale.number} annulé : ${reason}` }, session);
   const moves = await TreasuryMovementModel.find({ tenantId, linkedDocType: "comptoir_sale", linkedDocId: sale._id }).session(session ?? null).lean<Array<{ accountId: unknown; amount: number; label: string }>>();
   for (const m of moves) {

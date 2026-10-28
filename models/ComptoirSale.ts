@@ -30,6 +30,12 @@ export interface ISaleLine {
   marginHT: number | null;
   stockMovementId?: Types.ObjectId;
   stockMoveId?: Types.ObjectId;
+  /** Prix affiché avant promotion, et la promotion appliquée. */
+  listPrice?: number;
+  promoId?: Types.ObjectId;
+  promoName?: string;
+  /** Préparation : ingrédients sortis du stock (fiche recette). */
+  ingredients?: Array<{ itemId: Types.ObjectId; quantity: number; unitCost: number; stockMovementId?: Types.ObjectId; stockMoveId?: Types.ObjectId }>;
 }
 
 export interface ISalePayment {
@@ -55,6 +61,11 @@ const LineSchema = new Schema<ISaleLine>({
   marginHT: { type: Number, default: null },
   stockMovementId: { type: Schema.Types.ObjectId, ref: "StockMovement" },
   stockMoveId: { type: Schema.Types.ObjectId, ref: "ActivityStockMove" },
+  listPrice: Number,
+  promoId: { type: Schema.Types.ObjectId, ref: "DeskPromo" },
+  promoName: String,
+  ingredients: [{ _id: false, itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem" }, quantity: Number, unitCost: Number,
+    stockMovementId: { type: Schema.Types.ObjectId, ref: "StockMovement" }, stockMoveId: { type: Schema.Types.ObjectId, ref: "ActivityStockMove" } }],
 }, { _id: false });
 
 const ComptoirSaleSchema = new Schema({
@@ -73,6 +84,13 @@ const ComptoirSaleSchema = new Schema({
   /** Rendu au client (espèces données − dû), information du ticket. */
   changeGiven: { type: Number, default: 0 },
   customerName: { type: String, maxlength: 120 },
+  /** Client à l'ardoise (vente à crédit). */
+  customerId: { type: Schema.Types.ObjectId, ref: "DeskCustomer" },
+  /**
+   * Référence posée par l'écran (caisse rapide hors connexion) : un ticket
+   * renvoyé deux fois n'est enregistré qu'une fois.
+   */
+  clientRef: { type: String, maxlength: 64 },
   status: { type: String, enum: ["paid", "cancelled"], default: "paid", index: true },
   cancelledAt: Date,
   cancelReason: String,
@@ -82,5 +100,6 @@ const ComptoirSaleSchema = new Schema({
 
 ComptoirSaleSchema.index({ tenantId: 1, number: 1 }, { unique: true });
 ComptoirSaleSchema.index({ tenantId: 1, deskId: 1, date: -1 });
+ComptoirSaleSchema.index({ tenantId: 1, deskId: 1, clientRef: 1 }, { unique: true, partialFilterExpression: { clientRef: { $type: "string" } } });
 
 export const ComptoirSaleModel = models.ComptoirSale || model("ComptoirSale", ComptoirSaleSchema);

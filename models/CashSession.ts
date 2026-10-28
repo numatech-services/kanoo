@@ -13,6 +13,8 @@ const CashSessionSchema = new Schema({
   openDay: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
   openingFloat: { type: Number, required: true, min: 0 },
   label: { type: String, maxlength: 80 },
+  /** Objectifs de la période (chiffre d'affaires TTC, marge HT). */
+  targets: { revenue: { type: Number, min: 0 }, margin: { type: Number, min: 0 } },
   openedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   status: { type: String, enum: ["open", "closed"], default: "open" },
   closeDay: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },

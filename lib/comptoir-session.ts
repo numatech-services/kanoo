@@ -3,6 +3,9 @@ import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { ComptoirSaleModel } from "@/models/ComptoirSale";
 import { CashSessionModel } from "@/models/CashSession";
 import { CashClosingModel } from "@/models/CashClosing";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
+import { targetProgress } from "@/lib/spot";
+import { lossesReport } from "@/lib/spot-server";
 import { BusinessRuleError } from "@/lib/errors";
 import { closeDay, localDay } from "@/lib/comptoir-sale";
 import type { TokenPayload } from "@/lib/auth";
@@ -42,10 +45,10 @@ export async function productSales(tenantId: string, deskId: unknown, fromDay: s
 export async function periodReport(tenantId: string, deskId: unknown, fromDay: string, toDay: string, openingFloat = 0) {
   const tid = new Types.ObjectId(tenantId), did = new Types.ObjectId(String(deskId));
   const range = { $gte: new Date(`${fromDay}T00:00:00.000`), $lte: new Date(`${toDay}T23:59:59.999`) };
-  const [entries, sales, byDay, products] = await Promise.all([
-    ActivityCashEntryModel.aggregate<{ _id: { d: string; m: string; c: string | null; t: boolean }; total: number; n: number }>([
+  const [entries, sales, byDay, products, credit, losses] = await Promise.all([
+    ActivityCashEntryModel.aggregate<{ _id: { d: string; m: string; c: string | null; t: boolean; k: boolean }; total: number; n: number }>([
       { $match: { tenantId: tid, deskId: did, date: range } },
-      { $group: { _id: { d: "$direction", m: "$method", c: { $ifNull: ["$category", null] }, t: { $gt: ["$saleId", null] } }, total: { $sum: "$amount" }, n: { $sum: 1 } } },
+      { $group: { _id: { d: "$direction", m: "$method", c: { $ifNull: ["$category", null] }, t: { $gt: ["$saleId", null] }, k: { $gt: ["$customerId", null] } }, total: { $sum: "$amount" }, n: { $sum: 1 } } },
     ]),
     ComptoirSaleModel.aggregate<{ n: number; ttc: number; ht: number; cost: number; margin: number }>([
       { $match: { tenantId: tid, deskId: did, status: "paid", date: range } },
@@ -57,6 +60,11 @@ export async function periodReport(tenantId: string, deskId: unknown, fromDay: s
       { $sort: { _id: 1 } },
     ]),
     productSales(tenantId, deskId, fromDay, toDay),
+    ComptoirSaleModel.aggregate<{ total: number }>([
+      { $match: { tenantId: tid, deskId: did, status: "paid", date: range } }, { $unwind: "$payments" }, { $match: { "payments.method": "credit" } },
+      { $group: { _id: null, total: { $sum: "$payments.amount" } } },
+    ]),
+    lossesReport(tenantId, deskId, fromDay, toDay),
   ]);
   const s = sales[0] ?? { n: 0, ttc: 0, ht: 0, cost: 0, margin: 0 };
   const sum = (pred: (e: (typeof entries)[number]) => boolean) => entries.filter(pred).reduce((t, e) => t + e.total, 0);
@@ -75,7 +83,12 @@ export async function periodReport(tenantId: string, deskId: unknown, fromDay: s
     sales: { count: s.n, revenueTTC: s.ttc, revenueHT: s.ht, cost: s.cost, margin: Math.round(s.margin), averageTicket: s.n ? Math.round(s.ttc / s.n) : 0,
       markupRate: s.ht > 0 ? Math.round((s.margin / s.ht) * 1000) / 10 : null },
     receipts, expenses, balance: receipts - expenses,
-    otherReceipts: sum(e => e._id.d === "in" && !e._id.t),
+    // Ardoises : vendu à crédit (dans le CA, pas dans les recettes) et réglé.
+    creditSales: credit[0]?.total ?? 0,
+    creditSettled: sum(e => e._id.d === "in" && e._id.k),
+    shrinkage: { total: losses.total, byReason: losses.byReason },
+    netMargin: Math.round(s.margin) - losses.total,
+    otherReceipts: sum(e => e._id.d === "in" && !e._id.t && !e._id.k),
     byMethod: methods, expensesByCategory: cats,
     openingFloat, expectedCash: openingFloat + (cash?.receipts ?? 0) - (cash?.expenses ?? 0),
     byDay: byDay.map(d => ({ day: d._id, revenueTTC: d.ttc, margin: Math.round(d.margin), tickets: d.n })),
@@ -87,7 +100,7 @@ export async function periodReport(tenantId: string, deskId: unknown, fromDay: s
 }
 
 /** Ouvre la caisse d'un comptoir (une seule ouverte à la fois). */
-export async function openSession(auth: TokenPayload, input: { deskId: string; openingFloat: number; day?: string; label?: string }) {
+export async function openSession(auth: TokenPayload, input: { deskId: string; openingFloat: number; day?: string; label?: string; targets?: { revenue?: number; margin?: number } }) {
   const day = input.day && DAY.test(input.day) ? input.day : localDay(new Date());
   if (day > localDay(new Date())) throw new BusinessRuleError("On n'ouvre pas une caisse à une date à venir.");
   const float = Math.round(Number(input.openingFloat));
@@ -95,7 +108,11 @@ export async function openSession(auth: TokenPayload, input: { deskId: string; o
   if (await CashSessionModel.exists({ tenantId: auth.tenantId, deskId: input.deskId, status: "open" })) throw new BusinessRuleError("Une caisse est déjà ouverte pour ce comptoir : fermez-la d'abord.");
   if (await CashClosingModel.exists({ tenantId: auth.tenantId, deskId: input.deskId, day: { $gte: day } })) throw new BusinessRuleError("Cette journée est déjà arrêtée : ouvrez la caisse à partir du jour suivant.");
   try {
-    return await CashSessionModel.create({ tenantId: auth.tenantId, deskId: input.deskId, openDay: day, openingFloat: float, label: input.label?.slice(0, 80), openedBy: auth.userId });
+    // Objectifs : ceux saisis à l'ouverture, sinon ceux du comptoir.
+    const desk = await ActivityDeskModel.findOne({ _id: input.deskId, tenantId: auth.tenantId }).select("weeklyRevenueTarget weeklyMarginTarget").lean<{ weeklyRevenueTarget?: number; weeklyMarginTarget?: number } | null>();
+    const revenue = Number(input.targets?.revenue ?? desk?.weeklyRevenueTarget ?? 0), margin = Number(input.targets?.margin ?? desk?.weeklyMarginTarget ?? 0);
+    return await CashSessionModel.create({ tenantId: auth.tenantId, deskId: input.deskId, openDay: day, openingFloat: float, label: input.label?.slice(0, 80), openedBy: auth.userId,
+      ...(revenue > 0 || margin > 0 ? { targets: { ...(revenue > 0 ? { revenue: Math.round(revenue) } : {}), ...(margin > 0 ? { margin: Math.round(margin) } : {}) } } : {}) });
   } catch (e) {
     if ((e as { code?: number }).code === 11000) throw new BusinessRuleError("Une caisse est déjà ouverte pour ce comptoir.");
     throw e;
@@ -132,4 +149,19 @@ export async function closeSession(auth: TokenPayload, sessionId: string, input:
   } }, { session });
   if (claim.modifiedCount !== 1) throw new BusinessRuleError("Cette caisse vient d'être fermée.");
   return CashSessionModel.findById(cs._id).session(session ?? null).lean();
+}
+
+/** Jours écoulés de la période (jour d'ouverture et jour en cours compris). */
+export function elapsedDays(openDay: string, today = localDay(new Date())) {
+  return Math.max(1, Math.round((new Date(`${today}T12:00:00`).getTime() - new Date(`${openDay}T12:00:00`).getTime()) / 86_400_000) + 1);
+}
+
+/** Avancement des objectifs d'une caisse ouverte (sur 7 jours). */
+export function sessionProgress(targets: { revenue?: number; margin?: number } | undefined, revenue: number, margin: number, openDay: string) {
+  const d = elapsedDays(openDay);
+  return {
+    elapsedDays: d,
+    revenue: targets?.revenue ? targetProgress(revenue, targets.revenue, d) : null,
+    margin: targets?.margin ? targetProgress(margin, targets.margin, d) : null,
+  };
 }

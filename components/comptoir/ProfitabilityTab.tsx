@@ -21,10 +21,12 @@ interface Row {
   pack: { label?: string; size?: number; cost?: number } | null;
   economics: Economics; outlook: { expectedRevenue: number; expectedMargin: number | null; stockValue: number };
   sold: { quantity: number; revenueTTC: number; margin: number; tickets: number; rank: number } | null;
+  recipe: Array<{ itemId: string; quantity: number; name: string }>; recipeMissing: number;
+  losses: { quantity: number; value: number } | null;
 }
 interface Data {
   from: string; to: string; targetMarkup: number; vatRate: number; items: Row[];
-  totals: { stockValue: number; expectedRevenue: number; expectedMargin: number; soldRevenue: number; soldMargin: number; losses: number; thin: number; unpriced: number };
+  totals: { stockValue: number; expectedRevenue: number; expectedMargin: number; soldRevenue: number; soldMargin: number; losses: number; thin: number; unpriced: number; shrinkage: number };
   categories: Array<{ category: string; revenueTTC: number; margin: number; quantity: number }>;
   best: Array<{ itemId: string; label: string; revenueTTC: number; quantity: number; margin: number }>;
 }
@@ -75,8 +77,9 @@ export function ProfitabilityTab({ deskId, onChange }: { deskId: string; onChang
         <Kpi label="CA attendu du stock" value={MONEY(t.expectedRevenue)} hint="Si tout le stock est vendu au prix affiché" />
         <Kpi label="Marge attendue du stock" value={MONEY(t.expectedMargin)} tone={t.expectedMargin < 0 ? "neg" : "pos"} />
         <Kpi label="CA réalisé (période)" value={MONEY(t.soldRevenue)} />
-        <Kpi label="Marge réalisée (période)" value={MONEY(t.soldMargin)} tone={t.soldMargin < 0 ? "neg" : "pos"} />
+        <Kpi label="Marge réalisée (période)" value={MONEY(t.soldMargin)} tone={t.soldMargin < 0 ? "neg" : "pos"} hint={t.shrinkage ? `Pertes et casse : ${MONEY(t.shrinkage)}` : undefined} />
       </div>
+      {t.shrinkage > 0 && <p className="text-sm text-neg">Pertes et casse de la période : {MONEY(t.shrinkage)} au coût — marge après pertes : <b>{MONEY(t.soldMargin - t.shrinkage)}</b>.</p>}
 
       {(t.losses > 0 || t.thin > 0 || t.unpriced > 0) && (
         <div className="px-4 py-3 rounded-xl bg-warn-50 border border-warn/25 text-sm text-warn inline-flex gap-2 items-start">
@@ -126,7 +129,7 @@ export function ProfitabilityTab({ deskId, onChange }: { deskId: string; onChang
                 return (
                   <tr key={r._id}>
                     <td className="text-ink font-medium">{r.sold?.rank && r.sold.rank <= 3 ? <span className="mr-1 text-warn">#{r.sold.rank}</span> : null}{r.name}
-                      <span className="block text-[11px] text-ink3 font-normal">{[r.category, r.pack?.size ? `${r.pack.label || "paquet"} de ${r.pack.size}${r.pack.cost ? ` à ${MONEY(r.pack.cost)}` : ""}` : ""].filter(Boolean).join(" · ") || "—"}</span>
+                      <span className="block text-[11px] text-ink3 font-normal">{[r.category, r.recipe.length ? `préparation : ${r.recipe.map(x => x.name).join(", ")}` : "", r.pack?.size ? `${r.pack.label || "paquet"} de ${r.pack.size}${r.pack.cost ? ` à ${MONEY(r.pack.cost)}` : ""}` : "", r.losses ? `pertes ${MONEY(r.losses.value)}` : ""].filter(Boolean).join(" · ") || "—"}</span>
                       <span className="mt-0.5 inline-block"><Pill tone={st.tone}>{st.label}</Pill></span>
                     </td>
                     <td className="text-right font-mono text-ink2">{e.unitCost ? UNIT(e.unitCost) : "—"}</td>
@@ -144,7 +147,7 @@ export function ProfitabilityTab({ deskId, onChange }: { deskId: string; onChang
           </table>
         </div></div>
       )}
-      {edit && <PricingDialog row={edit} vatRate={data.vatRate} target={data.targetMarkup} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); reload(); onChange(); }} />}
+      {edit && <PricingDialog row={edit} all={data.items} vatRate={data.vatRate} target={data.targetMarkup} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); reload(); onChange(); }} />}
     </div>
   );
 }
@@ -194,7 +197,13 @@ function MarginCalculator({ vatRate, target }: { vatRate: number; target: number
 }
 
 /** Prix de vente, famille et conditionnement d'un article, avec la marge en direct. */
-function PricingDialog({ row, vatRate, target, onClose, onSaved }: { row: Row; vatRate: number; target: number; onClose: () => void; onSaved: () => void }) {
+function PricingDialog({ row, all, vatRate, target, onClose, onSaved }: { row: Row; all: Row[]; vatRate: number; target: number; onClose: () => void; onSaved: () => void }) {
+  // Fiche recette : ingrédients parmi les articles simples du comptoir.
+  const [recipe, setRecipe] = useState(row.recipe.map(r => ({ itemId: r.itemId, quantity: String(r.quantity) })));
+  const ingredients = all.filter(x => x._id !== row._id && !x.recipe.length);
+  const costOf = (id: string) => all.find(x => x._id === id)?.economics.unitCost ?? 0;
+  const recipeCost = recipe.reduce((t, r) => t + (Number(r.quantity) || 0) * costOf(r.itemId), 0);
+  const isPrepared = recipe.some(r => r.itemId && Number(r.quantity) > 0);
   const [f, setF] = useState({
     salePrice: String(row.salePrice ?? ""), category: row.category,
     packLabel: row.pack?.label ?? "", packSize: String(row.pack?.size ?? ""), packCost: String(row.pack?.cost ?? ""),
@@ -202,11 +211,12 @@ function PricingDialog({ row, vatRate, target, onClose, onSaved }: { row: Row; v
   });
   const [busy, setBusy] = useState(false);
   const pack = Number(f.packSize) > 0 ? { label: f.packLabel || undefined, size: Number(f.packSize), cost: row.linked ? undefined : Number(f.packCost) || undefined } : null;
-  const e = itemEconomics({ unitCost: Number(f.unitCost) || 0, pack, salePrice: Number(f.salePrice) || 0, vatRate, targetMarkup: target });
+  const e = itemEconomics({ unitCost: isPrepared ? recipeCost : Number(f.unitCost) || 0, pack: isPrepared ? null : pack, salePrice: Number(f.salePrice) || 0, vatRate, targetMarkup: target });
   async function save() {
     setBusy(true);
     const res = await apiSend("PATCH", `/api/comptoir/items/${row._id}`, {
-      salePrice: Number(f.salePrice) || 0, category: f.category, pack: pack ?? null,
+      salePrice: Number(f.salePrice) || 0, category: f.category, pack: isPrepared ? null : pack ?? null,
+      recipe: recipe.filter(r => r.itemId && Number(r.quantity) > 0).map(r => ({ itemId: r.itemId, quantity: Number(r.quantity) })),
       ...(!row.linked && !pack?.cost && f.unitCost !== "" ? { unitCost: Number(f.unitCost) || 0 } : {}),
     });
     setBusy(false);
@@ -230,6 +240,21 @@ function PricingDialog({ row, vatRate, target, onClose, onSaved }: { row: Row; v
           {row.linked && <p className="text-[11px] text-ink3">Article du catalogue : son coût est le coût moyen réel des achats.</p>}
         </fieldset>
         {!row.linked && !pack?.cost && <FormField label="Coût d'achat à l'unité"><input type="number" min={0} className={inputCls} value={f.unitCost} onChange={x => setF(p => ({ ...p, unitCost: x.target.value }))} /></FormField>}
+        <fieldset className="rounded-xl border border-line p-3 space-y-2">
+          <legend className="px-1 text-xs font-semibold text-ink2">Fiche recette (préparation maison : pastel, café, jus…)</legend>
+          <p className="text-[11px] text-ink3">Quantité de chaque ingrédient pour UNE unité vendue (ex. 0,05 kg de farine). La vente sortira les ingrédients du stock.</p>
+          {recipe.map((r, i) => (
+            <div key={i} className="grid grid-cols-12 gap-2 items-center">
+              <select className={`${inputCls} col-span-7`} value={r.itemId} onChange={x => setRecipe(rs => rs.map((y, j) => (j === i ? { ...y, itemId: x.target.value } : y)))} aria-label="Ingrédient">
+                <option value="">— Ingrédient —</option>{ingredients.map(x => <option key={x._id} value={x._id}>{x.name} ({x.unit})</option>)}
+              </select>
+              <input type="number" min={0} step="any" className={`${inputCls} col-span-3`} value={r.quantity} onChange={x => setRecipe(rs => rs.map((y, j) => (j === i ? { ...y, quantity: x.target.value } : y)))} aria-label="Quantité" />
+              <button type="button" onClick={() => setRecipe(rs => rs.filter((_, j) => j !== i))} className="col-span-2 text-xs text-ink3 hover:text-neg">retirer</button>
+            </div>
+          ))}
+          <button type="button" onClick={() => setRecipe(rs => [...rs, { itemId: "", quantity: "" }])} className={buttonClass("ghost", "sm")}>+ Ingrédient</button>
+          {isPrepared && <p className="text-xs text-ink2">Coût de la recette : <b>{UNIT(Math.round(recipeCost * 100) / 100)}</b> par {row.unit}.</p>}
+        </fieldset>
         <div className="surface-card p-3"><Verdict e={e} unit={row.unit} packLabel={f.packLabel ? f.packLabel[0].toUpperCase() + f.packLabel.slice(1) : undefined} /></div>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>

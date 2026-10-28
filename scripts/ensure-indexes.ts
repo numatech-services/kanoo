@@ -36,6 +36,17 @@ async function main() {
   // Import après connexion : les modèles s'enregistrent à l'import.
   const models = await Promise.all([
     import("../models/DunningLog").then(m => m.DunningLogModel),
+    // Comptoirs (The Spot) : tickets idempotents, caisse ouverte unique,
+    // relevés mobile money sans doublon, passages des tâches planifiées.
+    import("../models/ComptoirSale").then(m => m.ComptoirSaleModel),
+    import("../models/CashSession").then(m => m.CashSessionModel),
+    import("../models/CashClosing").then(m => m.CashClosingModel),
+    import("../models/MobileMoneyLine").then(m => m.MobileMoneyLineModel),
+    import("../models/DeskCustomer").then(m => m.DeskCustomerModel),
+    import("../models/ItemCount").then(m => m.ItemCountModel),
+    import("../models/DeskPromo").then(m => m.DeskPromoModel),
+    import("../models/CronRun").then(m => m.CronRunModel),
+    import("../models/Notification").then(m => m.NotificationModel),
     import("../models/DunningSettings").then(m => m.DunningSettingsModel),
     import("../models/AutomationSettings").then(m => m.AutomationSettingsModel),
     import("../models/AutomationLog").then(m => m.AutomationLogModel),

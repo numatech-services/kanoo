@@ -33,6 +33,11 @@ import { BusinessRuleError } from "@/lib/errors";
 import { authCan } from "@/lib/role-resources";
 import { AUTOMATION_JOBS } from "@/lib/automation-jobs";
 import { CronRunModel } from "@/models/CronRun";
+import { CashSessionModel } from "@/models/CashSession";
+import { DeskCustomerModel } from "@/models/DeskCustomer";
+import { periodReport, elapsedDays } from "@/lib/comptoir-session";
+import { localDay } from "@/lib/comptoir-sale";
+import { targetProgress } from "@/lib/spot";
 import { dayKey } from "@/lib/automations";
 
 /** Rôles qui reçoivent les relances de courriers entrants. */
@@ -117,6 +122,39 @@ export const CRON_JOBS: CronJob[] = [
         }
       }
       return `${made} facture(s) préparée(s) pour ${due.length} contrat(s)${errors.length ? ` — ${errors.length} en échec : ${errors.slice(0, 3).join(" ; ")}` : ""}`;
+    },
+  },
+  {
+    id: "desk-spot", label: "Comptoirs : objectifs de la semaine et ardoises",
+    cadence: "daily", schedule: "0 9 * * *",
+    // Objectif en retard (à partir du 3e jour de la caisse) et ardoises à
+    // relancer (dette de plus de 14 jours, ou plafond dépassé).
+    run: async () => {
+      let behind = 0, debts = 0;
+      const open = await CashSessionModel.find({ status: "open", "targets.revenue": { $gt: 0 } }).lean<Array<{ _id: Id; tenantId: Id; deskId: Id; openDay: string; openingFloat: number; targets: { revenue: number; margin?: number } }>>();
+      for (const s of open) {
+        const d = elapsedDays(s.openDay);
+        if (d < 3 || d > 7) continue;
+        const r = await periodReport(String(s.tenantId), s.deskId, s.openDay, localDay(new Date()), s.openingFloat);
+        const p = targetProgress(r.sales.revenueTTC, s.targets.revenue, d);
+        if (!p?.behind) continue;
+        behind++;
+        for (const a of await getAdmins(s.tenantId, ["pme_admin", "pme_manager", "svc_spot"])) {
+          await notify(s.tenantId, a._id, "desk_target_behind", "Comptoir : objectif de la semaine en retard",
+            `${r.sales.revenueTTC.toLocaleString("fr-FR")} FCFA réalisés sur ${s.targets.revenue.toLocaleString("fr-FR")} visés (jour ${d}/7, attendu ${p.expected.toLocaleString("fr-FR")}). Il faut ${(p.perDayNeeded ?? 0).toLocaleString("fr-FR")} FCFA par jour d'ici la fin.`, "comptoir", s._id);
+        }
+      }
+      const limit = new Date(Date.now() - 14 * 86_400_000);
+      const late = await DeskCustomerModel.find({ active: true, balance: { $gt: 0 }, $or: [{ oldestDebtAt: { $lte: limit } }, { $expr: { $gt: ["$balance", "$creditLimit"] } }] })
+        .lean<Array<{ _id: Id; tenantId: Id; name: string; balance: number; creditLimit: number; phone?: string }>>();
+      for (const c of late) {
+        debts++;
+        for (const a of await getAdmins(c.tenantId, ["pme_admin", "pme_manager", "svc_spot"])) {
+          await notify(c.tenantId, a._id, "desk_credit_due", "Ardoise à relancer",
+            `${c.name}${c.phone ? ` (${c.phone})` : ""} doit ${c.balance.toLocaleString("fr-FR")} FCFA${c.balance > c.creditLimit ? ", au-delà de son plafond" : " depuis plus de 14 jours"}.`, "comptoir", c._id);
+        }
+      }
+      return `${behind} objectif(s) en retard, ${debts} ardoise(s) à relancer`;
     },
   },
   {

@@ -28,6 +28,7 @@ export interface IActivityDesk {
   /** TVA comprise dans les prix (0 = non assujetti). */
   vatRate?: number;
   targetMarkup?: number;
+  leadDays?: number; coverDays?: number; weeklyRevenueTarget?: number; weeklyMarginTarget?: number; cycleCountSize?: number;
   archived: boolean;
   createdBy: Types.ObjectId;
   createdAt: Date;
@@ -47,6 +48,14 @@ const ActivityDeskSchema = new Schema<IActivityDesk>({
   vatRate: { type: Number, default: 0, min: 0, max: 0.5 },
   /** Taux de marque visé (part du prix HT), pour le prix conseillé et les alertes. */
   targetMarkup: { type: Number, default: 0.3, min: 0, max: 0.95 },
+  /** Réassort : délai de livraison et jours à couvrir par une commande. */
+  leadDays: { type: Number, default: 2, min: 0, max: 60 },
+  coverDays: { type: Number, default: 7, min: 1, max: 90 },
+  /** Objectifs de la semaine (proposés à l'ouverture de la caisse). */
+  weeklyRevenueTarget: { type: Number, min: 0 },
+  weeklyMarginTarget: { type: Number, min: 0 },
+  /** Inventaire tournant : articles à compter par jour. */
+  cycleCountSize: { type: Number, default: 5, min: 1, max: 50 },
   archived: { type: Boolean, default: false, index: true },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: true });

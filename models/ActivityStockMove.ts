@@ -17,6 +17,9 @@ export interface IActivityStockMove {
   unitCost?: number;
   reason?: string;
   stockMovementId?: Types.ObjectId;
+  /** Perte : motif (lib/spot LOSS_REASONS) et valeur au coût. */
+  lossReason?: string;
+  lossValue?: number;
   date: Date;
   createdBy: Types.ObjectId;
   createdAt: Date;
@@ -34,6 +37,8 @@ const ActivityStockMoveSchema = new Schema<IActivityStockMove>({
   reason: { type: String, maxlength: 300 },
   /** Mouvement de stock central correspondant (article lié au catalogue). */
   stockMovementId: { type: Schema.Types.ObjectId, ref: "StockMovement" },
+  lossReason: { type: String, maxlength: 20 },
+  lossValue: { type: Number, min: 0 },
   date: { type: Date, required: true, default: Date.now, index: true },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: true });

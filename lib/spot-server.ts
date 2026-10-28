@@ -1,0 +1,159 @@
+import { Types, type ClientSession } from "mongoose";
+import { ActivityItemModel } from "@/models/ActivityItem";
+import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
+import { ComptoirSaleModel } from "@/models/ComptoirSale";
+import { ItemCountModel } from "@/models/ItemCount";
+import { ProductModel } from "@/models/Product";
+import { BusinessRuleError } from "@/lib/errors";
+import { applyMovement } from "@/lib/stock";
+import { deskWarehouse } from "@/lib/comptoir-stock";
+import { assertDayOpen, localDay } from "@/lib/comptoir-sale";
+import { LOSS_REASONS, reorderSuggestion, pickCycleCount } from "@/lib/spot";
+import type { TokenPayload } from "@/lib/auth";
+
+const DAY = 86_400_000;
+
+/**
+ * Perte, casse, offert, consommation du personnel : sortie de stock motivée,
+ * valorisée au coût. Elle compte dans la marge de la semaine.
+ */
+export async function recordLoss(auth: TokenPayload, input: { deskId: string; itemId: string; quantity: number; reason: string; note?: string; date?: string }, session?: ClientSession) {
+  const tenantId = auth.tenantId;
+  if (!(input.reason in LOSS_REASONS)) throw new BusinessRuleError("Motif de perte inconnu.");
+  const qty = Number(input.quantity);
+  if (!(qty > 0)) throw new BusinessRuleError("Quantité invalide.");
+  const date = input.date ? new Date(input.date) : new Date();
+  if (isNaN(date.getTime())) throw new BusinessRuleError("Date invalide.");
+  await assertDayOpen(tenantId, input.deskId, date, session);
+  const item = await ActivityItemModel.findOne({ _id: input.itemId, tenantId, deskId: input.deskId }).session(session ?? null);
+  if (!item) throw new BusinessRuleError("Article introuvable.");
+  if (item.recipe?.length) throw new BusinessRuleError("Préparation : déclarez la perte sur ses ingrédients.");
+  const reason = `${LOSS_REASONS[input.reason]}${input.note ? ` — ${String(input.note).slice(0, 120)}` : ""}`;
+  let unitCost = item.unitCost || 0, stockMovementId: unknown, after: number;
+  if (item.productId) {
+    const wh = await deskWarehouse(tenantId, input.deskId, session);
+    const r = await applyMovement({ tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: "loss", quantity: qty, reason, linkedDocType: "comptoir", linkedDocId: item.deskId }, session);
+    unitCost = Number(r.movement.unitCost) || unitCost; stockMovementId = r.movement._id; after = r.after;
+  } else {
+    if (qty > (item.quantity || 0)) throw new BusinessRuleError(`Stock insuffisant pour ${item.name} (${item.quantity} ${item.unit}).`);
+    after = Math.round(((item.quantity || 0) - qty) * 1000) / 1000;
+  }
+  const lossValue = Math.round(qty * unitCost);
+  const [move] = await ActivityStockMoveModel.create([{ tenantId, deskId: item.deskId, itemId: item._id, type: "out", quantity: qty, quantityAfter: after, unitCost, reason, stockMovementId, lossReason: input.reason, lossValue, date, createdBy: auth.userId }], { session });
+  item.quantity = Math.max(0, after);
+  await item.save({ session });
+  return { move, lossValue };
+}
+
+/** Pertes d'une période : par motif et par article, valorisées au coût. */
+export async function lossesReport(tenantId: string, deskId: unknown, fromDay: string, toDay: string) {
+  const rows = await ActivityStockMoveModel.aggregate<{ _id: { r: string; i: Types.ObjectId }; qty: number; value: number }>([
+    { $match: { tenantId: new Types.ObjectId(tenantId), deskId: new Types.ObjectId(String(deskId)), lossReason: { $exists: true }, date: { $gte: new Date(`${fromDay}T00:00:00.000`), $lte: new Date(`${toDay}T23:59:59.999`) } } },
+    { $group: { _id: { r: "$lossReason", i: "$itemId" }, qty: { $sum: "$quantity" }, value: { $sum: "$lossValue" } } },
+  ]);
+  const names = new Map((await ActivityItemModel.find({ _id: { $in: rows.map(r => r._id.i) } }).select("name").lean<Array<{ _id: Types.ObjectId; name: string }>>()).map(i => [String(i._id), i.name]));
+  const byReason = Object.keys(LOSS_REASONS).map(r => ({ reason: r, label: LOSS_REASONS[r], value: rows.filter(x => x._id.r === r).reduce((t, x) => t + x.value, 0) })).filter(x => x.value > 0);
+  const byItem = [...new Set(rows.map(r => String(r._id.i)))].map(id => ({ itemId: id, label: names.get(id) ?? "—", quantity: rows.filter(r => String(r._id.i) === id).reduce((t, r) => t + r.qty, 0), value: rows.filter(r => String(r._id.i) === id).reduce((t, r) => t + r.value, 0) })).sort((a, b) => b.value - a.value);
+  return { total: byReason.reduce((t, r) => t + r.value, 0), byReason, byItem };
+}
+
+/**
+ * Consommation par article sur `days` jours : ventes directes et
+ * ingrédients sortis pour les préparations.
+ */
+export async function consumption(tenantId: string, deskId: unknown, days: number) {
+  const since = new Date(Date.now() - days * DAY);
+  const match = { tenantId: new Types.ObjectId(tenantId), deskId: new Types.ObjectId(String(deskId)), status: "paid", date: { $gte: since } };
+  const [direct, ingredients] = await Promise.all([
+    ComptoirSaleModel.aggregate<{ _id: Types.ObjectId; q: number; v: number }>([{ $match: match }, { $unwind: "$lines" }, { $match: { "lines.ingredients.0": { $exists: false } } }, { $group: { _id: "$lines.itemId", q: { $sum: "$lines.quantity" }, v: { $sum: "$lines.totalTTC" } } }]),
+    ComptoirSaleModel.aggregate<{ _id: Types.ObjectId; q: number }>([{ $match: match }, { $unwind: "$lines" }, { $unwind: "$lines.ingredients" }, { $group: { _id: "$lines.ingredients.itemId", q: { $sum: "$lines.ingredients.quantity" } } }]),
+  ]);
+  const out = new Map<string, { quantity: number; value: number }>();
+  for (const r of direct) out.set(String(r._id), { quantity: r.q, value: r.v });
+  for (const r of ingredients) { const c = out.get(String(r._id)) ?? { quantity: 0, value: 0 }; c.quantity += r.q; out.set(String(r._id), c); }
+  return out;
+}
+
+/** Réassort conseillé de chaque article (sur les 28 derniers jours). */
+export async function reorderPlan(tenantId: string, deskId: string) {
+  const WINDOW = 28;
+  const [desk, items, used] = await Promise.all([
+    ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("leadDays coverDays").lean<{ leadDays?: number; coverDays?: number } | null>(),
+    ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true } }).lean<Array<{ _id: Types.ObjectId; name: string; unit: string; quantity: number; unitCost: number; productId?: Types.ObjectId; pack?: { label?: string; size?: number; cost?: number }; recipe?: unknown[] }>>(),
+    consumption(tenantId, deskId, WINDOW),
+  ]);
+  const lead = desk?.leadDays ?? 2, cover = desk?.coverDays ?? 7;
+  const products = await ProductModel.find({ tenantId, _id: { $in: items.map(i => i.productId).filter(Boolean) } }).select("preferredSupplierId purchaseCost").populate("preferredSupplierId", "name").lean<Array<{ _id: Types.ObjectId; purchaseCost?: number; preferredSupplierId?: { _id: Types.ObjectId; name: string } }>>();
+  const prod = new Map(products.map(p => [String(p._id), p]));
+  const lines = items.filter(i => !i.recipe?.length).map(i => {
+    const s = reorderSuggestion({ stock: i.quantity, soldInWindow: used.get(String(i._id))?.quantity ?? 0, windowDays: WINDOW, leadDays: lead, coverDays: cover, packSize: i.pack?.size });
+    const p = i.productId ? prod.get(String(i.productId)) : undefined;
+    const unitCost = p?.purchaseCost || i.unitCost || 0;
+    return {
+      itemId: String(i._id), name: i.name, unit: i.unit, stock: i.quantity, ...s, packLabel: i.pack?.label,
+      estimatedCost: Math.round(s.quantity * unitCost), linked: !!i.productId, productId: i.productId ? String(i.productId) : null,
+      supplier: p?.preferredSupplierId ? { _id: String(p.preferredSupplierId._id), name: p.preferredSupplierId.name } : null,
+    };
+  }).sort((a, b) => Number(b.urgent) - Number(a.urgent) || (a.daysLeft ?? 1e9) - (b.daysLeft ?? 1e9));
+  return { leadDays: lead, coverDays: cover, windowDays: WINDOW, lines, toOrder: lines.filter(l => l.quantity > 0), totalCost: lines.reduce((t, l) => t + l.estimatedCost, 0) };
+}
+
+/** Articles à compter aujourd'hui (inventaire tournant) et comptages déjà faits. */
+export async function cycleCountPlan(tenantId: string, deskId: string) {
+  const today = localDay(new Date());
+  const [desk, items, sold, last, done, losses] = await Promise.all([
+    ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("cycleCountSize").lean<{ cycleCountSize?: number } | null>(),
+    ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true }, $or: [{ recipe: { $exists: false } }, { recipe: { $size: 0 } }] }).lean<Array<{ _id: Types.ObjectId; name: string; unit: string; quantity: number; unitCost: number }>>(),
+    consumption(tenantId, deskId, 28),
+    ItemCountModel.aggregate<{ _id: Types.ObjectId; day: string }>([{ $match: { tenantId: new Types.ObjectId(tenantId), deskId: new Types.ObjectId(deskId) } }, { $group: { _id: "$itemId", day: { $max: "$day" } } }]),
+    ItemCountModel.find({ tenantId, deskId, day: today }).lean<Array<{ itemId: Types.ObjectId; expected: number; counted: number; gap: number; gapValue: number }>>(),
+    ActivityStockMoveModel.aggregate<{ _id: Types.ObjectId; n: number }>([{ $match: { tenantId: new Types.ObjectId(tenantId), deskId: new Types.ObjectId(deskId), lossReason: { $exists: true }, date: { $gte: new Date(Date.now() - 28 * DAY) } } }, { $group: { _id: "$itemId", n: { $sum: 1 } } }]),
+  ]);
+  const lastBy = new Map(last.map(l => [String(l._id), l.day]));
+  const lossBy = new Map(losses.map(l => [String(l._id), l.n]));
+  const candidates = items.map(i => {
+    const d = lastBy.get(String(i._id));
+    return { itemId: String(i._id), stockValue: i.quantity * (i.unitCost || 0), soldValue: sold.get(String(i._id))?.value ?? 0, lastCountedDays: d ? Math.round((new Date(`${today}T12:00:00`).getTime() - new Date(`${d}T12:00:00`).getTime()) / DAY) : null, recentLosses: lossBy.get(String(i._id)) ?? 0 };
+  });
+  const doneIds = new Set(done.map(d => String(d.itemId)));
+  const picked = done.length ? [...doneIds] : pickCycleCount(candidates, desk?.cycleCountSize ?? 5);
+  const byId = new Map(items.map(i => [String(i._id), i]));
+  return {
+    day: today,
+    items: picked.map(id => byId.get(id)).filter(Boolean).map(i => ({ itemId: String(i!._id), name: i!.name, unit: i!.unit, counted: done.find(d => String(d.itemId) === String(i!._id)) ?? null, lastCounted: lastBy.get(String(i!._id)) ?? null })),
+    doneToday: done.length,
+  };
+}
+
+/** Enregistre les comptages du jour et aligne le stock (écart valorisé). */
+export async function recordCounts(auth: TokenPayload, deskId: string, counts: Array<{ itemId: string; counted: number }>, session?: ClientSession) {
+  const tenantId = auth.tenantId;
+  const day = localDay(new Date());
+  await assertDayOpen(tenantId, deskId, new Date(), session);
+  const results = [];
+  for (const c of counts) {
+    const counted = Number(c.counted);
+    if (!(counted >= 0)) throw new BusinessRuleError("Quantité comptée invalide.");
+    const item = await ActivityItemModel.findOne({ _id: c.itemId, tenantId, deskId }).session(session ?? null);
+    if (!item) throw new BusinessRuleError("Article introuvable.");
+    if (await ItemCountModel.exists({ tenantId, deskId, itemId: item._id, day }).session(session ?? null)) throw new BusinessRuleError(`${item.name} : déjà compté aujourd'hui.`);
+    const expected = item.quantity || 0;
+    const gap = Math.round((counted - expected) * 1000) / 1000;
+    let unitCost = item.unitCost || 0, stockMovementId: unknown;
+    if (gap !== 0) {
+      if (item.productId) {
+        const wh = await deskWarehouse(tenantId, deskId, session);
+        const r = await applyMovement({ tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: gap < 0 ? "loss" : "return", quantity: Math.abs(gap), allowPartial: true, reason: "Inventaire tournant", linkedDocType: "comptoir", linkedDocId: item.deskId }, session);
+        unitCost = Number(r.movement.unitCost) || unitCost; stockMovementId = r.movement._id;
+      }
+      await ActivityStockMoveModel.create([{ tenantId, deskId, itemId: item._id, type: "adjust", quantity: Math.abs(gap), quantityAfter: counted, unitCost, reason: "Inventaire tournant", stockMovementId,
+        ...(gap < 0 ? { lossReason: "inventory", lossValue: Math.round(-gap * unitCost) } : {}), date: new Date(), createdBy: auth.userId }], { session });
+      item.quantity = counted;
+      await item.save({ session });
+    }
+    const [doc] = await ItemCountModel.create([{ tenantId, deskId, itemId: item._id, day, expected, counted, gap, gapValue: Math.round(gap * unitCost), countedBy: auth.userId }], { session });
+    results.push({ itemId: String(item._id), name: item.name, expected, counted, gap, gapValue: doc.gapValue });
+  }
+  return results;
+}

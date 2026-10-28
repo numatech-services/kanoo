@@ -2,7 +2,7 @@
 import { csvCell } from "@/lib/csv";
 
 import { useCallback, useEffect, useState } from "react";
-import { Store, Plus, Wallet, Receipt, CalendarCheck2, Percent, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText, Settings2 } from "lucide-react";
+import { Store, Plus, Wallet, Receipt, CalendarCheck2, Percent, BookUser, Tag, Zap, Smartphone, ShoppingCart, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText, Settings2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
@@ -14,12 +14,18 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 import { SalesTab } from "@/components/comptoir/SalesTab";
+import { CreditTab } from "@/components/comptoir/CreditTab";
+import { PromosTab } from "@/components/comptoir/PromosTab";
+import { ReorderDialog, CycleCountPanel, LossDialog } from "@/components/comptoir/StockTools";
+import { MomoDialog } from "@/components/comptoir/SpotControls";
+import Link from "next/link";
 import { SessionTab } from "@/components/comptoir/SessionTab";
 import { ProfitabilityTab } from "@/components/comptoir/ProfitabilityTab";
 import { EXPENSE_CATEGORIES } from "@/lib/expense-categories";
 import { itemEconomics } from "@/lib/comptoir-economics";
 import { ClosingDialog } from "@/components/comptoir/ClosingDialog";
-interface Desk { _id: string; name: string; description?: string; activityId?: string; treasuryAccountId?: string; revenueAccount?: string; expenseAccount?: string; vatRate?: number; targetMarkup?: number }
+interface Desk { _id: string; name: string; description?: string; activityId?: string; treasuryAccountId?: string; revenueAccount?: string; expenseAccount?: string; vatRate?: number; targetMarkup?: number;
+  leadDays?: number; coverDays?: number; weeklyRevenueTarget?: number; weeklyMarginTarget?: number; cycleCountSize?: number }
 interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number | null; category?: string; pack?: { label?: string; size?: number; cost?: number }; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
 interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string; saleId?: string; category?: string }
 interface Move { _id: string; type: "in" | "out" | "adjust" | "supply" | "return"; quantity: number; quantityAfter: number; reason?: string; date: string; itemId?: { name?: string; unit?: string } }
@@ -61,7 +67,7 @@ async function post(url: string, body: unknown, method: "POST" | "PATCH" | "DELE
   return res.status === 204 ? null : res.json();
 }
 
-type Tab = "tickets" | "semaine" | "caisse" | "stock" | "rentabilite";
+type Tab = "tickets" | "semaine" | "caisse" | "stock" | "rentabilite" | "ardoises" | "promos";
 
 export default function ComptoirPage() {
   const [desks, setDesks] = useState<Desk[]>([]);
@@ -206,6 +212,7 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
   const [expenseAccount, setExpenseAccount] = useState(desk.expenseAccount || "601100");
   const [vatRate, setVatRate] = useState(desk.vatRate ?? 0);
   const [targetMarkup, setTargetMarkup] = useState(String(Math.round((desk.targetMarkup ?? 0.3) * 100)));
+  const [ops, setOps] = useState({ leadDays: String(desk.leadDays ?? 2), coverDays: String(desk.coverDays ?? 7), weeklyRevenueTarget: String(desk.weeklyRevenueTarget ?? ""), weeklyMarginTarget: String(desk.weeklyMarginTarget ?? ""), cycleCountSize: String(desk.cycleCountSize ?? 5) });
   const [accounts, setAccounts] = useState<Array<{ _id: string; label: string; type?: string }>>([]);
   useEffect(() => {
     fetch("/api/treasury-accounts?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null)
@@ -220,7 +227,9 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
     try {
       // Le secteur n'est envoyé que si l'utilisateur voit la liste des secteurs :
       // sinon on laisserait croire qu'il a été détaché.
-      const payload: Record<string, unknown> = { name, description, treasuryAccountId: treasuryAccountId || null, revenueAccount, expenseAccount, vatRate, targetMarkup: (Number(targetMarkup) || 0) / 100, ...extra };
+      const payload: Record<string, unknown> = { name, description, treasuryAccountId: treasuryAccountId || null, revenueAccount, expenseAccount, vatRate, targetMarkup: (Number(targetMarkup) || 0) / 100,
+        leadDays: Number(ops.leadDays) || 0, coverDays: Number(ops.coverDays) || 7, cycleCountSize: Number(ops.cycleCountSize) || 5,
+        weeklyRevenueTarget: ops.weeklyRevenueTarget === "" ? null : Number(ops.weeklyRevenueTarget), weeklyMarginTarget: ops.weeklyMarginTarget === "" ? null : Number(ops.weeklyMarginTarget), ...extra };
       if (sectors.length > 0) payload.activityId = activityId || null;
       await post(`/api/comptoir/desks/${desk._id}`, payload, "PATCH");
       onSaved();
@@ -275,6 +284,14 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
             </FormField>
           </div>
         </fieldset>
+        <fieldset className="rounded-xl border border-line p-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <legend className="px-1 text-xs font-semibold text-ink2">Pilotage</legend>
+          <FormField label="Objectif CA / semaine"><input className={inputCls} type="number" min={0} value={ops.weeklyRevenueTarget} onChange={e => setOps(o => ({ ...o, weeklyRevenueTarget: e.target.value }))} /></FormField>
+          <FormField label="Objectif marge / semaine"><input className={inputCls} type="number" min={0} value={ops.weeklyMarginTarget} onChange={e => setOps(o => ({ ...o, weeklyMarginTarget: e.target.value }))} /></FormField>
+          <FormField label="Articles à compter / jour"><input className={inputCls} type="number" min={1} max={50} value={ops.cycleCountSize} onChange={e => setOps(o => ({ ...o, cycleCountSize: e.target.value }))} /></FormField>
+          <FormField label="Délai de livraison (j)"><input className={inputCls} type="number" min={0} max={60} value={ops.leadDays} onChange={e => setOps(o => ({ ...o, leadDays: e.target.value }))} /></FormField>
+          <FormField label="Commande pour (j)"><input className={inputCls} type="number" min={1} max={90} value={ops.coverDays} onChange={e => setOps(o => ({ ...o, coverDays: e.target.value }))} /></FormField>
+        </fieldset>
         <div className="flex justify-between items-center gap-3 pt-2">
           <button onClick={async () => { if (await confirmDialog({ title: "Archiver ce comptoir ?", message: "Ses données restent conservées." })) save({ archived: true }); }}
             disabled={saving} className="text-sm text-neg hover:underline disabled:opacity-50">Archiver le comptoir</button>
@@ -326,6 +343,9 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
         <button className={tabCls(tab === "caisse")} onClick={() => setTab("caisse")}><Wallet size={16} /> Caisse</button>
         <button className={tabCls(tab === "stock")} onClick={() => setTab("stock")}><Package size={16} /> Stock matière</button>
         {summary && summary.stockValue !== null && <button className={tabCls(tab === "rentabilite")} onClick={() => setTab("rentabilite")}><Percent size={16} /> Rentabilité</button>}
+        <button className={tabCls(tab === "ardoises")} onClick={() => setTab("ardoises")}><BookUser size={16} /> Ardoises</button>
+        <button className={tabCls(tab === "promos")} onClick={() => setTab("promos")}><Tag size={16} /> Promotions</button>
+        <Link href={`/comptoir/rapide?deskId=${deskId}`} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg text-sm font-semibold border border-section/40 text-section hover:bg-section/10"><Zap size={16} /> Caisse rapide</Link>
         <button onClick={() => setReportOpen(true)}
           className="ml-auto px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
           <FileText size={15} /> Rapport PDF
@@ -339,6 +359,10 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
         ? <SessionTab deskId={deskId} deskName={deskName} onChange={reloadSummary} />
         : tab === "rentabilite"
         ? <ProfitabilityTab deskId={deskId} onChange={reloadSummary} />
+        : tab === "ardoises"
+        ? <CreditTab deskId={deskId} deskName={deskName} onChange={reloadSummary} />
+        : tab === "promos"
+        ? <PromosTab deskId={deskId} />
         : tab === "caisse"
         ? <CaisseTab deskId={deskId} deskName={deskName} onChange={reloadSummary} />
         : <StockTab deskId={deskId} onChange={reloadSummary} />}
@@ -401,6 +425,7 @@ function CaisseTab({ deskId, deskName, onChange }: { deskId: string; deskName: s
   const filter = useFlowFilter({ from: monthStart(), to: today() });
   const [open, setOpen] = useState(false);
   const [arreteOpen, setArreteOpen] = useState(false);
+  const [momoOpen, setMomoOpen] = useState(false);
   const load = useCallback(() => {
     fetch(`/api/comptoir/cash?deskId=${deskId}${filter.query ? `&${filter.query}` : ""}`, { credentials: "include" })
       .then(r => r.json()).then(d => { setEntries(d.data?.items || []); setTotals(d.data?.totals ?? null); }).catch(() => {});
@@ -430,6 +455,9 @@ function CaisseTab({ deskId, deskName, onChange }: { deskId: string; deskName: s
         <div className="flex gap-2">
         <button onClick={() => setArreteOpen(true)} className={buttonClass("secondary", "md")}>
           <FileText size={15} /> Arrêté de caisse
+        </button>
+        <button onClick={() => setMomoOpen(true)} className={buttonClass("secondary", "md")}>
+          <Smartphone size={15} /> Mobile money
         </button>
         {entries.length > 0 && (
           <>
@@ -474,6 +502,7 @@ function CaisseTab({ deskId, deskName, onChange }: { deskId: string; deskName: s
         </div>
       )}
       {open && <CashDialog deskId={deskId} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); load(); onChange(); }} />}
+      {momoOpen && <MomoDialog deskId={deskId} onClose={() => setMomoOpen(false)} />}
       {arreteOpen && <ClosingDialog deskId={deskId} deskName={deskName} onClose={() => setArreteOpen(false)} onClosed={() => { load(); onChange(); }} />}
     </div>
   );
@@ -548,6 +577,8 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
   const [moves, setMoves] = useState<Move[]>([]);
   const [itemOpen, setItemOpen] = useState(false);
   const [moveFor, setMoveFor] = useState<Item | null>(null);
+  const [lossFor, setLossFor] = useState<Item | null>(null);
+  const [reorderOpen, setReorderOpen] = useState(false);
   const [supplyOpen, setSupplyOpen] = useState(false);
   const [linkFor, setLinkFor] = useState<Item | null>(null);
 
@@ -581,6 +612,9 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
             <Download size={15} /> Export CSV
           </button>
         )}
+        <button onClick={() => setReorderOpen(true)} className={buttonClass("secondary", "md")}>
+          <ShoppingCart size={15} /> Réassort conseillé
+        </button>
         {items.some(i => i.productId) && (
           <button onClick={() => setSupplyOpen(true)} className={buttonClass("secondary", "md")}>
             <Package size={15} /> Magasin ⇄ comptoir
@@ -591,6 +625,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
         </button>
       </div>
 
+      <CycleCountPanel deskId={deskId} onChange={() => { load(); onChange(); }} />
       {items.length === 0 ? (
         <EmptyState icon={<Package size={20} />} title="Aucun article" hint="Ajoutez un article pour suivre son stock (entrées, sorties, ventes)." />
       ) : (
@@ -618,6 +653,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
                       <button onClick={() => setMoveFor(it)} className="px-3 h-8 rounded-lg border border-line2 text-xs font-semibold text-ink2 hover:bg-surface2 inline-flex items-center gap-1">
                         <RotateCcw size={13} /> Entrée / Sortie
                       </button>
+                      <button onClick={() => setLossFor(it)} className="ml-1 px-2 h-8 rounded-lg border border-neg/25 text-xs text-neg hover:bg-neg-50" title="Perte, casse, offert">Perte</button>
                     </td>
                     <td className="text-right">
                       {canDelete && <button onClick={() => del(it._id)} className="p-1.5 rounded text-ink3 hover:text-neg hover:bg-neg-50" title="Supprimer"><Trash2 size={15} /></button>}
@@ -655,6 +691,8 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
       )}
 
       {itemOpen && <ItemDialog deskId={deskId} onClose={() => setItemOpen(false)} onSaved={() => { setItemOpen(false); load(); onChange(); }} />}
+      {lossFor && <LossDialog deskId={deskId} item={lossFor} onClose={() => setLossFor(null)} onDone={() => { setLossFor(null); load(); onChange(); }} />}
+      {reorderOpen && <ReorderDialog deskId={deskId} onClose={() => setReorderOpen(false)} />}
       {moveFor && <MoveDialog deskId={deskId} item={moveFor} onClose={() => setMoveFor(null)} onSaved={() => { setMoveFor(null); load(); onChange(); }} />}
       {supplyOpen && <SupplyDialog deskId={deskId} items={items.filter(i => i.productId)} onClose={() => setSupplyOpen(false)} onSaved={() => { setSupplyOpen(false); load(); onChange(); }} />}
       {linkFor && <LinkDialog item={linkFor} onClose={() => setLinkFor(null)} onSaved={() => { setLinkFor(null); load(); onChange(); }} />}

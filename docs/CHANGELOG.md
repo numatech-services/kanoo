@@ -1,5 +1,72 @@
 # Kanoo — Changelog
 
+## The Spot — 10 améliorations (octobre 2026)
+
+**1. Ardoises (crédit client)** — onglet « Ardoises », `models/DeskCustomer.ts`, `lib/desk-credit.ts`
+- Chaque habitué a un plafond de crédit. Une vente se fait à l'ardoise avec le moyen de paiement « Ardoise », dans la limite du plafond (réservation atomique).
+- Écritures :
+  - vente : créance en 411800, rien en caisse ;
+  - règlement (espèces, mobile money…) : caisse / 411800 ;
+  - annulation d'un ticket : la dette s'efface.
+- Historique des mouvements, rappel par WhatsApp.
+- Alerte quotidienne pour les ardoises de plus de 14 jours ou au-delà du plafond.
+
+**2. Fiches recettes** — préparations maison
+- Ingrédients et quantités pour une unité vendue.
+- La vente sort les ingrédients du stock, avec un coût figé (somme des ingrédients). L'annulation les rend.
+- La rentabilité calcule le coût de la recette.
+
+**3. Pertes et casse par motif**
+- Motifs : périmé, cassé, offert, personnel, manquant, écart d'inventaire.
+- Chaque perte est une sortie de stock valorisée au coût.
+- Le bilan de la semaine et la rentabilité montrent les pertes par motif et la marge après pertes.
+
+**4. Réassort conseillé**
+- Calcul : ventes moyennes des 28 derniers jours (ingrédients compris), jours de stock restants, quantité à commander en paquets entiers pour couvrir le délai de livraison et la période réglée.
+- Signalement des ruptures avant livraison.
+- Un clic crée les bons de commande brouillon au fournisseur habituel et imprime la liste de courses des achats au marché.
+
+**5. Objectifs de la semaine**
+- Objectifs de chiffre d'affaires et de marge, fixés sur le comptoir ou à l'ouverture de la caisse.
+- Jauges avec le rythme attendu et le montant à faire par jour.
+- Alerte à partir du 3e jour en cas de retard.
+
+**6. Promotions** — onglet « Promotions », `models/DeskPromo.ts`
+- Types : remise en % ou prix imposé.
+- Ciblage : sur des articles ou une famille, certains jours, à une plage horaire (happy hour), à partir d'une quantité (prix de gros), jusqu'à une date.
+- Le meilleur prix s'applique seul au ticket, sauf prix saisi à la main. L'écran de saisie affiche le même prix que le serveur.
+- Effet mesuré : quantités, chiffre d'affaires, remise accordée, marge.
+
+**7. Contrôle des caissiers**
+- Par caissier :
+  - tickets, chiffre d'affaires, panier moyen ;
+  - annulations (nombre, montant, taux) ;
+  - remises accordées ;
+  - écarts des arrêtés.
+- Alerte dès 3 annulations dans la journée, ou plus de 10 %.
+
+**8. Rapprochement mobile money**
+- Import du relevé de l'opérateur (Airtel, Moov, Zamani) en CSV ou par copier-coller.
+- Rapprochement par montant à un jour près, avec deux listes d'écarts : reçu chez l'opérateur sans ticket, et encaissé sans trace chez l'opérateur.
+- Une référence n'est jamais importée deux fois.
+
+**9. Caisse rapide** (`/comptoir/rapide`, téléphone)
+- Grille d'articles en gros boutons par famille, prix promotionnel affiché.
+- Ticket en deux touches (espèces ou mobile money), le montant étant fixé par le serveur.
+- Reçu par WhatsApp.
+- Hors connexion : le ticket est gardé sur le téléphone et renvoyé au retour du réseau. Sa référence garantit qu'il n'est enregistré qu'une fois.
+
+**10. Inventaire tournant**
+- Chaque jour, quelques articles à compter (3 à 50, réglable). La priorité va aux articles jamais comptés, de forte valeur ou forte rotation, ou touchés par des pertes.
+- On compte sans voir la quantité théorique. L'écart est enregistré, valorisé, et le stock aligné.
+
+**Déploiement**
+- Lancer `npm run indexes` : nouveaux index uniques (tickets idempotents, caisse ouverte unique, relevés mobile money, passages des tâches planifiées).
+
+**Tests**
+- 14 tests unitaires des règles (`lib/spot.ts`).
+- Scénario `e2e-spot2` : 37 vérifications.
+
 ## The Spot — rentabilité par article et caisse de la semaine (octobre 2026)
 
 **Rentabilité par article** (onglet « Rentabilité » du comptoir, `lib/comptoir-economics.ts`)

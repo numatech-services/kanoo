@@ -18,6 +18,7 @@ export interface IActivityCashEntry {
   linkedMoveId?: Types.ObjectId;
   /** Nature d'une dépense (lib/comptoir-session EXPENSE_CATEGORIES). */
   category?: string;
+  customerId?: Types.ObjectId;
   saleId?: Types.ObjectId;
   /** Écriture et mouvement de trésorerie, si le comptoir est relié à une caisse. */
   entryId?: Types.ObjectId;
@@ -37,6 +38,8 @@ const ActivityCashEntrySchema = new Schema<IActivityCashEntry>({
   date: { type: Date, required: true, default: Date.now, index: true },
   linkedMoveId: { type: Schema.Types.ObjectId, ref: "ActivityStockMove" },
   category: { type: String, maxlength: 30 },
+  /** Règlement d'une ardoise. */
+  customerId: { type: Schema.Types.ObjectId, ref: "DeskCustomer" },
   /** Ticket de caisse qui a produit cet encaissement (il s'annule par le ticket). */
   saleId: { type: Schema.Types.ObjectId, ref: "ComptoirSale", index: true },
   entryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },

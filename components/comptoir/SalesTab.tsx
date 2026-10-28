@@ -10,15 +10,16 @@ import { showToast } from "@/components/ui/Toast";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { useMe, meCanDo } from "@/lib/useMe";
+import { bestPromoPrice, type Promo } from "@/lib/spot";
 
 const MONEY = (n: number) => `${Number(n || 0).toLocaleString("fr-FR")} FCFA`;
 export const SALE_METHOD_LABEL: Record<string, string> = {
-  cash: "Espèces", orange_money: "OM / Moov / Airtel", card: "Carte", bank_transfer: "Virement", check: "Chèque", other: "Autre",
+  cash: "Espèces", orange_money: "OM / Moov / Airtel", card: "Carte", bank_transfer: "Virement", check: "Chèque", other: "Autre", credit: "Ardoise (crédit)",
 };
 const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const h = (v: unknown) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
-interface Item { _id: string; name: string; unit: string; quantity: number; salePrice?: number; productId?: { _id: string } | null }
+interface Item { _id: string; name: string; unit: string; quantity: number; salePrice?: number; category?: string; recipe?: unknown[]; productId?: { _id: string } | null }
 interface SaleLine { label: string; quantity: number; unitPriceTTC: number; discount: number; totalTTC: number; totalHT: number; tvaRate: number; costTotal?: number; marginHT?: number | null }
 interface Sale {
   _id: string; number: string; date: string; status: "paid" | "cancelled"; lines: SaleLine[];
@@ -130,13 +131,18 @@ function SaleDialog({ deskId, deskName, onClose, onSaved }: { deskId: string; de
   const [payments, setPayments] = useState<Array<{ method: string; amount: string }>>([{ method: "cash", amount: "" }]);
   const [cashGiven, setCashGiven] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [customerId, setCustomerId] = useState("");
+  const { data: customers } = useApi<Array<{ _id: string; name: string; balance: number; creditLimit: number; remaining: number; active: boolean }>>(`/api/comptoir/customers?deskId=${deskId}`, d => d?.data?.items ?? [], []);
   const [print, setPrint] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  // Promotions en cours : même calcul que le serveur, pour un total identique.
+  const { data: promos } = useApi<Promo[]>(`/api/comptoir/promos?deskId=${deskId}`, d => ((d?.data?.items ?? []) as Promo[]).filter(p => p.active !== false), []);
   const lineTotal = (l: Draft) => {
     const it = byId.get(l.itemId);
-    const price = l.price !== "" ? Number(l.price) : it?.salePrice ?? 0;
+    const q = Number(l.quantity) || 0;
+    const price = l.price !== "" ? Number(l.price) : it ? bestPromoPrice(it.salePrice ?? 0, promos, { _id: it._id, category: it.category }, q, new Date())?.price ?? it.salePrice ?? 0 : 0;
     return Math.round((Number(l.quantity) || 0) * price * (1 - (Math.min(100, Number(l.discount) || 0)) / 100));
   };
   const total = lines.reduce((t, l) => t + (l.itemId ? lineTotal(l) : 0), 0);
@@ -150,10 +156,12 @@ function SaleDialog({ deskId, deskName, onClose, onSaved }: { deskId: string; de
     setError("");
     const body = {
       deskId, customerName: customerName || undefined, cashGiven: cashGiven ? Number(cashGiven) : undefined,
+      ...(payments.some(p => p.method === "credit") ? { customerId } : {}),
       lines: lines.filter(l => l.itemId).map(l => ({ itemId: l.itemId, quantity: Number(l.quantity), ...(l.price !== "" ? { unitPriceTTC: Number(l.price) } : {}), discount: Number(l.discount) || 0 })),
       payments: payments.map((p, i) => ({ method: p.method, amount: amounts[i] })),
     };
     if (!body.lines.length) { setError("Ajoutez au moins un article."); return; }
+    if (payments.some(p => p.method === "credit") && !customerId) { setError("Vente à l'ardoise : choisissez le client."); return; }
     setBusy(true);
     const res = await apiSend("POST", "/api/comptoir/sales", body);
     setBusy(false);
@@ -178,7 +186,7 @@ function SaleDialog({ deskId, deskName, onClose, onSaved }: { deskId: string; de
                   <FormField label={i === 0 ? "Article" : ""}>
                     <select className={selectCls} value={l.itemId} onChange={e => set(i, { itemId: e.target.value, price: "" })}>
                       <option value="">— Choisir —</option>
-                      {items.map(x => <option key={x._id} value={x._id} disabled={x.quantity <= 0}>{x.name} ({x.quantity} {x.unit}){x.salePrice ? ` — ${MONEY(x.salePrice)}` : ""}</option>)}
+                      {items.map(x => <option key={x._id} value={x._id} disabled={!x.recipe?.length && x.quantity <= 0}>{x.name} ({x.quantity} {x.unit}){x.salePrice ? ` — ${MONEY(x.salePrice)}` : ""}</option>)}
                     </select>
                   </FormField>
                 </div>
@@ -221,7 +229,14 @@ function SaleDialog({ deskId, deskName, onClose, onSaved }: { deskId: string; de
 
         <div className="grid sm:grid-cols-2 gap-3">
           {cashDue > 0 && <FormField label="Espèces remises" hint={change ? `Monnaie à rendre : ${MONEY(change)}` : undefined}><input type="number" min="0" className={inputCls} value={cashGiven} onChange={e => setCashGiven(e.target.value)} /></FormField>}
-          <FormField label="Client (facultatif)"><input className={inputCls} value={customerName} maxLength={120} onChange={e => setCustomerName(e.target.value)} /></FormField>
+          {payments.some(p => p.method === "credit") ? (
+            <FormField label="Client à l'ardoise" required>
+              <select className={selectCls} value={customerId} onChange={e => setCustomerId(e.target.value)}>
+                <option value="">— Choisir —</option>
+                {customers.filter(c => c.active).map(c => <option key={c._id} value={c._id} disabled={c.remaining <= 0}>{c.name} — reste autorisé {MONEY(c.remaining)}</option>)}
+              </select>
+            </FormField>
+          ) : <FormField label="Client (facultatif)"><input className={inputCls} value={customerName} maxLength={120} onChange={e => setCustomerName(e.target.value)} /></FormField>}
         </div>
         <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={print} onChange={e => setPrint(e.target.checked)} className="accent-section" /> Imprimer le reçu</label>
 
