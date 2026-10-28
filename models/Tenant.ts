@@ -144,6 +144,7 @@ TenantSchema.add({
     contractPrefix:  { type: String, default: "CTR" },
     creditNotePrefix: { type: String, default: "AV" },
     purchasePrefix:  { type: String, default: "ACH" },
+    salePrefix:      { type: String, default: "TK" },
     separator:       { type: String, default: "-" },      // Ex: "/" → NML/2025/00001
     digitCount:      { type: Number, default: 5 },        // Nb de chiffres du séquençeur
     yearInNumber:    { type: Boolean, default: true },    // Inclure l'année
@@ -156,6 +157,7 @@ TenantSchema.add({
     contractSequence: { type: Number, default: 0 },
     creditNoteSequence: { type: Number, default: 0 },
     purchaseSequence: { type: Number, default: 0 },
+    saleSequence:     { type: Number, default: 0 },
     // Pour migration : numéro de départ personnalisé
     invoiceStartAt:   { type: Number, default: 1 },
     /**

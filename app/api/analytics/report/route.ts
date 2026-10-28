@@ -9,6 +9,7 @@ import { AnalyticEntryModel } from "@/models/AnalyticEntry";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
+import { ComptoirSaleModel } from "@/models/ComptoirSale";
 import { isTenantAdmin } from "@/lib/roles-ui";
 import { UserRole } from "@/types";
 
@@ -40,8 +41,12 @@ export const GET = withAuth("analytics", "read", async (req: NextRequest, auth: 
     // Comptoirs (The Spot…) rattachés à un secteur : leur caisse remonte dans la
     // rentabilité de ce secteur (in → recette, out → dépense).
     ActivityDeskModel.find({ ...tenantFilter(auth) }).select("activityId").lean<{ _id: Types.ObjectId; activityId?: Types.ObjectId }[]>(),
+    // Seules les écritures de caisse NON comptabilisées : une écriture passée en
+    // comptabilité (comptoir relié à une caisse) remonte déjà, HT, par les
+    // écritures ci-dessous — elle était comptée deux fois (TTC + HT). Les
+    // encaissements de tickets sont remplacés par le HT du ticket.
     ActivityCashEntryModel.aggregate([
-      { $match: match },
+      { $match: { ...match, entryId: { $exists: false }, saleId: { $exists: false } } },
       { $group: { _id: { deskId: "$deskId", direction: "$direction" }, total: { $sum: "$amount" } } },
     ]),
     AccountingEntryModel.aggregate<{ _id: { a: Types.ObjectId; c: string }; debit: number; credit: number }>([
@@ -50,6 +55,10 @@ export const GET = withAuth("analytics", "read", async (req: NextRequest, auth: 
       { $match: { "lines.activityId": { $exists: true, $ne: null }, "lines.accountCode": { $regex: "^[67]" } } },
       { $group: { _id: { a: "$lines.activityId", c: { $substrCP: ["$lines.accountCode", 0, 1] } }, debit: { $sum: "$lines.debit" }, credit: { $sum: "$lines.credit" } } },
     ]),
+  ]);
+  const salesAgg = await ComptoirSaleModel.aggregate<{ _id: Types.ObjectId; total: number }>([
+    { $match: { ...match, status: "paid", entryId: { $exists: false } } },
+    { $group: { _id: "$deskId", total: { $sum: "$totalHT" } } },
   ]);
 
   // Assemble : { activityId → { revenue, expense } }, plus « général » (activityId null).
@@ -73,6 +82,14 @@ export const GET = withAuth("analytics", "read", async (req: NextRequest, auth: 
     if (key === null) { if (isRevenue) genRevenue += row.total; else genExpense += row.total; continue; }
     const cur = byActivity.get(key) || { revenue: 0, expense: 0 };
     if (isRevenue) cur.revenue += row.total; else cur.expense += row.total;
+    byActivity.set(key, cur);
+  }
+
+  for (const row of salesAgg) {
+    const key = deskActivity.get(String(row._id)) ?? null;
+    if (key === null) { genRevenue += row.total; continue; }
+    const cur = byActivity.get(key) || { revenue: 0, expense: 0 };
+    cur.revenue += row.total;
     byActivity.set(key, cur);
   }
 

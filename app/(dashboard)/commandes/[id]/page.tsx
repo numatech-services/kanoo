@@ -158,11 +158,12 @@ function ReceiveDialog({ cmd, onClose, onDone }: { cmd: Commande; onClose: () =>
   const modeOf = (l: Line) => (typeof l.productId === "object" && l.productId?.trackingMode && l.productId.trackingMode !== "none" ? l.productId.trackingMode : null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [landed, setLanded] = useState("");
   async function submit() {
     setSaving(true); setError("");
     try {
       await send(`/api/commandes/${cmd._id}/receive`, "POST", {
-        warehouseId: warehouseId || undefined,
+        warehouseId: warehouseId || undefined, landedCosts: Number(landed) || 0,
         lines: qty.map((quantity, index) => ({ index, quantity, ...(modeOf(cmd.lines[index]) ? { lots: lotsPayload(lots[index]) } : {}) })).filter(x => x.quantity > 0),
       });
       onDone();
@@ -177,6 +178,10 @@ function ReceiveDialog({ cmd, onClose, onDone }: { cmd: Commande; onClose: () =>
             <option value="">Entrepôt par défaut</option>
             {warehouses.filter(w => w.kind !== "comptoir").map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
           </select>
+        </label>
+        <label className="block"><span className="block text-xs font-medium text-ink2 mb-1">Frais d&apos;approche de cette livraison (FCFA HT)</span>
+          <input type="number" min={0} className="w-full h-10 px-3 rounded-lg border border-line2 bg-surface text-sm" value={landed} onChange={e => setLanded(e.target.value)} placeholder="Transport, douane, manutention…" />
+          <span className="block text-[11px] text-ink3 mt-1">Répartis sur les articles reçus au prorata de leur valeur : ils entrent dans le coût d&apos;achat et donc dans la marge.</span>
         </label>
         {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
         <div className="overflow-x-auto">

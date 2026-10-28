@@ -59,16 +59,23 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
     }},
   ]);
 
-  // ── Charges mensuelles (comptes 6xx) ──────────────────────────────────────
-  const chargesByMonth = await AccountingEntryModel.aggregate([
+  // ── Comptabilité mensuelle, HT : charges (6), ventes (70), achats consommés (60)
+  // La « marge brute » était le CA TTC des factures moins TOUTES les charges de
+  // classe 6, sans les ventes du comptoir : ni une marge, ni un résultat.
+  const ledgerByMonth = await AccountingEntryModel.aggregate<{ _id: { year: number; month: number }; charges: number; sales: number; purchases: number }>([
     { $match: { ...filter, entryDate: { $gte: startDate } } },
     { $unwind: "$lines" },
-    { $match: { "lines.accountCode": /^6/ } },
+    { $match: { "lines.accountCode": /^(6|70)/ } },
+    { $addFields: { net: { $subtract: ["$lines.debit", "$lines.credit"] } } },
     { $group: {
       _id: { year: { $year: "$entryDate" }, month: { $month: "$entryDate" } },
-      total: { $sum: { $subtract: ["$lines.debit", "$lines.credit"] } },
+      charges: { $sum: { $cond: [{ $regexMatch: { input: "$lines.accountCode", regex: /^6/ } }, "$net", 0] } },
+      sales: { $sum: { $cond: [{ $regexMatch: { input: "$lines.accountCode", regex: /^70/ } }, { $multiply: ["$net", -1] }, 0] } },
+      purchases: { $sum: { $cond: [{ $regexMatch: { input: "$lines.accountCode", regex: /^60/ } }, "$net", 0] } },
     }},
   ]);
+  const chargesByMonth = ledgerByMonth.map(r => ({ _id: r._id, total: r.charges }));
+  const marginByMonth = ledgerByMonth.map(r => ({ _id: r._id, total: r.sales - r.purchases }));
 
   // ── Mapper sur les mois ───────────────────────────────────────────────────
   function mapToMonths<T extends { _id: { year: number; month: number } }>(
@@ -84,7 +91,8 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   const caData       = mapToMonths(invoicesByMonth, "totalTTC");
   const encaissData  = mapToMonths(paymentsByMonth, "total");
   const chargesData  = mapToMonths(chargesByMonth, "total");
-  const margeBrute   = caData.map((v, i) => v - chargesData[i]);
+  // Marge commerciale HT : ventes (70) − achats consommés (60, variation de stock comprise).
+  const margeBrute   = mapToMonths(marginByMonth, "total");
 
   // ── KPIs globaux ─────────────────────────────────────────────────────────
   const [totalCA, totalEncaisse, clientActifs, facInRetard] = await Promise.all([
@@ -135,7 +143,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
       ca:         { data: caData,      label: "CA TTC (k FCFA)",      color: "#2F3E46" },
       encaissements: { data: encaissData, label: "Encaissements (k FCFA)", color: "#97C459" },
       charges:    { data: chargesData, label: "Charges (k FCFA)",     color: "#F09595" },
-      margeBrute: { data: margeBrute,  label: "Marge brute (k FCFA)", color: "#378ADD" },
+      margeBrute: { data: margeBrute,  label: "Marge sur achats HT (k FCFA)", color: "#378ADD" },
     },
     kpis: {
       totalCA, totalEncaisse, tauxRecouvrement,

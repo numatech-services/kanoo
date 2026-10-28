@@ -56,6 +56,7 @@ const KEYWORDS: Record<string, string> = {
   "/fiscalite/isbic": "impôt société annuel",
   "/budget-previsionnel": "prévision écart prorata projection exercice",
   "/fixed-assets": "amortissement immobilisation",
+  "/marges": "marge produit coût cmup taux de marque rentabilité article",
   "/analytique": "analytique secteur activité marge résultat rentabilité",
   "/analytics": "analytique graphique tendance",
   "/employees": "employé salarié personnel",

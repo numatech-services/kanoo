@@ -51,7 +51,9 @@ const AccountingEntrySchema = new Schema<IAccountingEntry>(
         // Affectation du résultat d'un exercice clôturé (décision d'assemblée).
         "result_allocation",
         // Droits d'enregistrement et timbres d'un marché (lib/registration-server).
-        "registration"],
+        "registration",
+        // Tickets de caisse et arrêtés de caisse des comptoirs.
+        "comptoir_sale", "cash_closing"],
     },
     /** Extourne : l'écriture qui annule celle-ci, et inversement. */
     reversedBy: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },

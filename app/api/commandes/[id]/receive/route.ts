@@ -6,6 +6,8 @@ import { CommandeModel } from "@/models/Commande";
 import { applyMovement, StockError, type LotInput } from "@/lib/stock";
 import { receptionStatus } from "@/lib/commande";
 import { logAudit } from "@/lib/audit";
+import { GoodsReceiptModel } from "@/models/GoodsReceipt";
+import { landedUnitCosts } from "@/lib/margins";
 
 /**
  * POST /api/commandes/:id/receive — { lines: [{ index, quantity }] } ou { all: true }
@@ -36,15 +38,20 @@ export const POST = withAuth("commandes", "update", async (req: NextRequest, aut
     if (w.quantity > rest) return badRequest(`« ${l.description} » : ${rest} restant(s) à recevoir, ${w.quantity} saisi(s).`);
   }
   const date = body.date ? new Date(body.date) : new Date();
+  // Frais d'approche (transport, douane, manutention) : répartis sur les
+  // articles reçus au prorata de leur valeur, ils entrent dans le coût d'achat
+  // (CMUP) — la marge les ignorait.
+  const landed = Math.max(0, Math.round(Number(body.landedCosts) || 0));
+  const costs = landedUnitCosts(wanted.map(w => ({ quantity: w.quantity, unitPrice: lines[w.index].unitPrice, stocked: !!lines[w.index].productId })), landed);
 
   try {
     await withTransaction(async session => {
-      for (const w of wanted) {
+      for (const [k, w] of wanted.entries()) {
         const l = lines[w.index];
         if (l.productId) {
           await applyMovement({
             tenantId: auth.tenantId, userId: auth.userId, productId: l.productId, type: "entry",
-            quantity: w.quantity, unitCost: l.unitPrice, reason: `Réception BC ${cmd.number}`,
+            quantity: w.quantity, unitCost: costs[k], reason: `Réception BC ${cmd.number}${landed ? " (frais d'approche inclus)" : ""}`,
             warehouseId: body.warehouseId || undefined, lots: w.lots,
             linkedDocType: "commande", linkedDocId: cmd._id, linkedDocNumber: cmd.number,
           }, session);
@@ -54,6 +61,15 @@ export const POST = withAuth("commandes", "update", async (req: NextRequest, aut
       cmd.markModified("lines");
       cmd.status = receptionStatus(lines);
       await cmd.save({ session });
+      // Bon de réception : la trace de CE qui est arrivé, CE jour-là (fiche
+      // fournisseur, litiges de quantité). Il n'était jamais créé.
+      const n = await GoodsReceiptModel.countDocuments({ tenantId: auth.tenantId, commandeId: cmd._id }).session(session ?? null);
+      await GoodsReceiptModel.create([{
+        tenantId: auth.tenantId, number: `BR-${cmd.number}-${n + 1}`, commandeId: cmd._id, supplierId: cmd.supplierId,
+        lines: wanted.map((w, k) => ({ commandeLineIndex: w.index, description: lines[w.index].description, orderedQty: lines[w.index].quantity, receivedQty: w.quantity, unitPrice: costs[k] })),
+        receiptDate: date, notes: [landed ? `Frais d'approche : ${landed.toLocaleString("fr-FR")} FCFA` : "", body.notes ? String(body.notes).slice(0, 300) : ""].filter(Boolean).join(" — ") || undefined,
+        receivedBy: auth.userId,
+      }], { session });
     });
   } catch (e) {
     if (e instanceof StockError) return badRequest(e.message);

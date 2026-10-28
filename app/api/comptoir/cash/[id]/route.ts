@@ -8,6 +8,8 @@ import { isId, deskFilter } from "@/lib/comptoir";
 import { reverseCashFlow } from "@/lib/cash-posting";
 import { reverseMovement } from "@/lib/stock";
 import { logAudit } from "@/lib/audit";
+import { assertDayOpen } from "@/lib/comptoir-sale";
+import { BusinessRuleError } from "@/lib/errors";
 import { TokenPayload } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +29,12 @@ export const DELETE = withAuth("comptoir", "delete", async (_req: NextRequest, a
   await connectDB();
   if (!isId(params.id)) return notFound("Écriture introuvable");
   const found = await withTransaction(async session => {
-    const e = await ActivityCashEntryModel.findOneAndDelete({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }, { session });
+    const cur = await ActivityCashEntryModel.findOne({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }).session(session ?? null);
+    if (!cur) return null;
+    // L'encaissement d'un ticket s'annule par le ticket (stock, TVA, timbre).
+    if (cur.saleId) throw new BusinessRuleError("Cet encaissement appartient à un ticket : annulez le ticket.");
+    await assertDayOpen(auth.tenantId, cur.deskId, new Date(cur.date), session);
+    const e = await ActivityCashEntryModel.findOneAndDelete({ _id: cur._id }, { session });
     if (!e) return null;
     const reason = `écriture de caisse supprimée : ${e.label}`.slice(0, 200);
     await reverseCashFlow({ tenantId: auth.tenantId, userId: auth.userId, entryId: e.entryId, movementId: e.movementId, reason }, session);

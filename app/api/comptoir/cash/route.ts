@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { Types } from "mongoose";
 import { parseFlow, parsePeriod, periodMatch, flowTotals } from "@/lib/flow-filter";
+import { assertDayOpen } from "@/lib/comptoir-sale";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   // Écriture de caisse + comptabilisation (si le comptoir est relié à une caisse)
   // dans la même transaction : jamais l'une sans l'autre.
   const entry = await withTransaction(async session => {
+    await assertDayOpen(auth.tenantId, body.deskId, date, session);
     const [e] = await ActivityCashEntryModel.create([{
       tenantId: auth.tenantId,
       deskId: body.deskId,

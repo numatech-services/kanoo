@@ -2,7 +2,7 @@
 import { csvCell } from "@/lib/csv";
 
 import { useCallback, useEffect, useState } from "react";
-import { Store, Plus, Wallet, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText, Settings2 } from "lucide-react";
+import { Store, Plus, Wallet, Receipt, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText, Settings2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
@@ -13,11 +13,13 @@ import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEdi
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
+import { SalesTab } from "@/components/comptoir/SalesTab";
+import { ClosingDialog } from "@/components/comptoir/ClosingDialog";
 interface Desk { _id: string; name: string; description?: string; activityId?: string; treasuryAccountId?: string; revenueAccount?: string; expenseAccount?: string; vatRate?: number }
-interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
-interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string }
+interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number | null; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
+interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string; saleId?: string }
 interface Move { _id: string; type: "in" | "out" | "adjust" | "supply" | "return"; quantity: number; quantityAfter: number; reason?: string; date: string; itemId?: { name?: string; unit?: string } }
-interface Summary { itemCount: number; stockValue: number; lowStock: { name: string; unit: string; quantity: number; threshold?: number }[]; cashIn: number; cashOut: number; cashBalance: number }
+interface Summary { itemCount: number; stockValue: number | null; lowStock: { name: string; unit: string; quantity: number; threshold?: number }[]; cashIn: number; cashOut: number; cashBalance: number }
 
 // Jour civil LOCAL (AAAA-MM-JJ) : toISOString() donnerait le jour UTC, et une
 // vente passée juste après minuit tomberait sur la veille.
@@ -55,11 +57,13 @@ async function post(url: string, body: unknown, method: "POST" | "PATCH" | "DELE
   return res.status === 204 ? null : res.json();
 }
 
+type Tab = "tickets" | "caisse" | "stock";
+
 export default function ComptoirPage() {
   const [desks, setDesks] = useState<Desk[]>([]);
   const [deskId, setDeskId] = useState<string>("");
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"caisse" | "stock">("caisse");
+  const [tab, setTab] = useState<Tab>("tickets");
   const [newDeskOpen, setNewDeskOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -115,7 +119,7 @@ export default function ComptoirPage() {
               <button onClick={() => setSettingsOpen(true)} className={buttonClass("secondary", "sm")}>Relier à une caisse</button>
             </div>
           )}
-          {deskId && <DeskView key={deskId} deskId={deskId} tab={tab} setTab={setTab} />}
+          {deskId && <DeskView key={deskId} deskId={deskId} deskName={desks.find(d => d._id === deskId)?.name ?? "Comptoir"} tab={tab} setTab={setTab} />}
         </>
       )}
 
@@ -278,7 +282,7 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
   );
 }
 
-function DeskView({ deskId, tab, setTab }: { deskId: string; tab: "caisse" | "stock"; setTab: (t: "caisse" | "stock") => void }) {
+function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName: string; tab: Tab; setTab: (t: Tab) => void }) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const reloadSummary = useCallback(() => {
@@ -295,7 +299,7 @@ function DeskView({ deskId, tab, setTab }: { deskId: string; tab: "caisse" | "st
       {/* Cartes de synthèse */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <SummaryCard icon={<Wallet size={18} />} label="Solde de caisse" value={MONEY(summary?.cashBalance ?? 0)} tone="section" />
-        <SummaryCard icon={<Coins size={18} />} label="Valeur du stock" value={MONEY(summary?.stockValue ?? 0)} />
+        {summary?.stockValue !== null && <SummaryCard icon={<Coins size={18} />} label="Valeur du stock" value={MONEY(summary?.stockValue ?? 0)} />}
         <SummaryCard icon={<Package size={18} />} label="Articles" value={String(summary?.itemCount ?? 0)} />
         <SummaryCard icon={<AlertTriangle size={18} />} label="Sous le seuil" value={String(summary?.lowStock?.length ?? 0)}
           tone={summary?.lowStock?.length ? "warn" : undefined} />
@@ -309,6 +313,7 @@ function DeskView({ deskId, tab, setTab }: { deskId: string; tab: "caisse" | "st
       )}
 
       <div className="flex flex-wrap items-center gap-2">
+        <button className={tabCls(tab === "tickets")} onClick={() => setTab("tickets")}><Receipt size={16} /> Tickets</button>
         <button className={tabCls(tab === "caisse")} onClick={() => setTab("caisse")}><Wallet size={16} /> Caisse</button>
         <button className={tabCls(tab === "stock")} onClick={() => setTab("stock")}><Package size={16} /> Stock matière</button>
         <button onClick={() => setReportOpen(true)}
@@ -318,8 +323,10 @@ function DeskView({ deskId, tab, setTab }: { deskId: string; tab: "caisse" | "st
       </div>
       {reportOpen && <ReportDialog deskId={deskId} onClose={() => setReportOpen(false)} />}
 
-      {tab === "caisse"
-        ? <CaisseTab deskId={deskId} onChange={reloadSummary} />
+      {tab === "tickets"
+        ? <SalesTab deskId={deskId} deskName={deskName} onChange={reloadSummary} />
+        : tab === "caisse"
+        ? <CaisseTab deskId={deskId} deskName={deskName} onChange={reloadSummary} />
         : <StockTab deskId={deskId} onChange={reloadSummary} />}
     </div>
   );
@@ -372,7 +379,7 @@ function SummaryCard({ icon, label, value, tone }: { icon: React.ReactNode; labe
 }
 
 // ── Caisse (argent) ──────────────────────────────────────────────────────────
-function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void }) {
+function CaisseTab({ deskId, deskName, onChange }: { deskId: string; deskName: string; onChange: () => void }) {
   // Suppression réservée au chef de service et au gérant (masquée sinon ; l'API refuse de toute façon).
   const canDelete = meCanDo(useMe(), "comptoir", "delete");
   const [entries, setEntries] = useState<CashEntry[]>([]);
@@ -443,7 +450,8 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
                     {e.direction === "in" ? "+" : "−"}{MONEY(e.amount)}
                   </td>
                   <td className="text-right">
-                    {canDelete && <button onClick={() => del(e._id)} className="p-1.5 rounded text-ink3 hover:text-neg hover:bg-neg-50" title="Supprimer"><Trash2 size={15} /></button>}
+                    {e.saleId ? <Pill tone="info">ticket</Pill>
+                      : canDelete && <button onClick={() => del(e._id)} className="p-1.5 rounded text-ink3 hover:text-neg hover:bg-neg-50" title="Supprimer"><Trash2 size={15} /></button>}
                   </td>
                 </tr>
               ))}
@@ -452,96 +460,8 @@ function CaisseTab({ deskId, onChange }: { deskId: string; onChange: () => void 
         </div>
       )}
       {open && <CashDialog deskId={deskId} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); load(); onChange(); }} />}
-      {arreteOpen && <ArreteDialog deskId={deskId} onClose={() => setArreteOpen(false)} />}
+      {arreteOpen && <ClosingDialog deskId={deskId} deskName={deskName} onClose={() => setArreteOpen(false)} onClosed={() => { load(); onChange(); }} />}
     </div>
-  );
-}
-
-// Arrêté de caisse : totaux du jour, solde théorique et rapprochement des
-// espèces comptées, imprimable pour confier/contrôler la gestion du comptoir.
-/** Ligne libellé / montant de l'arrêté de caisse. */
-function CashLine({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-  <div className="flex justify-between py-1.5 text-sm">
-    <span className="text-ink2">{label}</span>
-    <span className={strong ? "font-bold text-ink" : "font-mono text-ink"}>{value}</span>
-  </div>
-);
-}
-
-function ArreteDialog({ deskId, onClose }: { deskId: string; onClose: () => void }) {
-  const [day, setDay] = useState(localDay());
-  const [counted, setCounted] = useState("");
-  // Toutes les écritures de la journée, indépendamment du filtre de la liste.
-  const [dayEntries, setDayEntries] = useState<CashEntry[]>([]);
-  useEffect(() => {
-    if (!day) return;
-    apiJson(`/api/comptoir/cash?deskId=${deskId}&from=${day}&to=${day}`).then(d => setDayEntries(d.data?.items || [])).catch(() => setDayEntries([]));
-  }, [deskId, day]);
-
-  const sum = (pred: (e: CashEntry) => boolean) => dayEntries.filter(pred).reduce((s, e) => s + e.amount, 0);
-  const recettes = sum(e => e.direction === "in");
-  const depenses = sum(e => e.direction === "out");
-  const cashIn = sum(e => e.direction === "in" && e.method === "cash");
-  const cashOut = sum(e => e.direction === "out" && e.method === "cash");
-  const soldeEspeces = cashIn - cashOut;
-  const ecart = counted ? Number(counted) - soldeEspeces : null;
-
-  function print() {
-    // Libellés saisis par les caissiers : échappés avant d'être écrits dans la
-    // fenêtre d'impression (même origine) — « <img onerror=…> » s'y exécutait.
-    const h = (v: unknown) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-    const rows = dayEntries.map(e =>
-      `<tr><td>${h(e.label)}</td><td>${h(METHOD_LABEL[e.method] || e.method)}</td><td style="text-align:right">${e.direction === "in" ? "+" : "−"}${MONEY(e.amount)}</td></tr>`
-    ).join("");
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Arrêté de caisse ${day}</title>
-      <style>body{font-family:system-ui,Arial,sans-serif;padding:32px;color:#111}h1{font-size:18px}
-      table{width:100%;border-collapse:collapse;margin-top:12px}td,th{padding:6px 8px;border-bottom:1px solid #ddd;font-size:13px}
-      .tot{margin-top:16px;font-size:14px}.tot div{display:flex;justify-content:space-between;padding:4px 0}</style></head>
-      <body><h1>Arrêté de caisse — ${new Date(day).toLocaleDateString("fr-FR")}</h1>
-      <table><thead><tr><th>Libellé</th><th>Moyen</th><th style="text-align:right">Montant</th></tr></thead><tbody>${rows}</tbody></table>
-      <div class="tot">
-        <div><span>Recettes du jour</span><strong>${MONEY(recettes)}</strong></div>
-        <div><span>Dépenses du jour</span><strong>${MONEY(depenses)}</strong></div>
-        <div><span>Solde du jour</span><strong>${MONEY(recettes - depenses)}</strong></div>
-        <div><span>Solde théorique espèces</span><strong>${MONEY(soldeEspeces)}</strong></div>
-        ${counted ? `<div><span>Espèces comptées</span><strong>${MONEY(Number(counted))}</strong></div>
-        <div><span>Écart</span><strong>${MONEY(ecart ?? 0)}</strong></div>` : ""}
-      </div>
-      <p style="margin-top:32px;font-size:12px">Visa du gestionnaire : ____________________  Visa du comptable : ____________________</p>
-      </body></html>`;
-    const w = window.open("", "_blank");
-    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
-  }
-
-  return (
-    <Modal open onClose={onClose} title="Arrêté de caisse" size="md">
-      <div className="space-y-4">
-        <FormField label="Journée">
-          <input className={inputCls} type="date" value={day} onChange={e => setDay(e.target.value)} />
-        </FormField>
-        <div className="surface-card p-4 divide-y divide-line">
-          <CashLine label="Recettes du jour" value={MONEY(recettes)} />
-          <CashLine label="Dépenses du jour" value={MONEY(depenses)} />
-          <CashLine label="Solde du jour" value={MONEY(recettes - depenses)} strong />
-          <CashLine label="Solde théorique espèces" value={MONEY(soldeEspeces)} />
-        </div>
-        <FormField label="Espèces comptées (FCFA)" hint="Pour contrôler la caisse physique.">
-          <input className={inputCls} type="number" min="0" value={counted} onChange={e => setCounted(e.target.value)} />
-        </FormField>
-        {ecart !== null && (
-          <div className={`px-4 py-3 rounded-xl text-sm font-semibold ${ecart === 0 ? "bg-pos-50 text-pos border border-pos/25" : "bg-warn-50 text-warn border border-warn/25"}`}>
-            {ecart === 0 ? "Caisse juste — aucun écart." : `Écart : ${ecart > 0 ? "+" : ""}${MONEY(ecart)} (${ecart > 0 ? "excédent" : "manquant"}).`}
-          </div>
-        )}
-        <div className="flex justify-end gap-3 pt-2">
-          <button onClick={onClose} className={buttonClass("secondary", "md")}>Fermer</button>
-          <button onClick={print} className={buttonClass("primary", "md")}>
-            <FileText size={15} /> Imprimer l&apos;arrêté
-          </button>
-        </div>
-      </div>
-    </Modal>
   );
 }
 
@@ -622,9 +542,13 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
     load(); onChange();
   }
 
+  // Coûts masqués par l'API pour un rôle non financier (caissier, serveur).
+  const showCosts = items.some(i => i.unitCost !== null && i.unitCost !== undefined);
   function exportCsv() {
-    const rows: (string | number)[][] = [["Article", "Unité", "Stock", "Coût unitaire", "Valeur", "Seuil"]];
-    for (const it of items) rows.push([it.name, it.unit, it.quantity, it.unitCost, it.quantity * it.unitCost, it.threshold ?? ""]);
+    const rows: (string | number)[][] = [showCosts ? ["Article", "Unité", "Stock", "Coût unitaire", "Valeur", "Seuil"] : ["Article", "Unité", "Stock", "Seuil"]];
+    for (const it of items) rows.push(showCosts
+      ? [it.name, it.unit, it.quantity, it.unitCost ?? 0, it.quantity * (it.unitCost ?? 0), it.threshold ?? ""]
+      : [it.name, it.unit, it.quantity, it.threshold ?? ""]);
     downloadCsv(`stock-comptoir-${localDay()}.csv`, rows);
   }
 
@@ -652,7 +576,7 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
         <div className="surface-card overflow-hidden">
           <div className="overflow-x-auto">
           <table className="table-dense">
-            <thead><tr><th>Article</th><th className="text-right">Stock</th><th className="text-right">Coût unit.</th><th className="text-right">Valeur</th><th className="text-center">Mouvement</th><th></th></tr></thead>
+            <thead><tr><th>Article</th><th className="text-right">Stock</th>{showCosts && <><th className="text-right">Coût unit.</th><th className="text-right">Valeur</th></>}<th className="text-center">Mouvement</th><th></th></tr></thead>
             <tbody>
               {items.map(it => {
                 const low = it.threshold != null && it.quantity <= it.threshold;
@@ -665,8 +589,10 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
                         : <button onClick={() => setLinkFor(it)} className="block text-[11px] text-ink3 hover:text-section font-normal">Relier au catalogue</button>}
                     </td>
                     <td className="text-right font-mono">{it.quantity} <span className="text-ink3 text-xs">{it.unit}</span></td>
-                    <td className="text-right font-mono text-ink2">{MONEY(it.unitCost)}</td>
-                    <td className="text-right font-mono font-semibold">{MONEY(it.quantity * it.unitCost)}</td>
+                    {showCosts && <>
+                      <td className="text-right font-mono text-ink2">{MONEY(it.unitCost ?? 0)}</td>
+                      <td className="text-right font-mono font-semibold">{MONEY(it.quantity * (it.unitCost ?? 0))}</td>
+                    </>}
                     <td className="text-center">
                       <button onClick={() => setMoveFor(it)} className="px-3 h-8 rounded-lg border border-line2 text-xs font-semibold text-ink2 hover:bg-surface2 inline-flex items-center gap-1">
                         <RotateCcw size={13} /> Entrée / Sortie

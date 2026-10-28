@@ -157,7 +157,10 @@ const id = r => D(r)?._id;
   const wp1b = await byWh(p1._id);
   const ownAfter = D(await g.req("GET", `/api/comptoir/items?deskId=${desk}`)).find(x => x._id === own._id);
   check("retour des invendus au magasin : réserve vidée, magasin crédité", ret.status === 201 && !wp1b[cw.code] && wp1b.PRINC === 26 && ownAfter?.quantity === 0, `${ret.status} ${J(wp1b)} ${ownAfter?.quantity} ${J(ret.data).slice(0, 120)}`);
-  check("article relié vide : suppression possible", (await g.req("DELETE", `/api/comptoir/items/${own._id}`)).status === 204);
+  // Article déjà mouvementé : archivé (historique et tickets gardent leur référence).
+  const delOwn = await g.req("DELETE", `/api/comptoir/items/${own._id}`);
+  const listed = D(await g.req("GET", `/api/comptoir/items?deskId=${desk}`)).some(x => x._id === own._id);
+  check("article relié vide : retiré du comptoir (archivé, historique conservé)", (delOwn.status === 204 || D(delOwn).archived === true) && !listed, `${delOwn.status} ${listed}`);
   const sum = D(await g.req("GET", `/api/comptoir/summary?deskId=${desk}`));
   check("synthèse du comptoir alignée sur la réserve", typeof sum.stockValue === "number" && sum.itemCount === 1, J(sum).slice(0, 150));
 

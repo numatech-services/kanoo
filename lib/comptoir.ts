@@ -74,7 +74,9 @@ export async function postDeskCash(
     account: isIn
       ? { accountCode: desk.revenueAccount || "701100", accountLabel: "Ventes du comptoir" }
       : { accountCode: desk.expenseAccount || "601100", accountLabel: "Dépenses du comptoir" },
-    vatRate: desk.vatRate ?? 0, activityId: desk.activityId,
+    // Dépense de caisse : pas de TVA déductible sans facture du fournisseur
+    // (CGI) ; elle était déduite au taux du comptoir sur chaque ticket d'achat.
+    vatRate: isIn ? desk.vatRate ?? 0 : 0, activityId: desk.activityId,
     linkedDocType: "desk_cash", linkedDocId: entry._id,
   }, session);
   entry.entryId = posted.entryId;
@@ -96,7 +98,7 @@ const METHOD_ACCOUNT_TYPE: Record<string, "bank" | "mobile_money"> = {
  * caisse, dont le solde ne correspondait plus aux espèces comptées. À défaut
  * de compte du bon type, la caisse du comptoir.
  */
-async function accountForMethod(tenantId: string, deskAccount: unknown, method: string | undefined, session?: ClientSession): Promise<unknown> {
+export async function accountForMethod(tenantId: string, deskAccount: unknown, method: string | undefined, session?: ClientSession): Promise<unknown> {
   const type = method ? METHOD_ACCOUNT_TYPE[method] : undefined;
   if (!type) return deskAccount;
   const desk = await TreasuryAccountModel.findOne({ _id: deskAccount, tenantId }).select("type").session(session ?? null).lean<{ type: string } | null>();

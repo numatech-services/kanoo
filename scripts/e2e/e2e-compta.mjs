@@ -114,8 +114,9 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   check("vente : caisse 571 au débit 11 900, 706300 10 000 et TVA 443 1 900 au crédit", sale && balancedE(sale)
     && sale.lines.some(l => /^571/.test(l.accountCode) && l.debit === 11900) && sale.lines.some(l => l.accountCode === "706300" && l.credit === 10000)
     && sale.lines.some(l => l.accountCode === "443000" && l.credit === 1900), J(sale?.lines));
-  check("dépense : 601100 2 000 + TVA 4452 380 au débit, caisse au crédit", spend && balancedE(spend)
-    && spend.lines.some(l => l.accountCode === "601100" && l.debit === 2000) && spend.lines.some(l => l.accountCode === "445200" && l.debit === 380)
+  // Dépense de caisse sans facture : aucune TVA déductible (lot H3, K5).
+  check("dépense : 601100 2 380 au débit, sans TVA déductible, caisse au crédit", spend && balancedE(spend)
+    && spend.lines.some(l => l.accountCode === "601100" && l.debit === 2380) && !spend.lines.some(l => l.accountCode === "445200")
     && spend.lines.some(l => /^571/.test(l.accountCode) && l.credit === 2380), J(spend?.lines));
   const cs = D(await g.req("GET", `/api/treasury-accounts/${caisse}`));
   const bal = cs.balance ?? cs.account?.balance;

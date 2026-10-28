@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { applyMovement } from "@/lib/stock";
 import { deskWarehouse } from "@/lib/comptoir-stock";
 import { notifyRoles } from "@/lib/notify";
+import { assertDayOpen } from "@/lib/comptoir-sale";
 import { TokenPayload } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +49,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   const cashMethod = CASH_METHODS.includes(body.cashMethod) ? body.cashMethod : "cash";
 
   const result = await withTransaction(async (session) => {
+    await assertDayOpen(auth.tenantId, body.deskId, body.date ? new Date(body.date) : new Date(), session);
     const item = await ActivityItemModel.findOne({ _id: body.itemId, ...tenantFilter(auth), deskId: body.deskId }).session(session ?? null);
     if (!item) return { error: "Article introuvable" as const };
 

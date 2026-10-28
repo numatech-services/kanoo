@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { ProductModel } from "@/models/Product";
 import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
 import { TokenPayload } from "@/lib/auth";
+import { hasFinanceAccess } from "@/lib/role-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +20,9 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   if (!(await ownDesk(auth, deskId))) return notFound("Comptoir introuvable");
   await syncLinkedItems(auth.tenantId, deskId);
   const items = await ActivityItemModel.find({ ...tenantFilter(auth), deskId, archived: { $ne: true } })
-    .populate("productId", "code label trackingMode").sort({ name: 1 }).lean();
-  return ok(items);
+    .populate("productId", "code label trackingMode").sort({ name: 1 }).lean<Array<Record<string, unknown>>>();
+  // Coût d'achat et valeur du stock : gérant et comptabilité seulement.
+  return ok(hasFinanceAccess(auth) ? items : items.map(i => ({ ...i, unitCost: null })));
 });
 
 export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth: TokenPayload) => {

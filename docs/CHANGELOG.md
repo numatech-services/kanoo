@@ -1,5 +1,83 @@
 # Kanoo — Changelog
 
+## Lot H3 — Comptoir et marges (octobre 2026)
+
+**Ticket de caisse** (`models/ComptoirSale.ts`, `lib/comptoir-sale.ts`, onglet « Tickets »)
+- **Ticket numéroté** (série TK, annuelle) :
+  - plusieurs articles par ticket ;
+  - remise par ligne ;
+  - prix TTC proposé ou saisi ;
+  - client facultatif ;
+  - reçu imprimable de 80 mm.
+- **Coût figé à la vente**. Chaque ligne garde :
+  - le coût unitaire : le CMUP lu à la sortie, ou le coût de l'article propre ;
+  - le HT, la TVA **de l'article** et la marge HT.
+- **Paiement en plusieurs moyens** :
+  - espèces sur la caisse du comptoir ;
+  - Orange Money, Moov et Airtel sur le compte mobile money ;
+  - carte, virement et chèque sur la banque.
+
+  Une seule écriture regroupe :
+  - les produits HT par compte ;
+  - la TVA 443 ;
+  - le timbre-quittance de 200 FCFA dès 5 000 FCFA en espèces.
+
+  Le rendu de monnaie est calculé.
+- **Avertissements** sur trois cas :
+  - vente sous le coût, qui envoie aussi une alerte à la direction et à la comptabilité ;
+  - article sans coût d'achat ;
+  - stock bas.
+- **Annulation motivée** du ticket :
+  - stock rendu ;
+  - encaissements retirés ;
+  - écriture et trésorerie extournées.
+
+  Un encaissement de ticket ne se supprime plus seul.
+
+**Arrêté de caisse enregistré** (`models/CashClosing.ts`)
+- **Un arrêté par jour et par comptoir** :
+  - théorique par moyen de paiement ;
+  - fonds de caisse ;
+  - espèces comptées ;
+  - écart.
+- **Écart comptabilisé** : un manquant passe en 658100, un excédent en 758100, contre la caisse, avec un mouvement de trésorerie.
+- **Journée verrouillée** : plus de ticket, d'écriture de caisse, de mouvement de stock, d'annulation ni de suppression à cette date ou avant.
+
+**Marges** (`lib/margins.ts`, `/api/reports/margins`, page « Marges par produit »)
+- **Indicateurs** : marge brute HT, taux de marque (sur le prix de vente) et taux de marge (sur le coût).
+- **Regroupements** : par produit, catégorie, mois, comptoir, vendeur ou canal. La page montre aussi :
+  - les meilleurs et les moins bons produits ;
+  - l'évolution mensuelle ;
+  - un export CSV.
+- **Sources** :
+  - tickets du comptoir, au coût figé ;
+  - factures livrées, au coût réel des sorties de leurs bons de livraison ;
+  - avoirs, déduits au coût de la facture qu'ils corrigent.
+- **Articles sans coût** : ils sont signalés « sans coût » et exclus des taux, jamais comptés à 100 % de marge.
+- **Accès** : réservé au gérant et à la comptabilité.
+
+**Coût d'achat**
+- **Frais d'approche** saisis à la réception (transport, douane) :
+  - répartis au prorata de la valeur reçue ;
+  - ils entrent dans le CMUP.
+- **Bon de réception enregistré** à chaque réception. La fiche fournisseur le montre.
+
+**Défauts corrigés** (audit K5 à K16)
+- **K5** — Une dépense de caisse du comptoir ne déduit plus de TVA : il n'y a pas de facture.
+- **K6** — La rentabilité par secteur ne compte plus deux fois un comptoir relié à une caisse. Les tickets y entrent pour leur HT.
+- **K7** — La « marge brute » de l'analytique devient la marge sur achats HT : ventes 70 moins achats consommés 60.
+- **K8** — L'inventaire applique l'écart et non la quantité comptée : les ventes faites pendant le comptage ne réapparaissent plus.
+- **K9** — Les écarts d'inventaire passent en 6031, variation des stocks, et non plus en 659/759.
+- **K12** — Un avoir total remet en stock ce qui avait été livré, dans ses lots, sauf `restock: false`.
+- **K13** — Détacher un article du catalogue reprend sa réserve dans le stock du comptoir au CMUP : il n'est plus compté deux fois. Supprimer :
+  - un article propre encore en stock est refusé ;
+  - un article déjà mouvementé est archivé.
+- **K14** — Les coûts, la valeur du stock et les marges sont masqués aux rôles non financiers, y compris dans les réponses d'API.
+
+**Tests**
+- 11 tests unitaires des marges et des frais d'approche.
+- Scénario `e2e-h3` : 38 vérifications.
+
 ## Lot H2 — Enregistrement et timbres des marchés (octobre 2026)
 
 **Droits d'enregistrement** (`lib/registration.ts`, `lib/registration-server.ts`)

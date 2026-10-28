@@ -7,6 +7,7 @@ import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { TokenPayload } from "@/lib/auth";
 import { isId, ownDesk } from "@/lib/comptoir";
 import { syncLinkedItems } from "@/lib/comptoir-stock";
+import { hasFinanceAccess } from "@/lib/role-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,8 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
 
   return ok({
     itemCount: items.length,
-    stockValue,
+    // Valeur du stock : rôles financiers seulement (null = masquée).
+    stockValue: hasFinanceAccess(auth) ? stockValue : null,
     lowStock,
     cashIn,
     cashOut,

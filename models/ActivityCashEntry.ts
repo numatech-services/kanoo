@@ -16,6 +16,7 @@ export interface IActivityCashEntry {
   method: "cash" | "bank_transfer" | "orange_money" | "card" | "check" | "other";
   date: Date;
   linkedMoveId?: Types.ObjectId;
+  saleId?: Types.ObjectId;
   /** Écriture et mouvement de trésorerie, si le comptoir est relié à une caisse. */
   entryId?: Types.ObjectId;
   movementId?: Types.ObjectId;
@@ -33,6 +34,8 @@ const ActivityCashEntrySchema = new Schema<IActivityCashEntry>({
   method: { type: String, enum: ["cash", "bank_transfer", "orange_money", "card", "check", "other"], default: "cash" },
   date: { type: Date, required: true, default: Date.now, index: true },
   linkedMoveId: { type: Schema.Types.ObjectId, ref: "ActivityStockMove" },
+  /** Ticket de caisse qui a produit cet encaissement (il s'annule par le ticket). */
+  saleId: { type: Schema.Types.ObjectId, ref: "ComptoirSale", index: true },
   entryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },
   movementId: { type: Schema.Types.ObjectId, ref: "TreasuryMovement" },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },

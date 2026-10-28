@@ -12,6 +12,7 @@ import { nextDocumentNumber } from "@/lib/numbering";
 import { saleEntryLines } from "@/lib/invoice-entry";
 import { buildCreditNote, creditableAmount, type InvoiceLike } from "@/lib/credit-notes";
 import { logAudit } from "@/lib/audit";
+import { restockCreditNote } from "@/lib/credit-note-stock";
 import { TokenPayload } from "@/lib/auth";
 
 /**
@@ -158,6 +159,13 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
       linkedDocId: creditNote._id,
       createdBy: auth.userId,
     }], { session });
+
+    // Marchandises reprises : elles rentrent en stock (dans la limite de ce
+    // qui a été livré et pas encore repris). Par défaut pour un avoir total ;
+    // `restock: false` pour un simple geste commercial.
+    if (body.restock ?? body.mode === "full") {
+      await restockCreditNote(auth, invoice._id, creditNote, session);
+    }
 
     // La facture d'origine passe en « annulée » quand elle est intégralement
     // couverte : son solde est nul, elle ne doit plus apparaître en impayé.

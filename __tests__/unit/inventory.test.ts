@@ -215,8 +215,10 @@ describe("Écriture de régularisation", () => {
       line({ productId: "a", countedQty: 94, reason: "Casse" }),
       line({ productId: "b", countedQty: 106, reason: "Retour" }),
     ], policy());
-    expect(entry.find(l => l.accountCode === INVENTORY_ACCOUNTS.shortage.account)?.debit).toBe(30_000);
-    expect(entry.find(l => l.accountCode === INVENTORY_ACCOUNTS.surplus.account)?.credit).toBe(30_000);
+    // Même compte 6031 dans les deux sens : deux lignes distinctes, sans compensation.
+    expect(INVENTORY_ACCOUNTS.shortage.account).toBe("603100");
+    expect(entry.find(l => l.accountCode === INVENTORY_ACCOUNTS.shortage.account && l.debit > 0)?.debit).toBe(30_000);
+    expect(entry.find(l => l.accountCode === INVENTORY_ACCOUNTS.surplus.account && l.credit > 0)?.credit).toBe(30_000);
     expect(isBalanced(entry)).toBe(true);
   });
 

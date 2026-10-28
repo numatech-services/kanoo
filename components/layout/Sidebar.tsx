@@ -7,7 +7,7 @@ import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { moduleEnabled } from "@/lib/modules";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent } from "lucide-react";
 
 import { apiJson, apiSend } from "@/lib/api-client";
 /** Où mène la pastille d'une entrée : la liste filtrée sur ce qu'elle compte. */
@@ -93,6 +93,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Budget prévisionnel", href: "/budget-previsionnel", icon: <PieChart size={18} /> },
     { label: "Immobilisations", href: "/fixed-assets", icon: <Boxes size={18} /> },
     { label: "Secteurs", href: "/analytique", icon: <Layers size={18} /> },
+    { label: "Marges par produit", href: "/marges", icon: <Percent size={18} /> },
     { label: "Évolution sur 12 mois", href: "/analytics", icon: <TrendingUp size={18} /> },
   ]},
   { section: "Équipe", tone: "rh", items: [

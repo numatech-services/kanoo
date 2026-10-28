@@ -9,7 +9,7 @@ import { connectDB } from "./db";
 import { TenantModel } from "@/models/Tenant";
 import type { NumberingConfig as TenantNumberingConfig } from "@/types";
 
-type DocType = "invoice" | "quote" | "order" | "delivery" | "contract" | "credit_note" | "purchase";
+type DocType = "invoice" | "quote" | "order" | "delivery" | "contract" | "credit_note" | "purchase" | "sale";
 
 interface NumberingConfig {
   invoicePrefix:   string;
@@ -19,6 +19,7 @@ interface NumberingConfig {
   contractPrefix:  string;
   creditNotePrefix: string;
   purchasePrefix: string;
+  salePrefix: string;
   separator:       string;
   digitCount:      number;
   yearInNumber:    boolean;
@@ -30,6 +31,7 @@ interface NumberingConfig {
   contractSequence: number;
   creditNoteSequence: number;
   purchaseSequence: number;
+  saleSequence: number;
   invoiceStartAt:   number;
 }
 
@@ -44,6 +46,8 @@ const SEQUENCE_FIELD: Record<DocType, string> = {
   credit_note: "creditNoteSequence",
   // Achats (factures fournisseurs, dépenses) : numérotation interne de saisie.
   purchase: "purchaseSequence",
+  // Tickets de caisse des comptoirs : série propre, continue.
+  sale: "saleSequence",
 };
 
 const PREFIX_FIELD: Record<DocType, string> = {
@@ -54,6 +58,7 @@ const PREFIX_FIELD: Record<DocType, string> = {
   contract: "contractPrefix",
   credit_note: "creditNotePrefix",
   purchase: "purchasePrefix",
+  sale: "salePrefix",
 };
 
 /**
@@ -158,6 +163,7 @@ async function numberedCollections(docType: DocType): Promise<Array<{ model: Mod
     ];
     case "contract": return [{ model: m((await import("@/models/Contract")).ContractModel), field: "reference" }];
     case "purchase": return [{ model: m((await import("@/models/Purchase")).PurchaseModel), field: "number" }];
+    case "sale": return [{ model: m((await import("@/models/ComptoirSale")).ComptoirSaleModel), field: "number" }];
   }
 }
 
@@ -199,7 +205,7 @@ export function isProvisionalNumber(n?: string | null): boolean {
 function defaultPrefix(docType: DocType): string {
   const defaults: Record<DocType, string> = {
     invoice: "FAC", quote: "DEV", order: "BC", delivery: "BL", contract: "CTR",
-    credit_note: "AV", purchase: "ACH",
+    credit_note: "AV", purchase: "ACH", sale: "TK",
   };
   return defaults[docType];
 }
@@ -230,6 +236,7 @@ export async function resetYearlySequences(): Promise<number> {
         "numberingConfig.contractSequence": 0,
         "numberingConfig.creditNoteSequence": 0,
         "numberingConfig.purchaseSequence": 0,
+        "numberingConfig.saleSequence": 0,
         "numberingConfig.sequenceYear":     year,
       },
     }

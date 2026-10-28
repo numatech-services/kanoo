@@ -98,6 +98,7 @@ const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
   ["/budget-previsionnel", "finance"],
   ["/fixed-assets", "finance"],
   ["/analytique", "finance"],
+  ["/marges", "finance"],
   ["/analytics", "finance"],
 
   // Équipe

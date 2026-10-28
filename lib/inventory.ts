@@ -226,8 +226,11 @@ export interface EntryLine {
 /** Comptes SYSCOHADA de la régularisation d'inventaire. */
 export const INVENTORY_ACCOUNTS = {
   stock: { account: "311000", label: "Marchandises" },
-  shortage: { account: "659000", label: "Charges provisionnées d'exploitation — manquants d'inventaire" },
-  surplus: { account: "759000", label: "Reprises de charges provisionnées — excédents d'inventaire" },
+  // Variation des stocks de marchandises (SYSCOHADA 6031) : un écart
+  // d'inventaire corrige le coût des marchandises vendues. Il passait en
+  // 659/759 (provisions), hors marge commerciale.
+  shortage: { account: "603100", label: "Variation des stocks de marchandises — manquants d'inventaire" },
+  surplus: { account: "603100", label: "Variation des stocks de marchandises — excédents d'inventaire" },
 };
 
 /**

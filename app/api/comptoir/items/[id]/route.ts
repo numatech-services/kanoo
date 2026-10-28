@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, noContent, notFound, badRequest, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { isId, deskFilter } from "@/lib/comptoir";
 import { ActivityItemModel } from "@/models/ActivityItem";
+import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { logAudit } from "@/lib/audit";
 import { withTransaction } from "@/lib/db";
 import { ProductModel } from "@/models/Product";
@@ -65,8 +66,26 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
       return ok(await ActivityItemModel.findById(cur._id).lean());
     }
     if (!clean.productId && cur.productId) {
-      await syncLinkedItems(auth.tenantId, cur.deskId);
-      await ActivityItemModel.updateOne({ _id: cur._id }, { $unset: { productId: 1 } });
+      // Détachement : la réserve SORT du stock de l'entreprise et devient le
+      // stock propre du comptoir, valorisée au CMUP. Elle restait des deux
+      // côtés (réserve + quantité figée) : comptée deux fois.
+      try {
+        await withTransaction(async session => {
+          const whId = await deskWarehouse(auth.tenantId, cur.deskId, session);
+          const row = await ProductStockModel.findOne({ ...tenantFilter(auth), productId: cur.productId, warehouseId: whId }).select("qty").session(session ?? null).lean<{ qty: number } | null>();
+          let qty = 0, unitCost = cur.unitCost || 0;
+          if ((row?.qty ?? 0) > 0) {
+            const r = await applyMovement({
+              tenantId: auth.tenantId, userId: auth.userId, productId: cur.productId, type: "exit", warehouseId: whId,
+              quantity: row!.qty, allowPartial: true, reason: `Détachement du catalogue (${cur.name}) : stock repris par le comptoir`,
+              linkedDocType: "comptoir", linkedDocId: cur._id,
+            }, session);
+            qty = Math.abs(Number(r.movement.quantity) || 0);
+            unitCost = Number(r.movement.unitCost) || unitCost;
+          }
+          await ActivityItemModel.updateOne({ _id: cur._id }, { $set: { quantity: qty, unitCost }, $unset: { productId: 1 } }, { session });
+        });
+      } catch (e) { if (e instanceof StockError) return badRequest(e.message); throw e; }
     }
   }
   const item = await ActivityItemModel.findOneAndUpdate(
@@ -91,6 +110,18 @@ export const DELETE = withAuth("comptoir", "delete", async (_req: NextRequest, a
       ? await ProductStockModel.findOne({ ...tenantFilter(auth), productId: it.productId, warehouseId: desk.warehouseId }).select("qty").lean<{ qty: number } | null>()
       : null;
     if ((row?.qty ?? 0) > 0) return badRequest(`« ${it.name} » a encore ${row!.qty} en réserve : renvoyez-les au magasin (Retour des invendus) ou sortez-les avant de supprimer l'article.`);
+  }
+  // Article propre : son stock ne disparaît pas sans trace.
+  const own = await ActivityItemModel.findById(it._id).select("quantity").lean<{ quantity?: number } | null>();
+  if (!it.productId && (own?.quantity ?? 0) > 0) {
+    return badRequest(`« ${it.name} » a encore ${own!.quantity} en stock : enregistrez une sortie (casse, perte) ou un inventaire à zéro avant de le supprimer.`);
+  }
+  // Un article déjà vendu ou mouvementé est archivé : ses tickets et son
+  // historique gardent leur référence.
+  if (await ActivityStockMoveModel.exists({ tenantId: auth.tenantId, itemId: it._id })) {
+    await ActivityItemModel.updateOne({ _id: it._id }, { $set: { archived: true } });
+    await logAudit(auth, "UPDATE", "comptoir", { resourceId: String(params.id), metadata: { archived: true } });
+    return ok({ archived: true });
   }
   await ActivityItemModel.deleteOne({ _id: it._id });
   await logAudit(auth, "DELETE", "comptoir", { resourceId: String(params.id) });

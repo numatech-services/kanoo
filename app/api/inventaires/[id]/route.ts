@@ -179,12 +179,17 @@ export const PATCH = withAuth("products", "update", async (req: NextRequest, aut
         const result = evaluateLine(line as unknown as CountLine, policy);
         if (!result.counted || result.variance === 0 || result.finalQty === null) continue;
 
-        // Même point d'écriture que tout le stock : entrepôt de la session,
-        // lot compté pour un article suivi par lot.
+        // L'ÉCART est appliqué, pas la quantité comptée : le stock était
+        // remplacé par le comptage, et les ventes faites depuis le relevé y
+        // réapparaissaient. Manquant = perte, excédent = retour au CMUP (le
+        // coût moyen ne bouge pas). Même entrepôt et même lot que le comptage.
+        const variance = result.variance ?? 0;
+        const delta = Math.abs(variance);
         await applyMovement({
-          tenantId: auth.tenantId, userId: auth.userId, productId: line.productId, type: "adjustment",
-          quantity: result.finalQty, warehouseId: session.warehouseId || undefined,
-          lots: line.lotNumber ? [{ lotNumber: line.lotNumber, expiryDate: line.expiryDate, qty: result.finalQty }] : undefined,
+          tenantId: auth.tenantId, userId: auth.userId, productId: line.productId,
+          type: variance < 0 ? "loss" : "return", quantity: delta, allowPartial: true,
+          warehouseId: session.warehouseId || undefined,
+          lots: line.lotNumber ? [{ lotNumber: line.lotNumber, expiryDate: line.expiryDate, qty: delta }] : undefined,
           reason: line.reason?.trim() || `Inventaire ${session.reference}`,
           linkedDocType: "inventory", linkedDocId: session._id, linkedDocNumber: session.reference,
         }, session_);
