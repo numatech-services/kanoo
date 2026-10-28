@@ -13,12 +13,51 @@ import type { TokenPayload } from "@/lib/auth";
 
 export type Id = mongoose.Types.ObjectId;
 
+/** Délai pendant lequel une alerte déjà LUE n'est pas répétée. */
+const REPEAT_AFTER_MS = 7 * 86_400_000;
+const liveCache = new Map<string, { live: boolean; at: number }>();
+
+/** Organisation active (abonnement en cours) — mémorisé une minute. */
+async function tenantLive(tenantId: Id): Promise<boolean> {
+  const k = String(tenantId), hit = liveCache.get(k);
+  if (hit && Date.now() - hit.at < 60_000) return hit.live;
+  const t = await TenantModel.findById(tenantId).select("subscriptionStatus").lean<{ subscriptionStatus?: string } | null>();
+  const live = !!t && ["active", "trial"].includes(t.subscriptionStatus ?? "");
+  liveCache.set(k, { live, at: Date.now() });
+  return live;
+}
+
+/**
+ * Notification d'une tâche planifiée, dédoublonnée : la même alerte (même
+ * type, même pièce, même texte) n'est pas recréée tant que la précédente
+ * n'est pas lue, ni dans les 7 jours qui suivent sa lecture — une facture en
+ * retard notifiait chaque matin. Rien pour une organisation suspendue.
+ * Renvoie vrai si la notification a été créée.
+ */
 export async function notify(
   tenantId: Id, userId: Id, type: string, title: string, message: string,
   linkedTo?: string, linkedId?: Id
-) {
-  await NotificationModel.create({ tenantId, userId, type, title, message, linkedTo, linkedId })
-    .catch((err: unknown) => console.error("[Cron] notification non créée:", err));
+): Promise<boolean> {
+  try {
+    if (!(await tenantLive(tenantId))) return false;
+    const same = { tenantId, userId, type, ...(linkedId ? { linkedId } : { message }) };
+    const dup = await NotificationModel.exists({ ...same, $or: [{ read: false }, { createdAt: { $gte: new Date(Date.now() - REPEAT_AFTER_MS) } }] });
+    if (dup) return false;
+    await NotificationModel.create({ tenantId, userId, type, title, message, linkedTo, linkedId });
+    return true;
+  } catch (err) {
+    console.error("[Cron] notification non créée:", err);
+    return false;
+  }
+}
+
+/** Purge : notifications lues de plus de 90 jours, toutes celles de plus d'un an. */
+export async function purgeNotifications(now = new Date()) {
+  const r = await NotificationModel.deleteMany({ $or: [
+    { read: true, createdAt: { $lt: new Date(now.getTime() - 90 * 86_400_000) } },
+    { createdAt: { $lt: new Date(now.getTime() - 365 * 86_400_000) } },
+  ] });
+  return r.deletedCount ?? 0;
 }
 
 export async function getAdmins(tenantId: Id, roles: string[]): Promise<Array<{ _id: Id }>> {

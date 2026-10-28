@@ -10,6 +10,7 @@ import { pickImputation, checkImputations } from "@/lib/imputation";
 import { provisionalNumber } from "@/lib/numbering";
 import { withTransaction } from "@/lib/db";
 import { TokenPayload } from "@/lib/auth";
+import { searchCondition, withSearch } from "@/lib/list-search";
 
 // GET /api/invoices
 export const GET = withAuth("invoices", "read", async (req: NextRequest, auth: TokenPayload) => {
@@ -44,11 +45,8 @@ export const GET = withAuth("invoices", "read", async (req: NextRequest, auth: T
     filter.documentType = { $ne: "credit_note" };
     filter.dueDate = { $lt: new Date() };
   }
-  if (search) {
-    filter.$or = [
-      { number: { $regex: search, $options: "i" } },
-    ];
-  }
+  // Numéro, libellés des lignes, nom ou code du client.
+  if (search) withSearch(filter, await searchCondition(auth.tenantId, url.searchParams.get("search"), { fields: ["number", "lines.description"], client: "clientId" }));
 
   const [items, total] = await Promise.all([
     InvoiceModel.find(filter)

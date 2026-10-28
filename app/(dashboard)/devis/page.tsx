@@ -1,5 +1,6 @@
 "use client";
 import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
+import { SearchBox } from "@/components/ui/SearchBox";
 import { useUrlReady } from "@/lib/url-param";
 import { useState } from "react";
 import Link from "next/link";
@@ -18,6 +19,7 @@ interface Devis { _id:string; number:string; clientId:{name:string}|null|string;
 
 export default function DevisPage() {
   const [page,setPage]=useState(1);
+  const [search, setSearch] = useState("");
   const [status,setStatus]=useState(""); const LIMIT=20;
   const [clientId,setClientId]=useState("");
   const ready=useUrlReady(p=>{ setClientId(p.get("clientId")??""); setStatus(p.get("status")??""); });
@@ -31,6 +33,7 @@ export default function DevisPage() {
   const params=new URLSearchParams({page:String(page),limit:String(LIMIT)});
   if(status) params.set("status",status);
   if(clientId) params.set("clientId",clientId);
+  if(search) params.set("search",search);
   const {data:{devis,total},loading:reading,reload:load}=useApi(ready?`/api/devis?${params}`:null,d=>({devis:(d.data?.items||[]) as Devis[],total:(d.data?.pagination?.total||0) as number}),{devis:[] as Devis[],total:0});
   // Tant que les filtres de l'adresse ne sont pas lus, la liste reste « en chargement ».
   const loading=!ready||reading;
@@ -83,10 +86,13 @@ export default function DevisPage() {
         <strong>Flux :</strong> Devis accepté → <strong>« → Marché »</strong> pour suivre acomptes, dépenses et marge (facturation depuis la fiche du marché), ou <strong>« → Facture »</strong> pour une facture unique. <strong>« → Proforma »</strong> ouvre le PDF du devis titré facture proforma, sans rien comptabiliser.
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+      <SearchBox onSearch={q=>{setSearch(q);setPage(1);}} placeholder="N°, libellé, client…" className="w-full sm:w-64" />
       <select value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}} className="px-3 py-2 border border-line rounded-lg text-sm">
         <option value="">Tous les statuts</option>
         {["draft","sent","accepted","rejected","expired"].map(s=><option key={s} value={s}>{s}</option>)}
       </select>
+      </div>
 
       {clientId&&<ClientFilterChip name={((devis[0]?.clientId as { name?: string } | undefined)?.name)} onClear={()=>{setClientId("");setPage(1);}}/>}
       <DataTable columns={columns} data={devis} loading={loading} keyExtractor={d=>d._id} emptyMessage="Aucun devis"/>

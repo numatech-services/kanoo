@@ -30,8 +30,8 @@ const num = (s: string) => Math.round(Number(String(s).replace(/\s/g, "").replac
 export default function ReprisePage() {
   const opening = useApi<{ entry?: Existing | null; accounts?: Treasury[] } | null>("/api/accounting/opening", o => o?.data ?? null, null);
   const ledgerAccounts = useApi<Ledger[]>("/api/ledger-accounts", l => l?.data ?? NO_LEDGER, NO_LEDGER);
-  const clientsRes = useApi<Party[]>("/api/clients?limit=100&isActive=true", c => c?.data?.items ?? [], []);
-  const suppliersRes = useApi<Party[]>("/api/suppliers?limit=100", s => s?.data?.items ?? [], []);
+  const clientsRes = useApi<Party[]>("/api/clients?picker=1&isActive=true", c => c?.data?.items ?? [], []);
+  const suppliersRes = useApi<Party[]>("/api/suppliers?picker=1", s => s?.data?.items ?? [], []);
   const existing = opening.data?.entry ?? null;
   const treasury = opening.data?.accounts ?? NO_TREASURY;
   const ledger = useMemo(() => ledgerAccounts.data.filter(a => /^[1-5]/.test(a.code) && !/^5[27]/.test(a.code)), [ledgerAccounts.data]);

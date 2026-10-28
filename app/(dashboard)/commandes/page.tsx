@@ -1,5 +1,6 @@
 "use client";
 import { IfCan } from "@/components/shared/IfCan";
+import { SearchBox } from "@/components/ui/SearchBox";
 import { useState, useSyncExternalStore } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -16,11 +17,13 @@ export default function CommandesPage() {
   // Rendu côté navigateur uniquement (dates au format local).
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [page, setPage] = useState(1); 
+  const [search, setSearch] = useState("");
   const [status, setStatus] = useState(""); 
   const LIMIT = 20;
 
   const params = new URLSearchParams({page:String(page),limit:String(LIMIT)});
   if(status) params.set("status",status);
+  if(search) params.set("search",search);
   const list = useApi<{ items?: Commande[]; pagination?: { total?: number } } | null>(`/api/commandes?${params}`, d => d.data ?? null, null);
   const commandes = list.data?.items||[];
   const total = list.data?.pagination?.total||0;
@@ -86,10 +89,13 @@ const columns: Column<Commande>[] = [
         </IfCan>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+      <SearchBox onSearch={q=>{setSearch(q);setPage(1);}} placeholder="N°, article, fournisseur…" className="w-full sm:w-64" />
       <select value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}} className="px-3 py-2 border border-line rounded-lg text-sm">
         <option value="">Tous les statuts</option>
         {["draft","confirmed","partially_received","received","cancelled","invoiced"].map(s=><option key={s} value={s}>{s.replace(/_/g," ")}</option>)}
       </select>
+      </div>
 
       <DataTable columns={columns} data={commandes} loading={loading} keyExtractor={c=>c._id} emptyMessage="Aucun bon de commande"/>
       

@@ -7,6 +7,7 @@ import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { BankStatementLineModel } from "@/models/BankStatementLine";
 import { TokenPayload } from "@/lib/auth";
+import { isCurrency, foreignAmount } from "@/lib/currency";
 
 interface AccountRow {
   _id: mongoose.Types.ObjectId;
@@ -15,6 +16,8 @@ interface AccountRow {
   openingBalance?: number;
   /** @deprecated Solde saisi des comptes créés avant le module de rapprochement. */
   balance?: number;
+  currency?: string;
+  exchangeRate?: number;
 }
 
 /**
@@ -67,6 +70,8 @@ export const GET = withAuth("treasuryAccounts", "read", async (req: NextRequest,
       ...a,
       openingBalance,
       balance: openingBalance + (agg?.total ?? 0),
+      // Solde en devise (compte suivi en contre-valeur FCFA), si le cours est connu.
+      foreignBalance: foreignAmount(openingBalance + (agg?.total ?? 0), a.currency, a.exchangeRate),
       movementCount: agg?.count ?? 0,
       pendingCount: pendingBy.get(key) ?? 0,
       statementLineCount: linesBy.get(key) ?? 0,
@@ -85,6 +90,7 @@ export const POST = withAuth("treasuryAccounts", "create", async (req: NextReque
   // donnée. Le stocker dans `balance` reproduirait le défaut d'origine : un
   // nombre figé que plus rien ne met à jour.
   if (!["bank", "cash", "mobile_money"].includes(body.type)) return badRequest("Type de compte invalide (banque, caisse, mobile money).");
+  if (body.currency && !isCurrency(body.currency)) return badRequest("Devise inconnue.");
   // Chaque compte reçoit son compte comptable (5211xx, 5218xx, 5711xx) : le
   // grand livre suit chaque banque et chaque caisse séparément.
   const account = await withTransaction(async session => {
@@ -93,6 +99,7 @@ export const POST = withAuth("treasuryAccounts", "create", async (req: NextReque
       label: body.label,
       type: body.type,
       currency: body.currency || "XOF",
+      ...(Number(body.exchangeRate) > 0 ? { exchangeRate: Number(body.exchangeRate) } : {}),
       bankName: body.bankName,
       accountNumber: body.accountNumber,
       openingBalance: Number(body.openingBalance ?? body.balance ?? 0),

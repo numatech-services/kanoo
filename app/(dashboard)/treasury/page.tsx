@@ -28,6 +28,8 @@ interface Account {
   pendingCount: number;
   statementLineCount: number;
   currency: string;
+  /** Solde dans la devise du compte (suivi en contre-valeur FCFA). */
+  foreignBalance?: number | null;
   isActive: boolean;
 }
 
@@ -175,8 +177,11 @@ export default function TreasuryPage() {
                 <p className="font-semibold text-ink">{a.label}</p>
                 <p className={`text-2xl font-bold mt-1 num ${a.balance >= 0 ? "text-pos" : "text-neg"}`}>
                   {a.balance.toLocaleString("fr-FR")}
-                  <span className="text-sm font-normal text-ink2 ml-1">{!a.currency || a.currency === "XOF" ? "FCFA" : a.currency}</span>
+                  <span className="text-sm font-normal text-ink2 ml-1">FCFA</span>
                 </p>
+                {a.currency && a.currency !== "XOF" && (
+                  <p className="text-xs text-ink2">{a.foreignBalance != null ? `≈ ${a.foreignBalance.toLocaleString("fr-FR")} ${a.currency}` : `Compte en ${a.currency} : cours à renseigner`} · suivi en contre-valeur FCFA</p>
+                )}
 
                 <p className="text-[11px] text-ink3 mt-1">
                   Ouverture {a.openingBalance.toLocaleString("fr-FR")} · {a.movementCount} mouvement(s){a.isActive === false ? " · désactivé" : ""}

@@ -11,7 +11,13 @@ interface Options {
 }
 
 let cache: Promise<Options> | null = null;
-function loadOptions(): Promise<Options> {
+/** Services de l'organisation (liste propre, sinon liste par défaut), mis en cache pour la page. */
+export function useCostCenters(): Array<{ value: string; label: string }> {
+  const [list, setList] = useState<Array<{ value: string; label: string }>>([]);
+  useEffect(() => { loadOptions().then(o => setList(o.costCenters)); }, []);
+  return list;
+}
+export function loadOptions(): Promise<Options> {
   if (!cache) {
     cache = apiJson("/api/imputation/options").then(d => d.data ?? { projects: [], activities: [], costCenters: [] })
       .catch(() => { cache = null; return { projects: [], activities: [], costCenters: [] }; });

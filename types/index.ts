@@ -11,6 +11,8 @@ export type PlanCode = "starter" | "pro" | "enterprise" | "asso_basic" | "asso_p
 
 export interface ITenant {
   _id: Types.ObjectId;
+  hrPolicy?: { leaveMaxBalanceDays?: number; extraHolidays?: Array<{ date: string; label: string }>; removedHolidays?: string[] };
+  costCenters?: Array<{ code: string; label: string; active?: boolean }>;
   accountingLockedUntil?: Date;
   closedFiscalYears?: number[];
   type: TenantType;
@@ -298,6 +300,7 @@ export type InvoiceDocumentType = "invoice" | "credit_note";
 export type InvoiceKind = "standard" | "deposit";
 
 export interface IInvoice {
+  installments?: Array<{ dueDate: Date; amount: number; label?: string }>;
   _id: Types.ObjectId;
   tenantId: Types.ObjectId;
   /** Facture ou avoir. Toute somme de CA doit filtrer dessus. */

@@ -33,7 +33,7 @@ export function DevisForm({ initial, onSave, onCancel }: DevisFormProps) {
   const [lines, setLines] = useState<DevisLine[]>([calcLine({ description: "", quantity: 1, unitPrice: 0 })]);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { apiJson("/api/clients?limit=100&isActive=true").then(d=>setClients(d.data?.items||[])); }, []);
+  useEffect(() => { apiJson("/api/clients?picker=1&isActive=true").then(d=>setClients(d.data?.items||[])); }, []);
 
   if (!mounted) return null;
 

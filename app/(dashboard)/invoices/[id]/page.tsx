@@ -13,8 +13,10 @@ import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
 import { RefundPanel } from "@/components/invoices/RefundPanel";
+import { SchedulePanel } from "@/components/invoices/SchedulePanel";
 import { showToast } from "@/components/ui/Toast";
 import { useApi } from "@/lib/use-api";
+import { useMe, meCanDo } from "@/lib/useMe";
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
 interface InvoiceLine { 
@@ -52,6 +54,7 @@ interface Invoice {
   retentionAmount?: number;
   retentionRate?: number;
   contractId?: string | { _id: string; reference?: string };
+  installments?: Array<{ dueDate: string; amount: number; label?: string }>;
 }
 
 
@@ -89,6 +92,7 @@ export default function InvoiceDetailPage() {
   // État de gestion pour l'état d'impression
   const [isPrinting, setIsPrinting] = useState(false);
 
+  const canEditSchedule = meCanDo(useMe(), "invoices", "update");
   // Facture relue après chaque action ; une lecture refusée affiche « Facture introuvable ».
   const { data: invoice, loading, reload: load } = useApi<Invoice | null>(
     `/api/invoices/${id}`,
@@ -461,7 +465,8 @@ export default function InvoiceDetailPage() {
       {/* Bon de commande du client, procès-verbal de réception, justificatif
           de virement : les pièces qui rendent la facture défendable en cas de
           contestation, rangées avec elle plutôt que dans une boîte mail. */}
-      <div className="print:hidden">
+      <div className="print:hidden space-y-4">
+        {!isCreditNote && <SchedulePanel invoiceId={invoice._id} invoice={invoice} canEdit={canEditSchedule} onChange={load} />}
         <AttachmentPanel
           host="invoices"
           hostId={String(id)}

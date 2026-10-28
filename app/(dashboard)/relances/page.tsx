@@ -380,6 +380,7 @@ function SettingsDialog({
     minAmount: settings.minAmount,
     minIntervalDays: settings.minIntervalDays,
     respectDisputes: settings.respectDisputes,
+    includePayLink: settings.includePayLink ?? true,
     sendDays: settings.sendDays,
     bccEmail: settings.bccEmail || "",
   });
@@ -496,6 +497,18 @@ function SettingsDialog({
             <span className="block text-xs text-ink2 mt-0.5">
               Réclamer une facture que le client conteste transforme un désaccord sur une
               ligne en conflit sur la relation.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" checked={form.includePayLink} className="mt-0.5"
+            onChange={e => setForm(f => ({ ...f, includePayLink: e.target.checked }))} />
+          <span>
+            <span className="text-sm text-ink">Joindre le lien de paiement en ligne</span>
+            <span className="block text-xs text-ink2 mt-0.5">
+              Chaque relance contient le lien du portail du client : il y voit ses factures et paie
+              par mobile money ou carte quand le paiement en ligne est activé.
             </span>
           </span>
         </label>

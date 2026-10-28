@@ -10,6 +10,7 @@ import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
 import {apiJson, apiSend } from "@/lib/api-client";
+import { CostCenterReport } from "@/components/pme/CostCenterReport";
 interface Activity { _id: string; name: string; color?: string }
 interface Sector { activityId: string; name: string; color?: string; revenue: number; expense: number; result: number; fromAccounting?: { revenue: number; expense: number } }
 interface Report { sectors: Sector[]; general: { revenue: number; expense: number }; consolidated: { revenue: number; expense: number; result: number } | null; isAdmin: boolean }
@@ -152,6 +153,7 @@ export default function AnalytiquePage() {
           </ul>
         )}
       </section>
+      <CostCenterReport from={filter.from} to={filter.to} />
     </div>
   );
 }

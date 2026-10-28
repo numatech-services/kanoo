@@ -50,7 +50,7 @@ export function PurchaseForm({ initial, onSubmit, submitLabel, scan }: {
   });
 
   useEffect(() => {
-    apiJson("/api/suppliers?limit=100").then(d => setSuppliers(d.data?.items ?? [])).catch(() => {});
+    apiJson("/api/suppliers?picker=1").then(d => setSuppliers(d.data?.items ?? [])).catch(() => {});
     apiJson("/api/treasury-accounts").then(d => {
       const list = d.data?.items ?? [];
       setAccounts(list);

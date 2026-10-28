@@ -4,6 +4,7 @@ import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { connectDB } from "@/lib/db";
 import { authorize, tenantFilter } from "@/lib/api-helpers";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
+import { buildFec } from "@/lib/fec";
 
 /**
  * GET /api/exports/generic?format=cegid|ebp|divalto|fec&annee=YYYY&mois=MM
@@ -39,42 +40,14 @@ export async function GET(req: NextRequest) {
   let filename = "";
   let sep = ";";
 
-  // ── FEC (Fichier d'Écritures Comptables — norme française adaptée Niger) ──
+  // ── FEC (Fichier des écritures comptables, lib/fec.ts) ──
   if (format === "fec") {
-    sep = "|";
     filename = `FEC-${annee}${mois ? `-${String(mois).padStart(2,"0")}` : ""}.txt`;
-    const header = "JournalCode|JournalLib|EcritureNum|EcritureDate|CompteNum|CompteLib|CompAuxNum|CompAuxLib|PieceRef|PieceDate|EcritureLib|Debit|Credit|EcritureLet|DateLet|ValidDate|MontantDevise|Idevise";
-    const rows: string[] = [header];
-    let lineNum = 1;
-    for (const e of entries) {
-      const dateStr = new Date(e.entryDate).toISOString().slice(0, 10).replace(/-/g, "");
-      for (const line of e.lines) {
-        rows.push([
-          e.journalCode,
-          e.journalCode === "VT" ? "Ventes" : e.journalCode === "AC" ? "Achats" : e.journalCode === "BQ" ? "Banque" : "Opérations Diverses",
-          String(lineNum++).padStart(8, "0"),
-          dateStr,
-          line.accountCode,
-          (line.accountLabel || "").replace(/\|/g, " "),
-          "",
-          "",
-          e.reference || "",
-          dateStr,
-          (e.label || "").slice(0, 100).replace(/\|/g, " "),
-          line.debit > 0 ? line.debit.toFixed(2) : "0.00",
-          line.credit > 0 ? line.credit.toFixed(2) : "0.00",
-          line.letterRef || "",
-          "",
-          dateStr,
-          "",
-          "XOF",
-        ].join(sep));
-      }
-    }
-    csv = rows.join("\r\n");
+    csv = await buildFec(auth.tenantId, start, end);
   }
 
   // ── CEGID ──
+  if (format === "fec") { /* déjà construit */ }
   else if (format === "cegid") {
     sep = ";";
     filename = `CEGID-${annee}${mois ? `-${String(mois).padStart(2,"0")}` : ""}.csv`;

@@ -43,7 +43,7 @@ export function ProductForm({ initial, onSave, onCancel, creating }: {
   const [initialWarehouseId, setInitialWarehouseId] = useState("");
   const [initialLots, setInitialLots] = useState<LotRow[]>([{ lotNumber: "", expiryDate: "", qty: 0 }]);
   useEffect(() => {
-    fetch("/api/suppliers?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => d?.data?.items && setSuppliers(d.data.items)).catch(() => {});
+    fetch("/api/suppliers?picker=1", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => d?.data?.items && setSuppliers(d.data.items)).catch(() => {});
   }, []);
   const u = <K extends keyof ProductFormValue>(k: K, v: ProductFormValue[K]) => setF(p => ({ ...p, [k]: v }));
 

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
-import { COST_CENTERS } from "@/lib/cost-centers";
+import { useCostCenters } from "@/components/shared/ImputationFields";
 import { calculerBulletinDePaie } from "@/lib/payslip-calc";
 import { AVANTAGES_EN_NATURE, AVANTAGES_KEYS, pourcent, tauxCnss, type AvantageEnNature } from "@/lib/paie-parametres";
 
@@ -48,6 +48,7 @@ export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { in
     otherDeductionAmount: initial?.otherDeductionAmount??0,
     isActive: initial?.isActive??true, notes: initial?.notes||"",
   });
+  const centers = useCostCenters();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const u = (f: string, v: unknown) => setForm(p => ({ ...p, [f]: v }));
@@ -120,7 +121,8 @@ export function EmployeeForm({ initial, onSave, onCancel, payroll = true }: { in
           <FormField label="Service" hint="Centre de coût : la paie y est imputée">
             <select className={selectCls} value={form.costCenter} onChange={e=>u("costCenter",e.target.value)}>
               <option value="">—</option>
-              {Object.entries(COST_CENTERS).map(([k,l])=><option key={k} value={k}>{l}</option>)}
+              {centers.map(c=><option key={c.value} value={c.value}>{c.label}</option>)}
+              {form.costCenter && !centers.some(c=>c.value===form.costCenter) && <option value={form.costCenter}>{form.costCenter}</option>}
             </select>
           </FormField>
         </div>

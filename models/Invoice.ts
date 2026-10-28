@@ -105,6 +105,11 @@ const InvoiceSchema = new Schema<IInvoice>(
       enum: ["draft", "sent", "partial", "paid", "overdue", "cancelled", "written_off"],
       default: "draft",
     },
+    /**
+     * Échéancier de paiement (lib/installments) : versements datés dont le
+     * total fait le montant dû. Les relances suivent l'échéance en cours.
+     */
+    installments: [{ _id: false, dueDate: { type: Date, required: true }, amount: { type: Number, required: true, min: 0 }, label: { type: String, maxlength: 80 } }],
     issueDate: { type: Date, required: true },
     // Un avoir n'a pas d'échéance de règlement : le champ n'est requis que
     // sur une facture.

@@ -99,6 +99,14 @@ const ProjectSchema = new Schema({
 
   notes: String,
   tags:  [String],
+
+  /**
+   * Suppression douce : le projet disparaît des listes mais reste
+   * restaurable (tâches, documents, temps, liens aux écritures). Il était
+   * effacé définitivement.
+   */
+  deletedAt: Date,
+  deletedBy: { type: Schema.Types.ObjectId, ref: "User" },
 }, { timestamps: true });
 
 // Calcul automatique du taux d'exécution avant sauvegarde

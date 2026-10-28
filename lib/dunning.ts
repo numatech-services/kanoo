@@ -51,6 +51,11 @@ export interface DunningSettings {
   minIntervalDays: number;
   /** Ne pas relancer une facture marquée en litige. */
   respectDisputes: boolean;
+  /**
+   * Joindre le lien du portail client (consultation et paiement en ligne —
+   * mobile money, carte) à chaque relance. Le lien est créé au besoin.
+   */
+  includePayLink?: boolean;
 }
 
 /**
@@ -79,6 +84,7 @@ export const DEFAULT_DUNNING_SETTINGS: DunningSettings = {
   sendDays: [1, 2, 3, 4],
   minIntervalDays: 5,
   respectDisputes: true,
+  includePayLink: true,
 };
 
 export interface InvoiceLike {
@@ -417,6 +423,15 @@ export function composeSubject(tone: DunningTone, ctx: MessageContext): string {
 }
 
 export function composeBody(tone: DunningTone, ctx: MessageContext): string {
+  const text = composeBodyText(tone, ctx);
+  if (!ctx.payLink) return text;
+  // Le lien de règlement s'insère avant la formule finale.
+  const pay = `Vous pouvez consulter la facture et la régler en ligne (mobile money, carte) : ${ctx.payLink}\n\n`;
+  const i = text.lastIndexOf(tone === "formal_notice" ? "Nous restons à votre disposition" : "Cordialement,");
+  return i > 0 ? text.slice(0, i) + pay + text.slice(i) : `${text}\n\n${pay}`;
+}
+
+function composeBodyText(tone: DunningTone, ctx: MessageContext): string {
   const amount = FR_XOF(ctx.outstanding);
   const due = FR_DATE(ctx.dueDate);
 
@@ -465,7 +480,9 @@ export function composeSms(tone: DunningTone, ctx: MessageContext): string {
   const base = tone === "firm" || tone === "formal_notice"
     ? `${ctx.tenantName} : facture ${ctx.invoiceNumber} (${amount}) impayée depuis ${ctx.daysPastDue} j. Merci de régulariser.`
     : `${ctx.tenantName} : facture ${ctx.invoiceNumber} (${amount}) en attente de règlement. Merci.`;
-  return base.length <= 160 ? base : `${base.slice(0, 157)}...`;
+  const short = base.length <= 160 ? base : `${base.slice(0, 157)}...`;
+  // Avec le lien de paiement : deux SMS au plus.
+  return ctx.payLink ? `${short} Payer : ${ctx.payLink}`.slice(0, 306) : short;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

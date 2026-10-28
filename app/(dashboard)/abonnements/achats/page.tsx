@@ -70,7 +70,7 @@ export default function AchatsAbonnementsPage() {
   );
 
   useEffect(() => {
-    apiJson("/api/suppliers?limit=200")
+    apiJson("/api/suppliers?picker=1")
       .then(d => setSuppliers(d.data?.items || []))
       .catch(() => setSuppliers([]));
   }, []);

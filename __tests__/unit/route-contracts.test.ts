@@ -616,8 +616,13 @@ describe("Solde client — calculé, jamais stocké", () => {
     expect(pdf).toBeDefined();
     // Un PDF qui recalculerait de son côté finirait par afficher un autre
     // solde que l'écran — et c'est le client qui le découvrirait.
-    expect(pdf!.src).toMatch(/buildStatement/);
-    expect(pdf!.src).toMatch(/withOpenItems/);
+    // Téléchargement et envoi passent par la même fonction (lib/statement-pdf).
+    expect(pdf!.src).toMatch(/statementPdf/);
+    const lib = readFileSync(join(process.cwd(), "lib/statement-pdf.ts"), "utf-8");
+    expect(lib).toMatch(/buildStatement/);
+    expect(lib).toMatch(/withOpenItems/);
+    const send = files.find(f => f.path.endsWith("clients/[id]/releve/send/route.ts"));
+    expect(send?.src).toMatch(/statementPdf/);
   });
 });
 

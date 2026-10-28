@@ -8,7 +8,8 @@ import { LeaveModel } from "@/models/Leave";
 import { EmployeeModel } from "@/models/Employee";
 import { expenseAuthority } from "@/lib/expense-scope";
 import { ownEmployee, scopeEmployees } from "@/lib/leave-scope";
-import { workingDays, leaveBalance, LEAVE_TYPES } from "@/lib/leaves";
+import { workingDays, leaveBalance, hrPolicy, LEAVE_TYPES } from "@/lib/leaves";
+import { holidaySet } from "@/lib/holidays";
 import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,7 @@ export const GET = withAuth("leaves", "read", async (req: NextRequest, auth: Tok
     : own;
   return ok({
     items,
-    balance: target ? await leaveBalance(auth.tenantId, target) : null,
+    balance: target ? await leaveBalance(auth.tenantId, target, { maxBalanceDays: (await hrPolicy(auth.tenantId)).maxBalanceDays }) : null,
     canDecide: expenseAuthority(auth, "leaves").kind !== "own",
     ownEmployeeId: own ? String(own._id) : null,
     types: LEAVE_TYPES,
@@ -69,12 +70,13 @@ export const POST = withAuth("leaves", "create", async (req: NextRequest, auth: 
   const start = new Date(body.startDate), end = new Date(body.endDate);
   if (isNaN(start.getTime()) || isNaN(end.getTime())) return badRequest("Dates invalides.");
   if (end < start) return badRequest("La fin précède le début.");
-  const days = workingDays(start, end, !!body.halfDayStart, !!body.halfDayEnd);
+  const policy = await hrPolicy(auth.tenantId);
+  const days = workingDays(start, end, !!body.halfDayStart, !!body.halfDayEnd, holidaySet(start, end, policy.holidays));
   if (days <= 0) return badRequest("Aucun jour ouvrable dans cette période.");
   const overlap = await LeaveModel.exists({ tenantId: auth.tenantId, employeeId, status: { $in: ["pending", "approved"] }, startDate: { $lte: end }, endDate: { $gte: start } });
   if (overlap) return badRequest("Une autre demande couvre déjà une partie de ces dates.");
   if (type === "annual") {
-    const bal = await leaveBalance(auth.tenantId, employee);
+    const bal = await leaveBalance(auth.tenantId, employee, { maxBalanceDays: policy.maxBalanceDays });
     // Dépassement du solde (anticipation de congés) : décision d'un valideur
     // de ce salarié, jamais du demandeur — le drapeau venait du client et
     // n'importe qui contournait son solde.

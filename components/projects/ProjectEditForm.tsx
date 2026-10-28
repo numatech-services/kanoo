@@ -30,7 +30,7 @@ export function ProjectEditForm({ initial, showBudget, onSave, onCancel }: {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    fetch("/api/clients?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => d?.data?.items && setClients(d.data.items)).catch(() => {});
+    fetch("/api/clients?picker=1", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => d?.data?.items && setClients(d.data.items)).catch(() => {});
     fetch("/api/agenda/directory", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => d?.data && setUsers(d.data)).catch(() => {});
   }, []);
   const u = (k: keyof typeof f, v: string | number) => setF(p => ({ ...p, [k]: v }));

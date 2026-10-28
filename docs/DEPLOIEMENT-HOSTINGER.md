@@ -94,8 +94,11 @@ Trois tâches à créer (adaptez l'heure au fuseau du serveur ; remplacez
 `$SECRET` par la valeur de `CRON_SECRET`) :
 
 ```bash
-# Chaque jour à 06:30 — tâches quotidiennes (relances, alertes, échéances)
-30 6 * * *   curl -fsS -H "x-cron-key: $SECRET" "https://numapilot.numatechservices.net/api/cron?group=daily"
+# Chaque jour, de 06:00 à 09:30, toutes les 30 min — tâches quotidiennes.
+# Chaque appel ne rejoue que les tâches non terminées du jour : un appel coupé
+# (limite de 300 s) est rattrapé par le suivant, une tâche en échec est
+# retentée (3 fois au plus). La sauvegarde passe toujours en premier.
+0,30 6-9 * * *   curl -fsS -H "x-cron-key: $SECRET" "https://numapilot.numatechservices.net/api/cron?group=daily"
 
 # Le 1er de chaque mois à 01:00 — rappels TVA + purge des jetons expirés
 0 1 1 * *    curl -fsS -H "x-cron-key: $SECRET" "https://numapilot.numatechservices.net/api/cron?group=monthly"
@@ -114,6 +117,10 @@ rend un problème visible dans les journaux cron.
 ```bash
 curl -H "x-cron-key: <votre secret>" "https://numapilot.numatechservices.net/api/cron?group=daily"
 ```
+
+La réponse indique, pour chaque tâche, `summary` (faite), `error` (échec) ou
+`skipped` (déjà faite, en cours, reportée à l'appel suivant). Ajoutez
+`&force=1` pour tout rejouer.
 
 ### Automatisations (lot D)
 

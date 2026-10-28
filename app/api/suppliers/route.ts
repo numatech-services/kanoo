@@ -10,6 +10,11 @@ export const GET = withAuth("suppliers", "read", async (req: NextRequest, auth: 
   const search = escapeRegex(url.searchParams.get("search"));
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   if (search) filter.$or = [{ name: { $regex: search, $options: "i" } }, { code: { $regex: search, $options: "i" } }];
+  // Mode sélecteur : tous les fournisseurs (la pagination plafonne à 100).
+  if (url.searchParams.get("picker") === "1") {
+    const items = await SupplierModel.find(filter).sort({ name: 1 }).limit(5000).select("name code nif email phone address isActive paymentTermDays currency").lean();
+    return paginatedResponse(items, items.length, { page: 1, limit: items.length || 1, skip: 0 });
+  }
   const [items, total] = await Promise.all([
     SupplierModel.find(filter).sort({ name: 1 }).skip(pagination.skip).limit(pagination.limit).lean(),
     SupplierModel.countDocuments(filter),

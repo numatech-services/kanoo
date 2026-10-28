@@ -20,7 +20,8 @@ export const GET = withAuth("projects", "read", async (req: NextRequest, auth: T
   const type = url.searchParams.get("projectType");
   const search = escapeRegex(url.searchParams.get("search"));
 
-  const filter: Record<string, unknown> = { ...tenantFilter(auth) };
+  // Projets supprimés (suppression douce) : hors des listes, sauf ?deleted=true.
+  const filter: Record<string, unknown> = { ...tenantFilter(auth), ...(url.searchParams.get("deleted") === "true" ? { deletedAt: { $exists: true } } : { deletedAt: { $exists: false } }) };
   // Raccourci « Voir les … » de la fiche client.
   const clientId = url.searchParams.get("clientId");
   if (clientId && Types.ObjectId.isValid(clientId)) filter.clientId = new Types.ObjectId(clientId);

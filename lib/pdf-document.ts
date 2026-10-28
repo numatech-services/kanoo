@@ -245,6 +245,8 @@ export interface InvoiceForPdf {
   contractId?: { reference?: string; registration?: { number?: string; date?: Date | string } } | null;
   /** Retenue de garantie du marché, gardée par le client jusqu'à la réception définitive. */
   retentionAmount?: number; retentionRate?: number;
+  /** Échéancier de paiement convenu (versements datés). */
+  installments?: Array<{ dueDate: Date | string; amount: number; label?: string }>;
   clientId?: { name?: string; nif?: string; rccm?: string; code?: string; address?: string; phone?: string } | null;
   secef?: { code?: string; qrPayload?: string };
 }
@@ -357,6 +359,19 @@ export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdent
         doc.fillColor("#B23B2E").font("Helvetica-Bold");
         doc.text("Reste dû", 330, y); doc.text(FCFA(remaining), 430, y, { width: 115, align: "right" });
       }
+    }
+
+    // Échéancier convenu : un versement par ligne, avec sa date.
+    if (!isCredit && inv.installments?.length) {
+      y += 20;
+      doc.fillColor(c.secondary).font("Helvetica-Bold").fontSize(8).text("ÉCHÉANCIER DE PAIEMENT", 330, y, { characterSpacing: 1 });
+      doc.font("Helvetica").fontSize(8).fillColor(c.muted);
+      for (const x of inv.installments.slice(0, 12)) {
+        y += 12;
+        doc.text(`${x.label ? `${x.label} — ` : ""}${new Date(x.dueDate).toLocaleDateString("fr-FR")}`, 330, y, { width: 100 });
+        doc.text(FCFA(x.amount), 430, y, { width: 115, align: "right" });
+      }
+      if (inv.installments.length > 12) { y += 12; doc.text(`… et ${inv.installments.length - 12} autre(s) versement(s)`, 330, y); }
     }
 
     // Conditions destinées au client (jamais les notes internes) ; motif de

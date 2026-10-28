@@ -8,6 +8,7 @@ import { pickImputation, checkImputations } from "@/lib/imputation";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { searchCondition, withSearch } from "@/lib/list-search";
 
 export const GET = withAuth("commandes", "read", async (req: NextRequest, auth: TokenPayload) => {
   const pagination = getPagination(req);
@@ -15,6 +16,7 @@ export const GET = withAuth("commandes", "read", async (req: NextRequest, auth: 
   const status = url.searchParams.get("status");
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   if (status) filter.status = status;
+  withSearch(filter, await searchCondition(auth.tenantId, url.searchParams.get("search"), { fields: ["number", "lines.description"], supplier: "supplierId" }));
   const [items, total] = await Promise.all([
     CommandeModel.find(filter).populate("supplierId", "name code").sort({ orderDate: -1 }).skip(pagination.skip).limit(pagination.limit).lean(),
     CommandeModel.countDocuments(filter),

@@ -52,7 +52,7 @@ export default function AppelDetailPage() {
   const awardable = !!a && ["submitted", "evaluation", "won"].includes(a.status) && !a.contractId && canContract;
   useEffect(() => {
     if (!awardable) return;
-    apiJson("/api/clients?limit=100&isActive=true").then(d => {
+    apiJson("/api/clients?picker=1&isActive=true").then(d => {
       const list: Array<{ _id: string; name: string }> = d?.data?.items ?? [];
       setClients(list);
       const match = list.find(c => c.name.trim().toLowerCase() === (a?.organism || "").trim().toLowerCase());

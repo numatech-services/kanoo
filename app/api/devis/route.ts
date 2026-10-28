@@ -8,6 +8,7 @@ import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { searchCondition, withSearch } from "@/lib/list-search";
 
 export const GET = withAuth("devis", "read", async (req: NextRequest, auth: TokenPayload) => {
   const pagination = getPagination(req);
@@ -18,6 +19,7 @@ export const GET = withAuth("devis", "read", async (req: NextRequest, auth: Toke
   const clientId = url.searchParams.get("clientId");
   if (clientId && Types.ObjectId.isValid(clientId)) filter.clientId = new Types.ObjectId(clientId);
   if (status) filter.status = status;
+  withSearch(filter, await searchCondition(auth.tenantId, url.searchParams.get("search"), { fields: ["number", "lines.description"], client: "clientId" }));
   const [items, total] = await Promise.all([
     DevisModel.find(filter).populate("clientId", "name code").sort({ issueDate: -1 }).skip(pagination.skip).limit(pagination.limit).lean(),
     DevisModel.countDocuments(filter),

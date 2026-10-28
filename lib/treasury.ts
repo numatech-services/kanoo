@@ -160,3 +160,20 @@ export async function assignLedgerCode(actor: { tenantId: string; userId: string
   }
   return { code, reclassed: total };
 }
+
+/**
+ * Trésorerie totale de l'organisation : somme des soldes calculés (ouverture
+ * + mouvements) de TOUS ses comptes actifs — banques, caisses, mobile money —,
+ * en FCFA (contre-valeur pour un compte en devise).
+ */
+export async function totalTreasury(tenantId: string): Promise<{ total: number; accounts: number }> {
+  const tid = new Types.ObjectId(String(tenantId));
+  const accounts = await TreasuryAccountModel.find({ tenantId: tid, isActive: { $ne: false } }).select("_id openingBalance balance").lean<Array<{ _id: Types.ObjectId; openingBalance?: number; balance?: number }>>();
+  if (!accounts.length) return { total: 0, accounts: 0 };
+  const [agg] = await TreasuryMovementModel.aggregate<{ total: number }>([
+    { $match: { tenantId: tid, accountId: { $in: accounts.map(a => a._id) } } },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
+  const opening = accounts.reduce((t, a) => t + (a.openingBalance ?? a.balance ?? 0), 0);
+  return { total: Math.round(opening + (agg?.total ?? 0)), accounts: accounts.length };
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Link2, AlertTriangle } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
@@ -11,6 +12,7 @@ import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { showToast } from "@/components/ui/Toast";
 import { useApi } from "@/lib/use-api";
 interface Sale {
   _id: string;
@@ -52,6 +54,7 @@ const EMPTY = {
 };
 
 export default function ReventesPage() {
+  const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [purchases, setPurchases] = useState<PurchaseOption[]>([]);
   const [filter, setFilter] = useState("");
@@ -68,7 +71,7 @@ export default function ReventesPage() {
   );
 
   useEffect(() => {
-    apiJson("/api/clients?limit=200").then(d => setClients(d.data?.items || [])).catch(() => setClients([]));
+    apiJson("/api/clients?picker=1").then(d => setClients(d.data?.items || [])).catch(() => setClients([]));
     apiJson("/api/abonnements/achats?limit=200&status=active").then(d => setPurchases(d.data?.items || [])).catch(() => setPurchases([]));
   }, []);
 
@@ -90,6 +93,13 @@ export default function ReventesPage() {
       startDate: prev.startDate || purchase?.startDate?.slice(0, 10) || "",
       endDate: prev.endDate || purchase?.endDate?.slice(0, 10) || "",
     }));
+  }
+
+  // Facture brouillon de la revente, à vérifier puis émettre.
+  async function bill(id: string) {
+    const res = await apiSend("POST", `/api/abonnements/reventes/${id}/invoice`);
+    if (!res.ok) { showToast(res.data?.error || "Facturation impossible.", "error"); return; }
+    router.push(`/invoices/${res.data.data.invoice._id}`);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -166,8 +176,9 @@ export default function ReventesPage() {
                     <td>
                       <p className="font-mono text-xs text-section">{item.reference}</p>
                       {!item.invoiceId && item.status === "active" && (
-                        <span className="text-[10px] text-warn">non facturée</span>
+                        <button onClick={() => bill(item._id)} className="text-[11px] text-warn hover:underline">non facturée — facturer</button>
                       )}
+                      {item.invoiceId && <Link href={`/invoices/${item.invoiceId}`} className="block text-[11px] text-section hover:underline">voir la facture</Link>}
                     </td>
                     <td className="text-ink font-medium">{client}</td>
                     <td className="text-ink2">{item.productName}</td>

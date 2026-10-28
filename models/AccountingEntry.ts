@@ -20,6 +20,8 @@ const AccountingLineSchema = new Schema(
      * du 421 d'un bulletin empêchait de lettrer ensuite son 431 (CNSS).
      */
     letterRef: { type: String, maxlength: 40 },
+    /** Date du lettrage (DateLet du FEC). */
+    letteredAt: Date,
   },
   { _id: false }
 );

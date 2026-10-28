@@ -10,6 +10,7 @@ import { CheckCircle2, AlertCircle, Banknote, ClipboardList, Plus, Trash2, Edit3
 import { useMe, meCanDo } from "@/lib/useMe";
 import { ImputedFlows } from "@/components/shared/ImputedFlows";
 import { ProjectEditForm, type ProjectEditValue } from "@/components/projects/ProjectEditForm";
+import { ProjectTime } from "@/components/projects/ProjectTime";
 import { PROJECT_STATUS_FR, TASK_STATUS_FR, type ProjectVocabulary } from "@/lib/vocabulary";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
@@ -18,7 +19,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, api, apiErrorMessage, apiSend } from "@/lib/api-client";
 // ── Interfaces ────────────────────────────────────────────────────
 interface Task { _id: string; label: string; status: string; weight: number; }
-interface Milestone { _id?: string; label: string; dueDate?: string; completedAt?: string; amount?: number; description?: string; }
+interface Milestone { _id?: string; label: string; dueDate?: string; completedAt?: string; amount?: number; description?: string; invoiceId?: string; }
 interface ProjectDoc { _id: string; name: string; type: string; uploadedAt: string; url?: string; }
 interface BureauMember { _id: string; firstName: string; lastName: string; role: string; }
 interface ProjectMember { 
@@ -40,6 +41,9 @@ interface Project {
   clientId?: string | { _id: string } | null; managerId?: string | { _id: string } | null;
   tasks: Task[]; documents: ProjectDoc[]; projectMembers: ProjectMember[];
   conversationId?: string;
+  updatedAt?: string;
+  /** Supprimé (suppression douce) : restaurable. */
+  deletedAt?: string;
 }
 
 // Les libellés viennent de lib/vocabulary : la table locale mélangeait états
@@ -76,7 +80,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<Project | null>(null);
   const [userId, setUserId] = useState("");
-  const [activeTab, setActiveTab] = useState<"tasks" | "milestones" | "docs" | "team" | "messages">("tasks");
+  const [activeTab, setActiveTab] = useState<"tasks" | "milestones" | "time" | "docs" | "team" | "messages">("tasks");
 
   // Modales
   const [taskModal, setTaskModal] = useState(false);
@@ -133,32 +137,51 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
 
   // --- ACTIONS ---
 
+  // Une tâche à la fois : la liste entière n'est plus renvoyée (deux
+  // personnes qui cochaient chacune une tâche s'écrasaient).
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
-    const updatedTasks = project.tasks.map(t => t._id === taskId ? { ...t, status: newStatus } : t);
-    
-    await apiSend("PATCH", `/api/projects/${id}`, { tasks: updatedTasks });
+    const res = await apiSend("PATCH", `/api/projects/${id}/tasks/${taskId}`, { status: newStatus });
+    if (!res.ok) showToast(res.data?.error || "Modification impossible", "error");
     fetchData();
   };
 
+  // Listes entières (jalons, équipe) : envoyées avec la version lue ; refus
+  // si le projet a changé entre-temps.
   const patchProject = async (body: Record<string, unknown>) => {
-    const res = await apiSend("PATCH", `/api/projects/${id}`, body);
+    const res = await apiSend("PATCH", `/api/projects/${id}`, { ...body, ifUpdatedAt: project.updatedAt });
     const d = res.data;
-    if (!res.ok) throw new Error(d.error || "Modification impossible");
+    if (!res.ok) { if (res.status === 409) await fetchData(); throw new Error(d.error || "Modification impossible"); }
     await fetchData();
   };
 
   const deleteTask = async (taskId: string) => {
     if (!(await confirmDialog({ title: "Supprimer cette tâche ?", danger: true }))) return;
-    await patchProject({ tasks: project.tasks.filter(t => t._id !== taskId) });
+    const res = await apiSend("DELETE", `/api/projects/${id}/tasks/${taskId}`);
+    if (!res.ok) showToast(res.data?.error || "Suppression impossible", "error");
+    fetchData();
   };
 
   const deleteProject = async () => {
-    if (!(await confirmDialog({ title: "Supprimer définitivement ce projet ?", message: "Ses tâches et documents disparaissent ; les écritures comptables imputées restent.", danger: true }))) return;
+    if (!(await confirmDialog({ title: "Supprimer ce projet ?", message: "Il disparaît des listes. Tâches, documents, temps et écritures imputées sont conservés : le projet reste restaurable depuis sa fiche.", danger: true }))) return;
     const res = await apiSend("DELETE", `/api/projects/${id}`);
     if (res.ok) router.push("/projects"); else showToast("Suppression impossible", "error");
   };
 
-  const saveMilestones = (milestones: Milestone[]) => patchProject({ milestones });
+  const saveMilestones = (milestones: Milestone[]) => patchProject({ milestones }).catch(e => showToast(e instanceof Error ? e.message : "Modification impossible", "error"));
+
+  // Facture brouillon du jalon, ouverte pour vérification.
+  const billMilestone = async (m: Milestone) => {
+    if (!m._id) return;
+    const res = await apiSend("POST", `/api/projects/${id}/milestones/${m._id}/invoice`, {});
+    if (!res.ok) { showToast(res.data?.error || "Facturation impossible", "error"); return; }
+    router.push(`/invoices/${res.data.data.invoice._id}`);
+  };
+
+  const restoreProject = async () => {
+    const res = await apiSend("PATCH", `/api/projects/${id}`, { restore: true });
+    if (!res.ok) { showToast(res.data?.error || "Restauration impossible", "error"); return; }
+    showToast("Projet restauré.", "success"); fetchData();
+  };
 
   const completeProject = async () => {
     if (currentExecRate < 100) return;
@@ -169,10 +192,8 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
 
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Pas d'identifiant provisoire : Mongo attribue le sien (« temp-… » faisait échouer l'enregistrement).
-    const tasks = [...project.tasks, { ...newTask }];
     try {
-      await api.patch(`/api/projects/${id}`, { tasks });
+      await api.post(`/api/projects/${id}/tasks`, newTask);
       setTaskModal(false);
       setNewTask({ label: "", weight: 1, status: "todo" });
     } catch (err) { showToast(apiErrorMessage(err, "Ajout de la tâche impossible."), "error"); }
@@ -205,6 +226,12 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto p-4 pb-20">
+      {project.deletedAt && (
+        <div className="px-4 py-3 rounded-xl bg-warn-50 border border-warn/25 text-sm text-warn flex items-center justify-between gap-3">
+          <span>Projet supprimé le {new Date(project.deletedAt).toLocaleDateString("fr-FR")} : il n&apos;apparaît plus dans les listes.</span>
+          {canDelete && <button onClick={restoreProject} className={buttonClass("secondary", "sm")}>Restaurer</button>}
+        </div>
+      )}
       {/* HEADER */}
       <div className="flex justify-between items-end border-b border-line pb-4">
         <div>
@@ -214,7 +241,7 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {canEdit && <button onClick={() => setEditOpen(true)} className={buttonClass("secondary", "md")}><Edit3 size={14} /> Modifier</button>}
-          {canDelete && <button onClick={deleteProject} className="px-3 h-9 inline-flex items-center gap-1.5 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Trash2 size={14} /> Supprimer</button>}
+          {canDelete && !project.deletedAt && <button onClick={deleteProject} className="px-3 h-9 inline-flex items-center gap-1.5 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Trash2 size={14} /> Supprimer</button>}
           <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${project.status === 'completed' ? 'bg-pos-50 text-pos' : 'bg-surface2 text-ink'}`}>
             {STATUS_FR[project.status] || project.status}
           </div>
@@ -272,9 +299,9 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
 
       {/* TABS NAVIGATION */}
       <div className="flex gap-2 bg-surface2/30 p-1.5 rounded-2xl w-fit">
-        {(["tasks", "milestones", "docs", "team", "messages"] as const).map((t) => (
+        {(["tasks", "milestones", "time", "docs", "team", "messages"] as const).map((t) => (
           <button key={t} onClick={() => setActiveTab(t)} className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === t ? "bg-surface text-section shadow-sm" : "text-ink2 hover:bg-white/50"}`}>
-            {t === "tasks" ? "Tâches" : t === "milestones" ? "Jalons" : t === "docs" ? "Documents" : t === "team" ? "Équipe" : "Messages"}
+            {t === "tasks" ? "Tâches" : t === "milestones" ? "Jalons" : t === "time" ? "Temps" : t === "docs" ? "Documents" : t === "team" ? "Équipe" : "Messages"}
           </button>
         ))}
       </div>
@@ -327,13 +354,16 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
                       <p className={`text-sm font-semibold ${m.completedAt ? "text-ink2 line-through" : "text-ink"}`}>{m.label}</p>
                       <p className="text-[11px] text-ink3">
                         {m.dueDate ? `Échéance ${new Date(m.dueDate).toLocaleDateString("fr-FR")}` : "Sans échéance"}
-                        {money && m.amount ? ` · ${m.amount.toLocaleString("fr-FR")} FCFA à facturer` : ""}
+                        {money && m.amount ? ` · ${m.amount.toLocaleString("fr-FR")} FCFA ${m.invoiceId ? "facturés" : "à facturer"}` : ""}
                         {m.completedAt ? ` · atteint le ${new Date(m.completedAt).toLocaleDateString("fr-FR")}` : ""}
                       </p>
                     </div>
                   </div>
                   {canEdit && (
                     <div className="flex items-center gap-1">
+                      {money && m._id && (m.amount ?? 0) > 0 && (m.invoiceId
+                        ? <Link href={`/invoices/${m.invoiceId}`} className="px-2 h-8 inline-flex items-center rounded-md border border-pos/25 text-pos text-xs">Facture</Link>
+                        : <button onClick={() => billMilestone(m)} className="px-2 h-8 rounded-md border border-section/30 text-section text-xs hover:bg-section-soft">Facturer</button>)}
                       <button onClick={() => saveMilestones((project.milestones ?? []).map((x, j) => j === i ? { ...x, completedAt: x.completedAt ? undefined : new Date().toISOString() } : x))}
                         className="px-2 h-8 rounded-md border border-line2 text-xs hover:bg-surface2">{m.completedAt ? "Rouvrir" : "Atteint"}</button>
                       <button onClick={async () => { if (await confirmDialog({ title: "Supprimer ce jalon ?", danger: true })) saveMilestones((project.milestones ?? []).filter((_, j) => j !== i)); }} className="p-1.5 text-ink3 hover:text-neg" title="Supprimer"><Trash2 size={14} /></button>
@@ -400,6 +430,8 @@ export function ProjectDetail({ vocabulary }: { vocabulary: ProjectVocabulary })
               </div>
            </div>
         )}
+
+        {activeTab === "time" && <ProjectTime projectId={String(project._id)} tasks={project.tasks} canEdit={canEdit} money={money} />}
 
         {activeTab === "messages" && userId && (
           <div className="h-[500px]">

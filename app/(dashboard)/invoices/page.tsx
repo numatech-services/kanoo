@@ -1,6 +1,7 @@
 "use client";
 
 import { IfCan } from "@/components/shared/IfCan";
+import { SearchBox } from "@/components/ui/SearchBox";
 import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { FilterChips } from "@/components/ui/Primitives";
@@ -57,6 +58,7 @@ function formatDate(d: string) {
 export default function InvoicesPage() {
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   // Filtres repris de l'adresse : les raccourcis (tableau de bord, menu, fiche
   // client) ouvrent la liste déjà filtrée.
   const [status, setStatus] = useState(() => urlParam("status"));
@@ -81,6 +83,7 @@ export default function InvoicesPage() {
   if (status) params.set("status", status);
   if (overdueOnly) params.set("overdue", "true");
   if (clientId) params.set("clientId", clientId);
+  if (search) params.set("search", search);
 
   // Une lecture refusée donne une liste vide (le message est affiché par apiJson).
   const { data: { invoices, total }, loading } = useApi(`/api/invoices?${params}`, d => ({
@@ -227,6 +230,7 @@ export default function InvoicesPage() {
           disponibles se voient sans avoir à ouvrir quoi que ce soit, et le
           filtre actif reste visible pendant qu'on lit la liste. */}
       <div className="flex flex-wrap items-center gap-3">
+        <SearchBox onSearch={q => { setSearch(q); setPage(1); }} placeholder="N°, libellé, client…" className="w-full sm:w-64" />
         <FilterChips
           options={STATUS_OPTIONS.filter(o => o.value).map(o => ({ key: o.value, label: o.label }))}
           value={status || null}

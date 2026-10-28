@@ -18,8 +18,10 @@ const GROUPS: Cadence[] = ["daily", "monthly", "yearly"];
  * Cet endpoint expose les mêmes tâches ; une tâche cron de l'hébergeur l'appelle
  * périodiquement. Configuration côté hPanel (menu « Avancé » → Tâches cron) :
  *
- *   # chaque jour à 06:30 (heure serveur) — les tâches quotidiennes
- *   30 6 * * *  curl -fsS -H "x-cron-key: $CRON_SECRET" "https://…/api/cron?group=daily"
+ *   # chaque jour, de 06:30 à 09:00 toutes les 30 min — les tâches quotidiennes
+ *   # (chaque appel ne rejoue que ce qui n'est pas terminé : un appel coupé à
+ *   # 300 s est rattrapé par le suivant ; une tâche en échec est retentée)
+ *   30,0 6-9 * * *  curl -fsS -H "x-cron-key: $CRON_SECRET" "https://…/api/cron?group=daily"
  *   # le 1er du mois à 01:00 — rappels TVA + purge des jetons
  *   0 1 1 * *   curl -fsS -H "x-cron-key: $CRON_SECRET" "https://…/api/cron?group=monthly"
  *   # le 1er janvier — remise à zéro de la numérotation
@@ -79,14 +81,18 @@ async function handle(req: NextRequest) {
   }
 
   const started = Date.now();
-  const results = await runCronGroup(group);
+  // `force=1` rejoue tout le groupe ; sinon seules les tâches non terminées de
+  // la période tournent — appeler le groupe plusieurs fois le matin est sans
+  // risque et rattrape une exécution coupée.
+  const results = await runCronGroup(group, { force: url.searchParams.get("force") === "1" });
   const failed = results.filter(r => r.error).length;
+  const pending = results.filter(r => r.skipped?.startsWith("reportée")).length;
 
   // 207 si au moins une tâche a échoué : l'ordonnanceur peut le repérer sans
   // qu'un échec partiel passe pour un succès complet.
   return NextResponse.json(
-    { success: failed === 0, group, totalMs: Date.now() - started, failed, ran: results },
-    { status: failed === 0 ? 200 : 207 }
+    { success: failed === 0 && pending === 0, group, totalMs: Date.now() - started, failed, pending, ran: results },
+    { status: failed === 0 && pending === 0 ? 200 : 207 }
   );
 }
 

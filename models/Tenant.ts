@@ -132,6 +132,20 @@ TenantSchema.add({
     vatRate: { type: Number, default: 0.19 },
   },
 
+  /** Règles RH : plafond de report des congés, jours fériés ajoutés ou retirés (lib/holidays.ts). */
+  hrPolicy: {
+    leaveMaxBalanceDays: { type: Number, min: 0, max: 365 },
+    extraHolidays: [{ _id: false, date: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ }, label: { type: String, maxlength: 80 } }],
+    removedHolidays: [{ type: String, match: /^\d{4}-\d{2}-\d{2}$/ }],
+  },
+
+  /**
+   * Services (centres de coût) propres à l'organisation. Vide : la liste par
+   * défaut de lib/cost-centers.ts. Un code retiré reste lisible sur les pièces
+   * anciennes.
+   */
+  costCenters: [{ _id: false, code: { type: String, maxlength: 20, match: /^[A-Z0-9_-]{1,20}$/ }, label: { type: String, maxlength: 80 }, active: { type: Boolean, default: true } }],
+
   /** Comptabilité verrouillée jusqu'à cette date incluse (clôture de période / d'exercice). */
   accountingLockedUntil: Date,
   /** Exercices clôturés (à-nouveaux générés). */

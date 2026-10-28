@@ -102,7 +102,7 @@ export default function IsicBatchPage() {
   }
   useEffect(() => {
     if (!canInvoiceUni) return;
-    apiJson("/api/clients?limit=500")
+    apiJson("/api/clients?picker=1")
       .then(d => setClients(Array.isArray(d.data) ? d.data : d.data?.items || [])).catch(() => {});
   }, [canInvoiceUni]);
 

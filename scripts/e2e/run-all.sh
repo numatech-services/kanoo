@@ -15,7 +15,7 @@ case "${MONGODB_URI:-}" in
 esac
 SCENARIOS=("$@")
 if [ ${#SCENARIOS[@]} -eq 0 ]; then
-  SCENARIOS=(e2e-design e2e-compta e2e-flux e2e-org e2e-complet e2e-stock e2e-marche e2e-portail e2e-lot1 e2e-lot2 e2e-lot3 e2e-lot4 e2e-automations e2e-lotE e2e-mobile e2e-paie e2e-securite e2e-h1 e2e-h2 e2e-h3)
+  SCENARIOS=(e2e-design e2e-compta e2e-flux e2e-org e2e-complet e2e-stock e2e-marche e2e-portail e2e-lot1 e2e-lot2 e2e-lot3 e2e-lot4 e2e-automations e2e-lotE e2e-mobile e2e-paie e2e-securite e2e-h1 e2e-h2 e2e-h3 e2e-h4)
 fi
 failed=0
 for sc in "${SCENARIOS[@]}"; do

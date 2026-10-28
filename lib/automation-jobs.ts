@@ -229,7 +229,15 @@ async function runPayroll(now = new Date()): Promise<string> {
       if (!due) continue;
       const { year, month } = due;
       const periodEnd = new Date(year, month, 0);
-      const employees = await EmployeeModel.find({ tenantId: tenant._id, isActive: true, startDate: { $lte: periodEnd } }).lean<PayrollEmployee[]>();
+      // Contrat échu avant le mois payé (CDD terminé, sortie) : plus de paie.
+      const periodStart = new Date(year, month - 1, 1);
+      const employees = await EmployeeModel.find({
+        tenantId: tenant._id, isActive: true, startDate: { $lte: periodEnd },
+        $and: [
+          { $or: [{ contractEndDate: { $exists: false } }, { contractEndDate: null }, { contractEndDate: { $gte: periodStart } }] },
+          { $or: [{ endDate: { $exists: false } }, { endDate: null }, { endDate: { $gte: periodStart } }] },
+        ],
+      }).lean<PayrollEmployee[]>();
       if (!employees.length) continue;
       const done = new Set((await PayslipModel.find({ tenantId: tenant._id, month, year }).select("employeeId").lean<Array<{ employeeId: unknown }>>()).map(p => String(p.employeeId)));
       const todo = employees.filter(e => !done.has(String(e._id)));
@@ -254,17 +262,24 @@ async function runPayroll(now = new Date()): Promise<string> {
       // salaire fixe seulement — les variables du mois ont eu jusque-là pour être saisies.
       if (settings.payroll.autoGenerate && isLastDayOfMonth(now) && fixed.length && await claimOnce(tenant._id, `payroll:auto:${year}-${month}`)) {
         const actor = await actorWith(tenant._id, ["pme_hr", "pme_accountant", "svc_compta", "pme_admin"], "payslips", "create");
-        if (!actor) { errors.push(`${tenant.name} : aucun gestionnaire de paie habilité`); continue; }
-        let n = 0; const skipped: string[] = [];
+        // Sans gestionnaire habilité, la réservation est rendue : la génération
+        // se refera dès qu'un gestionnaire existera (même jour, appel suivant).
+        if (!actor) { await releaseClaim(tenant._id, `payroll:auto:${year}-${month}`); errors.push(`${tenant.name} : aucun gestionnaire de paie habilité`); continue; }
+        // Chaque bulletin est indépendant : une erreur (même technique) sur un
+        // salarié n'abandonne plus la paie des autres pour le mois.
+        let n = 0; const skipped: string[] = []; let technical = 0;
         for (const e of fixed) {
           try {
             await withTransaction(session => generatePayslip(actor.auth as never, e, { month, year }, session));
             n++;
           } catch (err) {
-            if (err instanceof PayrollError) skipped.push(`${e.firstName} ${e.lastName} : ${err.message}`);
-            else throw err;
+            if (!(err instanceof PayrollError)) { technical++; console.error(`[Paie] ${tenant.name} — ${e.firstName} ${e.lastName} :`, err); }
+            skipped.push(`${e.firstName} ${e.lastName} : ${err instanceof Error ? err.message : String(err)}`);
           }
         }
+        // Erreur technique : la réservation est rendue, l'appel suivant
+        // complète les bulletins manquants (ceux déjà faits sont sautés).
+        if (technical) await releaseClaim(tenant._id, `payroll:auto:${year}-${month}`);
         generated += n;
         await notifyAll(tenant._id, PAYROLL_ROLES, "payroll_generated", `Paie de ${label} générée`,
           `${n} bulletin(s) généré(s) d'office au nom de ${actor.user.firstName ?? actor.user.email}.${skipped.length ? ` Non générés : ${skipped.join(" ; ")}.` : ""} Vérifiez-les avant de payer.`, "payslips");

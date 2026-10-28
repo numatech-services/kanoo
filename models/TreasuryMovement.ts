@@ -40,6 +40,12 @@ const TreasuryMovementSchema = new Schema(
     /** Écriture comptable passée pour une saisie manuelle ou un virement. */
     entryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },
     linkedDocId: { type: Schema.Types.ObjectId },
+    /** Mouvement annulé (saisie manuelle, virement) : la contre-passation le suit. */
+    cancelledAt: Date,
+    cancelledBy: { type: Schema.Types.ObjectId, ref: "User" },
+    cancelReason: { type: String, maxlength: 300 },
+    /** Mouvement contraire : celui qu'il annule. */
+    reversalOf: { type: Schema.Types.ObjectId },
 
     // ── Rapprochement bancaire ────────────────────────────────────────────
     /** Ligne de relevé à laquelle ce mouvement est apparié. */

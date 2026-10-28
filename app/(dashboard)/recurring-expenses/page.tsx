@@ -114,7 +114,7 @@ function ChargeDialog({ charge, accounts, onClose, onDone }: { charge: Expense |
   const [imp, setImp] = useState<ImputationValue>({ projectId: charge?.projectId, activityId: charge?.activityId, costCenter: charge?.costCenter });
   const [suppliers, setSuppliers] = useState<Array<{ _id: string; name: string }>>([]);
   const [error, setError] = useState("");
-  useEffect(() => { fetch("/api/suppliers?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => d?.data?.items && setSuppliers(d.data.items)).catch(() => {}); }, []);
+  useEffect(() => { fetch("/api/suppliers?picker=1", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => d?.data?.items && setSuppliers(d.data.items)).catch(() => {}); }, []);
   const u = (k: keyof typeof f, v: string | number) => setF(p => ({ ...p, [k]: v }));
   async function submit(e: React.FormEvent) {
     e.preventDefault();

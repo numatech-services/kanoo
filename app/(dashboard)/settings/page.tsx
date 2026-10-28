@@ -1,10 +1,11 @@
 import Link from "next/link";
 
-import { Boxes, Building2, Gem, Hash, Palette, Search, Ticket, Users, Zap } from "lucide-react";
+import { Boxes, Building2, CalendarDays, Gem, Hash, Palette, Search, Ticket, Users, Zap } from "lucide-react";
 const SETTINGS_ITEMS = [
   { href:"/settings/numbering", icon: <Hash size={20} />, title:"Numérotation des documents", desc:"Personnalisez les préfixes FAC-, DEV-, BC-… pour chaque type de document. Migration depuis un logiciel existant." },
   { href:"/settings/modules", icon: <Boxes size={20} />, title:"Modules", desc:"Activez les métiers que vous exercez : comptoirs, cartes ISIC, revente de licences, événements." },
   { href:"/settings/automatisations", icon: <Zap size={20} />, title:"Automatisations", desc:"Brief du matin, alerte de découvert, rappels de paie et de validation, dossier du comptable, amortissements, relances de cotisations." },
+  { href:"/settings/rh", icon: <CalendarDays size={20} />, title:"RH et services", desc:"Services (centres de coût) de votre organisation, plafond de report des congés, jours fériés du Niger retenus pour les congés." },
   { href:"/company", icon: <Building2 size={20} />, title:"Mon organisation", desc:"Nom, NIF, RCCM, adresse, contacts et logo de votre organisation." },
   { href:"/users", icon: <Users size={20} />, title:"Utilisateurs & Rôles", desc:"Gérez les accès, invitez de nouveaux utilisateurs, modifiez les rôles." },
   { href:"/subscription", icon: <Gem size={20} />, title:"Mon forfait Kanoo", desc:"Plan actuel, dates de renouvellement, changement de plan." },

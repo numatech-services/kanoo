@@ -7,6 +7,7 @@ import { withTransaction } from "@/lib/db";
 import { applyPaymentEffects, invoiceDue, MAX_EXCHANGE_RATE } from "@/lib/payments";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { searchCondition, withSearch } from "@/lib/list-search";
 import { paymentDate } from "@/lib/payment-date";
 import { treasuryKind } from "@/lib/treasury";
 
@@ -20,6 +21,8 @@ export const GET = withAuth("payments", "read", async (req: NextRequest, auth: T
 
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   if (invoiceId) filter.invoiceId = invoiceId;
+  // Référence du règlement, numéro de la facture, nom du client.
+  withSearch(filter, await searchCondition(auth.tenantId, url.searchParams.get("search"), { fields: ["reference"], invoice: "invoiceId" }));
 
   const [items, total] = await Promise.all([
     PaymentModel.find(filter)

@@ -26,6 +26,15 @@ export const GET = withAuth("clients", "read", async (req: NextRequest, auth: To
   }
   if (isActive !== null) filter.isActive = isActive === "true";
 
+  // Mode sélecteur (listes déroulantes des formulaires) : tous les clients,
+  // champs utiles seulement. La pagination plafonne à 100 : le 101e client ne
+  // pouvait pas être facturé.
+  if (url.searchParams.get("picker") === "1") {
+    const items = await ClientModel.find(filter).sort({ name: 1 }).limit(5000)
+      .select("name code nif email phone address type buyerType isActive paymentTermDays").lean();
+    return paginatedResponse(items, items.length, { page: 1, limit: items.length || 1, skip: 0 });
+  }
+
   const [items, total] = await Promise.all([
     ClientModel.find(filter)
       .sort({ name: 1 })

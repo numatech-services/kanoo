@@ -7,7 +7,12 @@ const TreasuryAccountSchema = new Schema({ tenantId: { type: Schema.Types.Object
   balance: { type: Number, default: 0 },
   /** Solde à la date d'ouverture du suivi. Point de départ du calcul. */
   openingBalance: { type: Number, default: 0 },
-  openingDate: Date, currency: { type: String, default: "XOF" }, isActive: { type: Boolean, default: true },
+  openingDate: Date,
+  /** Devise du compte (lib/currency) : suivi en contre-valeur FCFA, solde affiché aussi dans la devise. */
+  currency: { type: String, default: "XOF" },
+  /** Cours (FCFA pour 1 unité) d'une devise sans parité fixe. */
+  exchangeRate: { type: Number, min: 0 },
+  isActive: { type: Boolean, default: true },
   /**
    * Compte comptable propre à ce compte de trésorerie (5211xx banque, 5218xx
    * mobile money, 5711xx caisse). Sans lui, toutes les banques écrivaient sur

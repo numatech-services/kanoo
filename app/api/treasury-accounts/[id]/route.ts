@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { isCurrency } from "@/lib/currency";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, notFound, noContent, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { nextLedgerCode, registerLedgerAccount, assignLedgerCode } from "@/lib/treasury";
@@ -29,6 +30,8 @@ export const PATCH = withAuth("treasuryAccounts", "update", async (req: NextRequ
   if ("label" in body) { const l = String(body.label ?? "").trim(); if (!l) return badRequest("Libellé obligatoire."); acc.label = l.slice(0, 120); }
   for (const k of ["bankName", "accountNumber"]) if (k in body) acc.set(k, String(body[k] ?? "").slice(0, 80));
   if ("isActive" in body) acc.isActive = !!body.isActive;
+  if ("currency" in body) { if (!isCurrency(body.currency)) return badRequest("Devise inconnue."); acc.set("currency", body.currency); }
+  if ("exchangeRate" in body) acc.set("exchangeRate", Number(body.exchangeRate) > 0 ? Number(body.exchangeRate) : undefined);
   if ("type" in body || "openingBalance" in body || "openingDate" in body) {
     if (hasMoves) return badRequest("Des mouvements existent : le type et le solde d'ouverture ne se modifient plus (passez une écriture d'ajustement).");
     if (body.type && ["bank", "cash", "mobile_money"].includes(body.type) && body.type !== acc.type) {

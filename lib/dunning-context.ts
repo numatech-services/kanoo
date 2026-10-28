@@ -1,6 +1,7 @@
 import { DunningSettingsModel } from "@/models/DunningSettings";
 import { DunningLogModel } from "@/models/DunningLog";
 import { InvoiceModel } from "@/models/Invoice";
+import { scheduleState, type Installment } from "@/lib/installments";
 import { ClientModel } from "@/models/Client";
 import { TenantModel } from "@/models/Tenant";
 import {
@@ -28,6 +29,7 @@ export async function loadSettings(tenantId: string): Promise<DunningSettings & 
     sendDays: doc.sendDays ?? DEFAULT_DUNNING_SETTINGS.sendDays,
     minIntervalDays: doc.minIntervalDays ?? DEFAULT_DUNNING_SETTINGS.minIntervalDays,
     respectDisputes: doc.respectDisputes ?? true,
+    includePayLink: doc.includePayLink ?? true,
     bccEmail: doc.bccEmail,
   };
 }
@@ -54,10 +56,13 @@ export async function loadPortfolio(tenantId: string): Promise<PortfolioContext>
       documentType: { $ne: "credit_note" },
       status: { $in: ["sent", "partial", "overdue"] },
     })
-      .select("number totalTTC paidAmount creditedAmount retentionAmount dueDate status documentType clientId disputedAt")
+      .select("number totalTTC paidAmount creditedAmount retentionAmount dueDate status documentType clientId disputedAt installments")
       .sort({ dueDate: 1 })
       .limit(2_000)
-      .lean<InvoiceLike[]>(),
+      .lean<Array<InvoiceLike & { installments?: Installment[] }>>()
+      // Échéancier : la relance suit le versement en cours, pas la dernière
+      // échéance (ni la première, déjà réglée).
+      .then(list => list.map(i => (i.installments?.length ? { ...i, dueDate: scheduleState({ ...i, totalTTC: i.totalTTC }).currentDueDate ?? i.dueDate } : i))),
     TenantModel.findById(tenantId).select("name").lean<{ name?: string } | null>(),
   ]);
 

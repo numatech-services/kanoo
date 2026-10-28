@@ -9,6 +9,7 @@ import { ProductModel } from "@/models/Product";
 import { applyMovement } from "@/lib/stock";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { searchCondition, withSearch } from "@/lib/list-search";
 import { authCan } from "@/lib/role-resources";
 
 import { allocateDelivery, deliveredByLine } from "@/lib/deliveries";
@@ -26,6 +27,7 @@ export const GET = withAuth("livraisons", "read", async (req: NextRequest, auth:
   if (clientId && Types.ObjectId.isValid(clientId)) filter.clientId = new Types.ObjectId(clientId);
   if (invoiceId) filter.invoiceId = invoiceId;
   if (status) filter.status = status;
+  withSearch(filter, await searchCondition(auth.tenantId, url.searchParams.get("search"), { fields: ["number", "lines.description"], client: "clientId", invoice: "invoiceId" }));
 
   const [items, total] = await Promise.all([
     DeliveryNoteModel.find(filter)

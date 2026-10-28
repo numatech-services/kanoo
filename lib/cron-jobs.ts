@@ -25,8 +25,15 @@ import { buildAlerts as buildDocumentAlerts } from "@/lib/admin-documents";
 import { resetYearlySequences } from "@/lib/numbering";
 import { planForTenant } from "@/lib/dunning-context";
 import { executeAction } from "@/lib/dunning-send";
-import { notify, getAdmins, type Id } from "@/lib/cron-helpers";
+import { notify, getAdmins, actAs, purgeNotifications, type Id } from "@/lib/cron-helpers";
+import { billContractPeriod } from "@/lib/contract-billing";
+import { scheduleState, type Installment } from "@/lib/installments";
+import { withTransaction } from "@/lib/db";
+import { BusinessRuleError } from "@/lib/errors";
+import { authCan } from "@/lib/role-resources";
 import { AUTOMATION_JOBS } from "@/lib/automation-jobs";
+import { CronRunModel } from "@/models/CronRun";
+import { dayKey } from "@/lib/automations";
 
 /** Rôles qui reçoivent les relances de courriers entrants. */
 const COURRIER_ROLES = ["pme_admin", "pme_manager", "pme_accountant", "svc_admin", "asso_president", "asso_secretary", "admin_ordonnateur"];
@@ -49,6 +56,18 @@ const COURRIER_ROLES = ["pme_admin", "pme_manager", "pme_accountant", "svc_admin
 
 export type Cadence = "daily" | "monthly" | "yearly";
 
+/** Premier utilisateur actif des rôles donnés (dans cet ordre) qui a le droit demandé. */
+async function firstActorWith(tenantId: Id, roles: string[], resource: string, action: "create" | "read" | "update" | "delete") {
+  const users = await UserModel.find({ tenantId, isActive: true, $or: [{ role: { $in: roles } }, { roles: { $in: roles } }] })
+    .sort({ createdAt: 1 }).select("_id role").lean<Array<{ _id: Id; role: string }>>();
+  users.sort((a, b) => roles.indexOf(a.role) - roles.indexOf(b.role));
+  for (const u of users) {
+    const a = await actAs(u._id);
+    if (a && authCan(a.auth, resource, action)) return a;
+  }
+  return null;
+}
+
 export interface CronJob {
   id: string;
   label: string;
@@ -62,13 +81,42 @@ export const CRON_JOBS: CronJob[] = [
   {
     id: "recurring-contracts", label: "Contrats récurrents à facturer",
     cadence: "daily", schedule: "0 6 * * *",
+    // Les contrats en facturation automatique sont réellement facturés : une
+    // facture brouillon par période échue (rattrapage borné à 12 périodes),
+    // au nom d'un comptable habilité, puis notifiée. L'émission (numéro
+    // définitif, écriture) reste un geste humain.
     run: async () => {
       const due = await ContractModel.find({
-        isRecurring: true, autoGenerateInvoice: true, status: "active",
+        isRecurring: true, autoGenerateInvoice: true, status: { $in: ["active", "renewed"] },
         nextBillingDate: { $lte: new Date() },
-      }).select("_id").lean<Array<{ _id: Id }>>();
-      // La génération passe par l'API (auteur + audit). Ce job signale le travail.
-      return `${due.length} contrat(s) à facturer`;
+      }).select("_id tenantId reference").lean<Array<{ _id: Id; tenantId: Id; reference: string }>>();
+      let made = 0;
+      const errors: string[] = [];
+      const actors = new Map<string, Awaited<ReturnType<typeof firstActorWith>>>();
+      for (const c of due) {
+        const key = String(c.tenantId);
+        if (!actors.has(key)) actors.set(key, await firstActorWith(c.tenantId, ["pme_accountant", "svc_compta", "pme_admin", "pme_manager"], "invoices", "create"));
+        const actor = actors.get(key);
+        if (!actor) { errors.push(`${c.reference} : aucun comptable habilité`); continue; }
+        const numbers: string[] = [];
+        for (let i = 0; i < 12; i++) {
+          try {
+            const { invoice } = await withTransaction(session => billContractPeriod({ tenantId: key, userId: String(actor.user._id) }, c._id, {}, session));
+            numbers.push(invoice.number); made++;
+          } catch (err) {
+            // Plus de période échue (ou contrat échu) : fin du rattrapage.
+            if (err instanceof BusinessRuleError) { if (!numbers.length && !/déjà facturée/.test(err.message)) errors.push(`${c.reference} : ${err.message}`); break; }
+            throw err;
+          }
+        }
+        if (numbers.length) {
+          for (const admin of await getAdmins(c.tenantId, ["pme_admin", "pme_accountant", "svc_compta"])) {
+            await notify(c.tenantId, admin._id, "invoice_generated", "Facture de contrat à émettre",
+              `Contrat ${c.reference} : ${numbers.length} facture(s) brouillon préparée(s). Vérifiez-les puis émettez-les.`, "contracts", c._id);
+          }
+        }
+      }
+      return `${made} facture(s) préparée(s) pour ${due.length} contrat(s)${errors.length ? ` — ${errors.length} en échec : ${errors.slice(0, 3).join(" ; ")}` : ""}`;
     },
   },
   {
@@ -78,9 +126,12 @@ export const CRON_JOBS: CronJob[] = [
       const overdue = await InvoiceModel.find({
         // « overdue » compris (posé par l'annulation d'un encaissement) ; ni
         // les avoirs ni les factures en litige.
-        status: { $in: ["sent", "partial", "overdue"] }, dueDate: { $lt: new Date() },
+        status: { $in: ["sent", "partial", "overdue"] },
+        // Échéancier : en retard dès qu'un versement échu reste impayé.
+        $or: [{ dueDate: { $lt: new Date() } }, { "installments.dueDate": { $lt: new Date() } }],
         documentType: { $ne: "credit_note" }, disputedAt: { $exists: false },
-      }).lean<Array<{ _id: Id; tenantId: Id; number: string; totalTTC: number }>>();
+      }).lean<Array<{ _id: Id; tenantId: Id; number: string; totalTTC: number; paidAmount?: number; creditedAmount?: number; retentionAmount?: number; status: string; dueDate?: Date; installments?: Installment[] }>>()
+        .then(list => list.filter(i => scheduleState(i).dueNow > 0));
       for (const inv of overdue) {
         const admins = await getAdmins(inv.tenantId, ["pme_admin", "pme_accountant", "pme_manager", "svc_compta"]);
         for (const admin of admins) {
@@ -364,7 +415,17 @@ export const CRON_JOBS: CronJob[] = [
             `Contrat de ${emp.firstName} ${emp.lastName} expire dans ${daysLeft} jours`, "employees", emp._id);
         }
       }
-      return `${expiring.length} fin(s) de contrat notifiée(s)`;
+      // Contrat échu, fiche toujours « en poste » : la paie automatique
+      // l'écarte déjà ; à renouveler ou à sortir (solde de tout compte).
+      const lapsed = await EmployeeModel.find({ isActive: true, contractEndDate: { $lt: new Date() } })
+        .lean<Array<{ _id: Id; tenantId: Id; firstName: string; lastName: string; contractEndDate: Date }>>();
+      for (const emp of lapsed) {
+        for (const admin of await getAdmins(emp.tenantId, ["pme_admin", "pme_hr", "svc_admin"])) {
+          await notify(emp.tenantId, admin._id, "employee_contract_lapsed", "Contrat échu",
+            `Le contrat de ${emp.firstName} ${emp.lastName} a pris fin le ${new Date(emp.contractEndDate).toLocaleDateString("fr-FR")} : renouvelez-le ou enregistrez le départ (solde de tout compte). Plus de paie automatique d'ici là.`, "employees", emp._id);
+        }
+      }
+      return `${expiring.length} fin(s) de contrat notifiée(s), ${lapsed.length} contrat(s) échu(s)`;
     },
   },
   {
@@ -491,7 +552,8 @@ export const CRON_JOBS: CronJob[] = [
         { $unset: { activationToken: "", activationTokenExpiry: "" } });
       await UserModel.updateMany({ passwordResetExpiry: { $lt: now } },
         { $unset: { passwordResetToken: "", passwordResetExpiry: "" } });
-      return `${tenants.length} organisation(s) relancée(s), jetons expirés purgés`;
+      const purged = await purgeNotifications(now);
+      return `${tenants.length} organisation(s) relancée(s), jetons expirés purgés, ${purged} notification(s) ancienne(s) supprimée(s)`;
     },
   },
   {
@@ -506,21 +568,57 @@ export const CRON_JOBS: CronJob[] = [
   ...AUTOMATION_JOBS,
 ];
 
-export interface JobResult { id: string; label: string; summary?: string; error?: string; ms: number }
+export interface JobResult { id: string; label: string; summary?: string; error?: string; skipped?: string; ms: number }
+
+/** Clé de période d'une cadence, à l'heure de Niamey. */
+export function periodKey(cadence: Cadence, now = new Date()): string {
+  const day = dayKey(now);
+  return cadence === "daily" ? day : cadence === "monthly" ? day.slice(0, 7) : day.slice(0, 4);
+}
+
+/** Au-delà, une tâche « en cours » est tenue pour interrompue (requête coupée). */
+const STALE_RUN_MS = 10 * 60_000;
+/** Une tâche en échec est retentée à chaque appel, trois fois au plus par période. */
+const MAX_ATTEMPTS = 3;
 
 /**
  * Exécute les tâches d'un groupe de cadence. Chacune est isolée : l'échec de
- * l'une n'empêche pas les suivantes, et son erreur est rapportée, jamais avalée.
+ * l'une n'empêche pas les suivantes, et son erreur est rapportée, jamais
+ * avalée. Reprise : une tâche déjà terminée pour la période est sautée, une
+ * tâche en échec ou interrompue est rejouée ; passé `budgetMs`, plus aucune
+ * tâche ne démarre — l'appel suivant (cron répété) reprend la suite. La
+ * sauvegarde passe en premier.
  */
-export async function runCronGroup(cadence: Cadence): Promise<JobResult[]> {
+export async function runCronGroup(cadence: Cadence, opts: { budgetMs?: number; force?: boolean; now?: Date } = {}): Promise<JobResult[]> {
+  const started = Date.now();
+  const budget = opts.budgetMs ?? 240_000;
+  const period = periodKey(cadence, opts.now);
+  const jobs = CRON_JOBS.filter(j => j.cadence === cadence).sort((a, b) => Number(b.id === "backup") - Number(a.id === "backup"));
   const results: JobResult[] = [];
-  for (const job of CRON_JOBS.filter(j => j.cadence === cadence)) {
+  for (const job of jobs) {
+    if (Date.now() - started > budget) { results.push({ id: job.id, label: job.label, skipped: "reportée à l'appel suivant (temps écoulé)", ms: 0 }); continue; }
+    // Réservation atomique de la tâche pour la période.
+    const prev = await CronRunModel.findOne({ jobId: job.id, period }).lean<{ status: string; attempts: number; startedAt?: Date } | null>();
+    if (!opts.force && prev) {
+      if (prev.status === "done") { results.push({ id: job.id, label: job.label, skipped: "déjà faite", ms: 0 }); continue; }
+      if (prev.status === "running" && prev.startedAt && Date.now() - new Date(prev.startedAt).getTime() < STALE_RUN_MS) { results.push({ id: job.id, label: job.label, skipped: "en cours", ms: 0 }); continue; }
+      if (prev.attempts >= MAX_ATTEMPTS) { results.push({ id: job.id, label: job.label, skipped: `abandonnée après ${prev.attempts} tentatives`, ms: 0 }); continue; }
+    }
+    const claim = await CronRunModel.findOneAndUpdate(
+      { jobId: job.id, period, ...(opts.force || !prev ? {} : { status: prev.status, attempts: prev.attempts }) },
+      { $set: { status: "running", startedAt: new Date() }, $inc: { attempts: 1 }, $setOnInsert: { jobId: job.id, period } },
+      { upsert: !prev || opts.force, new: true },
+    ).catch(() => null);
+    if (!claim) { results.push({ id: job.id, label: job.label, skipped: "prise par un autre appel", ms: 0 }); continue; }
     const t0 = Date.now();
     try {
       const summary = await job.run();
+      await CronRunModel.updateOne({ jobId: job.id, period }, { $set: { status: "done", finishedAt: new Date(), summary: summary.slice(0, 1000) }, $unset: { error: 1 } });
       results.push({ id: job.id, label: job.label, summary, ms: Date.now() - t0 });
     } catch (err) {
-      results.push({ id: job.id, label: job.label, error: err instanceof Error ? err.message : String(err), ms: Date.now() - t0 });
+      const error = err instanceof Error ? err.message : String(err);
+      await CronRunModel.updateOne({ jobId: job.id, period }, { $set: { status: "failed", finishedAt: new Date(), error: error.slice(0, 1000) } });
+      results.push({ id: job.id, label: job.label, error, ms: Date.now() - t0 });
     }
   }
   return results;

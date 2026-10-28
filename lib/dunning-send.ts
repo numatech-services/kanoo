@@ -6,6 +6,7 @@ import { sendEmail } from "@/lib/email";
 import { sendSMS } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { errorMessage } from "@/lib/errors";
+import { currentPortalLink, createPortalLink } from "@/lib/client-portal";
 import {
   composeSubject, composeBody, composeSms, supersededSteps,
   type DunningAction, type DunningSettings, type MessageContext,
@@ -32,6 +33,17 @@ export interface SendResult {
 }
 
 interface Contact { email?: string; phone?: string }
+
+/**
+ * Lien du portail du client (factures, PDF, paiement en ligne), créé s'il
+ * n'existe pas encore. Il est envoyé au seul client concerné, par ses propres
+ * coordonnées. Indisponible : la relance part sans lien.
+ */
+async function payLinkFor(tenantId: string, clientId: string): Promise<string | undefined> {
+  try {
+    return (await currentPortalLink(tenantId, clientId)) ?? (await createPortalLink(tenantId, clientId))?.url ?? undefined;
+  } catch { return undefined; }
+}
 
 /** Corps HTML minimal : le texte reste la source, la mise en forme l'habille. */
 function toHtml(text: string): string {
@@ -104,6 +116,7 @@ export async function executeAction(
     dueDate,
     daysPastDue: action.daysPastDue,
     tenantName: ctx.tenantName,
+    ...(ctx.settings.includePayLink !== false ? { payLink: await payLinkFor(ctx.tenantId, action.clientId) } : {}),
   };
 
   const body = composeBody(action.step.tone, message);

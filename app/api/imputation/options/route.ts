@@ -5,7 +5,7 @@ import { TokenPayload } from "@/lib/auth";
 import { ProjectModel } from "@/models/Project";
 import { ActivityModel } from "@/models/Activity";
 import { authCan } from "@/lib/role-resources";
-import { COST_CENTERS } from "@/lib/imputation";
+import { tenantCostCenters } from "@/lib/cost-centers-server";
 
 export const dynamic = "force-dynamic";
 
@@ -17,15 +17,16 @@ export const dynamic = "force-dynamic";
 export const GET = withAuth("agenda", "read", async (_req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const tf = tenantFilter(auth);
-  const [projects, activities] = await Promise.all([
+  const [projects, activities, centers] = await Promise.all([
     authCan(auth, "projects", "read")
-      ? ProjectModel.find({ ...tf, status: { $nin: ["cancelled", "archived"] } }).select("code name status").sort({ code: 1 }).limit(500).lean()
+      ? ProjectModel.find({ ...tf, status: { $nin: ["cancelled", "archived"] }, deletedAt: { $exists: false } }).select("code name status").sort({ code: 1 }).limit(500).lean()
       : Promise.resolve([]),
     ActivityModel.find({ ...tf }).select("name color").sort({ name: 1 }).lean(),
+    tenantCostCenters(auth.tenantId),
   ]);
   return ok({
     projects,
     activities,
-    costCenters: Object.entries(COST_CENTERS).map(([value, label]) => ({ value, label })),
+    costCenters: centers.map(({ value, label }) => ({ value, label })),
   });
 });

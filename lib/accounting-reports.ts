@@ -36,8 +36,10 @@ export async function generalLedger(tenantId: string, prefix: string, from?: Dat
   const moves = await AccountingEntryModel.aggregate<{ _id: unknown; entryDate: Date; journalCode: string; reference: string; label: string; line: { accountCode: string; accountLabel: string; debit: number; credit: number } }>([
     { $match: { tenantId: tid, ...dateMatch(from, to) } }, { $unwind: "$lines" }, { $match: acc },
     { $project: { entryDate: 1, journalCode: 1, reference: 1, label: 1, line: "$lines" } },
-    { $sort: { entryDate: 1, _id: 1 } }, { $limit: 5000 },
-  ]);
+    // Plus de coupure à 5 000 lignes : le grand livre s'arrêtait sans le dire,
+    // solde de clôture faux compris.
+    { $sort: { entryDate: 1, _id: 1 } },
+  ]).allowDiskUse(true);
   let running = (opening?.debit ?? 0) - (opening?.credit ?? 0);
   const openingBalance = running;
   const lines = moves.map(m => {
@@ -52,7 +54,7 @@ export async function generalLedger(tenantId: string, prefix: string, from?: Dat
 const PL_GROUPS: Array<{ key: string; label: string; side: "charge" | "produit"; prefixes: string[] }> = [
   { key: "ventes", label: "Ventes de marchandises et produits", side: "produit", prefixes: ["701", "702", "707"] },
   { key: "services", label: "Travaux, services vendus", side: "produit", prefixes: ["705", "706"] },
-  { key: "autres_produits", label: "Autres produits", side: "produit", prefixes: ["70", "71", "72", "73", "75", "77", "78", "79"] },
+  { key: "autres_produits", label: "Autres produits", side: "produit", prefixes: ["70", "71", "72", "73", "74", "75", "76", "77", "78", "79"] },
   { key: "achats", label: "Achats consommés", side: "charge", prefixes: ["60"] },
   { key: "transports", label: "Transports", side: "charge", prefixes: ["61"] },
   { key: "services_ext", label: "Services extérieurs", side: "charge", prefixes: ["62", "63"] },
@@ -76,8 +78,12 @@ export async function incomeStatement(tenantId: string, from?: Date, to?: Date) 
   const groups = PL_GROUPS.map(g => ({ ...g, amount: 0, accounts: [] as Array<{ code: string; label: string; amount: number }> }));
   for (const r of bal) {
     if (!isPL(r.code)) continue;
-    const g = groups.find(x => x.prefixes.some(p => r.code.startsWith(p)) && x.side === sideOf(r.code));
-    if (!g) continue;
+    // Un compte hors des rubriques (74, 76, 80… saisis à la main ou importés)
+    // était ignoré : le résultat ne correspondait plus à la balance. Il va
+    // dans la rubrique « autres » de son sens.
+    const side = sideOf(r.code);
+    const g = groups.find(x => x.prefixes.some(p => r.code.startsWith(p)) && x.side === side)
+      ?? groups.find(x => x.key === (r.code[0] === "8" ? (side === "produit" ? "hao_produits" : "hao_charges") : side === "produit" ? "autres_produits" : "autres_charges"))!;
     const amount = g.side === "produit" ? r.credit - r.debit : r.debit - r.credit;
     g.amount += amount;
     g.accounts.push({ code: r.code, label: r.label, amount });

@@ -1,5 +1,6 @@
 "use client";
 import { IfCan } from "@/components/shared/IfCan";
+import { SearchBox } from "@/components/ui/SearchBox";
 import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
 import { useUrlReady } from "@/lib/url-param";
 import { useState, useSyncExternalStore } from "react";
@@ -25,6 +26,7 @@ interface Delivery {
 export default function LivraisonsPage() {
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [clientId, setClientId] = useState("");
   const ready = useUrlReady(p => setClientId(p.get("clientId") ?? ""));
@@ -33,6 +35,7 @@ export default function LivraisonsPage() {
   const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
   if (status) params.set("status", status);
   if (clientId) params.set("clientId", clientId);
+  if (search) params.set("search", search);
   const { data: { items, total }, loading: reading } = useApi(ready ? `/api/livraisons?${params}` : null, d => ({
     items: (d.data?.items || []) as Delivery[],
     total: (d.data?.pagination?.total || 0) as number,
@@ -110,6 +113,8 @@ export default function LivraisonsPage() {
         </IfCan>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+      <SearchBox onSearch={q => { setSearch(q); setPage(1); }} placeholder="N°, article, client, facture…" className="w-full sm:w-64" />
       <select
         value={status}
         onChange={e => { setStatus(e.target.value); setPage(1); }}
@@ -120,6 +125,7 @@ export default function LivraisonsPage() {
           <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
         ))}
       </select>
+      </div>
 
       {clientId && <ClientFilterChip name={((items[0]?.clientId as { name?: string } | undefined)?.name)} onClear={() => { setClientId(""); setPage(1); }} />}
       <DataTable

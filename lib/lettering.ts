@@ -83,7 +83,7 @@ export async function applyLetter(
   for (const e of entries) {
     const r = await AccountingEntryModel.updateOne(
       { _id: e._id, tenantId: tid },
-      { $set: { "lines.$[l].letterRef": letterRef } },
+      { $set: { "lines.$[l].letterRef": letterRef, "lines.$[l].letteredAt": new Date() } },
       { arrayFilters: [{ "l.accountCode": { $regex: rx.source }, "l.letterRef": { $exists: false } }], session: opts.session },
     );
     if (r.modifiedCount !== 1) throw new BusinessRuleError("Une de ces écritures vient d'être lettrée : recommencez.");
@@ -98,7 +98,7 @@ export async function removeLetter(tenantId: string, letterRef: string, session?
   const tid = new Types.ObjectId(tenantId);
   const ids = (await AccountingEntryModel.find({ tenantId: tid, "lines.letterRef": letterRef }).select("_id").session(session ?? null).lean<Array<{ _id: unknown }>>()).map(e => e._id);
   if (!ids.length) return 0;
-  await AccountingEntryModel.updateMany({ _id: { $in: ids } }, { $unset: { "lines.$[l].letterRef": "" } }, { arrayFilters: [{ "l.letterRef": letterRef }], session });
+  await AccountingEntryModel.updateMany({ _id: { $in: ids } }, { $unset: { "lines.$[l].letterRef": "", "lines.$[l].letteredAt": "" } }, { arrayFilters: [{ "l.letterRef": letterRef }], session });
   await refreshEntryFlags(ids, session);
   return ids.length;
 }

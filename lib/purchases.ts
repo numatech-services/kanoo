@@ -161,6 +161,10 @@ export async function payPurchase(
   }
   const date = input.date ? new Date(String(input.date)) : new Date();
   if (isNaN(date.getTime())) throw new PurchaseError("Date de règlement invalide.");
+  // Un règlement se constate : jamais à une date à venir (trésorerie et
+  // rapprochement faussés d'ici là). Les paiements prévus passent par l'échéancier.
+  const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+  if (date > endOfToday) throw new PurchaseError("Date de règlement dans le futur : enregistrez le règlement le jour où il est fait.");
   const reference = input.reference ? String(input.reference).slice(0, 80) : undefined;
 
   const paymentId = new Types.ObjectId();

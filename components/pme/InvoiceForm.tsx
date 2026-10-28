@@ -99,7 +99,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
   );
 
   useEffect(() => {
-    apiJson("/api/clients?limit=100&isActive=true")
+    apiJson("/api/clients?picker=1&isActive=true")
       .then(d => setClients(d.data?.items || []));
   }, []);
 

@@ -31,6 +31,8 @@ const DunningSettingsSchema = new Schema(
     sendDays: { type: [Number], default: () => DEFAULT_DUNNING_SETTINGS.sendDays },
     minIntervalDays: { type: Number, default: DEFAULT_DUNNING_SETTINGS.minIntervalDays, min: 0 },
     respectDisputes: { type: Boolean, default: true },
+    /** Lien du portail client (paiement en ligne) joint aux relances. */
+    includePayLink: { type: Boolean, default: true },
     /** Adresse en copie des relances, pour que l'équipe garde la trace. */
     bccEmail: String,
     updatedBy: { type: Schema.Types.ObjectId, ref: "User" },

@@ -3,7 +3,8 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, tenantFilter } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
 import { PaymentModel } from "@/models/Payment";
-import { AccountingEntryModel } from "@/models/AccountingEntry";
+import { totalTreasury } from "@/lib/treasury";
+import { BOOKED_INVOICE_MATCH } from "@/lib/payments";
 import { EmployeeModel } from "@/models/Employee";
 import { TokenPayload } from "@/lib/auth";
 
@@ -24,7 +25,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
     overdueInvoices,
     paymentsThisMonth,
     activeEmployees,
-    accountingBalance,
+    treasuryTotal,
   ] = await Promise.all([
     // CA par statut sur l'année
     // Les avoirs sont exclus de la ventilation par statut : ils ne sont ni
@@ -32,7 +33,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
     // puisqu'ils réduisent déjà le CA par ailleurs.
     InvoiceModel.aggregate([
       { $match: { ...tf, documentType: { $ne: "credit_note" }, issueDate: { $gte: startOfYear, $lte: endOfYear } } },
-      { $group: { _id: "$status", count: { $sum: 1 }, totalTTC: { $sum: "$totalTTC" }, paidAmount: { $sum: "$paidAmount" } } },
+      { $group: { _id: "$status", count: { $sum: 1 }, totalTTC: { $sum: "$totalTTC" }, totalHT: { $sum: "$totalHT" }, paidAmount: { $sum: "$paidAmount" } } },
     ]),
 
     // Impayés en retard
@@ -52,29 +53,32 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
     // Employés actifs
     EmployeeModel.countDocuments({ ...tf, isActive: true }),
 
-    // Solde trésorerie (somme débits - crédits BQ + CA)
-    AccountingEntryModel.aggregate([
-      { $match: { ...tf, journalCode: { $in: ["BQ", "CA"] } } },
-      { $unwind: "$lines" },
-      // Banques (52x, dont mobile money 5218) et caisse (57x).
-      { $match: { "lines.accountCode": { $regex: "^(52|57)" } } },
-      { $group: { _id: null, totalDebit: { $sum: "$lines.debit" }, totalCredit: { $sum: "$lines.credit" } } },
-    ]),
+    // Trésorerie : soldes de TOUS les comptes (banques, caisses, mobile
+    // money). Elle ne lisait que les journaux BQ et CA : un virement interne,
+    // une reprise d'ouverture ou une paie (OD) en étaient absents.
+    totalTreasury(auth.tenantId),
+  ]);
+  // Chiffre d'affaires : factures émises (une facture annulée par un avoir
+  // reste une vente, compensée par son avoir), net des avoirs.
+  const sign = { $cond: [{ $eq: ["$documentType", "credit_note"] }, -1, 1] };
+  const [sales] = await InvoiceModel.aggregate<{ ht: number; ttc: number }>([
+    { $match: { ...tf, issueDate: { $gte: startOfYear, $lte: endOfYear }, ...BOOKED_INVOICE_MATCH } },
+    { $group: { _id: null, ht: { $sum: { $multiply: ["$totalHT", sign] } }, ttc: { $sum: { $multiply: ["$totalTTC", sign] } } } },
   ]);
 
   // Construire le résumé
-  const caTotal = invoicesStats.reduce((s, g) => s + (g._id !== "cancelled" ? g.totalTTC : 0), 0);
+  // Chiffre d'affaires = factures ÉMISES (ni brouillons ni annulations),
+  // HT, net des avoirs. Le TTC à encaisser reste à part.
+  const caHT = sales?.ht ?? 0;
+  const caTotal = sales?.ttc ?? 0;
   const caPaid = invoicesStats.reduce((s, g) => s + g.paidAmount, 0);
   const caDraft = invoicesStats.find((g) => g._id === "draft")?.totalTTC || 0;
-  const countInvoices = invoicesStats.reduce((s, g) => s + g.count, 0);
-
-  const treasury = accountingBalance[0]
-    ? accountingBalance[0].totalDebit - accountingBalance[0].totalCredit
-    : 0;
+  const countInvoices = invoicesStats.filter(g => g._id !== "draft").reduce((s, g) => s + g.count, 0);
+  const treasury = treasuryTotal.total;
 
   return ok({
     year,
-    ca: { total: Math.round(caTotal), paid: Math.round(caPaid), pending: Math.round(caTotal - caPaid), draft: Math.round(caDraft) },
+    ca: { ht: Math.round(caHT), total: Math.round(caTotal), paid: Math.round(caPaid), pending: Math.round(Math.max(0, caTotal - caPaid)), draft: Math.round(caDraft) },
     invoices: { total: countInvoices, overdue: overdueInvoices },
     payments: {
       thisMonth: Math.round(paymentsThisMonth[0]?.total || 0),

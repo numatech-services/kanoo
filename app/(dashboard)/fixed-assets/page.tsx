@@ -45,7 +45,7 @@ export default function FixedAssetsPage() {
     fetch("/api/achats?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null)
       .then(d => setPurchases((d?.data?.items ?? []).filter((p: { status: string; lines: Array<{ accountCode: string }> }) => p.status !== "draft" && p.status !== "cancelled" && p.lines.some(l => /^2/.test(l.accountCode)))))
       .catch(() => {});
-    fetch("/api/suppliers?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => setSuppliers(d?.data?.items ?? [])).catch(() => {});
+    fetch("/api/suppliers?picker=1", { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => setSuppliers(d?.data?.items ?? [])).catch(() => {});
   }, [modalOpen]);
 
   const { data: { assets, stats }, loading, reload: load } = useApi("/api/fixed-assets", d => ({

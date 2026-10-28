@@ -5,7 +5,7 @@ import { maskPayroll, stripPayrollWrites } from "@/lib/payroll-mask";
 import { UserModel } from "@/models/User";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
-import { isCostCenter } from "@/lib/imputation";
+import { tenantCostCenters } from "@/lib/cost-centers-server";
 
 export const GET = withAuth("employees", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   const e = await EmployeeModel.findOne({ _id: params.id, ...tenantFilter(auth) }).populate("userId", "firstName lastName email").lean();
@@ -15,7 +15,7 @@ export const PATCH = withAuth("employees", "update", async (req: NextRequest, au
   const body = await req.json();
   // Hors paie, les champs de rémunération sont ignorés (ni lus ni écrits).
   const update = stripPayrollWrites(sanitizeBody(body, ["code"]), auth);
-  if ("costCenter" in update && update.costCenter && !isCostCenter(update.costCenter)) return badRequest("Service inconnu.");
+  if ("costCenter" in update && update.costCenter && !(await tenantCostCenters(auth.tenantId)).some(c => c.value === update.costCenter)) return badRequest("Service inconnu.");
 
   // ── Rattachement à un compte de connexion ────────────────────────────────
   //

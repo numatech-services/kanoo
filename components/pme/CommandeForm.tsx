@@ -76,7 +76,7 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
   // Charger les fournisseurs ET le catalogue de produits
   useEffect(() => { 
     // Charger fournisseurs
-    apiJson("/api/suppliers?limit=100").then(d=>setSuppliers(d.data?.items||[])); 
+    apiJson("/api/suppliers?picker=1").then(d=>setSuppliers(d.data?.items||[])); 
     
     // Charger catalogue produits (pour lier au stock)
     apiJson("/api/stock?limit=100").then(d=>setCatalog(d.data?.items||[]));

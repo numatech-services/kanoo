@@ -11,6 +11,9 @@ import { KIND_LABEL, type Statement, type StatementKind } from "@/lib/statement"
 
 import { buttonClass } from "@/components/ui/button-class";
 import { useApi } from "@/lib/use-api";
+import { apiSend } from "@/lib/api-client";
+import { confirmDialog } from "@/components/ui/Dialogs";
+import { showToast } from "@/components/ui/Toast";
 interface Payload {
   client: { name: string; code?: string; email?: string; nif?: string; address?: string };
   statement: Statement;
@@ -41,6 +44,7 @@ export default function RelevePage() {
   const { id } = useParams();
   const [from, setFrom] = useState(firstOfYear());
   const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [sending, setSending] = useState(false);
   const releve = useApi<Payload | null>(
     `/api/clients/${id}/releve?from=${from}&to=${to}`, d => (d.success ? d.data : null), null,
   );
@@ -82,10 +86,16 @@ export default function RelevePage() {
             <Download size={15} /> PDF
           </a>
           {client.email && (
-            <a href={`mailto:${client.email}?subject=${encodeURIComponent(`Relevé de compte au ${new Date(to).toLocaleDateString("fr-FR")}`)}&body=${encodeURIComponent(summary)}`}
-              className={buttonClass("primary", "md")}>
-              <Mail size={15} /> Envoyer
-            </a>
+            <button disabled={sending} onClick={async () => {
+              if (!(await confirmDialog({ title: "Envoyer le relevé ?", message: `À ${client.email}, PDF joint, avec le lien de paiement en ligne si un solde reste dû.`, confirmLabel: "Envoyer" }))) return;
+              setSending(true);
+              const res = await apiSend("POST", `/api/clients/${id}/releve/send`, { from, to });
+              setSending(false);
+              if (!res.ok) { showToast(res.data?.error || "Envoi impossible.", "error"); return; }
+              showToast(`Relevé envoyé à ${res.data.data.sentTo}.`, "success");
+            }} className={buttonClass("primary", "md")}>
+              <Mail size={15} /> {sending ? "Envoi…" : "Envoyer"}
+            </button>
           )}
         </div>
       </div>

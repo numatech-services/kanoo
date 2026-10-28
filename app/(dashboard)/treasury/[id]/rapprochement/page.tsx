@@ -14,7 +14,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, apiSend } from "@/lib/api-client";
 interface Movement {
   _id: string; date: string; amount: number; label: string;
-  reference?: string; statementLineId?: string; source?: string;
+  reference?: string; statementLineId?: string; source?: string; cancelledAt?: string; reversalOf?: string;
 }
 interface StatementLine {
   _id: string; date: string; amount: number; label: string;
@@ -72,6 +72,17 @@ export default function RapprochementPage() {
     } finally {
       setBusy(null);
     }
+  }
+
+  // Saisie manuelle ou virement : annulable (extourne + mouvement contraire).
+  async function cancelMove(m: Movement) {
+    const reason = await promptDialog({ title: "Annuler ce mouvement ?", message: `${m.label} — l'écriture est extournée et un mouvement contraire est passé${m.source === "transfer" ? " sur les deux comptes du virement" : ""}.`, label: "Motif", required: true, confirmLabel: "Annuler le mouvement" });
+    if (!reason) return;
+    setBusy(m._id); setError(null);
+    const res = await apiSend("POST", `/api/treasury-accounts/movements/${m._id}/cancel`, { reason });
+    setBusy(null);
+    if (!res.ok) { setError(res.data?.error || "Annulation refusée"); return; }
+    load();
   }
 
   if (loading) return <div className="h-96 surface-card animate-pulse" />;
@@ -218,8 +229,12 @@ export default function RapprochementPage() {
                   <tr key={m._id}>
                     <td className="text-ink2 whitespace-nowrap">{day(m.date)}</td>
                     <td className="text-ink">{m.label}</td>
-                    <td className={`num text-right ${m.amount >= 0 ? "text-pos" : "text-neg"}`}>
+                    <td className={`num text-right whitespace-nowrap ${m.amount >= 0 ? "text-pos" : "text-neg"}`}>
                       {fullXof(m.amount)}
+                      {(m.source === "manual" || m.source === "transfer") && !m.cancelledAt && !m.reversalOf && (
+                        <button disabled={busy === m._id} onClick={() => cancelMove(m)} className="ml-2 text-[11px] text-ink3 hover:text-neg underline">annuler</button>
+                      )}
+                      {m.cancelledAt && <span className="ml-2 text-[11px] text-ink3">annulé</span>}
                     </td>
                   </tr>
                 ))}

@@ -1,5 +1,84 @@
 # Kanoo — Changelog
 
+## Lot H4 — Fonctionnel (octobre 2026)
+
+**Automatisations**
+- **A4 — Contrats récurrents réellement facturés.** Pour chaque contrat en facturation automatique, la tâche du matin prépare une facture brouillon par période échue :
+  - rattrapage de 12 périodes au plus ;
+  - TVA au taux du contrat ;
+  - action faite au nom d'un comptable habilité, qui est notifié.
+
+  L'émission reste un geste humain. Le bouton du contrat utilise le même moteur.
+- **R4 — Tâches planifiées reprises.** Chaque tâche inscrit son passage par période :
+  - un appel répété ne rejoue que ce qui n'est pas fait ;
+  - une tâche en échec est retentée trois fois au plus ;
+  - la sauvegarde passe en premier ;
+  - `&force=1` rejoue tout.
+
+  Il faut appeler `?group=daily` toutes les 30 min de 06:00 à 09:30 (voir DEPLOIEMENT-HOSTINGER.md).
+- **R5 — Paie d'office plus robuste.** Une erreur sur un salarié n'abandonne plus le mois. Une erreur technique libère la réservation, et l'appel suivant complète les bulletins manquants.
+- **R6 — Notifications dédoublonnées.** Une même alerte n'est pas recréée tant qu'elle n'est pas lue, ni dans les 7 jours qui suivent sa lecture.
+  - Les organisations suspendues ne reçoivent plus rien.
+  - Purge mensuelle : notifications lues après 90 jours, toutes après un an.
+
+**RH et services**
+- **R1 — Départ d'un salarié.**
+  - **Solde de tout compte** : salaire du mois au prorata et indemnité compensatrice de congés (jours restants × salaire / 26).
+  - **Bulletin de sortie** généré au choix.
+  - Un contrat échu n'est plus payé automatiquement et déclenche une alerte quotidienne.
+  - Les indemnités de rupture prévues par la convention restent à ajouter en prime.
+- **R2 — Jours fériés et report des congés.**
+  - Les jours fériés du Niger sont exclus du décompte des congés : fêtes civiles, lundi de Pâques, Noël, et fêtes musulmanes à leur date prévisionnelle.
+  - Chaque organisation peut ajouter ou retirer un jour.
+  - Le plafond de report est réglable.
+- **C11 — Services propres à chaque organisation.** La liste n'est plus celle de NUMATECH.
+  - Les anciens codes déjà utilisés restent valables.
+  - Nouveau rapport « Par service » dans la page Secteurs.
+  - Réglages → RH et services.
+
+**Comptabilité**
+- **C9 — FEC conforme.**
+  - Un numéro par écriture.
+  - Tiers sur les lignes de classe 4.
+  - Dates au jour de Niamey.
+  - Lettrage avec sa date.
+  - Montants à virgule.
+- **C9 — Grand livre complet** : il n'est plus coupé à 5 000 lignes.
+- **C10 — Synthèse corrigée.** La trésorerie additionne tous les comptes. Le chiffre d'affaires est HT, factures émises seulement, net des avoirs.
+- **C12 — Compte de résultat sans compte oublié.** Les comptes hors rubrique (74, 76, 80…) vont dans « autres ».
+
+**Achats, trésorerie, reventes**
+- **A6 — Annulation d'un mouvement.** Une saisie manuelle ou un virement s'annule : écriture extournée et mouvement contraire.
+- **A6 — Comptes en devise.** Ils sont suivis en contre-valeur FCFA et leur solde s'affiche aussi dans la devise : euro à 655,957, autres devises au cours saisi.
+- **A6 — Règlement fournisseur.** Il ne peut plus être daté dans le futur.
+- **A5 — Revente d'abonnement facturable.** Elle donne une facture brouillon liée, ce qui retire l'alerte « non facturée ».
+
+**Projets (R3)**
+- **Tâches sans écrasement.** Elles se modifient une par une. Une liste envoyée sur une version périmée est refusée.
+- **Jalon facturable.** Un jalon donne une facture brouillon au client, une seule fois.
+- **Suivi du temps.** Un onglet « Temps » regroupe :
+  - les saisies, par tâche ;
+  - le total par personne ;
+  - le coût interne estimé.
+- **Suppression douce.** Un projet supprimé disparaît des listes et reste restaurable.
+
+**Encaissement**
+- **Relances avec lien de paiement.** Chaque relance (e-mail, SMS, WhatsApp) contient le lien du portail du client, créé au besoin, pour payer par mobile money ou carte. On peut le désactiver dans les paramètres des relances.
+- **Relevé envoyé par Kanoo.** Il part avec le PDF joint et le lien de paiement. Avant, le bouton ouvrait seulement la messagerie.
+- **Échéancier de paiement** sur une facture :
+  - versements datés dont le total fait le montant dû ;
+  - règlements imputés dans l'ordre ;
+  - relances et retards calés sur le versement en cours ;
+  - échéancier imprimé sur le PDF.
+
+**Recherche**
+- **Recherche texte** dans les factures, devis, encaissements, commandes et livraisons : numéro, libellés, nom ou code du tiers.
+- **Sélecteurs au-delà de 100** : les listes de clients et de fournisseurs des formulaires ne sont plus coupées.
+
+**Tests**
+- 20 tests unitaires.
+- Scénario `e2e-h4` : 42 vérifications.
+
 ## Lot H3 — Comptoir et marges (octobre 2026)
 
 **Ticket de caisse** (`models/ComptoirSale.ts`, `lib/comptoir-sale.ts`, onglet « Tickets »)

@@ -92,6 +92,7 @@ export const PUT = withAuth("invoices", "update", async (req: NextRequest, auth:
         ...(body.minIntervalDays !== undefined
           ? { minIntervalDays: Math.max(0, Number(body.minIntervalDays) || 0) } : {}),
         ...(body.respectDisputes !== undefined ? { respectDisputes: Boolean(body.respectDisputes) } : {}),
+        ...(body.includePayLink !== undefined ? { includePayLink: Boolean(body.includePayLink) } : {}),
         ...(body.bccEmail !== undefined ? { bccEmail: String(body.bccEmail).trim() || undefined } : {}),
         updatedBy: auth.userId,
       },

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { projectScope } from "@/lib/project-scope";
 import { Types } from "mongoose";
-import { withAuth, ok, notFound, noContent, badRequest, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, noContent, badRequest, conflict, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { ProjectModel } from "@/models/Project";
 // Modèles référencés par le populate : sans cet import, ils ne sont pas
 // enregistrés dans ce bundle de route et la fiche projet répondait 500
@@ -55,6 +55,23 @@ export const PATCH = withAuth("projects", "update", async (req: NextRequest, aut
 
   const item = await ProjectModel.findOne({ _id: params.id, ...tenantFilter(auth), ...projectScope(auth) });
   if (!item) return notFound();
+  // Restauration d'un projet supprimé.
+  if (body.restore === true) {
+    if (!item.deletedAt) return badRequest("Ce projet n'est pas supprimé.");
+    item.set({ deletedAt: undefined, deletedBy: undefined });
+    await item.save();
+    await logAudit(auth, "UPDATE", "projects", { resourceId: params.id, metadata: { restored: true } });
+    return ok(maskProjectMoney(item.toObject(), auth));
+  }
+  delete body.restore; delete body.deletedAt; delete body.deletedBy;
+  // Deux personnes qui modifient la liste des tâches ou des jalons : la liste
+  // envoyée écrasait celle de l'autre. L'écran envoie la date de la version
+  // qu'il a lue ; si le projet a changé depuis, on refuse plutôt que d'écraser.
+  if ((Array.isArray(body.tasks) || Array.isArray(body.milestones)) && body.ifUpdatedAt
+    && new Date(String(body.ifUpdatedAt)).getTime() !== new Date(item.updatedAt).getTime()) {
+    return conflict("Le projet a été modifié entre-temps par quelqu'un d'autre : rechargez la page avant d'enregistrer.");
+  }
+  delete body.ifUpdatedAt;
   // Sans accès aux finances : les montants des jalons existants sont conservés.
   if (!hasFinanceAccess(auth) && Array.isArray(body.milestones)) {
     const prev = new Map(((item.milestones ?? []) as Array<{ _id: unknown; amount?: number; invoiceId?: unknown }>).map(m => [String(m._id), m]));
@@ -76,9 +93,12 @@ export const DELETE = withAuth("projects", "delete", async (_req: NextRequest, a
   await connectDB();
   if (!Types.ObjectId.isValid(params.id)) return notFound();
 
-  const deleted = await ProjectModel.findOneAndDelete({ _id: params.id, ...tenantFilter(auth), ...projectScope(auth) });
+  // Suppression douce (restaurable par PATCH { restore: true }).
+  const deleted = await ProjectModel.findOneAndUpdate(
+    { _id: params.id, ...tenantFilter(auth), ...projectScope(auth), deletedAt: { $exists: false } },
+    { $set: { deletedAt: new Date(), deletedBy: auth.userId } }, { new: true });
   if (!deleted) return notFound();
 
-  await logAudit(auth, "DELETE", "projects", { resourceId: params.id });
+  await logAudit(auth, "DELETE", "projects", { resourceId: params.id, metadata: { soft: true } });
   return noContent();
 });

@@ -10,7 +10,7 @@ import { EmployeeForm, type EmployeeFormData } from "@/components/pme/EmployeeFo
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 import { RequestDialog } from "@/components/hr/LeaveRequestDialog";
 import { useMe, meCan, meCanDo } from "@/lib/useMe";
-import { COST_CENTERS } from "@/lib/cost-centers";
+import { useCostCenters } from "@/components/shared/ImputationFields";
 import { LEAVE_TYPES } from "@/lib/leave-types";
 
 import {apiJson, apiSend } from "@/lib/api-client";
@@ -51,6 +51,7 @@ export default function EmployeeDetailPage() {
   const payroll = meCan(me.resources, "payslips");
   const canEdit = meCanDo(me, "employees", "update");
   const canUsers = meCan(me.resources, "users");
+  const centers = useCostCenters();
   const [slips, setSlips] = useState<Array<{ _id: string; month: number; year: number; netSalary: number; isPaid: boolean }>>([]);
   const [editOpen, setEditOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
@@ -103,7 +104,7 @@ export default function EmployeeDetailPage() {
             ["Compte de connexion", e.userId ? <span className="inline-flex items-center gap-1"><UserCheck size={13} className="text-pos" /> {e.userId.email}</span> : "non rattaché"]])}
         </section>
         <section className="bg-surface rounded-xl border border-line p-4"><h2 className="font-semibold text-ink mb-2">Contrat</h2>
-          {rows([["Nature", CONTRACT[e.contractNature] ?? e.contractNature], ["Service", e.costCenter ? COST_CENTERS[e.costCenter as keyof typeof COST_CENTERS] : e.department],
+          {rows([["Nature", CONTRACT[e.contractNature] ?? e.contractNature], ["Service", e.costCenter ? centers.find(c => c.value === e.costCenter)?.label ?? e.costCenter : e.department],
             ["Entrée", `${d(e.startDate)} (${seniority(e.startDate)})`], ["Fin de contrat", d(e.contractEndDate)],
             ...(!e.isActive ? [["Départ", `${d(e.endDate)}${e.exitReason ? ` — ${e.exitReason}` : ""}`] as [string, string]] : [])])}
         </section>
@@ -143,7 +144,7 @@ export default function EmployeeDetailPage() {
         <EmployeeForm initial={e as unknown as Partial<EmployeeFormData>} payroll={payroll && !e.payrollHidden}
           onSave={async body => { await patch(String(id), body as unknown as Record<string, unknown>); setEditOpen(false); load(); }} onCancel={() => setEditOpen(false)} />
       </Modal>
-      {exitOpen && <ExitDialog onClose={() => setExitOpen(false)} onSave={async (endDate, exitReason) => { await patch(String(id), { isActive: false, endDate, exitReason }); setExitOpen(false); load(); }} />}
+      {exitOpen && <ExitDialog employeeId={String(id)} payroll={payroll && !e.payrollHidden} onClose={() => setExitOpen(false)} onDone={() => { setExitOpen(false); load(); }} />}
       {linkOpen && <LinkUserDialog current={e.userId?._id} onClose={() => setLinkOpen(false)} onSave={async userId => { await patch(String(id), { userId }); setLinkOpen(false); load(); }} />}
       {leaveOpen && <RequestDialog employeeId={e._id} onClose={() => setLeaveOpen(false)} onDone={() => { setLeaveOpen(false); load(); }} />}
     </div>
@@ -152,10 +153,25 @@ export default function EmployeeDetailPage() {
 
 const EXIT_REASONS = ["Fin de contrat (CDD)", "Démission", "Licenciement", "Rupture d'un commun accord", "Fin de stage", "Retraite", "Décès", "Autre"];
 
-function ExitDialog({ onClose, onSave }: { onClose: () => void; onSave: (endDate: string, reason: string) => Promise<void> }) {
+interface Settlement { month: number; year: number; daysPresent: number; fullMonth: boolean; proratedBase: number; leaveDays: number; leaveIndemnity: number; totalGross: number }
+
+/** Départ : motif, solde de tout compte prévisionnel et, au choix, bulletin de sortie. */
+function ExitDialog({ employeeId, payroll, onClose, onDone }: { employeeId: string; payroll: boolean; onClose: () => void; onDone: () => void }) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [reason, setReason] = useState(EXIT_REASONS[0]);
+  const [slip, setSlip] = useState(payroll);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { data } = useApi<{ settlement: Settlement; leave: { available: number; forfeited?: number }; existingPayslipId: string | null } | null>(
+    payroll && date ? `/api/employees/${employeeId}/exit?date=${date}` : null, x => x?.data ?? null, null, { quiet: true });
+  const s = data?.settlement;
+  async function save() {
+    setBusy(true); setError("");
+    const res = await apiSend("POST", `/api/employees/${employeeId}/exit`, { date, reason, payslip: payroll && slip && !data?.existingPayslipId });
+    setBusy(false);
+    if (!res.ok) { setError(res.data?.error || "Enregistrement impossible."); return; }
+    onDone();
+  }
   return (
     <Modal open onClose={onClose} title="Départ du collaborateur">
       <div className="space-y-4">
@@ -165,7 +181,20 @@ function ExitDialog({ onClose, onSave }: { onClose: () => void; onSave: (endDate
         <FormField label="Motif">
           <select className={selectCls} value={reason} onChange={e => setReason(e.target.value)}>{EXIT_REASONS.map(r => <option key={r}>{r}</option>)}</select>
         </FormField>
-        <button onClick={async () => { try { await onSave(date, reason); } catch (e) { setError(e instanceof Error ? e.message : "Erreur"); } }} className="w-full h-10 rounded-lg bg-warn text-onink text-sm font-semibold">Enregistrer le départ</button>
+        {s && (
+          <div className="surface-card p-4 text-sm space-y-1">
+            <p className="font-semibold text-ink">Solde de tout compte (prévisionnel, brut)</p>
+            <div className="flex justify-between"><span className="text-ink2">Salaire de {MONTHS[s.month]} {s.year} {s.fullMonth ? "(mois complet)" : `(${s.daysPresent} j / 30)`}</span><span className="font-mono">{fmt(s.proratedBase)} FCFA</span></div>
+            <div className="flex justify-between"><span className="text-ink2">Indemnité compensatrice de congés ({s.leaveDays} j)</span><span className="font-mono">{fmt(s.leaveIndemnity)} FCFA</span></div>
+            <div className="flex justify-between font-semibold border-t border-line pt-1"><span>Total brut</span><span className="font-mono">{fmt(s.totalGross)} FCFA</span></div>
+            {(data?.leave.forfeited ?? 0) > 0 && <p className="text-xs text-warn">{data?.leave.forfeited} j au-delà du plafond de report ne sont pas indemnisés.</p>}
+            <p className="text-xs text-ink3">Préavis, indemnité de licenciement ou de fin de CDD prévues par la convention collective : à ajouter en prime sur le bulletin.</p>
+            {data?.existingPayslipId
+              ? <p className="text-xs text-warn">Le bulletin de ce mois existe déjà : l&apos;indemnité de congés se porte sur un bulletin rectificatif.</p>
+              : <label className="flex items-center gap-2 cursor-pointer pt-1"><input type="checkbox" checked={slip} onChange={e => setSlip(e.target.checked)} className="accent-section" /> Générer le bulletin de sortie</label>}
+          </div>
+        )}
+        <button disabled={busy} onClick={save} className="w-full h-10 rounded-lg bg-warn text-onink text-sm font-semibold">Enregistrer le départ</button>
       </div>
     </Modal>
   );

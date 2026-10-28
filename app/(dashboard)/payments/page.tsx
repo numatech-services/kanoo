@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
+import { SearchBox } from "@/components/ui/SearchBox";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 import { useMe, meCanDo } from "@/lib/useMe";
@@ -35,6 +36,7 @@ export default function PaymentsPage() {
   const [items, setItems] = useState<Payment[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<Payment | null>(null);
@@ -46,6 +48,7 @@ export default function PaymentsPage() {
     const params = new URLSearchParams({
       page: String(page),
       limit: String(LIMIT),
+      ...(search ? { search } : {}),
     });
     return fetch(`/api/payments?${params}`, { credentials: "include" })
       .then(async res => {
@@ -62,7 +65,7 @@ export default function PaymentsPage() {
       })
       // Coupure réseau : la liste affichée est conservée, seul le message change.
       .catch(() => ({ items: null, total: 0, error: "Connexion impossible au serveur des paiements. Vérifiez votre réseau puis réessayez." }));
-  }, [page]);
+  }, [page, search]);
 
   function apply(r: { items: Payment[] | null; total: number; error: string | null }) {
     setError(r.error);
@@ -198,6 +201,7 @@ export default function PaymentsPage() {
           </p>
         </div>
       </div>
+      <SearchBox onSearch={q => { setSearch(q); setPage(1); }} placeholder="Référence, n° de facture, client…" className="w-full sm:w-80" />
 
       {error && (
         <div className="flex items-center justify-between gap-3 px-4 py-3 bg-neg-50 border border-neg/25 rounded-xl text-sm text-neg">
