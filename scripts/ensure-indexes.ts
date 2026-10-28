@@ -45,6 +45,7 @@ async function main() {
     import("../models/DeskCustomer").then(m => m.DeskCustomerModel),
     import("../models/ItemCount").then(m => m.ItemCountModel),
     import("../models/DeskPromo").then(m => m.DeskPromoModel),
+    import("../models/DeskSchedule").then(m => m.DeskScheduleModel),
     import("../models/CronRun").then(m => m.CronRunModel),
     import("../models/Notification").then(m => m.NotificationModel),
     import("../models/DunningSettings").then(m => m.DunningSettingsModel),

@@ -10,6 +10,7 @@ import { applyMovement } from "@/lib/stock";
 import { deskWarehouse } from "@/lib/comptoir-stock";
 import { assertDayOpen, localDay } from "@/lib/comptoir-sale";
 import { LOSS_REASONS, reorderSuggestion, pickCycleCount } from "@/lib/spot";
+import { scheduledDemand } from "@/lib/campus-server";
 import type { TokenPayload } from "@/lib/auth";
 
 const DAY = 86_400_000;
@@ -84,10 +85,15 @@ export async function reorderPlan(tenantId: string, deskId: string) {
     consumption(tenantId, deskId, WINDOW),
   ]);
   const lead = desk?.leadDays ?? 2, cover = desk?.coverDays ?? 7;
+  // Campus : la demande vient de l'emploi du temps (vacances, examens, jours
+  // sans cours) plutôt que de la moyenne des 28 derniers jours.
+  const planned = await scheduledDemand(tenantId, deskId, localDay(new Date(Date.now() + DAY)), lead + cover);
   const products = await ProductModel.find({ tenantId, _id: { $in: items.map(i => i.productId).filter(Boolean) } }).select("preferredSupplierId purchaseCost").populate("preferredSupplierId", "name").lean<Array<{ _id: Types.ObjectId; purchaseCost?: number; preferredSupplierId?: { _id: Types.ObjectId; name: string } }>>();
   const prod = new Map(products.map(p => [String(p._id), p]));
   const lines = items.filter(i => !i.recipe?.length).map(i => {
-    const s = reorderSuggestion({ stock: i.quantity, soldInWindow: used.get(String(i._id))?.quantity ?? 0, windowDays: WINDOW, leadDays: lead, coverDays: cover, packSize: i.pack?.size });
+    const s = planned
+      ? reorderSuggestion({ stock: i.quantity, soldInWindow: planned.get(String(i._id)) ?? 0, windowDays: lead + cover, leadDays: lead, coverDays: cover, packSize: i.pack?.size })
+      : reorderSuggestion({ stock: i.quantity, soldInWindow: used.get(String(i._id))?.quantity ?? 0, windowDays: WINDOW, leadDays: lead, coverDays: cover, packSize: i.pack?.size });
     const p = i.productId ? prod.get(String(i.productId)) : undefined;
     const unitCost = p?.purchaseCost || i.unitCost || 0;
     return {
@@ -96,7 +102,7 @@ export async function reorderPlan(tenantId: string, deskId: string) {
       supplier: p?.preferredSupplierId ? { _id: String(p.preferredSupplierId._id), name: p.preferredSupplierId.name } : null,
     };
   }).sort((a, b) => Number(b.urgent) - Number(a.urgent) || (a.daysLeft ?? 1e9) - (b.daysLeft ?? 1e9));
-  return { leadDays: lead, coverDays: cover, windowDays: WINDOW, lines, toOrder: lines.filter(l => l.quantity > 0), totalCost: lines.reduce((t, l) => t + l.estimatedCost, 0) };
+  return { leadDays: lead, coverDays: cover, windowDays: WINDOW, basis: planned ? "schedule" as const : "history" as const, lines, toOrder: lines.filter(l => l.quantity > 0), totalCost: lines.reduce((t, l) => t + l.estimatedCost, 0) };
 }
 
 /** Articles à compter aujourd'hui (inventaire tournant) et comptages déjà faits. */

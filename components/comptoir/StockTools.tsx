@@ -14,7 +14,7 @@ const MONEY = (n: number | undefined) => (n === undefined ? "—" : `${Math.roun
 const h = (v: unknown) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 interface ReorderLine { itemId: string; name: string; unit: string; stock: number; dailyAverage: number; daysLeft: number | null; quantity: number; packs: number | null; packLabel?: string; urgent: boolean; estimatedCost?: number; linked: boolean; supplier: { _id: string; name: string } | null }
-interface Plan { leadDays: number; coverDays: number; windowDays: number; lines: ReorderLine[]; totalCost?: number }
+interface Plan { leadDays: number; coverDays: number; windowDays: number; basis?: "schedule" | "history"; lines: ReorderLine[]; totalCost?: number }
 
 /**
  * Réassort conseillé : ventes moyennes des 28 derniers jours, jours de stock
@@ -50,7 +50,9 @@ export function ReorderDialog({ deskId, onClose }: { deskId: string; onClose: ()
     <Modal open onClose={onClose} title="Réassort conseillé" size="lg">
       {!data ? <p className="text-sm text-ink3">Calcul…</p> : (
         <div className="space-y-4">
-          <p className="text-sm text-ink2">Ventes des {data.windowDays} derniers jours · livraison en {data.leadDays} j · commande pour {data.coverDays} j (réglable dans les paramètres du comptoir).</p>
+          <p className="text-sm text-ink2">{data.basis === "schedule"
+            ? `Demande prévue d'après l'emploi du temps du campus (cours, vacances, examens) sur les ${data.leadDays + data.coverDays} prochains jours`
+            : `Ventes des ${data.windowDays} derniers jours`} · livraison en {data.leadDays} j · commande pour {data.coverDays} j (réglable dans les paramètres du comptoir).</p>
           {lines.length === 0 ? <p className="text-sm text-pos">Stock suffisant : rien à commander.</p> : (
             <div className="overflow-x-auto"><table className="table-dense">
               <thead><tr><th>Article</th><th className="text-right">Stock</th><th className="text-right">Vente/jour</th><th className="text-right">Jours restants</th><th className="text-right">À commander</th>{data.totalCost !== undefined && <th className="text-right">Coût estimé</th>}<th>Où</th></tr></thead>

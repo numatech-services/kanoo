@@ -1,5 +1,34 @@
 # Kanoo — Changelog
 
+## The Spot — quantités du restaurant selon l'emploi du temps du campus (octobre 2026)
+
+Onglet « Planning » du comptoir, `lib/campus.ts`, `lib/campus-server.ts`, `models/DeskSchedule.ts`.
+
+**Emploi du temps du comptoir**
+- Services de repas (petit-déjeuner, déjeuner, pause, dîner) avec leurs horaires et un public de base toujours présent (résidents, personnel).
+- Cours : jour, heures, classe, effectif, dates de validité. Une classe compte pour un service si elle a cours à moins d'une heure de la plage.
+- Périodes : vacances (×0,1), examens, jours fériés (0), événements (×1,5). Bouton « + Vacances de fin d'année ».
+- Marge de sécurité (10 % par défaut).
+
+**Import des plannings PDF** (format des plannings de semestre Swiss UMEF) — `lib/timetable-pdf.ts`, route `POST /api/comptoir/schedule/import`
+- Lecture par position du tableau Dates | Cours | Jour | Heures : intitulés sur deux lignes, « Lundi au vendredi », plusieurs plages horaires par jour.
+- Classe, programme et année repérés dans l'en-tête ; badge « 1re année ».
+- Les pauses du planning (10h30–11h00, 15h45–16h15) peuvent devenir des services de vente ; le déjeuner se cale entre la fin du matin et le début de l'après-midi.
+- Révision et examens : supposés les matinées du lundi au vendredi (8h30–12h30). La révision réduit la fréquentation (×0,6).
+- L'effectif de chaque classe est saisi à l'import (il ne figure pas dans le PDF). Import CSV toujours possible (jour ; début ; fin ; groupe ; effectif).
+
+**Plan de production**
+- Consommation apprise sur les 28 derniers jours (jusqu'à la veille) : unités vendues par personne présente, service par service. Pour un comptoir récent, l'apprentissage part de la première vente.
+- Quantité prévue = présence attendue × consommation par personne + marge.
+- Pour chaque jour, par service :
+  - présents et classes ;
+  - articles à préparer ;
+  - ingrédients des recettes face au stock et manquants.
+- Vue de la semaine avec le chiffre d'affaires attendu. Fiche de production imprimable.
+- Le réassort conseillé suit l'emploi du temps quand il est rempli (« d'après l'emploi du temps »), sinon l'historique des ventes.
+
+**Mise en production** : `npm run indexes` crée l'index de `DeskSchedule`. Nouvelle dépendance `unpdf` (lecture des PDF, sans binaire natif).
+
 ## The Spot — 10 améliorations (octobre 2026)
 
 **1. Ardoises (crédit client)** — onglet « Ardoises », `models/DeskCustomer.ts`, `lib/desk-credit.ts`
