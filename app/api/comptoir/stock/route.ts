@@ -10,6 +10,7 @@ import { applyMovement } from "@/lib/stock";
 import { deskWarehouse } from "@/lib/comptoir-stock";
 import { notifyRoles } from "@/lib/notify";
 import { assertDayOpen } from "@/lib/comptoir-sale";
+import { packEntry } from "@/lib/comptoir-economics";
 import { TokenPayload } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -35,12 +36,21 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
 export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const body = await req.json().catch(() => ({}));
-  const err = requireFields(body, ["deskId", "itemId", "type", "quantity"]);
+  const err = requireFields(body, Number(body.packs) > 0 ? ["deskId", "itemId", "type"] : ["deskId", "itemId", "type", "quantity"]);
   if (err) return badRequest(err);
   if (!isId(body.itemId)) return badRequest("Article invalide");
   if (!(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
   const type = body.type as "in" | "out" | "adjust";
   if (!["in", "out", "adjust"].includes(type)) return badRequest("Type de mouvement invalide");
+  // Entrée par paquets : « 3 paquets de 24 à 5 100 » → 72 unités à 212,50.
+  if (type === "in" && Number(body.packs) > 0) {
+    const it = await ActivityItemModel.findOne({ _id: body.itemId, ...tenantFilter(auth), deskId: body.deskId }).select("pack").lean<{ pack?: { size?: number; cost?: number } } | null>();
+    if (!it?.pack?.size) return badRequest("Cet article n'a pas de conditionnement : saisissez la quantité en unités.");
+    const e = packEntry(Number(body.packs), it.pack, Number(body.packCost) || undefined);
+    body.quantity = e.quantity;
+    if (e.unitCost > 0) body.unitCost = e.unitCost;
+    if (e.packCost && e.packCost !== it.pack.cost) await ActivityItemModel.updateOne({ _id: body.itemId }, { $set: { "pack.cost": e.packCost } });
+  }
   const qty = Math.abs(Number(body.quantity) || 0);
   // Un ajustement d'inventaire peut ramener le stock à 0 (casse, perte totale) ;
   // une entrée ou une sortie doit porter sur une quantité positive.

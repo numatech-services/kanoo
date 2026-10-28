@@ -27,6 +27,7 @@ export interface IActivityDesk {
   expenseAccount?: string;
   /** TVA comprise dans les prix (0 = non assujetti). */
   vatRate?: number;
+  targetMarkup?: number;
   archived: boolean;
   createdBy: Types.ObjectId;
   createdAt: Date;
@@ -44,6 +45,8 @@ const ActivityDeskSchema = new Schema<IActivityDesk>({
   revenueAccount: { type: String, default: "701100", match: /^7\d{2,7}$/ },
   expenseAccount: { type: String, default: "601100", match: /^6\d{2,7}$/ },
   vatRate: { type: Number, default: 0, min: 0, max: 0.5 },
+  /** Taux de marque visé (part du prix HT), pour le prix conseillé et les alertes. */
+  targetMarkup: { type: Number, default: 0.3, min: 0, max: 0.95 },
   archived: { type: Boolean, default: false, index: true },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: true });

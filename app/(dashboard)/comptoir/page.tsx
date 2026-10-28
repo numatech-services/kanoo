@@ -2,7 +2,7 @@
 import { csvCell } from "@/lib/csv";
 
 import { useCallback, useEffect, useState } from "react";
-import { Store, Plus, Wallet, Receipt, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText, Settings2 } from "lucide-react";
+import { Store, Plus, Wallet, Receipt, CalendarCheck2, Percent, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText, Settings2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
@@ -14,10 +14,14 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 import { SalesTab } from "@/components/comptoir/SalesTab";
+import { SessionTab } from "@/components/comptoir/SessionTab";
+import { ProfitabilityTab } from "@/components/comptoir/ProfitabilityTab";
+import { EXPENSE_CATEGORIES } from "@/lib/expense-categories";
+import { itemEconomics } from "@/lib/comptoir-economics";
 import { ClosingDialog } from "@/components/comptoir/ClosingDialog";
-interface Desk { _id: string; name: string; description?: string; activityId?: string; treasuryAccountId?: string; revenueAccount?: string; expenseAccount?: string; vatRate?: number }
-interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number | null; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
-interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string; saleId?: string }
+interface Desk { _id: string; name: string; description?: string; activityId?: string; treasuryAccountId?: string; revenueAccount?: string; expenseAccount?: string; vatRate?: number; targetMarkup?: number }
+interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number | null; category?: string; pack?: { label?: string; size?: number; cost?: number }; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
+interface CashEntry { _id: string; direction: "in" | "out"; amount: number; label: string; method: string; date: string; saleId?: string; category?: string }
 interface Move { _id: string; type: "in" | "out" | "adjust" | "supply" | "return"; quantity: number; quantityAfter: number; reason?: string; date: string; itemId?: { name?: string; unit?: string } }
 interface Summary { itemCount: number; stockValue: number | null; lowStock: { name: string; unit: string; quantity: number; threshold?: number }[]; cashIn: number; cashOut: number; cashBalance: number }
 
@@ -57,7 +61,7 @@ async function post(url: string, body: unknown, method: "POST" | "PATCH" | "DELE
   return res.status === 204 ? null : res.json();
 }
 
-type Tab = "tickets" | "caisse" | "stock";
+type Tab = "tickets" | "semaine" | "caisse" | "stock" | "rentabilite";
 
 export default function ComptoirPage() {
   const [desks, setDesks] = useState<Desk[]>([]);
@@ -201,6 +205,7 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
   const [revenueAccount, setRevenueAccount] = useState(desk.revenueAccount || "701100");
   const [expenseAccount, setExpenseAccount] = useState(desk.expenseAccount || "601100");
   const [vatRate, setVatRate] = useState(desk.vatRate ?? 0);
+  const [targetMarkup, setTargetMarkup] = useState(String(Math.round((desk.targetMarkup ?? 0.3) * 100)));
   const [accounts, setAccounts] = useState<Array<{ _id: string; label: string; type?: string }>>([]);
   useEffect(() => {
     fetch("/api/treasury-accounts?limit=100", { credentials: "include" }).then(r => r.ok ? r.json() : null)
@@ -215,7 +220,7 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
     try {
       // Le secteur n'est envoyé que si l'utilisateur voit la liste des secteurs :
       // sinon on laisserait croire qu'il a été détaché.
-      const payload: Record<string, unknown> = { name, description, treasuryAccountId: treasuryAccountId || null, revenueAccount, expenseAccount, vatRate, ...extra };
+      const payload: Record<string, unknown> = { name, description, treasuryAccountId: treasuryAccountId || null, revenueAccount, expenseAccount, vatRate, targetMarkup: (Number(targetMarkup) || 0) / 100, ...extra };
       if (sectors.length > 0) payload.activityId = activityId || null;
       await post(`/api/comptoir/desks/${desk._id}`, payload, "PATCH");
       onSaved();
@@ -264,6 +269,9 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
               <select className={selectCls} value={vatRate} onChange={e => setVatRate(Number(e.target.value))}>
                 <option value={0}>Aucune</option><option value={0.19}>19 %</option><option value={0.1}>10 %</option>
               </select>
+            </FormField>
+            <FormField label="Taux de marque visé (%)" hint="Part du prix de vente HT qui doit rester en marge : sert au prix conseillé.">
+              <input className={inputCls} type="number" min={0} max={90} value={targetMarkup} onChange={e => setTargetMarkup(e.target.value)} />
             </FormField>
           </div>
         </fieldset>
@@ -314,8 +322,10 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
 
       <div className="flex flex-wrap items-center gap-2">
         <button className={tabCls(tab === "tickets")} onClick={() => setTab("tickets")}><Receipt size={16} /> Tickets</button>
+        <button className={tabCls(tab === "semaine")} onClick={() => setTab("semaine")}><CalendarCheck2 size={16} /> Semaine</button>
         <button className={tabCls(tab === "caisse")} onClick={() => setTab("caisse")}><Wallet size={16} /> Caisse</button>
         <button className={tabCls(tab === "stock")} onClick={() => setTab("stock")}><Package size={16} /> Stock matière</button>
+        {summary && summary.stockValue !== null && <button className={tabCls(tab === "rentabilite")} onClick={() => setTab("rentabilite")}><Percent size={16} /> Rentabilité</button>}
         <button onClick={() => setReportOpen(true)}
           className="ml-auto px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
           <FileText size={15} /> Rapport PDF
@@ -325,6 +335,10 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
 
       {tab === "tickets"
         ? <SalesTab deskId={deskId} deskName={deskName} onChange={reloadSummary} />
+        : tab === "semaine"
+        ? <SessionTab deskId={deskId} deskName={deskName} onChange={reloadSummary} />
+        : tab === "rentabilite"
+        ? <ProfitabilityTab deskId={deskId} onChange={reloadSummary} />
         : tab === "caisse"
         ? <CaisseTab deskId={deskId} deskName={deskName} onChange={reloadSummary} />
         : <StockTab deskId={deskId} onChange={reloadSummary} />}
@@ -441,7 +455,7 @@ function CaisseTab({ deskId, deskName, onChange }: { deskId: string; deskName: s
               {entries.map(e => (
                 <tr key={e._id}>
                   <td className="text-ink2 whitespace-nowrap">{new Date(e.date).toLocaleDateString("fr-FR")}</td>
-                  <td className="text-ink font-medium">{e.label}</td>
+                  <td className="text-ink font-medium">{e.label}{e.direction === "out" && e.category && <span className="block text-[11px] text-ink3 font-normal">{EXPENSE_CATEGORIES[e.category] ?? e.category}</span>}</td>
                   <td className="text-ink2">{METHOD_LABEL[e.method] || e.method}</td>
                   <td>{e.direction === "in"
                     ? <Pill tone="pos"><ArrowDownLeft size={11} className="inline mr-0.5" /> Recette</Pill>
@@ -466,7 +480,7 @@ function CaisseTab({ deskId, deskName, onChange }: { deskId: string; deskName: s
 }
 
 function CashDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ direction: "in" as "in" | "out", amount: "", label: "", method: "cash", date: localDay() });
+  const [form, setForm] = useState({ direction: "in" as "in" | "out", amount: "", label: "", method: "cash", date: localDay(), category: "supply" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function save() {
@@ -506,6 +520,13 @@ function CashDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
             </select>
           </FormField>
         </div>
+        {form.direction === "out" && (
+          <FormField label="Nature de la dépense" hint="Pour le bilan de la semaine.">
+            <select className={selectCls} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+              {Object.entries(EXPENSE_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </FormField>
+        )}
         <FormField label="Date">
           <input className={inputCls} type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
         </FormField>
@@ -642,7 +663,9 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
 }
 
 function ItemDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ name: "", unit: "unité", quantity: "", unitCost: "", salePrice: "", threshold: "", productId: "" });
+  const [form, setForm] = useState({ name: "", unit: "unité", quantity: "", unitCost: "", salePrice: "", threshold: "", productId: "", category: "", packLabel: "", packSize: "", packCost: "" });
+  const pack = Number(form.packSize) > 0 ? { label: form.packLabel || undefined, size: Number(form.packSize), cost: form.productId ? undefined : Number(form.packCost) || undefined } : null;
+  const eco = itemEconomics({ unitCost: Number(form.unitCost) || 0, pack, salePrice: Number(form.salePrice) || 0 });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const catalog = useCatalog();
@@ -655,6 +678,7 @@ function ItemDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
         quantity: Number(form.quantity) || 0, unitCost: Number(form.unitCost) || 0,
         salePrice: form.salePrice ? Number(form.salePrice) : undefined,
         threshold: form.threshold ? Number(form.threshold) : undefined,
+        category: form.category || undefined, pack: pack ?? undefined,
       });
       onSaved();
     } catch (e) { setError(e instanceof Error ? e.message : "Enregistrement impossible"); }
@@ -686,7 +710,21 @@ function ItemDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
           {!form.productId && <FormField label="Coût unitaire (FCFA)"><input className={inputCls} type="number" min="0" value={form.unitCost} onChange={e => setForm(f => ({ ...f, unitCost: e.target.value }))} /></FormField>}
           <FormField label="Prix de vente TTC (FCFA)" hint="Prix encaissé, TVA comprise"><input className={inputCls} type="number" min="0" value={form.salePrice} onChange={e => setForm(f => ({ ...f, salePrice: e.target.value }))} /></FormField>
           <FormField label="Seuil d'alerte" hint="Facultatif"><input className={inputCls} type="number" min="0" value={form.threshold} onChange={e => setForm(f => ({ ...f, threshold: e.target.value }))} /></FormField>
+          <FormField label="Famille" hint="Boissons, biscuits, snacks…"><input className={inputCls} maxLength={60} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} /></FormField>
         </div>
+        <fieldset className="rounded-xl border border-line p-3 space-y-2">
+          <legend className="px-1 text-xs font-semibold text-ink2">Acheté par paquet ? (facultatif)</legend>
+          <div className="grid grid-cols-3 gap-2">
+            <FormField label="Nom"><input className={inputCls} maxLength={30} placeholder="paquet, carton…" value={form.packLabel} onChange={e => setForm(f => ({ ...f, packLabel: e.target.value }))} /></FormField>
+            <FormField label="Unités"><input className={inputCls} type="number" min="1" placeholder="24" value={form.packSize} onChange={e => setForm(f => ({ ...f, packSize: e.target.value }))} /></FormField>
+            {!form.productId && <FormField label="Prix du paquet"><input className={inputCls} type="number" min="0" placeholder="5000" value={form.packCost} onChange={e => setForm(f => ({ ...f, packCost: e.target.value }))} /></FormField>}
+          </div>
+        </fieldset>
+        {eco.status !== "unknown" && (
+          <p className={`text-sm px-3 py-2 rounded-lg ${eco.marginUnit < 0 ? "bg-neg-50 text-neg" : "bg-pos-50 text-pos"}`}>
+            Coût {eco.unitCost.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} FCFA l&apos;unité · {eco.marginUnit < 0 ? "perte" : "marge"} de {Math.abs(eco.marginUnit).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} FCFA par vente ({eco.markupRate} % du prix){eco.packMargin !== null ? ` · ${eco.packMargin.toLocaleString("fr-FR")} FCFA par paquet` : ""}.
+          </p>
+        )}
         <div className="flex justify-end gap-3 pt-2">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
           <button onClick={save} disabled={saving} className={buttonClass("primary", "md")}>
@@ -708,6 +746,12 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
   const [cashAmount, setCashAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Entrée : par paquets (article acheté par conditionnement) ou à l'unité, avec son coût.
+  const hasPack = !!item.pack?.size;
+  const [byPack, setByPack] = useState(hasPack && !tracking);
+  const [packs, setPacks] = useState("");
+  const [packCost, setPackCost] = useState(String(item.pack?.cost ?? ""));
+  const [unitCost, setUnitCost] = useState("");
 
   // Pré-remplit l'encaissement d'une vente à partir du prix de vente indicatif
   // (au choix du type comme à la saisie de la quantité).
@@ -716,12 +760,15 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
   };
 
   async function save() {
-    const n = Number(quantity);
-    if (quantity === "" || (type === "adjust" ? !(n >= 0) : !(n > 0))) { setError("Quantité invalide."); return; }
+    const packMode = type === "in" && hasPack && byPack;
+    const n = packMode ? Number(packs) * (item.pack?.size ?? 1) : Number(quantity);
+    if (packMode ? !(Number(packs) > 0) : quantity === "" || (type === "adjust" ? !(n >= 0) : !(n > 0))) { setError("Quantité invalide."); return; }
     setSaving(true); setError(null);
     try {
       await post("/api/comptoir/stock", {
-        deskId, itemId: item._id, type, quantity: Number(quantity), reason,
+        deskId, itemId: item._id, type, quantity: n, reason,
+        ...(packMode ? { packs: Number(packs), packCost: Number(packCost) || undefined } : {}),
+        ...(type === "in" && !packMode && !item.productId && Number(unitCost) > 0 ? { unitCost: Number(unitCost) } : {}),
         ...(tracking && type === "in" ? { lots: lotsPayload(lots) } : {}),
         ...(type === "out" && withCash && Number(cashAmount) > 0 ? { cashAmount: Number(cashAmount), cashMethod: "cash" } : {}),
       });
@@ -745,9 +792,26 @@ function MoveDialog({ deskId, item, onClose, onSaved }: { deskId: string; item: 
         <div className="grid grid-cols-3 gap-2">
           {typeBtn("in", "Entrée")}{typeBtn("out", "Sortie / vente")}{typeBtn("adjust", "Ajustement")}
         </div>
-        <FormField label={type === "adjust" ? "Nouveau stock" : "Quantité"} required>
-          <input className={inputCls} type="number" min="0" value={quantity} onChange={e => { setQuantity(e.target.value); prefillCash(type, e.target.value); }} />
-        </FormField>
+        {type === "in" && hasPack && (
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setByPack(true)} className={`h-9 rounded-lg border text-xs font-semibold ${byPack ? "border-section bg-section/10 text-section" : "border-line2 text-ink2"}`}>Par {item.pack?.label || "paquet"} de {item.pack?.size}</button>
+            <button type="button" onClick={() => setByPack(false)} className={`h-9 rounded-lg border text-xs font-semibold ${!byPack ? "border-section bg-section/10 text-section" : "border-line2 text-ink2"}`}>À l&apos;unité</button>
+          </div>
+        )}
+        {type === "in" && hasPack && byPack ? (
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label={`Nombre de ${item.pack?.label || "paquet"}s`} required><input className={inputCls} type="number" min="0" step="any" value={packs} onChange={e => setPacks(e.target.value)} /></FormField>
+            {!item.productId && <FormField label={`Prix d'un ${item.pack?.label || "paquet"}`} hint="Coût unitaire recalculé"><input className={inputCls} type="number" min="0" value={packCost} onChange={e => setPackCost(e.target.value)} /></FormField>}
+            {Number(packs) > 0 && <p className="col-span-2 text-xs text-ink2">= {Number(packs) * (item.pack?.size ?? 1)} {item.unit}{!item.productId && Number(packCost) > 0 ? ` à ${(Number(packCost) / (item.pack?.size ?? 1)).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} FCFA l'unité` : ""}</p>}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label={type === "adjust" ? "Nouveau stock" : "Quantité"} required>
+              <input className={inputCls} type="number" min="0" value={quantity} onChange={e => { setQuantity(e.target.value); prefillCash(type, e.target.value); }} />
+            </FormField>
+            {type === "in" && !item.productId && <FormField label="Coût d'achat à l'unité" hint="Facultatif : met à jour le coût"><input className={inputCls} type="number" min="0" value={unitCost} onChange={e => setUnitCost(e.target.value)} /></FormField>}
+          </div>
+        )}
         {tracking && type === "in" && Number(quantity) > 0 && <LotsEditor mode={tracking} quantity={Number(quantity)} value={lots} onChange={setLots} />}
         {tracking && type !== "in" && <p className="text-[11px] text-ink3">Article suivi par lot : la sortie prend d&apos;office le lot qui périme le plus tôt.</p>}
         {type === "out" && (

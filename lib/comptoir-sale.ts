@@ -106,7 +106,7 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
     if (!unitCost) warnings.push(`${item.name} : sans coût d'achat, marge non calculée.`);
     if (item.threshold != null && after <= item.threshold) warnings.push(`${item.name} : stock bas (${after} ${item.unit}).`);
     lines.push({
-      itemId: item._id, ...(item.productId ? { productId: item.productId } : {}), label: item.name, category: product?.category,
+      itemId: item._id, ...(item.productId ? { productId: item.productId } : {}), label: item.name, category: item.category || product?.category,
       ...line, stockMovementId: stockMovementId as Types.ObjectId | undefined, stockMoveId: move._id,
     });
     const account = product?.accountCode && /^7\d{2,7}$/.test(product.accountCode) ? product.accountCode : desk.revenueAccount || "701100";
@@ -220,7 +220,12 @@ const CASH_SURPLUS = { accountCode: "758100", accountLabel: "Excédents de caiss
 
 /** Totaux d'une journée de comptoir, par moyen de paiement, et ventes du jour. */
 export async function dayFigures(tenantId: string, deskId: unknown, day: string, session?: ClientSession) {
-  const from = new Date(`${day}T00:00:00.000`), to = new Date(`${day}T23:59:59.999`);
+  return periodFigures(tenantId, deskId, day, day, session);
+}
+
+/** Mêmes totaux sur une période de jours (caisse de la semaine). */
+export async function periodFigures(tenantId: string, deskId: unknown, fromDay: string, toDay: string, session?: ClientSession) {
+  const from = new Date(`${fromDay}T00:00:00.000`), to = new Date(`${toDay}T23:59:59.999`);
   const match = { tenantId: new Types.ObjectId(tenantId), deskId: new Types.ObjectId(String(deskId)), date: { $gte: from, $lte: to } };
   const [rows, sales] = await Promise.all([
     ActivityCashEntryModel.aggregate<{ _id: { m: string; d: string }; total: number }>([
@@ -249,7 +254,7 @@ export async function dayFigures(tenantId: string, deskId: unknown, day: string,
  * par moyen, les espèces comptées et l'écart, comptabilise l'écart (658100
  * manquant / 758100 excédent, contre la caisse) et verrouille la journée.
  */
-export async function closeDay(auth: TokenPayload, input: { deskId: string; day: string; countedCash: number; openingFloat?: number; notes?: string }, session?: ClientSession) {
+export async function closeDay(auth: TokenPayload, input: { deskId: string; day: string; fromDay?: string; sessionId?: unknown; countedCash: number; openingFloat?: number; notes?: string }, session?: ClientSession) {
   const tenantId = auth.tenantId;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.day || "")) throw new BusinessRuleError("Journée invalide.");
   if (input.day > localDay(new Date())) throw new BusinessRuleError("Une journée future ne s'arrête pas.");
@@ -261,12 +266,15 @@ export async function closeDay(auth: TokenPayload, input: { deskId: string; day:
   if (await CashClosingModel.exists({ tenantId, deskId: desk._id, day: { $gte: input.day } }).session(session ?? null))
     throw new BusinessRuleError("Cette journée (ou une journée postérieure) est déjà arrêtée.");
 
-  const f = await dayFigures(tenantId, desk._id, input.day, session);
+  // Période (caisse de la semaine) : du premier jour non arrêté à ce jour.
+  const fromDay = input.fromDay && /^\d{4}-\d{2}-\d{2}$/.test(input.fromDay) && input.fromDay < input.day ? input.fromDay : input.day;
+  const f = await periodFigures(tenantId, desk._id, fromDay, input.day, session);
   // Le fonds de caisse du matin est compté avec les espèces du soir.
   const theoreticalCash = Math.max(0, Math.round(Number(input.openingFloat) || 0)) + f.cashNet;
   const gap = counted - theoreticalCash;
   const [closing] = await CashClosingModel.create([{
-    tenantId, deskId: desk._id, day: input.day, byMethod: f.byMethod, theoreticalCash, countedCash: counted, gap,
+    tenantId, deskId: desk._id, day: input.day, ...(fromDay !== input.day ? { fromDay } : {}), ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+    byMethod: f.byMethod, theoreticalCash, countedCash: counted, gap,
     salesCount: f.salesCount, salesTTC: f.salesTTC, marginHT: f.marginHT,
     notes: input.notes ? String(input.notes).slice(0, 500) : undefined, closedBy: auth.userId,
   }], { session });
@@ -278,7 +286,7 @@ export async function closeDay(auth: TokenPayload, input: { deskId: string; day:
     await registerLedgerAccount(tenantId, counter.accountCode, counter.accountLabel, session);
     const amount = Math.abs(gap), tag = desk.activityId ? { activityId: desk.activityId } : {};
     const date = new Date(`${input.day}T23:59:00.000`);
-    const label = `${desk.name} — ${gap < 0 ? "manquant" : "excédent"} de caisse du ${input.day}`;
+    const label = `${desk.name} — ${gap < 0 ? "manquant" : "excédent"} de caisse ${fromDay !== input.day ? `du ${fromDay} au ${input.day}` : `du ${input.day}`}`;
     const [entry] = await AccountingEntryModel.create([{
       tenantId, journalCode: ledger.journalCode, entryDate: date, reference: `ARR-${input.day}`, label,
       lines: gap < 0

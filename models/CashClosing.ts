@@ -14,6 +14,9 @@ const CashClosingSchema = new Schema({
   deskId: { type: Schema.Types.ObjectId, ref: "ActivityDesk", required: true },
   /** Journée arrêtée (AAAA-MM-JJ, heure locale). */
   day: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+  /** Arrêté d'une période (caisse de la semaine) : premier jour couvert. */
+  fromDay: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
+  sessionId: { type: Schema.Types.ObjectId, ref: "CashSession" },
   /** Totaux théoriques par moyen de paiement (recettes − dépenses). */
   byMethod: [{ _id: false, method: String, receipts: Number, expenses: Number }],
   theoreticalCash: { type: Number, required: true },

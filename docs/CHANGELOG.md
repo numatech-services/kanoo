@@ -1,5 +1,49 @@
 # Kanoo — Changelog
 
+## The Spot — rentabilité par article et caisse de la semaine (octobre 2026)
+
+**Rentabilité par article** (onglet « Rentabilité » du comptoir, `lib/comptoir-economics.ts`)
+- **Achat au conditionnement** : un paquet de 24 à 5 000 FCFA donne le coût de revient à l'unité (208,33). Il se renseigne à la création de l'article ou par le crayon.
+- **Indicateurs par article** :
+  - marge unitaire, taux de marque et taux de marge ;
+  - marge d'un paquet vendu en entier ;
+  - prix plancher (en dessous, chaque vente perd de l'argent) ;
+  - prix conseillé pour le taux de marque visé du comptoir (30 % par défaut, réglable).
+- **Signalements** : articles vendus à perte, à marge mince (moins de 15 %), ou sans coût ni prix.
+- **Stock** : chiffre d'affaires et marge attendus si tout le stock est vendu au prix affiché.
+- **Ventes réelles de la période** :
+  - par article : quantités, chiffre d'affaires, marge et rang ;
+  - par famille ;
+  - meilleures ventes ;
+  - export CSV.
+- **Calculateur libre** : prix du paquet ou coût unitaire, et prix de vente → marge, résultat par paquet, prix conseillé.
+- **Entrée de stock par paquets** : « 3 paquets à 5 100 » → 72 unités à 212,50, prix du paquet mis à jour. Une entrée à l'unité peut aussi porter son coût d'achat.
+
+**Caisse de la semaine** (onglet « Semaine », `models/CashSession.ts`, `lib/comptoir-session.ts`)
+- **Ouverture** avec un fonds de caisse. Le fonds proposé est le montant compté à la dernière fermeture.
+- **Bilan en direct** :
+  - chiffre d'affaires, nombre de tickets et panier moyen ;
+  - recettes, dépenses par nature et solde ;
+  - espèces attendues en caisse ;
+  - marge et taux de marque ;
+  - chiffre d'affaires par jour ;
+  - meilleures ventes (chiffre d'affaires, quantité, marge) et articles vendus à perte ;
+  - évolution par rapport à la semaine précédente.
+- **Fermeture** par le comptage :
+  - l'écart est passé en 658 / 758 ;
+  - les jours de la période sont verrouillés ;
+  - le bilan est figé et imprimable.
+- **Historique** semaine par semaine.
+- **Nature des dépenses de caisse** : achats de marchandises, ingrédients, personnel, transport, eau et électricité, entretien, loyer, autres.
+
+**Accès**
+- Coûts et marges : visibles par le chef du service The Spot, en plus de la direction et de la comptabilité.
+- Caissiers et serveurs : ils ne voient que le chiffre d'affaires et la caisse.
+
+**Tests**
+- 7 tests unitaires.
+- Scénario `e2e-spot` : 21 vérifications.
+
 ## Lot H4 — Fonctionnel (octobre 2026)
 
 **Automatisations**

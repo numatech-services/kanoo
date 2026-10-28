@@ -22,6 +22,13 @@ export interface IActivityItem {
   threshold?: number;
   /** Article du catalogue : son stock est celui de la réserve du comptoir. */
   productId?: Types.ObjectId;
+  /** Famille (boissons, biscuits, snacks…) pour les palmarès et la rentabilité. */
+  category?: string;
+  /**
+   * Conditionnement d'achat : on achète un « paquet » de `size` unités au prix
+   * `cost`, on revend à l'unité. Donne le coût de revient unitaire.
+   */
+  pack?: { label?: string; size?: number; cost?: number };
   archived: boolean;
   createdBy: Types.ObjectId;
   createdAt: Date;
@@ -39,6 +46,12 @@ const ActivityItemSchema = new Schema<IActivityItem>({
   salePrice: { type: Number, min: 0 },
   threshold: { type: Number, min: 0 },
   productId: { type: Schema.Types.ObjectId, ref: "Product", index: true },
+  category: { type: String, trim: true, maxlength: 60 },
+  pack: {
+    label: { type: String, trim: true, maxlength: 30 },
+    size: { type: Number, min: 1 },
+    cost: { type: Number, min: 0 },
+  },
   archived: { type: Boolean, default: false },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: true });

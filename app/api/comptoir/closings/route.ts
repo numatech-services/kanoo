@@ -5,7 +5,7 @@ import { withAuth, ok, created, badRequest, notFound, tenantFilter } from "@/lib
 import { isId, ownDesk } from "@/lib/comptoir";
 import { closeDay, dayFigures } from "@/lib/comptoir-sale";
 import { CashClosingModel } from "@/models/CashClosing";
-import { hasFinanceAccess } from "@/lib/role-resources";
+import { canSeeDeskCosts } from "@/lib/comptoir";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -22,7 +22,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   if (!isId(deskId)) return badRequest("Comptoir invalide");
   if (!(await ownDesk(auth, deskId))) return notFound("Comptoir introuvable");
   const day = url.searchParams.get("day");
-  const finance = hasFinanceAccess(auth);
+  const finance = canSeeDeskCosts(auth);
   const strip = <T extends Record<string, unknown>>(c: T) => (finance ? c : { ...c, marginHT: undefined });
   const items = await CashClosingModel.find({ ...tenantFilter(auth), deskId: new Types.ObjectId(deskId) })
     .populate("closedBy", "firstName lastName").sort({ day: -1 }).limit(90).lean<Array<Record<string, unknown>>>();

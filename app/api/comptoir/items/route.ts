@@ -1,13 +1,13 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound, tenantFilter, requireFields } from "@/lib/api-helpers";
-import { isId, ownDesk } from "@/lib/comptoir";
+import { isId, ownDesk, parsePack } from "@/lib/comptoir";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { logAudit } from "@/lib/audit";
 import { ProductModel } from "@/models/Product";
 import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
 import { TokenPayload } from "@/lib/auth";
-import { hasFinanceAccess } from "@/lib/role-resources";
+import { canSeeDeskCosts } from "@/lib/comptoir";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   const items = await ActivityItemModel.find({ ...tenantFilter(auth), deskId, archived: { $ne: true } })
     .populate("productId", "code label trackingMode").sort({ name: 1 }).lean<Array<Record<string, unknown>>>();
   // Coût d'achat et valeur du stock : gérant et comptabilité seulement.
-  return ok(hasFinanceAccess(auth) ? items : items.map(i => ({ ...i, unitCost: null })));
+  return ok(canSeeDeskCosts(auth) ? items : items.map(i => ({ ...i, unitCost: null })));
 });
 
 export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth: TokenPayload) => {
@@ -45,6 +45,8 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     }
     await deskWarehouse(auth.tenantId, body.deskId);
   }
+  const pack = "pack" in body ? parsePack(body.pack) : null;
+  if (pack === "invalid") return badRequest("Conditionnement invalide (nombre d'unités par paquet, prix du paquet).");
   const item = await ActivityItemModel.create({
     tenantId: auth.tenantId,
     deskId: body.deskId,
@@ -53,7 +55,10 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     sku: String(body.sku || product?.code || "").slice(0, 60) || undefined,
     productId: product?._id,
     quantity: product ? 0 : Math.max(0, Number(body.quantity) || 0),
-    unitCost: product ? product.purchaseCost ?? 0 : Math.max(0, Number(body.unitCost) || 0),
+    // Article propre acheté par paquet : coût unitaire = prix du paquet ÷ unités.
+    unitCost: product ? product.purchaseCost ?? 0 : Math.max(0, Number(body.unitCost) || 0) || (pack?.cost && pack.size ? Math.round((pack.cost / pack.size) * 100) / 100 : 0),
+    ...(pack ? { pack } : {}),
+    ...(body.category ? { category: String(body.category).trim().slice(0, 60) } : {}),
     salePrice: body.salePrice != null ? Math.max(0, Number(body.salePrice)) : undefined,
     threshold: body.threshold != null ? Math.max(0, Number(body.threshold)) : undefined,
     createdBy: auth.userId,

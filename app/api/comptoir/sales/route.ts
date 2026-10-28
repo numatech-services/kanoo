@@ -5,7 +5,7 @@ import { withAuth, ok, created, badRequest, notFound, tenantFilter } from "@/lib
 import { isId, ownDesk } from "@/lib/comptoir";
 import { createSale, hideCosts } from "@/lib/comptoir-sale";
 import { ComptoirSaleModel } from "@/models/ComptoirSale";
-import { hasFinanceAccess } from "@/lib/role-resources";
+import { canSeeDeskCosts } from "@/lib/comptoir";
 import { parsePeriod, periodMatch } from "@/lib/flow-filter";
 import { notifyRoles } from "@/lib/notify";
 import { logAudit } from "@/lib/audit";
@@ -23,7 +23,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   const sales = await ComptoirSaleModel.find({ ...tenantFilter(auth), deskId: new Types.ObjectId(deskId), ...periodMatch("date", parsePeriod(url)) })
     .populate("cashierId", "firstName lastName")
     .sort({ date: -1, createdAt: -1 }).limit(300).lean<Array<Record<string, unknown>>>();
-  return ok({ items: hasFinanceAccess(auth) ? sales : sales.map(hideCosts), showCosts: hasFinanceAccess(auth) });
+  return ok({ items: canSeeDeskCosts(auth) ? sales : sales.map(hideCosts), showCosts: canSeeDeskCosts(auth) });
 });
 
 /** Nouveau ticket : lignes, paiements (un ou plusieurs moyens), client facultatif. */
@@ -43,5 +43,5 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     });
   }
   const out = sale.toObject();
-  return created({ sale: hasFinanceAccess(auth) ? out : hideCosts(out), warnings: hasFinanceAccess(auth) ? warnings : warnings.filter(w => !/coût/.test(w)) });
+  return created({ sale: canSeeDeskCosts(auth) ? out : hideCosts(out), warnings: canSeeDeskCosts(auth) ? warnings : warnings.filter(w => !/coût/.test(w)) });
 });

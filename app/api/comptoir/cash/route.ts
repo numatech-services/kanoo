@@ -8,6 +8,7 @@ import { TokenPayload } from "@/lib/auth";
 import { Types } from "mongoose";
 import { parseFlow, parsePeriod, periodMatch, flowTotals } from "@/lib/flow-filter";
 import { assertDayOpen } from "@/lib/comptoir-sale";
+import { EXPENSE_CATEGORIES } from "@/lib/comptoir-session";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       amount,
       label: String(body.label).slice(0, 200).trim(),
       method: METHODS.includes(body.method) ? body.method : "cash",
+      ...(body.direction === "out" ? { category: body.category && body.category in EXPENSE_CATEGORIES ? body.category : "other" } : {}),
       date,
       createdBy: auth.userId,
     }], { session });

@@ -2,7 +2,7 @@ import { Types } from "mongoose";
 import { tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
-import { canPerformAction, effectiveRoles } from "@/lib/role-resources";
+import { canPerformAction, effectiveRoles, hasFinanceAccess } from "@/lib/role-resources";
 import { UserRole } from "@/types";
 
 import { postCashFlow } from "@/lib/cash-posting";
@@ -24,6 +24,16 @@ export function deskScope(auth: TokenPayload): string[] | null {
     if (canPerformAction(r as UserRole, "comptoir", "read", auth.allowedResources, levels[r])) return null;
   }
   return auth.siteIds ?? [];
+}
+
+/**
+ * Coûts d'achat, valeur du stock et marges du comptoir : direction et
+ * comptabilité, et chef du service The Spot (qui pilote ses prix). Masqués
+ * aux caissiers et serveurs.
+ */
+export function canSeeDeskCosts(auth: TokenPayload): boolean {
+  if (hasFinanceAccess(auth)) return true;
+  return effectiveRoles(auth.role, auth.roles).includes("svc_spot" as UserRole) && (auth.roleLevels ?? {}).svc_spot === "chef";
 }
 
 /** Vrai si l'appelant peut agir sur tous les sites (créer / paramétrer un comptoir). */
@@ -106,4 +116,17 @@ export async function accountForMethod(tenantId: string, deskAccount: unknown, m
   const target = await TreasuryAccountModel.findOne({ tenantId, type, isActive: { $ne: false } })
     .sort({ createdAt: 1 }).select("_id").session(session ?? null).lean<{ _id: unknown } | null>();
   return target?._id ?? deskAccount;
+}
+
+/** Conditionnement saisi à l'écran : { label, size, cost } validé, ou null pour l'effacer. */
+export function parsePack(raw: unknown): { label?: string; size: number; cost?: number } | null | "invalid" {
+  if (raw === null || raw === "") return null;
+  if (typeof raw !== "object") return "invalid";
+  const r = raw as { label?: unknown; size?: unknown; cost?: unknown };
+  const size = Number(r.size);
+  if (!r.size) return null;
+  if (!(Number.isFinite(size) && size >= 1 && size <= 10_000)) return "invalid";
+  const cost = r.cost === undefined || r.cost === null || r.cost === "" ? undefined : Number(r.cost);
+  if (cost !== undefined && !(Number.isFinite(cost) && cost >= 0)) return "invalid";
+  return { ...(r.label ? { label: String(r.label).trim().slice(0, 30) } : {}), size, ...(cost !== undefined ? { cost: Math.round(cost) } : {}) };
 }

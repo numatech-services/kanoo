@@ -134,7 +134,8 @@ const balanced = e => e && e.lines.reduce((t, l) => t + l.debit - l.credit, 0) =
   check("déjà annulé : refusé", (await g.req("POST", `/api/comptoir/sales/${t3._id}/cancel`, { reason: "bis" })).status === 400);
 
   console.log("\n▶ Coûts masqués au personnel du comptoir");
-  await g.req("POST", "/api/users", { email: "spot.h3@test.ne", password: PW, firstName: "Caissier", lastName: "H3", roles: ["svc_spot"], roleLevels: { svc_spot: "chef" } });
+  // Caissier : employé du service The Spot, affecté à ce comptoir.
+  await g.req("POST", "/api/users", { email: "spot.h3@test.ne", password: PW, firstName: "Caissier", lastName: "H3", roles: ["svc_spot"], roleLevels: { svc_spot: "employe" }, siteIds: [desk] });
   const { s: c } = await login("spot.h3@test.ne", PW);
   const cItems = D(await c.req("GET", `/api/comptoir/items?deskId=${desk}`));
   const cSales = D(await c.req("GET", `/api/comptoir/sales?deskId=${desk}&from=${today}&to=${today}`));

@@ -55,6 +55,11 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
     if (!/^6\d{2,7}$/.test(c)) return badRequest("Compte de charge (6…) attendu.");
     $set.expenseAccount = c;
   }
+  if ("targetMarkup" in clean) {
+    const r = Number(clean.targetMarkup);
+    if (!(r >= 0 && r < 0.95)) return badRequest("Taux de marque visé invalide (fraction : 0,30 pour 30 %).");
+    $set.targetMarkup = r;
+  }
   if ("vatRate" in clean) {
     const r = Number(clean.vatRate) || 0;
     if (!(r >= 0 && r < 0.5)) return badRequest("Taux de TVA invalide.");

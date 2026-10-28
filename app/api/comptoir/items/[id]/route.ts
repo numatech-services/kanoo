@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, noContent, notFound, badRequest, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
-import { isId, deskFilter } from "@/lib/comptoir";
+import { isId, deskFilter, parsePack } from "@/lib/comptoir";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { logAudit } from "@/lib/audit";
@@ -27,6 +27,12 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
   if ("unit" in clean) update.unit = String(clean.unit || "unité").slice(0, 24);
   if ("sku" in clean) update.sku = String(clean.sku || "").slice(0, 60);
   if ("archived" in clean) update.archived = Boolean(clean.archived);
+  if ("category" in clean) update.category = String(clean.category || "").trim().slice(0, 60) || undefined;
+  if ("pack" in clean) {
+    const pack = parsePack(clean.pack);
+    if (pack === "invalid") return badRequest("Conditionnement invalide (nombre d'unités par paquet, prix du paquet).");
+    update.pack = pack ?? undefined;
+  }
   for (const f of ["unitCost", "salePrice", "threshold"]) {
     if (f in clean) {
       const n = Number(clean[f]);
