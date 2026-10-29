@@ -580,8 +580,10 @@ export const CRON_JOBS: CronJob[] = [
       for (const tenant of tenants) {
         const admins = await getAdmins(tenant._id, ["pme_admin", "pme_accountant", "svc_compta", "admin_daf"]);
         for (const admin of admins) {
+          // TVA du mois écoulé, due avant le 15 (CGI 2026).
+          const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
           await notify(tenant._id, admin._id, "fiscal_reminder", "Rappel TVA",
-            `Déclaration TVA ${now.getMonth() + 1}/${now.getFullYear()} à déposer avant le 20/${now.getMonth() + 1}/${now.getFullYear()}`,
+            `Déclaration TVA ${prev.getMonth() + 1}/${prev.getFullYear()} à déposer avant le 15/${now.getMonth() + 1}/${now.getFullYear()}`,
             "fiscalite");
         }
       }

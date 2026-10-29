@@ -168,53 +168,54 @@ export function genererNumeroMarche(annee: number, sequence: number): string {
 
 // ─── IS/BIC ──────────────────────────────────────────────────────────────────
 
-export const IS_MINIMUM_FORFAITAIRE = 1_000_000; // 1 000 000 FCFA minimum IS
-export const IS_TAUX_PME = 0.30; // 30% taux normal
-export const IS_TAUX_REDUIT_AGRI = 0.15; // 15% secteur agricole
+/**
+ * CGI 2026 (Ordonnance n° 2025-22, loi de finances 2026) — voir
+ * docs/REFERENTIEL-FISCAL-SOCIAL-2026.md §6. Le minimum était codé à
+ * 1 000 000 FCFA fixe, les acomptes à 2 × 1/3 (mars, juillet) et un taux
+ * agricole de 15 % qui n'existe plus. Lecture technique des textes : à faire
+ * valider par un fiscaliste (marge brute, exonération des entreprises
+ * nouvelles et retraitements non gérés).
+ */
+export const IS_TAUX_PME = 0.30; // taux normal
+export const IS_TAUX_REDUIT = 0.26; // industrie manufacturière, presse agréée, enseignement ou santé exclusifs
+export const IMF_TAUX = 0.0175; // impôt minimum forfaitaire : 1,75 % du CA HT
+export const IMF_TAUX_INDUSTRIE = 0.0075; // 0,75 % pour l'industrie
+
+/** normal : 30 %, IMF 1,75 % ; industrie : 26 %, IMF 0,75 % ; reduit : 26 % (presse, enseignement, santé), IMF 1,75 %. */
+export type RegimeIS = "normal" | "industrie" | "reduit";
 
 /**
- * Calcule l'IS/BIC annuel avec minimum forfaitaire
- * @param resultatFiscal Résultat fiscal net après déductions
- * @param secteur "normal" | "agricole"
+ * IS/BIC annuel : IS sur la base arrondie au millier inférieur, comparé à
+ * l'IMF sur le chiffre d'affaires HT ; l'impôt dû est le plus élevé des deux.
  */
-export function calculerIS(resultatFiscal: number, secteur: "normal" | "agricole" = "normal"): {
+export function calculerIS(resultatFiscal: number, opts: { regime?: RegimeIS; chiffreAffairesHT?: number } = {}): {
   base: number;
   taux: number;
   montantTheorique: number;
+  /** IMF de l'exercice (taux × CA HT). */
   minimumForfaitaire: number;
+  tauxIMF: number;
   montantDu: number;
   isMinimumApplique: boolean;
 } {
-  const taux = secteur === "agricole" ? IS_TAUX_REDUIT_AGRI : IS_TAUX_PME;
-  const montantTheorique = Math.round(Math.max(0, resultatFiscal) * taux);
-  const isMinimumApplique = montantTheorique < IS_MINIMUM_FORFAITAIRE;
-  const montantDu = Math.max(montantTheorique, IS_MINIMUM_FORFAITAIRE);
-  return {
-    base: resultatFiscal,
-    taux,
-    montantTheorique,
-    minimumForfaitaire: IS_MINIMUM_FORFAITAIRE,
-    montantDu,
-    isMinimumApplique,
-  };
+  const regime = opts.regime ?? "normal";
+  const taux = regime === "normal" ? IS_TAUX_PME : IS_TAUX_REDUIT;
+  const tauxIMF = regime === "industrie" ? IMF_TAUX_INDUSTRIE : IMF_TAUX;
+  const base = Math.floor(Math.max(0, resultatFiscal) / 1000) * 1000;
+  const montantTheorique = Math.round(base * taux);
+  const minimumForfaitaire = Math.round(Math.max(0, opts.chiffreAffairesHT ?? 0) * tauxIMF);
+  const isMinimumApplique = minimumForfaitaire > montantTheorique;
+  return { base, taux, montantTheorique, minimumForfaitaire, tauxIMF, montantDu: Math.max(montantTheorique, minimumForfaitaire), isMinimumApplique };
 }
 
-/**
- * Acomptes provisionnels IS Niger (CGI art. 56)
- * 1/3 de l'IS N-1 payable en mars et en juillet
- */
-export function calculerAcomptesIS(isAnneeN1: number): {
-  acompte1: { montant: number; echeance: string };
-  acompte2: { montant: number; echeance: string };
+/** Acomptes de l'exercice suivant : 3 × 20 % de l'impôt de l'exercice, avant le 1/07, le 1/09 et le 1/11. */
+export function calculerAcomptesIS(isExercice: number, exercice = new Date().getFullYear() - 1): {
+  acomptes: Array<{ montant: number; echeance: string }>;
   total: number;
 } {
-  const acompte = Math.round(isAnneeN1 / 3);
-  const anneeN = new Date().getFullYear();
-  return {
-    acompte1: { montant: acompte, echeance: `31/03/${anneeN}` },
-    acompte2: { montant: acompte, echeance: `31/07/${anneeN}` },
-    total: acompte * 2,
-  };
+  const montant = Math.round(isExercice * 0.2);
+  const y = exercice + 1;
+  return { acomptes: ["01/07", "01/09", "01/11"].map(d => ({ montant, echeance: `avant le ${d}/${y}` })), total: montant * 3 };
 }
 
 // ─── SMIG Niger ───────────────────────────────────────────────────────────────

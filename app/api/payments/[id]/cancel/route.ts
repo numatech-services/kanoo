@@ -8,7 +8,7 @@ import { InvoiceModel } from "@/models/Invoice";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { reverseEntry } from "@/lib/accounting-reversal";
-import { statusAfterPaymentRemoved } from "@/lib/payments";
+import { statusAfterPaymentRemoved, STAMP_CHARGE } from "@/lib/payments";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 
@@ -22,6 +22,7 @@ export const POST = withAuth("payments", "delete", async (req: NextRequest, auth
   const body = await req.json().catch(() => ({}));
   const reason = String(body.reason ?? "").trim();
   if (!reason) return badRequest("Indiquez le motif de l'annulation.");
+  const keepStamp = body.keepStamp === true;
   const payment = await PaymentModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!payment) return notFound("Paiement introuvable");
   if (payment.status !== "effective") return badRequest(payment.status === "cancelled" ? "Paiement déjà annulé." : "Paiement en attente : supprimez-le simplement.");
@@ -31,8 +32,17 @@ export const POST = withAuth("payments", "delete", async (req: NextRequest, auth
       { $set: { status: "cancelled", cancelledAt: new Date(), cancelReason: reason.slice(0, 300) } }, { session });
     if (r.modifiedCount !== 1) throw new BusinessRuleError("Paiement déjà annulé.");
     const invoice = await InvoiceModel.findOne({ _id: payment.invoiceId, ...tenantFilter(auth) }).session(session ?? null);
-    const entry = await AccountingEntryModel.findOne({ tenantId: auth.tenantId, linkedDocType: "payment", linkedDocId: payment._id, reversedBy: { $exists: false } }).session(session ?? null);
-    if (entry) await reverseEntry({ tenantId: auth.tenantId, userId: auth.userId, entryId: entry._id, reason: `encaissement annulé : ${reason}` }, session);
+    // Toutes les écritures du règlement : en espèces, il y en a deux (règlement
+    // et timbre-quittance). Une seule était extournée — au hasard de l'ordre
+    // de lecture —, et le règlement pouvait rester en comptabilité.
+    // Timbre : extourné pour une erreur de saisie ; gardé si le reçu a été
+    // remis au client (`keepStamp`), car il reste alors dû sur la quittance.
+    const entries = await AccountingEntryModel.find({ tenantId: auth.tenantId, linkedDocType: "payment", linkedDocId: payment._id, reversedBy: { $exists: false }, reverses: { $exists: false } }).session(session ?? null);
+    const isStamp = (e: { journalCode?: string; lines: Array<{ accountCode: string }> }) => e.journalCode === "OD" && e.lines.some(l => l.accountCode === STAMP_CHARGE.accountCode);
+    for (const entry of entries) {
+      if (keepStamp && isStamp(entry)) continue;
+      await reverseEntry({ tenantId: auth.tenantId, userId: auth.userId, entryId: entry._id, reason: `encaissement annulé : ${reason}` }, session);
+    }
     const moves = await TreasuryMovementModel.find({ tenantId: auth.tenantId, linkedDocType: "payment", linkedDocId: payment._id }).session(session ?? null);
     for (const m of moves) {
       await TreasuryMovementModel.create([{
@@ -53,6 +63,6 @@ export const POST = withAuth("payments", "delete", async (req: NextRequest, auth
     }
   });
 
-  await logAudit(auth, "UPDATE", "payments", { resourceId: String(params.id), after: { status: "cancelled", reason } });
+  await logAudit(auth, "UPDATE", "payments", { resourceId: String(params.id), after: { status: "cancelled", reason, ...(keepStamp ? { keepStamp } : {}) } });
   return ok({ status: "cancelled" });
 });

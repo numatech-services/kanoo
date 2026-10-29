@@ -113,10 +113,10 @@ export async function briefCandidates(auth: TokenPayload, can: Can, now = new Da
     }
   });
 
-  // TVA du mois précédent, à déposer avant le 20.
+  // TVA du mois précédent, à déposer avant le 15 (CGI 2026).
   if (can("fiscalDeclarations")) await safe(async () => {
     const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const deadline = new Date(now.getFullYear(), now.getMonth(), 20);
+    const deadline = new Date(now.getFullYear(), now.getMonth(), 15);
     const left = Math.ceil((deadline.getTime() - now.getTime()) / DAY);
     if (left < 0 || left > 12) return;
     const done = await FiscalDeclarationModel.exists({ tenantId: tid, type: "tva", "period.annee": prev.getFullYear(), "period.mois": prev.getMonth() + 1, status: { $in: ["submitted", "paid"] } });

@@ -254,46 +254,49 @@ describe("Prime d'ancienneté (Code Travail Niger art. 167)", () => {
   });
 });
 
-describe("IS/BIC Niger (30%)", () => {
-  test("IS = 30% du résultat fiscal", () => {
-    const r = calculerIS(1_000_000);
+describe("IS/BIC Niger — CGI 2026 (IS 30 %, IMF 1,75 % du CA HT)", () => {
+  test("IS = 30 % de la base arrondie au millier inférieur", () => {
+    const r = calculerIS(1_000_999);
     expect(r.taux).toBe(0.30);
+    expect(r.base).toBe(1_000_000);
     expect(r.montantTheorique).toBe(300_000);
   });
 
-  test("Minimum forfaitaire = 1 000 000 XOF si IS théorique inférieur", () => {
-    const r = calculerIS(500_000); // 500k × 30% = 150k < minimum
+  test("IMF = 1,75 % du CA HT ; l'impôt dû est le plus élevé des deux", () => {
+    const r = calculerIS(500_000, { chiffreAffairesHT: 100_000_000 }); // IS 150 000 < IMF 1 750 000
+    expect(r.minimumForfaitaire).toBe(1_750_000);
     expect(r.isMinimumApplique).toBe(true);
-    expect(r.montantDu).toBe(1_000_000);
+    expect(r.montantDu).toBe(1_750_000);
   });
 
-  test("Minimum forfaitaire non appliqué si IS > 1M", () => {
-    const r = calculerIS(5_000_000); // 5M × 30% = 1.5M > minimum
+  test("IMF non appliqué si l'IS est plus élevé", () => {
+    const r = calculerIS(50_000_000, { chiffreAffairesHT: 100_000_000 }); // IS 15 000 000 > IMF 1 750 000
     expect(r.isMinimumApplique).toBe(false);
-    expect(r.montantDu).toBe(1_500_000);
+    expect(r.montantDu).toBe(15_000_000);
   });
 
-  test("IS sur résultat nul = minimum forfaitaire", () => {
-    const r = calculerIS(0);
-    expect(r.montantDu).toBe(1_000_000);
+  test("Résultat nul ou négatif : l'IMF seul est dû", () => {
+    expect(calculerIS(0, { chiffreAffairesHT: 40_000_000 }).montantDu).toBe(700_000);
+    expect(calculerIS(-500_000, { chiffreAffairesHT: 40_000_000 }).montantDu).toBe(700_000);
   });
 
-  test("IS sur résultat négatif = minimum forfaitaire", () => {
-    const r = calculerIS(-500_000);
-    expect(r.montantDu).toBe(1_000_000);
+  test("Plus de minimum fixe de 1 000 000 FCFA", () => {
+    expect(calculerIS(0, { chiffreAffairesHT: 10_000_000 }).montantDu).toBe(175_000);
   });
 
-  test("Acomptes provisionnels = 1/3 IS N-1 × 2", () => {
-    const r = calculerAcomptesIS(3_000_000);
-    expect(r.acompte1.montant).toBe(1_000_000);
-    expect(r.acompte2.montant).toBe(1_000_000);
-    expect(r.total).toBe(2_000_000);
+  test("Industrie manufacturière : IS 26 %, IMF 0,75 %", () => {
+    const r = calculerIS(2_000_000, { regime: "industrie", chiffreAffairesHT: 100_000_000 });
+    expect(r.taux).toBe(0.26);
+    expect(r.montantTheorique).toBe(520_000);
+    expect(r.minimumForfaitaire).toBe(750_000);
+    expect(r.montantDu).toBe(750_000);
   });
 
-  test("Secteur agricole = 15%", () => {
-    const r = calculerIS(2_000_000, "agricole");
-    expect(r.taux).toBe(0.15);
-    expect(r.montantTheorique).toBe(300_000);
+  test("Acomptes : 3 × 20 % de l'impôt de l'exercice, avant le 1/07, le 1/09 et le 1/11 de l'année suivante", () => {
+    const r = calculerAcomptesIS(3_000_000, 2025);
+    expect(r.acomptes.map(a => a.montant)).toEqual([600_000, 600_000, 600_000]);
+    expect(r.acomptes.map(a => a.echeance)).toEqual(["avant le 01/07/2026", "avant le 01/09/2026", "avant le 01/11/2026"]);
+    expect(r.total).toBe(1_800_000);
   });
 });
 

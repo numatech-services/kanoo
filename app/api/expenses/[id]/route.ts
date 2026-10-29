@@ -15,7 +15,7 @@ import {
 } from "@/lib/expenses";
 import { expenseAuthority, teamMembers, canReimburse } from "@/lib/expense-scope";
 import { logAudit } from "@/lib/audit";
-import { treasuryLedger } from "@/lib/treasury";
+import { treasuryLedger, registerLedgerAccount } from "@/lib/treasury";
 import { checkImputations } from "@/lib/imputation";
 import { TokenPayload } from "@/lib/auth";
 import { authCan } from "@/lib/role-resources";
@@ -96,7 +96,10 @@ async function withRealAttachmentCounts(
   // Une pièce déposée sans désigner sa ligne couvre la première ligne qui en
   // réclame une : refuser la note pour un rattachement manquant serait
   // punir une maladresse d'interface, pas une absence de justificatif.
-  return report.lines.map(line => {
+  return report.lines.map(raw => {
+    // Sous-document Mongoose : `{ ...raw }` n'en recopie pas les champs
+    // (description, montant…), et aucune note ne passait plus la soumission.
+    const line = typeof (raw as { toObject?: () => unknown }).toObject === "function" ? (raw as unknown as { toObject: () => typeof raw }).toObject() : raw;
     const attached = perLine.get(String(line._id)) || 0;
     if (attached > 0) return { ...line, attachmentCount: attached };
     if (loose > 0) { loose--; return { ...line, attachmentCount: 1 }; }
@@ -240,6 +243,8 @@ export const PATCH = withAuth("expenses", "read", async (req: NextRequest, auth:
           { session }
         );
         if (r.modifiedCount !== 1) throw new BusinessRuleError("Cette note vient d'être traitée.");
+        // Comptes de charge ajoutés au plan s'il ne les a pas encore.
+        for (const l of entry) await registerLedgerAccount(auth.tenantId, l.accountCode, l.accountLabel, session);
         await AccountingEntryModel.create([{
           tenantId: auth.tenantId,
           journalCode: "OD",

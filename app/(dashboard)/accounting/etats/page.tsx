@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, Loader2 } from "lucide-react";
 import { inputCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
@@ -52,6 +52,8 @@ export default function StatementsPage() {
         <Link href="/accounting" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Comptabilité</Link>
         <h1 className="page-title mt-1">États comptables</h1>
       </div>
+      <ExportPanel />
+
       <div className="flex gap-1 flex-wrap">
         {TABS.map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} className={`px-4 h-9 rounded-lg text-sm font-semibold ${tab === k ? "bg-section text-onink" : "border border-line2 text-ink2 hover:bg-surface2"}`}>{l}</button>
@@ -157,5 +159,70 @@ export default function StatementsPage() {
         );
       })()}
     </div>
+  );
+}
+
+/**
+ * Exports d'un exercice : le classeur complet (avec les contrôles de
+ * cohérence) pour la direction et l'expert-comptable, et les formats
+ * d'échange des logiciels comptables.
+ */
+function ExportPanel() {
+  const y = new Date().getFullYear();
+  const [annee, setAnnee] = useState(String(y));
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const years = Array.from({ length: 6 }, (_, i) => String(y - i));
+
+  // Téléchargement par le serveur : indicateur pendant la préparation, erreur
+  // lisible (et non une page JSON brute), nombre de constats à la fin.
+  async function download() {
+    setBusy(true);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/exports/complet?annee=${annee}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: string } | null;
+        setResult({ ok: false, text: body?.error || `Export impossible (erreur ${res.status}).` });
+        return;
+      }
+      const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? `export-financier-${annee}.xlsx`;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      const n = (h: string) => Number(res.headers.get(h) ?? 0);
+      const crit = n("x-kanoo-critiques"), maj = n("x-kanoo-majeurs"), chk = n("x-kanoo-a-verifier");
+      setResult({ ok: crit + maj === 0, text: crit + maj + chk === 0
+        ? "Classeur téléchargé : aucun constat critique, majeur ou à vérifier."
+        : `Classeur téléchargé : ${crit} constat(s) critique(s), ${maj} majeur(s), ${chk} à vérifier. Ouvrez la feuille « Contrôles ».` });
+    } catch {
+      setResult({ ok: false, text: "Le téléchargement a été interrompu. Vérifiez la connexion et réessayez." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="bg-surface rounded-xl border border-line p-4 space-y-3">
+      <div className="flex gap-3 flex-wrap items-end">
+        <div className="mr-auto min-w-[16rem]">
+          <h2 className="text-sm font-semibold">Export de l&apos;exercice</h2>
+          <p className="text-xs text-ink3 mt-0.5">Classeur complet pour la direction et le cabinet : écritures, balance, bilan et résultat SYSCOHADA, TVA, pièces, paie, trésorerie, tiers, et contrôles de cohérence.</p>
+        </div>
+        <label className="block"><span className="block text-xs text-ink2 mb-1">Exercice</span>
+          <select className={`${inputCls} w-auto`} value={annee} onChange={e => setAnnee(e.target.value)} disabled={busy}>{years.map(v => <option key={v} value={v}>{v}</option>)}</select>
+        </label>
+        <button type="button" onClick={download} disabled={busy} className={buttonClass("primary", "md")}>
+          {busy ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} {busy ? "Préparation du classeur…" : "Export complet (Excel)"}
+        </button>
+        <a href={`/api/exports/sage?annee=${annee}`} className={buttonClass("secondary", "md")}>Sage 100</a>
+        <a href={`/api/exports/generic?format=fec&annee=${annee}`} className={buttonClass("secondary", "md")}>FEC</a>
+      </div>
+      {result && <p role="status" className={`text-sm rounded-lg p-2.5 ${result.ok ? "bg-pos-50 text-pos" : "bg-warn-50 text-warn"}`}>{result.text}</p>}
+    </section>
   );
 }

@@ -1,4 +1,4 @@
-import { neutralizeFormula } from "@/lib/csv";
+import { neutralizeFormula, encodeWindows1252 } from "@/lib/csv";
 import { NextRequest, NextResponse } from "next/server";
 import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { connectDB } from "@/lib/db";
@@ -16,8 +16,11 @@ export async function GET(req: NextRequest) {
 
   await connectDB();
   const url = new URL(req.url);
-  const annee = parseInt(url.searchParams.get("annee") || String(new Date().getFullYear()));
-  const mois = url.searchParams.get("mois") ? parseInt(url.searchParams.get("mois")!) : null;
+  const annee = Number(url.searchParams.get("annee") || new Date().getFullYear());
+  const mois = url.searchParams.get("mois") ? Number(url.searchParams.get("mois")) : null;
+  if (!Number.isInteger(annee) || annee < 2000 || annee > new Date().getFullYear() + 1 || (mois !== null && (!Number.isInteger(mois) || mois < 1 || mois > 12))) {
+    return NextResponse.json({ success: false, error: "Période invalide (annee : 2000 à l'an prochain ; mois : 1 à 12)." }, { status: 400 });
+  }
 
   const start = mois ? new Date(annee, mois - 1, 1) : new Date(annee, 0, 1);
   const end   = mois ? new Date(annee, mois, 0, 23, 59, 59) : new Date(annee, 11, 31, 23, 59, 59);
@@ -40,7 +43,8 @@ export async function GET(req: NextRequest) {
         dateStr,
         line.accountCode,
         `"${neutralizeFormula(line.accountLabel || entry.label).replace(/"/g, "'")}"`,
-        entry.reference || "",
+        // Référence entre guillemets : un « ; » décalait les colonnes, un « = » s'exécutait dans Excel.
+        `"${neutralizeFormula(entry.reference || "").replace(/"/g, "'")}"`,
         line.debit > 0 ? line.debit.toString().replace(".", ",") : "0",
         line.credit > 0 ? line.credit.toString().replace(".", ",") : "0",
         line.letterRef || "",
@@ -51,10 +55,11 @@ export async function GET(req: NextRequest) {
   const csv = rows.join("\r\n");
   const filename = `export-sage-${annee}${mois ? `-${String(mois).padStart(2,"0")}` : ""}.csv`;
 
-  return new NextResponse(csv, {
+  return new NextResponse(encodeWindows1252(csv), {
     headers: {
       "Content-Type": "text/csv; charset=windows-1252",
       "Content-Disposition": `attachment; filename="${filename}"`,
+      "Cache-Control": "no-store",
     },
   });
 }

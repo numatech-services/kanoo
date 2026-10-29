@@ -90,7 +90,7 @@ export default function PaymentsPage() {
 
   // L'encaissement d'un paiement en attente se confirme avec sa date réelle et le compte crédité.
 
-  async function cancelPayment(id: string, pending: boolean) {
+  async function cancelPayment(id: string, pending: boolean, cash = false) {
     let res: { ok: boolean; data: { error?: string } };
     if (pending) {
       if (!(await confirmDialog({ title: "Supprimer ce paiement en attente ?", danger: true, confirmLabel: "Supprimer" }))) return;
@@ -105,7 +105,14 @@ export default function PaymentsPage() {
         multiline: true,
       });
       if (!reason) return;
-      res = await apiSend("POST", `/api/payments/${id}/cancel`, { reason });
+      // Espèces : le timbre-quittance reste dû si le reçu a été remis au client.
+      const keepStamp = cash && await confirmDialog({
+        title: "Le reçu a-t-il été remis au client ?",
+        message: "Si oui, le timbre-quittance reste dû et n'est pas annulé. S'il s'agit d'une erreur de saisie, il est annulé avec l'encaissement.",
+        confirmLabel: "Oui, reçu remis",
+        cancelLabel: "Non, erreur de saisie",
+      });
+      res = await apiSend("POST", `/api/payments/${id}/cancel`, { reason, keepStamp });
     }
     if (res.ok) load();
     else showToast(res.data?.error || "Annulation impossible.", "error");
@@ -182,7 +189,7 @@ export default function PaymentsPage() {
           : (
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-pos-50 text-pos border border-pos/25">Encaissé</span>
-              {canDelete && <button onClick={() => cancelPayment(record._id, false)} className="text-[11px] text-neg hover:underline">Annuler</button>}
+              {canDelete && <button onClick={() => cancelPayment(record._id, false, record.method === "cash")} className="text-[11px] text-neg hover:underline">Annuler</button>}
             </div>
           )
     },

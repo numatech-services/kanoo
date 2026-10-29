@@ -66,6 +66,8 @@ async function main() {
     import("../models/BankStatementLine").then(m => m.BankStatementLineModel),
     import("../models/TreasuryMovement").then(m => m.TreasuryMovementModel),
     import("../models/Invoice").then(m => m.InvoiceModel),
+    // Une déclaration IS/BIC par exercice (index unique partiel).
+    import("../models/FiscalDeclaration").then(m => m.FiscalDeclarationModel),
     import("../models/SubscriptionPurchase").then(m => m.SubscriptionPurchaseModel),
     import("../models/SubscriptionSale").then(m => m.SubscriptionSaleModel),
     import("../models/IdempotencyRecord").then(m => m.IdempotencyRecordModel),

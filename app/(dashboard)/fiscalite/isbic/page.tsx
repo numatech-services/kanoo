@@ -4,26 +4,34 @@ import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
 import { apiSend } from "@/lib/api-client";
+import { promptDialog, confirmDialog } from "@/components/ui/Dialogs";
 import { useApi } from "@/lib/use-api";
 export default function ISBICPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear() - 1);
-  const [secteur, setSecteur] = useState<"normal"|"agricole">("normal");
-  const { data, loading } = useApi<Record<string,unknown>|null>(`/api/fiscal/isbic?annee=${year}&secteur=${secteur}`, d=>d.data ?? null, null);
+  const [secteur, setSecteur] = useState<"normal"|"industrie"|"reduit">("normal");
+  const { data, loading, reload } = useApi<Record<string,unknown>|null>(`/api/fiscal/isbic?annee=${year}&secteur=${secteur}`, d=>d.data ?? null, null);
   const [submitting, setSubmitting] = useState(false);
   const inp = "px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
 
-  async function handleSubmit() {
+  async function handleSubmit(rectify: boolean) {
+    // Une déclaration déjà déposée ne se rectifie qu'avec un motif (tracé).
+    const motif = rectify ? await promptDialog({ title: "Rectifier la déclaration IS/BIC ?", message: "Les montants sont recalculés sur la comptabilité actuelle. L'ancienne version est conservée au journal d'audit.", label: "Motif de la rectification", confirmLabel: "Rectifier", required: true }) : undefined;
+    if (rectify && !motif) return;
+    if (!rectify && !(await confirmDialog({ title: "Enregistrer la déclaration IS/BIC ?", message: "À faire une fois la déclaration déposée auprès de la DGI. Exercice non clôturé : les montants peuvent encore changer.", confirmLabel: "Enregistrer" }))) return;
     setSubmitting(true);
-    await apiSend("POST", "/api/fiscal/isbic", { annee: year, resultatFiscal: (data as {resultatFiscal?:number})?.resultatFiscal, montantDu: (data as {calcul?:{montantDu:number}})?.calcul?.montantDu });
+    const res = await apiSend("POST", "/api/fiscal/isbic", { annee: year, secteur, motif });
     setSubmitting(false);
-    showToast("Déclaration IS/BIC soumise", "success");
+    if (!res.ok) { showToast((res.data as { error?: string })?.error || "Déclaration non enregistrée.", "error"); return; }
+    showToast(rectify ? "Déclaration IS/BIC rectifiée" : "Déclaration IS/BIC enregistrée", "success");
+    reload();
   }
+  const finished = year < now.getFullYear();
 
   const d = data as {
-    annee?:number; produits?:number; charges?:number; resultatComptable?:number; resultatFiscal?:number;
-    calcul?:{montantTheorique:number;montantDu:number;isMinimumApplique:boolean;taux:number};
-    acomptes?:{acompte1:{montant:number;echeance:string};acompte2:{montant:number;echeance:string}};
+    annee?:number; chiffreAffaires?:number; produits?:number; charges?:number; resultatComptable?:number; resultatFiscal?:number;
+    calcul?:{base:number;montantTheorique:number;montantDu:number;isMinimumApplique:boolean;taux:number;minimumForfaitaire:number;tauxIMF:number};
+    acomptes?:{acomptes:Array<{montant:number;echeance:string}>};
     statut?:string;
   } | null;
 
@@ -35,16 +43,18 @@ export default function ISBICPage() {
           <a href="/fiscalite" className="hover:text-ink">Fiscalité</a><span>→</span><span>IS/BIC</span>
         </div>
         <h1 className="page-title">Impôt sur les Sociétés (IS/BIC)</h1>
-        <p className="text-sm text-ink2 mt-1">Taux normal 30% · Minimum forfaitaire 1 000 000 FCFA · CGI Niger</p>
+        <p className="text-sm text-ink2 mt-1">CGI 2026 : IS 30 % (26 % secteurs prévus) · IMF 1,75 % du chiffre d&apos;affaires HT · impôt dû = le plus élevé des deux</p>
+        <p className="mt-2 p-2.5 bg-warn-50 border border-warn/25 rounded-lg text-xs text-warn">Calcul indicatif, à faire valider par votre fiscaliste avant dépôt. Il applique le CGI 2026 tel que le décrit le référentiel de Kanoo, sans les retraitements fiscaux (réintégrations, charges plafonnées, déficits), l&apos;IMF sur marge brute, l&apos;exonération des entreprises nouvelles, ni l&apos;imputation des retenues subies et des acomptes versés.</p>
       </div>
 
       <div className="flex gap-3">
         <select value={year} onChange={e=>setYear(Number(e.target.value))} className={inp}>
-          {[year-1, year, year+1].map(y => <option key={y} value={y}>Exercice {y}</option>)}
+          {[now.getFullYear()-3, now.getFullYear()-2, now.getFullYear()-1, now.getFullYear()].map(y => <option key={y} value={y}>Exercice {y}</option>)}
         </select>
-        <select value={secteur} onChange={e=>setSecteur(e.target.value as "normal"|"agricole")} className={inp}>
-          <option value="normal">Secteur normal (30%)</option>
-          <option value="agricole">Secteur agricole (15%)</option>
+        <select value={secteur} onChange={e=>setSecteur(e.target.value as "normal"|"industrie"|"reduit")} className={inp}>
+          <option value="normal">Régime normal (IS 30 %, IMF 1,75 %)</option>
+          <option value="industrie">Industrie manufacturière (IS 26 %, IMF 0,75 %)</option>
+          <option value="reduit">Presse agréée, enseignement ou santé (IS 26 %)</option>
         </select>
       </div>
 
@@ -56,8 +66,8 @@ export default function ISBICPage() {
           <div className="bg-surface rounded-xl border border-line p-5">
             <h2 className="font-semibold text-ink mb-4">Résultat fiscal {d.annee}</h2>
             {[
-              ["Total produits (comptes 7xx)", d.produits || 0, "text-pos"],
-              ["Total charges (comptes 6xx)", d.charges || 0, "text-neg"],
+              ["Total produits (classe 7 et produits HAO 82, 84, 86, 88)", d.produits || 0, "text-pos"],
+              ["Total charges (classe 6, charges HAO 81, 83, 85 et participation 87)", d.charges || 0, "text-neg"],
               ["Résultat comptable", d.resultatComptable || 0, "font-bold text-ink"],
               ["Résultat fiscal imposable", d.resultatFiscal || 0, "font-bold text-section"],
             ].map(([label, val, cls]) => (
@@ -74,8 +84,8 @@ export default function ISBICPage() {
               <h2 className="font-semibold text-ink mb-4">Calcul de l'IS</h2>
               <div className="space-y-2.5 text-sm">
                 <div className="flex justify-between"><span className="text-ink2">IS théorique ({Math.round(d.calcul.taux*100)}%)</span><span className="font-mono">{d.calcul.montantTheorique.toLocaleString("fr-FR")} FCFA</span></div>
-                <div className="flex justify-between"><span className="text-ink2">Minimum forfaitaire</span><span className="font-mono">1 000 000 FCFA</span></div>
-                {d.calcul.isMinimumApplique && <div className="p-2 bg-warn-50 border border-warn/25 rounded-lg text-xs text-warn">IS théorique inférieur au minimum — le minimum forfaitaire s'applique</div>}
+                <div className="flex justify-between"><span className="text-ink2">IMF ({(d.calcul.tauxIMF*100).toLocaleString("fr-FR")} % de {(d.chiffreAffaires||0).toLocaleString("fr-FR")} FCFA de chiffre d&apos;affaires HT)</span><span className="font-mono">{d.calcul.minimumForfaitaire.toLocaleString("fr-FR")} FCFA</span></div>
+                {d.calcul.isMinimumApplique && <div className="p-2 bg-warn-50 border border-warn/25 rounded-lg text-xs text-warn">IS inférieur à l'IMF : l'IMF est dû</div>}
                 <div className="flex justify-between pt-2 border-t border-line font-bold text-base">
                   <span>IS/BIC dû {d.annee}</span>
                   <span className="font-mono text-section">{d.calcul.montantDu.toLocaleString("fr-FR")} FCFA</span>
@@ -88,10 +98,10 @@ export default function ISBICPage() {
           {d.acomptes && (
             <div className="bg-info-50 border border-info/25 rounded-xl p-4">
               <p className="text-sm font-semibold text-info mb-3">Acomptes provisionnels {(d.annee||year)+1}</p>
-              <div className="grid grid-cols-2 gap-3">
-                {[d.acomptes.acompte1, d.acomptes.acompte2].map((a, i) => (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {d.acomptes.acomptes.map((a, i) => (
                   <div key={i} className="bg-surface rounded-lg p-3">
-                    <p className="text-xs text-ink2">Acompte {i+1} — à verser le {a.echeance}</p>
+                    <p className="text-xs text-ink2">Acompte {i+1} (20 %) — {a.echeance}</p>
                     <p className="font-bold font-mono text-info">{a.montant.toLocaleString("fr-FR")} FCFA</p>
                   </div>
                 ))}
@@ -100,12 +110,13 @@ export default function ISBICPage() {
           )}
 
           <div className="flex items-center justify-between pt-2">
-            <span className={`text-sm px-3 py-1 rounded-full font-medium ${d.statut==="submitted"?"bg-pos-50 text-pos":"bg-surface2 text-ink2"}`}>
-              {d.statut === "submitted" ? "Déclaration soumise" : "Non soumise"}
+            <span className={`text-sm px-3 py-1 rounded-full font-medium ${d.statut==="submitted"||d.statut==="paid"?"bg-pos-50 text-pos":"bg-surface2 text-ink2"}`}>
+              {d.statut === "paid" ? "Déclaration payée" : d.statut === "submitted" ? "Déclaration enregistrée" : "Non enregistrée"}
             </span>
-            {d.statut !== "submitted" && (
-              <button onClick={handleSubmit} disabled={submitting} className={buttonClass("primary", "md")}>
-                {submitting ? "Envoi…" : "Soumettre la déclaration"}
+            {!finished ? <span className="text-xs text-ink3">L&apos;exercice n&apos;est pas terminé.</span>
+              : d.statut !== "paid" && (
+              <button onClick={() => handleSubmit(d.statut === "submitted")} disabled={submitting} className={buttonClass(d.statut === "submitted" ? "secondary" : "primary", "md")}>
+                {submitting ? "Envoi…" : d.statut === "submitted" ? "Rectifier la déclaration" : "Enregistrer la déclaration"}
               </button>
             )}
           </div>

@@ -90,7 +90,7 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
     const label = String(body.label ?? "").trim().slice(0, 200);
     if (!label) return badRequest("Libellé obligatoire.");
     const counter = String(body.counterAccount ?? "").trim();
-    if (!/^[1-9]\d{2,7}$/.test(counter) || /^5[27]/.test(counter)) return badRequest("Compte de contrepartie invalide (ex. 627000 frais bancaires, 758000 produits divers, 101000 apport).");
+    if (!/^[1-9]\d{2,7}$/.test(counter) || /^5[27]/.test(counter)) return badRequest("Compte de contrepartie invalide (ex. 631000 frais bancaires, 758000 produits divers, 101000 apport).");
     const unknown = await unknownAccounts(auth.tenantId, [counter]);
     if (unknown.length) return badRequest(`Le compte ${counter} n'est pas dans le plan comptable.`);
     const imp = pickImputation(body);

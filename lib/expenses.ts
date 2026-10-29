@@ -34,17 +34,27 @@ export interface CategorySpec {
   receiptRequired: boolean;
 }
 
+/**
+ * Comptes du plan SYSCOHADA de Kanoo (lib/syscohada). Les notes de frais
+ * utilisaient des numéros du plan comptable français : 6251 à 6253
+ * (« voyages », « missions ») sont en SYSCOHADA des primes d'assurance, 6241
+ * l'entretien des biens, 6288 et 6289 des frais de télécommunications. Les
+ * écritures passées avant la correction restent sur ces comptes : à
+ * reclasser par une OD validée par le cabinet (l'export complet les signale).
+ * Les fournitures allaient au 6051, qui est l'eau dans le plan de Kanoo.
+ * Hébergement : TVA non déductible (logement, CGI 2026 — référentiel §4.3).
+ */
 export const CATEGORIES: Record<ExpenseCategory, CategorySpec> = {
-  transport:      { label: "Transport", account: "624100", accountLabel: "Transports du personnel", vatRecoverableByDefault: true, receiptRequired: true },
+  transport:      { label: "Transport", account: "618000", accountLabel: "Autres frais de transport (déplacements, taxis)", vatRecoverableByDefault: true, receiptRequired: true },
   carburant:      { label: "Carburant", account: "605300", accountLabel: "Carburants et lubrifiants", vatRecoverableByDefault: false, receiptRequired: true },
-  hebergement:    { label: "Hébergement", account: "625100", accountLabel: "Voyages et déplacements", vatRecoverableByDefault: true, receiptRequired: true },
-  restauration:   { label: "Restauration", account: "625200", accountLabel: "Missions et réceptions", vatRecoverableByDefault: false, receiptRequired: true },
-  mission:        { label: "Indemnité de mission", account: "625300", accountLabel: "Frais de mission", vatRecoverableByDefault: false, receiptRequired: false },
-  fournitures:    { label: "Fournitures", account: "605100", accountLabel: "Fournitures de bureau", vatRecoverableByDefault: true, receiptRequired: true },
+  hebergement:    { label: "Hébergement", account: "638200", accountLabel: "Frais de réception et missions", vatRecoverableByDefault: false, receiptRequired: true },
+  restauration:   { label: "Restauration", account: "638200", accountLabel: "Frais de réception et missions", vatRecoverableByDefault: false, receiptRequired: true },
+  mission:        { label: "Indemnité de mission", account: "638200", accountLabel: "Frais de réception et missions", vatRecoverableByDefault: false, receiptRequired: false },
+  fournitures:    { label: "Fournitures", account: "605500", accountLabel: "Fournitures de bureau", vatRecoverableByDefault: true, receiptRequired: true },
   telecom:        { label: "Télécommunications", account: "628100", accountLabel: "Frais de télécommunications", vatRecoverableByDefault: true, receiptRequired: true },
   representation: { label: "Représentation", account: "627100", accountLabel: "Frais de représentation", vatRecoverableByDefault: false, receiptRequired: true },
-  formation:      { label: "Formation", account: "628800", accountLabel: "Formation du personnel", vatRecoverableByDefault: true, receiptRequired: true },
-  autre:          { label: "Autre", account: "628900", accountLabel: "Autres charges externes", vatRecoverableByDefault: false, receiptRequired: true },
+  formation:      { label: "Formation", account: "633000", accountLabel: "Frais de formation du personnel", vatRecoverableByDefault: true, receiptRequired: true },
+  autre:          { label: "Autre", account: "638000", accountLabel: "Autres charges externes", vatRecoverableByDefault: false, receiptRequired: true },
 };
 
 /** Compte de dette envers le salarié, entre l'approbation et le remboursement. */

@@ -78,6 +78,7 @@ export const SYSCOHADA_ACCOUNTS: DefaultAccount[] = [
   { code: "625000", label: "Primes d'assurance" },
   { code: "626000", label: "Études, recherches et documentation" },
   { code: "627000", label: "Publicité, publications, relations publiques" },
+  { code: "627100", label: "Frais de représentation" },
   { code: "628100", label: "Frais de téléphone" },
   { code: "628300", label: "Frais d'internet et d'hébergement" },
   { code: "631000", label: "Frais bancaires" },
@@ -88,6 +89,7 @@ export const SYSCOHADA_ACCOUNTS: DefaultAccount[] = [
   { code: "637000", label: "Rémunérations de personnel extérieur (intérim)" },
   { code: "638100", label: "Frais de recrutement" },
   { code: "638200", label: "Frais de réception et missions" },
+  { code: "638000", label: "Autres charges externes" },
   { code: "641000", label: "Impôts et taxes directs" },
   { code: "646000", label: "Droits d'enregistrement et timbres" },
   { code: "658000", label: "Charges diverses" },
@@ -121,6 +123,7 @@ export const SYSCOHADA_ACCOUNTS: DefaultAccount[] = [
   // Classe 8 — Hors activités ordinaires
   { code: "812000", label: "Valeurs comptables des cessions d'immobilisations" },
   { code: "822000", label: "Produits des cessions d'immobilisations" },
+  { code: "485000", label: "Créances sur cessions d'immobilisations" },
 ];
 
 export const ACCOUNT_CLASS_LABEL: Record<string, string> = {

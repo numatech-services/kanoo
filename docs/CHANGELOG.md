@@ -1,5 +1,60 @@
 # Kanoo — Changelog
 
+## Comptabilité — export financier complet, erreurs corrigées, benchmark Sage (octobre 2026)
+
+**Export financier complet** (Comptabilité → États comptables → « Export de l'exercice ») : un classeur Excel par exercice.
+- *Contenu :*
+  - journal (colonnes et numérotation du FEC), balance ;
+  - bilan et compte de résultat SYSCOHADA (N et N-1), tableau des flux de l'exercice ;
+  - TVA, déclarations ;
+  - factures, encaissements, achats, règlements fournisseurs, notes de frais, paie par matricule, comptoir ;
+  - trésorerie et mouvements, clients, fournisseurs ;
+  - immobilisations, résultat par activité, plan comptable ;
+  - feuille « Contrôles » des écarts entre pièces et comptes.
+- *Génération :* en flux ; un export à la fois par organisation.
+- *Accès :* réservé à la comptabilité et à la direction.
+- *Traçabilité :* inscription au journal d'audit au début et à la fin de l'export, avec l'adresse IP.
+- *Fichiers :* `lib/financial-export.ts`, `GET /api/exports/complet`.
+
+**Erreurs corrigées**
+- **IS/BIC**
+  - la déclaration ne s'enregistrait jamais (type absent du modèle) ;
+  - le résultat fiscal ignorait la classe 8 ;
+  - le montant venait du navigateur, et la déclaration pouvait être réécrite sans trace.
+  - *Désormais :* recalcul par le serveur, une déclaration par exercice (index unique), rectification avec motif et état précédent au journal d'audit, exercice terminé uniquement, pas de dépôt par un stagiaire. Calcul affiché comme indicatif, à faire valider par un fiscaliste.
+- **TVA**
+  - le bouton « Soumettre la déclaration » ne faisait rien ;
+  - la route enregistrait les montants du navigateur, et une nouvelle déclaration à chaque envoi.
+  - *Désormais :* montants recalculés, une déclaration par mois, rectification motivée, écart signalé quand la comptabilité a changé depuis la déclaration (`lib/fiscal-declaration.ts`).
+- **Annulation d'un encaissement en espèces**
+  - une seule des deux écritures (règlement, timbre-quittance) était extournée.
+  - *Désormais :* les deux sont extournées, sauf le timbre si le reçu a été remis au client.
+- **Export Sage**
+  - les accents étaient déformés (fichier UTF-8 annoncé en Windows-1252), la référence de pièce n'était pas protégée, la période n'était pas contrôlée.
+  - *Désormais :* fichier réellement en Windows-1252, référence protégée, période contrôlée.
+- **Notes de frais**
+  - aucune ne pouvait être soumise (lignes relues vides) ;
+  - comptes du plan français remplacés par ceux du SYSCOHADA : 618000 transport, 638200 missions et réceptions, 633000 formation, 605500 fournitures (au lieu du 6051, l'eau), 638000 autres ;
+  - hébergement : TVA non récupérable par défaut (logement, CGI 2026).
+  - *Désormais :* comptes ajoutés au plan à l'approbation. Les anciennes écritures sont signalées par l'export, pour reclassement.
+- **Plan par défaut :** ajout de 485000, 627100, 638000.
+
+**Règles fiscales CGI 2026** (d'après `docs/REFERENTIEL-FISCAL-SOCIAL-2026.md`)
+- IS/BIC : IMF de 1,75 % du chiffre d'affaires HT (0,75 % pour l'industrie) au lieu d'un minimum fixe de 1 000 000 FCFA ; impôt dû = le plus élevé de l'IS et de l'IMF ; base arrondie au millier ; taux réduit de 26 % au lieu d'un taux agricole de 15 % ; acomptes de 3 × 20 % avant le 1er juillet, le 1er septembre et le 1er novembre.
+- TVA : échéance avant le 15 du mois suivant (écrans, rappels, brief quotidien), au lieu du 20.
+
+**Benchmark :** `docs/BENCHMARK-SAGE.md` — marche à suivre, conséquences des erreurs sur les données existantes, comparaison avec Sage 100, améliorations par priorité.
+
+**Points ouverts**
+- Règles IS/BIC à faire valider par un fiscaliste ; retraitements fiscaux, IMF sur marge brute, exonération des entreprises nouvelles, imputation des retenues et acomptes, montant réellement déposé.
+- Exigibilité de la TVA sur les services.
+- Liquidation de la TVA (4441/4449).
+- Numérotation et validation des écritures.
+- Tiers obligatoire en saisie manuelle.
+- Recomptabilisation contrôlée d'une pièce : les constats concernés passent aujourd'hui par l'éditeur.
+- Valorisation du stock et cautions hors de l'export.
+- Contrôles 419, 4117 et 491 par pièce.
+
 ## Nouveau design — suivi des marchés, agenda, comptoir, messagerie, documents (octobre 2026)
 
 **Suivi des marchés** (maquette appliquée)
