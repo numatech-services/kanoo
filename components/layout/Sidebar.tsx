@@ -71,6 +71,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Fournisseurs", href: "/suppliers", icon: <Factory size={18} /> },
     { label: "Bons de commande", href: "/commandes", icon: <Package size={18} /> },
     { label: "Factures & dépenses", href: "/depenses", icon: <ReceiptText size={18} /> },
+    { label: "Échéancier fournisseurs", href: "/depenses/echeancier", icon: <CalendarClock size={18} /> },
     { label: "Charges récurrentes", href: "/recurring-expenses", icon: <RefreshCw size={18} /> },
     { label: "Stock", href: "/stock", icon: <Warehouse size={18} /> },
     { label: "Entrepôts", href: "/stock/entrepots", icon: <Building2 size={18} /> },

@@ -220,7 +220,12 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
     lines.push({
       itemId: item._id, ...(item.productId ? { productId: item.productId } : {}), label: item.name, category: item.category || product?.category,
       ...line, stockMovementId, stockMoveId: moveId,
-      ...(promo ? { listPrice, promoId: new Types.ObjectId(promo.promo._id), promoName: promo.promo.name } : {}),
+      // Prix affiché et origine du prix, sur chaque ligne : l'écart de marge
+      // distingue ainsi promotions, remises et prix saisis à la caisse.
+      // Prix transmis par la caisse (EasyPay) égal au prix affiché : c'est le prix affiché.
+      // Article sans prix affiché : pas de référence, l'écart de prix ne peut pas être mesuré.
+      ...(listPrice > 0 ? { listPrice } : {}), priceSource: manual ? (price === listPrice ? "list" : "manual") : promo ? "promo" : "list",
+      ...(promo ? { promoId: new Types.ObjectId(promo.promo._id), promoName: promo.promo.name } : {}),
       ...(ingredients.length ? { ingredients } : {}),
     });
     const account = product?.accountCode && /^7\d{2,7}$/.test(product.accountCode) ? product.accountCode : desk.revenueAccount || "701100";

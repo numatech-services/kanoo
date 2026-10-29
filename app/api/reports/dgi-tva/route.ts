@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { VAT_LINES_MATCH, vatFromEntries } from "@/lib/vat";
 import { connectDB } from "@/lib/db";
 import { authorize, tenantFilter } from "@/lib/api-helpers";
+import { vatCreditAt } from "@/lib/vat-settlement";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 
 export async function GET(req: NextRequest) {
@@ -24,6 +25,8 @@ export async function GET(req: NextRequest) {
 
   const vat = vatFromEntries(entries);
   const tvaCollectee = vat.collected, tvaDeductible = vat.deductible, tvaNette = vat.net;
+  // Crédit des mois précédents (4449) imputé : même montant que l'écran TVA.
+  const credit = await vatCreditAt(auth.tenantId, start);
 
   const PDFDocument = (await import("pdfkit")).default;
   const buffers: Buffer[] = [];
@@ -39,7 +42,7 @@ export async function GET(req: NextRequest) {
     doc.moveDown();
     doc.fontSize(12).font("Helvetica").text(`Période : ${month.toString().padStart(2,"0")}/${year}`, { align: "center" });
     doc.moveDown(2);
-    const rows = [["TVA collectée (ventes)",tvaCollectee],["TVA déductible (achats)",tvaDeductible],["TVA nette",tvaNette],["Montant à verser DGI",Math.max(0,tvaNette)]];
+    const rows = [["TVA collectée (ventes)",tvaCollectee],["TVA déductible (achats)",tvaDeductible],["TVA nette",tvaNette],...(credit?[["Crédit des mois précédents",-credit] as [string, number]]:[]),["Montant à verser DGI",Math.max(0,tvaNette-credit)]];
     for (const [l, v] of rows) {
       doc.fontSize(11).font(l === "Montant à verser DGI" ? "Helvetica-Bold" : "Helvetica");
       doc.text(String(l), 80).text(`${Math.round(Number(v)).toLocaleString("fr-FR")} FCFA`, 400, doc.y - 15);

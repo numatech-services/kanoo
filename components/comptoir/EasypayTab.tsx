@@ -17,7 +17,8 @@ const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() +
 
 interface Key { _id: string; name: string; keyPrefix?: string; isActive: boolean; revokedAt?: string; lastUsedAt?: string; expiresAt?: string; createdAt: string; requestCount?: number }
 interface Ev { _id: string; type: string; externalId: string; occurredAt?: string; createdAt: string; status: "applied" | "failed" | "rejected" | "ignored"; error?: string; ref?: { kind: string; number?: string }; attempts: number }
-interface Data { keys: Key[]; events: Ev[]; counts: Record<string, number>; balance: number | null }
+interface Day { day: string; sales: number; card: number; voids: number; voided: number; topups: number; topup: number; net: number; received: number; paid: number; events: { applied: number; pending: number; ignored: number } }
+interface Data { keys: Key[]; events: Ev[]; counts: Record<string, number>; balance: number | null; daily?: Day[]; lastEventAt?: string | null }
 
 const STATUS: Record<Ev["status"], { label: string; tone: "pos" | "neg" | "warn" | "mute" }> = {
   applied: { label: "appliqué", tone: "pos" }, failed: { label: "en échec", tone: "neg" }, rejected: { label: "illisible", tone: "warn" }, ignored: { label: "écarté", tone: "mute" },
@@ -35,6 +36,8 @@ export function EasypayTab({ deskId, onChange }: { deskId: string; onChange: () 
   const [remit, setRemit] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const active = data.keys.filter(k => k.isActive);
+  // Heure de l'affichage, figée au premier rendu (pas d'appel impur pendant le rendu).
+  const [renderedAt] = useState(() => Date.now());
 
   async function createKey() {
     setBusy("key");
@@ -61,8 +64,38 @@ export function EasypayTab({ deskId, onChange }: { deskId: string; onChange: () 
     reload(); onChange();
   }
 
+  const days = data.daily ?? [];
+  const stale = active.length > 0 && (!data.lastEventAt || renderedAt - new Date(data.lastEventAt).getTime() > 86_400_000);
+  const DAYLBL = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
   return (
     <div className="space-y-5">
+      <section className="surface-card p-4 space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="font-semibold text-ink flex items-center gap-2"><ArrowLeftRight size={17} /> Rapprochement des 7 derniers jours</h3>
+          <p className={`text-xs ${stale ? "text-warn font-semibold" : "text-ink3"}`}>Dernier envoi de la caisse : {WHEN(data.lastEventAt)}{stale ? " — rien reçu depuis plus de 24 h : vérifier la connexion de la caisse" : ""}</p>
+        </div>
+        {(data.counts.failed || data.counts.rejected) ? <p className="text-sm text-neg">{(data.counts.failed ?? 0) + (data.counts.rejected ?? 0)} événement(s) en attente de traitement (plus bas : rejouer ou écarter) — tant qu&apos;ils attendent, ventes, stock et sommes dues sont incomplets.</p> : null}
+        <div className="overflow-x-auto">
+          <table className="table-dense w-full">
+            <thead><tr><th>Jour</th><th className="text-right">Ventes par carte</th><th className="text-right">Annulations</th><th className="text-right">Recharges au comptoir</th><th className="text-right">Dû par Numatech</th>{data.balance !== null && <th className="text-right">Reversements</th>}<th className="text-right">Envois reçus</th></tr></thead>
+            <tbody>
+              {days.map(d => (
+                <tr key={d.day} className="border-t border-line">
+                  <td className="whitespace-nowrap">{DAYLBL(d.day)}</td>
+                  <td className="text-right font-mono">{d.sales ? <>{MONEY(d.card)}<span className="block text-[11px] text-ink3">{d.sales} ticket(s)</span></> : "—"}</td>
+                  <td className="text-right font-mono">{d.voids ? <span className="text-neg">−{MONEY(d.voided)}</span> : "—"}</td>
+                  <td className="text-right font-mono">{d.topups ? <span>−{MONEY(d.topup)}</span> : "—"}</td>
+                  <td className={`text-right font-mono font-semibold ${d.net < 0 ? "text-neg" : ""}`}>{d.net ? MONEY(d.net) : "—"}</td>
+                  {data.balance !== null && <td className="text-right font-mono">{d.received ? <span className="text-pos">+{MONEY(d.received)}</span> : ""}{d.paid ? <span className="block text-neg">−{MONEY(d.paid)}</span> : ""}{!d.received && !d.paid ? "—" : ""}</td>}
+                  <td className="text-right text-xs whitespace-nowrap">{d.events.applied} appliqué(s){d.events.pending ? <span className="block text-neg">{d.events.pending} en attente</span> : null}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-ink3">« Dû par Numatech » : ventes payées par carte, moins les annulations et les recharges de cartes encaissées au comptoir. Le solde cumulé figure plus bas (compte courant). Pour un rapprochement à deux sources, EasyPay devra envoyer son total de clôture par jour (en préparation côté EasyPay).</p>
+      </section>
+
       <div className="surface-card p-4 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="max-w-2xl">

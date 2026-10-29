@@ -53,6 +53,36 @@ const AutomationSettingsSchema = new Schema(
       channels: { type: [{ type: String, enum: ["email", "sms", "whatsapp"] }], default: () => ["email"] },
       intervalDays: { type: Number, default: 30, min: 7, max: 120 },
     },
+    // Pilotage (comptoir, comptabilité, marchés). Sans ces champs, Mongoose
+    // ignorait les réglages enregistrés : ils revenaient toujours aux défauts.
+    comptoirMargins: {
+      enabled: { type: Boolean, default: true },
+      tolerancePts: { type: Number, default: 5, min: 0, max: 50 },
+    },
+    easypayRecon: {
+      enabled: { type: Boolean, default: true },
+      threshold: { type: Number, default: 500_000, min: 0 },
+    },
+    comptoirReorder: {
+      enabled: { type: Boolean, default: true },
+      autoOrder: { type: Boolean, default: false },
+    },
+    accountingChecks: {
+      enabled: { type: Boolean, default: true },
+      day: { type: Number, default: 10, min: 1, max: 28 },
+      email: { type: Boolean, default: false },
+    },
+    fiscalCalendar: {
+      enabled: { type: Boolean, default: true },
+    },
+    supplierPayments: {
+      enabled: { type: Boolean, default: true },
+      horizonDays: { type: Number, default: 7, min: 1, max: 60 },
+    },
+    tenderFollowup: {
+      enabled: { type: Boolean, default: true },
+      afterDays: { type: Number, default: 30, min: 7, max: 180 },
+    },
     updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }

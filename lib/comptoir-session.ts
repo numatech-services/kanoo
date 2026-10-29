@@ -16,24 +16,50 @@ import { EXPENSE_CATEGORIES } from "@/lib/expense-categories";
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const nextDay = (d: string) => { const x = new Date(`${d}T12:00:00`); x.setDate(x.getDate() + 1); return localDay(x); };
 
-export interface ProductRow { itemId: string; label: string; category?: string; quantity: number; revenueTTC: number; revenueHT: number; cost: number; margin: number; valued: boolean; tickets: number }
+export interface ProductRow {
+  itemId: string; label: string; category?: string; quantity: number; revenueTTC: number; revenueHT: number; cost: number; margin: number; valued: boolean; tickets: number;
+  /** Lignes valorisées (coût connu) : seules elles entrent dans l'écart de marge. */
+  valuedQty: number; valuedHT: number; valuedCost: number; unvaluedQty: number;
+  /** Prix affiché HT des lignes valorisées qui le portent (ventes récentes), et quantité des autres (anciennes ventes). */
+  listHT: number; noListQty: number;
+  /** Écarts de prix HT sur les lignes valorisées : promotions, remises, prix saisis à la caisse. */
+  promoHT: number; discountHT: number; manualHT: number;
+}
 
 /** Ventes par article sur une période (tickets payés), triées par chiffre d'affaires. */
 export async function productSales(tenantId: string, deskId: unknown, fromDay: string, toDay: string, session?: ClientSession): Promise<ProductRow[]> {
-  const rows = await ComptoirSaleModel.aggregate<{ _id: Types.ObjectId; label: string; category?: string; quantity: number; ttc: number; ht: number; cost: number; margin: number; unvalued: number; tickets: number }>([
+  const valued = { $ne: [{ $ifNull: ["$lines.marginHT", null] }, null] };
+  const ht = (ttc: unknown) => ({ $divide: [ttc, { $add: [1, { $ifNull: ["$lines.tvaRate", 0] }] }] });
+  const onValued = (expr: unknown) => ({ $sum: { $cond: [valued, expr, 0] } });
+  const hasList = { $gt: [{ $ifNull: ["$lines.listPrice", 0] }, 0] };
+  const priceGap = ht({ $multiply: [{ $subtract: ["$lines.unitPriceTTC", { $ifNull: ["$lines.listPrice", "$lines.unitPriceTTC"] }] }, "$lines.quantity"] });
+  const isPromo = { $or: [{ $eq: ["$lines.priceSource", "promo"] }, { $gt: ["$lines.promoId", null] }] };
+  const rows = await ComptoirSaleModel.aggregate<{ _id: Types.ObjectId; label: string; category?: string; quantity: number; ttc: number; ht: number; cost: number; margin: number; unvalued: number; tickets: number;
+    vQty: number; vHT: number; vCost: number; uQty: number; listHT: number; noListQty: number; promoHT: number; discountHT: number; manualHT: number }>([
     { $match: { tenantId: new Types.ObjectId(tenantId), deskId: new Types.ObjectId(String(deskId)), status: "paid", date: { $gte: new Date(`${fromDay}T00:00:00.000`), $lte: new Date(`${toDay}T23:59:59.999`) } } },
     { $unwind: "$lines" },
     { $group: {
       _id: "$lines.itemId", label: { $last: "$lines.label" }, category: { $last: "$lines.category" },
       quantity: { $sum: "$lines.quantity" }, ttc: { $sum: "$lines.totalTTC" }, ht: { $sum: "$lines.totalHT" },
       cost: { $sum: "$lines.costTotal" }, margin: { $sum: { $ifNull: ["$lines.marginHT", 0] } },
-      unvalued: { $sum: { $cond: [{ $eq: ["$lines.marginHT", null] }, 1, 0] } }, tickets: { $sum: 1 },
+      unvalued: { $sum: { $cond: [valued, 0, 1] } }, tickets: { $sum: 1 },
+      vQty: onValued("$lines.quantity"), vHT: onValued("$lines.totalHT"), vCost: onValued("$lines.costTotal"),
+      uQty: { $sum: { $cond: [valued, 0, "$lines.quantity"] } },
+      listHT: onValued({ $cond: [hasList, ht({ $multiply: ["$lines.listPrice", "$lines.quantity"] }), 0] }),
+      noListQty: onValued({ $cond: [hasList, 0, "$lines.quantity"] }),
+      promoHT: onValued({ $cond: [{ $and: [hasList, isPromo] }, priceGap, 0] }),
+      manualHT: onValued({ $cond: [{ $and: [hasList, { $eq: ["$lines.priceSource", "manual"] }] }, priceGap, 0] }),
+      // Remise en % sur la ligne : prix × quantité − total encaissé. Lignes remisées seulement :
+      // les écarts d'arrondi des autres lignes restent dans les « autres écarts ».
+      discountHT: onValued({ $cond: [{ $gt: [{ $ifNull: ["$lines.discount", 0] }, 0] }, { $subtract: [ht({ $multiply: ["$lines.unitPriceTTC", "$lines.quantity"] }), "$lines.totalHT"] }, 0] }),
     } },
     { $sort: { ttc: -1 } },
   ]).session(session ?? null);
   return rows.map(r => ({
     itemId: String(r._id), label: r.label, category: r.category, quantity: r.quantity, revenueTTC: r.ttc, revenueHT: r.ht,
     cost: r.cost, margin: Math.round(r.margin), valued: r.unvalued === 0, tickets: r.tickets,
+    valuedQty: r.vQty, valuedHT: r.vHT, valuedCost: r.vCost, unvaluedQty: r.uQty,
+    listHT: r.listHT, noListQty: r.noListQty, promoHT: r.promoHT, discountHT: -r.discountHT, manualHT: r.manualHT,
   }));
 }
 

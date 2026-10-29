@@ -4,9 +4,9 @@ import { notify, getAdmins, getRecipients, actAs, liveTenants, type Id, type Act
 import { loadAutomationSettings, claimOnce, claimEvery, releaseClaim, PLATFORM_TENANT } from "@/lib/automation-store";
 import {
   niameyDate, dayKey, dateLabel, isSendDay, payrollReminderDue, isLastDayOfMonth, packetPeriodDue,
-  consumption, crossedThresholds, treasuryBreach, briefText, briefHtml, MONTHS_FR, type AutomationSettings,
+  consumption, crossedThresholds, treasuryBreach, briefText, briefHtml, MONTHS_FR, fiscalRemindersDue, previousMonth, type AutomationSettings,
 } from "@/lib/automations";
-import { authCan } from "@/lib/role-resources";
+import { authCan, effectiveRoles } from "@/lib/role-resources";
 import { withTransaction } from "@/lib/db";
 import { sendEmail, emailWrapper } from "@/lib/email";
 import { sendWhatsApp } from "@/lib/whatsapp";
@@ -34,6 +34,23 @@ import { buildAccountantPacket } from "@/lib/accountant-packet";
 import { actualsByPrefix, type BudgetEntryRow, type BudgetLine } from "@/lib/budget";
 import { runBackup } from "@/lib/backup";
 import { ErrorEventModel } from "@/models/ErrorEvent";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
+import { ActivityItemModel } from "@/models/ActivityItem";
+import { ApiKeyModel } from "@/models/ApiKey";
+import { AutomationLogModel } from "@/models/AutomationLog";
+import { canSeeDeskCosts, deskScope } from "@/lib/comptoir";
+import { ComptoirSaleModel } from "@/models/ComptoirSale";
+import { IntegrationEventModel } from "@/models/IntegrationEvent";
+import { AppelCandidatureModel } from "@/models/AppelCandidature";
+import { FiscalDeclarationModel } from "@/models/FiscalDeclaration";
+import { productSales } from "@/lib/comptoir-session";
+import { reorderPlan } from "@/lib/spot-server";
+import { createReorderOrders } from "@/lib/comptoir-reorder";
+import { easypayBalance } from "@/lib/easypay-server";
+import { prepareFinancialExport } from "@/lib/financial-export";
+import { supplierSchedule } from "@/lib/supplier-schedule";
+import { vatFromEntries, VAT_LINES_MATCH } from "@/lib/vat";
+import { vatCreditAt } from "@/lib/vat-settlement";
 
 /**
  * Automatisations réglables par organisation (Réglages → Automatisations),
@@ -488,6 +505,355 @@ async function runErrorDigest(now = new Date()): Promise<string> {
   return `${errors.length} groupe(s) d'erreurs, résumé envoyé à ${sent} super-administrateur(s)`;
 }
 
+// ─── 11. Comptoir : point du matin (marges, réassort, EasyPay) ──────────────
+
+const fcfa = (n: number) => formatMoney(Math.round(n));
+/** Écart à l'objectif sous lequel on ne dérange personne (bruit d'une vente isolée). */
+const MARGIN_MATERIALITY = 1_000;
+const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+
+interface DeskReader { _id: Id; costs: boolean; operate: boolean; scope: string[] | null }
+
+/**
+ * Lecteurs possibles des comptoirs d'une organisation, selon leurs droits
+ * EFFECTIFS (rôles, niveaux, liste blanche, sites) et non le seul nom du rôle :
+ * `costs` voit les coûts, les marges et EasyPay, `operate` gère le réassort
+ * (gestionnaire d'activité, gérance). Un caissier n'a ni l'un ni l'autre.
+ */
+async function deskReaders(tenantId: Id): Promise<DeskReader[]> {
+  const roles = [...FINANCE_ROLES, "pme_manager", "pme_activity_manager", "svc_spot"];
+  const users = await UserModel.find({ tenantId, isActive: true, $or: [{ role: { $in: roles } }, { roles: { $in: roles } }] }).select("_id").lean<Array<{ _id: Id }>>();
+  const out: DeskReader[] = [];
+  for (const u of users) {
+    const a = await actAs(u._id);
+    if (!a || !authCan(a.auth, "comptoir", "read")) continue;
+    const auth = a.auth as never;
+    // Le réassort va aux gestionnaires (activité, gérance), pas au caissier qui a le droit
+    // de modifier le comptoir pour encaisser.
+    const manages = effectiveRoles(a.auth.role, a.auth.roles).some(r => r === "pme_activity_manager" || r === "pme_manager");
+    const costs = canSeeDeskCosts(auth), operate = costs || (manages && authCan(a.auth, "comptoir", "update"));
+    if (costs || operate) out.push({ _id: u._id, costs, operate, scope: deskScope(auth) });
+  }
+  return out;
+}
+const onDesk = (r: DeskReader, deskId: Id) => r.scope === null || r.scope.map(String).includes(String(deskId));
+
+async function runComptoirMorning(now = new Date()): Promise<string> {
+  let sent = 0, ordered = 0;
+  const errors: string[] = [];
+  const d = niameyDate(now);
+  const y = new Date(Date.UTC(d.year, d.month - 1, d.day - 1));
+  const day = `${y.getUTCFullYear()}-${String(y.getUTCMonth() + 1).padStart(2, "0")}-${String(y.getUTCDate()).padStart(2, "0")}`;
+  const dayLabel = y.toLocaleDateString("fr-FR", { timeZone: "UTC" });
+  for (const { tenant, settings } of await tenantsWhere(s => s.comptoirMargins.enabled || s.comptoirReorder.enabled || s.easypayRecon.enabled)) {
+    const desks = await ActivityDeskModel.find({ tenantId: tenant._id, archived: { $ne: true } }).select("name targetMarkup").lean<Array<{ _id: Id; name: string; targetMarkup?: number }>>();
+    if (!desks.length) continue;
+    let readers: DeskReader[] | null = null;
+    for (const desk of desks) {
+      // Une erreur sur un comptoir n'arrête pas les suivants.
+      try {
+        const key = `comptoir-morning:${desk._id}:${day}`;
+        if (await AutomationLogModel.exists({ tenantId: tenant._id, key })) continue;
+        const costParts: string[] = [], opsParts: string[] = [];
+        let tab = "stock";
+
+        if (settings.comptoirMargins.enabled) {
+          const sold = await productSales(String(tenant._id), desk._id, day, day);
+          if (sold.length) {
+            const targets = new Map((await ActivityItemModel.find({ tenantId: tenant._id, deskId: desk._id }).select("targetMarkup").lean<Array<{ _id: Id; targetMarkup?: number }>>())
+              .map(i => [String(i._id), i.targetMarkup ?? desk.targetMarkup ?? 0.3]));
+            // Ventes une à une sous le coût (prix plancher) : chaque ligne de ticket, pas la moyenne du jour.
+            const under = await ComptoirSaleModel.aggregate<{ _id: string; n: number; qty: number; loss: number }>([
+              { $match: { tenantId: tenant._id, deskId: desk._id, status: "paid", date: { $gte: new Date(`${day}T00:00:00.000`), $lte: new Date(`${day}T23:59:59.999`) } } },
+              { $unwind: "$lines" }, { $match: { "lines.marginHT": { $lt: 0 } } },
+              { $group: { _id: "$lines.label", n: { $sum: 1 }, qty: { $sum: "$lines.quantity" }, loss: { $sum: "$lines.marginHT" } } }, { $sort: { loss: 1 } },
+            ]);
+            if (under.length) costParts.push(`Vendu sous le coût : ${under.slice(0, 5).map(u => `${u._id} × ${u.qty} (${fcfa(u.loss)})`).join(", ")}`);
+            const below: string[] = [];
+            for (const r of sold) {
+              if (!(r.valuedHT > 0)) continue;
+              const target = targets.get(r.itemId) ?? desk.targetMarkup ?? 0.3;
+              const margin = r.valuedHT - r.valuedCost;
+              // Les promotions sont voulues : elles ne comptent pas dans le manque à gagner signalé.
+              const shortfall = r.valuedHT * target - margin + r.promoHT;
+              if ((margin / r.valuedHT) * 100 < target * 100 - settings.comptoirMargins.tolerancePts && shortfall >= MARGIN_MATERIALITY) {
+                below.push(`${r.label} (${Math.round((margin / r.valuedHT) * 100)} % pour ${Math.round(target * 100)} %, manque ${fcfa(shortfall)})`);
+              }
+            }
+            if (below.length) costParts.push(`Sous l'objectif de marge : ${below.slice(0, 5).join(", ")}`);
+            const unvalued = sold.filter(r => r.unvaluedQty > 0);
+            if (unvalued.length) costParts.push(`${unvalued.length} article(s) vendu(s) sans coût, marge inconnue : ${unvalued.slice(0, 4).map(r => r.label).join(", ")} (renseigner le coût dans l'onglet Marges)`);
+            if (costParts.length) tab = "rentabilite";
+          }
+        }
+
+        if (settings.comptoirReorder.enabled) {
+          const plan = await reorderPlan(String(tenant._id), String(desk._id));
+          const urgent = plan.toOrder.filter(l => l.urgent);
+          if (urgent.length) {
+            let note = "";
+            if (settings.comptoirReorder.autoOrder) {
+              // Le plan déduit déjà les quantités en commande : pas de second bon pour la même rupture.
+              const actor = await actorWith(tenant._id, ["pme_admin", "pme_manager", "pme_accountant", "svc_admin"], "commandes", "create");
+              const lines = urgent.filter(l => l.linked).map(l => ({ itemId: l.itemId, quantity: l.quantity }));
+              if (actor && lines.length) {
+                const r = await createReorderOrders(actor.auth as never, String(desk._id), lines, { note: `Réassort automatique — ${desk.name}` });
+                if ("error" in r) errors.push(`${tenant.name} / ${desk.name} : ${r.error}`);
+                else {
+                  ordered += r.orders.length;
+                  if (r.orders.length) note += ` ${r.orders.length} bon(s) de commande brouillon préparé(s), à valider par l'acheteur ou le gérant (Achats & stock → Bons de commande).`;
+                  if (r.noSupplier.length) note += ` Sans fournisseur habituel, non commandés : ${r.noSupplier.slice(0, 4).join(", ")}.`;
+                }
+              }
+              const shopping = urgent.filter(l => !l.linked);
+              if (shopping.length) note += ` Liste de courses (articles propres au comptoir) : ${shopping.slice(0, 4).map(l => `${l.name} ${l.quantity} ${l.unit}`).join(", ")}.`;
+            }
+            opsParts.push(`Réassort : ${urgent.length} article(s) en rupture avant le prochain approvisionnement — ${urgent.slice(0, 6).map(l => `${l.name} (${l.quantity} ${l.unit}${l.onOrder ? `, ${l.onOrder} déjà en commande` : ""})`).join(", ")}.${note}`);
+          }
+        }
+
+        if (settings.easypayRecon.enabled) {
+          const key = await ApiKeyModel.findOne({ tenantId: tenant._id, deskId: desk._id, isActive: true, revokedAt: { $exists: false } }).select("_id").lean();
+          const hasEvents = await IntegrationEventModel.exists({ tenantId: tenant._id, deskId: desk._id, source: "easypay" });
+          if (key || hasEvents) {
+            // Tout ce qui reste à traiter, quelle que soit sa date.
+            const open = await IntegrationEventModel.aggregate<{ n: number; oldest: Date }>([
+              { $match: { tenantId: tenant._id, deskId: desk._id, source: "easypay", status: { $in: ["failed", "rejected"] } } },
+              { $group: { _id: null, n: { $sum: 1 }, oldest: { $min: "$createdAt" } } },
+            ]);
+            if (open[0]?.n) opsParts.push(`EasyPay : ${open[0].n} événement(s) en attente de traitement, le plus ancien du ${new Date(open[0].oldest).toLocaleDateString("fr-FR")} (Comptoir → EasyPay : rejouer ou écarter)`);
+            const unposted = await ComptoirSaleModel.aggregate<{ n: number; ttc: number }>([
+              { $match: { tenantId: tenant._id, deskId: desk._id, status: "paid", entryId: { $exists: false }, "payments.method": "easypay" } },
+              { $group: { _id: null, n: { $sum: 1 }, ttc: { $sum: "$totalTTC" } } },
+            ]);
+            if (unposted[0]?.n) opsParts.push(`EasyPay : ${unposted[0].n} ticket(s) payé(s) par carte hors comptabilité (${fcfa(unposted[0].ttc)}) : relier le comptoir à une caisse (Paramètres du comptoir)`);
+            const last = await IntegrationEventModel.findOne({ tenantId: tenant._id, deskId: desk._id, source: "easypay" }).sort({ createdAt: -1 }).select("createdAt").lean<{ createdAt: Date } | null>();
+            if (key && (!last || now.getTime() - new Date(last.createdAt).getTime() > DAY)) {
+              opsParts.push(`EasyPay : aucune vente reçue de la caisse ${last ? `depuis le ${new Date(last.createdAt).toLocaleString("fr-FR")}` : "depuis la mise en service de la clé"} — vérifier la connexion de la caisse si le comptoir était ouvert`);
+            }
+            if (opsParts.some(p => p.startsWith("EasyPay")) && tab === "stock") tab = "easypay";
+          }
+        }
+
+        if (!costParts.length && !opsParts.length) continue;
+        if (!(await claimOnce(tenant._id, key))) continue;
+        readers ??= await deskReaders(tenant._id);
+        const title = `${desk.name} — point du matin (${dayLabel})`;
+        const link = `/comptoir?desk=${desk._id}&tab=${tab}`;
+        for (const r of readers.filter(x => onDesk(x, desk._id))) {
+          // EasyPay (sommes dues, envois à rejouer) : seulement à ceux qui voient les coûts, seuls à pouvoir agir dans l'onglet.
+          const parts = r.costs ? [...costParts, ...opsParts] : r.operate ? opsParts.filter(p => !p.startsWith("EasyPay")) : [];
+          if (!parts.length) continue;
+          // Sans linkedId : le point du lendemain ne doit pas être retenu parce que celui de la veille n'a pas été lu.
+          await notify(tenant._id, r._id, "comptoir_morning", title, parts.join(" • "), r.costs ? link : `/comptoir?desk=${desk._id}&tab=stock`);
+        }
+        sent++;
+      } catch (err) {
+        errors.push(`${tenant.name} / ${desk.name} : ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  }
+  return summary([[sent, "point(s) du matin de comptoir"], [ordered, "bon(s) de commande préparé(s)"]], errors);
+}
+
+// ─── 12. EasyPay : compte courant avec Numatech (hebdomadaire) ───────────────
+
+async function runEasypayBalance(now = new Date()): Promise<string> {
+  let alerted = 0;
+  const errors: string[] = [];
+  for (const { tenant, settings } of await tenantsWhere(s => s.easypayRecon.enabled && s.easypayRecon.threshold > 0)) {
+    try {
+      if (!(await IntegrationEventModel.exists({ tenantId: tenant._id, source: "easypay" }))) continue;
+      const balance = await easypayBalance(String(tenant._id));
+      if (Math.abs(balance) < settings.easypayRecon.threshold) continue;
+      // Une fois par semaine au plus : c'est l'état normal entre deux reversements.
+      if (!(await claimEvery(tenant._id, "easypay-balance", 7 * DAY - 3_600_000, now))) continue;
+      const msg = balance > 0
+        ? `Les ventes payées par carte EasyPay non encore reversées au comptoir atteignent ${fcfa(balance)} (compte courant 467100). Demander le reversement, puis l'enregistrer dans Comptoir → EasyPay.`
+        : `Les recharges de cartes encaissées au comptoir et non encore reversées atteignent ${fcfa(-balance)} (compte courant 467100). Les reverser, puis l'enregistrer dans Comptoir → EasyPay.`;
+      await notifyAll(tenant._id, FINANCE_ROLES, "easypay_balance", "EasyPay : reversement à faire", msg, "/comptoir?tab=easypay");
+      alerted++;
+    } catch (err) {
+      errors.push(`${tenant.name} : ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return summary([[alerted, "alerte(s) de reversement EasyPay"]], errors);
+}
+
+// ─── 14. Contrôles comptables du mois ────────────────────────────────────────
+
+async function runAccountingChecks(now = new Date()): Promise<string> {
+  let sent = 0;
+  const errors: string[] = [];
+  const d = niameyDate(now);
+  // Calcul lourd (tout l'exercice) : trois organisations au plus par passage,
+  // les suivantes au passage du lendemain (la clé du mois évite tout doublon).
+  let budget = 3;
+  for (const { tenant, settings } of await tenantsWhere((s, t) => s.accountingChecks.enabled && t.type !== "association")) {
+    if (d.day < settings.accountingChecks.day || budget <= 0) continue;
+    const period = previousMonth(d.year, d.month);
+    const key = `checks:${period.year}-${period.month}`;
+    try {
+      if (!(await claimOnce(tenant._id, key))) continue;
+      budget--;
+      if (!(await AccountingEntryModel.exists({ tenantId: tenant._id }))) continue;
+      const { anomalies, counts } = await prepareFinancialExport(String(tenant._id), period.year, { payroll: false });
+      const serious = anomalies.filter(a => a.severity === "Critique" || a.severity === "Majeur");
+      const label = `${MONTHS_FR[period.month - 1]} ${period.year}`;
+      const msg = serious.length
+        ? `${counts["Critique"]} constat(s) critique(s) et ${counts["Majeur"]} majeur(s) sur l'exercice ${period.year} : ${serious.slice(0, 3).map(a => `${a.check} (${a.piece})`).join(" ; ")}${serious.length > 3 ? "…" : ""}. Détail : Comptabilité → États comptables → Export de l'exercice, feuille « Contrôles ».`
+        : `Aucun constat critique ni majeur sur l'exercice ${period.year}${counts["À vérifier"] ? ` (${counts["À vérifier"]} point(s) à vérifier)` : ""}.`;
+      await notifyAll(tenant._id, FINANCE_ROLES, "accounting_checks", `Contrôles comptables après ${label}`, msg, "/accounting/etats");
+      if (settings.accountingChecks.email && serious.length) {
+        // Pièces et libellés saisis par les utilisateurs : échappés avant d'entrer dans le HTML.
+        const items = serious.slice(0, 10).map(a => `<li><strong>${esc(a.severity)}</strong> — ${esc(a.check)} : ${esc(a.piece)}${a.amount ? ` (${esc(fcfa(a.amount))})` : ""}</li>`).join("");
+        for (const u of await getRecipients(tenant._id, FINANCE_ROLES)) {
+          if (u.email) await sendEmail({ to: u.email, subject: `Contrôles comptables — ${tenant.name}`, html: mailBody(`Contrôles comptables après ${label}`, [`${counts["Critique"]} constat(s) critique(s), ${counts["Majeur"]} majeur(s).`, `<ul style="margin:0;padding-left:18px;">${items}</ul>`], { href: "/accounting/etats", label: "Ouvrir les états comptables" }), text: msg });
+        }
+      }
+      sent++;
+    } catch (err) {
+      await releaseClaim(tenant._id, key);
+      errors.push(`${tenant.name} : ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return summary([[sent, "contrôle(s) comptable(s) mensuel(s)"]], errors);
+}
+
+// ─── 15. Calendrier fiscal (CGI 2026) ────────────────────────────────────────
+
+async function runFiscalCalendar(now = new Date()): Promise<string> {
+  let sent = 0;
+  const errors: string[] = [];
+  const due = fiscalRemindersDue(now);
+  if (!due.length) return "rien à faire";
+  const since = new Date(now.getTime() - 400 * DAY);
+  for (const { tenant } of await tenantsWhere((s, t) => s.fiscalCalendar.enabled && (t.type === "pme" || t.type === "administration"))) {
+    try {
+      // Entreprise assujettie à la TVA : de la TVA en comptabilité depuis un an, ou une déclaration enregistrée.
+      const liable = tenant.type === "administration" || !!(await AccountingEntryModel.exists({ tenantId: tenant._id, entryDate: { $gte: since }, "lines.accountCode": { $regex: "^44[35]" } }))
+        || !!(await FiscalDeclarationModel.exists({ tenantId: tenant._id, type: "tva" }));
+      for (const r of due) {
+        if (await AutomationLogModel.exists({ tenantId: tenant._id, key: r.key })) continue;
+        if (r.kind.startsWith("tva_") && !liable) continue;
+        // Les administrations reversent la TVA retenue sur leurs fournisseurs ; acomptes d'IS et DSF ne les concernent pas.
+        if (tenant.type === "administration" && !r.kind.startsWith("tva_")) continue;
+        let message = tenant.type === "administration" ? r.message.replace("La déclaration de TVA", "Le reversement de la TVA retenue").replace("La TVA", "La TVA retenue") : r.message;
+        let link = "/fiscalite";
+        if (r.kind.startsWith("tva_")) {
+          const done = await FiscalDeclarationModel.exists({ tenantId: tenant._id, type: "tva", "period.annee": r.period.year, "period.mois": r.period.month, status: { $in: ["submitted", "paid"] } });
+          if (done) continue;
+          link = `/fiscalite/tva?annee=${r.period.year}&mois=${r.period.month}`;
+          if (r.kind === "tva_prepare" && tenant.type === "pme") {
+            const start = new Date(r.period.year, r.period.month! - 1, 1);
+            const entries = await AccountingEntryModel.find({ tenantId: tenant._id, entryDate: { $gte: start, $lte: new Date(r.period.year, r.period.month!, 0, 23, 59, 59, 999) }, ...VAT_LINES_MATCH })
+              .select("journalCode lines.accountCode lines.debit lines.credit").lean<Array<{ journalCode?: string; lines: Array<{ accountCode: string; debit?: number; credit?: number }> }>>();
+            const v = vatFromEntries(entries);
+            const credit = await vatCreditAt(String(tenant._id), start);
+            const toPay = Math.max(0, v.net - credit);
+            message += ` D'après la comptabilité : collectée ${fcfa(v.collected)}, déductible ${fcfa(v.deductible)}${credit ? `, crédit reporté ${fcfa(credit)}` : ""} : ${toPay ? `${fcfa(toPay)} à verser` : "rien à verser"}.`;
+            // Brouillon de la déclaration du mois (jamais par-dessus une déclaration existante).
+            await FiscalDeclarationModel.updateOne(
+              { tenantId: tenant._id, type: "tva", "period.annee": r.period.year, "period.mois": r.period.month },
+              { $setOnInsert: { status: "draft", amounts: { montant: v.collected, deductible: v.deductible, net: v.net } } },
+              { upsert: true },
+            );
+          }
+        }
+        if (r.kind.startsWith("tva_")) {
+          // Même échéance du 15 : ITS retenu sur les salaires et retenues à la source, soldes à fin de mois.
+          // (La CNSS, due 30 jours après la période, n'est pas couverte par ce rappel.)
+          const end = new Date(r.period.year, r.period.month!, 0, 23, 59, 59, 999);
+          const bal = await AccountingEntryModel.aggregate<{ _id: string; v: number }>([
+            { $match: { tenantId: tenant._id, entryDate: { $lte: end }, "lines.accountCode": { $regex: "^447[12]" } } },
+            { $unwind: "$lines" },
+            { $match: { "lines.accountCode": { $regex: "^447[12]" } } },
+            { $group: { _id: { $substrCP: ["$lines.accountCode", 0, 4] }, v: { $sum: { $subtract: [{ $ifNull: ["$lines.credit", 0] }, { $ifNull: ["$lines.debit", 0] }] } } } },
+          ]);
+          const its = Math.round(bal.find(b => b._id === "4471")?.v ?? 0), wh = Math.round(bal.find(b => b._id === "4472")?.v ?? 0);
+          const also = [its > 0 ? `ITS retenu sur les salaires ${fcfa(its)} (447100)` : "", wh > 0 ? `retenues à la source ${fcfa(wh)} (447200)` : ""].filter(Boolean);
+          if (also.length) message += ` À reverser aussi avant le 15, d'après les soldes au ${end.toLocaleDateString("fr-FR")} : ${also.join(", ")}.`;
+        }
+        if (r.kind === "is_acompte") {
+          link = "/fiscalite/isbic";
+          const decl = await FiscalDeclarationModel.findOne({ tenantId: tenant._id, type: "isbic", "period.annee": r.period.year - 1, status: { $in: ["submitted", "paid"] } }).sort({ updatedAt: -1 })
+            .lean<{ amounts?: { montant?: number } } | null>();
+          message += decl?.amounts?.montant ? ` Montant : ${fcfa(decl.amounts.montant * 0.2)} (20 % de l'IS/IMF ${r.period.year - 1} enregistré).` : ` La déclaration IS/BIC ${r.period.year - 1} n'est pas enregistrée dans Kanoo : montant à calculer avec votre fiscaliste.`;
+        }
+        if (!(await claimOnce(tenant._id, r.key))) continue;
+        await notifyAll(tenant._id, FINANCE_ROLES, "fiscal_reminder", tenant.type === "administration" ? r.title.replace("TVA", "TVA retenue") : r.title, message, link);
+        sent++;
+      }
+    } catch (err) {
+      errors.push(`${tenant.name} : ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return summary([[sent, "rappel(s) fiscal(aux)"]], errors);
+}
+
+// ─── 16. Factures fournisseurs à payer ───────────────────────────────────────
+
+async function runSupplierPayments(now = new Date()): Promise<string> {
+  let alerted = 0;
+  const errors: string[] = [];
+  // Page « Échéancier fournisseurs » : menu des entreprises.
+  for (const { tenant, settings } of await tenantsWhere((s, t) => s.supplierPayments.enabled && t.type === "pme")) {
+    try {
+      const sched = await supplierSchedule(String(tenant._id), now);
+      const limit = now.getTime() + settings.supplierPayments.horizonDays * DAY;
+      const soon = sched.rows.filter(r => !r.bucket.startsWith("overdue") && r.dueDate && new Date(r.dueDate).getTime() <= limit);
+      const late = sched.rows.filter(r => r.bucket.startsWith("overdue"));
+      if (!soon.length && !late.length) continue;
+      // Une alerte par semaine au plus : l'échéancier détaille le reste.
+      if (!(await claimEvery(tenant._id, "suppliers:schedule", 7 * DAY - 3_600_000, now))) continue;
+      const sum = (rs: typeof soon) => rs.reduce((t, r) => t + r.remaining, 0);
+      const msg = [
+        late.length ? `${late.length} facture(s) en retard pour ${fcfa(sum(late))}` : "",
+        soon.length ? `${soon.length} à payer dans les ${settings.supplierPayments.horizonDays} jours pour ${fcfa(sum(soon))}` : "",
+      ].filter(Boolean).join(" ; ");
+      await notifyAll(tenant._id, FINANCE_ROLES, "supplier_payments", "Factures fournisseurs à payer", `${msg}. Voir Achats & stock → Échéancier fournisseurs.`, "/depenses/echeancier");
+      alerted++;
+    } catch (err) {
+      errors.push(`${tenant.name} : ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return summary([[alerted, "alerte(s) de paiement fournisseur"]], errors);
+}
+
+// ─── 17. Appels d'offres sans réponse ────────────────────────────────────────
+
+async function runTenderFollowup(now = new Date()): Promise<string> {
+  let sent = 0;
+  const errors: string[] = [];
+  for (const { tenant, settings } of await tenantsWhere(s => s.tenderFollowup.enabled)) {
+    try {
+      const after = settings.tenderFollowup.afterDays;
+      const cutoff = new Date(now.getTime() - after * DAY);
+      const stale = await AppelCandidatureModel.find({ tenantId: tenant._id, status: { $in: ["submitted", "evaluation"] } })
+        .select("title organism ownerId stageChangedAt updatedAt status result.submittedAt").lean<Array<{ _id: Id; title: string; organism?: string; ownerId?: Id; stageChangedAt?: Date; updatedAt?: Date; status: string; result?: { submittedAt?: Date } }>>();
+      for (const a of stale) {
+        // Depuis le dépôt de l'offre : le passage en évaluation ne remet pas le compteur à zéro.
+        const ref = new Date(a.result?.submittedAt ?? a.stageChangedAt ?? a.updatedAt ?? now);
+        if (ref > cutoff) continue;
+        const since = Math.floor((now.getTime() - ref.getTime()) / DAY);
+        // Au-delà de six mois, le dossier est à clore à la main : plus de relance automatique.
+        if (since > 180) continue;
+        if (!(await claimEvery(tenant._id, `tender:${a._id}`, after * DAY - 3_600_000, now))) continue;
+        const msg = `« ${a.title} »${a.organism ? ` (${a.organism})` : ""} : offre déposée depuis ${since} jours, toujours sans résultat. Relancez l'acheteur, ou saisissez le résultat (obtenu ou non retenu) ; pensez à la date de fin de validité de l'offre.`;
+        // Responsable du dossier ; à défaut (absent ou inactif), les dirigeants.
+        const owner = a.ownerId ? await UserModel.exists({ _id: a.ownerId, tenantId: tenant._id, isActive: true }) : null;
+        const to = owner ? [{ _id: a.ownerId! }] : await getAdmins(tenant._id, LEADER_ROLES);
+        // Sans linkedId : une relance non lue ne doit pas bloquer la suivante.
+        for (const u of to) await notify(tenant._id, u._id, "tender_followup", "Offre sans réponse", msg, `/appels/${a._id}`);
+        sent++;
+      }
+    } catch (err) {
+      errors.push(`${tenant.name} : ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return summary([[sent, "relance(s) d'offre"]], errors);
+}
+
 export const AUTOMATION_JOBS: CronJob[] = [
   { id: "auto-depreciation", label: "Amortissements de l'exercice écoulé", cadence: "monthly", schedule: "30 1 1 * *", run: () => runDepreciation() },
   { id: "morning-brief", label: "Brief du matin (e-mail / WhatsApp)", cadence: "daily", schedule: "0 6 * * *", run: () => runMorningBrief() },
@@ -499,10 +865,17 @@ export const AUTOMATION_JOBS: CronJob[] = [
   { id: "cotisation-reminders", label: "Cotisations impayées", cadence: "daily", schedule: "0 10 * * *", run: () => runCotisationReminders() },
   { id: "backup", label: "Sauvegarde chiffrée de la base", cadence: "daily", schedule: "0 2 * * *", run: () => runDailyBackup() },
   { id: "error-digest", label: "Résumé quotidien des erreurs", cadence: "daily", schedule: "45 6 * * *", run: () => runErrorDigest() },
+  { id: "comptoir-morning", label: "Comptoir : point du matin (marges, réassort, EasyPay)", cadence: "daily", schedule: "35 6 * * *", run: () => runComptoirMorning() },
+  { id: "easypay-balance", label: "EasyPay : reversement à faire", cadence: "daily", schedule: "40 6 * * *", run: () => runEasypayBalance() },
+  { id: "accounting-checks", label: "Contrôles comptables du mois", cadence: "daily", schedule: "30 7 * * *", run: () => runAccountingChecks() },
+  { id: "fiscal-calendar", label: "Calendrier fiscal (TVA, acomptes d'IS, DSF)", cadence: "daily", schedule: "5 7 * * *", run: () => runFiscalCalendar() },
+  { id: "supplier-payments", label: "Factures fournisseurs à payer", cadence: "daily", schedule: "20 7 * * *", run: () => runSupplierPayments() },
+  { id: "tender-followup", label: "Offres sans réponse", cadence: "daily", schedule: "40 7 * * *", run: () => runTenderFollowup() },
 ];
 
 /** Pour les tests et le déclenchement manuel à une date donnée. */
 export const AUTOMATION_RUNNERS = {
   runDepreciation, runMorningBrief, runTreasuryAlert, runPayroll, runAccountantPacket,
   runApprovalReminders, runBudgetAlerts, runCotisationReminders, runDailyBackup, runErrorDigest,
+  runComptoirMorning, runEasypayBalance, runAccountingChecks, runFiscalCalendar, runSupplierPayments, runTenderFollowup,
 };

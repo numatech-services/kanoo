@@ -31,7 +31,10 @@ export interface ISaleLine {
   stockMovementId?: Types.ObjectId;
   stockMoveId?: Types.ObjectId;
   /** Prix affiché avant promotion, et la promotion appliquée. */
+  /** Prix affiché au moment de la vente (TTC), quelle que soit la source du prix. */
   listPrice?: number;
+  /** Origine du prix encaissé : prix affiché, promotion, ou saisi à la caisse. */
+  priceSource?: "list" | "promo" | "manual";
   promoId?: Types.ObjectId;
   promoName?: string;
   /** Préparation : ingrédients sortis du stock (fiche recette), ou composants d'une formule EasyPay. */
@@ -62,6 +65,7 @@ const LineSchema = new Schema<ISaleLine>({
   stockMovementId: { type: Schema.Types.ObjectId, ref: "StockMovement" },
   stockMoveId: { type: Schema.Types.ObjectId, ref: "ActivityStockMove" },
   listPrice: Number,
+  priceSource: { type: String, enum: ["list", "promo", "manual"] },
   promoId: { type: Schema.Types.ObjectId, ref: "DeskPromo" },
   promoName: String,
   ingredients: [{ _id: false, itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem" }, quantity: Number, unitCost: Number,

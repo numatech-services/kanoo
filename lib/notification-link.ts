@@ -15,7 +15,7 @@ export function notificationHref(n: { type?: string; linkedTo?: string; linkedId
     case "expense_due": return "/recurring-expenses";
     case "crm_followup": return "/crm";
     case "subscription_alert": return "/abonnements";
-    case "fiscal_reminder": return "/fiscalite";
+    case "fiscal_reminder": return n.linkedTo && /^\/fiscalite\//.test(n.linkedTo) ? n.linkedTo : "/fiscalite";
     case "guarantee_expiry": return "/cautions";
     case "retention_claimable": return id ? `/contracts/${id}` : "/contracts";
     case "registration_due": return id ? `/contracts/${id}` : "/contracts";
@@ -27,7 +27,13 @@ export function notificationHref(n: { type?: string; linkedTo?: string; linkedId
     case "accountant_packet": return "/accounting";
     case "approval_reminder": return "/approbations";
     case "budget_alert": return n.linkedTo === "budget" ? "/administration/budget" : "/budget-previsionnel";
+    case "accounting_checks": return "/accounting/etats";
+    case "supplier_payments": return "/depenses/echeancier";
+    case "tender_followup": return id ? `/appels/${id}` : "/appels";
   }
+  // Lien profond posé par une automatisation (comptoir et onglet, mois de TVA…) :
+  // chemin interne uniquement, jamais une adresse extérieure.
+  if (n.linkedTo && /^\/[a-z]/.test(n.linkedTo) && !n.linkedTo.startsWith("//")) return n.linkedTo;
   switch (n.linkedTo) {
     case "invoices": return id ? `/invoices/${id}` : "/invoices";
     case "approbations": return "/approbations";

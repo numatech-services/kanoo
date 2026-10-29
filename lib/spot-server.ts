@@ -7,7 +7,8 @@ import { ItemCountModel } from "@/models/ItemCount";
 import { ProductModel } from "@/models/Product";
 import { BusinessRuleError } from "@/lib/errors";
 import { applyMovement } from "@/lib/stock";
-import { deskWarehouse } from "@/lib/comptoir-stock";
+import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
+import { CommandeModel } from "@/models/Commande";
 import { assertDayOpen, localDay } from "@/lib/comptoir-sale";
 import { LOSS_REASONS, reorderSuggestion, pickCycleCount } from "@/lib/spot";
 import { scheduledDemand } from "@/lib/campus-server";
@@ -80,11 +81,18 @@ export async function consumption(tenantId: string, deskId: unknown, days: numbe
 /** Réassort conseillé de chaque article (sur les 28 derniers jours). */
 export async function reorderPlan(tenantId: string, deskId: string) {
   const WINDOW = 28;
+  // Stock des articles du catalogue à jour (livraison de la veille reçue en réserve).
+  await syncLinkedItems(tenantId, deskId);
   const [desk, items, used] = await Promise.all([
     ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("leadDays coverDays").lean<{ leadDays?: number; coverDays?: number } | null>(),
-    ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true } }).lean<Array<{ _id: Types.ObjectId; name: string; unit: string; quantity: number; unitCost: number; productId?: Types.ObjectId; pack?: { label?: string; size?: number; cost?: number }; recipe?: unknown[] }>>(),
+    ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true } }).lean<Array<{ _id: Types.ObjectId; name: string; unit: string; quantity: number; unitCost: number; threshold?: number; productId?: Types.ObjectId; pack?: { label?: string; size?: number; cost?: number }; recipe?: unknown[] }>>(),
     consumption(tenantId, deskId, WINDOW),
   ]);
+  // Déjà en commande pour ce comptoir (bons non reçus) : quantité restant à recevoir par article du catalogue.
+  const open = await CommandeModel.find({ tenantId, sourceDeskId: new Types.ObjectId(String(deskId)), status: { $in: ["draft", "confirmed", "partially_received"] } })
+    .select("lines.productId lines.quantity lines.receivedQty").lean<Array<{ lines: Array<{ productId?: Types.ObjectId; quantity?: number; receivedQty?: number }> }>>();
+  const onOrder = new Map<string, number>();
+  for (const c of open) for (const l of c.lines) if (l.productId) onOrder.set(String(l.productId), (onOrder.get(String(l.productId)) ?? 0) + Math.max(0, (l.quantity ?? 0) - (l.receivedQty ?? 0)));
   const lead = desk?.leadDays ?? 2, cover = desk?.coverDays ?? 7;
   // Campus : la demande vient de l'emploi du temps (vacances, examens, jours
   // sans cours) plutôt que de la moyenne des 28 derniers jours.
@@ -93,8 +101,8 @@ export async function reorderPlan(tenantId: string, deskId: string) {
   const prod = new Map(products.map(p => [String(p._id), p]));
   const lines = items.filter(i => !i.recipe?.length).map(i => {
     const s = planned
-      ? reorderSuggestion({ stock: i.quantity, soldInWindow: planned.get(String(i._id)) ?? 0, windowDays: lead + cover, leadDays: lead, coverDays: cover, packSize: i.pack?.size })
-      : reorderSuggestion({ stock: i.quantity, soldInWindow: used.get(String(i._id))?.quantity ?? 0, windowDays: WINDOW, leadDays: lead, coverDays: cover, packSize: i.pack?.size });
+      ? reorderSuggestion({ stock: i.quantity, soldInWindow: planned.get(String(i._id)) ?? 0, windowDays: lead + cover, leadDays: lead, coverDays: cover, packSize: i.pack?.size, threshold: i.threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 })
+      : reorderSuggestion({ stock: i.quantity, soldInWindow: used.get(String(i._id))?.quantity ?? 0, windowDays: WINDOW, leadDays: lead, coverDays: cover, packSize: i.pack?.size, threshold: i.threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 });
     const p = i.productId ? prod.get(String(i.productId)) : undefined;
     const unitCost = p?.purchaseCost || i.unitCost || 0;
     return {

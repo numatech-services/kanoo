@@ -4,6 +4,7 @@ import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { connectDB } from "@/lib/db";
 import { authorize, tenantFilter } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
+import { vatCreditAt } from "@/lib/vat-settlement";
 import { TenantModel } from "@/models/Tenant";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
@@ -55,6 +56,8 @@ export async function GET(req: NextRequest) {
     const vat = vatFromEntries(entries);
     const tvaCollectee = vat.collected;
     const tvaDeductible = vat.deductible;
+    // Crédit des mois précédents (4449) imputé : même montant que l'écran TVA.
+    const credit = mois ? await vatCreditAt(auth.tenantId, start) : 0;
 
     reportData = {
       title: "Déclaration TVA",
@@ -62,7 +65,8 @@ export async function GET(req: NextRequest) {
       baseHT: Math.round(baseHT),
       tvaCollectee: Math.round(tvaCollectee),
       tvaDeductible,
-      tvaAVerser: Math.max(0, Math.round(tvaCollectee - tvaDeductible)),
+      creditAnterieur: credit,
+      tvaAVerser: Math.max(0, Math.round(tvaCollectee - tvaDeductible - credit)),
       nbFactures: invoices.filter(i => i.documentType !== "credit_note").length,
       taux: TVA_TAUX_STANDARD * 100,
     };
@@ -118,7 +122,7 @@ export async function GET(req: NextRequest) {
       doc.moveDown(1);
 
       if (type === "tva") {
-        const d = reportData as { baseHT: number; tvaCollectee: number; tvaDeductible: number; tvaAVerser: number; nbFactures: number; taux: number };
+        const d = reportData as { baseHT: number; tvaCollectee: number; tvaDeductible: number; creditAnterieur?: number; tvaAVerser: number; nbFactures: number; taux: number };
 
         doc.fontSize(10).font("Helvetica-Bold").fillColor("#2F3E46").text("CALCUL DE LA TVA À VERSER");
         doc.moveDown(0.4);
@@ -127,6 +131,7 @@ export async function GET(req: NextRequest) {
           ["Chiffre d'affaires HT (base TVA)", `${d.baseHT.toLocaleString("fr-FR")} FCFA`],
           [`TVA collectée (taux ${d.taux}%)`, `${d.tvaCollectee.toLocaleString("fr-FR")} FCFA`],
           ["TVA déductible sur achats", `${d.tvaDeductible.toLocaleString("fr-FR")} FCFA`],
+          ...(d.creditAnterieur ? [["Crédit de TVA des mois précédents", `${d.creditAnterieur.toLocaleString("fr-FR")} FCFA`] as [string, string]] : []),
           ["TVA nette à verser à la DGI", `${d.tvaAVerser.toLocaleString("fr-FR")} FCFA`, true],
           ["Nombre de factures émises", String(d.nbFactures)],
         ];

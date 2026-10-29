@@ -8,6 +8,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
 import { FlowFilterBar, useFlowFilter, monthStart, today, type FlowTotals } from "@/components/ui/FlowFilterBar";
 import { useMe, meCanDo } from "@/lib/useMe";
+import { urlParam } from "@/lib/url-param";
 import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEditor";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
@@ -71,12 +72,14 @@ async function post(url: string, body: unknown, method: "POST" | "PATCH" | "DELE
 }
 
 type Tab = "tickets" | "semaine" | "caisse" | "stock" | "rentabilite" | "ardoises" | "promos" | "planning" | "easypay";
+const TAB_KEYS: Tab[] = ["tickets", "semaine", "caisse", "stock", "rentabilite", "ardoises", "promos", "planning", "easypay"];
 
 export default function ComptoirPage() {
   const [desks, setDesks] = useState<Desk[]>([]);
   const [deskId, setDeskId] = useState<string>("");
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("tickets");
+  // Lien d'une notification : /comptoir?desk=…&tab=rentabilite ouvre le bon comptoir sur le bon onglet.
+  const [tab, setTab] = useState<Tab>(() => (TAB_KEYS.includes(urlParam("tab") as Tab) ? urlParam("tab") as Tab : "tickets"));
   const [newDeskOpen, setNewDeskOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -86,7 +89,7 @@ export default function ComptoirPage() {
         const list: Desk[] = d.data || [];
         setDesks(list);
         // Garde le comptoir courant s'il existe encore (il a pu être archivé).
-        setDeskId(prev => (prev && list.some(d => d._id === prev)) ? prev : (list[0]?._id || ""));
+        setDeskId(prev => (prev && list.some(d => d._id === prev)) ? prev : list.some(d => d._id === urlParam("desk")) ? urlParam("desk") : (list[0]?._id || ""));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -287,7 +290,7 @@ function DeskSettingsDialog({ desk, onClose, onSaved }: { desk: Desk; onClose: (
                 <option value={0}>Aucune</option><option value={0.19}>19 %</option><option value={0.1}>10 %</option>
               </select>
             </FormField>
-            <FormField label="Taux de marque visé (%)" hint="Part du prix de vente HT qui doit rester en marge : sert au prix conseillé.">
+            <FormField label="Objectif de marge (% du prix hors taxes)" hint="Part du prix de vente HT qui doit rester en marge : sert au prix conseillé, à l'écart de marge et aux alertes du matin. Un article peut avoir son propre objectif (onglet Marges).">
               <input className={inputCls} type="number" min={0} max={90} value={targetMarkup} onChange={e => setTargetMarkup(e.target.value)} />
             </FormField>
           </div>
@@ -364,10 +367,10 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PillTabs label="Rubriques du comptoir" value={tab} onChange={setTab} tabs={[
           { key: "tickets" as Tab, label: "Tickets", icon: <Receipt size={15} /> },
+          ...(summary && summary.stockValue !== null ? [{ key: "rentabilite" as Tab, label: "Marges", icon: <Percent size={15} /> }] : []),
           { key: "semaine" as Tab, label: "Semaine", icon: <CalendarCheck2 size={15} /> },
           { key: "caisse" as Tab, label: "Caisse", icon: <Wallet size={15} /> },
           { key: "stock" as Tab, label: "Stock matière", icon: <Package size={15} />, count: summary?.lowStock?.length || null },
-          ...(summary && summary.stockValue !== null ? [{ key: "rentabilite" as Tab, label: "Rentabilité", icon: <Percent size={15} /> }] : []),
           { key: "ardoises" as Tab, label: "Ardoises", icon: <BookUser size={15} /> },
           { key: "promos" as Tab, label: "Promotions", icon: <Tag size={15} /> },
           { key: "planning" as Tab, label: "Planning", icon: <GraduationCap size={15} /> },

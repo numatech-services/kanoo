@@ -91,6 +91,8 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
     if (!label) return badRequest("Libellé obligatoire.");
     const counter = String(body.counterAccount ?? "").trim();
     if (!/^[1-9]\d{2,7}$/.test(counter) || /^5[27]/.test(counter)) return badRequest("Compte de contrepartie invalide (ex. 631000 frais bancaires, 758000 produits divers, 101000 apport).");
+    // TVA à payer et crédit de TVA : par Fiscalité → TVA (sinon le paiement n'y est pas suivi et pourrait être payé deux fois).
+    if (/^444[19]/.test(counter)) return badRequest("Paiement de la TVA : passez par Fiscalité → TVA → Enregistrer le paiement.");
     const unknown = await unknownAccounts(auth.tenantId, [counter]);
     if (unknown.length) return badRequest(`Le compte ${counter} n'est pas dans le plan comptable.`);
     const imp = pickImputation(body);

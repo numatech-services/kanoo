@@ -5,6 +5,8 @@ import { TokenPayload } from "@/lib/auth";
 import { AutomationSettingsModel } from "@/models/AutomationSettings";
 import { AutomationLogModel } from "@/models/AutomationLog";
 import { UserModel } from "@/models/User";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
+import { ApiKeyModel } from "@/models/ApiKey";
 import { loadAutomationSettings } from "@/lib/automation-store";
 import { normalizeAutomationSettings } from "@/lib/automations";
 import { isAiInvoiceConfigured } from "@/lib/ai-invoice";
@@ -32,14 +34,17 @@ function channels() {
  */
 export const GET = withAuth("companies", "read", async (_req: NextRequest, auth: TokenPayload) => {
   await connectDB();
-  const [settings, users, log] = await Promise.all([
+  const [settings, users, log, hasDesks, hasEasypay] = await Promise.all([
     loadAutomationSettings(auth.tenantId),
     UserModel.find({ tenantId: auth.tenantId, isActive: true }).select("_id firstName lastName role email phone").sort({ firstName: 1 })
       .lean<Array<{ _id: unknown; firstName?: string; lastName?: string; role: string; email?: string; phone?: string }>>(),
     AutomationLogModel.find({ tenantId: auth.tenantId }).sort({ at: -1 }).limit(15).select("key at").lean<Array<{ key: string; at: Date }>>(),
+    // Sections comptoir et EasyPay : seulement pour une organisation qui en a.
+    ActivityDeskModel.exists({ tenantId: auth.tenantId, archived: { $ne: true } }),
+    ApiKeyModel.exists({ tenantId: auth.tenantId, source: "easypay" }),
   ]);
   return ok({
-    settings, channels: channels(),
+    settings, channels: channels(), hasDesks: !!hasDesks, hasEasypay: !!hasEasypay,
     users: users.map(u => ({ _id: String(u._id), name: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || u.email, role: u.role, hasPhone: Boolean(u.phone) })),
     recent: log.map(l => ({ kind: l.key.split(":")[0], at: l.at })),
   });

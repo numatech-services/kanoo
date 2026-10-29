@@ -423,6 +423,8 @@ export interface IPayment {
 }
 
 export interface ICommande {
+  /** Bon préparé par le réassort d'un comptoir (bouton ou automatisation). */
+  sourceDeskId?: Types.ObjectId;
   /** Objet du bon de commande, imprimé. */
   object?: string;
   _id: Types.ObjectId;

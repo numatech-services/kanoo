@@ -41,6 +41,7 @@ const KEYWORDS: Record<string, string> = {
   "/suppliers": "fournisseur",
   "/commandes": "bon de commande achat BC",
   "/depenses": "achat dépense facture fournisseur",
+  "/depenses/echeancier": "échéancier balance âgée fournisseur à payer retard",
   "/recurring-expenses": "abonnement charge fixe loyer",
   "/stock": "inventaire article produit",
   "/stock/lots": "péremption lot date limite fefo",

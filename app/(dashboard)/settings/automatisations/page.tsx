@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { BellRing, Sunrise, TrendingDown, Landmark, Wallet, Send, Stamp, PieChart, Users, AlertTriangle } from "lucide-react";
+import { BellRing, Sunrise, TrendingDown, Landmark, Wallet, Send, Stamp, PieChart, Users, AlertTriangle, Percent, PlugZap, PackageCheck, ShieldCheck, CalendarClock, ReceiptText, Gavel } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { inputCls } from "@/components/ui/FormField";
@@ -14,12 +14,15 @@ interface Payload {
   channels: { email: boolean; whatsapp: boolean; sms: boolean; ai: boolean; whatsappTemplates: Record<string, boolean> };
   users: Array<{ _id: string; name: string; role: string; hasPhone: boolean }>;
   recent: Array<{ kind: string; at: string }>;
+  hasDesks: boolean; hasEasypay: boolean;
 }
 
 const DAYS = [["1", "Lun"], ["2", "Mar"], ["3", "Mer"], ["4", "Jeu"], ["5", "Ven"], ["6", "Sam"], ["0", "Dim"]] as const;
 const KIND_LABEL: Record<string, string> = {
   brief: "Brief du matin", treasury: "Alerte de trésorerie", payroll: "Paie", packet: "Dossier du comptable",
   approvals: "Relance de validation", budget: "Alerte budgétaire", chapter: "Alerte de crédits", cotisation: "Relance de cotisation",
+  "comptoir-morning": "Point du matin du comptoir", "easypay-balance": "Reversement EasyPay",
+  checks: "Contrôles comptables", fiscal: "Rappel fiscal", suppliers: "Factures fournisseurs", tender: "Offre sans réponse",
 };
 
 function Section({ icon, title, desc, on, onToggle, disabled, children, external }: {
@@ -187,6 +190,63 @@ export default function AutomationsPage() {
           </label>
         </Section>
 
+        {type !== "association" && (
+          <Section icon={<ShieldCheck size={18} />} title="Contrôles comptables du mois" disabled={ro} on={s.accountingChecks.enabled} onToggle={v => set("accountingChecks", { enabled: v })}
+            desc="Chaque mois, les contrôles de cohérence de l'export complet (pièces sans écriture, trésorerie ≠ comptabilité, TVA déclarée ≠ comptable…) sont recalculés ; les responsables financiers reçoivent le nombre de constats critiques et majeurs.">
+            <NumberField label="Le" value={s.accountingChecks.day} min={1} max={28} suffix="du mois" disabled={ro} onChange={n => set("accountingChecks", { day: n })} />
+            <label className="flex items-center gap-2 text-sm text-ink2">
+              <input type="checkbox" className="accent-section" disabled={ro} checked={s.accountingChecks.email} onChange={e => set("accountingChecks", { email: e.target.checked })} />
+              Envoyer aussi la liste par e-mail aux responsables financiers
+            </label>
+            {s.accountingChecks.email && !ch.email && <Warn>Aucun fournisseur d&apos;e-mail configuré sur l&apos;instance.</Warn>}
+          </Section>
+        )}
+
+        {type === "pme" && (
+          <Section icon={<CalendarClock size={18} />} title="Calendrier fiscal" disabled={ro} on={s.fiscalCalendar.enabled} onToggle={v => set("fiscalCalendar", { enabled: v })}
+            desc="TVA du mois écoulé (avant le 15) : montants à déclarer le 1er, rappels le 10 et le 14 tant qu'elle n'est pas enregistrée. Acomptes d'IS (20 % avant le 1er juillet, le 1er septembre et le 1er novembre) : rappel 15 jours avant. DSF : rappel en avril." />
+        )}
+
+        {type === "pme" && (
+          <Section icon={<ReceiptText size={18} />} title="Factures fournisseurs à payer" disabled={ro} on={s.supplierPayments.enabled} onToggle={v => set("supplierPayments", { enabled: v })}
+            desc="Une fois par semaine au plus : factures fournisseurs en retard et à payer dans les jours qui viennent (Achats & stock → Échéancier fournisseurs).">
+            <NumberField label="Horizon" value={s.supplierPayments.horizonDays} min={1} max={60} suffix="jours" disabled={ro} onChange={n => set("supplierPayments", { horizonDays: n })} />
+          </Section>
+        )}
+
+        <Section icon={<Gavel size={18} />} title="Offres sans réponse" disabled={ro} on={s.tenderFollowup.enabled} onToggle={v => set("tenderFollowup", { enabled: v })}
+          desc="Un appel d'offres déposé ou en évaluation depuis trop longtemps : son responsable est invité à relancer l'acheteur ou à saisir le résultat.">
+          <NumberField label="Après" value={s.tenderFollowup.afterDays} min={7} max={180} suffix="jours sans résultat" disabled={ro} onChange={n => set("tenderFollowup", { afterDays: n })} />
+        </Section>
+
+        {data.hasDesks && (
+          <section className="lg:col-span-2 surface-card p-5 space-y-4">
+            <div>
+              <p className="font-semibold text-ink text-sm">Comptoir : point du matin</p>
+              <p className="text-xs text-ink2 mt-1">Un seul message par comptoir et par jour, qui regroupe ce qui suit. Le gérant, la comptabilité et le chef du comptoir reçoivent tout (marges, réassort, EasyPay) ; le gestionnaire d'activité reçoit le réassort ; les caissiers ne reçoivent rien. Chacun ne reçoit que les comptoirs de son périmètre.</p>
+            </div>
+            <div className="grid lg:grid-cols-2 gap-4">
+              <Section icon={<Percent size={18} />} title="Marges de la veille" disabled={ro} on={s.comptoirMargins.enabled} onToggle={v => set("comptoirMargins", { enabled: v })}
+                desc="Ventes une à une sous le coût d'achat, articles dont la marge réalisée est sous leur objectif (hors promotions, au-delà de 1 000 FCFA de manque à gagner), articles vendus sans coût.">
+                <NumberField label="Écart toléré" value={s.comptoirMargins.tolerancePts} min={0} max={50} suffix="points sous l'objectif" disabled={ro} onChange={n => set("comptoirMargins", { tolerancePts: n })} />
+              </Section>
+              <Section icon={<PackageCheck size={18} />} title="Réassort" disabled={ro} on={s.comptoirReorder.enabled} onToggle={v => set("comptoirReorder", { enabled: v })}
+                desc="Articles en rupture avant le prochain approvisionnement, ou à leur seuil d'alerte, déduction faite de ce qui est déjà en commande.">
+                <label className="flex items-center gap-2 text-sm text-ink2">
+                  <input type="checkbox" className="accent-section" disabled={ro} checked={s.comptoirReorder.autoOrder} onChange={e => set("comptoirReorder", { autoOrder: e.target.checked })} />
+                  Préparer aussi les bons de commande brouillon, par fournisseur habituel (à valider par l&apos;acheteur ou le gérant)
+                </label>
+              </Section>
+              {data.hasEasypay && (
+                <Section icon={<PlugZap size={18} />} title="EasyPay" disabled={ro} on={s.easypayRecon.enabled} onToggle={v => set("easypayRecon", { enabled: v })}
+                  desc="Dans le point du matin : envois de la caisse en attente de traitement (quelle que soit leur date), tickets payés par carte hors comptabilité, caisse silencieuse depuis plus de 24 h. Une fois par semaine au plus, aux responsables financiers : reversement à faire.">
+                  <NumberField label="Prévenir quand le solde dû dépasse" value={s.easypayRecon.threshold} min={0} suffix="FCFA (0 = jamais)" disabled={ro} onChange={n => set("easypayRecon", { threshold: n })} />
+                </Section>
+              )}
+            </div>
+          </section>
+        )}
+
         {type === "association" && (
           <Section icon={<Users size={18} />} title="Relance des cotisations impayées" external disabled={ro} on={s.cotisationReminders.enabled} onToggle={v => set("cotisationReminders", { enabled: v })}
             desc="Les adhérents actifs dont la cotisation enregistrée n'est pas réglée reçoivent un rappel courtois, au plus une fois par intervalle choisi.">
@@ -201,7 +261,7 @@ export default function AutomationsPage() {
       <section className="surface-card p-5 space-y-2">
         <p className="font-semibold text-ink text-sm flex items-center gap-2"><BellRing size={16} className="text-section" /> Toujours actif</p>
         <p className="text-xs text-ink2 leading-relaxed">
-          Factures en retard, relances clients (selon leur barème), stock minimum et péremption, échéances de contrats, cautions et appels d&apos;offres, documents administratifs, rappels TVA.
+          Factures en retard, relances clients (selon leur barème), stock minimum et péremption, échéances de contrats, cautions et appels d&apos;offres, documents administratifs.
           {ch.ai ? " Lecture automatique des factures fournisseurs : bouton « Lire une facture » sur Dépenses → Nouvelle dépense." : ""}
         </p>
         {data.recent.length > 0 && (

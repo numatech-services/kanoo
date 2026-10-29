@@ -7,6 +7,7 @@ import { StockLotModel } from "@/models/StockLot";
 import { ContractModel } from "@/models/Contract";
 import { EmployeeModel } from "@/models/Employee";
 import { RecurringExpenseModel } from "@/models/RecurringExpense";
+import { claimOnce, claimEvery } from "@/lib/automation-store";
 import { TenantModel } from "@/models/Tenant";
 import { CRMOpportunityModel } from "@/models/CRMOpportunity";
 import { SubscriptionPurchaseModel } from "@/models/SubscriptionPurchase";
@@ -16,7 +17,7 @@ import { LetterModel } from "@/models/Letter";
 import { AppelCandidatureModel } from "@/models/AppelCandidature";
 import { OPEN_APPEL_STATUSES, daysUntil, reminderDue, reminderMessage } from "@/lib/appels";
 import { BankGuaranteeModel } from "@/models/BankGuarantee";
-import { GUARANTEE_TYPES, GUARANTEE_REMINDER_DAYS, daysToExpiry } from "@/lib/guarantees";
+import { GUARANTEE_TYPES, daysToExpiry } from "@/lib/guarantees";
 import { retentionState } from "@/lib/retention";
 import { courrierReminderPlan, courrierReminderEmail, DUE_SOON_DAYS, type ReminderCandidate } from "@/lib/courriers";
 import { sendEmail } from "@/lib/email";
@@ -343,21 +344,38 @@ export const CRON_JOBS: CronJob[] = [
     cadence: "daily", schedule: "50 7 * * *",
     run: async () => {
       const now = new Date();
-      const list = await BankGuaranteeModel.find({ status: "active", expiryDate: { $exists: true, $lte: new Date(now.getTime() + 31 * 86400000) } })
-        .lean<Array<{ _id: Id; tenantId: Id; type: keyof typeof GUARANTEE_TYPES; amount: number; beneficiary: string; expiryDate: Date; createdBy?: Id }>>();
+      const list = await BankGuaranteeModel.find({ status: "active" })
+        .lean<Array<{ _id: Id; tenantId: Id; type: keyof typeof GUARANTEE_TYPES; amount: number; beneficiary: string; expiryDate?: Date; appelId?: Id; createdBy?: Id }>>();
+      // Caution de soumission d'une offre perdue ou abandonnée : mainlevée à demander tout de suite.
+      const appelIds = list.filter(g => g.type === "soumission" && g.appelId).map(g => g.appelId!);
+      const lost = new Set((await AppelCandidatureModel.find({ _id: { $in: appelIds }, status: { $in: ["lost", "cancelled"] } }).select("_id").lean<Array<{ _id: Id }>>()).map(a => String(a._id)));
       let sent = 0;
       for (const g of list) {
-        const left = daysToExpiry(g.expiryDate, now)!;
-        if (!GUARANTEE_REMINDER_DAYS.includes(left)) continue;
+        const left = g.expiryDate ? daysToExpiry(g.expiryDate, now) : null;
+        const what = `${GUARANTEE_TYPES[g.type]} de ${g.amount.toLocaleString("fr-FR")} FCFA (${g.beneficiary})`;
+        let title: string, message: string, ok: boolean;
+        if (g.appelId && lost.has(String(g.appelId))) {
+          ok = await claimOnce(g.tenantId, `guarantee:${g._id}:lost`);
+          title = "Offre perdue — mainlevée de la caution à demander";
+          message = `${what} couvre une offre perdue ou abandonnée : demandez sa mainlevée à la banque pour arrêter la commission.`;
+        } else if (left !== null && left < 0) {
+          // Échue et toujours active : la commission court jusqu'à la mainlevée — rappel chaque semaine.
+          // L'échéance fait partie de la clé : une caution prorogée repart sur ses propres rappels.
+          ok = await claimEvery(g.tenantId, `guarantee:${g._id}:${new Date(g.expiryDate!).toISOString().slice(0, 10)}:expired`, 7 * 86400000 - 3_600_000, now);
+          title = "Caution échue — mainlevée à demander";
+          message = `${what} est échue depuis le ${new Date(g.expiryDate!).toLocaleDateString("fr-FR")} : demandez la mainlevée pour arrêter la commission et récupérer le dépôt.`;
+        } else {
+          // Paliers J-30, J-15, J-7, rattrapés si la tâche n'a pas tourné le jour même.
+          const stage = left === null ? null : [7, 15, 30].find(p => left <= p);
+          if (!stage) continue;
+          ok = await claimOnce(g.tenantId, `guarantee:${g._id}:${new Date(g.expiryDate!).toISOString().slice(0, 10)}:${stage}`);
+          title = "Caution bientôt échue";
+          message = `${what} échoit dans ${left} jour(s) : prorogez-la ou demandez la mainlevée.`;
+        }
+        if (!ok) continue;
         const users = new Map((await getAdmins(g.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "svc_admin", "admin_ordonnateur"])).map(a => [String(a._id), a._id]));
         if (g.createdBy) users.set(String(g.createdBy), g.createdBy);
-        const what = `${GUARANTEE_TYPES[g.type]} de ${g.amount.toLocaleString("fr-FR")} FCFA (${g.beneficiary})`;
-        for (const userId of users.values()) {
-          await notify(g.tenantId, userId, "guarantee_expiry", left < 0 ? "Caution échue — mainlevée à demander" : "Caution bientôt échue",
-            left < 0 ? `${what} est échue depuis hier : demandez la mainlevée pour arrêter la commission et récupérer le dépôt.` : `${what} échoit dans ${left} jours : prorogez-la ou demandez la mainlevée.`,
-            "cautions", g._id);
-          sent++;
-        }
+        for (const userId of users.values()) { await notify(g.tenantId, userId, "guarantee_expiry", title, message, "cautions"); sent++; }
       }
       return `${sent} rappel(s) de caution`;
     },
@@ -570,30 +588,20 @@ export const CRON_JOBS: CronJob[] = [
     },
   },
   {
-    id: "vat-reminders", label: "Rappels TVA et purge des jetons",
+    // Les rappels de TVA sont passés au calendrier fiscal réglable
+    // (lib/automation-jobs.ts, « fiscal-calendar » : préparation le 1er,
+    // rappels le 10 et le 14, acomptes d'IS, DSF). Reste la purge mensuelle.
+    id: "vat-reminders", label: "Purge des jetons et des notifications anciennes",
     cadence: "monthly", schedule: "0 1 1 * *",
     run: async () => {
       const now = new Date();
-      const tenants = await TenantModel.find({
-        subscriptionStatus: { $in: ["active", "trial"] }, type: { $in: ["pme", "administration"] },
-      }).select("_id").lean<Array<{ _id: Id }>>();
-      for (const tenant of tenants) {
-        const admins = await getAdmins(tenant._id, ["pme_admin", "pme_accountant", "svc_compta", "admin_daf"]);
-        for (const admin of admins) {
-          // TVA du mois écoulé, due avant le 15 (CGI 2026).
-          const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          await notify(tenant._id, admin._id, "fiscal_reminder", "Rappel TVA",
-            `Déclaration TVA ${prev.getMonth() + 1}/${prev.getFullYear()} à déposer avant le 15/${now.getMonth() + 1}/${now.getFullYear()}`,
-            "fiscalite");
-        }
-      }
       // Purge des jetons expirés — hygiène de sécurité.
       await TenantModel.updateMany({ activationTokenExpiry: { $lt: now } },
         { $unset: { activationToken: "", activationTokenExpiry: "" } });
       await UserModel.updateMany({ passwordResetExpiry: { $lt: now } },
         { $unset: { passwordResetToken: "", passwordResetExpiry: "" } });
       const purged = await purgeNotifications(now);
-      return `${tenants.length} organisation(s) relancée(s), jetons expirés purgés, ${purged} notification(s) ancienne(s) supprimée(s)`;
+      return `jetons expirés purgés, ${purged} notification(s) ancienne(s) supprimée(s)`;
     },
   },
   {

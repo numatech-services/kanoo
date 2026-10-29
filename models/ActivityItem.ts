@@ -29,6 +29,8 @@ export interface IActivityItem {
    * `cost`, on revend à l'unité. Donne le coût de revient unitaire.
    */
   pack?: { label?: string; size?: number; cost?: number };
+  /** Objectif de taux de marque de l'article (0,30 = 30 % du prix HT) ; absent = celui du comptoir. */
+  targetMarkup?: number;
   /**
    * Fiche recette d'une préparation (pastel maison, café, jus) : ingrédients
    * (autres articles du comptoir) et quantité par unité vendue. La vente sort
@@ -61,6 +63,7 @@ const ActivityItemSchema = new Schema<IActivityItem>({
     size: { type: Number, min: 1 },
     cost: { type: Number, min: 0 },
   },
+  targetMarkup: { type: Number, min: 0, max: 0.95 },
   archived: { type: Boolean, default: false },
   easypayId: { type: String, maxlength: 64, trim: true },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },

@@ -84,6 +84,7 @@ const ORIGIN = fr({
   manual: "Saisie manuelle", withholding: "Retenue à la source", desk_cash: "Caisse d'activité", attendee: "Inscription", membership: "Adhésion",
   donation: "Don", retention: "Retenue de garantie", guarantee: "Caution", result_allocation: "Affectation du résultat",
   registration: "Droits d'enregistrement", comptoir_sale: "Ticket de comptoir", cash_closing: "Arrêté de caisse", easypay_remittance: "Reversement EasyPay",
+  vat_settlement: "Liquidation de TVA", vat_payment: "Paiement de TVA",
 });
 const MOVEMENT_SOURCE = fr({ payment: "règlement", expense: "dépense", payroll: "paie", transfer: "virement interne", manual: "saisie", import: "relevé importé" });
 
@@ -420,6 +421,17 @@ export async function prepareFinancialExport(tenantId: string, year: number, opt
   }
   const priorOpen = !closed.includes(year - 1) && !!(await AccountingEntryModel.exists({ tenantId: tid, entryDate: { $lt: from } }));
   if (priorOpen) add({ severity: "Information", check: `Exercice ${year - 1} non clôturé`, piece: String(year - 1), detail: "Balance et bilan cumulent les exercices non clôturés ; le résultat du bilan inclut celui des exercices précédents", fix: `Comptabilité → Clôture : clôturer ${year - 1} une fois ses comptes arrêtés` });
+
+  // 14. TVA liquidée : crédit négatif (4449 créditeur), TVA due non réglée (4441).
+  const vatAccounts = await AccountingEntryModel.aggregate<{ _id: string; d: number; c: number }>([
+    { $match: { tenantId: tid, "lines.accountCode": { $in: ["444100", "444900"] }, entryDate: { ...(floor ? { $gte: floor } : {}), $lte: at } } },
+    { $unwind: "$lines" }, { $match: { "lines.accountCode": { $in: ["444100", "444900"] } } },
+    { $group: { _id: "$lines.accountCode", d: { $sum: "$lines.debit" }, c: { $sum: "$lines.credit" } } },
+  ]);
+  const vatBal = (code: string) => { const r = vatAccounts.find(x => x._id === code); return r ? r.d - r.c : 0; };
+  if (vatBal("444900") <= -1) add({ severity: "Majeur", check: "Crédit de TVA négatif", piece: "Compte 444900", amount: round(vatBal("444900")), detail: "Plus de crédit de TVA imputé qu'il n'en existait (rectification d'un mois déjà suivi d'une liquidation ?)", fix: "Fiscalité → TVA : à régulariser par le cabinet, puis repasser les liquidations dans l'ordre" });
+  if (vatBal("444100") >= 1) add({ severity: "Majeur", check: "TVA payée plus qu'elle n'était due", piece: "Compte 444100", amount: round(vatBal("444100")), detail: "Le compte de TVA à payer est débiteur : paiement en double ou liquidation repassée après paiement", fix: "Fiscalité → TVA : vérifier les paiements du mois ; trop-payé à imputer sur la prochaine échéance, avec le cabinet" });
+  if (vatBal("444100") <= -1) add({ severity: "À vérifier", check: "TVA due non réglée", piece: "Compte 444100", amount: round(-vatBal("444100")), detail: `TVA liquidée restant à payer au ${at.toLocaleDateString("fr-FR")} (la dernière peut être dans son délai)`, fix: "Fiscalité → TVA → Enregistrer le paiement, mois par mois" });
 
   // États : balance cumulée et états SYSCOHADA (N et N-1).
   const balance = await trialBalance(tenantId, floor, at);

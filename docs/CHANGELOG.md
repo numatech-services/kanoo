@@ -1,5 +1,80 @@
 # Kanoo — Changelog
 
+## Pilotage — marges par article, EasyPay, réassort, TVA, fournisseurs, offres (octobre 2026)
+
+**Comptoir → Marges** (anciennement « Rentabilité », désormais en 2e onglet)
+- **Objectif de marge par article** : il se saisit dans la fiche de prix (crayon). Laissé vide, c'est l'objectif du comptoir qui s'applique.
+- **Marge attendue et marge réalisée** des ventes de la période, hors taxes. Seules les ventes dont le coût est connu sont comptées ; les ventes sans coût sont signalées à part.
+- **D'où vient l'écart**, poste par poste :
+  - promotions ;
+  - remises ;
+  - prix saisis à la caisse ;
+  - autres écarts de prix ;
+  - achats plus chers ou moins chers ;
+  - pertes et casse.
+
+  Chaque vente garde désormais son prix affiché et l'origine de son prix (`listPrice`, `priceSource`) ; c'est ce qui permet de calculer ces effets.
+- **Manque à gagner par rapport à l'objectif**, par article et au total. Tri conseillé : les articles sous leur objectif d'abord.
+- **Sur téléphone** : une carte par article. La calculatrice est repliée en bas de l'onglet.
+- **Lien profond** : `/comptoir?desk=…&tab=…` ouvre le bon comptoir sur le bon onglet.
+
+**Comptoir → EasyPay**
+- **Rapprochement des 7 derniers jours** : ventes par carte, annulations, recharges encaissées au comptoir, montant dû par Numatech, reversements, envois reçus ou en attente.
+- **Dernier envoi de la caisse**, avec une alerte si rien n'est arrivé depuis 24 heures.
+
+**Point du matin du comptoir** : un seul message par comptoir et par jour. Il regroupe :
+- les ventes une à une sous le coût ;
+- les articles sous leur objectif, hors promotions, avec un seuil de 1 000 FCFA ;
+- les articles vendus sans coût ;
+- le réassort (seuil d'alerte compris, quantités déjà en commande déduites, bons brouillon par fournisseur en option, liste de courses) ;
+- EasyPay : envois en attente quelle que soit leur date, tickets par carte hors comptabilité, caisse silencieuse.
+
+Chaque destinataire reçoit ce que ses **droits effectifs** et son **site** lui permettent de voir ; les caissiers ne reçoivent rien. **Reversement EasyPay** à faire : une alerte par semaine au plus, envoyée à la finance.
+
+**TVA**
+1. **Déclaration** : la page s'ouvre sur le mois écoulé.
+2. **Liquidation** : 443 et 445 sont soldés vers 4441 (TVA à payer) ou vers 4449 (crédit à reporter), et le crédit antérieur est imputé. La liquidation se fait sur demande. Elle est refusée, avec sa raison, dans quatre cas :
+   - la TVA du mois est déjà soldée en partie hors de Kanoo (paiement passé au 443, OD manuelle), ce qui ferait un double compte ;
+   - un mois suivant est déjà liquidé ;
+   - le mois précédent n'est pas liquidé ;
+   - le 4449 est créditeur, ou la période est verrouillée.
+
+   Deux liquidations simultanées entrent en conflit au lieu de s'additionner.
+3. **Paiement** : 4441 contre la trésorerie, avec le mouvement de trésorerie, et la déclaration passe à « payée ».
+
+Les PDF remis à la DGI imputent le crédit antérieur.
+
+**Échéancier fournisseurs** (Achats & stock)
+- Échéancier et balance âgée, avec un bouton « Payer ».
+- Une facture sans échéance est vieillie à partir de sa date + 30 jours.
+- Le solde des comptes fournisseurs (40) est rapproché de l'échéancier, et l'écart est expliqué.
+
+**Automatisations** (Réglages → Automatisations) : les réglages sont réellement enregistrés.
+- **Contrôles comptables du mois** : à partir du 10, trois organisations au plus par passage.
+- **Calendrier fiscal (CGI 2026)**, réservé aux organisations assujetties :
+  - le 1er : brouillon de la déclaration de TVA, avec le montant à verser crédit déduit ;
+  - du 10 au 12 : rappel ; les 13 et 14 : dernier délai ;
+  - acomptes d'IS/IMF, et DSF au 30 avril ;
+  - pour les administrations : TVA retenue.
+- **Factures fournisseurs à payer** : une alerte par semaine au plus.
+- **Offres sans réponse** : relance comptée depuis le dépôt, repli sur les dirigeants si le responsable est inactif, rien au-delà de 6 mois.
+- **Cautions** :
+  - rappels à J-30, J-15 et J-7, rattrapés si la tâche a manqué un jour ;
+  - une caution échue est rappelée chaque semaine jusqu'à la mainlevée ;
+  - si l'offre est perdue, demande de mainlevée de la caution de soumission.
+
+**Sécurité** : l'objectif de marge et le prix d'achat du paquet sont masqués aux caissiers, et les e-mails des contrôles sont échappés.
+
+**Tests** : `scripts/e2e/e2e-pilotage.mjs` (35 vérifications) et `__tests__/unit/automations-comptoir-fiscal.test.ts`.
+
+**Points ouverts**
+- Total de clôture journalier envoyé par EasyPay, pour un rapprochement à deux sources (côté EasyPay).
+- Reprise du crédit de TVA antérieur (445 → 4449) par OD du cabinet.
+- Régime fiscal (réel simplifié, trimestriel) à paramétrer.
+- Sous-comptes de la rubrique 638 à confirmer.
+- Avoirs fournisseurs à gérer.
+- Rapprochement fin des retenues à la source par achat.
+
 ## Comptabilité — export financier complet, erreurs corrigées, benchmark Sage (octobre 2026)
 
 **Export financier complet** (Comptabilité → États comptables → « Export de l'exercice ») : un classeur Excel par exercice.

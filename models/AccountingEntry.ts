@@ -57,7 +57,11 @@ const AccountingEntrySchema = new Schema<IAccountingEntry>(
         // Tickets de caisse et arrêtés de caisse des comptoirs.
         "comptoir_sale", "cash_closing",
         // Reversements entre Numatech et le comptoir (cartes EasyPay, compte 467100).
-        "easypay_remittance"],
+        "easypay_remittance",
+        // Liquidation mensuelle de la TVA (443/445 → 4441 TVA due ou 4449 crédit), lib/vat-settlement.
+        "vat_settlement",
+        // Paiement de la TVA due (4441 → trésorerie), app/api/fiscal/tva/paiement.
+        "vat_payment"],
     },
     /** Extourne : l'écriture qui annule celle-ci, et inversement. */
     reversedBy: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },

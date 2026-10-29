@@ -22,7 +22,11 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   const items = await ActivityItemModel.find({ ...tenantFilter(auth), deskId, archived: { $ne: true } })
     .populate("productId", "code label trackingMode").sort({ name: 1 }).lean<Array<Record<string, unknown>>>();
   // Coût d'achat et valeur du stock : gérant et comptabilité seulement.
-  return ok(canSeeDeskCosts(auth) ? items : items.map(i => ({ ...i, unitCost: null })));
+  // L'objectif de marge et le prix d'achat du paquet permettraient de retrouver le coût : masqués aussi.
+  return ok(canSeeDeskCosts(auth) ? items : items.map(i => {
+    const pack = i.pack as { label?: string; size?: number } | undefined;
+    return { ...i, unitCost: null, targetMarkup: undefined, ...(pack ? { pack: { label: pack.label, size: pack.size } } : {}) };
+  }));
 });
 
 export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth: TokenPayload) => {

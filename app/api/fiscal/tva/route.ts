@@ -6,6 +6,8 @@ import { FiscalDeclarationModel } from "@/models/FiscalDeclaration";
 import { TokenPayload } from "@/lib/auth";
 import { VAT_LINES_MATCH, vatFromEntries } from "@/lib/vat";
 import { saveDeclaration } from "@/lib/fiscal-declaration";
+import { vatCreditAt, settlementReference, vatDueOf } from "@/lib/vat-settlement";
+import { settleVatMonth, type SettlementResult } from "@/lib/vat-settlement-server";
 import { isInternFor } from "@/lib/role-resources";
 import { clientIp } from "@/lib/rate-limit";
 
@@ -33,7 +35,12 @@ export const GET = withAuth("fiscalDeclarations", "read", async (req: NextReques
   if (!period) return badRequest("Paramètres annee et mois requis (mois: 1-12)");
   const { annee, mois } = period;
 
-  const vat = await monthlyVat(auth, annee, mois);
+  const [vat, credit, settled] = await Promise.all([
+    monthlyVat(auth, annee, mois),
+    vatCreditAt(auth.tenantId, new Date(annee, mois - 1, 1)),
+    AccountingEntryModel.exists({ ...tenantFilter(auth), linkedDocType: "vat_settlement", reference: settlementReference(annee, mois), reversedBy: { $exists: false }, reverses: { $exists: false } }),
+  ]);
+  const paiement = settled ? await vatDueOf(auth.tenantId, annee, mois) : null;
   const declaration = await FiscalDeclarationModel.findOne({
     ...tenantFilter(auth), type: "tva", "period.annee": annee, "period.mois": mois,
   }).sort({ updatedAt: -1 }).lean<{ status?: string; amounts?: { net?: number } } | null>();
@@ -43,8 +50,15 @@ export const GET = withAuth("fiscalDeclarations", "read", async (req: NextReques
     tvaCollectee: vat.collected,
     tvaDeductible: vat.deductible,
     tvaNette: vat.net,
-    aVerser: Math.max(0, vat.net),
-    creditReporte: vat.net < 0 ? -vat.net : 0,
+    // Crédit de TVA des mois précédents (4449), imputé sur la TVA nette du mois.
+    creditAnterieur: credit,
+    aVerser: Math.max(0, vat.net - credit),
+    creditReporte: Math.max(0, credit - Math.max(0, vat.net)) + (vat.net < 0 ? -vat.net : 0),
+    liquidee: !!settled,
+    // TVA due par la liquidation et déjà payée (4441).
+    paiement,
+    // Comptabilité du mois modifiée depuis la liquidation : à repasser avant de payer.
+    liquidationPerimee: !!paiement && Math.abs(paiement.settledNet - vat.net) >= 1,
     declaration: declaration || null,
     statut: declaration?.status || "non_soumise",
     // Écart entre la déclaration enregistrée et la comptabilité d'aujourd'hui.
@@ -67,5 +81,12 @@ export const POST = withAuth("fiscalDeclarations", "create", async (req: NextReq
     amounts: { montant: vat.collected, deductible: vat.deductible, net: vat.net },
     trace: { ip: clientIp(req), userAgent: req.headers.get("user-agent") ?? undefined },
   });
-  return ok(decl);
+  // Liquidation sur demande explicite (case cochée) : 443/445 soldés vers 4441 ou 4449.
+  // Refusée avec sa raison, la déclaration restant enregistrée ; « Passer la liquidation » la reprend.
+  let settlement: SettlementResult | null = null, warning: string | undefined;
+  if (body.settle === true) {
+    const r = await settleVatMonth(auth, period.annee, period.mois, decl._id);
+    settlement = r.settlement; warning = r.warning && `Déclaration enregistrée, liquidation non passée : ${r.warning}`;
+  }
+  return ok({ ...(decl.toObject ? decl.toObject() : decl), settlement, warning });
 });

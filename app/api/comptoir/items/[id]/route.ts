@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, noContent, notFound, badRequest, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
-import { isId, deskFilter, parsePack } from "@/lib/comptoir";
+import { withAuth, ok, noContent, notFound, badRequest, forbidden, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
+import { isId, deskFilter, parsePack, canSeeDeskCosts } from "@/lib/comptoir";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { logAudit } from "@/lib/audit";
@@ -51,6 +51,17 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
       const n = Number(clean[f]);
       if (!Number.isFinite(n) || n < 0) return badRequest(`Valeur invalide : ${f}`);
       update[f] = n;
+    }
+  }
+  // Objectif de marge de l'article (taux de marque) : donnée de coût, réservée au chef et à la finance.
+  let clearTarget = false;
+  if ("targetMarkup" in clean) {
+    if (!canSeeDeskCosts(auth)) return forbidden("Objectif de marge réservé au chef du comptoir, au gérant et à la comptabilité.");
+    if (clean.targetMarkup === null || clean.targetMarkup === "") clearTarget = true;
+    else {
+      const n = Number(clean.targetMarkup);
+      if (!Number.isFinite(n) || n < 0 || n > 0.95) return badRequest("Objectif de marge invalide (entre 0 et 95 %).");
+      update.targetMarkup = Math.round(n * 1000) / 1000;
     }
   }
   if (update.name === "") return badRequest("Le nom est requis.");
@@ -108,7 +119,7 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
     }
   }
   const item = await ActivityItemModel.findOneAndUpdate(
-    { _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }, { $set: update }, { new: true }
+    { _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }, { $set: update, ...(clearTarget ? { $unset: { targetMarkup: 1 } } : {}) }, { new: true }
   );
   if (!item) return notFound("Article introuvable");
   await logAudit(auth, "UPDATE", "comptoir", { resourceId: String(params.id) });

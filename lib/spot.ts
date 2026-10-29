@@ -66,11 +66,20 @@ export interface ReorderInput {
   coverDays: number;
   /** Unités par paquet : la commande se fait en paquets entiers. */
   packSize?: number;
+  /** Seuil d'alerte de l'article : à atteindre ou au-dessous, il faut commander, même sans ventes récentes. */
+  threshold?: number | null;
+  /** Quantité déjà en commande (bons non encore reçus) : elle n'est pas recommandée. */
+  onOrder?: number;
 }
 
 export function reorderSuggestion(i: ReorderInput) {
   const daily = i.windowDays > 0 ? i.soldInWindow / i.windowDays : 0;
-  const need = daily * (i.leadDays + i.coverDays) - Math.max(0, i.stock);
+  const onOrder = Math.max(0, i.onOrder ?? 0);
+  const available = Math.max(0, i.stock) + onOrder;
+  let need = daily * (i.leadDays + i.coverDays) - available;
+  // Sous le seuil (rupture sans ventes récentes, article neuf) : remonter au-dessus du seuil.
+  const underThreshold = i.threshold != null && i.threshold >= 0 && available <= i.threshold;
+  if (underThreshold) need = Math.max(need, i.threshold! - available + Math.max(1, Math.ceil(daily * i.coverDays)));
   const size = i.packSize && i.packSize > 0 ? i.packSize : 1;
   const packs = need > 0 ? Math.ceil(need / size) : 0;
   return {
@@ -78,8 +87,9 @@ export function reorderSuggestion(i: ReorderInput) {
     daysLeft: daily > 0 ? Math.floor(Math.max(0, i.stock) / daily) : null,
     quantity: packs * size,
     packs: size > 1 ? packs : null,
-    // Rupture avant (ou le jour de) la livraison : les jours restants affichés ne couvrent pas le délai.
-    urgent: daily > 0 && Math.floor(Math.max(0, i.stock) / daily) <= i.leadDays,
+    onOrder,
+    // Rupture avant (ou le jour de) la livraison, ou stock (commandes comprises) au seuil.
+    urgent: packs > 0 && ((daily > 0 && Math.floor(available / daily) <= i.leadDays) || underThreshold),
   };
 }
 
