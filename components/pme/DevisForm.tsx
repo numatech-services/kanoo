@@ -7,6 +7,7 @@ import { apiJson } from "@/lib/api-client";
 import { localDay, todayLocal } from "@/lib/format";
 import { useFormDraft } from "@/lib/use-draft";
 import { DraftBanner } from "@/components/ui/DraftBanner";
+import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 import { LinesEditor, MentionsFields, calcDocLine, emptyLine, emptyMentions, linesForApi, type EditLine, type Mentions } from "@/components/docs/DocEditors";
 interface Client { _id: string; name: string; code: string; }
 interface DevisFormProps {
@@ -39,6 +40,9 @@ export function DevisForm({ initial, draftKey, onSave, onCancel, assistant }: De
   const [mentions, setMentions] = useState<Mentions>(emptyMentions(initial));
   const [terms, setTerms] = useState(String(initial?.termsAndConditions || ""));
   const [notes, setNotes] = useState(String(initial?.notes || ""));
+  // Secteur d'activité et projet : la vente arrive imputée en comptabilité (rentabilité par activité).
+  const idOf = (v: unknown) => (v && typeof v === "object" ? String((v as { _id: string })._id) : v ? String(v) : undefined);
+  const [imputation, setImputation] = useState<ImputationValue>({ projectId: idOf(initial?.projectId), activityId: idOf(initial?.activityId) });
   const [lines, setLines] = useState<EditLine[]>(() => {
     const init = initial?.lines as Partial<EditLine>[] | undefined;
     return init?.length ? init.map(calcDocLine) : [emptyLine()];
@@ -75,7 +79,8 @@ export function DevisForm({ initial, draftKey, onSave, onCancel, assistant }: De
       e.preventDefault(); setSaving(true); setError("");
       // Un refus du serveur s'affiche ; le bouton ne reste pas bloqué sur « Enregistrement… ».
       try {
-        await onSave({ clientId, issueDate, validUntil, docKind, ...mentions, termsAndConditions: terms, lines: linesForApi(lines), notes, totalHT, totalTVA, totalTTC });
+        await onSave({ clientId, issueDate, validUntil, docKind, ...mentions, termsAndConditions: terms, lines: linesForApi(lines), notes, totalHT, totalTVA, totalTTC,
+          projectId: imputation.projectId ?? null, activityId: imputation.activityId ?? null });
         draft.clear();
       }
       catch (err) { setError(err instanceof Error ? err.message : "Enregistrement impossible"); }
@@ -108,6 +113,11 @@ export function DevisForm({ initial, draftKey, onSave, onCancel, assistant }: De
       <MentionsFields value={mentions} onChange={setMentions} />
 
       <LinesEditor lines={lines} onChange={setLines} />
+
+      <div className="space-y-1">
+        <p className="text-sm font-semibold text-ink">Imputation</p>
+        <ImputationFields value={imputation} onChange={setImputation} hideCostCenter />
+      </div>
 
       <FormField label="Conditions (imprimées)" hint="Une condition par ligne ; « Titre — texte » met le titre en gras. Vide : les conditions par défaut de l'organisation.">
         <textarea className={textareaCls} rows={4} value={terms} onChange={e => setTerms(e.target.value)}

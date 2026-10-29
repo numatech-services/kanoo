@@ -131,23 +131,24 @@ export function DataTable<T>({
                 <th
                   key={String(col.key)}
                   scope="col"
+                  aria-sort={col.sortable ? (sortKey === String(col.key) ? (sortDir === "asc" ? "ascending" : "descending") : "none") : undefined}
                   // L'en-tête garde la police du texte : la chasse fixe est pour les numéros, pas pour leurs titres.
-                  className={`${col.sortable ? "cursor-pointer hover:text-ink select-none" : ""} ${(col.className || "").replace(/\bfont-mono\b/g, "")}`}
-                  onClick={() => col.sortable && handleSort(String(col.key))}
+                  className={`${col.sortable ? "select-none" : ""} ${(col.className || "").replace(/\bfont-mono\b/g, "")}`}
                 >
-                  <span className="flex items-center gap-1">
-                    {col.label}
-                    {/* Le chevron reste visible, en gris, sur toute colonne
-                        triable : sans lui, rien n'indique qu'un en-tête est
-                        cliquable avant d'avoir cliqué. */}
-                    {col.sortable && (
-                      sortKey === String(col.key)
+                  {/* Un vrai bouton : atteignable au clavier et annoncé (le <th onClick> ne l'était pas). */}
+                  {col.sortable ? (
+                    <button type="button" onClick={() => handleSort(String(col.key))} className="flex items-center gap-1 hover:text-ink">
+                      {col.label}
+                      {/* Le chevron reste visible, en gris, sur toute colonne
+                          triable : sans lui, rien n'indique qu'un en-tête est
+                          cliquable avant d'avoir cliqué. */}
+                      {sortKey === String(col.key)
                         ? (sortDir === "asc"
                             ? <ChevronUp size={13} className="text-section shrink-0" />
                             : <ChevronDown size={13} className="text-section shrink-0" />)
-                        : <ChevronsUpDown size={12} className="text-ink3/50 shrink-0" />
-                    )}
-                  </span>
+                        : <ChevronsUpDown size={12} className="text-ink3/50 shrink-0" />}
+                    </button>
+                  ) : <span className="flex items-center gap-1">{col.label}</span>}
                 </th>
               ))}
             </tr>

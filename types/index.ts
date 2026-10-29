@@ -374,6 +374,8 @@ export interface IInvoice extends DocMentions, InvoiceCorrection {
 }
 
 export interface IDevis extends DocMentions {
+  /** Imputation (projet, secteur d'activité) reprise par la facture et le marché. */
+  activityId?: Types.ObjectId;
   /** Présenté comme devis ou comme facture proforma. */
   docKind?: "devis" | "proforma";
   termsAndConditions?: string;

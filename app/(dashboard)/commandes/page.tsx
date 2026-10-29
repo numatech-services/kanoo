@@ -1,4 +1,5 @@
 "use client";
+import { formatDate } from "@/lib/format";
 import { IfCan } from "@/components/shared/IfCan";
 import { SearchBox } from "@/components/ui/SearchBox";
 import { useState, useSyncExternalStore } from "react";
@@ -54,12 +55,12 @@ const columns: Column<Commande>[] = [
     {
       key: "orderDate",
       label: "Date commande",
-      render: (v) => new Date(String(v)).toLocaleDateString("fr-FR")
+      render: (v) => formatDate(v)
     },
     {
       key: "expectedDeliveryDate",
       label: "Livraison prévue",
-      render: (v) => v ? new Date(String(v)).toLocaleDateString("fr-FR") : "—"
+      render: (v) => formatDate(v)
     },
     {
       key: "totalTTC",

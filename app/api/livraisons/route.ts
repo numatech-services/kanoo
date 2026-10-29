@@ -48,7 +48,7 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
 
   const invoice = await InvoiceModel.findOne({ _id: body.invoiceId, ...tenantFilter(auth) });
   if (!invoice) return notFound("Facture introuvable");
-  if (!["sent", "partial", "paid"].includes(invoice.status)) {
+  if (!["sent", "partial", "overdue", "paid"].includes(invoice.status)) {
     return badRequest("Un bon de livraison ne peut être créé que pour une facture émise, partiellement payée ou soldée");
   }
 
@@ -60,8 +60,10 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
 
   const requested = Array.isArray(body.lines) ? body.lines as Array<Record<string, unknown>> : [];
   let delivery;
+  const shortages: string[] = [];
   try {
   delivery = await withTransaction(async (session) => {
+    shortages.length = 0; // transaction rejouée : on repart de zéro
     // Reste à livrer, lu dans la transaction : deux bons simultanés ne peuvent
     // pas livrer deux fois la même quantité.
     const alloc = allocateDelivery(invoice.lines, await deliveredByLine(auth.tenantId, invoice._id, session), requested);
@@ -82,7 +84,8 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
       lines,
       tenantId: auth.tenantId,
       number,
-      clientId: body.clientId || invoice.clientId,
+      // Le client est celui de la facture (jamais un autre, ni d'une autre organisation).
+      clientId: invoice.clientId,
       warehouseId: body.warehouseId && Types.ObjectId.isValid(String(body.warehouseId)) ? body.warehouseId : undefined,
       status: "issued",
       createdBy: auth.userId,
@@ -98,13 +101,20 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
       if (!product || product.isService) continue;
       // Sortie plafonnée au stock disponible (le bon reste émis) ; atomique.
       const raw = (Array.isArray(body.lines) ? body.lines : []).find((l: { productId?: unknown }) => String(l.productId) === String(line.productId)) as { lots?: [] } | undefined;
-      await applyMovement({
+      const moved = await applyMovement({
         tenantId: auth.tenantId, userId: auth.userId, productId: line.productId, type: "exit",
         quantity: line.quantity, reason: `Bon de livraison ${number}`, allowPartial: true,
         // Entrepôt de départ (défaut : principal) ; lots précisés ou pris péremption la plus proche d'abord.
         warehouseId: body.warehouseId || undefined, lots: raw?.lots,
         linkedDocType: "delivery", linkedDocId: doc._id, linkedDocNumber: number,
       }, session);
+      // Stock insuffisant : le bon reste émis, mais l'écart est écrit sur le bon et renvoyé.
+      const out = Math.abs(Number((moved as { delta?: number })?.delta ?? -line.quantity));
+      if (out + 1e-9 < line.quantity) shortages.push(`« ${line.description} » : ${out} sorti(s) du stock sur ${line.quantity} livré(s).`);
+    }
+    if (shortages.length) {
+      doc.internalNotes = [doc.internalNotes, `Stock insuffisant à l'émission — ${shortages.join(" ")}`].filter(Boolean).join("\n").slice(0, 2000);
+      await doc.save({ session });
     }
     return doc;
   });
@@ -118,7 +128,7 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
     after: { number: delivery.number, invoiceId: body.invoiceId },
   });
 
-  return created(delivery);
+  return created(shortages.length ? { ...delivery.toObject(), warnings: shortages } : delivery);
 });
 
 

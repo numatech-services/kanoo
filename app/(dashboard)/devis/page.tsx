@@ -1,4 +1,5 @@
 "use client";
+import { formatDate } from "@/lib/format";
 import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
 import { SearchBox } from "@/components/ui/SearchBox";
 import { useUrlReady } from "@/lib/url-param";
@@ -53,8 +54,8 @@ export default function DevisPage() {
   const columns: Column<Devis>[] = [
     {key:"number",label:"N° Devis",className:"font-mono font-semibold text-section",render:(v,r)=><Link href={`/devis/${r._id}`} className="hover:underline">{String(v)}</Link>},
     {key:"clientId",label:"Client",render:(v)=>typeof v==="object"&&v?(v as {name:string}).name:"—"},
-    {key:"issueDate",label:"Date",render:(v)=>new Date(String(v)).toLocaleDateString("fr-FR")},
-    {key:"validUntil",label:"Validité",render:(v)=>{const d=new Date(String(v));const expired=d<new Date();return<span className={expired?"text-neg text-sm":"text-ink2 text-sm"}>{d.toLocaleDateString("fr-FR")}</span>;}},
+    {key:"issueDate",label:"Date",render:(v)=>formatDate(v)},
+    {key:"validUntil",label:"Validité",render:(v)=>{if(!v)return<span className="text-ink3 text-sm">—</span>;const expired=new Date(String(v))<new Date();return<span className={expired?"text-neg text-sm":"text-ink2 text-sm"}>{formatDate(v)}</span>;}},
     {key:"totalHT",label:"HT (FCFA)",className:"text-right font-mono",render:(v)=>Number(v).toLocaleString("fr-FR")},
     {key:"totalTTC",label:"TTC (FCFA)",className:"text-right font-mono font-semibold",render:(v)=>Number(v).toLocaleString("fr-FR")},
     {key:"status",label:"Statut",render:(v)=><StatusBadge status={String(v)}/>},

@@ -14,6 +14,14 @@ import { formatMoney } from "@/lib/format";
 import { GUARANTEE_TYPES } from "@/lib/guarantees";
 import { GoNoGoPanel } from "@/components/appels/GoNoGoPanel";
 import { buttonClass } from "@/components/ui/button-class";
+import { Modal } from "@/components/ui/Modal";
+import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
+
+/** Motifs de rejet (models/AppelCandidature, LOSS_REASONS). */
+const LOSS_LABEL: Record<string, string> = {
+  prix: "Prix plus élevé", technique: "Offre technique insuffisante", administratif: "Pièce administrative manquante ou non conforme",
+  hors_delai: "Déposé hors délai", non_conforme: "Offre non conforme", infructueux: "Appel déclaré infructueux", autre: "Autre motif",
+};
 interface ReqDoc { _id?: string; label: string; provided: boolean }
 interface Doc { _id: string; name?: string; dataUri?: string }
 interface Appel {
@@ -22,6 +30,7 @@ interface Appel {
   requiredDocuments: ReqDoc[]; documents: Doc[]; notes?: string;
   contractId?: { _id: string; reference?: string; title?: string } | null;
   projectId?: { _id: string; name?: string } | null;
+  result?: { offerAmount?: number; winnerName?: string; winnerAmount?: number; rank?: number; lossReason?: string; notes?: string };
 }
 
 const NEXT: Record<string, { to: string; label: string }> = {
@@ -42,6 +51,9 @@ export default function AppelDetailPage() {
   const [clients, setClients] = useState<Array<{ _id: string; name: string }>>([]);
   const [award, setAward] = useState({ amount: "", clientId: "", project: true });
   const [busy, setBusy] = useState(false);
+  // Résultat : la décision gagné / perdu se saisit avec son contexte (prix, attributaire, motif).
+  const [resultFor, setResultFor] = useState<"won" | "lost" | null>(null);
+  const [result, setResult] = useState({ offerAmount: "", winnerName: "", winnerAmount: "", rank: "", lossReason: "", notes: "" });
   const [cautions, setCautions] = useState<Array<{ _id: string; type: string; amount: number; status: string; expiryDate?: string }>>([]);
   useEffect(() => { apiJson(`/api/cautions?appelId=${id}`).then(d => setCautions(d?.data?.items ?? [])); }, [id]);
 
@@ -124,13 +136,56 @@ export default function AppelDetailPage() {
         <div className="flex gap-2 flex-wrap justify-end">
           {next && <button onClick={() => patch({ status: next.to })} className={buttonClass("primary", "md")}>{next.label} <ArrowRight size={15} /></button>}
           {["submitted", "evaluation"].includes(a.status) && <>
-            <button onClick={() => patch({ status: "won" })} className="px-3 h-10 rounded-lg bg-pos text-onink text-sm font-semibold inline-flex items-center gap-1.5"><Trophy size={15} /> Gagné</button>
-            <button onClick={() => patch({ status: "lost" })} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm inline-flex items-center gap-1.5"><X size={15} /> Perdu</button>
+            <button onClick={() => setResultFor("won")} className="px-3 h-10 rounded-lg bg-pos text-onink text-sm font-semibold inline-flex items-center gap-1.5"><Trophy size={15} /> Gagné</button>
+            <button onClick={() => setResultFor("lost")} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm inline-flex items-center gap-1.5"><X size={15} /> Perdu</button>
           </>}
           {!terminal && <button onClick={() => patch({ status: "cancelled" })} className="px-3 h-10 rounded-lg border border-line2 text-ink2 text-sm hover:bg-surface2 inline-flex items-center gap-1.5"><Ban size={14} /> Annuler</button>}
           {canDelete && <button onClick={del} className="px-3 h-10 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50">Supprimer</button>}
         </div>
       </div>
+
+      {a.result && (a.result.lossReason || a.result.winnerName || a.result.offerAmount) && (
+        <div className="surface-card p-4 text-sm space-y-1">
+          <p className="font-semibold text-ink">Résultat</p>
+          {a.result.offerAmount ? <p><span className="text-ink2">Notre offre : </span>{formatMoney(a.result.offerAmount)}{a.result.rank ? ` · rang ${a.result.rank}` : ""}</p> : null}
+          {a.result.winnerName ? <p><span className="text-ink2">Attributaire : </span>{a.result.winnerName}{a.result.winnerAmount ? ` · ${formatMoney(a.result.winnerAmount)}` : ""}</p> : null}
+          {a.result.lossReason ? <p><span className="text-ink2">Motif du rejet : </span>{LOSS_LABEL[a.result.lossReason] ?? a.result.lossReason}</p> : null}
+          {a.result.notes ? <p className="text-ink2 whitespace-pre-line">{a.result.notes}</p> : null}
+          {a.status === "lost" && cautions.some(c => c.status === "active") && (
+            <p className="text-warn pt-1">Offre perdue : demandez la mainlevée de la caution de soumission (elle coûte des commissions tant qu&apos;elle court).</p>
+          )}
+        </div>
+      )}
+
+      {resultFor && (
+        <Modal open onClose={() => setResultFor(null)} title={resultFor === "won" ? "Offre retenue" : "Offre non retenue"}>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Montant de notre offre (FCFA)"><input type="number" min={0} className={inputCls} value={result.offerAmount} onChange={e => setResult(r => ({ ...r, offerAmount: e.target.value }))} /></FormField>
+              <FormField label="Rang obtenu"><input type="number" min={1} className={inputCls} value={result.rank} onChange={e => setResult(r => ({ ...r, rank: e.target.value }))} /></FormField>
+            </div>
+            {resultFor === "lost" && (<>
+              <FormField label="Motif du rejet" required>
+                <select className={selectCls} value={result.lossReason} onChange={e => setResult(r => ({ ...r, lossReason: e.target.value }))}>
+                  <option value="">Choisir…</option>
+                  {Object.entries(LOSS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </FormField>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Attributaire"><input className={inputCls} value={result.winnerName} onChange={e => setResult(r => ({ ...r, winnerName: e.target.value }))} /></FormField>
+                <FormField label="Son prix (FCFA)"><input type="number" min={0} className={inputCls} value={result.winnerAmount} onChange={e => setResult(r => ({ ...r, winnerAmount: e.target.value }))} /></FormField>
+              </div>
+            </>)}
+            <FormField label="Observations"><textarea className={textareaCls} rows={2} value={result.notes} onChange={e => setResult(r => ({ ...r, notes: e.target.value }))} /></FormField>
+            <div className="flex justify-end gap-2 pt-2 border-t border-line">
+              <button onClick={() => setResultFor(null)} className={buttonClass("secondary", "md")}>Annuler</button>
+              <button disabled={resultFor === "lost" && !result.lossReason}
+                onClick={async () => { await patch({ status: resultFor, result }); setResultFor(null); }}
+                className={buttonClass("primary", "md")}>Enregistrer le résultat</button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {a.contractId && (
         <div className="surface-card p-4 flex flex-wrap items-center gap-3 text-sm">

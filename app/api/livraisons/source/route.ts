@@ -34,7 +34,7 @@ export const GET = withAuth("livraisons", "create", async (req: NextRequest, aut
       lines?: Array<{ description?: string; quantity?: number; unit?: string; productId?: unknown }>;
     } | null>();
   if (!inv) return notFound("Facture introuvable. Vérifiez le numéro.");
-  if (!["sent", "partial", "paid"].includes(inv.status)) {
+  if (!["sent", "partial", "overdue", "paid"].includes(inv.status)) {
     return badRequest("Cette facture n'est pas encore émise : un bon de livraison ne peut pas être créé.");
   }
   return ok({

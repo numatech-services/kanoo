@@ -1,3 +1,4 @@
+import { BusinessRuleError } from "@/lib/errors";
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, created, badRequest, notFound, conflict, forbidden, tenantFilter } from "@/lib/api-helpers";
@@ -38,6 +39,9 @@ export const POST = withAuth("contracts", "create", async (req: NextRequest, aut
   const date = (v: unknown) => { const d = v ? new Date(String(v)) : undefined; return d && !isNaN(d.getTime()) ? d : undefined; };
 
   const result = await withTransaction(async session => {
+    // Verrou : un seul marché par devis, même sur double clic.
+    const claimed = await DevisModel.updateOne({ _id: devis._id, tenantId: auth.tenantId, contractId: { $in: [null] } }, { $set: { status: "accepted" } }, { session });
+    if (claimed.matchedCount !== 1) throw new BusinessRuleError("Ce devis vient de devenir un marché.");
     const [contract] = await ContractModel.create([{
       tenantId: auth.tenantId, title: String(body.title || `Marché — devis ${devis.number}`).slice(0, 200), type: "client", status: "active",
       clientId: devis.clientId, amount, devisId: devis._id, milestones, startDate: date(body.startDate) ?? new Date(), endDate: date(body.endDate),

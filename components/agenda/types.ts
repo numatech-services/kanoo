@@ -22,7 +22,7 @@ export interface AgendaItem {
 export const TYPE_META: Record<AgendaType, { label: string; color: string }> = {
   reunion: { label: "Réunion", color: "#3755BD" },
   activite: { label: "Activité", color: "#1C5D4C" },
-  tache: { label: "Tâche", color: "#B0703C" },
+  tache: { label: "Tâche", color: "#8F5A2E" }, // contraste ≥ 4,5 avec le texte blanc
   rappel: { label: "Rappel", color: "#7C3AAD" },
   autre: { label: "Autre", color: "#6B7280" },
 };

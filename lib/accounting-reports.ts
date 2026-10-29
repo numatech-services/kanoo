@@ -25,12 +25,24 @@ export async function trialBalance(tenantId: string, from?: Date, to?: Date, pre
   });
 }
 
+/**
+ * Début du cumul des soldes à la date `at` : le 1er janvier qui suit le
+ * dernier exercice clôturé (ses à-nouveaux reprennent tout l'historique),
+ * sinon l'origine. Sans ce plancher, solde d'ouverture et balance comptaient
+ * deux fois l'historique après la première clôture.
+ */
+export function balanceFloor(at: Date, closedYears: number[] = []): Date | undefined {
+  const last = Math.max(-Infinity, ...closedYears.filter(y => y < at.getFullYear()));
+  return Number.isFinite(last) ? new Date(last + 1, 0, 1) : undefined;
+}
+
 /** Grand livre d'un compte (ou d'une racine) : solde d'ouverture, mouvements, solde progressif. */
-export async function generalLedger(tenantId: string, prefix: string, from?: Date, to?: Date) {
+export async function generalLedger(tenantId: string, prefix: string, from?: Date, to?: Date, closedYears: number[] = []) {
   const tid = new Types.ObjectId(tenantId);
   const acc = { "lines.accountCode": { $regex: `^${prefix}` } };
+  const floor = from ? balanceFloor(from, closedYears) : undefined;
   const [opening] = from ? await AccountingEntryModel.aggregate<{ debit: number; credit: number }>([
-    { $match: { tenantId: tid, entryDate: { $lt: from } } }, { $unwind: "$lines" }, { $match: acc },
+    { $match: { tenantId: tid, entryDate: { $lt: from, ...(floor ? { $gte: floor } : {}) } } }, { $unwind: "$lines" }, { $match: acc },
     { $group: { _id: null, debit: { $sum: "$lines.debit" }, credit: { $sum: "$lines.credit" } } },
   ]) : [];
   const moves = await AccountingEntryModel.aggregate<{ _id: unknown; entryDate: Date; journalCode: string; reference: string; label: string; line: { accountCode: string; accountLabel: string; debit: number; credit: number } }>([

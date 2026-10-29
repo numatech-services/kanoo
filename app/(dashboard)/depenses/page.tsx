@@ -30,7 +30,7 @@ export default function PurchasesPage() {
   const ready = useUrlReady(p => setF(x => ({ ...x, status: p.get("status") ?? "", due: p.get("due") ?? "", kind: p.get("kind") ?? "" })));
   const p = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
   for (const [k, v] of Object.entries(f)) if (v) p.set(k, v);
-  const { data: { items, total, totals } } = useApi(ready ? `/api/achats?${p}` : null, d => ({
+  const { data: { items, total, totals }, loading } = useApi(ready ? `/api/achats?${p}` : null, d => ({
     items: (d?.data?.items ?? []) as Purchase[],
     total: (d?.data?.pagination?.total ?? 0) as number,
     totals: (d?.data?.totals ?? { totalTTC: 0, paid: 0, remaining: 0 }) as { totalTTC: number; paid: number; remaining: number },
@@ -82,7 +82,7 @@ export default function PurchasesPage() {
         <table className="table-dense w-full">
           <thead><tr className="bg-surface2/50 text-left"><th>N°</th><th>Date</th><th>Fournisseur / bénéficiaire</th><th>Objet</th><th className="text-right">TTC</th><th className="text-right">Reste</th><th>Échéance</th><th>Statut</th></tr></thead>
           <tbody>
-            {items.length === 0 && <tr><td colSpan={8} className="text-center text-ink3 py-8">Aucun achat</td></tr>}
+            {items.length === 0 && <tr><td colSpan={8} className="text-center text-ink3 py-8">{loading ? "Chargement…" : "Aucun achat"}</td></tr>}
             {items.map(p => {
               const overdue = p.dueDate && ["validated", "partial"].includes(p.status) && new Date(p.dueDate) < new Date();
               return (

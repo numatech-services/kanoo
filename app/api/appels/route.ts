@@ -11,7 +11,10 @@ export const dynamic = "force-dynamic";
 export const GET = withAuth("appels", "read", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const url = new URL(req.url);
+  // Le tableau de bord des offres (étapes, taux de réussite) lit toute la liste : jusqu'à 1 000 appels.
   const pagination = getPagination(req);
+  const wanted = Number(url.searchParams.get("limit"));
+  if (Number.isInteger(wanted) && wanted > pagination.limit) { pagination.limit = Math.min(wanted, 1000); pagination.skip = (pagination.page - 1) * pagination.limit; }
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   const status = url.searchParams.get("status");
   if (status) filter.status = status;

@@ -4,7 +4,8 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, forbidden } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { TenantModel } from "@/models/Tenant";
-import { trialBalance, generalLedger, incomeStatement, balanceSheet } from "@/lib/accounting-reports";
+import { trialBalance, generalLedger, incomeStatement, balanceSheet, balanceFloor } from "@/lib/accounting-reports";
+import { parsePeriod } from "@/lib/flow-filter";
 import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 
 export const dynamic = "force-dynamic";
@@ -22,22 +23,24 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   await connectDB();
   const url = new URL(req.url);
   const type = url.searchParams.get("type") ?? "balance";
-  const parse = (k: string, end = false) => { const v = url.searchParams.get(k); return v ? new Date(end ? `${v}T23:59:59` : v) : undefined; };
-  const from = parse("from"), to = parse("to", true);
+  // Bornes au jour de Niamey (le début était lu en UTC : les à-nouveaux du 1er janvier tombaient hors période).
+  const { from, to } = parsePeriod(url);
   if ((from && isNaN(from.getTime())) || (to && isNaN(to.getTime()))) return badRequest("Dates invalides.");
   const asCsv = url.searchParams.get("format") === "csv";
   if (asCsv && isInternFor(auth, "accountingEntries")) return forbidden(INTERN_EXPORT_MESSAGE);
   const stamp = `${url.searchParams.get("from") ?? "origine"}_${url.searchParams.get("to") ?? "ce-jour"}`;
 
+  const closed = (await TenantModel.findById(auth.tenantId).select("closedFiscalYears").lean<{ closedFiscalYears?: number[] } | null>())?.closedFiscalYears ?? [];
   if (type === "balance") {
-    const rows = await trialBalance(auth.tenantId, from, to, url.searchParams.get("account")?.replace(/\D/g, "") || undefined);
+    // Sans date de début : cumul depuis le dernier exercice clôturé (ses à-nouveaux reprennent l'historique).
+    const rows = await trialBalance(auth.tenantId, from ?? balanceFloor(to ?? new Date(), closed), to, url.searchParams.get("account")?.replace(/\D/g, "") || undefined);
     if (asCsv) return csv(`balance_${stamp}`, [["Compte", "Intitulé", "Débit", "Crédit", "Solde débiteur", "Solde créditeur"], ...rows.map(r => [r.code, r.label, r.debit, r.credit, r.soldeDebit, r.soldeCredit])]);
     return ok({ rows, totals: rows.reduce((t, r) => ({ debit: t.debit + r.debit, credit: t.credit + r.credit, soldeDebit: t.soldeDebit + r.soldeDebit, soldeCredit: t.soldeCredit + r.soldeCredit }), { debit: 0, credit: 0, soldeDebit: 0, soldeCredit: 0 }) });
   }
   if (type === "ledger") {
     const account = (url.searchParams.get("account") || "").replace(/\D/g, "");
     if (!account) return badRequest("Indiquez un compte (ou une racine, ex. 411).");
-    const gl = await generalLedger(auth.tenantId, account, from, to);
+    const gl = await generalLedger(auth.tenantId, account, from, to, closed);
     if (asCsv) return csv(`grand-livre_${account}_${stamp}`, [["Date", "Journal", "Pièce", "Libellé", "Compte", "Débit", "Crédit", "Solde"], ["", "", "", "Solde d'ouverture", "", "", "", gl.openingBalance],
       ...gl.lines.map(l => [new Date(l.date).toLocaleDateString("fr-FR"), l.journal, l.reference, l.label, l.account, l.debit, l.credit, l.balance])]);
     return ok(gl);

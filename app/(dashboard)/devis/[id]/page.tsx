@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { Fragment, useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -49,6 +50,8 @@ export default function DevisDetailPage() {
   const canDeleteDevis = meCanDo(me, "devis", "delete");
   const canEditDevis = meCanDo(me, "devis", "update");
   const canMarket = meCanDo(me, "contracts", "create");
+  const canInvoice = meCanDo(me, "invoices", "create");
+  const [converting, setConverting] = useState(false);
   const [marketOpen, setMarketOpen] = useState(false);
   const [item, setItem] = useState<DevisDetail | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -93,6 +96,17 @@ export default function DevisDetailPage() {
           {item.contractId
             ? <a href={`/contracts/${item.contractId}`} className="px-5 py-2.5 border border-section/30 text-section rounded-2xl font-bold hover:bg-section-soft">Voir le marché</a>
             : canMarket && !["rejected", "expired"].includes(item.status) && <button onClick={() => setMarketOpen(true)} className={buttonClass("primary", "md")}>Créer le marché</button>}
+          {item.convertedToInvoiceId
+            ? <Link href={`/invoices/${item.convertedToInvoiceId}`} className={buttonClass("secondary", "md")}>Voir la facture</Link>
+            : !item.contractId && canInvoice && !["rejected", "expired"].includes(item.status) && (
+              <button disabled={converting} onClick={async () => {
+                if (!(await confirmDialog({ title: "Transformer en facture ?", message: "Un brouillon de facture reprend les lignes, mentions et conditions du devis. Il prendra son numéro définitif à l'émission." }))) return;
+                setConverting(true);
+                const res = await apiSend("POST", `/api/devis/${id}/to-invoice`, { type: "invoice" });
+                setConverting(false);
+                if (res.ok) router.push(`/invoices/${res.data.data.invoice._id}`); else showToast(res.data?.error || "Transformation impossible", "error");
+              }} className={buttonClass("primary", "md")}>Transformer en facture</button>
+            )}
           <a href={`/api/devis/${item._id}/pdf`} target="_blank" rel="noopener"
             className={buttonClass("secondary", "md")}>
             {isProforma ? "PDF proforma" : "PDF devis"}
@@ -111,7 +125,7 @@ export default function DevisDetailPage() {
               <option value="rejected">Refusé</option><option value="expired">Expiré</option>
             </select>
           )}
-          {canDeleteDevis && !item.convertedToInvoiceId && (
+          {canDeleteDevis && !item.convertedToInvoiceId && !item.contractId && (
             <button onClick={async () => {
               if (!(await confirmDialog({ title: isProforma ? "Supprimer cette proforma ?" : "Supprimer ce devis ?", danger: true }))) return;
               const res = await apiSend("DELETE", `/api/devis/${id}`);

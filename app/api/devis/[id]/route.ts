@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { computeInvoiceLines } from "@/lib/invoice-entry";
 import { mentionsFrom } from "@/lib/doc-mentions";
+import { pickImputation, checkImputations } from "@/lib/imputation";
 
 export const GET = withAuth("devis", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   const d = await DevisModel.findOne({ _id: params.id, ...tenantFilter(auth) }).populate("clientId", "name code nif").lean();
@@ -34,6 +35,14 @@ export const PATCH = withAuth("devis", "update", async (req: NextRequest, auth: 
     update.lines = t.lines; update.totalHT = t.totalHT; update.totalTVA = t.totalTVA; update.totalTTC = t.totalHT + t.totalTVA;
   }
   Object.assign(update, mentionsFrom(body));
+  // Imputation : contrôlée sur la saisie brute (projet et secteur de l'organisation).
+  if ("projectId" in body || "activityId" in body) {
+    const raw = { projectId: "projectId" in body ? body.projectId : d.projectId, activityId: "activityId" in body ? body.activityId : d.activityId };
+    const e = await checkImputations(auth.tenantId, [raw]);
+    if (e) return badRequest(e);
+    const imp = pickImputation(raw);
+    update.projectId = imp.projectId ?? null; update.activityId = imp.activityId ?? null;
+  }
   if ("termsAndConditions" in body) update.termsAndConditions = String(body.termsAndConditions ?? "").slice(0, 4000);
   if ("notes" in body) update.notes = String(body.notes ?? "").slice(0, 4000);
   if (body.docKind !== undefined && !["devis", "proforma"].includes(String(body.docKind))) return badRequest("Type de document invalide.");
@@ -53,6 +62,7 @@ export const DELETE = withAuth("devis", "delete", async (_req: NextRequest, auth
   const d = await DevisModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!d) return notFound();
   if (d.convertedToInvoiceId) return badRequest("Devis transformé en facture : il est conservé.");
+  if (d.contractId) return badRequest("Devis devenu un marché : il est conservé (origine du marché).");
   await DevisModel.deleteOne({ _id: d._id });
   await logAudit(auth, "DELETE", "devis", { resourceId: params.id, before: { number: d.number } });
   return ok({ deleted: true });

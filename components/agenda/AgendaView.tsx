@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Plus, Users, MapPin, Video, Trash2, CalendarDays, ChevronLeft, ChevronRight, Link2, Copy, Check } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, textareaCls, selectCls } from "@/components/ui/FormField";
@@ -77,9 +77,19 @@ function shift(view: View, anchor: Date, dir: 1 | -1): Date {
 
 const NO_ITEMS: AgendaItem[] = [];
 
+const subscribePhone = (cb: () => void) => {
+  const mq = window.matchMedia("(max-width: 639px)");
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+};
+
 export function AgendaView() {
   const [scope, setScope] = useState<Scope>("all");
-  const [view, setView] = useState<View>("month");
+  // Téléphone : la liste d'abord (sept colonnes de 46 px ne se lisent pas).
+  // Lu sans écart d'hydratation : faux au rendu serveur, vrai ensuite sur téléphone.
+  const isPhone = useSyncExternalStore(subscribePhone, () => window.matchMedia("(max-width: 639px)").matches, () => false);
+  const [chosenView, setView] = useState<View | null>(null);
+  const view: View = chosenView ?? (isPhone ? "list" : "month");
   const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [editing, setEditing] = useState<Partial<AgendaItem> | null>(null);
 
@@ -133,9 +143,9 @@ export function AgendaView() {
         </div>
         {grid && (
           <div className="flex items-center gap-2">
-            <button onClick={() => setAnchor(shift(view, anchor, -1))} className="w-9 h-9 grid place-items-center rounded-lg border border-line text-ink2 hover:bg-surface2"><ChevronLeft size={16} /></button>
+            <button onClick={() => setAnchor(shift(view, anchor, -1))} aria-label="Période précédente" className="w-9 h-9 grid place-items-center rounded-lg border border-line text-ink2 hover:bg-surface2"><ChevronLeft size={16} /></button>
             <button onClick={() => setAnchor(new Date())} className={buttonClass("secondary", "md")}>Aujourd&apos;hui</button>
-            <button onClick={() => setAnchor(shift(view, anchor, 1))} className="w-9 h-9 grid place-items-center rounded-lg border border-line text-ink2 hover:bg-surface2"><ChevronRight size={16} /></button>
+            <button onClick={() => setAnchor(shift(view, anchor, 1))} aria-label="Période suivante" className="w-9 h-9 grid place-items-center rounded-lg border border-line text-ink2 hover:bg-surface2"><ChevronRight size={16} /></button>
             <span className="text-sm font-semibold text-ink capitalize ml-1 min-w-[9rem]">{p!.label}</span>
           </div>
         )}
@@ -171,7 +181,7 @@ export function AgendaView() {
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2 flex-wrap">
                           <span className={`text-sm font-semibold text-ink ${it.status === "cancelled" ? "line-through" : ""}`}>{it.title}</span>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-onink" style={{ background: itemColor(it) }}>{TYPE_META[it.type].label}</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ background: itemColor(it) }}>{TYPE_META[it.type].label}</span>
                           {it.visibility === "shared" && <span className="inline-flex items-center gap-1 text-[11px] text-ink3"><Users size={12} /> Partagé{ownerName(it.ownerId) ? ` · ${ownerName(it.ownerId)}` : ""}</span>}
                           {it.status === "done" && <span className="text-[11px] text-pos">✓ Fait</span>}
                         </span>

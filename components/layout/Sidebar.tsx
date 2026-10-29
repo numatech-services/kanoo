@@ -55,13 +55,13 @@ const PME_NAV: NavGroup[] = [
     { label: "Agenda", href: "/agenda", icon: <CalendarClock size={18} /> },
     { label: "Notifications", href: "/notifications", icon: <Bell size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
+    // Écran transversal (dépenses, commandes, notes de frais) : avec le pilotage.
+    { label: "Approbations", href: "/approbations", icon: <CheckCircle2 size={18} /> },
   ]},
   { section: "Ventes", tone: "ventes", items: [
     { label: "Clients", href: "/clients", icon: <Users size={18} /> },
     { label: "Pipeline commercial", href: "/crm", icon: <BarChart3 size={18} /> },
     { label: "Devis", href: "/devis", icon: <ClipboardList size={18} /> },
-    { label: "Marchés & contrats clients", href: "/contracts", icon: <PenTool size={18} /> },
-    { label: "Marchés-cadres", href: "/marches-cadres", icon: <PackageCheck size={18} /> },
     { label: "Factures", href: "/invoices", icon: <Receipt size={18} /> },
     { label: "Bons de livraison", href: "/livraisons", icon: <Truck size={18} /> },
     { label: "Encaissements", href: "/payments", icon: <CreditCard size={18} /> },
@@ -77,11 +77,14 @@ const PME_NAV: NavGroup[] = [
     { label: "Lots & péremptions", href: "/stock/lots", icon: <CalendarClock size={18} /> },
     { label: "Inventaires", href: "/inventaires", icon: <ClipboardCheck size={18} /> },
   ]},
-  { section: "Appels d'offres & projets", tone: "contrats", items: [
+  // La chaîne des marchés d'un seul tenant : veille et offres, cautions,
+  // marchés obtenus, marchés-cadres, puis projets d'exécution.
+  { section: "Appels d'offres & marchés", tone: "contrats", items: [
     { label: "Veille & offres", href: "/appels", icon: <Megaphone size={18} /> },
     { label: "Cautions", href: "/cautions", icon: <ShieldCheck size={18} /> },
+    { label: "Marchés & contrats clients", href: "/contracts", icon: <PenTool size={18} /> },
+    { label: "Marchés-cadres", href: "/marches-cadres", icon: <PackageCheck size={18} /> },
     { label: "Projets", href: "/projects", icon: <Folder size={18} /> },
-    { label: "Approbations", href: "/approbations", icon: <CheckCircle2 size={18} /> },
   ]},
   { section: "Finance", tone: "finance", items: [
     { label: "Trésorerie", href: "/treasury", icon: <Landmark size={18} /> },
@@ -94,7 +97,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Retenues à la source", href: "/fiscalite/retenues", icon: <Scissors size={18} /> },
     { label: "Budget prévisionnel", href: "/budget-previsionnel", icon: <PieChart size={18} /> },
     { label: "Immobilisations", href: "/fixed-assets", icon: <Boxes size={18} /> },
-    { label: "Secteurs", href: "/analytique", icon: <Layers size={18} /> },
+    { label: "Résultat par activité", href: "/analytique", icon: <Layers size={18} /> },
     { label: "Marges par produit", href: "/marges", icon: <Percent size={18} /> },
     { label: "Évolution sur 12 mois", href: "/analytics", icon: <TrendingUp size={18} /> },
   ]},
@@ -124,6 +127,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Assistant Claude", href: "/company/assistant", icon: <Sparkles size={18} /> },
     { label: "Modules", href: "/settings/modules", icon: <Boxes size={18} /> },
     { label: "Automatisations", href: "/settings/automatisations", icon: <Zap size={18} /> },
+    { label: "RH et services", href: "/settings/rh", icon: <CalendarClock size={18} /> },
     { label: "Utilisateurs et droits", href: "/users", icon: <Users size={18} /> },
     { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },

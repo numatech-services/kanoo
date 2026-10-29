@@ -1,3 +1,4 @@
+import { pickImputation, checkImputations } from "@/lib/imputation";
 import { NextRequest } from "next/server";
 import { Types } from "mongoose";
 import { withTransaction } from "@/lib/db";
@@ -46,6 +47,10 @@ export const POST = withAuth("devis", "create", async (req: NextRequest, auth: T
     return { ...l, totalHT: lineHT, totalTVA: lineTVA, totalTTC: lineHT + lineTVA };
   });
 
+  const imp = pickImputation({ projectId: body.projectId, activityId: body.activityId });
+  const impErr = await checkImputations(auth.tenantId, [{ projectId: body.projectId, activityId: body.activityId }]);
+  if (impErr) return badRequest(impErr);
+
   const devis = await withTransaction(async (session) => {
     const number = await nextDocumentNumber(auth.tenantId, "quote", { issueDate: body.issueDate, session });
     const [doc] = await DevisModel.create([{
@@ -56,6 +61,7 @@ export const POST = withAuth("devis", "create", async (req: NextRequest, auth: T
       termsAndConditions: body.termsAndConditions === undefined ? undefined : String(body.termsAndConditions ?? "").slice(0, 4000),
       docKind: body.docKind === "proforma" ? "proforma" : "devis",
       ...mentionsFrom(body),
+      ...(imp.projectId ? { projectId: imp.projectId } : {}), ...(imp.activityId ? { activityId: imp.activityId } : {}),
       lines, number, totalHT, totalTVA, totalTTC: totalHT + totalTVA,
       tenantId: auth.tenantId, createdBy: auth.userId,
     }], { session });

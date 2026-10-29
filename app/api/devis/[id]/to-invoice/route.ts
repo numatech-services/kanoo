@@ -1,3 +1,4 @@
+import { BusinessRuleError } from "@/lib/errors";
 import { NextRequest } from "next/server";
 import { invoiceTerms } from "@/lib/doc-mentions";
 import { connectDB } from "@/lib/db";
@@ -48,6 +49,11 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
   dueDate.setDate(dueDate.getDate() + (body.paymentTermDays || 30));
 
   const result = await withTransaction(async (session) => {
+    // Verrou : un seul passage, même sur double clic (le contrôle ci-dessus est lu hors transaction).
+    const claimed = await DevisModel.updateOne(
+      { _id: devis._id, tenantId: auth.tenantId, convertedToInvoiceId: { $in: [null] }, contractId: { $in: [null] } },
+      { $set: { status: "accepted" } }, { session });
+    if (claimed.matchedCount !== 1) throw new BusinessRuleError("Ce devis vient d'être converti.");
     // Brouillon : numéro définitif attribué à l'émission.
     const number = provisionalNumber();
     const [invoice] = await InvoiceModel.create([{
@@ -70,6 +76,7 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
       // Conditions du devis, sans ce qui ne vaut que pour une offre (validité, nature de proforma).
       ...(invoiceTerms(devis.termsAndConditions) ? { termsAndConditions: invoiceTerms(devis.termsAndConditions) } : {}),
       ...(devis.projectId ? { projectId: devis.projectId } : {}),
+      ...(devis.activityId ? { activityId: devis.activityId } : {}),
       createdBy: auth.userId,
     }], { session });
 
@@ -89,6 +96,6 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
 
   return ok({
     invoice: result,
-    message: `Facture définitive ${result.number} créée depuis le devis ${devis.number}`,
+    message: `Brouillon de facture créé depuis le devis ${devis.number} : vérifiez-le, puis émettez-le (il prendra alors son numéro définitif).`,
   });
 });

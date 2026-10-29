@@ -1,5 +1,63 @@
 # Kanoo — Changelog
 
+## Vérification finale — chaîne de vente, marchés, comptabilité, organisation (octobre 2026)
+
+**Du devis au bon de livraison**
+- Une facture qui a des bons de livraison ne s'annule plus : il faut retourner les bons d'abord (la marchandise revient en stock), ou émettre un avoir.
+- Bons de livraison :
+  - un bon émis ne redevient plus brouillon : la quantité redevenait livrable sans retour de stock ;
+  - un bon signé ou livré ne se supprime plus, il se passe en « retourné » ;
+  - le retour ou la suppression d'un bon est refusé si un avoir a déjà repris la marchandise (sinon double rentrée en stock) ;
+  - seules les sorties de stock de CE bon sont extournées, et non tout mouvement portant le même numéro ;
+  - le client est toujours celui de la facture ;
+  - un stock insuffisant à l'émission est écrit sur le bon et signalé ;
+  - les factures « en retard » sont livrables.
+- Conversion devis → facture ou marché verrouillée dans la transaction : un double clic ne crée plus deux factures ou deux marchés. Le message parle d'un brouillon, plus d'une « facture définitive ».
+- Le devis porte son imputation (projet, secteur d'activité), reprise par la facture : la vente arrive imputée en comptabilité.
+- Un devis devenu marché ne se supprime plus.
+- Navigation entre les fiches :
+  - fiche devis : « Transformer en facture », puis « Voir la facture » ;
+  - fiche facture : liens vers le devis d'origine et le marché, et bouton « Bon de livraison » (formulaire prérempli avec le reste à livrer) ;
+  - fiche bon de livraison : lien vers la facture. Elle ne plante plus pour un profil sans accès aux montants.
+
+**Marchés publics**
+- Droits sur les appels d'offres : lecture seule pour les profils de consultation ; suppression réservée aux responsables. Un appel gagné ou devenu marché ne se supprime plus.
+- Résultat de l'offre :
+  - montant offert, rang, attributaire et son prix ;
+  - motif du rejet, obligatoire pour « perdu » ;
+  - rappel de demander la mainlevée de la caution de soumission.
+- La liste des offres n'est plus tronquée à 100. Pièces jointes bornées côté serveur. Mise à jour d'un appel limitée à l'organisation.
+- Menu : la chaîne entière regroupée sous « Appels d'offres & marchés » (veille, cautions, marchés, marchés-cadres, projets).
+
+**Comptabilité**
+- Grand livre et balance après clôture : le solde d'ouverture ne compte plus deux fois l'historique (cumul depuis le 1er janvier qui suit le dernier exercice clôturé).
+- Les bornes des états sont au jour de Niamey : les à-nouveaux du 1er janvier sont dans la période.
+- Déclaration de TVA : à-nouveaux exclus. Le règlement de la TVA à la DGI ne réduit plus la TVA collectée du mois du paiement ; seules les opérations imposables comptent.
+
+**Organisation, tableaux, agenda**
+- « Approbations » passe dans Pilotage, « Secteurs » devient « Résultat par activité », « RH et services » arrive dans les Réglages.
+- Tableaux :
+  - en-têtes triables au clavier et annoncés (`aria-sort`) ;
+  - pagination lisible sur téléphone ;
+  - dates homogènes (plus d'« Invalid Date ») ;
+  - « Chargement… » au lieu d'« Aucun achat » pendant la lecture.
+- Agenda :
+  - la liste d'abord sur téléphone ;
+  - flèches nommées pour les lecteurs d'écran ;
+  - étiquettes lisibles en thème sombre ;
+  - couleur « tâche » contrastée.
+
+Restent à traiter (relevés par l'audit, hors de ce lot) :
+- tri des listes côté serveur ;
+- fusion des échéances (factures, appels, fiscalité) dans l'agenda ;
+- liaison des pièces des appels au coffre administratif ;
+- marchés-cadres rattachés au marché ;
+- liquidation de TVA (4441/4449) et report de crédit ;
+- imputation analytique de la paie, des dotations et de la variation de stock ;
+- rapprochement de la rentabilité par activité avec le compte de résultat ;
+- avoirs partiels déduits du reste à livrer ;
+- préfixe propre aux proformas.
+
 ## Documents prêts à l'envoi, corrections de l'administrateur, Claude dans Kanoo (octobre 2026)
 
 **1. Devis, proformas, factures, bons de livraison et de commande** — `lib/pdf-business.ts`, `lib/business-doc.ts`, `components/docs/DocEditors.tsx`

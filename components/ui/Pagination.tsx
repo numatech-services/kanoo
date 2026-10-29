@@ -26,7 +26,7 @@ export function Pagination({ page, totalPages, total, limit, onPage }: Paginatio
   }
 
   return (
-    <div className="flex items-center justify-between mt-4">
+    <nav aria-label="Pagination" className="flex flex-col sm:flex-row items-center justify-between gap-2 mt-4">
       <p className="text-sm text-ink2">
         {from}–{to} sur {total} résultats
       </p>
@@ -38,6 +38,7 @@ export function Pagination({ page, totalPages, total, limit, onPage }: Paginatio
         >
           ← Préc.
         </button>
+        <span className="sm:hidden px-2 text-sm text-ink2">{page}/{totalPages}</span>
         {pages.map((p, i) =>
           p === "…" ? (
             <span key={`ellipsis-${i}`} className="px-2 text-ink2">…</span>
@@ -45,7 +46,9 @@ export function Pagination({ page, totalPages, total, limit, onPage }: Paginatio
             <button
               key={p}
               onClick={() => onPage(p as number)}
-              className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
+              aria-current={p === page ? "page" : undefined}
+              // Téléphone : « Préc. 3/12 Suiv. » au lieu de neuf boutons qui débordent.
+              className={`hidden sm:inline-grid place-items-center w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
                 p === page
                   ? "bg-section text-onink"
                   : "border border-line hover:bg-surface2 text-ink"
@@ -63,6 +66,6 @@ export function Pagination({ page, totalPages, total, limit, onPage }: Paginatio
           Suiv. →
         </button>
       </div>
-    </div>
+    </nav>
   );
 }

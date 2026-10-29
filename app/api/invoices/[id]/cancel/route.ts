@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
+import { DeliveryNoteModel } from "@/models/DeliveryNote";
 import { DevisModel } from "@/models/Devis";
 import { reverseSaleEntry } from "@/lib/invoice-entry";
 import { releaseMarketInvoice } from "@/lib/market-invoice";
@@ -29,6 +30,10 @@ export const POST = withAuth("invoices", "update", async (_req: NextRequest, aut
   if (invoice.status === "written_off") return badRequest("Facture passée en perte : elle ne s'annule plus.");
   if (invoice.doubtfulAt) return badRequest("Créance douteuse : régularisez par un avoir (la dépréciation est reprise avec lui).");
   if (invoice.kind === "deposit" && (invoice.depositUsedHT ?? 0) > 0) return badRequest("Acompte déjà déduit sur une facture du marché : annulez d'abord celle-ci.");
+  // Facture livrée : l'annuler laisserait la marchandise sortie sans vente.
+  if (await DeliveryNoteModel.exists({ tenantId: auth.tenantId, invoiceId: invoice._id, status: { $ne: "returned" } })) {
+    return badRequest("Des bons de livraison sont établis sur cette facture : passez-les en « retourné » (la marchandise revient en stock), ou émettez un avoir.");
+  }
   await withTransaction(async session => {
     invoice.status = "cancelled";
     await invoice.save({ session });

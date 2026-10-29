@@ -584,12 +584,17 @@ for (const perms of Object.values(ROLE_PERMISSIONS)) {
   else if (!perms.approbations.includes("read")) perms.approbations = [...perms.approbations, "read"];
 }
 
-/** Appels à candidatures (réponse à appels d'offres) : accordé largement. */
-const APPELS_ALL: Action[] = ["create", "read", "update", "delete"];
+/**
+ * Appels à candidatures (réponse à appels d'offres) : accordé largement, mais
+ * en lecture seule aux profils de consultation, et la suppression réservée
+ * aux responsables (un lecteur supprimait un appel gagné).
+ */
+const APPELS_READ_ONLY = new Set(["pme_viewer", "admin_viewer", "asso_member_portal", "pme_approver"]);
+const APPELS_DELETE = new Set(["pme_admin", "pme_manager", "asso_president", "admin_ordonnateur", "admin_procurement_officer", "superadmin"]);
 for (const [role, perms] of Object.entries(ROLE_PERMISSIONS)) {
   if (isServiceRole(role)) continue; // les services déclarent leur accès aux appels
   // (la Comptabilité et The Spot n'ont pas à les modifier).
-  perms.appels = APPELS_ALL;
+  perms.appels = APPELS_READ_ONLY.has(role) ? ["read"] : APPELS_DELETE.has(role) ? ["create", "read", "update", "delete"] : ["create", "read", "update"];
 }
 
 /**

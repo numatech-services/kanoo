@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Package, ArrowLeft, Save } from "lucide-react";
 import { useWarehouses } from "@/components/stock/useWarehouses";
@@ -73,6 +73,15 @@ export default function NewDeliveryPage() {
       setSearching(false);
     }
   };
+
+  // Ouvert depuis une facture (« Bon de livraison ») : ?invoice=FAC-…
+  useEffect(() => {
+    const n = new URLSearchParams(window.location.search).get("invoice");
+    // Recherche lancée hors du rendu de l'effet (comme une saisie) : un seul passage au montage.
+    if (!n) return;
+    const t = setTimeout(() => searchInvoice(n), 0);
+    return () => clearTimeout(t);
+  }, []);
 
   // 2. Enregistrer le BL
   const handleSubmit = async (e: React.FormEvent) => {

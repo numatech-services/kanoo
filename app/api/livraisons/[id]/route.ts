@@ -7,6 +7,31 @@ import { reverseMovement } from "@/lib/stock";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { authCan } from "@/lib/role-resources";
+import { InvoiceModel } from "@/models/Invoice";
+import type { ClientSession } from "mongoose";
+
+/** Sorties de stock de CE bon (et non tout mouvement portant le même numéro). */
+const exitsOf = (tenantId: string, noteId: unknown) => ({ tenantId, type: "exit", linkedDocType: "delivery", linkedDocId: noteId, reversedBy: { $exists: false } });
+
+/**
+ * Un avoir a-t-il déjà repris en stock la marchandise de la facture ? Alors
+ * retourner ou supprimer le bon la ferait rentrer une seconde fois.
+ */
+async function stockTakenBackByCredit(tenantId: string, invoiceId: unknown, session?: ClientSession) {
+  const credits = await InvoiceModel.find({ tenantId, documentType: "credit_note", originalInvoiceId: invoiceId, status: { $ne: "cancelled" } })
+    .select("_id").session(session ?? null).lean<Array<{ _id: unknown }>>();
+  if (!credits.length) return false;
+  return Boolean(await StockMovementModel.exists({ tenantId, type: "return", linkedDocType: "invoice", linkedDocId: { $in: credits.map(c => c._id) } }).session(session ?? null));
+}
+
+/** Transitions permises : un bon émis ne redevient jamais brouillon (la quantité redeviendrait livrable sans retour de stock). */
+const TRANSITIONS: Record<string, string[]> = {
+  draft: ["issued"],
+  issued: ["delivered", "partially_delivered", "returned"],
+  partially_delivered: ["delivered", "returned"],
+  delivered: ["returned"],
+  returned: [],
+};
 
 // Un bon de livraison relève des livraisons (Administration, Achats), pas de la
 // facturation : le détail répondait 403 à qui gérait pourtant la liste.
@@ -35,7 +60,10 @@ export const PATCH = withAuth("livraisons", "update", async (req: NextRequest, a
   if (!note) return notFound();
   if ("status" in raw && raw.status !== note.status) {
     if (note.status === "returned") return badRequest("Bon retourné : émettez un nouveau bon.");
-    if (!["draft", "issued", "delivered", "partially_delivered", "returned"].includes(String(raw.status))) return badRequest("Statut invalide.");
+    if (!(TRANSITIONS[note.status] ?? []).includes(String(raw.status))) return badRequest("Changement de statut impossible pour ce bon.");
+    if (raw.status === "returned" && await stockTakenBackByCredit(auth.tenantId, note.invoiceId)) {
+      return badRequest("Un avoir a déjà repris cette marchandise en stock : le retour du bon la ferait rentrer deux fois.");
+    }
     body.status = raw.status;
   }
 
@@ -45,7 +73,7 @@ export const PATCH = withAuth("livraisons", "update", async (req: NextRequest, a
     // quantités des bons retournés ne comptent plus comme livrées, la même
     // quantité pouvait être relivrée et sortie une seconde fois.
     if (body.status === "returned") {
-      const exits = await StockMovementModel.find({ tenantId: auth.tenantId, type: "exit", linkedDocNumber: note.number, reversedBy: { $exists: false } })
+      const exits = await StockMovementModel.find(exitsOf(auth.tenantId, note._id))
         .select("_id quantity").session(session ?? null).lean<Array<{ _id: unknown; quantity: number }>>();
       for (const m of exits) {
         if (!m.quantity) continue;
@@ -67,11 +95,18 @@ export const DELETE = withAuth("livraisons", "delete", async (_req: NextRequest,
   await connectDB();
   const note = await DeliveryNoteModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!note) return notFound();
+  // Un bon signé ou livré est une preuve de livraison : il se retourne, il ne s'efface pas.
+  if (note.signedAt || ["delivered", "partially_delivered"].includes(note.status)) {
+    return badRequest("Bon signé ou livré : il ne se supprime pas. Passez-le en « retourné » pour remettre la marchandise en stock.");
+  }
+  if (note.status !== "returned" && await stockTakenBackByCredit(auth.tenantId, note.invoiceId)) {
+    return badRequest("Un avoir a déjà repris cette marchandise en stock : supprimer le bon la ferait rentrer deux fois.");
+  }
 
   await withTransaction(async (session) => {
     // Contre-mouvement de chaque sortie du bon : on rend exactement ce qui était
     // sorti (la sortie avait pu être plafonnée au stock disponible).
-    const exits = await StockMovementModel.find({ tenantId: auth.tenantId, type: "exit", linkedDocNumber: note.number, reversedBy: { $exists: false } })
+    const exits = await StockMovementModel.find(exitsOf(auth.tenantId, note._id))
       .select("_id quantity").session(session ?? null).lean<Array<{ _id: unknown; quantity: number }>>();
     for (const m of exits) {
       if (!m.quantity) continue;

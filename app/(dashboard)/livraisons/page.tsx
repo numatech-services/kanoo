@@ -1,4 +1,5 @@
 "use client";
+import { formatDate } from "@/lib/format";
 import { IfCan } from "@/components/shared/IfCan";
 import { SearchBox } from "@/components/ui/SearchBox";
 import { ClientFilterChip } from "@/components/shared/ClientFilterChip";
@@ -70,7 +71,7 @@ export default function LivraisonsPage() {
     {
       key: "deliveryDate",
       label: "Date de livraison",
-      render: (v) => new Date(String(v)).toLocaleDateString("fr-FR"),
+      render: (v) => formatDate(v),
     },
     {
       key: "signedBy",

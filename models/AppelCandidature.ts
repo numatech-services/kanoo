@@ -11,6 +11,9 @@ import { Schema, model, models, Types } from "mongoose";
  */
 export type AppelStatus = "identified" | "preparing" | "submitted" | "evaluation" | "won" | "lost" | "cancelled";
 
+export const LOSS_REASONS = ["prix", "technique", "administratif", "hors_delai", "non_conforme", "infructueux", "autre"] as const;
+export type LossReason = typeof LOSS_REASONS[number];
+
 export interface IRequiredDoc { _id?: Types.ObjectId; label: string; provided: boolean }
 export interface IAppelDoc { _id?: Types.ObjectId; name?: string; dataUri?: string; uploadedAt?: Date }
 
@@ -29,6 +32,8 @@ export interface IAppelCandidature {
   contractId?: Types.ObjectId;
   projectId?: Types.ObjectId;
   notes?: string;
+  /** Résultat de l'offre : ce qu'on a déposé, qui a gagné, pourquoi on a perdu (statistiques par motif). */
+  result?: { submittedAt?: Date; offerAmount?: number; openingDate?: Date; winnerName?: string; winnerAmount?: number; rank?: number; lossReason?: LossReason; notes?: string };
   /** Décision de répondre ou non (grille pondérée, lib/go-no-go). */
   goNoGo?: { scores: Record<string, number>; score: number; decision: "go" | "review" | "no_go"; note?: string; decidedAt: Date; decidedBy: Types.ObjectId };
   createdBy: Types.ObjectId;
@@ -42,6 +47,11 @@ const AppelDocSchema = new Schema<IAppelDoc>({ name: String, dataUri: String, up
 const AppelSchema = new Schema<IAppelCandidature>({
   tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
   title: { type: String, required: true, trim: true, maxlength: 250 },
+  result: {
+    submittedAt: Date, offerAmount: { type: Number, min: 0 }, openingDate: Date,
+    winnerName: { type: String, maxlength: 200 }, winnerAmount: { type: Number, min: 0 }, rank: { type: Number, min: 1 },
+    lossReason: { type: String, enum: LOSS_REASONS }, notes: { type: String, maxlength: 1000 },
+  },
   organism: { type: String, maxlength: 200 },
   reference: { type: String, maxlength: 100 },
   openDate: Date,

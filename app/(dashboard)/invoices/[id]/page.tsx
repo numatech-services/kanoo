@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 
 import { useState, useEffect, useSyncExternalStore } from "react";
@@ -55,6 +56,8 @@ interface Invoice {
   retentionAmount?: number;
   retentionRate?: number;
   contractId?: string | { _id: string; reference?: string };
+  /** Devis d'origine (conversion devis → facture). */
+  quoteId?: string;
   installments?: Array<{ dueDate: string; amount: number; label?: string }>;
 }
 
@@ -207,6 +210,11 @@ export default function InvoiceDetailPage() {
             Retour aux factures
           </button>
           <h1 className="page-title mt-1">{invoice.number}</h1>
+          {/* Chaîne du document : devis d'origine, marché. */}
+          <p className="text-xs text-ink2 mt-1 flex flex-wrap gap-3">
+            {invoice.quoteId && <Link href={`/devis/${invoice.quoteId}`} className="text-section hover:underline">Devis d&apos;origine</Link>}
+            {invoice.contractId && <Link href={`/contracts/${typeof invoice.contractId === "string" ? invoice.contractId : invoice.contractId._id}`} className="text-section hover:underline">Marché{typeof invoice.contractId === "object" && invoice.contractId.reference ? ` ${invoice.contractId.reference}` : ""}</Link>}
+          </p>
         </div>
         <div className="flex gap-2 mt-2 flex-wrap">
           <button
@@ -216,6 +224,9 @@ export default function InvoiceDetailPage() {
             Modifier
           </button>
 
+          {!isCreditNote && ["sent", "partial", "overdue", "paid"].includes(invoice.status) && (
+            <Link href={`/livraisons/new?invoice=${encodeURIComponent(invoice.number)}`} className={buttonClass("secondary", "md")}>Bon de livraison</Link>
+          )}
           {/* Remplacement du lien <a> par le bouton d'impression directe */}
           <button
             onClick={handlePrintDirect}

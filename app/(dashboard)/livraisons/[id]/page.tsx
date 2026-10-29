@@ -16,7 +16,7 @@ const noSubscribe = () => () => {};
 interface Delivery {
   _id:string; number:string; status:string; deliveryDate:string; deliveryAddress?:string;
   signedAt?:string; signedBy?:string; notes?:string;
-  invoiceId:{number:string;totalTTC:number;issueDate:string}|null;
+  invoiceId:{_id?:string;number:string;totalTTC?:number;issueDate:string}|null;
   clientId:{name:string;code:string;nif?:string;address?:string;phone?:string}|null;
   lines:Array<{description:string;quantity:number;unit:string;notes?:string}>;
 }
@@ -78,7 +78,7 @@ export default function LivraisonDetailPage() {
           </div>
           <div>
             <p className="text-xs text-ink2 uppercase font-semibold mb-2">Facture liée</p>
-            {delivery.invoiceId && <><p className="font-mono text-section">{delivery.invoiceId.number}</p><p className="text-sm text-ink2">{delivery.invoiceId.totalTTC.toLocaleString("fr-FR")} FCFA</p></>}
+            {delivery.invoiceId && <>{delivery.invoiceId._id ? <Link href={`/invoices/${delivery.invoiceId._id}`} className="font-mono text-section hover:underline">{delivery.invoiceId.number}</Link> : <p className="font-mono text-section">{delivery.invoiceId.number}</p>}{typeof delivery.invoiceId.totalTTC === "number" && <p className="text-sm text-ink2">{delivery.invoiceId.totalTTC.toLocaleString("fr-FR")} FCFA</p>}</>}
             {delivery.deliveryAddress && <><p className="text-xs text-ink2 mt-2 font-semibold">Adresse de livraison</p><p className="text-sm text-ink2">{delivery.deliveryAddress}</p></>}
           </div>
         </div>
