@@ -10,18 +10,11 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import {apiJson, apiSend } from "@/lib/api-client";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, localDay } from "@/lib/format";
 import { GUARANTEE_TYPES } from "@/lib/guarantees";
 import { GoNoGoPanel } from "@/components/appels/GoNoGoPanel";
 import { buttonClass } from "@/components/ui/button-class";
-import { Modal } from "@/components/ui/Modal";
-import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
-
-/** Motifs de rejet (models/AppelCandidature, LOSS_REASONS). */
-const LOSS_LABEL: Record<string, string> = {
-  prix: "Prix plus élevé", technique: "Offre technique insuffisante", administratif: "Pièce administrative manquante ou non conforme",
-  hors_delai: "Déposé hors délai", non_conforme: "Offre non conforme", infructueux: "Appel déclaré infructueux", autre: "Autre motif",
-};
+import { AppelResultDialog, LOSS_LABEL } from "@/components/appels/AppelResultDialog";
 interface ReqDoc { _id?: string; label: string; provided: boolean }
 interface Doc { _id: string; name?: string; dataUri?: string }
 interface Appel {
@@ -30,6 +23,8 @@ interface Appel {
   requiredDocuments: ReqDoc[]; documents: Doc[]; notes?: string;
   contractId?: { _id: string; reference?: string; title?: string } | null;
   projectId?: { _id: string; name?: string } | null;
+  ownerId?: { _id: string; firstName?: string; lastName?: string } | null;
+  questionsDeadline?: string; siteVisitDate?: string; openingDate?: string;
   result?: { offerAmount?: number; winnerName?: string; winnerAmount?: number; rank?: number; lossReason?: string; notes?: string };
 }
 
@@ -53,7 +48,6 @@ export default function AppelDetailPage() {
   const [busy, setBusy] = useState(false);
   // Résultat : la décision gagné / perdu se saisit avec son contexte (prix, attributaire, motif).
   const [resultFor, setResultFor] = useState<"won" | "lost" | null>(null);
-  const [result, setResult] = useState({ offerAmount: "", winnerName: "", winnerAmount: "", rank: "", lossReason: "", notes: "" });
   const [cautions, setCautions] = useState<Array<{ _id: string; type: string; amount: number; status: string; expiryDate?: string }>>([]);
   useEffect(() => { apiJson(`/api/cautions?appelId=${id}`).then(d => setCautions(d?.data?.items ?? [])); }, [id]);
 
@@ -158,33 +152,8 @@ export default function AppelDetailPage() {
       )}
 
       {resultFor && (
-        <Modal open onClose={() => setResultFor(null)} title={resultFor === "won" ? "Offre retenue" : "Offre non retenue"}>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Montant de notre offre (FCFA)"><input type="number" min={0} className={inputCls} value={result.offerAmount} onChange={e => setResult(r => ({ ...r, offerAmount: e.target.value }))} /></FormField>
-              <FormField label="Rang obtenu"><input type="number" min={1} className={inputCls} value={result.rank} onChange={e => setResult(r => ({ ...r, rank: e.target.value }))} /></FormField>
-            </div>
-            {resultFor === "lost" && (<>
-              <FormField label="Motif du rejet" required>
-                <select className={selectCls} value={result.lossReason} onChange={e => setResult(r => ({ ...r, lossReason: e.target.value }))}>
-                  <option value="">Choisir…</option>
-                  {Object.entries(LOSS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
-              </FormField>
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="Attributaire"><input className={inputCls} value={result.winnerName} onChange={e => setResult(r => ({ ...r, winnerName: e.target.value }))} /></FormField>
-                <FormField label="Son prix (FCFA)"><input type="number" min={0} className={inputCls} value={result.winnerAmount} onChange={e => setResult(r => ({ ...r, winnerAmount: e.target.value }))} /></FormField>
-              </div>
-            </>)}
-            <FormField label="Observations"><textarea className={textareaCls} rows={2} value={result.notes} onChange={e => setResult(r => ({ ...r, notes: e.target.value }))} /></FormField>
-            <div className="flex justify-end gap-2 pt-2 border-t border-line">
-              <button onClick={() => setResultFor(null)} className={buttonClass("secondary", "md")}>Annuler</button>
-              <button disabled={resultFor === "lost" && !result.lossReason}
-                onClick={async () => { await patch({ status: resultFor, result }); setResultFor(null); }}
-                className={buttonClass("primary", "md")}>Enregistrer le résultat</button>
-            </div>
-          </div>
-        </Modal>
+        <AppelResultDialog outcome={resultFor} onClose={() => setResultFor(null)}
+          onSave={async (result) => { await patch({ status: resultFor, result }); setResultFor(null); }} />
       )}
 
       {a.contractId && (
@@ -222,6 +191,8 @@ export default function AppelDetailPage() {
           <span className={`text-sm ${dl.cls}`}>{dl.text}</span>
         </div>
       )}
+
+      <DossierPanel a={a} editable={!terminal && meCanDo(me, "appels", "update")} onPatch={patch} />
 
       <GoNoGoPanel appelId={String(id)} editable={!terminal && meCanDo(me, "appels", "update")}
         onDecision={async d => { if (d === "no_go" && a.status !== "cancelled" && await confirmDialog({ title: "Abandonner cet appel ?", message: "Décision No-Go : l'appel passe à « Annulé » et ne fera plus l'objet de rappels.", confirmLabel: "Abandonner" })) patch({ status: "cancelled" }); }} />
@@ -290,5 +261,44 @@ export default function AppelDetailPage() {
         <textarea className="w-full mt-2 p-2 border border-line rounded-lg text-sm" rows={3} defaultValue={a.notes || ""} onBlur={e => e.target.value !== (a.notes || "") && patch({ notes: e.target.value })} placeholder="Stratégie, contacts, points de vigilance…" />
       </section>
     </div>
+  );
+}
+
+/**
+ * Responsable et dates clés de la procédure : ils alimentent les rappels de
+ * la semaine, l'onglet Calendrier et l'agenda « Marchés publics ».
+ */
+function DossierPanel({ a, editable, onPatch }: { a: Appel; editable: boolean; onPatch: (body: Record<string, unknown>) => Promise<void> }) {
+  const [users, setUsers] = useState<Array<{ _id: string; firstName?: string; lastName?: string }>>([]);
+  useEffect(() => { apiJson("/api/agenda/directory").then(d => setUsers(d?.data ?? [])).catch(() => {}); }, []);
+  // Jour de Niamey (et non le jour UTC de la date stockée).
+  const day = (v?: string) => (v ? localDay(new Date(v)) : "");
+  const dates: Array<[keyof Appel & string, string]> = [
+    ["submissionDeadline", "Date limite de dépôt"], ["questionsDeadline", "Questions / éclaircissements"],
+    ["siteVisitDate", "Visite de site"], ["openingDate", "Ouverture des plis"],
+  ];
+    return (
+    <section className="surface-card p-5 space-y-3">
+      <h2 className="font-semibold text-ink">Dossier</h2>
+      <label className="block text-sm">
+        <span className="text-ink2">Responsable du dossier</span>
+        <select disabled={!editable} className="mt-1 w-full h-10 rounded-lg border border-line2 bg-surface px-3 text-sm" value={a.ownerId?._id ?? ""}
+          onChange={e => onPatch({ ownerId: e.target.value || null })}>
+          <option value="">— Non attribué —</option>
+          {users.map(u => <option key={u._id} value={u._id}>{[u.firstName, u.lastName].filter(Boolean).join(" ")}</option>)}
+        </select>
+      </label>
+      <div className="grid sm:grid-cols-2 gap-3">
+        {dates.map(([k, label]) => (
+          <label key={k} className="block text-sm">
+            <span className="text-ink2">{label}</span>
+            <input type="date" disabled={!editable} defaultValue={day(a[k] as string | undefined)}
+              onBlur={e => { if (e.target.value !== day(a[k] as string | undefined)) onPatch({ [k]: e.target.value || null }); }}
+              className="mt-1 w-full h-10 rounded-lg border border-line2 bg-surface px-3 text-sm" />
+          </label>
+        ))}
+      </div>
+      <p className="text-[12px] text-ink3">Ces dates apparaissent dans les rappels de la semaine et dans l&apos;agenda « Marchés publics ».</p>
+    </section>
   );
 }

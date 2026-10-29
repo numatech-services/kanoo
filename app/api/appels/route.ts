@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { parseKeyDates, checkOwner } from "@/lib/appel-dates";
 import { connectDB } from "@/lib/db";
 import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
@@ -21,6 +22,7 @@ export const GET = withAuth("appels", "read", async (req: NextRequest, auth: Tok
 
   const [items, total] = await Promise.all([
     AppelCandidatureModel.find(filter).select("-documents").sort({ submissionDeadline: 1, createdAt: -1 })
+      .populate("ownerId", "firstName lastName")
       .skip(pagination.skip).limit(pagination.limit).lean(),
     AppelCandidatureModel.countDocuments(filter),
   ]);
@@ -34,7 +36,15 @@ export const POST = withAuth("appels", "create", async (req: NextRequest, auth: 
   const title = String(body.title || "").trim();
   if (!title) return badRequest("L'intitulé de l'appel est obligatoire.");
 
+  const keyDates = parseKeyDates(body);
+  if ("error" in keyDates) return badRequest(keyDates.error);
+  const owner = await checkOwner(auth.tenantId, body.ownerId);
+  if (owner === false) return badRequest("Responsable introuvable dans l'organisation.");
+
   const appel = await AppelCandidatureModel.create({
+    ...keyDates.dates,
+    ...(owner ? { ownerId: owner } : {}),
+    stageChangedAt: new Date(),
     tenantId: auth.tenantId,
     title: title.slice(0, 250),
     organism: String(body.organism || "").slice(0, 200),

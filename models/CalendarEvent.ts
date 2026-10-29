@@ -23,6 +23,7 @@ export interface ICalendarEvent {
   color?: string;
   ownerId: Types.ObjectId;
   visibility: "personal" | "shared";
+  calendar?: string;
   participants: Types.ObjectId[];
   status: "planned" | "done" | "cancelled";
   shareToken?: string;
@@ -48,6 +49,8 @@ const CalendarEventSchema = new Schema<ICalendarEvent>(
     ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     /** « personal » = agenda propre ; « shared » = agenda partagé de l'organisation. */
     visibility: { type: String, enum: ["personal", "shared"], default: "personal" },
+    /** Agenda d'équipe auquel l'événement appartient (« Direction », « Équipe commerciale »…), facultatif. */
+    calendar: { type: String, trim: true, maxlength: 60 },
     /** Participants conviés : ils voient l'entrée même si elle est personnelle. */
     participants: { type: [Schema.Types.ObjectId], ref: "User", default: [] },
     status: { type: String, enum: ["planned", "done", "cancelled"], default: "planned" },

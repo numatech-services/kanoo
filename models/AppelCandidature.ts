@@ -32,6 +32,12 @@ export interface IAppelCandidature {
   contractId?: Types.ObjectId;
   projectId?: Types.ObjectId;
   notes?: string;
+  /** Responsable du dossier (cartes, rappels). */
+  ownerId?: Types.ObjectId;
+  /** Dates clés de la procédure, en plus du dépôt : questions, visite de site, ouverture des plis. */
+  questionsDeadline?: Date; siteVisitDate?: Date; openingDate?: Date;
+  /** Entrée dans l'étape actuelle (« en évaluation depuis 7 j »). */
+  stageChangedAt?: Date;
   /** Résultat de l'offre : ce qu'on a déposé, qui a gagné, pourquoi on a perdu (statistiques par motif). */
   result?: { submittedAt?: Date; offerAmount?: number; openingDate?: Date; winnerName?: string; winnerAmount?: number; rank?: number; lossReason?: LossReason; notes?: string };
   /** Décision de répondre ou non (grille pondérée, lib/go-no-go). */
@@ -63,6 +69,9 @@ const AppelSchema = new Schema<IAppelCandidature>({
   contractId: { type: Schema.Types.ObjectId, ref: "Contract" },
   projectId: { type: Schema.Types.ObjectId, ref: "Project" },
   notes: String,
+  ownerId: { type: Schema.Types.ObjectId, ref: "User" },
+  questionsDeadline: Date, siteVisitDate: Date, openingDate: Date,
+  stageChangedAt: Date,
   goNoGo: {
     scores: { type: Schema.Types.Mixed },
     score: Number,

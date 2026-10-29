@@ -212,6 +212,36 @@ async function pdfCheck(label, s, path, expect) {
   const removed = await g.req("PATCH", "/api/company/ai", { removeKey: true });
   check("clé retirée", removed.status === 200 && D(removed).keyHint === null);
 
+  console.log("\n▶ 7. Suivi des marchés et agenda");
+  const meUser = D(await g.req("GET", "/api/auth/me")).user ?? {};
+  const inDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  const ap = await g.req("POST", "/api/appels", { title: "Bornes de commande — restauration", organism: "CNOU Niamey", estimatedAmount: 28500000,
+    ownerId: meUser._id, submissionDeadline: inDays(3), questionsDeadline: inDays(1), siteVisitDate: inDays(6), openingDate: inDays(4) });
+  const apId = D(ap)._id;
+  check("appel créé avec responsable et dates clés", ap.status === 201 && String(D(ap).ownerId) === String(meUser._id) && D(ap).questionsDeadline && D(ap).stageChangedAt, `${ap.status} ${ap.data?.error}`);
+  const rem = D(await g.req("GET", "/api/appels/reminders?days=7"));
+  const mine = Array.isArray(rem) ? rem.filter(k => k.href === `/appels/${apId}`) : [];
+  check("rappels de la semaine : questions, visite, dépôt et ouverture, avec le responsable", ["questions", "visit", "deposit", "opening"].every(k => mine.some(m => m.kind === k)) && mine.every(m => m.owner), J(mine.map(m => [m.kind, m.owner])));
+  const list = D(await g.req("GET", "/api/appels?limit=1000"));
+  check("liste : responsable lisible sur la carte", (list.items ?? []).some(a => a._id === apId && a.ownerId?.firstName), "");
+  await g.req("PATCH", `/api/appels/${apId}`, { status: "evaluation" });
+  const noWhy = await g.req("PATCH", `/api/appels/${apId}`, { status: "lost" });
+  check("« non retenu » sans motif : refusé", noWhy.status === 400 && /motif/i.test(noWhy.data?.error ?? ""), `${noWhy.status}`);
+  const lost = await g.req("PATCH", `/api/appels/${apId}`, { status: "lost", result: { lossReason: "prix", winnerName: "Concurrent SA", winnerAmount: 26000000 } });
+  check("résultat enregistré : motif, attributaire et prix", lost.status === 200 && D(lost).result?.lossReason === "prix" && D(lost).result?.winnerAmount === 26000000, `${lost.status} ${lost.data?.error}`);
+  const ap2 = D(await g.req("POST", "/api/appels", { title: "Archivage numérique", organism: "Cour des comptes", submissionDeadline: inDays(2) }))._id;
+  const y = new Date().getFullYear();
+  const from = new Date(y, 11, 1).toISOString(), to = new Date(y + 1, 0, 1).toISOString();
+  const dec = D(await g.req("GET", `/api/agenda?${new URLSearchParams({ from, to, scope: "all", virtual: "1" })}`));
+  check("agenda : jours fériés du Niger (18 décembre)", Array.isArray(dec) && dec.some(e => e.virtual && e.calendar === "Jours fériés" && /République/.test(e.title)), J((dec ?? []).filter(e => e.virtual).map(e => e.title)));
+  const soon = D(await g.req("GET", `/api/agenda?${new URLSearchParams({ from: new Date().toISOString(), to: new Date(Date.now() + 10 * 86400000).toISOString(), scope: "all", virtual: "1" })}`));
+  check("agenda : échéances des marchés en lecture seule, liées au dossier", Array.isArray(soon) && soon.some(e => e.virtual && e.calendar === "Marchés publics" && e.href === `/appels/${ap2}`), J((soon ?? []).filter(e => e.virtual).map(e => [e.title, e.href])));
+  const ev = await g.req("POST", "/api/agenda", { title: "Comité de direction", startAt: new Date(Date.now() + 86400000).toISOString(), visibility: "shared", calendar: "Direction" });
+  check("événement rangé dans l'agenda d'équipe « Direction »", ev.status === 201 && D(ev).calendar === "Direction", `${ev.status} ${ev.data?.error}`);
+  const ics = await g.raw(`/api/agenda/ics?${new URLSearchParams({ from: new Date().toISOString(), to: new Date(Date.now() + 10 * 86400000).toISOString() })}`);
+  const icsText = ics.buf.toString("utf-8");
+  check("export .ics : calendrier valide avec l'événement et les échéances", ics.status === 200 && /text\/calendar/.test(ics.type) && icsText.startsWith("BEGIN:VCALENDAR") && icsText.includes("SUMMARY:Comité de direction") && /SUMMARY:Date limite de dépôt/.test(icsText), `${ics.status} ${icsText.slice(0, 120)}`);
+
   console.log(`\n${fail === 0 ? "OK" : "ÉCHEC"} — ${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail === 0 ? 0 : 1);
 })().catch(e => { console.error(e); console.log("ÉCHEC — exception"); process.exit(1); });

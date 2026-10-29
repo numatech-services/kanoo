@@ -1,5 +1,41 @@
 # Kanoo — Changelog
 
+## Nouveau design — suivi des marchés, agenda, comptoir, messagerie, documents (octobre 2026)
+
+**Suivi des marchés** (maquette appliquée)
+- Indicateurs, onglets Offres en cours / Marchés obtenus / Calendrier / Statistiques / Archives, filtre et export CSV (formules neutralisées).
+- **Rappels de la semaine** : questions, visite de site, dépôt, ouverture des plis, échéances de caution et jalons de facturation (`lib/key-dates.ts`, `GET /api/appels/reminders`).
+- Kanban à glisser-déposer, ou vue Liste. Chaque carte affiche :
+  - le score Go / No-Go ;
+  - le responsable du dossier ;
+  - « Dépôt J-x », « Déposé le … » ou « En évaluation depuis N j » ;
+  - les pièces du dossier.
+- Décision « Obtenu » ou « Non retenu » saisie avec son résultat (motif, attributaire, prix), dans une fenêtre commune à la liste et à la fiche.
+- Fiche de l'appel : encadré « Dossier » (responsable et dates clés).
+- Onglet Statistiques : montants gagnés et perdus, motifs de rejet, réussite par acheteur.
+
+**Agenda** (maquette appliquée)
+- Accueil (« vous avez N événements aujourd'hui… »), vues Liste, Semaine (nouvelle), Mois, Trimestre, Semestre, Année.
+- Panneau du jour avec **alerte de chevauchement** : deux rendez-vous de la même personne qui se recouvrent.
+- Agendas d'équipe à cocher (champ « Agenda d'équipe » sur l'événement), plus deux agendas calculés, en lecture seule :
+  - Marchés publics : échéances des dossiers, liées à leur fiche ;
+  - Jours fériés : ceux du Niger retenus par l'organisation.
+- Export .ics vers Outlook ou Google Agenda (`GET /api/agenda/ics`).
+
+**Comptoir, messagerie, documents** : même charte, avec la carte d'indicateur commune `components/ui/MetricCard.tsx`.
+- **Comptoir** :
+  - le nom du comptoir en titre, avec sélecteur en pastilles ;
+  - « Caisse rapide » en action principale ;
+  - indicateurs, réapprovisionnement conseillé en pastilles, rubriques en pilule.
+- **Messagerie** :
+  - conversations filtrables (Toutes, Directes, Groupes) avec recherche, aperçu et heure ;
+  - fil avec séparateurs de jour, membres d'un groupe sur grand écran ;
+  - Entrée pour envoyer ;
+  - sur téléphone, la liste ou le fil.
+- **Documents** :
+  - indicateurs (documents, ajouts du mois, volume, coffre administratif à renouveler), via `GET /api/documents?stats=1` ;
+  - onglets par nature avec compteurs, vue Liste ou Grille, pastille par type de fichier.
+
 ## Vérification finale — chaîne de vente, marchés, comptabilité, organisation (octobre 2026)
 
 **Du devis au bon de livraison**

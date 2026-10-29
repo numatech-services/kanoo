@@ -1,3 +1,4 @@
+import { RESERVED_CALENDARS } from "@/lib/agenda-virtual";
 import { NextRequest } from "next/server";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
@@ -55,6 +56,8 @@ export const PATCH = withAuth("agenda", "update", async (req: NextRequest, auth:
   if (body.location !== undefined) set.location = String(body.location).slice(0, 300);
   if (body.meetingLink !== undefined) set.meetingLink = String(body.meetingLink).slice(0, 500);
   if (body.visibility !== undefined) set.visibility = body.visibility === "shared" ? "shared" : "personal";
+  // « Marchés publics » et « Jours fériés » sont réservés aux entrées calculées.
+  if (body.calendar !== undefined) { const c = String(body.calendar ?? "").trim().slice(0, 60); set.calendar = RESERVED_CALENDARS.includes(c) ? "" : c; }
   if (typeof body.color === "string" && /^#[0-9a-fA-F]{6}$/.test(body.color)) set.color = body.color;
   if (Array.isArray(body.participants)) {
     set.participants = body.participants.filter((id: unknown) => typeof id === "string" && Types.ObjectId.isValid(id)).slice(0, 100);

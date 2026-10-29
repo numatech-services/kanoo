@@ -6,6 +6,7 @@ import { TokenPayload } from "@/lib/auth";
 import { CalendarEventModel } from "@/models/CalendarEvent";
 import { visibleFilter } from "@/lib/agenda";
 import { logAudit } from "@/lib/audit";
+import { virtualAgenda, RESERVED_CALENDARS } from "@/lib/agenda-virtual";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,12 @@ export const GET = withAuth("agenda", "read", async (req: NextRequest, auth: Tok
     .sort({ startAt: 1 })
     .limit(500)
     .populate("ownerId", "firstName lastName")
+    .populate("participants", "firstName lastName")
     .lean();
+  // Échéances des marchés publics et jours fériés : en lecture seule, ajoutés à la vue « Tout ».
+  if (url.searchParams.get("virtual") === "1" && scope === "all" && from && to) {
+    return ok([...items, ...(await virtualAgenda(auth, new Date(from), new Date(to)))]);
+  }
   return ok(items);
 });
 
@@ -67,6 +73,7 @@ export const POST = withAuth("agenda", "create", async (req: NextRequest, auth: 
     color: typeof body.color === "string" && /^#[0-9a-fA-F]{6}$/.test(body.color) ? body.color : undefined,
     ownerId: auth.userId,
     visibility: body.visibility === "shared" ? "shared" : "personal",
+    ...(String(body.calendar ?? "").trim() && !RESERVED_CALENDARS.includes(String(body.calendar).trim()) ? { calendar: String(body.calendar).trim().slice(0, 60) } : {}),
     participants,
     createdBy: auth.userId,
   });

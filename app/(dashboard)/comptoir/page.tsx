@@ -12,6 +12,7 @@ import { LotsEditor, lotsPayload, type LotRow } from "@/components/stock/LotsEdi
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
+import { MetricCard, PillTabs } from "@/components/ui/MetricCard";
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 import { SalesTab } from "@/components/comptoir/SalesTab";
 import { CreditTab } from "@/components/comptoir/CreditTab";
@@ -95,17 +96,28 @@ export default function ComptoirPage() {
 
   return (
     <div className="space-y-6">
-      <div className="page-head">
-        <div>
-          <h1 className="page-title flex items-center gap-2"><Store size={22} /> Comptoirs</h1>
-          <p className="text-sm text-ink2">
-            Comptabilité matière (stock d&apos;articles) et caisse (recettes / dépenses) d&apos;un point d&apos;activité — The Spot et autres.
-          </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-xs font-bold tracking-[0.12em] uppercase text-ink3">Comptoir · stock et caisse</p>
+          <h1 className="text-[30px] font-extrabold tracking-[-0.03em] text-ink mt-1 truncate">{desks.find(d => d._id === deskId)?.name ?? "Comptoirs"}</h1>
+          <p className="text-sm text-ink2 mt-1">Comptabilité matière et caisse d&apos;un point d&apos;activité — ventes, stock, ardoises, promotions.</p>
         </div>
-        <button onClick={() => setNewDeskOpen(true)}
-          className={buttonClass("primary", "md")}>
-          <Plus size={16} /> Nouveau comptoir
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {deskId && (
+            <button onClick={() => setSettingsOpen(true)} className="h-11 px-4 rounded-full border border-line bg-surface text-sm font-semibold text-ink inline-flex items-center gap-2 hover:bg-surface2">
+              <Settings2 size={16} /> Paramètres
+            </button>
+          )}
+          <button onClick={() => setNewDeskOpen(true)} className="h-11 px-4 rounded-full border border-line bg-surface text-sm font-semibold text-ink inline-flex items-center gap-2 hover:bg-surface2">
+            <Plus size={16} /> Nouveau comptoir
+          </button>
+          {/* Vendre d'abord : en tête et pleine largeur sur téléphone. */}
+          {deskId && (
+            <Link href={`/comptoir/rapide?deskId=${deskId}`} className="order-first sm:order-last w-full sm:w-auto justify-center h-11 px-5 rounded-full grad-brand grad-brand-glow text-sm font-semibold inline-flex items-center gap-2 hover:brightness-105">
+              <Zap size={17} /> Caisse rapide
+            </Link>
+          )}
+        </div>
       </div>
 
       {desks.length === 0 ? (
@@ -113,22 +125,16 @@ export default function ComptoirPage() {
           hint="Lancez une activité (par ex. « The Spot ») avec le bouton « Nouveau comptoir » pour suivre son stock et sa caisse." />
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-3">
-            <FormField label="Comptoir">
-              <select className={selectCls} value={deskId} onChange={e => setDeskId(e.target.value)}>
-                {desks.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
-              </select>
-            </FormField>
-            <button onClick={() => setSettingsOpen(true)} title="Paramètres du comptoir"
-              className={buttonClass("secondary", "md", "self-end")}>
-              <Settings2 size={15} /> Paramètres
-            </button>
-          </div>
+          {/* Plusieurs comptoirs : on passe de l'un à l'autre en un clic. */}
+          {desks.length > 1 && (
+            <PillTabs label="Comptoirs" value={deskId} onChange={setDeskId}
+              tabs={desks.map(d => ({ key: d._id, label: d.name, icon: <Store size={15} /> }))} />
+          )}
 
           {deskId && !desks.find(d => d._id === deskId)?.treasuryAccountId && (
-            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl border border-warn/30 bg-warn-50 text-sm text-warn">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-warn/30 bg-warn-50 text-sm text-warn">
               <span>Caisse hors comptabilité : ses ventes et dépenses n&apos;apparaissent ni au compte de résultat ni en trésorerie.</span>
-              <button onClick={() => setSettingsOpen(true)} className={buttonClass("secondary", "sm")}>Relier à une caisse</button>
+              <button onClick={() => setSettingsOpen(true)} className="h-9 px-3.5 rounded-full border border-warn/40 bg-surface text-[13px] font-semibold text-warn hover:bg-warn-50">Relier à une caisse</button>
             </div>
           )}
           {deskId && <DeskView key={deskId} deskId={deskId} deskName={desks.find(d => d._id === deskId)?.name ?? "Comptoir"} tab={tab} setTab={setTab} />}
@@ -317,49 +323,59 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
   }, [deskId]);
   useEffect(() => { reloadSummary(); }, [reloadSummary]);
 
-  const tabCls = (active: boolean) =>
-    `px-4 h-10 shrink-0 whitespace-nowrap inline-flex items-center gap-2 rounded-lg text-sm font-semibold transition-colors ${
-      active ? "bg-section text-onink" : "text-ink2 hover:bg-surface2 border border-line2"}`;
-  const tabProps = (t: Tab) => ({ role: "tab" as const, "aria-selected": tab === t, className: tabCls(tab === t), onClick: () => setTab(t) });
 
   return (
     <div className="space-y-5">
-      {/* Vendre d'abord : sur téléphone, la caisse rapide est le premier bouton, pleine largeur. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Link href={`/comptoir/rapide?deskId=${deskId}`} className="flex-1 sm:flex-none justify-center px-4 h-11 inline-flex items-center gap-2 rounded-lg text-sm font-semibold bg-section text-onink hover:opacity-90"><Zap size={16} /> Caisse rapide</Link>
-        <button onClick={() => setReportOpen(true)}
-          className="sm:ml-auto px-3 h-11 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
-          <FileText size={15} /> Rapport PDF
-        </button>
-      </div>
-
       {/* Cartes de synthèse */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <SummaryCard icon={<Wallet size={18} />} label="Solde de caisse" value={MONEY(summary?.cashBalance ?? 0)} tone="section" />
-        {summary?.stockValue !== null && <SummaryCard icon={<Coins size={18} />} label="Valeur du stock" value={MONEY(summary?.stockValue ?? 0)} />}
-        <SummaryCard icon={<Package size={18} />} label="Articles" value={String(summary?.itemCount ?? 0)} />
-        <SummaryCard icon={<AlertTriangle size={18} />} label="Sous le seuil" value={String(summary?.lowStock?.length ?? 0)}
-          tone={summary?.lowStock?.length ? "warn" : undefined} />
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <MetricCard icon={<Wallet size={18} />} tone="blue" label="Solde de caisse" value={MONEY(summary?.cashBalance ?? 0)}
+          sub={summary ? `${MONEY(summary.cashIn)} encaissés · ${MONEY(summary.cashOut)} sortis` : "—"} />
+        {summary?.stockValue !== null && <MetricCard icon={<Coins size={18} />} tone="green" label="Valeur du stock" value={MONEY(summary?.stockValue ?? 0)} sub="Au coût moyen pondéré" />}
+        <MetricCard icon={<Package size={18} />} tone="violet" label="Articles" value={String(summary?.itemCount ?? 0)} sub="Suivis en stock matière" />
+        <MetricCard icon={<AlertTriangle size={18} />} tone={summary?.lowStock?.length ? "red" : "amber"} label="Sous le seuil" value={String(summary?.lowStock?.length ?? 0)}
+          valueCls={summary?.lowStock?.length ? "text-neg" : ""} sub={summary?.lowStock?.length ? "Réassort à prévoir" : "Stock suffisant"} />
       </div>
 
       {summary?.lowStock && summary.lowStock.length > 0 && (
-        <div className="px-4 py-3 bg-warn-50 border border-warn/25 rounded-xl text-sm text-warn">
-          <span className="font-semibold">Réapprovisionnement conseillé : </span>
-          {summary.lowStock.map(l => `${l.name} (${l.quantity} ${l.unit})`).join(", ")}
-        </div>
+        <section className="bg-surface rounded-[22px] border border-line shadow-card p-4 space-y-3" aria-label="Réapprovisionnement conseillé">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="w-10 h-10 rounded-xl grid place-items-center text-white shrink-0" style={{ background: "linear-gradient(135deg,rgb(240 170 60),rgb(214 134 40))" }}><AlertTriangle size={18} /></span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[15px] font-bold text-ink">Réapprovisionnement conseillé</span>
+              <span className="block text-[12.5px] text-ink3">{summary.lowStock.length} article{summary.lowStock.length > 1 ? "s" : ""} sous le seuil d&apos;alerte</span>
+            </span>
+            <button onClick={() => setTab("stock")} className="h-9 px-3.5 rounded-full border border-line text-[13px] font-semibold text-ink inline-flex items-center gap-1.5 hover:bg-surface2">
+              <Package size={14} /> Voir le stock
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {summary.lowStock.map(l => (
+              <span key={l.name} className="inline-flex items-center gap-2 rounded-xl bg-surface2/60 border border-line px-3 py-1.5 text-[13px]">
+                <span className="font-semibold text-ink">{l.name}</span>
+                <span className="num text-[12px] font-bold px-1.5 py-0.5 rounded-md bg-neg-50 text-neg">{l.quantity} {l.unit}</span>
+                {l.threshold !== undefined && <span className="text-[11.5px] text-ink3">seuil {l.threshold}</span>}
+              </span>
+            ))}
+          </div>
+        </section>
       )}
 
-      {/* Onglets : une ligne qui défile sur téléphone (dix onglets prenaient cinq lignes avant les tickets). */}
-      <div role="tablist" aria-label="Rubriques du comptoir" className="flex flex-nowrap sm:flex-wrap items-center gap-2 overflow-x-auto sm:overflow-visible -mx-1 px-1 pb-1 sm:pb-0">
-        <button {...tabProps("tickets")}><Receipt size={16} /> Tickets</button>
-        <button {...tabProps("semaine")}><CalendarCheck2 size={16} /> Semaine</button>
-        <button {...tabProps("caisse")}><Wallet size={16} /> Caisse</button>
-        <button {...tabProps("stock")}><Package size={16} /> Stock matière</button>
-        {summary && summary.stockValue !== null && <button {...tabProps("rentabilite")}><Percent size={16} /> Rentabilité</button>}
-        <button {...tabProps("ardoises")}><BookUser size={16} /> Ardoises</button>
-        <button {...tabProps("promos")}><Tag size={16} /> Promotions</button>
-        <button {...tabProps("planning")}><GraduationCap size={16} /> Planning</button>
-        {summary && summary.stockValue !== null && <button {...tabProps("easypay")}><PlugZap size={16} /> EasyPay</button>}
+      {/* Onglets en pilule : une ligne qui défile sur téléphone. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PillTabs label="Rubriques du comptoir" value={tab} onChange={setTab} tabs={[
+          { key: "tickets" as Tab, label: "Tickets", icon: <Receipt size={15} /> },
+          { key: "semaine" as Tab, label: "Semaine", icon: <CalendarCheck2 size={15} /> },
+          { key: "caisse" as Tab, label: "Caisse", icon: <Wallet size={15} /> },
+          { key: "stock" as Tab, label: "Stock matière", icon: <Package size={15} />, count: summary?.lowStock?.length || null },
+          ...(summary && summary.stockValue !== null ? [{ key: "rentabilite" as Tab, label: "Rentabilité", icon: <Percent size={15} /> }] : []),
+          { key: "ardoises" as Tab, label: "Ardoises", icon: <BookUser size={15} /> },
+          { key: "promos" as Tab, label: "Promotions", icon: <Tag size={15} /> },
+          { key: "planning" as Tab, label: "Planning", icon: <GraduationCap size={15} /> },
+          ...(summary && summary.stockValue !== null ? [{ key: "easypay" as Tab, label: "EasyPay", icon: <PlugZap size={15} /> }] : []),
+        ]} />
+        <button onClick={() => setReportOpen(true)} className="h-10 px-4 rounded-full border border-line bg-surface text-sm font-semibold text-ink inline-flex items-center gap-2 hover:bg-surface2">
+          <FileText size={15} /> Rapport PDF
+        </button>
       </div>
       {reportOpen && <ReportDialog deskId={deskId} onClose={() => setReportOpen(false)} />}
 
@@ -417,16 +433,6 @@ function ReportDialog({ deskId, onClose }: { deskId: string; onClose: () => void
         </div>
       </div>
     </Modal>
-  );
-}
-
-function SummaryCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone?: "section" | "warn" }) {
-  const color = tone === "section" ? "text-section" : tone === "warn" ? "text-warn" : "text-ink";
-  return (
-    <div className="surface-card p-4">
-      <div className={`inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink2`}>{icon} {label}</div>
-      <p className={`mt-1.5 text-xl font-bold ${color}`}>{value}</p>
-    </div>
   );
 }
 

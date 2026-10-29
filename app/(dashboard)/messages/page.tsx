@@ -37,16 +37,17 @@ export default function MessagesPage() {
     return (
       <div className="space-y-4">
         <div className="h-8 w-48 bg-surface2 animate-pulse rounded-lg" />
-        <div className="h-[600px] bg-surface2 animate-pulse rounded-xl" />
+        <div className="h-[600px] bg-surface2 animate-pulse rounded-[22px]" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h1 className="page-title">{labels.title}</h1>
-        <p className="text-sm text-ink2 mt-0.5">{labels.subtitle}</p>
+        <p className="text-xs font-bold tracking-[0.12em] uppercase text-ink3">Communication</p>
+        <h1 className="text-[30px] font-extrabold tracking-[-0.03em] text-ink mt-1">{labels.title}</h1>
+        <p className="text-sm text-ink2 mt-1">{labels.subtitle}</p>
       </div>
 
       {/* Onglets contextuels selon le profil */}

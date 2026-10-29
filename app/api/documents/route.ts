@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withAuth, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, getPagination, paginatedResponse, tenantFilter, ok } from "@/lib/api-helpers";
 import { AttachmentModel } from "@/models/Attachment";
 import { ProjectModel } from "@/models/Project";
 import { authCan } from "@/lib/role-resources";
@@ -39,13 +39,33 @@ export const GET = withAuth("documents", "read", async (req: NextRequest, auth: 
     const ids = await ProjectModel.find({ ...tenantFilter(auth), ...projectScope(auth) }).distinct("_id");
     if (ids.length) visible.push({ host: "projects", hostId: { $in: ids } });
   }
-  if (visible.length === 0) return paginatedResponse([], 0, pagination);
+  if (visible.length === 0) {
+    return url.searchParams.get("stats") === "1" ? ok({ total: 0, size: 0, thisMonth: 0, byCategory: {} }) : paginatedResponse([], 0, pagination);
+  }
 
   const filter: Record<string, unknown> = { ...tenantFilter(auth), $or: visible };
+  // ?stats=1 : la synthèse de la GED visible (indicateurs et onglets par nature), sans les filtres de recherche.
+  if (url.searchParams.get("stats") === "1") {
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    const [agg] = await AttachmentModel.aggregate<{ all: Array<{ n: number; size: number }>; month: Array<{ n: number }>; cats: Array<{ _id: string | null; n: number }> }>([
+      { $match: filter },
+      { $facet: {
+        all: [{ $group: { _id: null, n: { $sum: 1 }, size: { $sum: { $ifNull: ["$size", 0] } } } }],
+        month: [{ $match: { createdAt: { $gte: monthStart } } }, { $count: "n" }],
+        cats: [{ $group: { _id: "$category", n: { $sum: 1 } } }],
+      } },
+    ]);
+    return ok({
+      total: agg?.all[0]?.n ?? 0, size: agg?.all[0]?.size ?? 0, thisMonth: agg?.month[0]?.n ?? 0,
+      // Sans nature précisée : comptés avec « autre ».
+      byCategory: (agg?.cats ?? []).reduce<Record<string, number>>((m, c) => { const k = c._id || "autre"; m[k] = (m[k] ?? 0) + c.n; return m; }, {}),
+    });
+  }
   const host = url.searchParams.get("host");
   if (host) filter.host = host;
   const category = url.searchParams.get("category");
-  if (category) filter.category = category;
+  // « Autre » regroupe aussi les pièces sans nature précisée (comme la synthèse).
+  if (category) filter.category = category === "autre" ? { $in: ["autre", null] } : category;
   const q = url.searchParams.get("q")?.trim();
   if (q) {
     const rx = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };

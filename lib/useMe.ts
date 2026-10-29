@@ -5,7 +5,7 @@ import { rolesCanPerform, effectiveRoles } from "@/lib/role-resources";
 import type { UserRole } from "@/types";
 
 export interface MeUser {
-  firstName?: string; lastName?: string; role?: string; email?: string; phone?: string;
+  _id?: string; firstName?: string; lastName?: string; role?: string; email?: string; phone?: string;
   roles?: string[]; roleLevels?: Record<string, string>; allowedResources?: string[];
 }
 export interface MeTenant { name?: string; logo?: string; type?: "pme" | "association" | "administration"; primaryColor?: string; disabledModules?: string[]; }

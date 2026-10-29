@@ -5,6 +5,7 @@ import { withAuth, ok, badRequest, notFound, noContent, tenantFilter } from "@/l
 import { TokenPayload } from "@/lib/auth";
 import { LOSS_REASONS, AppelCandidatureModel } from "@/models/AppelCandidature";
 import { logAudit } from "@/lib/audit";
+import { parseKeyDates, checkOwner } from "@/lib/appel-dates";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ const SCALARS = ["title", "organism", "reference", "estimatedAmount", "notes", "
 export const GET = withAuth("appels", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const item = await AppelCandidatureModel.findOne({ _id: params.id, ...tenantFilter(auth) })
-    .populate("contractId", "reference title").populate("projectId", "name").lean();
+    .populate("contractId", "reference title").populate("projectId", "name").populate("ownerId", "firstName lastName").lean();
   if (!item) return notFound("Appel introuvable");
   return ok(item);
 });
@@ -22,7 +23,7 @@ export const GET = withAuth("appels", "read", async (_req: NextRequest, auth: To
 export const PATCH = withAuth("appels", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const body = await req.json().catch(() => ({}));
-  const existing = await AppelCandidatureModel.findOne({ _id: params.id, ...tenantFilter(auth) }).lean<{ _id: unknown } | null>();
+  const existing = await AppelCandidatureModel.findOne({ _id: params.id, ...tenantFilter(auth) }).select("status").lean<{ _id: unknown; status: string } | null>();
   if (!existing) return notFound("Appel introuvable");
 
   const set: Record<string, unknown> = {};
@@ -30,9 +31,18 @@ export const PATCH = withAuth("appels", "update", async (req: NextRequest, auth:
   if (body.status !== undefined) {
     if (!STATUS.includes(body.status)) return badRequest("Statut invalide.");
     set.status = body.status;
+    if (body.status !== (existing as { status?: string }).status) set.stageChangedAt = new Date();
   }
   if ("submissionDeadline" in body) set.submissionDeadline = body.submissionDeadline ? new Date(body.submissionDeadline) : null;
   if ("openDate" in body) set.openDate = body.openDate ? new Date(body.openDate) : null;
+  const keyDates = parseKeyDates(body);
+  if ("error" in keyDates) return badRequest(keyDates.error);
+  Object.assign(set, keyDates.dates);
+  if ("ownerId" in body) {
+    const owner = await checkOwner(auth.tenantId, body.ownerId);
+    if (owner === false) return badRequest("Responsable introuvable dans l'organisation.");
+    set.ownerId = owner ?? null;
+  }
   // Pièces jointes : bornées côté serveur (un appel ne doit pas dépasser la taille d'un document MongoDB).
   if ("documents" in body) {
     const docs = Array.isArray(body.documents) ? body.documents : [];
