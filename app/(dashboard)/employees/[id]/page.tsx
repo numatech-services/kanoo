@@ -16,6 +16,7 @@ import { LEAVE_TYPES } from "@/lib/leave-types";
 import {apiJson, apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+import { todayLocal } from "@/lib/format";
 interface Employee {
   _id: string; code: string; firstName: string; lastName: string; position: string; department?: string; costCenter?: string;
   employeeType: string; contractNature: string; startDate: string; endDate?: string; contractEndDate?: string; exitReason?: string;
@@ -157,7 +158,7 @@ interface Settlement { month: number; year: number; daysPresent: number; fullMon
 
 /** Départ : motif, solde de tout compte prévisionnel et, au choix, bulletin de sortie. */
 function ExitDialog({ employeeId, payroll, onClose, onDone }: { employeeId: string; payroll: boolean; onClose: () => void; onDone: () => void }) {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayLocal());
   const [reason, setReason] = useState(EXIT_REASONS[0]);
   const [slip, setSlip] = useState(payroll);
   const [busy, setBusy] = useState(false);

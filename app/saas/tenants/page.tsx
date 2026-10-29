@@ -11,6 +11,7 @@ import { alertDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
+import { PageLoading } from "@/components/ui/PageState";
 interface Tenant { _id: string; name: string; type: string; plan: string; subscriptionStatus: string; email?: string; userCount: number; createdAt: string; }
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
@@ -69,7 +70,7 @@ export default function TenantsPage() {
   const inp = "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-section/30";
   const lbl = "block text-xs font-medium text-ink2 mb-1";
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   return (
     <div className="space-y-5">

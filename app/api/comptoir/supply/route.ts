@@ -9,6 +9,7 @@ import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { transferStock } from "@/lib/stock";
 import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
 import { logAudit } from "@/lib/audit";
+import { todayLocal } from "@/lib/format";
 
 /**
  * POST — { deskId, fromWarehouseId, lines: [{ itemId, quantity, lots? }], direction? }
@@ -35,7 +36,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     if (!it) return badRequest("Article du comptoir introuvable.");
     if (!it.productId) return badRequest(`« ${it.name} » n'est pas relié au catalogue : reliez-le pour l'approvisionner depuis un entrepôt.`);
   }
-  const reference = `${back ? "RET" : "APP"}-${new Date().toISOString().slice(0, 10)}-${String(desk._id).slice(-4).toUpperCase()}`;
+  const reference = `${back ? "RET" : "APP"}-${todayLocal()}-${String(desk._id).slice(-4).toUpperCase()}`;
   await withTransaction(async session => {
     const whId = await deskWarehouse(auth.tenantId, desk._id, session);
     for (const l of lines) {

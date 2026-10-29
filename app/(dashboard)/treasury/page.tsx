@@ -15,7 +15,7 @@ import { apiJson, apiSend } from "@/lib/api-client";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { api, apiErrorMessage } from "@/lib/api-client";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, todayLocal } from "@/lib/format";
 interface Account {
   ledgerCode?: string;
   _id: string;
@@ -46,7 +46,7 @@ export default function TreasuryPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({
     label: "", type: "bank", openingBalance: 0,
-    openingDate: new Date().toISOString().slice(0, 10), bankName: "",
+    openingDate: todayLocal(), bankName: "",
   });
   const [saving, setSaving] = useState(false);
   const me = useMe();

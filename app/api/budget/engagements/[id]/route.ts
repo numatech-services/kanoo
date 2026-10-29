@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, tenantFilter, serverError } from "@/lib/api-helpers";
 import { EngagementModel } from "@/models/Engagement";
-import { errorMessage } from "@/lib/errors";
 import { TokenPayload } from "@/lib/auth";
 
 // --- RÉCUPÉRATION (GET) ---
@@ -23,7 +22,7 @@ export const GET = withAuth("commitmentOrders", "read", async (req: NextRequest,
 
     return NextResponse.json({ data: engagement });
   } catch (error) {
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    return serverError(error);
   }
 });
 
@@ -58,6 +57,6 @@ export const PATCH = withAuth("commitmentOrders", "update", async (req: NextRequ
     return NextResponse.json({ data: updated });
 
   } catch (error) {
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    return serverError(error);
   }
 });

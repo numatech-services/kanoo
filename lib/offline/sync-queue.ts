@@ -5,6 +5,8 @@
 
 "use client";
 
+import { purgeDrafts } from "@/lib/use-draft";
+
 const SYNC_TAG = "kanoo-sync";
 
 export interface SyncQueueItem {
@@ -103,11 +105,24 @@ export async function triggerSync(registration?: ServiceWorkerRegistration): Pro
   sw?.postMessage({ type: "REPLAY_QUEUE" });
 }
 
+/**
+ * Les magasins, comme le service worker les crée (public/sw.js openDB). Sans
+ * eux, une lecture faite avant le premier passage du service worker créait la
+ * base VIDE à cette version : le service worker n'avait plus d'occasion de les
+ * créer et la file hors ligne échouait.
+ */
+function createStores(e: IDBVersionChangeEvent) {
+  const db = (e.target as IDBOpenDBRequest).result;
+  if (!db.objectStoreNames.contains(QUEUE_STORE)) db.createObjectStore(QUEUE_STORE, { keyPath: "id", autoIncrement: true });
+  if (!db.objectStoreNames.contains(FAILED_STORE)) db.createObjectStore(FAILED_STORE, { keyPath: "id", autoIncrement: true });
+}
+
 function readStore<T>(store: string): Promise<T[]> {
   if (typeof window === "undefined" || !window.indexedDB) return Promise.resolve([]);
 
   return new Promise((resolve) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = createStores;
     req.onsuccess = (e) => {
       const db = (e.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(store)) { resolve([]); return; }
@@ -170,4 +185,52 @@ export function clearSyncQueue(): Promise<void> {
 /** Abandonne les écritures en échec, une fois qu'elles ont été arbitrées. */
 export function clearFailedQueue(): Promise<void> {
   return clearStore(FAILED_STORE);
+}
+
+/** Caches des données (public/sw-policy.js DATA_CACHE / META_CACHE). */
+const DATA_CACHE = "kanoo-data-v2";
+const META_CACHE = "kanoo-meta";
+
+async function tellWorker(message: Record<string, unknown>) {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+  const reg = await navigator.serviceWorker.getRegistration().catch(() => undefined);
+  (navigator.serviceWorker.controller ?? reg?.active)?.postMessage(message);
+}
+
+/**
+ * Efface les données gardées hors ligne : « data » à l'ouverture de la page de
+ * connexion (rien de la session précédente ne reste lisible), « all » à la
+ * déconnexion volontaire (la file des écritures aussi : elle ne doit pas
+ * partir sous la session de quelqu'un d'autre). Faite par la page elle-même
+ * ET par le service worker : l'un ou l'autre peut manquer.
+ */
+export async function purgeOfflineData(scope: "data" | "all"): Promise<void> {
+  if (typeof window === "undefined") return;
+  // Brouillons des formulaires (lib/use-draft) : effacés à la déconnexion volontaire.
+  if (scope === "all") purgeDrafts();
+  try { await caches?.delete(DATA_CACHE); if (scope === "all") await caches?.delete(META_CACHE); } catch { /* Cache Storage indisponible */ }
+  if (scope === "all" && window.indexedDB) {
+    await new Promise<void>((resolve) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = createStores;
+      req.onsuccess = (e) => {
+        const db = (e.target as IDBOpenDBRequest).result;
+        const tx = db.transaction([QUEUE_STORE, FAILED_STORE], "readwrite");
+        tx.objectStore(QUEUE_STORE).clear();
+        tx.objectStore(FAILED_STORE).clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      };
+      req.onerror = () => resolve();
+      req.onblocked = () => resolve();
+    });
+  }
+  await tellWorker({ type: scope === "all" ? "PURGE_ALL" : "PURGE_DATA" });
+}
+
+/** L'utilisateur connecté : la file hors ligne d'un autre utilisateur n'est jamais rejouée sous sa session. */
+export function setOfflineOwner(owner: string): Promise<void> {
+  // Brouillons d'un autre utilisateur de ce téléphone : effacés.
+  purgeDrafts(owner);
+  return tellWorker({ type: "SET_OWNER", owner: owner.trim().toLowerCase() });
 }

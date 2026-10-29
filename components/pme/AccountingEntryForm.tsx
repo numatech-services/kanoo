@@ -5,13 +5,14 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { errorMessage } from "@/lib/errors";
 
 import { buttonClass } from "@/components/ui/button-class";
+import { todayLocal } from "@/lib/format";
 interface Line extends ImputationValue { accountCode: string; accountLabel: string; debit: number; credit: number; }
 interface AccountingEntryFormProps { onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
 
 const JOURNALS = [["AC","Achats"],["VT","Ventes"],["BQ","Banque"],["CA","Caisse"],["OD","Opérations Diverses"]];
 
 export function AccountingEntryForm({ onSave, onCancel }: AccountingEntryFormProps) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const [journalCode, setJournalCode] = useState("OD");
   const [entryDate, setEntryDate] = useState(today);
   const [reference, setReference] = useState("");

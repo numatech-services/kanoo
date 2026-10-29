@@ -6,10 +6,10 @@ import { FormField, inputCls } from "@/components/ui/FormField";
 import { buttonClass } from "@/components/ui/button-class";
 import { showToast } from "@/components/ui/Toast";
 import { apiSend } from "@/lib/api-client";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, localDay } from "@/lib/format";
 import { scheduleBase, scheduleState, splitEvenly, validateSchedule, type InstallmentLike } from "@/lib/installments";
 
-const day = (d: Date | string) => new Date(d).toISOString().slice(0, 10);
+const day = (d: Date | string) => localDay(new Date(d));
 const STATUS: Record<string, { label: string; cls: string }> = {
   paid: { label: "réglé", cls: "text-pos" }, partial: { label: "en partie réglé", cls: "text-warn" },
   due: { label: "à venir", cls: "text-ink2" }, late: { label: "en retard", cls: "text-neg" },

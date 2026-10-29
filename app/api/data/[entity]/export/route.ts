@@ -6,6 +6,7 @@ import { effectiveRoles, rolesCanPerform, isInternFor, INTERN_EXPORT_MESSAGE } f
 import { UserRole } from "@/types";
 import { ENTITIES, toCSV } from "@/lib/data-io";
 import { canSeePayroll, PAYROLL_FIELDS } from "@/lib/payroll-mask";
+import { todayLocal } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export const GET = withAuth("agenda", "read", async (_req: NextRequest, auth: To
   const rows = docs.map((d: unknown) => columns.map((c) => c.get(d)));
   const csv = toCSV(headers, rows);
 
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = todayLocal();
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

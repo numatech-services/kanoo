@@ -7,9 +7,10 @@ import { LEAVE_TYPES } from "@/lib/leave-types";
 import { buttonClass } from "@/components/ui/button-class";
 
 import {apiSend } from "@/lib/api-client";
+import { todayLocal } from "@/lib/format";
 /** Demande (ou saisie pour un salarié, depuis sa fiche) d'un congé / absence. */
 export function RequestDialog({ onClose, onDone, employeeId }: { onClose: () => void; onDone: () => void; employeeId?: string }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const [f, setF] = useState({ type: "annual", startDate: today, endDate: today, halfDayStart: false, halfDayEnd: false, reason: "" });
   const [error, setError] = useState("");
   async function submit(e: React.FormEvent) {

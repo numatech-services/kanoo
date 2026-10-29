@@ -6,6 +6,7 @@ import { useApi } from "@/lib/use-api";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 import { buttonClass } from "@/components/ui/button-class";
+import { PageLoading } from "@/components/ui/PageState";
 interface Cotisation { _id:string; memberId:{firstName:string;lastName:string}|string; year:number; amount:number; paidAt?:string; receiptNumber:string; }
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
@@ -22,7 +23,7 @@ export default function CotisationsPage() {
   const paidRes=useApi<number>(`/api/cotisations?year=${year}&paid=true&limit=1`,p=>p.data?.pagination?.total||0,0,{quiet:true});
   const {items,total}=list.data; const counts={all:all.data,paid:paidRes.data};
   const loading=list.loading||all.loading||paidRes.loading;
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
   const paid=counts.paid;
   const columns: Column<Cotisation>[] = [
     {key:"memberId",label:"Adhérent",render:(v)=>typeof v==="object"&&v?`${(v as {firstName:string;lastName:string}).firstName} ${(v as {firstName:string;lastName:string}).lastName}`:"—"},

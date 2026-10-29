@@ -16,6 +16,7 @@ import { orderProgress, canDeliver, lotTotals } from "@/lib/framework-order";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { todayLocal } from "@/lib/format";
 interface Order {
   _id: string; reference: string; title: string; unit: string; status: string;
   totalQuantity: number; deliveredQuantity?: number; invoicedQuantity?: number;
@@ -141,7 +142,7 @@ export default function MarcheDetailPage() {
 
 function DeliverDialog({ open, onClose, order, onDone }: { open: boolean; onClose: () => void; order: Order; onDone: () => void }) {
   const [qty, setQty] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayLocal());
   const [notes, setNotes] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const { warehouses } = useWarehouses();

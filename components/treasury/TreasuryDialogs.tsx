@@ -8,6 +8,7 @@ import { FlowFilterBar, useFlowFilter, monthStart, type FlowTotals } from "@/com
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
+import { todayLocal } from "@/lib/format";
 export interface TreasuryAccountLite { _id: string; label: string; type: string; balance: number; openingBalance: number; movementCount: number; isActive: boolean; bankName?: string; accountNumber?: string }
 
 async function send(url: string, method: string, body?: unknown) {
@@ -16,7 +17,7 @@ async function send(url: string, method: string, body?: unknown) {
   if (!res.ok) throw new Error(d.error || "Opération refusée");
   return d.data;
 }
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayLocal();
 const fmt = (n: number) => n.toLocaleString("fr-FR");
 
 export function EditAccountDialog({ account, onClose, onDone }: { account: TreasuryAccountLite; onClose: () => void; onDone: () => void }) {

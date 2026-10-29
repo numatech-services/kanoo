@@ -12,6 +12,7 @@ import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { localDay, todayLocal } from "@/lib/format";
 interface Delivery { _id: string; date: string; quantity: number; note?: string }
 interface Payment { _id: string; date: string; amount: number; method?: string; note?: string }
 interface Batch {
@@ -113,7 +114,7 @@ export default function IsicBatchPage() {
     try {
       const today = new Date(); const due = new Date(today); due.setDate(due.getDate() + 30);
       const res = await apiSend("POST", "/api/invoices", {
-          clientId: uniId, issueDate: today.toISOString().slice(0, 10), dueDate: due.toISOString().slice(0, 10),
+          clientId: uniId, issueDate: localDay(today), dueDate: localDay(due),
           lines: [{ description: `Cartes ISIC ${b!.academicYear || ""} — ${b!.reference}`.trim(), quantity: b!.totalCards, unitPrice: b!.unitSalePrice, tvaRate: 0 }],
         });
       const d = res.data;
@@ -423,7 +424,7 @@ function IsicCostsPanel({ batch, fin, canEdit, canDelete, onPatch, onAdd, onDele
   onAdd: (body: Record<string, unknown>, reset: () => void) => Promise<void> | void;
   onDelete: (costId: string) => void;
 }) {
-  const empty = { category: "printing", label: "", quantity: "", unitCost: "", amount: "", supplier: "", date: new Date().toISOString().slice(0, 10) };
+  const empty = { category: "printing", label: "", quantity: "", unitCost: "", amount: "", supplier: "", date: todayLocal() };
   const [f, setF] = useState(empty);
   const [units, setUnits] = useState({ print: String(batch.unitPrintCost ?? ""), lanyard: String(batch.unitLanyardCost ?? "") });
   const computed = f.quantity && f.unitCost ? Math.round(Number(f.quantity) * Number(f.unitCost)) : 0;

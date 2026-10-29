@@ -11,6 +11,7 @@ import { SupplierForm } from "@/components/pme/SupplierForm";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+import { PageLoading } from "@/components/ui/PageState";
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
 interface Supplier { _id: string; code: string; name: string; nif?: string; phone?: string; email?: string; logo?: string; paymentTermDays: number; bankAccount?: string; isActive: boolean; }
@@ -58,7 +59,7 @@ export default function SuppliersPage() {
     setModalOpen(false); setEditing(null); load();
   }
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   return (
     <div className="space-y-5">

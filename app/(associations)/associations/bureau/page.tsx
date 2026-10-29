@@ -4,6 +4,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+import { PageLoading } from "@/components/ui/PageState";
 interface BureauMember { _id:string; firstName:string; lastName:string; role:string; customRoleLabel?:string; email?:string; phone?:string; mandateStart:string; mandateEnd?:string; isActive:boolean; projectIds:Array<{_id:string;code:string;name:string;executionRate:number;status:string}>; }
 
 const ROLES: Array<[string,string]> = [
@@ -44,7 +45,7 @@ export default function BureauPage() {
     return acc;
   }, {} as Record<string, BureauMember[]>);
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   return (
     <div className="space-y-5">

@@ -14,6 +14,7 @@ import { useApi } from "@/lib/use-api";
 import { apiSend } from "@/lib/api-client";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
+import { todayLocal } from "@/lib/format";
 interface Payload {
   client: { name: string; code?: string; email?: string; nif?: string; address?: string };
   statement: Statement;
@@ -43,7 +44,7 @@ function firstOfYear() {
 export default function RelevePage() {
   const { id } = useParams();
   const [from, setFrom] = useState(firstOfYear());
-  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [to, setTo] = useState(todayLocal());
   const [sending, setSending] = useState(false);
   const releve = useApi<Payload | null>(
     `/api/clients/${id}/releve?from=${from}&to=${to}`, d => (d.success ? d.data : null), null,
@@ -124,7 +125,7 @@ export default function RelevePage() {
           <input type="date" value={to} onChange={e => setTo(e.target.value)}
             className="ml-2 h-9 px-2 rounded-lg border border-line2 bg-surface text-sm text-ink" />
         </label>
-        <button onClick={() => { setFrom(firstOfYear()); setTo(new Date().toISOString().slice(0, 10)); }}
+        <button onClick={() => { setFrom(firstOfYear()); setTo(todayLocal()); }}
           className="fchip">Exercice en cours</button>
       </div>
 

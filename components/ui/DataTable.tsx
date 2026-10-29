@@ -10,6 +10,13 @@ export interface Column<T> {
   render?: (value: unknown, row: T) => React.ReactNode;
   sortable?: boolean;
   className?: string;
+  /**
+   * Sur téléphone, la liste devient des cartes : « title » est l'en-tête de la
+   * carte (par défaut la première colonne), « hide » n'y figure pas,
+   * « actions » va en pied de carte (par défaut une colonne sans titre ou
+   * nommée actions) ; les autres s'affichent « libellé : valeur ».
+   */
+  mobile?: "title" | "hide" | "actions";
 }
 
 interface DataTableProps<T> {
@@ -76,8 +83,44 @@ export function DataTable<T>({
     );
   }
 
+  const cell = (col: Column<T>, row: T) => {
+    const val = (row as Record<string, unknown>)[String(col.key)];
+    return col.render ? col.render(val, row) : String(val ?? "—");
+  };
+  // La première colonne fait le titre de la carte, sauf si une autre le demande.
+  const explicitTitle = columns.some(c => c.mobile === "title");
+  const roleOf = (col: Column<T>, i: number): "title" | "hide" | "actions" | "field" =>
+    col.mobile ?? (i === 0 && !explicitTitle ? "title" : !col.label || String(col.key) === "actions" ? "actions" : "field");
+  const titleCol = columns.find((c, i) => roleOf(c, i) === "title");
+
   return (
-    <div className="surface-card overflow-hidden">
+    <>
+    {/* Téléphone : des cartes, montant et statut visibles sans défiler de côté. */}
+    <ul className="sm:hidden space-y-2" aria-label="Liste">
+      {sorted.length === 0 ? (
+        <li className="surface-card text-center py-10 text-sm text-ink2">{emptyMessage}</li>
+      ) : sorted.map((row, index) => (
+        <li key={rowKey(row, index)}
+          className={`surface-card p-3 space-y-1.5 ${onRowClick ? "cursor-pointer active:bg-surface2" : ""}`}
+          {...(onRowClick ? { role: "button", tabIndex: 0, onClick: () => onRowClick(row), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onRowClick(row); } } } : {})}>
+          {titleCol && <div className="font-semibold text-ink break-words">{cell(titleCol, row)}</div>}
+          <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-sm">
+            {columns.map((col, i) => roleOf(col, i) === "field" && (
+              <div key={String(col.key)} className="contents">
+                <dt className="text-ink3 text-xs self-center">{col.label}</dt>
+                <dd className="text-ink text-right min-w-0 break-words">{cell(col, row)}</dd>
+              </div>
+            ))}
+          </dl>
+          {columns.some((c, i) => roleOf(c, i) === "actions") && (
+            <div className="flex flex-wrap justify-end gap-2 pt-1" onClick={e => e.stopPropagation()}>
+              {columns.map((col, i) => roleOf(col, i) === "actions" && <span key={String(col.key)}>{cell(col, row)}</span>)}
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+    <div className="surface-card overflow-hidden hidden sm:block">
       <div className="overflow-x-auto">
         {/* Densité et styles d'en-tête portés par .table-dense : une seule
             définition pour les 31 écrans qui passent par ce composant. */}
@@ -139,5 +182,6 @@ export function DataTable<T>({
         </table>
       </div>
     </div>
+    </>
   );
 }

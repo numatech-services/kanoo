@@ -13,7 +13,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
-import { formatMoney, formatDate } from "@/lib/format";
+import { formatDate, formatMoney, todayLocal } from "@/lib/format";
 import { buttonClass } from "@/components/ui/button-class";
 type Ref = { _id: string; code?: string; name?: string; label?: string; type?: string } | null | undefined;
 interface Purchase {
@@ -164,7 +164,7 @@ export default function PurchaseDetailPage() {
 
 function PayDialog({ id, rest, onClose, onDone }: { id: string; rest: number; onClose: () => void; onDone: () => void }) {
   const [accounts, setAccounts] = useState<Array<{ _id: string; label: string; type: string; balance?: number }>>([]);
-  const [f, setF] = useState({ amount: rest, date: new Date().toISOString().slice(0, 10), treasuryAccountId: "", reference: "" });
+  const [f, setF] = useState({ amount: rest, date: todayLocal(), treasuryAccountId: "", reference: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   // Règlement en devise : le montant décaissé solde la dette, l'écart est un gain ou une perte de change.

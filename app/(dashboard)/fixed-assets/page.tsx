@@ -8,7 +8,8 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { buttonClass } from "@/components/ui/button-class";
 import { api, apiErrorMessage, apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, todayLocal } from "@/lib/format";
+import { PageLoading } from "@/components/ui/PageState";
 interface DepreciationEntry { year: number; annuity: number; cumulative: number; netValue: number; posted: boolean; }
 interface FixedAsset {
   _id: string; code: string; name: string; category: string;
@@ -32,7 +33,7 @@ export default function FixedAssetsPage() {
   const [saving, setSaving] = useState(false);
   const [postingYear, setPostingYear] = useState<number | null>(null);
   const [form, setForm] = useState({
-    code: "", name: "", category: "equipment", acquisitionDate: new Date().toISOString().slice(0,10),
+    code: "", name: "", category: "equipment", acquisitionDate: todayLocal(),
     acquisitionCost: 0, residualValue: 0, depreciationMethod: "linear",
     usefulLifeYears: 5, supplier: "", location: "", notes: "",
     origin: "purchase", purchaseId: "", supplierId: "",
@@ -53,7 +54,7 @@ export default function FixedAssetsPage() {
     stats: (d.data?.stats || {}) as { totalAcquisitionCost?: number; totalNetValue?: number; count?: number },
   }), { assets: [] as FixedAsset[], stats: {} });
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   const u = (k: string, v: unknown) => setForm(p => ({ ...p, [k]: v }));
   const selectedAsset = detailId ? assets.find(a => a._id === detailId) : null;

@@ -6,6 +6,7 @@ import { useUrlReady } from "@/lib/url-param";
 import { apiJson, apiSend } from "@/lib/api-client";
 import { showToast } from "@/components/ui/Toast";
 import { bestPromoPrice, type Promo } from "@/lib/spot";
+import { PageLoading } from "@/components/ui/PageState";
 
 const MONEY = (n: number) => `${Math.round(n || 0).toLocaleString("fr-FR")} F`;
 interface Item { _id: string; name: string; unit: string; quantity: number; salePrice?: number; category?: string; recipe?: unknown[] }
@@ -13,6 +14,12 @@ interface Pending { clientRef: string; body: Record<string, unknown>; total: num
 
 /** Référence unique d'un ticket (le serveur ne l'enregistre qu'une fois). */
 const newRef = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().replace(/-/g, "") : `${Date.now()}${Math.random().toString(36).slice(2, 12)}`);
+/**
+ * Envoi d'un ticket : l'écran garde lui-même les tickets en attente (le
+ * service worker ne les met pas dans sa file : un ticket ne doit exister qu'à
+ * un endroit), et la référence du ticket sert de clé d'idempotence.
+ */
+const sendSale = (body: Record<string, unknown>) => apiSend("POST", "/api/comptoir/sales", body, { "X-Kanoo-Offline": "page", "Idempotency-Key": `sale-${body.clientRef}` });
 /** Horodatage d'un ticket mis en attente (appelé au clic, jamais au rendu). */
 const nowMs = () => Date.now();
 const store = {
@@ -37,6 +44,7 @@ export default function QuickSalePage() {
   const [queue, setQueue] = useState<Pending[]>([]);
   const [last, setLast] = useState<{ number: string; text: string } | null>(null);
   const qKey = `kanoo-quick-queue-${deskId}`, iKey = `kanoo-quick-items-${deskId}`;
+  const pickDesk = useCallback((id: string) => { setDeskId(id); window.history.replaceState(null, "", `/comptoir/rapide?deskId=${id}`); }, []);
 
   // Articles : lus en ligne, sinon la dernière liste gardée sur le téléphone.
   useEffect(() => {
@@ -57,8 +65,9 @@ export default function QuickSalePage() {
     if (!pending.length) return;
     const left: Pending[] = [];
     for (const p of pending) {
-      const res = await apiSend("POST", "/api/comptoir/sales", p.body);
-      if (res.status === 0) { left.push(p); continue; }
+      const res = await sendSale(p.body);
+      // Réseau absent, ou réponse d'un ancien service worker (« mis en file ») : on garde.
+      if (res.status === 0 || res.data?.offline) { left.push(p); continue; }
       if (!res.ok) showToast(`Ticket en attente refusé : ${res.data?.error ?? "erreur"}`, "error");
     }
     store.set(qKey, left); setQueue(left);
@@ -92,9 +101,9 @@ export default function QuickSalePage() {
     // Montant fixé par le serveur (promotions comprises) : un seul moyen de paiement.
     const body = { deskId, clientRef, lines: lines.map(l => ({ itemId: l.item._id, quantity: l.q })), payMethod: method };
     setBusy(true);
-    const res = await apiSend("POST", "/api/comptoir/sales", body);
+    const res = await sendSale(body);
     setBusy(false);
-    if (res.status === 0) {
+    if (res.status === 0 || res.data?.offline || (res.ok && !res.data?.data?.sale)) {
       // Pas de réseau : le ticket attend sur le téléphone.
       const next = [...store.get<Pending[]>(qKey, []), { clientRef, body, total, at: nowMs() }];
       store.set(qKey, next); setQueue(next);
@@ -110,8 +119,8 @@ export default function QuickSalePage() {
     setItems(it => it.map(i => (cart[i._id] && !i.recipe?.length ? { ...i, quantity: i.quantity - cart[i._id] } : i)));
   }
 
-  if (!ready) return null;
-  if (!deskId) return <p className="p-6 text-sm">Ouvrez la caisse rapide depuis un comptoir.</p>;
+  if (!ready) return <PageLoading />;
+  if (!deskId) return <DeskPicker onPick={pickDesk} />;
   return (
     <div className="max-w-xl mx-auto pb-72 sm:pb-48 space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -174,6 +183,38 @@ export default function QuickSalePage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Caisse rapide ouverte sans comptoir (lien direct, raccourci du téléphone) :
+ * le choix du comptoir, ou le seul existant ouvert d'office — au lieu d'une
+ * impasse « ouvrez-la depuis un comptoir ».
+ */
+function DeskPicker({ onPick }: { onPick: (id: string) => void }) {
+  const [desks, setDesks] = useState<Array<{ _id: string; name: string }> | null>(null);
+  useEffect(() => {
+    apiJson("/api/comptoir/desks").then(d => {
+      const list = (Array.isArray(d.data) ? d.data : d.data?.items ?? []) as Array<{ _id: string; name: string }>;
+      if (list.length === 1) onPick(list[0]._id);
+      else setDesks(list);
+    });
+  }, [onPick]);
+  if (!desks) return <PageLoading />;
+  return (
+    <div className="max-w-md mx-auto space-y-3">
+      <h1 className="page-title">Caisse rapide</h1>
+      {desks.length === 0
+        ? <p className="text-sm text-ink2">Aucun comptoir accessible. <Link href="/comptoir" className="text-section font-semibold">Créer ou ouvrir un comptoir</Link></p>
+        : <>
+            <p className="text-sm text-ink2">Choisissez le comptoir où vous vendez :</p>
+            <div className="grid gap-2">
+              {desks.map(d => (
+                <button key={d._id} onClick={() => onPick(d._id)} className="surface-card px-4 h-14 text-left font-semibold text-ink hover:bg-surface2">{d.name}</button>
+              ))}
+            </div>
+          </>}
     </div>
   );
 }

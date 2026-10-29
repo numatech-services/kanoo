@@ -3,9 +3,10 @@ import { useState } from "react";
 import { FormField, inputCls, selectCls, textareaCls } from "@/components/ui/FormField";
 import { buttonClass } from "@/components/ui/button-class";
 import { TreasuryAccountSelect } from "@/components/shared/TreasuryAccountSelect";
+import { todayLocal } from "@/lib/format";
 interface DonFormProps { onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
 export function DonForm({ onSave, onCancel }: DonFormProps) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const [form, setForm] = useState({ donorType:"individual", donorName:"", donorContact:"", amount:0, currency:"XOF", campaign:"", date:today, paymentMethod:"cash", notes:"", treasuryAccountId:"", amountXOF:0 });
   const [saving, setSaving] = useState(false);
   const u = (f: string, v: unknown) => setForm(p => ({ ...p, [f]: v }));

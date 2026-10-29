@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+import { PageLoading } from "@/components/ui/PageState";
 interface AG { _id:string; title:string; type:string; date:string; location:string; quorumRequired:number; quorumAchieved:number; decisions:Array<{text:string;passed:boolean}>; }
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
@@ -20,7 +21,7 @@ export default function AssembleePage() {
     {key:"quorumAchieved",label:"Quorum",render:(v,r)=><span className={Number(v)>=r.quorumRequired?"text-pos":"text-neg"}>{Number(v)}/{r.quorumRequired}</span>},
     {key:"decisions",label:"Résolutions",render:(v)=>{const d=v as AG["decisions"];return `${d.filter(x=>x.passed).length}/${d.length} adoptées`;}},
   ];
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between"><h1 className="page-title">Assemblées générales</h1><Link href="/associations/assemblee/new" className={buttonClass("primary", "md")}>+ Convoquer une AG</Link></div>

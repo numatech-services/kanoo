@@ -12,6 +12,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import {apiJson, apiSend } from "@/lib/api-client";
+import { PageLoading, PageError } from "@/components/ui/PageState";
 
 // Ligne de devis : champs saisis, totaux recalculés par calcLine
 interface DevisLine {
@@ -74,14 +75,19 @@ export default function DevisDetailPage() {
   const [item, setItem] = useState<DevisDetail | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editLines, setEditLines] = useState<DevisLine[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     apiJson(`/api/devis/${id}`)
       .then(d => {
+        // Lecture refusée (devis introuvable, réseau) : un message et « Réessayer », pas une page blanche.
+        if (!d?.data) { setLoadError(d?.error || "Devis introuvable."); return; }
+        setLoadError("");
         setItem(d.data);
         setEditLines(d.data.lines || []);
       });
-  }, [id]);
+  }, [id, attempt]);
 
   function updateLine(i: number, field: string, value: string | number) {
     setEditLines(prev => prev.map((l, idx) => idx === i ? calcLine({ ...l, [field]: value }) : l));
@@ -114,8 +120,8 @@ export default function DevisDetailPage() {
     }
   }
 
-  // Le devis n'arrive qu'après le montage : rien à afficher côté serveur.
-  if (!item) return null;
+  // Le devis n'arrive qu'après le montage : squelette, ou l'erreur de lecture.
+  if (!item) return loadError ? <PageError message={loadError} onRetry={() => { setLoadError(""); setAttempt(a => a + 1); }} /> : <PageLoading />;
 
   return (
     <div className="space-y-6 max-w-5xl p-4">

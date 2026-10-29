@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+import { PageLoading } from "@/components/ui/PageState";
 interface Approbation { _id: string; resource: string; resourceId: string; requestedBy: { firstName: string; lastName: string } | string; amount?: number; status: string; currentLevel: number; notes?: string; createdAt: string; }
 
 const noSubscribe = () => () => {};
@@ -37,7 +38,7 @@ export default function ApprobationsPage() {
     setDeciding(false);
   }
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   const columns: Column<Approbation>[] = [
     { key: "resource", label: "Ressource", render: (v) => <span className="text-sm font-medium text-section capitalize">{String(v)}</span> },

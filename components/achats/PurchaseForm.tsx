@@ -8,6 +8,9 @@ import { EXPENSE_ACCOUNTS } from "@/lib/syscohada";
 import { apiJson } from "@/lib/api-client";
 import { InvoiceScan, type ScannedInvoice } from "@/components/achats/InvoiceScan";
 import { buttonClass } from "@/components/ui/button-class";
+import { localDay, todayLocal } from "@/lib/format";
+import { useFormDraft } from "@/lib/use-draft";
+import { DraftBanner } from "@/components/ui/DraftBanner";
 export interface PurchaseLine extends ImputationValue {
   description: string; accountCode: string; quantity: number; unitPrice: number; tvaRate: number;
 }
@@ -19,7 +22,7 @@ export interface PurchaseFormValue {
   scanned?: { blob: Blob; name: string };
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayLocal();
 const emptyLine = (): PurchaseLine => ({ description: "", accountCode: "605500", quantity: 1, unitPrice: 0, tvaRate: 0 });
 const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
 
@@ -28,8 +31,10 @@ const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
  * comptant (réglée tout de suite). Chaque ligne choisit son compte de charge
  * et son imputation (projet, secteur, service).
  */
-export function PurchaseForm({ initial, onSubmit, submitLabel, scan }: {
+export function PurchaseForm({ initial, onSubmit, submitLabel, scan, draftKey }: {
   initial?: Partial<PurchaseFormValue>;
+  /** Nom du brouillon gardé sur l'appareil (nouvel achat seulement). */
+  draftKey?: string;
   /** Proposer la lecture automatique d'une facture (saisie d'un nouvel achat). */
   scan?: boolean;
   onSubmit: (v: PurchaseFormValue, validate: boolean) => Promise<void>;
@@ -48,6 +53,14 @@ export function PurchaseForm({ initial, onSubmit, submitLabel, scan }: {
     const l = initial?.lines?.[0];
     return l ? { projectId: l.projectId, activityId: l.activityId, costCenter: l.costCenter } : {};
   });
+
+  // Saisie gardée sur l'appareil, sans le justificatif lu (fichier) : déconnexion pour inactivité, rechargement…
+  const draft = useFormDraft(draftKey ?? null, { f: { ...f, scanned: undefined }, imputation, sameImputation });
+  function restoreDraft() {
+    const d = draft.restore();
+    if (!d) return;
+    setF(p => ({ ...p, ...d.f })); setImputation(d.imputation); setSameImputation(d.sameImputation);
+  }
 
   useEffect(() => {
     apiJson("/api/suppliers?picker=1").then(d => setSuppliers(d.data?.items ?? [])).catch(() => {});
@@ -72,7 +85,7 @@ export function PurchaseForm({ initial, onSubmit, submitLabel, scan }: {
     setF(p => {
       const date = x.invoiceDate || p.date;
       const term = r.supplier?.paymentTermDays;
-      const dueDate = x.dueDate || (term && p.kind === "invoice" ? new Date(new Date(date).getTime() + term * 86400000).toISOString().slice(0, 10) : p.dueDate);
+      const dueDate = x.dueDate || (term && p.kind === "invoice" ? localDay(new Date(new Date(date).getTime() + term * 86400000)) : p.dueDate);
       return {
         ...p,
         supplierId: r.supplier?._id ?? p.supplierId,
@@ -97,6 +110,7 @@ export function PurchaseForm({ initial, onSubmit, submitLabel, scan }: {
     try {
       const lines = f.lines.map(l => sameImputation ? { ...l, ...imputation } : l);
       await onSubmit({ ...f, lines }, validate);
+      draft.clear();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Enregistrement impossible");
     } finally { setSaving(false); }
@@ -104,6 +118,7 @@ export function PurchaseForm({ initial, onSubmit, submitLabel, scan }: {
 
   return (
     <div className="space-y-5">
+      {draft.pending && <DraftBanner savedAt={draft.pending.savedAt} onRestore={restoreDraft} onDiscard={draft.discard} />}
       {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
       {scan && <InvoiceScan onRead={applyScan} />}
       {f.scanned && (
@@ -124,7 +139,7 @@ export function PurchaseForm({ initial, onSubmit, submitLabel, scan }: {
           <select className={selectCls} value={f.supplierId} onChange={e => {
             const s = suppliers.find(x => x._id === e.target.value);
             setF(p => ({ ...p, supplierId: e.target.value, payee: s?.name ?? p.payee,
-              dueDate: p.dueDate || (s?.paymentTermDays ? new Date(Date.now() + s.paymentTermDays * 86400000).toISOString().slice(0, 10) : p.dueDate) }));
+              dueDate: p.dueDate || (s?.paymentTermDays ? localDay(new Date(Date.now() + s.paymentTermDays * 86400000)) : p.dueDate) }));
           }}>
             <option value="">— Sans fiche fournisseur —</option>
             {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { FormField, inputCls } from "@/components/ui/FormField";
 import { showToast } from "@/components/ui/Toast";
 import { api, apiErrorMessage } from "@/lib/api-client";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, localDay } from "@/lib/format";
 
 interface Preview { stockValue: number; ledgerBalance: number; variation: number; alreadyPosted: boolean }
 
@@ -17,7 +17,7 @@ interface Preview { stockValue: number; ledgerBalance: number; variation: number
 export function StockVariationDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const [date, setDate] = useState(() => {
     const d = new Date(); d.setDate(0); // dernier jour du mois précédent
-    return d.toISOString().slice(0, 10);
+    return localDay(d);
   });
   // Aperçu gardé avec la date qui l'a produit : une autre date = pas encore d'aperçu.
   const [computed, setComputed] = useState<{ date: string; preview: Preview } | null>(null);

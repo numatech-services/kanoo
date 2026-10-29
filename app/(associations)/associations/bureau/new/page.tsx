@@ -5,6 +5,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiSend } from "@/lib/api-client";
+import { todayLocal } from "@/lib/format";
 const ROLES: Array<[string, string]> = [
   ["president", "Président(e)"],
   ["vice_president", "Vice-Président(e)"],
@@ -29,7 +30,7 @@ export default function NewBureauMemberPage() {
     customRoleLabel: "",
     email: "",
     phone: "",
-    mandateStart: new Date().toISOString().slice(0, 10),
+    mandateStart: todayLocal(),
     mandateEnd: "",
   });
 

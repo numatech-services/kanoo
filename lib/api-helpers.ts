@@ -74,6 +74,11 @@ export function serverError(error: unknown) {
   if (error instanceof SyntaxError) {
     return badRequest("Corps de requête illisible : JSON attendu.");
   }
+  // Doublon refusé par un index unique (une cotisation de l'année déjà
+  // enregistrée, deux envois simultanés) : un conflit lisible, pas une panne.
+  if ((error as { code?: number })?.code === 11000) {
+    return conflict("Cet enregistrement existe déjà.");
+  }
   // Refus métier levé au fond d'une transaction : message utilisateur, 400.
   if (errorName(error) === "BusinessRuleError") {
     return badRequest(error instanceof Error ? error.message : "Opération refusée.");
@@ -249,15 +254,18 @@ export async function revalidate(auth: TokenPayload): Promise<SecurityCheck> {
  * Erreur transitoire de transaction (conflit d'écriture, création de
  * collection concurrente) : la transaction a été annulée, rien n'est écrit.
  * La requête est rejouée en entier — les documents sont relus, jamais repris
- * d'un état en mémoire — deux fois au plus.
+ * d'un état en mémoire — cinq fois au plus, avec un délai croissant et
+ * aléatoire : deux rejeux à 50 et 100 ms ne suffisaient pas quand plusieurs
+ * écritures visent le même compteur (six reçus de dons enregistrés ensemble).
  */
+const TRANSIENT_RETRIES = 5;
 function isTransient(err: unknown): boolean {
   const e = err as { hasErrorLabel?: (l: string) => boolean; errorLabels?: string[]; code?: number };
   return !!(e?.hasErrorLabel?.("TransientTransactionError") || e?.errorLabels?.includes("TransientTransactionError") || e?.code === 112);
 }
 async function runWithTransientRetry(req: NextRequest, run: (r: NextRequest) => Promise<NextResponse>): Promise<NextResponse> {
   if (!MUTATING_METHODS.has(req.method)) return run(req);
-  const copies = [req.clone(), req.clone()];
+  const copies = Array.from({ length: TRANSIENT_RETRIES }, () => req.clone());
   let current = req;
   for (let attempt = 0; ; attempt++) {
     try {
@@ -265,7 +273,8 @@ async function runWithTransientRetry(req: NextRequest, run: (r: NextRequest) => 
     } catch (err) {
       if (!isTransient(err) || attempt >= copies.length) throw err;
       current = copies[attempt] as NextRequest;
-      await new Promise(r => setTimeout(r, 50 * (attempt + 1)));
+      // Délai aléatoire : des requêtes rejouées au même instant se heurteraient encore.
+      await new Promise(r => setTimeout(r, 40 * (attempt + 1) + Math.floor(Math.random() * 80)));
     }
   }
 }

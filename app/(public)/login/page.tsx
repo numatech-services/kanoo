@@ -10,11 +10,13 @@
  * d'énumération des comptes), affichage du mot de passe, redirection par rôle.
  */
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, AlertCircle, Check, ArrowRight, Lock, ShieldCheck } from "lucide-react";
 
 import { apiSend } from "@/lib/api-client";
+import { purgeOfflineData } from "@/lib/offline/sync-queue";
+import { IDLE_MINUTES } from "@/lib/idle";
 
 // L'adresse ne change pas tant que la page est affichée : rien à écouter.
 const noSubscribe = () => () => {};
@@ -28,6 +30,8 @@ export default function LoginPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
   const [twoFactor, setTwoFactor] = useState(false);
   const [code, setCode] = useState("");
+  // Rien de la session précédente ne reste lisible sur ce téléphone (données gardées hors ligne).
+  useEffect(() => { purgeOfflineData("data"); }, []);
 
   // Message d'inactivité : lu depuis la query (?reason=idle) côté navigateur
   // seulement (vide au rendu serveur), pour éviter la frontière Suspense
@@ -213,7 +217,7 @@ export default function LoginPage() {
                   <Link href="/souscrire" className="text-accent font-semibold hover:underline">Démarrer l&apos;essai gratuit</Link>
                 </div>
                 <p className="mt-5 flex items-center justify-center gap-1.5 text-[12px] text-ink3">
-                  <Lock size={12} /> Connexion chiffrée · déconnexion automatique après 2 min d&apos;inactivité
+                  <Lock size={12} /> Connexion chiffrée · déconnexion automatique après {IDLE_MINUTES} min d&apos;inactivité
                 </p>
               </>
             )}

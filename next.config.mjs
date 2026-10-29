@@ -1,3 +1,7 @@
+// Fuseau de l'application (lib/timezone.ts) : posé dès le chargement de la
+// configuration, avant le serveur ; instrumentation.ts le repose au démarrage.
+if (!process.env.TZ || !process.env.TZ.trim()) process.env.TZ = "Africa/Niamey";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -50,6 +54,11 @@ const nextConfig = {
           { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
           { key: "Service-Worker-Allowed", value: "/" },
         ],
+      },
+      {
+        // Règles du service worker : jamais servies d'un cache (une mise à jour doit arriver).
+        source: "/sw-policy.js",
+        headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }],
       },
       {
         source: "/manifest.json",

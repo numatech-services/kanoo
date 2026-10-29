@@ -50,6 +50,11 @@ async function main() {
     import("../models/ApiKey").then(m => m.ApiKeyModel),
     import("../models/IntegrationEvent").then(m => m.IntegrationEventModel),
     import("../models/DeskPreorder").then(m => m.DeskPreorderModel),
+    // Compteurs des séries à format fixe (reçus, notes de frais, courriers…).
+    import("../models/SerialCounter").then(m => m.SerialCounterModel),
+    // Une cotisation par adhérent et par année (index unique) ; reçus de dons.
+    import("../models/Membership").then(m => m.MembershipModel),
+    import("../models/Donation").then(m => m.DonationModel),
     import("../models/ActivityItem").then(m => m.ActivityItemModel),
     import("../models/CronRun").then(m => m.CronRunModel),
     import("../models/Notification").then(m => m.NotificationModel),

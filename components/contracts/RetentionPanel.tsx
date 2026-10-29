@@ -8,7 +8,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { apiJson, apiSend } from "@/lib/api-client";
-import { formatMoney, formatDate } from "@/lib/format";
+import { formatDate, formatMoney, todayLocal } from "@/lib/format";
 import { GUARANTEE_TYPES } from "@/lib/guarantees";
 
 interface Retention {
@@ -150,7 +150,7 @@ function CollectDialog({ contractId, outstanding, onClose, onDone }: { contractI
   const [accounts, setAccounts] = useState<Array<{ _id: string; label: string }>>([]);
   const [accountId, setAccountId] = useState("");
   const [amount, setAmount] = useState(String(outstanding));
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayLocal());
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     apiJson("/api/treasury-accounts?limit=100").then(d => {

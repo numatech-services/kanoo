@@ -1,14 +1,7 @@
 import { NextRequest } from "next/server";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
-import { 
-  withAuth, 
-  ok, 
-  notFound, 
-  noContent, 
-  badRequest, 
-  tenantFilter 
-} from "@/lib/api-helpers";
+import { withAuth, ok, notFound, noContent, badRequest, tenantFilter, serverError } from "@/lib/api-helpers";
 import { PublicTenderModel } from "@/models/PublicTender";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -91,7 +84,7 @@ export const PATCH = withAuth("publicTenders", "update", async (req: NextRequest
     return ok(updatedItem);
   } catch (error) {
     console.error("💥 [PATCH /api/marches/[id]] Erreur:", errorMessage(error));
-    return badRequest(errorMessage(error));
+    return serverError(error);
   }
 });
 

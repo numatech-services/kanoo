@@ -1,8 +1,17 @@
 /**
- * Point d'accroche Next.js : les erreurs de rendu serveur (pages, layouts,
- * actions) rejoignent le journal des erreurs, avec le digest affiché à
- * l'utilisateur sur la page d'erreur.
+ * Points d'accroche Next.js :
+ *  - register : au démarrage du serveur, le fuseau de l'application
+ *    (lib/timezone.ts) avant toute requête ;
+ *  - onRequestError : les erreurs de rendu serveur (pages, layouts, actions)
+ *    rejoignent le journal des erreurs, avec le digest affiché à l'utilisateur
+ *    sur la page d'erreur.
  */
+export async function register() {
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const { ensureProcessTimezone } = await import("@/lib/timezone");
+  ensureProcessTimezone();
+}
+
 export async function onRequestError(
   err: unknown,
   request: { path: string; method: string; headers: Record<string, string | string[] | undefined> },

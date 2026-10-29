@@ -91,8 +91,13 @@ permanent**. Les automatisations (relances clients, alertes stock, rappels TVA,
 fins de contrat, échéances d'abonnement…) passent par l'endpoint **`/api/cron`**,
 appelé par une **tâche cron Hostinger** (hPanel → **Avancé → Tâches cron**).
 
-Trois tâches à créer (adaptez l'heure au fuseau du serveur ; remplacez
-`$SECRET` par la valeur de `CRON_SECRET`) :
+L'application calcule ses journées à l'heure de Niamey quel que soit le
+fuseau du serveur (`TZ=Africa/Niamey`, posé au démarrage par
+`instrumentation.ts`). Les tâches cron de hPanel, elles, partent à l'heure
+du serveur : si le serveur est en UTC, retirez une heure aux horaires
+ci-dessous.
+
+Trois tâches à créer (remplacez `$SECRET` par la valeur de `CRON_SECRET`) :
 
 ```bash
 # Chaque jour, de 06:00 à 09:30, toutes les 30 min — tâches quotidiennes.

@@ -11,6 +11,7 @@ import { StockMovementModel } from "@/models/StockMovement";
 import { weightedAverageCost } from "@/lib/inventory";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { nextSerial } from "@/lib/serial";
 
 export const dynamic = "force-dynamic";
 
@@ -122,13 +123,11 @@ export const POST = withAuth("products", "create", async (req: NextRequest, auth
 
   const now = new Date();
   const year = now.getFullYear();
-  const count = await InventoryCountModel.countDocuments({
-    tenantId: auth.tenantId, reference: new RegExp(`^INV-${year}-`),
-  });
+  const reference = await nextSerial(auth.tenantId, { prefix: "INV", year, digits: 3, model: InventoryCountModel as never, field: "reference" });
 
   const session = await InventoryCountModel.create({
     tenantId: auth.tenantId,
-    reference: `INV-${year}-${String(count + 1).padStart(3, "0")}`,
+    reference,
     label,
     status: "counting",
     scope: productFilter._id ? "selection" : "all",

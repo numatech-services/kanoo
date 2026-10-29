@@ -5,6 +5,7 @@ import { LetterModel } from "@/models/Letter";
 import { parseAttachment } from "@/lib/attachment";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { nextSerial } from "@/lib/serial";
 
 export const dynamic = "force-dynamic";
 
@@ -45,14 +46,9 @@ export const POST = withAuth("documents", "create", async (req: NextRequest, aut
   // saisie à la main est respectée.
   let reference = String(body.reference || "").slice(0, 60).trim();
   if (!reference) {
-    // Numéro suivant = plus grand numéro CR de l'année + 1. Compter les courriers
-    // produisait un doublon dès qu'un courrier avait été supprimé.
-    const year = new Date().getFullYear();
-    const prefix = `CR-${year}-`;
-    const last = await LetterModel.findOne({ ...tenantFilter(auth), reference: { $regex: `^${prefix}\\d+$` } })
-      .sort({ reference: -1 }).select("reference").lean<{ reference?: string } | null>();
-    const seq = last?.reference ? parseInt(last.reference.slice(prefix.length), 10) || 0 : 0;
-    reference = `${prefix}${String(seq + 1).padStart(4, "0")}`;
+    // Compteur atomique de la série CR de l'année (deux courriers simultanés
+    // prenaient le même « plus grand numéro + 1 »).
+    reference = await nextSerial(auth.tenantId, { prefix: "CR", year: new Date().getFullYear(), digits: 4, model: LetterModel as never, field: "reference" });
   }
 
   const att = parseAttachment(body.attachment);

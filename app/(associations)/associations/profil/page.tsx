@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { buttonClass } from "@/components/ui/button-class";
 import {apiJson, apiSend } from "@/lib/api-client";
+import { PageLoading } from "@/components/ui/PageState";
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
 
@@ -71,7 +72,7 @@ export default function ProfilPage() {
     }
   };
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
   if (loading) return <div className="p-10 text-ink2 animate-pulse font-medium">Récupération de vos informations...</div>;
 
   return (

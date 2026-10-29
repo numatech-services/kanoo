@@ -4,6 +4,7 @@ import path from "path";
 import { mkdir, writeFile, readdir, stat, unlink } from "fs/promises";
 import mongoose from "mongoose";
 import { s3ConfigFrom, s3Request, type S3Config } from "@/lib/s3";
+import { localDay } from "@/lib/format";
 
 export { signS3Request } from "@/lib/s3";
 
@@ -137,7 +138,7 @@ export async function runBackup(now = new Date()): Promise<string> {
 
   const { data, header } = await dumpDatabase();
   const blob = encryptBackup(data, passphrase);
-  const stamp = now.toISOString().slice(0, 10);
+  const stamp = localDay(now);
   const file = `kanoo-${header.database}-${stamp}.knb`;
   const docs = Object.values(header.collections).reduce((s, n) => s + n, 0);
   const size = `${(blob.length / 1024 / 1024).toFixed(1)} Mo`;

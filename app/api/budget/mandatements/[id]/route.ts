@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, badRequest, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, badRequest, tenantFilter, serverError } from "@/lib/api-helpers";
 import { EngagementModel } from "@/models/Engagement";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
@@ -87,6 +87,6 @@ export const PATCH = withAuth("paymentOrders", "update", async (req: NextRequest
 
   } catch (error) {
     console.error("💥 Erreur PATCH:", errorMessage(error));
-    return badRequest(errorMessage(error));
+    return serverError(error);
   }
 });

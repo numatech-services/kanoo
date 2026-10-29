@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { showToast } from "@/components/ui/Toast";
 import { TreasuryAccountSelect } from "@/components/shared/TreasuryAccountSelect";
 import { api, apiErrorMessage } from "@/lib/api-client";
-import { formatMoney, formatDate } from "@/lib/format";
+import { formatDate, formatMoney, todayLocal } from "@/lib/format";
 import { useMe, meCanDo } from "@/lib/useMe";
 
 interface RefundState { refundable: number; refunded: number; refunds: Array<{ date: string; amount: number; reference?: string }> }
@@ -18,7 +18,7 @@ export function RefundPanel({ creditNoteId, onDone }: { creditNoteId: string; on
   const [state, setState] = useState<RefundState | null>(null);
   const [account, setAccount] = useState("");
   const [amount, setAmount] = useState<number | "">("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayLocal());
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {

@@ -16,6 +16,7 @@ import {
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { localDay } from "@/lib/format";
 interface Row {
   _id: string;
   label: string;
@@ -330,7 +331,7 @@ function AddDialog({
   function pickType(type: DocumentType) {
     setForm(f => {
       const expiresAt = f.issuedAt && !f.expiresAt
-        ? suggestedExpiry(type, f.issuedAt)?.toISOString().slice(0, 10) ?? ""
+        ? (() => { const d = suggestedExpiry(type, f.issuedAt); return d ? localDay(d) : ""; })()
         : f.expiresAt;
       return { ...f, type, expiresAt, label: f.label || DOCUMENT_TYPES[type].label };
     });
@@ -341,7 +342,7 @@ function AddDialog({
       const suggested = value ? suggestedExpiry(f.type, value) : null;
       return {
         ...f, issuedAt: value,
-        expiresAt: !f.expiresAt && suggested ? suggested.toISOString().slice(0, 10) : f.expiresAt,
+        expiresAt: !f.expiresAt && suggested ? localDay(suggested) : f.expiresAt,
       };
     });
   }

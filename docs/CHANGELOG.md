@@ -1,5 +1,67 @@
 # Kanoo — Changelog
 
+## Cohérence et robustesse — hors-ligne, fuseau, numérotation, mobile (octobre 2026)
+
+**1. Mode hors ligne sûr** — `public/sw-policy.js` (règles testées), `public/sw.js`
+- L'authentification (`/api/auth/*`) et les envois de fichiers ne passent plus par la file hors ligne : un mot de passe n'est plus stocké dans le téléphone, une déconnexion n'est plus rejouée plus tard.
+- Plus aucune page ni donnée connectée n'est mise en cache, sauf les listes de référence (clients, articles, fournisseurs, comptes). Ces données sont effacées à l'ouverture de la page de connexion et à la déconnexion. L'ancien cache `kanoo-v1` est supprimé.
+- Chaque écriture porte sa clé d'idempotence dès le premier envoi : une réponse perdue ne crée plus de doublon au rejeu. Un 409 « requête en cours » est réessayé.
+- La file d'un utilisateur n'est jamais rejouée sous la session d'un autre. Une déconnexion avec des actions en attente demande confirmation.
+- La caisse rapide gère seule ses tickets en attente : elle ne plante plus sur la réponse « mis en file ».
+- Corrigé : une lecture faite avant le service worker créait la base hors ligne sans ses tables.
+
+**2. Fuseau Africa/Niamey** — `lib/timezone.ts`, `instrumentation.ts`, `next.config.mjs`
+- Le fuseau est fixé au démarrage du serveur, quel que soit celui de l'hébergement.
+- Problèmes corrigés :
+  - de minuit à 1 h, une vente était refusée comme « caisse arrêtée » ;
+  - l'écart d'un arrêté du dernier jour du mois tombait le mois suivant ;
+  - les promotions à heure fixe et les services de l'emploi du temps étaient décalés d'une heure.
+- 54 dates d'écran (« aujourd'hui », fin du mois dernier…) étaient calculées en UTC : elles passent par `localDay` / `todayLocal` (`lib/format.ts`).
+
+**3. Numéros sans doublon** — `lib/serial.ts`, `models/SerialCounter.ts`
+- Concerne les reçus de dons et de cotisations, les notes de frais, les inventaires, les courriers et les marchés.
+- Avant : « nombre de documents + 1 ». Ce calcul redonnait un numéro existant après une suppression ou lors de deux enregistrements simultanés, et ne repartait pas à 1 chaque année.
+- Maintenant : un compteur atomique par série et par année, amorcé au plus grand numéro déjà émis. Un numéro saisi à la main est sauté.
+- Une transaction en conflit est rejouée jusqu'à 5 fois, avec un délai aléatoire (2 fois auparavant).
+
+**4. Déconnexion pour inactivité** — `lib/idle.ts`, `lib/use-draft.ts`
+- Les délais passent à 15 minutes côté écran et 20 minutes côté serveur (contre 2 et 4).
+- Revenir sur l'onglet compte comme une activité.
+- Facture, devis et dépense gardent un brouillon sur l'appareil, rattaché à l'utilisateur et proposé à la réouverture. Les brouillons sont effacés à la déconnexion volontaire.
+
+**5. Erreurs internes jamais renvoyées**
+- 7 routes renvoyaient le message brut d'une exception ; elles passent désormais par `serverError`.
+- Un nouveau test de contrat attrape toutes les formes de ce défaut.
+- Un doublon refusé par un index unique répond 409 « existe déjà » au lieu de 500.
+
+**6. Pages jamais blanches** — `components/ui/PageState.tsx`
+- Chaque espace a son squelette de chargement et sa page d'erreur dans la coque (`loading.tsx`, `error.tsx`).
+- 29 pages blanches au premier affichage montrent un squelette.
+- Devis, fiche client et abonnements affichent l'erreur avec « Réessayer » au lieu de rester vides.
+
+**7. Listes sur téléphone**
+- `DataTable` (26 écrans) devient une liste de cartes sur téléphone : titre, puis « libellé : valeur », puis actions. Montant et statut sont visibles sans défiler de côté.
+- Les filtres tiennent sur une ligne défilante.
+- Le formulaire de devis se replie sur mobile et affiche ses erreurs.
+
+**8. Comptoir sur téléphone**
+- La caisse rapide passe en premier bouton.
+- Les dix onglets tiennent sur une ligne défilante (barre d'onglets accessible).
+- La caisse rapide ouverte sans comptoir propose le choix, ou ouvre le seul comptoir existant.
+
+**14. Menus**
+- Association : Notifications, Fiscalité, Notes de frais, Documents, Courriers, Support, Journal d'audit.
+- Administration : Notifications, Fournisseurs, Trésorerie, Comptabilité, Fiscalité, Notes de frais, Documents, Courriers, Support, Journal d'audit.
+- Super-administrateur : Facturation.
+- Ces écrans étaient accordés aux rôles mais introuvables. Chaque entrée reste filtrée par droit.
+- Un test d'intégrité vérifie que chaque lien mène à une page, que chaque droit existe et qu'aucun écran accordé ne manque au menu.
+
+**Tests** : `sw-policy`, `timezone`, `idle-drafts`, `nav-integrity` (unitaires), contrat « aucune exception brute », scénario `e2e-coherence` (11 vérifications).
+
+**Mise en production** :
+- lancer `npm run indexes` (compteurs de séries, cotisations, dons) ;
+- `TZ` est facultatif : `Africa/Niamey` est posé par défaut.
+
 ## The Spot — liaison avec EasyPay (octobre 2026)
 
 Onglet « EasyPay » du comptoir, API `/api/v1/spot`, `lib/easypay.ts`, `lib/easypay-server.ts`. Contrat complet : `docs/API-EASYPAY.md`.

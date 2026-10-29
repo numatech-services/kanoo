@@ -9,6 +9,8 @@ import { Modal } from "@/components/ui/Modal";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
+import { todayLocal } from "@/lib/format";
+import { PageLoading } from "@/components/ui/PageState";
 interface Member {
   _id: string;
   code: string;
@@ -69,7 +71,7 @@ export default function MembresPage() {
     },
   ];
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   return (
     <div className="space-y-5">
@@ -144,7 +146,7 @@ function MemberForm({ initial, onSave, onCancel }: {
     email: initial?.email || "",
     phone: initial?.phone || "",
     membershipType: initial?.membershipType || "membre_actif",
-    joinDate: initial?.joinDate ? initial.joinDate.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    joinDate: initial?.joinDate ? initial.joinDate.slice(0, 10) : todayLocal(),
     status: initial?.status || "active",
   });
   const [saving, setSaving] = useState(false);

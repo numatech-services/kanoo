@@ -318,11 +318,21 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
   useEffect(() => { reloadSummary(); }, [reloadSummary]);
 
   const tabCls = (active: boolean) =>
-    `px-4 h-10 inline-flex items-center gap-2 rounded-lg text-sm font-semibold transition-colors ${
+    `px-4 h-10 shrink-0 whitespace-nowrap inline-flex items-center gap-2 rounded-lg text-sm font-semibold transition-colors ${
       active ? "bg-section text-onink" : "text-ink2 hover:bg-surface2 border border-line2"}`;
+  const tabProps = (t: Tab) => ({ role: "tab" as const, "aria-selected": tab === t, className: tabCls(tab === t), onClick: () => setTab(t) });
 
   return (
     <div className="space-y-5">
+      {/* Vendre d'abord : sur téléphone, la caisse rapide est le premier bouton, pleine largeur. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href={`/comptoir/rapide?deskId=${deskId}`} className="flex-1 sm:flex-none justify-center px-4 h-11 inline-flex items-center gap-2 rounded-lg text-sm font-semibold bg-section text-onink hover:opacity-90"><Zap size={16} /> Caisse rapide</Link>
+        <button onClick={() => setReportOpen(true)}
+          className="sm:ml-auto px-3 h-11 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
+          <FileText size={15} /> Rapport PDF
+        </button>
+      </div>
+
       {/* Cartes de synthèse */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <SummaryCard icon={<Wallet size={18} />} label="Solde de caisse" value={MONEY(summary?.cashBalance ?? 0)} tone="section" />
@@ -339,21 +349,17 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button className={tabCls(tab === "tickets")} onClick={() => setTab("tickets")}><Receipt size={16} /> Tickets</button>
-        <button className={tabCls(tab === "semaine")} onClick={() => setTab("semaine")}><CalendarCheck2 size={16} /> Semaine</button>
-        <button className={tabCls(tab === "caisse")} onClick={() => setTab("caisse")}><Wallet size={16} /> Caisse</button>
-        <button className={tabCls(tab === "stock")} onClick={() => setTab("stock")}><Package size={16} /> Stock matière</button>
-        {summary && summary.stockValue !== null && <button className={tabCls(tab === "rentabilite")} onClick={() => setTab("rentabilite")}><Percent size={16} /> Rentabilité</button>}
-        <button className={tabCls(tab === "ardoises")} onClick={() => setTab("ardoises")}><BookUser size={16} /> Ardoises</button>
-        <button className={tabCls(tab === "promos")} onClick={() => setTab("promos")}><Tag size={16} /> Promotions</button>
-        <button className={tabCls(tab === "planning")} onClick={() => setTab("planning")}><GraduationCap size={16} /> Planning</button>
-        {summary && summary.stockValue !== null && <button className={tabCls(tab === "easypay")} onClick={() => setTab("easypay")}><PlugZap size={16} /> EasyPay</button>}
-        <Link href={`/comptoir/rapide?deskId=${deskId}`} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg text-sm font-semibold border border-section/40 text-section hover:bg-section/10"><Zap size={16} /> Caisse rapide</Link>
-        <button onClick={() => setReportOpen(true)}
-          className="ml-auto px-3 h-10 inline-flex items-center gap-2 rounded-lg border border-line2 text-sm font-semibold text-ink2 hover:bg-surface2">
-          <FileText size={15} /> Rapport PDF
-        </button>
+      {/* Onglets : une ligne qui défile sur téléphone (dix onglets prenaient cinq lignes avant les tickets). */}
+      <div role="tablist" aria-label="Rubriques du comptoir" className="flex flex-nowrap sm:flex-wrap items-center gap-2 overflow-x-auto sm:overflow-visible -mx-1 px-1 pb-1 sm:pb-0">
+        <button {...tabProps("tickets")}><Receipt size={16} /> Tickets</button>
+        <button {...tabProps("semaine")}><CalendarCheck2 size={16} /> Semaine</button>
+        <button {...tabProps("caisse")}><Wallet size={16} /> Caisse</button>
+        <button {...tabProps("stock")}><Package size={16} /> Stock matière</button>
+        {summary && summary.stockValue !== null && <button {...tabProps("rentabilite")}><Percent size={16} /> Rentabilité</button>}
+        <button {...tabProps("ardoises")}><BookUser size={16} /> Ardoises</button>
+        <button {...tabProps("promos")}><Tag size={16} /> Promotions</button>
+        <button {...tabProps("planning")}><GraduationCap size={16} /> Planning</button>
+        {summary && summary.stockValue !== null && <button {...tabProps("easypay")}><PlugZap size={16} /> EasyPay</button>}
       </div>
       {reportOpen && <ReportDialog deskId={deskId} onClose={() => setReportOpen(false)} />}
 

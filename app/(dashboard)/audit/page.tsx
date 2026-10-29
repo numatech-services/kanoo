@@ -4,6 +4,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 
 import { useApi } from "@/lib/use-api";
+import { PageLoading } from "@/components/ui/PageState";
 interface Log { _id: string; userEmail: string; userRole: string; action: string; resource: string; resourceId?: string; ip?: string; createdAt: string; }
 
 const ACTION_COLORS: Record<string, string> = { CREATE:"bg-pos-50 text-pos", UPDATE:"bg-info-50 text-info", DELETE:"bg-neg-50 text-neg", LOGIN:"bg-section-soft text-section", PAYMENT:"bg-warn-50 text-warn", APPROVE:"bg-teal-100 text-teal-700", REJECT:"bg-neg-50 text-neg" };
@@ -25,7 +26,7 @@ export default function AuditPage() {
   const total = list.data?.pagination?.total || 0;
   const loading = list.loading;
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   const columns: Column<Log>[] = [
     { key: "createdAt", label: "Date/heure", render: (v) => <span className="text-xs text-ink2">{new Date(String(v)).toLocaleString("fr-FR")}</span> },

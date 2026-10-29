@@ -19,6 +19,8 @@ import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson } from "@/lib/api-client";
+import { todayLocal } from "@/lib/format";
+import { PageLoading } from "@/components/ui/PageState";
 interface DashboardStats {
   activeMembers: number;
   totalContributions: number | null;
@@ -53,7 +55,7 @@ export default function AssoDashboardPage() {
     fetchDashboard();
   }, []);
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   // Configuration des cartes basée sur tes sections réelles
   const kpiCards = [
@@ -214,7 +216,7 @@ export default function AssoDashboardPage() {
 
                 <div className="mt-8 pt-6 border-t border-white/10">
                     {/* Bilan de l'exercice (actif / passif) au format tableur. */}
-                    <a href={`/api/accounting/reports?type=bs&format=csv&to=${new Date().toISOString().slice(0, 10)}`}
+                    <a href={`/api/accounting/reports?type=bs&format=csv&to=${todayLocal()}`}
                       className={buttonClass("primary", "md", "w-full")}>
                         Exporter le bilan financier (CSV)
                     </a>

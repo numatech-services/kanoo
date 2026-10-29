@@ -10,6 +10,7 @@ import { showToast } from "@/components/ui/Toast";
 import { api, apiErrorMessage, apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+import { PageLoading } from "@/components/ui/PageState";
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
 interface Delivery {
@@ -46,7 +47,7 @@ export default function LivraisonDetailPage() {
 
   if(loading) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-line"/></div>;
   if(!delivery) return <div className="p-6 text-ink2">Bon de livraison introuvable</div>;
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   return (
     <div className="space-y-5 max-w-3xl">

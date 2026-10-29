@@ -13,6 +13,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
 import { apiJson, apiSend } from "@/lib/api-client";
 import { PortalLinkPanel } from "@/components/clients/PortalLinkPanel";
+import { PageLoading, PageError } from "@/components/ui/PageState";
 type Client = ClientFormData & { _id: string; currentBalance: number; logo?: string };
 type Row = Record<string, unknown>;
 interface Section { count: number; items: Row[]; }
@@ -73,8 +74,11 @@ export default function ClientDetailPage() {
   const [tab, setTab] = useState<keyof Overview["sections"]>("invoices");
   const [editOpen, setEditOpen] = useState(false);
 
+  const [loadError, setLoadError] = useState("");
   const load = useCallback(() => {
-    apiJson(`/api/clients/${id}/overview`).then(d => d.success && setData(d.data));
+    apiJson(`/api/clients/${id}/overview`).then(d => {
+      if (d.success) { setData(d.data); setLoadError(""); } else setLoadError(d.error || "Fiche client introuvable.");
+    });
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
@@ -83,7 +87,8 @@ export default function ClientDetailPage() {
     if (res.ok) { setEditOpen(false); load(); }
   }
 
-  if (!data) return <div className="p-6"><div className="h-48 bg-surface rounded-xl animate-pulse border border-line" /></div>;
+  // Échec de lecture : un message et « Réessayer » (le squelette restait affiché pour toujours).
+  if (!data) return loadError ? <PageError message={loadError} onRetry={load} /> : <PageLoading />;
   const c = data.client;
   // Onglets limités aux ressources que le compte peut lire (cloisonnement).
   const tabs = TABS.filter(t => data.access?.[t.key] ?? true);

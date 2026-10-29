@@ -14,6 +14,7 @@ import { ScreenTabs } from "@/components/shared/ScreenTabs";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { StockVariationDialog } from "@/components/accounting/StockVariationDialog";
+import { localDay } from "@/lib/format";
 interface Line { accountCode: string; accountLabel: string; debit: number; credit: number; projectId?: string; activityId?: string; costCenter?: string }
 interface Entry {
   _id: string; journalCode: string; entryDate: string; reference: string; label: string; lines: Line[];
@@ -163,7 +164,7 @@ export default function AccountingPage() {
 
 function ClosingDialog({ lock, onClose, onDone }: { lock: { lockedUntil: string | null; closedYears: number[] }; onClose: () => void; onDone: () => void }) {
   const lastMonthEnd = new Date(new Date().getFullYear(), new Date().getMonth(), 0);
-  const [until, setUntil] = useState(lastMonthEnd.toISOString().slice(0, 10));
+  const [until, setUntil] = useState(localDay(lastMonthEnd));
   const [year, setYear] = useState(new Date().getFullYear() - 1);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);

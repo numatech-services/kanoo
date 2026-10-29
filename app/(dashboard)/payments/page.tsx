@@ -12,6 +12,8 @@ import { showToast } from "@/components/ui/Toast";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { todayLocal } from "@/lib/format";
+import { PageLoading } from "@/components/ui/PageState";
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
 interface Payment {
@@ -109,7 +111,7 @@ export default function PaymentsPage() {
     else showToast(res.data?.error || "Annulation impossible.", "error");
   }
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   const columns: Column<Payment>[] = [
     { 
@@ -235,7 +237,7 @@ export default function PaymentsPage() {
 }
 
 function ConfirmDialog({ payment, onClose, onDone }: { payment: Payment; onClose: () => void; onDone: () => void }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const planned = payment.date ? String(payment.date).slice(0, 10) : today;
   const [date, setDate] = useState(planned > today ? today : planned);
   const [accounts, setAccounts] = useState<Array<{ _id: string; label: string }>>([]);

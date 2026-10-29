@@ -5,9 +5,12 @@ import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson } from "@/lib/api-client";
+import { localDay, todayLocal } from "@/lib/format";
+import { useFormDraft } from "@/lib/use-draft";
+import { DraftBanner } from "@/components/ui/DraftBanner";
 interface DevisLine { description: string; quantity: number; unitPrice: number; tvaRate: number; discount: number; totalHT: number; totalTVA: number; totalTTC: number; }
 interface Client { _id: string; name: string; code: string; }
-interface DevisFormProps { initial?: Record<string, unknown> & { _id?: string }; onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
+interface DevisFormProps { initial?: Record<string, unknown> & { _id?: string }; draftKey?: string; onSave: (d: Record<string, unknown>) => Promise<void>; onCancel: () => void; }
 
 // Faux au rendu serveur et pendant l'hydratation (rien n'est affiché), vrai ensuite.
 const noSubscribe = () => () => {};
@@ -18,11 +21,11 @@ function calcLine(l: Partial<DevisLine>): DevisLine {
   return { description: l.description || "", quantity: qty, unitPrice: price, tvaRate: tva, discount: disc, totalHT: ht, totalTVA: tvaAmt, totalTTC: ht + tvaAmt };
 }
 
-export function DevisForm({ initial, onSave, onCancel }: DevisFormProps) {
+export function DevisForm({ initial, draftKey, onSave, onCancel }: DevisFormProps) {
   // Dates par défaut figées au montage (un rendu doit rester pur).
   const [{ today, in15 }] = useState(() => ({
-    today: new Date().toISOString().slice(0, 10),
-    in15: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10),
+    today: todayLocal(),
+    in15: localDay(new Date(Date.now() + 15 * 86400000)),
   }));
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [clients, setClients] = useState<Client[]>([]);
@@ -32,6 +35,15 @@ export function DevisForm({ initial, onSave, onCancel }: DevisFormProps) {
   const [notes, setNotes] = useState(String(initial?.notes || ""));
   const [lines, setLines] = useState<DevisLine[]>([calcLine({ description: "", quantity: 1, unitPrice: 0 })]);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  // Saisie gardée sur l'appareil (déconnexion pour inactivité, rechargement…).
+  const draft = useFormDraft(draftKey ?? null, { clientId, issueDate, validUntil, notes, lines });
+  function restoreDraft() {
+    const d = draft.restore();
+    if (!d) return;
+    setClientId(d.clientId); setIssueDate(d.issueDate); setValidUntil(d.validUntil); setNotes(d.notes);
+    if (d.lines.length) setLines(d.lines.map(calcLine));
+  }
 
   useEffect(() => { apiJson("/api/clients?picker=1&isActive=true").then(d=>setClients(d.data?.items||[])); }, []);
 
@@ -46,9 +58,17 @@ export function DevisForm({ initial, onSave, onCancel }: DevisFormProps) {
   const totalTTC = totalHT + totalTVA;
 
   return (
-    <form onSubmit={async (e) => { e.preventDefault(); setSaving(true); await onSave({ clientId, issueDate, validUntil, lines, notes, totalHT, totalTVA, totalTTC }); setSaving(false); }} className="space-y-5">
-      <div className="grid grid-cols-3 gap-4">
-        <FormField label="Client" required className="col-span-1">
+    <form onSubmit={async (e) => {
+      e.preventDefault(); setSaving(true); setError("");
+      // Un refus du serveur s'affiche ; le bouton ne reste pas bloqué sur « Enregistrement… ».
+      try { await onSave({ clientId, issueDate, validUntil, lines, notes, totalHT, totalTVA, totalTTC }); draft.clear(); }
+      catch (err) { setError(err instanceof Error ? err.message : "Enregistrement impossible"); }
+      finally { setSaving(false); }
+    }} className="space-y-5">
+      {draft.pending && <DraftBanner savedAt={draft.pending.savedAt} onRestore={restoreDraft} onDiscard={draft.discard} />}
+      {error && <div className="p-3 bg-neg-50 border border-neg/25 rounded-lg text-neg text-sm">{error}</div>}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <FormField label="Client" required className="sm:col-span-1">
           <select className={selectCls} value={clientId} onChange={e=>setClientId(e.target.value)} required>
             <option value="">Choisir…</option>
             {clients.map(c=><option key={c._id} value={c._id}>{c.name}</option>)}
@@ -68,15 +88,15 @@ export function DevisForm({ initial, onSave, onCancel }: DevisFormProps) {
           <button type="button" onClick={()=>setLines(prev=>[...prev, calcLine({description:"",quantity:1,unitPrice:0})])} className="text-xs text-section hover:underline">+ Ligne</button>
         </div>
         {lines.map((line, i) => (
-          <div key={i} className="grid grid-cols-12 gap-2 bg-surface2 p-2 rounded-lg">
-            <input className={inputCls + " col-span-4"} value={line.description} onChange={e=>updateLine(i,"description",e.target.value)} placeholder="Description" required />
-            <input type="number" className={inputCls + " col-span-1"} value={line.quantity} onChange={e=>updateLine(i,"quantity",parseFloat(e.target.value)||0)} min={0} />
-            <input type="number" className={inputCls + " col-span-2"} value={line.unitPrice} onChange={e=>updateLine(i,"unitPrice",parseFloat(e.target.value)||0)} min={0} placeholder="P.U." />
-            <select className={selectCls + " col-span-2"} value={line.tvaRate} onChange={e=>updateLine(i,"tvaRate",parseFloat(e.target.value))}>
+          <div key={i} className="grid grid-cols-6 sm:grid-cols-12 gap-2 bg-surface2 p-2 rounded-lg">
+            <input className={inputCls + " col-span-6 sm:col-span-4"} value={line.description} onChange={e=>updateLine(i,"description",e.target.value)} placeholder="Description" aria-label="Description" required />
+            <input type="number" inputMode="decimal" className={inputCls + " col-span-2 sm:col-span-1"} value={line.quantity} onChange={e=>updateLine(i,"quantity",parseFloat(e.target.value)||0)} min={0} aria-label="Quantité" />
+            <input type="number" inputMode="numeric" className={inputCls + " col-span-2 sm:col-span-2"} value={line.unitPrice} onChange={e=>updateLine(i,"unitPrice",parseFloat(e.target.value)||0)} min={0} placeholder="P.U." aria-label="Prix unitaire" />
+            <select className={selectCls + " col-span-2 sm:col-span-2"} value={line.tvaRate} onChange={e=>updateLine(i,"tvaRate",parseFloat(e.target.value))} aria-label="TVA">
               <option value={0.19}>TVA 19%</option><option value={0.10}>TVA 10%</option><option value={0}>Exo.</option>
             </select>
-            <div className="col-span-2 flex items-center justify-end"><span className="font-mono text-sm font-bold">{line.totalTTC.toLocaleString("fr-FR")}</span></div>
-            <button type="button" onClick={()=>lines.length>1&&setLines(p=>p.filter((_,j)=>j!==i))} className="col-span-1 text-ink2 hover:text-neg text-xl">×</button>
+            <div className="col-span-5 sm:col-span-2 flex items-center justify-end"><span className="font-mono text-sm font-bold">{line.totalTTC.toLocaleString("fr-FR")}</span></div>
+            <button type="button" aria-label="Retirer la ligne" onClick={()=>lines.length>1&&setLines(p=>p.filter((_,j)=>j!==i))} className="col-span-1 text-ink2 hover:text-neg text-xl">×</button>
           </div>
         ))}
       </div>

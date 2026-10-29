@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields, serverError } from "@/lib/api-helpers";
 import { PublicTenderModel } from "@/models/PublicTender";
 import { determineProcedureMarche, LIBELLES_PROCEDURES, type ProcedureMarche } from "@/lib/niger-fiscal";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { errorMessage, errorName } from "@/lib/errors";
+import { nextSerial } from "@/lib/serial";
 
 /**
  * Note : La ressource "publicTenders" doit correspondre à tes permissions.
@@ -79,11 +80,7 @@ export const POST = withAuth("publicTenders", "create", async (req: NextRequest,
     // + 1 » — après une suppression, ce dernier ressortait un numéro existant
     // (index unique → erreur 500). Nouvelle tentative en cas de collision.
     const year = new Date().getFullYear();
-    const existingRefs = await PublicTenderModel.find({ tenantId: auth.tenantId, reference: { $regex: `^MRC-${year}-\\d+$` } })
-      .select("reference").lean<Array<{ reference: string }>>();
-    let next = 1 + existingRefs.reduce((m, r) => Math.max(m, Number(r.reference.split("-").pop()) || 0), 0);
-    let reference = `MRC-${year}-${String(next).padStart(4, "0")}`;
-    while (await PublicTenderModel.exists({ tenantId: auth.tenantId, reference })) reference = `MRC-${year}-${String(++next).padStart(4, "0")}`;
+    const reference = await nextSerial(auth.tenantId, { prefix: "MRC", year, digits: 4, model: PublicTenderModel as never, field: "reference" });
 
     // 4. Création du document
     const tender = await PublicTenderModel.create({
@@ -118,6 +115,6 @@ export const POST = withAuth("publicTenders", "create", async (req: NextRequest,
       return badRequest("Un ID de référence (chapitre, entité) est invalide.");
     }
     
-    return badRequest(`Erreur : ${errorMessage(error)}`);
+    return serverError(error);
   }
 });

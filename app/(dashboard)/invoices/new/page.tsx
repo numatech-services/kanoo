@@ -19,7 +19,7 @@ export default function NewInvoicePage() {
   return (
     <div className="max-w-4xl space-y-5">
       <div><Link href="/invoices" className="text-xs text-ink2 hover:text-ink">← Factures</Link><h1 className="page-title mt-1">Nouvelle facture</h1></div>
-      <div className="bg-surface rounded-2xl border border-line p-6">{ready && <InvoiceForm initial={clientId ? { clientId } : undefined} onSave={handleSave} onCancel={() => router.push("/invoices")} />}</div>
+      <div className="bg-surface rounded-2xl border border-line p-6">{ready && <InvoiceForm draftKey="invoice-new" initial={clientId ? { clientId } : undefined} onSave={handleSave} onCancel={() => router.push("/invoices")} />}</div>
     </div>
   );
 }

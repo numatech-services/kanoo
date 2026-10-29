@@ -12,6 +12,7 @@ import { AlertTriangle } from "lucide-react";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+import { PageLoading } from "@/components/ui/PageState";
 interface Employee {
   _id:string; code:string; firstName:string; lastName:string; position:string; department?:string;
   employeeType:string; contractNature:string;
@@ -79,7 +80,7 @@ export default function EmployeesPage() {
     {key:"isActive",label:"",render:(v)=><StatusBadge status={v?"active":"inactive"}/>},
   ];
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   return (
     <div className="space-y-5">

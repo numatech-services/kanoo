@@ -17,6 +17,7 @@ import { SchedulePanel } from "@/components/invoices/SchedulePanel";
 import { showToast } from "@/components/ui/Toast";
 import { useApi } from "@/lib/use-api";
 import { useMe, meCanDo } from "@/lib/useMe";
+import { PageLoading } from "@/components/ui/PageState";
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
 interface InvoiceLine { 
@@ -101,7 +102,7 @@ export default function InvoiceDetailPage() {
     { quiet: true },
   );
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   // Déclencheur natif window.print
   const handlePrintDirect = () => {

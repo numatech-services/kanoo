@@ -7,6 +7,7 @@ import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
 import { BarChart3, CheckCircle2, FileEdit, ScrollText } from "lucide-react";
 import { formatMoney } from "@/lib/format";
 import { apiJson } from "@/lib/api-client";
+import { PageLoading } from "@/components/ui/PageState";
 interface BudgetChapter { _id: string; code: string; label: string; allocatedAmount: number; engagedAmount: number; paidAmount: number; }
 interface Engagement { _id: string; reference: string; description: string; amount: number; status: string; createdAt: string; }
 interface Marche { _id: string; reference: string; title: string; status: string; estimatedAmount: number; publishDate: string; }
@@ -82,7 +83,7 @@ export default function AdminDashboardPage() {
       .finally(() => setLoadingMn(false));
   }, []);
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   // Sécurisation stricte avant d'exécuter le reduce et filter
   const safeChapters = Array.isArray(chapters) ? chapters : [];

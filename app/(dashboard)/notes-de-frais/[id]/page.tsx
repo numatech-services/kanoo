@@ -21,6 +21,7 @@ import { ImputationFields } from "@/components/shared/ImputationFields";
 
 import { apiJson, apiSend } from "@/lib/api-client";
 import { buttonClass } from "@/components/ui/button-class";
+import { todayLocal } from "@/lib/format";
 interface Line {
   _id: string;
   date: string;
@@ -60,7 +61,7 @@ interface Payload {
 interface TreasuryAccount { _id: string; label: string }
 
 const EMPTY_LINE = () => ({
-  date: new Date().toISOString().slice(0, 10),
+  date: todayLocal(),
   category: "transport" as ExpenseCategory,
   description: "",
   amountTTC: 0,
@@ -80,7 +81,7 @@ export default function NoteDeFraisPage() {
   const [payOpen, setPayOpen] = useState(false);
   const [accounts, setAccounts] = useState<TreasuryAccount[]>([]);
   const [accountId, setAccountId] = useState("");
-  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payDate, setPayDate] = useState(todayLocal());
 
   const load = useCallback(() => {
     apiJson(`/api/expenses/${id}`)
@@ -443,7 +444,7 @@ export default function NoteDeFraisPage() {
           </FormField>
 
           <FormField label="Date du remboursement" required hint="Date réelle du virement ou du paiement en espèces.">
-            <input type="date" className={inputCls} value={payDate} max={new Date().toISOString().slice(0, 10)} onChange={e => setPayDate(e.target.value)} />
+            <input type="date" className={inputCls} value={payDate} max={todayLocal()} onChange={e => setPayDate(e.target.value)} />
           </FormField>
 
           <p className="text-xs text-ink3">

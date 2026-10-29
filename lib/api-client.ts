@@ -156,10 +156,14 @@ function notify(message: string) {
  * `res.json()` des écrans existants sans changer leur logique : `res.ok` et
  * `res.status` gardent leur sens, `await res.json()` devient `res.data`.
  * Une coupure réseau donne `{ ok: false, status: 0 }` au lieu d'une exception.
+ *
+ * `extraHeaders` : par exemple `Idempotency-Key`, ou `X-Kanoo-Offline: page`
+ * pour un écran qui garde lui-même ses envois en attente (le service worker
+ * ne les met alors pas dans sa file).
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- même type que `res.json()`, qu'il remplace
-export async function apiSend<T = any>(method: Exclude<Method, "GET">, url: string, body?: unknown): Promise<{ ok: boolean; status: number; data: T }> {
-  const headers: Record<string, string> = { "x-csrf-token": await csrfToken() };
+export async function apiSend<T = any>(method: Exclude<Method, "GET">, url: string, body?: unknown, extraHeaders: Record<string, string> = {}): Promise<{ ok: boolean; status: number; data: T }> {
+  const headers: Record<string, string> = { ...extraHeaders, "x-csrf-token": await csrfToken() };
   let payload: BodyInit | undefined;
   if (body instanceof FormData) payload = body;
   else if (body !== undefined) { headers["Content-Type"] = "application/json"; payload = JSON.stringify(body); }

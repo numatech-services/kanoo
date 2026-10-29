@@ -1,104 +1,70 @@
 /**
  * Kanoo — Service Worker
- * Stratégie :
- *  - Pages/assets : Cache First (avec fallback réseau)
- *  - API GET listes : Stale-While-Revalidate (données fraîches dès que réseau disponible)
- *  - API mutations (POST/PATCH/DELETE) hors-ligne : Background Sync Queue
+ *
+ * Les règles (quoi mettre en cache, quoi mettre en file) sont dans
+ * /sw-policy.js, testé sans navigateur. Ici, leur exécution :
+ *  - assets versionnés : cache d'abord ;
+ *  - quelques listes de référence (clients, articles…) : cache puis réseau ;
+ *  - pages et autres données : réseau seulement, page hors ligne en secours
+ *    (rien de connecté n'est gardé : un téléphone se partage) ;
+ *  - écritures : envoyées avec leur clé d'idempotence, mises en file hors
+ *    ligne et rejouées à la reconnexion — jamais l'authentification ni un
+ *    fichier envoyé.
+ *
+ * Messages reçus de l'application : PURGE_DATA (connexion : données en cache
+ * effacées), PURGE_ALL (déconnexion : données et file effacées), SET_OWNER
+ * (utilisateur connecté : la file d'un autre utilisateur est abandonnée, elle
+ * ne doit pas partir sous sa session), REPLAY_QUEUE, GET_FAILED, SKIP_WAITING.
  */
+importScripts("/sw-policy.js");
+const P = self.KanooSwPolicy;
 
-const CACHE_VERSION = "kanoo-v1";
 const SYNC_TAG = "kanoo-sync";
-
-// ─── Ressources à précacher au premier chargement ─────────────────────────────
-const PRECACHE_URLS = [
-  "/dashboard",
-  "/clients",
-  "/invoices",
-  "/offline",
-];
-
-// ─── Routes API à mettre en cache (GET uniquement) ────────────────────────────
-const CACHEABLE_API_ROUTES = [
-  "/api/clients",
-  "/api/invoices",
-  "/api/products",
-  "/api/suppliers",
-  "/api/employees",
-  "/api/treasury-accounts",
-  "/api/public/plans",
-];
-
 const OFFLINE_FALLBACK = "/offline";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// INSTALL — précacher les ressources essentielles
-// ─────────────────────────────────────────────────────────────────────────────
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) =>
-      cache.addAll(PRECACHE_URLS).catch(() => {
-        // Ignorer les erreurs de précache (pages protégées redirigent vers /login)
-      })
-    )
+    caches.open(P.STATIC_CACHE).then((cache) => cache.addAll([OFFLINE_FALLBACK]).catch(() => {}))
   );
   self.skipWaiting();
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ACTIVATE — nettoyer les anciens caches
-// ─────────────────────────────────────────────────────────────────────────────
+// Les anciens caches partent, dont « kanoo-v1 » qui gardait des pages et des
+// réponses connectées.
 self.addEventListener("activate", (event) => {
+  const keep = [P.STATIC_CACHE, P.DATA_CACHE, P.META_CACHE];
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_VERSION)
-          .map((key) => caches.delete(key))
-      )
-    )
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => !keep.includes(k)).map((k) => caches.delete(k))))
   );
   self.clients.claim();
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FETCH — intercepter les requêtes
-// ─────────────────────────────────────────────────────────────────────────────
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Ignorer les requêtes non-GET vers l'API → elles passent par la sync queue
-  if (request.method !== "GET" && url.pathname.startsWith("/api/")) {
-    event.respondWith(handleOfflineMutation(request));
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    const mode = P.mutationMode({
+      pathname: url.pathname, method: request.method,
+      contentType: request.headers.get("content-type"), offlineHeader: request.headers.get("x-kanoo-offline"),
+    });
+    // « network » : pas de respondWith, le navigateur traite la requête normalement.
+    if (mode !== "network") event.respondWith(handleMutation(request, mode));
     return;
   }
 
-  // API GET → Stale-While-Revalidate
-  const isApiGet = request.method === "GET" && 
-    CACHEABLE_API_ROUTES.some(r => url.pathname.startsWith(r));
-  
-  if (isApiGet) {
-    event.respondWith(staleWhileRevalidate(request));
-    return;
-  }
-
-  // Assets statiques → Cache First
-  if (
-    url.pathname.startsWith("/_next/static/") ||
-    url.pathname.startsWith("/icons/") ||
-    url.pathname.endsWith(".css") ||
-    url.pathname.endsWith(".js")
-  ) {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
-
-  // Pages HTML → Network First avec fallback cache
-  event.respondWith(networkFirstWithFallback(request));
+  const mode = P.readMode({
+    pathname: url.pathname, sameOrigin: url.origin === self.location.origin,
+    isNavigate: request.mode === "navigate", isRsc: request.headers.get("rsc") === "1" || url.searchParams.has("_rsc"),
+  });
+  if (mode === "static") event.respondWith(cacheFirst(request));
+  else if (mode === "swr") event.respondWith(staleWhileRevalidate(request));
+  else if (mode === "page") event.respondWith(pageOrOffline(request));
+  // « network » : pas de respondWith, rien n'est mis en cache.
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STRATÉGIES DE CACHE
+// STRATÉGIES
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function cacheFirst(request) {
@@ -106,10 +72,7 @@ async function cacheFirst(request) {
   if (cached) return cached;
   try {
     const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE_VERSION);
-      cache.put(request, response.clone());
-    }
+    if (response.ok) (await caches.open(P.STATIC_CACHE)).put(request, response.clone());
     return response;
   } catch {
     return new Response("Ressource non disponible hors-ligne", { status: 503 });
@@ -117,83 +80,91 @@ async function cacheFirst(request) {
 }
 
 async function staleWhileRevalidate(request) {
-  const cache = await caches.open(CACHE_VERSION);
+  const cache = await caches.open(P.DATA_CACHE);
   const cached = await cache.match(request);
-
-  // Lancer la mise à jour en arrière-plan
-  const fetchPromise = fetch(request).then((response) => {
+  const fresh = fetch(request).then((response) => {
     if (response.ok) cache.put(request, response.clone());
     return response;
   }).catch(() => null);
-
-  // Retourner le cache immédiatement si disponible, sinon attendre le réseau
-  return cached || fetchPromise || offlineFallbackJson();
+  if (cached) return cached;
+  return (await fresh) || offlineFallbackJson();
 }
 
-async function networkFirstWithFallback(request) {
+/** Navigation : le réseau, sinon la page hors ligne. La page elle-même n'est jamais gardée. */
+async function pageOrOffline(request) {
   try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE_VERSION);
-      cache.put(request, response.clone());
-    }
-    return response;
+    return await fetch(request);
   } catch {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    // Fallback page hors-ligne pour les navigations
-    if (request.mode === "navigate") {
-      return caches.match(OFFLINE_FALLBACK) || offlineHtmlResponse();
-    }
-    return offlineFallbackJson();
+    return (await caches.match(OFFLINE_FALLBACK)) || offlineHtmlResponse();
   }
 }
 
-// Routes critiques dont la CRÉATION (POST) est bloquée hors-ligne
-// pour éviter les doublons lors du replay
-const CRITICAL_CREATION_ROUTES = [
-  "/api/invoices",
-  "/api/devis",
-  "/api/contracts",
-  "/api/payslips",
-  "/api/livraisons",
-  "/api/commandes",
-];
-
-function isCriticalCreation(request) {
-  if (request.method !== "POST") return false;
-  const url = new URL(request.url);
-  return CRITICAL_CREATION_ROUTES.some(r => url.pathname === r || url.pathname === r + "/");
-}
-
-async function handleOfflineMutation(request) {
+/**
+ * Écriture : la clé d'idempotence est posée AVANT le premier envoi. Si le
+ * serveur a traité la requête mais que la réponse s'est perdue, le rejeu
+ * porte la même clé et le serveur rend la réponse d'origine au lieu de créer
+ * un doublon.
+ */
+async function handleMutation(request, mode) {
+  const key = request.headers.get("idempotency-key") || newIdempotencyKey();
+  const body = await request.clone().text().catch(() => null);
+  const headers = new Headers(request.headers);
+  headers.set("Idempotency-Key", key);
   try {
-    // Essayer le réseau en premier
-    return await fetch(request.clone());
+    return await fetch(request.url, { method: request.method, headers, body, credentials: "include" });
   } catch {
-    // Hors-ligne — vérifier si c'est une création critique
-    if (isCriticalCreation(request)) {
+    if (mode === "critical") {
       return new Response(
         JSON.stringify({
-          success: false,
-          offline: true,
-          blocked: true,
-          message: "⚠ Vous êtes hors-ligne. La création de ce document nécessite une connexion internet pour garantir la numérotation et éviter les doublons. Reconnectez-vous et réessayez.",
+          success: false, offline: true, blocked: true,
+          error: "Vous êtes hors-ligne. La création de ce document nécessite une connexion internet pour garantir la numérotation et éviter les doublons. Reconnectez-vous et réessayez.",
         }),
         { status: 503, headers: { "Content-Type": "application/json" } }
       );
     }
-    // Pour les autres mutations (mises à jour, suppressions) : empiler dans la queue
-    await queueMutation(request);
+    await queueMutation(request, body, key);
     return new Response(
-      JSON.stringify({
-        success: true,
-        offline: true,
-        message: "Action enregistrée hors-ligne — sera synchronisée à la reconnexion",
-      }),
+      JSON.stringify({ success: true, offline: true, queued: true, message: "Action enregistrée hors-ligne — elle sera synchronisée à la reconnexion" }),
       { status: 202, headers: { "Content-Type": "application/json" } }
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROPRIÉTAIRE DE LA FILE, PURGE
+// ─────────────────────────────────────────────────────────────────────────────
+
+const OWNER_KEY = "/__kanoo_owner";
+
+async function readOwner() {
+  const r = await (await caches.open(P.META_CACHE)).match(OWNER_KEY);
+  return r ? r.text() : "";
+}
+
+/** Un autre utilisateur se connecte : la file du précédent est abandonnée (elle partirait sous la nouvelle session). */
+async function setOwner(owner) {
+  const previous = await readOwner();
+  if (previous && owner && previous !== owner) await clearQueues();
+  await (await caches.open(P.META_CACHE)).put(OWNER_KEY, new Response(owner || ""));
+}
+
+async function purge(all) {
+  await caches.delete(P.DATA_CACHE);
+  if (all) {
+    await clearQueues();
+    await caches.delete(P.META_CACHE);
+  }
+}
+
+async function clearQueues() {
+  const db = await openDB();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_NAME, FAILED_STORE], "readwrite");
+    tx.objectStore(STORE_NAME).clear();
+    tx.objectStore(FAILED_STORE).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -240,9 +211,8 @@ function newIdempotencyKey() {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function queueMutation(request) {
+async function queueMutation(request, body, key) {
   const db = await openDB();
-  const body = await request.clone().text().catch(() => null);
   const headers = Object.fromEntries(request.headers.entries());
 
   // Les en-têtes d'authentification ne sont pas conservés : le jeton aurait
@@ -255,7 +225,7 @@ async function queueMutation(request) {
     method: request.method,
     headers,
     body,
-    idempotencyKey: newIdempotencyKey(),
+    idempotencyKey: key,
     attempts: 0,
     timestamp: Date.now(),
   };
@@ -350,6 +320,13 @@ self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
+  if (event.data?.type === "PURGE_DATA" || event.data?.type === "PURGE_ALL") {
+    const run = purge(event.data.type === "PURGE_ALL").then(() => event.source?.postMessage({ type: "PURGED" }));
+    event.waitUntil?.(run);
+  }
+  if (event.data?.type === "SET_OWNER") {
+    event.waitUntil?.(setOwner(String(event.data.owner || "")));
+  }
 });
 
 /**
@@ -399,19 +376,22 @@ async function replayQueue() {
       continue;
     }
 
-    if (response.status >= 200 && response.status < 300) {
+    let detail = "";
+    if (response.status >= 400) {
+      try { detail = (await response.clone().json())?.error || ""; } catch { /* corps non JSON */ }
+    }
+    const decision = P.replayDecision(response.status, detail);
+    if (decision === "done") {
       await deleteQueued(item.id);
       replayed++;
       continue;
     }
-
-    if (response.status === 401 || response.status === 403) {
+    if (decision === "auth") {
       needsAuth = true;
       pending++;
       continue;
     }
-
-    if (response.status === 408 || response.status === 429 || response.status >= 500) {
+    if (decision === "retry") {
       item.attempts = (item.attempts || 0) + 1;
       item.lastStatus = response.status;
       if (item.attempts >= MAX_ATTEMPTS) {
@@ -423,14 +403,7 @@ async function replayQueue() {
       }
       continue;
     }
-
-    // 4xx restants : le serveur a compris et refuse. Réessayer n'y changera
-    // rien, mais l'écriture ne doit pas disparaître pour autant.
-    let detail = "";
-    try {
-      const payload = await response.clone().json();
-      detail = payload?.error || "";
-    } catch { /* corps non JSON */ }
+    // Refus définitif : réessayer n'y changera rien, mais l'écriture ne doit pas disparaître.
     await moveToFailed(item, detail || `Refusée par le serveur (${response.status}).`);
     failed++;
   }

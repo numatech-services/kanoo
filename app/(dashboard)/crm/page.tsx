@@ -8,6 +8,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { api, apiErrorMessage  } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { showToast } from "@/components/ui/Toast";
+import { PageLoading } from "@/components/ui/PageState";
 interface Opp {
   _id: string; reference: string; title: string; stage: string;
   estimatedAmount: number; probability: number; expectedCloseDate?: string;
@@ -45,7 +46,7 @@ export default function CRMPage() {
   const stats: Stats = board.data?.stats || {};
   const { loading, reload: load } = board;
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   const u = (k: string, v: unknown) => setForm(p => ({ ...p, [k]: v }));
 

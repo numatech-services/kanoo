@@ -88,6 +88,23 @@ describe("Conventions des routes API", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("aucune route ne renvoie un message d'exception brut, sous aucune forme", () => {
+    // badRequest(errorMessage(e)), `Erreur : ${e.message}`, { error: err.message }…
+    // Seule une erreur typée (instanceof BusinessRuleError, PurchaseError…),
+    // dont le message est écrit pour l'utilisateur, peut être renvoyée telle
+    // quelle ; le reste passe par routeError / serverError.
+    const offenders: string[] = [];
+    for (const f of files) {
+      const lines = f.src.split("\n");
+      lines.forEach((l, i) => {
+        if (!/(badRequest|serverError|conflict|NextResponse\.json)\(.*(errorMessage\(|\b(e|err|error|ex)\.message)/.test(l)) return;
+        if (/instanceof/.test(lines.slice(Math.max(0, i - 2), i + 1).join(" "))) return;
+        offenders.push(`${f.path}:${i + 1}`);
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("toute somme de chiffre d'affaires tient compte des avoirs", () => {
     // Les avoirs vivent dans la collection des factures avec des montants
     // POSITIFS : une agrégation qui somme totalTTC sans les distinguer les

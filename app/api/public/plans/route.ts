@@ -9,7 +9,8 @@ export async function GET() {
     const plans = await Plan.find({}).sort({ priceMonthly: 1 });
     return NextResponse.json({ success: true, data: plans });
   } catch (e) {
-    return NextResponse.json({ success: false, error: errorMessage(e) }, { status: 500 });
+    console.error("[public/plans]", errorMessage(e));
+    return NextResponse.json({ success: false, error: "Offres momentanément indisponibles." }, { status: 500 });
   }
 }
 

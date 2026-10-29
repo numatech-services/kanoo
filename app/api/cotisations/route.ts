@@ -6,6 +6,7 @@ import { MembershipModel } from "@/models/Membership";
 import { MemberModel } from "@/models/Member";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { nextSerial } from "@/lib/serial";
 
 export const GET = withAuth("cotisations", "read", async (req: NextRequest, auth: TokenPayload) => {
   const pagination = getPagination(req);
@@ -34,12 +35,11 @@ export const POST = withAuth("cotisations", "create", async (req: NextRequest, a
   const member = await MemberModel.findOne({ _id: body.memberId, tenantId: auth.tenantId });
   if (!member) return badRequest("Adhérent introuvable");
   const year = new Date().getFullYear();
-  const count = await MembershipModel.countDocuments({ tenantId: auth.tenantId });
-  const receiptNumber = `REC-${year}-${String(count + 1).padStart(5, "0")}`;
   const paidAt = body.paid ? (body.paidAt ? new Date(body.paidAt) : new Date()) : undefined;
   if (paidAt && isNaN(paidAt.getTime())) return badRequest("Date de paiement invalide");
   const clean = sanitizeBody(body, ["receiptNumber", "entryId", "movementId", "paidAt"]);
   const membership = await withTransaction(async session => {
+    const receiptNumber = await nextSerial(auth.tenantId, { prefix: "REC", year, digits: 5, model: MembershipModel as never, field: "receiptNumber", session });
     const [m] = await MembershipModel.create([{ ...clean, tenantId: auth.tenantId, receiptNumber, paidAt }], { session });
     await postMembership(auth, m, session);
     return m;

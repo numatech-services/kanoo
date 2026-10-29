@@ -8,6 +8,7 @@ import { StockMovementModel } from "@/models/StockMovement";
 import { applyMovement, StockError, MOVEMENT_TYPES, MOVEMENT_LABEL, type MovementType } from "@/lib/stock";
 import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { logAudit } from "@/lib/audit";
+import { todayLocal } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ export const GET = withAuth("products", "read", async (req: NextRequest, auth: T
         m.quantity, m.quantityBefore, m.quantityAfter, lotsTxt, m.unitCost, m.avgCostAfter, m.reason, m.linkedDocNumber, `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()].map(cell).join(";"));
     }
     return new NextResponse("﻿" + lines.join("\r\n"), {
-      headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="mouvements-stock-${new Date().toISOString().slice(0, 10)}.csv"` },
+      headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="mouvements-stock-${todayLocal()}.csv"` },
     });
   }
 

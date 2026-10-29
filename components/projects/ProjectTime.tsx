@@ -7,12 +7,12 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, todayLocal } from "@/lib/format";
 
 interface Entry { _id: string; date: string; hours: number; note?: string; taskId?: string; billable?: boolean; userId?: { _id: string; firstName?: string; lastName?: string } }
 interface Data { items: Entry[]; people: Array<{ name: string; hours: number; cost: number | null }>; totalHours: number; estimatedCost?: number }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayLocal();
 const h = (n: number) => `${n.toLocaleString("fr-FR")} h`;
 
 /**

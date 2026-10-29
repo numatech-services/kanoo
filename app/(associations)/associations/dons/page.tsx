@@ -5,6 +5,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+import { PageLoading } from "@/components/ui/PageState";
 interface Don { _id:string; donorName?:string; donorType:string; amount:number; currency:string; campaign?:string; date:string; receiptNumber:string; }
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
@@ -13,7 +14,7 @@ export default function DonsPage() {
   const [page,setPage]=useState(1);
   const LIMIT=20;
   const {data:{items,total},loading}=useApi<{items:Don[];total:number}>(`/api/dons?page=${page}&limit=${LIMIT}`,d=>({items:d.data?.items||[],total:d.data?.pagination?.total||0}),{items:[],total:0});
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
   const totalXOF=items.filter(d=>d.currency==="XOF").reduce((s,d)=>s+d.amount,0);
   const columns: Column<Don>[] = [
     {key:"donorName",label:"Donateur",render:(v,r)=>v?String(v):<span className="text-ink2 italic">Anonyme ({r.donorType})</span>},

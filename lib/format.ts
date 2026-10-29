@@ -9,6 +9,20 @@
 
 export const CURRENCY_LABEL = "FCFA";
 
+/**
+ * Jour local AAAA-MM-JJ (fuseau de l'appareil, ou du serveur : Africa/Niamey,
+ * instrumentation.ts). `toISOString().slice(0, 10)` donnait le jour UTC : de
+ * minuit à 1 h à Niamey, c'était encore la veille, et une date construite à
+ * minuit local (fin du mois dernier…) reculait d'un jour.
+ */
+export function localDay(d: Date | string | number = new Date()): string {
+  const x = d instanceof Date ? d : new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+}
+
+/** Aujourd'hui, jour local AAAA-MM-JJ (valeur d'un champ date). */
+export const todayLocal = (): string => localDay(new Date());
+
 const NUMBER = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
 const DECIMAL = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
 

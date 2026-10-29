@@ -3,6 +3,7 @@ import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson } from "@/lib/api-client";
+import { PageLoading } from "@/components/ui/PageState";
 interface Tender { _id:string; reference:string; object:string; estimatedAmount:number; bidsDeadline?:string; procedure:string; status:string; }
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
@@ -12,7 +13,7 @@ export default function AppelsOffresPage() {
   const [loading, setLoading] = useState(true);
   useEffect(()=>{ apiJson("/api/portail/fournisseur").then(d=>setTenders(d.data?.openTenders||[])).finally(()=>setLoading(false)); },[]);
   
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
   
   return (
     <div className="space-y-5">

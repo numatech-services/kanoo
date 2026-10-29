@@ -56,8 +56,8 @@ Facultatif (les défauts conviennent) :
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `NEXT_PUBLIC_IDLE_TIMEOUT_MINUTES` | `3` | Déconnexion inactivité (côté navigateur) |
-| `SESSION_IDLE_MINUTES` | `5` | Session glissante (filet côté serveur) |
+| `NEXT_PUBLIC_IDLE_TIMEOUT_MINUTES` | `15` | Déconnexion inactivité (côté navigateur) |
+| `SESSION_IDLE_MINUTES` | `20` | Session glissante (filet côté serveur) |
 | `EMAIL_PROVIDER` + clés | — | Envoi d'e-mails (relances, invitations) |
 
 **Générer un `CRON_SECRET`** (Terminal) :

@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson, apiSend } from "@/lib/api-client";
 import { showToast } from "@/components/ui/Toast";
+import { PageLoading } from "@/components/ui/PageState";
 interface Plan {
   _id?: string;
   code: string;
@@ -44,7 +45,7 @@ export default function PlansPage() {
   }, []);
 
   // Rendu de sécurité pour synchroniser Serveur et Client
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   const openEdit = (plan: Plan | null = null) => {
     setSelectedPlan(plan || { 

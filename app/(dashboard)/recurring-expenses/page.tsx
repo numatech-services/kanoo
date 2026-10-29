@@ -12,6 +12,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
+import { todayLocal } from "@/lib/format";
 type Ref = { _id: string; label?: string; name?: string } | null;
 interface Expense {
   _id: string; label: string; category: string; amount: number; frequency: string; nextDueDate: string; accountCode?: string; tvaRate?: number;
@@ -108,7 +109,7 @@ export default function RecurringExpensesPage() {
 function ChargeDialog({ charge, accounts, onClose, onDone }: { charge: Expense | null; accounts: Account[]; onClose: () => void; onDone: () => void }) {
   const [f, setF] = useState({
     label: charge?.label ?? "", category: charge?.category ?? "loyer", amount: charge?.amount ?? 0, frequency: charge?.frequency ?? "monthly",
-    startDate: new Date().toISOString().slice(0, 10), nextDueDate: charge?.nextDueDate?.slice(0, 10) ?? "",
+    startDate: todayLocal(), nextDueDate: charge?.nextDueDate?.slice(0, 10) ?? "",
     accountCode: charge?.accountCode ?? "622100", tvaRate: charge?.tvaRate ?? 0, treasuryAccountId: idOf(charge?.treasuryAccountId), supplierId: idOf(charge?.supplierId), description: charge?.description ?? "",
   });
   const [imp, setImp] = useState<ImputationValue>({ projectId: charge?.projectId, activityId: charge?.activityId, costCenter: charge?.costCenter });
@@ -172,7 +173,7 @@ function ChargeDialog({ charge, accounts, onClose, onDone }: { charge: Expense |
 }
 
 function PayDialog({ charge, accounts, onClose, onDone }: { charge: Expense; accounts: Account[]; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ treasuryAccountId: idOf(charge.treasuryAccountId), amount: charge.amount, date: new Date().toISOString().slice(0, 10), reference: "", advance: false });
+  const [f, setF] = useState({ treasuryAccountId: idOf(charge.treasuryAccountId), amount: charge.amount, date: todayLocal(), reference: "", advance: false });
   const [error, setError] = useState("");
   // Échéance dans plus de 7 jours : le serveur demande une confirmation de paiement anticipé.
   const [early] = useState(() => new Date(charge.nextDueDate).getTime() > Date.now() + 7 * 86_400_000);

@@ -7,6 +7,7 @@ import { inputCls } from "@/components/ui/FormField";
 import { buttonClass } from "@/components/ui/button-class";
 import { ScreenTabs } from "@/components/shared/ScreenTabs";
 import { useApi } from "@/lib/use-api";
+import { todayLocal } from "@/lib/format";
 type Tab = "balance" | "ledger" | "pl" | "bs";
 const TABS: Array<[Tab, string]> = [["balance", "Balance générale"], ["ledger", "Grand livre"], ["pl", "Compte de résultat"], ["bs", "Bilan"]];
 const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
@@ -21,7 +22,7 @@ export default function StatementsPage() {
   const y = new Date().getFullYear();
   const [tab, setTab] = useState<Tab>("balance");
   const [from, setFrom] = useState(`${y}-01-01`);
-  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [to, setTo] = useState(todayLocal());
   const [account, setAccount] = useState("");
 
   const qs = useCallback((extra: Record<string, string> = {}) => {

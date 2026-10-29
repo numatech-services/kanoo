@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, tenantFilter, serverError } from "@/lib/api-helpers";
 import { ProductModel } from "@/models/Product";
-import { errorMessage } from "@/lib/errors";
 import { TokenPayload } from "@/lib/auth";
 
 export const GET = withAuth("services", "read", async (req: NextRequest, auth: TokenPayload) => {
@@ -29,6 +28,6 @@ export const POST = withAuth("services", "create", async (req: NextRequest, auth
     
     return NextResponse.json({ data: service }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: errorMessage(error) }, { status: 400 });
+    return serverError(error);
   }
 });

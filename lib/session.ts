@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { signToken, generateCsrfToken, TokenPayload } from "./auth";
 import { CSRF_COOKIE } from "./csrf";
+import { sessionIdleMinutes } from "./idle";
 
 /**
  * Session GLISSANTE : le cookie ne vit qu'une fenêtre d'inactivité
- * (SESSION_IDLE_MINUTES, 4 min par défaut), prolongée à chaque battement
+ * (SESSION_IDLE_MINUTES, 20 min par défaut : lib/idle.ts), prolongée à chaque battement
  * d'activité (/api/auth/ping). Sans activité, le navigateur le laisse expirer
  * et la requête suivante n'est plus authentifiée — la déconnexion est alors
  * imposée côté serveur, indépendamment du minuteur côté client.
@@ -13,7 +14,7 @@ import { CSRF_COOKIE } from "./csrf";
  * dure : le battement ne réémet pas le jeton, il ne fait que repousser
  * l'échéance du cookie.
  */
-const SESSION_IDLE_MINUTES = Number(process.env.SESSION_IDLE_MINUTES || "4");
+const SESSION_IDLE_MINUTES = sessionIdleMinutes();
 const SESSION_MAX_AGE_S = Math.max(60, SESSION_IDLE_MINUTES * 60);
 
 /**

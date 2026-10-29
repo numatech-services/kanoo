@@ -6,6 +6,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson } from "@/lib/api-client";
+import { todayLocal } from "@/lib/format";
 interface TreasuryAccountOption { _id: string; label: string; type: string }
 
 interface PaymentFormProps {
@@ -32,7 +33,7 @@ const METHOD_ACCOUNT_TYPE: Record<string, string> = {
 };
 
 export function PaymentForm({ invoiceId, remainingAmount, onSave, onCancel }: PaymentFormProps) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const [amount, setAmount] = useState(remainingAmount);
   // Retenue à la source subie : le client verse le net, le reste part à l'État.
   const [withholding, setWithholding] = useState(0);

@@ -5,6 +5,7 @@ import { getPendingCount, triggerSync } from "@/lib/offline/sync-queue";
 
 import { WifiOff } from "lucide-react";
 import { buttonClass } from "@/components/ui/button-class";
+import { PageLoading } from "@/components/ui/PageState";
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
 
@@ -23,7 +24,7 @@ export default function OfflinePage() {
     return () => window.removeEventListener("online", goOnline);
   }, [router]);
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   async function handleSync() {
     await triggerSync();

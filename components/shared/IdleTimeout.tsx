@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiSend } from "@/lib/api-client";
+import { IDLE_MINUTES } from "@/lib/idle";
 /**
  * Déconnexion automatique après une période d'inactivité.
  *
@@ -18,7 +19,6 @@ import { apiSend } from "@/lib/api-client";
  * Ce garde est côté client (confort et sécurité d'un poste partagé). La borne
  * dure reste l'expiration du jeton côté serveur.
  */
-const IDLE_MINUTES = Number(process.env.NEXT_PUBLIC_IDLE_TIMEOUT_MINUTES || "2");
 const WARN_SECONDS = 60;
 const IDLE_MS = Math.max(60_000, IDLE_MINUTES * 60_000);
 const ACTIVITY_KEY = "kanoo.lastActivity";
@@ -74,6 +74,16 @@ export function IdleTimeout() {
       if (t - lastPing > 60_000) ping();
     }
 
+    // Retour sur l'onglet (après WhatsApp, l'appli de mobile money…) : compte
+    // comme une activité s'il n'a pas déjà dépassé le délai, et rafraîchit la
+    // session sans attendre le prochain geste. Au-delà, le battement suivant
+    // déconnecte, comme prévu.
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      if (now() - readLast() < IDLE_MS) { writeLast(now()); lastWrite = now(); ping(); }
+    }
+    document.addEventListener("visibilitychange", onVisible);
+
     // Un autre onglet s'est déconnecté → on suit.
     function onStorage(e: StorageEvent) {
       if (e.key === LOGOUT_KEY && e.newValue) logout("peer");
@@ -94,6 +104,7 @@ export function IdleTimeout() {
     return () => {
       ACTIVITY_EVENTS.forEach((ev) => window.removeEventListener(ev, onActivity));
       window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisible);
       clearInterval(tick);
     };
     // Volontairement sans dépendances : le minuteur vit toute la session.

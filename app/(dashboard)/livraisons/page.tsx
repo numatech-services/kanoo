@@ -11,6 +11,7 @@ import { Pagination } from "@/components/ui/Pagination";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { useApi } from "@/lib/use-api";
+import { PageLoading } from "@/components/ui/PageState";
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
 interface Delivery {
@@ -43,7 +44,7 @@ export default function LivraisonsPage() {
   // Tant que les filtres de l'adresse ne sont pas lus, la liste reste « en chargement ».
   const loading = !ready || reading;
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   const columns: Column<Delivery>[] = [
     {

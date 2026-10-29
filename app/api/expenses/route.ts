@@ -9,6 +9,7 @@ import { loadPolicy } from "@/lib/expense-policy";
 import { expenseAuthority, teamMembers } from "@/lib/expense-scope";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { nextSerial } from "@/lib/serial";
 
 export const dynamic = "force-dynamic";
 
@@ -117,13 +118,11 @@ export const POST = withAuth("expenses", "create", async (req: NextRequest, auth
   // collision de course ; on ne consomme pas la séquence DGI pour autant.
   const now = new Date();
   const year = now.getFullYear();
-  const count = await ExpenseReportModel.countDocuments({
-    tenantId: auth.tenantId, reference: new RegExp(`^NDF-${year}-`),
-  });
+  const reference = await nextSerial(auth.tenantId, { prefix: "NDF", year, digits: 4, model: ExpenseReportModel as never, field: "reference" });
 
   const report = await ExpenseReportModel.create({
     tenantId: auth.tenantId,
-    reference: `NDF-${year}-${String(count + 1).padStart(4, "0")}`,
+    reference,
     title,
     employeeId,
     createdBy: auth.userId,

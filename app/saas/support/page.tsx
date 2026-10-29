@@ -3,6 +3,7 @@ import { useState, useEffect, useSyncExternalStore } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson } from "@/lib/api-client";
+import { PageLoading } from "@/components/ui/PageState";
 interface Ticket { _id:string; subject:string; priority:string; status:string; userId:string; createdAt:string; }
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
@@ -19,7 +20,7 @@ export default function SupportPage() {
     { key:"createdAt", label:"Date", render:(v)=>new Date(String(v)).toLocaleDateString("fr-FR") },
     { key:"_id", label:"", render:()=><button className={buttonClass("primary", "sm")}>Traiter</button> },
   ];
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
   return (
     <div className="space-y-5">
       <h1 className="page-title">Tickets support</h1>

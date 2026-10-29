@@ -17,7 +17,7 @@ import type { MarketFinance } from "@/lib/market-finance";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, todayLocal } from "@/lib/format";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 async function send(url: string, method: string, body?: unknown) {
@@ -390,7 +390,7 @@ function MilestoneDialog({ contractId, amount, onClose, onDone }: { contractId: 
 function SignDialog({ onClose, onSign }: { onClose: () => void; onSign: (b: { signerName: string; signerRole: string; signedDate: string }) => void }) {
   const [signerName, setName] = useState("");
   const [signerRole, setRole] = useState("");
-  const [signedDate, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [signedDate, setDate] = useState(todayLocal());
   const [error, setError] = useState("");
   return (
     <Modal open onClose={onClose} title="Signer le contrat" size="sm">
@@ -398,7 +398,7 @@ function SignDialog({ onClose, onSign }: { onClose: () => void; onSign: (b: { si
         {error && <p className="px-3 py-2 rounded-lg bg-neg-50 border border-neg/25 text-sm text-neg">{error}</p>}
         <FormField label="Signataire" required><input className={inputCls} value={signerName} onChange={e => setName(e.target.value)} placeholder="Nom et prénom" /></FormField>
         <FormField label="Qualité"><input className={inputCls} value={signerRole} onChange={e => setRole(e.target.value)} placeholder="Gérant, directeur…" /></FormField>
-        <FormField label="Date de signature" required><input type="date" className={inputCls} value={signedDate} max={new Date().toISOString().slice(0, 10)} onChange={e => setDate(e.target.value)} /></FormField>
+        <FormField label="Date de signature" required><input type="date" className={inputCls} value={signedDate} max={todayLocal()} onChange={e => setDate(e.target.value)} /></FormField>
         <p className="text-xs text-ink2">Joignez l&apos;original signé dans « Documents » ci-dessous.</p>
         <div className="flex justify-end gap-3">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>

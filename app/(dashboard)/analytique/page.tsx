@@ -8,7 +8,7 @@ import { FlowFilterBar, useFlowFilter, today, type FlowTotals } from "@/componen
 import { promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, todayLocal } from "@/lib/format";
 import {apiJson, apiSend } from "@/lib/api-client";
 import { CostCenterReport } from "@/components/pme/CostCenterReport";
 interface Activity { _id: string; name: string; color?: string }
@@ -24,7 +24,7 @@ export default function AnalytiquePage() {
   const [totals, setTotals] = useState<FlowTotals | null>(null);
   const [sector, setSector] = useState("");
   const filter = useFlowFilter({ from: `${new Date().getFullYear()}-01-01`, to: today() });
-  const [form, setForm] = useState({ kind: "revenue", activityId: "", label: "", amount: 0, date: new Date().toISOString().slice(0, 10) });
+  const [form, setForm] = useState({ kind: "revenue", activityId: "", label: "", amount: 0, date: todayLocal() });
 
   const load = useCallback(() => {
     // La période du filtre s'applique aussi à la rentabilité par secteur.

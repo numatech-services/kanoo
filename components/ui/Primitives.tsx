@@ -138,11 +138,13 @@ export function FilterChips({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-wrap items-center gap-2 ${className}`} role="group">
+    // Sur téléphone, une seule ligne qui défile (huit filtres prenaient quatre
+    // lignes avant la liste) ; à partir de la tablette, ils passent à la ligne.
+    <div className={`flex flex-nowrap sm:flex-wrap items-center gap-2 overflow-x-auto sm:overflow-visible -mx-1 px-1 pb-1 sm:pb-0 max-w-full ${className}`} role="group">
       {options.map(o => {
         const on = value === o.key;
         return (
-          <button key={o.key} type="button" aria-pressed={on} className="fchip"
+          <button key={o.key} type="button" aria-pressed={on} className="fchip shrink-0 whitespace-nowrap"
             onClick={() => onChange(on ? null : o.key)}>
             {o.label}
             {o.count !== undefined && <span className="fchip-count num">{o.count}</span>}

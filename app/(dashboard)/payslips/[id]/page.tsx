@@ -12,6 +12,7 @@ import { useMe, meCanDo } from "@/lib/useMe";
 import {apiJson, apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+import { todayLocal } from "@/lib/format";
 interface Payslip {
   _id: string; month: number; year: number;
   grossSalary: number; grossTotal?: number; seniorityRate?: number; seniorityAmount?: number;
@@ -178,7 +179,7 @@ export default function PayslipDetailPage() {
 function PayDialog({ id, net, onClose, onPaid }: { id: string; net: number; onClose: () => void; onPaid: () => void }) {
   const [accounts, setAccounts] = useState<Array<{ _id: string; label: string; type: string; balance?: number }>>([]);
   const [accountId, setAccountId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayLocal());
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => {
@@ -209,7 +210,7 @@ function PayDialog({ id, net, onClose, onPaid }: { id: string; net: number; onCl
           </select>
         </FormField>
         <FormField label="Date du versement" required hint="Date à laquelle le virement ou le paiement a réellement eu lieu.">
-          <input type="date" className={inputCls} value={date} max={new Date().toISOString().slice(0, 10)} onChange={e => setDate(e.target.value)} />
+          <input type="date" className={inputCls} value={date} max={todayLocal()} onChange={e => setDate(e.target.value)} />
         </FormField>
         <button onClick={pay} disabled={saving} className="w-full h-10 rounded-lg bg-pos text-onink text-sm font-semibold disabled:opacity-60">{saving ? "Paiement…" : "Confirmer le paiement"}</button>
       </div>

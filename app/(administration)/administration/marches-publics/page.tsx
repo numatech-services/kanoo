@@ -10,6 +10,7 @@ import { LIBELLES_PROCEDURES, determineProcedureMarche } from "@/lib/niger-fisca
 import { buttonClass } from "@/components/ui/button-class";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
+import { PageLoading } from "@/components/ui/PageState";
 interface Tender { 
   _id: string; 
   reference: string; 
@@ -108,7 +109,7 @@ export default function MarchesPublicsPage() {
     }
   ];
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   return (
     <div className="space-y-5">

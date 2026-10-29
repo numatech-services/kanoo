@@ -15,6 +15,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { formatMoney } from "@/lib/format";
 import { apiJson } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
+import { PageLoading } from "@/components/ui/PageState";
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
 interface Invoice {
@@ -138,6 +139,7 @@ export default function InvoicesPage() {
     {
       key: "issueDate",
       label: "Date émission",
+      mobile: "hide",
       render: (v) => <span className="text-ink2 text-sm">{formatDate(String(v))}</span>,
     },
     {
@@ -164,6 +166,7 @@ export default function InvoicesPage() {
     {
       key: "paidAmount",
       label: "Payé",
+      mobile: "hide",
       className: "text-right font-mono text-pos",
       render: (v) => <span>{Number(v) > 0 ? formatMoney(Number(v)) : "—"}</span>,
     },
@@ -206,7 +209,7 @@ export default function InvoicesPage() {
   // Client peuplé de la facture à imprimer (null s'il n'est qu'un identifiant)
   const printClient = invoiceToPrint && typeof invoiceToPrint.clientId === "object" ? invoiceToPrint.clientId : null;
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   return (
     <div className="space-y-5">

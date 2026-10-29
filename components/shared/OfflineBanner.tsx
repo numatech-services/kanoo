@@ -2,11 +2,12 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import {
   registerServiceWorker, triggerSync, getPendingCount, getFailedCount,
-  getFailedSyncItems, clearFailedQueue,
+  getFailedSyncItems, clearFailedQueue, setOfflineOwner,
   type FailedSyncItem, type SyncResult,
 } from "@/lib/offline/sync-queue";
 
 import { AlertTriangle, CheckCircle2, Lock, RefreshCw, WifiOff } from "lucide-react";
+import { useMe } from "@/lib/useMe";
 /**
  * Bandeau d'état hors-ligne.
  *
@@ -50,6 +51,10 @@ export function OfflineBanner() {
   const [syncing, setSyncing] = useState(false);
   const [needsAuth, setNeedsAuth] = useState(false);
   const [justSynced, setJustSynced] = useState(0);
+  const me = useMe();
+  // Propriétaire de la file hors ligne : celle d'un autre utilisateur n'est jamais rejouée sous cette session.
+  const owner = me.user?.email ?? "";
+  useEffect(() => { if (owner) setOfflineOwner(owner); }, [owner]);
 
   // Écrit dans `.then` (après lecture de la file), jamais avant : appelable
   // depuis l'effet de montage sans rendu synchrone supplémentaire.

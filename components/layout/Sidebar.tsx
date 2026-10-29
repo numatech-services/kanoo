@@ -10,6 +10,8 @@ import { moduleEnabled } from "@/lib/modules";
 import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent } from "lucide-react";
 
 import { apiJson, apiSend } from "@/lib/api-client";
+import { getPendingCount, purgeOfflineData } from "@/lib/offline/sync-queue";
+import { confirmDialog } from "@/components/ui/Dialogs";
 /** Où mène la pastille d'une entrée : la liste filtrée sur ce qu'elle compte. */
 const BADGE_TARGET: Record<string, { href: string; title: string }> = {
   "/invoices": { href: "/invoices?overdue=true", title: "Voir les factures en retard" },
@@ -138,6 +140,7 @@ const ASSO_NAV: NavGroup[] = [
     { label: "Tableau de bord", href: "/associations/dashboard", icon: <LayoutDashboard size={18} /> },
     { label: "Agenda", href: "/associations/agenda", icon: <CalendarClock size={18} /> },
     { label: "Événements", href: "/activites", icon: <Calendar size={18} /> },
+    { label: "Notifications", href: "/notifications", icon: <Bell size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
   ]},
   { section: "Gouvernance", items: [
@@ -149,12 +152,21 @@ const ASSO_NAV: NavGroup[] = [
     { label: "Cotisations", href: "/associations/cotisations", icon: <CreditCard size={18} /> },
     { label: "Dons", href: "/associations/dons", icon: <Heart size={18} /> },
   ]},
+  // Écrans communs aux trois espaces, ouverts par les rôles de l'association
+  // (role-resources) mais absents du menu : notes de frais, fiscalité,
+  // documents, support, journal d'audit. Chaque entrée reste filtrée par droit.
   { section: "Finances", tone: "finance", items: [
     { label: "Trésorerie", href: "/treasury", icon: <Landmark size={18} /> },
     { label: "Comptabilité", href: "/accounting", icon: <BookOpen size={18} /> },
+    { label: "Fiscalité", href: "/fiscalite", icon: <Scale size={18} /> },
+    { label: "Notes de frais", href: "/notes-de-frais", icon: <ReceiptText size={18} /> },
   ]},
   { section: "Projets", items: [
     { label: "Projets / ONG", href: "/projects", icon: <Folder size={18} /> },
+  ]},
+  { section: "Documents", tone: "documents", items: [
+    { label: "Documents", href: "/documents", icon: <FolderTree size={18} /> },
+    { label: "Courriers", href: "/courriers", icon: <Mail size={18} /> },
   ]},
   { section: "Réglages", tone: "parametres", items: [
     { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
@@ -164,6 +176,8 @@ const ASSO_NAV: NavGroup[] = [
     { label: "Automatisations", href: "/settings/automatisations", icon: <Zap size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
     { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
+    { label: "Support", href: "/support", icon: <Ticket size={18} /> },
+    { label: "Journal d'audit", href: "/audit", icon: <History size={18} /> },
     { label: "Mon profil", href: "/associations/profil", icon: <UserCircle size={18} /> },
   ]},
 ];
@@ -173,6 +187,7 @@ const ADMIN_NAV: NavGroup[] = [
     { label: "Tableau de bord", href: "/administration/dashboard", icon: <LayoutDashboard size={18} /> },
     { label: "Agenda", href: "/administration/agenda", icon: <CalendarClock size={18} /> },
     { label: "Événements", href: "/activites", icon: <Calendar size={18} /> },
+    { label: "Notifications", href: "/notifications", icon: <Bell size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
   ]},
   { section: "Budget", items: [
@@ -182,9 +197,22 @@ const ADMIN_NAV: NavGroup[] = [
   ]},
   { section: "Marchés publics", items: [
     { label: "Appels d'offres", href: "/administration/marches-publics", icon: <Gavel size={18} /> },
+    { label: "Fournisseurs", href: "/suppliers", icon: <Factory size={18} /> },
+  ]},
+  // Comptable public et DAF : trésorerie, comptabilité et fiscalité étaient
+  // accordées (role-resources) sans entrée de menu.
+  { section: "Finances", tone: "finance", items: [
+    { label: "Trésorerie", href: "/treasury", icon: <Landmark size={18} /> },
+    { label: "Comptabilité", href: "/accounting", icon: <BookOpen size={18} /> },
+    { label: "Fiscalité", href: "/fiscalite", icon: <Scale size={18} /> },
   ]},
   { section: "Personnel", items: [
     { label: "Gestion du personnel", href: "/employees", icon: <UserCircle size={18} /> },
+    { label: "Notes de frais", href: "/notes-de-frais", icon: <ReceiptText size={18} /> },
+  ]},
+  { section: "Documents", tone: "documents", items: [
+    { label: "Documents", href: "/documents", icon: <FolderTree size={18} /> },
+    { label: "Courriers", href: "/courriers", icon: <Mail size={18} /> },
   ]},
   { section: "Recettes", items: [
     { label: "Recettes publiques", href: "/administration/recettes", icon: <Banknote size={18} /> },
@@ -198,6 +226,8 @@ const ADMIN_NAV: NavGroup[] = [
     { label: "Automatisations", href: "/settings/automatisations", icon: <Zap size={18} /> },
     { label: "Sécurité (2FA)", href: "/settings/securite", icon: <ShieldAlert size={18} /> },
     { label: "Import / Export", href: "/data", icon: <Database size={18} /> },
+    { label: "Support", href: "/support", icon: <Ticket size={18} /> },
+    { label: "Journal d'audit", href: "/audit", icon: <History size={18} /> },
     { label: "Mon profil", href: "/profile", icon: <UserCircle size={18} /> },
   ]},
 ];
@@ -207,6 +237,7 @@ const SUPERADMIN_NAV: NavGroup[] = [
     { label: "Tableau de bord", href: "/saas/dashboard", icon: <LayoutDashboard size={18} /> },
     { label: "Organisations", href: "/saas/tenants", icon: <Building2 size={18} /> },
     { label: "Plans tarifaires", href: "/saas/plans", icon: <Diamond size={18} /> },
+    { label: "Facturation", href: "/saas/billing", icon: <Receipt size={18} /> },
   ]},
   { section: "Support & Sécurité", items: [
     { label: "Support tickets", href: "/saas/support", icon: <Ticket size={18} /> },
@@ -405,7 +436,16 @@ export function Sidebar({ profile }: { profile: ProfileType }) {
           </Link>
           <button type="button" aria-label="Déconnexion" title="Déconnexion"
             onClick={async () => {
+              // Écritures faites hors ligne pas encore envoyées : elles seraient abandonnées.
+              const pending = await getPendingCount().catch(() => 0);
+              if (pending > 0 && !(await confirmDialog({
+                title: `${pending} action(s) hors ligne pas encore envoyée(s)`,
+                message: "Si vous vous déconnectez maintenant, elles seront abandonnées. Reconnectez-vous au réseau pour les envoyer d'abord.",
+                confirmLabel: "Me déconnecter quand même", danger: true,
+              }))) return;
               await apiSend("POST", "/api/auth/logout");
+              // Téléphone partagé : données gardées hors ligne et file effacées.
+              await purgeOfflineData("all");
               // Rechargement complet voulu après déconnexion : purge tout l'état client (caches, profil).
               // eslint-disable-next-line @next/next/no-location-assign-relative-destination
               window.location.assign("/login");

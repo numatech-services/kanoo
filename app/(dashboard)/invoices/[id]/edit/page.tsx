@@ -6,6 +6,7 @@ import { InvoiceForm, type InvoiceFormData } from "@/components/pme/InvoiceForm"
 import { showToast } from "@/components/ui/Toast";
 
 import { apiJson, apiSend } from "@/lib/api-client";
+import { PageLoading } from "@/components/ui/PageState";
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
 export default function EditInvoicePage() {
@@ -40,7 +41,7 @@ export default function EditInvoicePage() {
       .finally(() => setLoading(false));
   }, [id, router]);
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
   
   if (loading) {
     return (

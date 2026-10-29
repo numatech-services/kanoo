@@ -12,7 +12,7 @@ import { showToast } from "@/components/ui/Toast";
 import { apiJson, apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { useMe, meCanDo } from "@/lib/useMe";
-import { formatMoney, formatDate } from "@/lib/format";
+import { formatDate, formatMoney, todayLocal } from "@/lib/format";
 import { GUARANTEE_TYPES } from "@/lib/guarantees";
 
 type GType = keyof typeof GUARANTEE_TYPES;
@@ -124,7 +124,7 @@ function CautionsScreen() {
 }
 
 function CreateDialog({ canPost, appelId: a0, contractId: c0, onClose, onDone }: { canPost: boolean; appelId: string; contractId: string; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ type: (c0 ? "bonne_execution" : "soumission") as GType, appelId: a0, contractId: c0, beneficiary: "", amount: "", issueDate: new Date().toISOString().slice(0, 10), expiryDate: "", treasuryAccountId: "", bankName: "", reference: "", fee: "", collateral: "", notes: "" });
+  const [f, setF] = useState({ type: (c0 ? "bonne_execution" : "soumission") as GType, appelId: a0, contractId: c0, beneficiary: "", amount: "", issueDate: todayLocal(), expiryDate: "", treasuryAccountId: "", bankName: "", reference: "", fee: "", collateral: "", notes: "" });
   const [appels, setAppels] = useState<Array<{ _id: string; title: string; organism?: string }>>([]);
   const [contracts, setContracts] = useState<Array<{ _id: string; reference: string; title: string }>>([]);
   const [banks, setBanks] = useState<Array<{ _id: string; label: string; type: string }>>([]);

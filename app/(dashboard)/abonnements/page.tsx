@@ -14,6 +14,7 @@ import { compactXof, fullXof } from "@/components/ui/charts/geometry";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { useApi } from "@/lib/use-api";
+import { PageLoading } from "@/components/ui/PageState";
 const MONTHS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jui", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 
 interface Reconciliation {
@@ -99,7 +100,7 @@ export default function AbonnementsPage() {
       </div>
     );
   }
-  if (!data) return null;
+  if (!data) return <PageLoading />;
 
   const { totals, tax, months, reconciliations, alerts } = data;
   const labels = MONTHS;

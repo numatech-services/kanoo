@@ -5,6 +5,7 @@ import { postDonation } from "@/lib/association-posting";
 import { DonationModel } from "@/models/Donation";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
+import { nextSerial } from "@/lib/serial";
 
 export const GET = withAuth("dons", "read", async (req: NextRequest, auth: TokenPayload) => {
   const pagination = getPagination(req);
@@ -32,11 +33,11 @@ export const POST = withAuth("dons", "create", async (req: NextRequest, auth: To
   // Convert date string to Date object
   const dateObj = body.date ? new Date(body.date) : new Date();
   const year = dateObj.getFullYear();
-  const count = await DonationModel.countDocuments({ tenantId: auth.tenantId });
-  const receiptNumber = `DON-${year}-${String(count + 1).padStart(5, "0")}`;
   
   const clean = sanitizeBody(body, ["receiptNumber", "entryId", "movementId", "receiptGeneratedAt"]);
   const donation = await withTransaction(async session => {
+    // Reçu fiscal : numéro consommé dans la transaction du don (ni doublon, ni trou).
+    const receiptNumber = await nextSerial(auth.tenantId, { prefix: "DON", year, digits: 5, model: DonationModel as never, field: "receiptNumber", session });
     const [d] = await DonationModel.create([{ ...clean, tenantId: auth.tenantId, date: dateObj, receiptNumber }], { session });
     await postDonation(auth, d, session);
     return d;

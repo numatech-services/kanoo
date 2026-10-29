@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 
 import { apiSend } from "@/lib/api-client";
+import { PageLoading } from "@/components/ui/PageState";
 interface Member {
   _id: string; code: string; firstName: string; lastName: string;
   email?: string; phone?: string; membershipType: string; status: string; joinDate: string;
@@ -49,7 +50,7 @@ export default function MembreDetailPage() {
     setSendingCode(false);
   }
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
   if (loading) return <div className="space-y-4"><div className="h-8 w-48 bg-surface2 animate-pulse rounded-lg"/><div className="h-64 bg-surface rounded-xl animate-pulse border border-line"/></div>;
   if (!member) return <div className="text-ink2 p-6">Adhérent introuvable</div>;
 

@@ -65,7 +65,7 @@ function NewPurchase() {
       <Link href="/depenses" className="text-xs text-ink2 hover:text-ink inline-flex items-center gap-1"><ArrowLeft size={12} /> Achats & dépenses</Link>
       <h1 className="page-title">Nouvel achat / dépense</h1>
       <div className="bg-surface rounded-2xl border border-line p-6">
-        {initial ? <PurchaseForm initial={initial} onSubmit={submit} scan={!commandeId} /> : <div className="h-40 animate-pulse bg-surface2 rounded-xl" />}
+        {initial ? <PurchaseForm initial={initial} onSubmit={submit} scan={!commandeId} draftKey={commandeId ? undefined : "purchase-new"} /> : <div className="h-40 animate-pulse bg-surface2 rounded-xl" />}
       </div>
     </div>
   );

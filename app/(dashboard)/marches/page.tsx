@@ -9,6 +9,7 @@ import { LIBELLES_PROCEDURES } from "@/lib/niger-fiscal";
 
 import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+import { PageLoading } from "@/components/ui/PageState";
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
 interface Tender { 
@@ -33,7 +34,7 @@ export default function MarchesPage() {
     total: (d.data?.pagination?.total || 0) as number,
   }), { tenders: [] as Tender[], total: 0 });
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   const columns: Column<Tender>[] = [
     { 

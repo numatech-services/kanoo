@@ -8,7 +8,7 @@ import { promptDialog, confirmDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
-import { formatMoney, formatDate } from "@/lib/format";
+import { formatDate, formatMoney, todayLocal } from "@/lib/format";
 
 interface Estimate { buyerType: string; kind: string; duty: number; stamp: number; total: number; article: string; explanation: string; dueDate: string | null }
 interface Registration { assessed: number; paid: number; duty: number; stamp: number; receptionStamp: number; dueDate?: string; assessedAt?: string; number?: string; date?: string; payments?: Array<{ date: string; amount: number }> }
@@ -142,7 +142,7 @@ function SettingsDialog({ contractId, settings, data, onClose, onSaved }: { cont
 
 function PayDialog({ remaining, onClose, onPay }: { remaining: number; onClose: () => void; onPay: (b: Record<string, unknown>) => void }) {
   const { data: accounts } = useApi<Array<{ _id: string; label: string }>>("/api/treasury-accounts", d => d?.data?.items ?? [], [], { quiet: true });
-  const [f, setF] = useState({ treasuryAccountId: "", date: new Date().toISOString().slice(0, 10), number: "", amount: String(remaining) });
+  const [f, setF] = useState({ treasuryAccountId: "", date: todayLocal(), number: "", amount: String(remaining) });
   return (
     <Modal open onClose={onClose} title="Payer les droits d'enregistrement">
       <div className="space-y-4">
@@ -153,7 +153,7 @@ function PayDialog({ remaining, onClose, onPay }: { remaining: number; onClose: 
           </select>
         </FormField>
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Date du paiement"><input type="date" className={inputCls} value={f.date} max={new Date().toISOString().slice(0, 10)} onChange={e => setF(p => ({ ...p, date: e.target.value }))} /></FormField>
+          <FormField label="Date du paiement"><input type="date" className={inputCls} value={f.date} max={todayLocal()} onChange={e => setF(p => ({ ...p, date: e.target.value }))} /></FormField>
           <FormField label="Montant"><input type="number" min={1} className={inputCls} value={f.amount} onChange={e => setF(p => ({ ...p, amount: e.target.value }))} /></FormField>
         </div>
         <FormField label="N° de quittance (enregistrement)" hint="Imprimé ensuite sur les factures du marché"><input className={inputCls} value={f.number} onChange={e => setF(p => ({ ...p, number: e.target.value }))} /></FormField>

@@ -7,6 +7,9 @@ import { ImputationFields, type ImputationValue } from "@/components/shared/Impu
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson } from "@/lib/api-client";
+import { localDay, todayLocal } from "@/lib/format";
+import { useFormDraft } from "@/lib/use-draft";
+import { DraftBanner } from "@/components/ui/DraftBanner";
 export type UnitType = "unité" | "m³" | "L" | "kg" | "m²" | "Année" | "Mois";
 
 interface InvoiceLine {
@@ -41,6 +44,8 @@ interface Client {
 
 interface InvoiceFormProps {
   initial?: Partial<InvoiceFormData> & { _id?: string };
+  /** Nom du brouillon gardé sur l'appareil (création seulement : « invoice-new »). */
+  draftKey?: string;
   onSave: (data: InvoiceFormData) => Promise<void>;
   onCancel: () => void;
 }
@@ -76,11 +81,11 @@ function calcLine(line: Partial<InvoiceLine>): InvoiceLine {
   };
 }
 
-export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
+export function InvoiceForm({ initial, draftKey, onSave, onCancel }: InvoiceFormProps) {
   // Dates par défaut figées au montage (un rendu doit rester pur).
   const [{ today, in30 }] = useState(() => ({
-    today: new Date().toISOString().slice(0, 10),
-    in30: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+    today: todayLocal(),
+    in30: localDay(new Date(Date.now() + 30 * 86400000)),
   }));
 
   const [clients, setClients] = useState<Client[]>([]);
@@ -98,6 +103,15 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
     initial?.lines?.length ? initial.lines : [calcLine({ description: "", quantity: 1, unit: "unité", unitPrice: 0 })]
   );
 
+  // Saisie gardée sur l'appareil (déconnexion pour inactivité, rechargement…).
+  const draft = useFormDraft(draftKey ?? null, { clientId, issueDate, dueDate, notes, terms, imputation, lines });
+  function restoreDraft() {
+    const d = draft.restore();
+    if (!d) return;
+    setClientId(d.clientId); setIssueDate(d.issueDate); setDueDate(d.dueDate); setNotes(d.notes); setTerms(d.terms);
+    setImputation(d.imputation); setLines(d.lines.length ? d.lines.map(calcLine) : lines);
+  }
+
   useEffect(() => {
     apiJson("/api/clients?picker=1&isActive=true")
       .then(d => setClients(d.data?.items || []));
@@ -107,7 +121,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
     setClientId(id);
     const client = clients.find(c => c._id === id);
     if (client) {
-      const due = new Date(Date.now() + client.paymentTermDays * 86400000).toISOString().slice(0, 10);
+      const due = localDay(new Date(Date.now() + client.paymentTermDays * 86400000));
       setDueDate(due);
     }
   }
@@ -139,6 +153,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
     
     try {
       await onSave({ clientId, issueDate, dueDate, lines, notes, termsAndConditions: terms, projectId: imputation.projectId ?? null, activityId: imputation.activityId ?? null });
+      draft.clear();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue");
     } finally {
@@ -148,6 +163,7 @@ export function InvoiceForm({ initial, onSave, onCancel }: InvoiceFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {draft.pending && <DraftBanner savedAt={draft.pending.savedAt} onRestore={restoreDraft} onDiscard={draft.discard} />}
       {error && <div className="p-3 bg-neg-50 border border-neg/25 rounded-lg text-neg text-sm">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

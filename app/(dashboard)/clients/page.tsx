@@ -12,6 +12,7 @@ import { useMe, meCan } from "@/lib/useMe";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { buttonClass } from "@/components/ui/button-class";
+import { PageLoading } from "@/components/ui/PageState";
 interface Client {
   _id: string;
   code: string;
@@ -61,7 +62,7 @@ export default function ClientsPage() {
   const columns: Column<Client>[] = [
     { key: "code", label: "Code", sortable: true, className: "font-mono text-xs w-24" },
     {
-      key: "name", label: "Client", sortable: true,
+      key: "name", label: "Client", sortable: true, mobile: "title",
       render: (v, row) => (
         <span className="flex items-center gap-2.5">
           <span className="w-7 h-7 rounded-md border border-line bg-surface2 grid place-items-center overflow-hidden shrink-0">
@@ -100,7 +101,7 @@ export default function ClientsPage() {
     },
   ];
 
-  if (!mounted) return null;
+  if (!mounted) return <PageLoading />;
 
   async function handleSave(data: Partial<Client>) {
     const url = editing ? `/api/clients/${editing._id}` : "/api/clients";
