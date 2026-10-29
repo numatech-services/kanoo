@@ -5,6 +5,7 @@ const DeliveryLineSchema = new Schema({
   description: { type: String, required: true },
   quantity: { type: Number, required: true, min: 0 },
   unit: { type: String, default: "unité" },
+  details: { type: String, maxlength: 2000 }, section: { type: String, maxlength: 80 },
   productId: { type: Schema.Types.ObjectId, ref: "Product" },
   serialNumber: String,
   notes: String,

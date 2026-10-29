@@ -41,6 +41,7 @@ export const POST = withAuth("commandes", "create", async (req: NextRequest, aut
     const [doc] = await CommandeModel.create([{
       supplierId: body.supplierId, orderDate: body.orderDate,
       expectedDeliveryDate: body.expectedDeliveryDate || undefined, notes: body.notes,
+      ...(String(body.object ?? "").trim() ? { object: String(body.object).trim().slice(0, 600) } : {}),
       ...imp,
       lines: built.lines.map(l => ({ ...l, receivedQty: 0 })), number,
       totalHT: built.totalHT, totalTVA: built.totalTVA, totalTTC: built.totalTTC,

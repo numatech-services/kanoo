@@ -120,6 +120,8 @@ const PME_NAV: NavGroup[] = [
   ]},
   { section: "Réglages", tone: "parametres", items: [
     { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
+    { label: "Apparence des documents", href: "/company/branding", icon: <FileText size={18} /> },
+    { label: "Assistant Claude", href: "/company/assistant", icon: <Sparkles size={18} /> },
     { label: "Modules", href: "/settings/modules", icon: <Boxes size={18} /> },
     { label: "Automatisations", href: "/settings/automatisations", icon: <Zap size={18} /> },
     { label: "Utilisateurs et droits", href: "/users", icon: <Users size={18} /> },
@@ -171,6 +173,7 @@ const ASSO_NAV: NavGroup[] = [
   { section: "Réglages", tone: "parametres", items: [
     { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
     { label: "Apparence des documents", href: "/company/branding", icon: <FileText size={18} /> },
+    { label: "Assistant Claude", href: "/company/assistant", icon: <Sparkles size={18} /> },
     { label: "Utilisateurs", href: "/users", icon: <Users size={18} /> },
     { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
     { label: "Automatisations", href: "/settings/automatisations", icon: <Zap size={18} /> },
@@ -221,6 +224,7 @@ const ADMIN_NAV: NavGroup[] = [
   { section: "Réglages", tone: "parametres", items: [
     { label: "Mon organisation", href: "/company", icon: <Building2 size={18} /> },
     { label: "Apparence des documents", href: "/company/branding", icon: <FileText size={18} /> },
+    { label: "Assistant Claude", href: "/company/assistant", icon: <Sparkles size={18} /> },
     { label: "Utilisateurs", href: "/users", icon: <Users size={18} /> },
     { label: "Synthèse des accès", href: "/users/acces", icon: <ShieldCheck size={18} /> },
     { label: "Automatisations", href: "/settings/automatisations", icon: <Zap size={18} /> },

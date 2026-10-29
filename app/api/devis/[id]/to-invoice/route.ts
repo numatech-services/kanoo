@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { invoiceTerms } from "@/lib/doc-mentions";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, conflict, forbidden, tenantFilter } from "@/lib/api-helpers";
 import { DevisModel } from "@/models/Devis";
@@ -9,6 +10,7 @@ import { provisionalNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { authCan } from "@/lib/role-resources";
+import { copyMentions } from "@/lib/doc-mentions";
 
 // POST /api/devis/:id/to-invoice
 // Transforme un devis accepté en facture ; body.type=proforma rend le lien du PDF proforma (rien en base)
@@ -63,6 +65,10 @@ export const POST = withAuth("devis", "update", async (req: NextRequest, auth: T
       issueDate,
       dueDate,
       notes: `Convertie depuis devis ${devis.number}`,
+      // Mentions et conditions du devis reprises telles quelles sur la facture.
+      ...copyMentions(devis),
+      // Conditions du devis, sans ce qui ne vaut que pour une offre (validité, nature de proforma).
+      ...(invoiceTerms(devis.termsAndConditions) ? { termsAndConditions: invoiceTerms(devis.termsAndConditions) } : {}),
       ...(devis.projectId ? { projectId: devis.projectId } : {}),
       createdBy: auth.userId,
     }], { session });

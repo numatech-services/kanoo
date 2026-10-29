@@ -1,5 +1,7 @@
 import QRCode from "qrcode";
 import { createPDFBuffer } from "./pdf";
+import { renderBusinessPdf, type DocStyle, type DocTenant } from "./pdf-business";
+import { invoiceDoc, quoteDoc, type InvoiceLike, type QuoteLike } from "./business-doc";
 
 /**
  * Génération de documents PDF **à la marque de chaque organisation**.
@@ -26,6 +28,10 @@ export interface TenantBranding {
   defaultTerms?: string;
   documentQr?: boolean;
   headerLayout?: "left" | "centered";
+  /** Documents commerciaux (lib/pdf-business). */
+  documentStyle?: "prestige" | "moderne" | "signature"; legalForm?: string;
+  city?: string; website?: string; extraIds?: string;
+  signatoryName?: string; signatoryTitle?: string; stamp?: string; clientApproval?: boolean;
 }
 
 export interface TenantIdentity {
@@ -177,341 +183,21 @@ export async function drawDocumentQr(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Générateur de facture
-// ─────────────────────────────────────────────────────────────────────────────
-
-// PDFKit (Helvetica standard) ne possède pas l'espace fine insécable qu'utilise
-// toLocaleString("fr-FR") comme séparateur de milliers, et la rend « / ». On la
-// remplace par une espace ordinaire.
-const num = (n: number) => (n || 0).toLocaleString("fr-FR").replace(/[\u202f\u00a0]/g, " ");
-const FCFA = (n: number) => `${num(n)} FCFA`;
-
-/** Montant entier en toutes lettres (fran\u00e7ais) \u2014 pour l'\u00ab arr\u00eat\u00e9 \u00bb des documents. */
-function amountInWordsFr(n: number): string {
-  n = Math.round(Math.abs(n));
-  const u = ["z\u00e9ro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze", "treize", "quatorze", "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf"];
-  const t = ["", "", "vingt", "trente", "quarante", "cinquante", "soixante", "soixante", "quatre-vingt", "quatre-vingt"];
-  if (n === 0) return "z\u00e9ro";
-  const below100 = (x: number): string => {
-    if (x < 20) return u[x];
-    const d = Math.floor(x / 10), r = x % 10;
-    if (d === 7 || d === 9) return t[d] + (r === 1 && d === 7 ? "-et-onze" : "-" + u[10 + r]);
-    let s = t[d];
-    if (r === 1 && d >= 2 && d <= 6) s += "-et-un";
-    else if (r > 0) s += "-" + u[r];
-    else if (d === 8) s += "s";
-    return s;
-  };
-  const below1000 = (x: number): string => {
-    const h = Math.floor(x / 100), r = x % 100;
-    let s = "";
-    if (h > 0) { s += (h > 1 ? u[h] + " " : "") + "cent" + (h > 1 && r === 0 ? "s" : ""); }
-    if (r > 0) s += (s ? " " : "") + below100(r);
-    return s;
-  };
-  const parts: string[] = [];
-  let rest = n;
-  const scales: Array<[string, string, number]> = [["milliard", "milliards", 1e9], ["million", "millions", 1e6]];
-  for (const [sing, plur, val] of scales) {
-    const q = Math.floor(rest / val); rest %= val;
-    if (q > 0) parts.push(below1000(q) + " " + (q > 1 ? plur : sing));
-  }
-  const q = Math.floor(rest / 1000); rest %= 1000;
-  if (q > 0) parts.push((q > 1 ? below1000(q) + " " : "") + "mille");
-  if (rest > 0) parts.push(below1000(rest));
-  return parts.join(" ");
-}
-
-export interface InvoiceForPdf {
-  _id?: unknown;
-  number?: string;
-  documentType?: string;
-  /** Facture d'acompte sur marché. */
-  kind?: string;
-  issueDate?: Date | string;
-  dueDate?: Date | string;
-  status?: string;
-  lines?: Array<{ description?: string; quantity?: number; unit?: string; unitPrice?: number; discount?: number; tvaRate?: number; totalTTC?: number }>;
-  totalHT?: number; totalTVA?: number; totalDTS?: number; totalTTC?: number;
-  /** Notes INTERNES : jamais imprimées (elles l'étaient, dans « Conditions »). */
-  paidAmount?: number; creditedAmount?: number; notes?: string;
-  /** Conditions destinées au client, imprimées sur le document. */
-  termsAndConditions?: string;
-  /** Avoir : facture qu'il annule ou réduit, et motif (mentions obligatoires). */
-  originalInvoiceId?: { number?: string; issueDate?: Date | string } | null;
-  creditReason?: string;
-  /** Marché : référence et enregistrement (quittance), imprimés en en-tête. */
-  contractId?: { reference?: string; registration?: { number?: string; date?: Date | string } } | null;
-  /** Retenue de garantie du marché, gardée par le client jusqu'à la réception définitive. */
-  retentionAmount?: number; retentionRate?: number;
-  /** Échéancier de paiement convenu (versements datés). */
-  installments?: Array<{ dueDate: Date | string; amount: number; label?: string }>;
-  clientId?: { name?: string; nif?: string; rccm?: string; code?: string; address?: string; phone?: string } | null;
-  secef?: { code?: string; qrPayload?: string };
-}
-
-const STATUS_FR: Record<string, string> = {
-  draft: "Brouillon", sent: "Émise", partial: "Part. payée",
-  paid: "Soldée", overdue: "En retard", cancelled: "Annulée", written_off: "Irrécouvrable",
-};
-
-/** Charge utile du QR : SECeF si certifiée, sinon un résumé vérifiable. */
-function invoiceQrPayload(inv: InvoiceForPdf, tenant: TenantIdentity): string {
-  if (inv.secef?.qrPayload) return inv.secef.qrPayload;
-  const date = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString("fr-FR") : "";
-  const kind = inv.documentType === "credit_note" ? "Avoir" : "Facture";
-  return `Kanoo | ${kind} ${inv.number ?? ""} | ${tenant.name ?? ""} | ${FCFA(inv.totalTTC ?? 0)} | ${date}`;
-}
-
 /**
- * Facture PDF à la marque de l'organisation, QR apposé.
- * Le même patron sert un avoir (documentType = credit_note).
+ * Facture, avoir, devis et proforma : dessinés par le moteur de documents
+ * commerciaux (lib/pdf-business, styles « prestige », « moderne » et « signature »), à partir
+ * de leurs données (lib/business-doc). Les routes gardent ces deux points
+ * d'entrée.
  */
-export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdentity, opts: { portalUrl?: string | null } = {}): Promise<Buffer> {
-  const c = colors(tenant);
-  const isCredit = inv.documentType === "credit_note";
-  const withQr = tenant.branding?.documentQr !== false;
-  const qrPayload = withQr ? invoiceQrPayload(inv, tenant) : null;
+export type InvoiceForPdf = InvoiceLike & { _id?: unknown };
+export type QuoteForPdf = QuoteLike;
 
-  return createPDFBuffer(async (doc) => {
-    let y = drawBrandedHeader(doc, tenant, {
-      title: isCredit ? "Avoir" : inv.kind === "deposit" ? "Facture d'acompte" : "Facture",
-      number: inv.number || "—",
-      partyLabel: isCredit ? "Avoir à" : "Facturé à",
-      lines: [
-        ["Émis le", inv.issueDate ? new Date(inv.issueDate).toLocaleDateString("fr-FR") : "—"],
-        // Un avoir sans référence à la facture d'origine est inopposable.
-        ...(isCredit && inv.originalInvoiceId?.number ? [["Sur facture", `${inv.originalInvoiceId.number}${inv.originalInvoiceId.issueDate ? ` du ${new Date(inv.originalInvoiceId.issueDate).toLocaleDateString("fr-FR")}` : ""}`] as [string, string]] : []),
-        ...(!isCredit && inv.dueDate ? [["Échéance", new Date(inv.dueDate).toLocaleDateString("fr-FR")] as [string, string]] : []),
-        ...(inv.contractId?.reference ? [["Marché", `${inv.contractId.reference}${inv.contractId.registration?.number ? ` — enregistré n° ${inv.contractId.registration.number}${inv.contractId.registration.date ? ` du ${new Date(inv.contractId.registration.date).toLocaleDateString("fr-FR")}` : ""}` : ""}`] as [string, string]] : []),
-        ["Statut", STATUS_FR[inv.status || ""] || inv.status || "—"],
-      ],
-    }, inv.clientId || undefined);
-
-    // Tableau des lignes.
-    doc.rect(50, y, 495, 22).fill(c.primary);
-    doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(8.5);
-    doc.text("N°", 56, y + 7, { width: 20 });
-    doc.text("Désignation et caractéristiques", 78, y + 7);
-    doc.text("Qté", 300, y + 7, { width: 34, align: "center" });
-    doc.text("P.U. HT", 340, y + 7, { width: 62, align: "right" });
-    doc.text("TVA", 408, y + 7, { width: 38, align: "center" });
-    doc.text("Total TTC", 452, y + 7, { width: 88, align: "right" });
-    y += 22;
-
-    doc.font("Helvetica").fontSize(8.5);
-    for (let i = 0; i < (inv.lines?.length ?? 0); i++) {
-      const line = inv.lines![i];
-      if (y > 700) { doc.addPage(); y = 60; }
-      if (i % 2 === 0) { doc.rect(50, y, 495, 20).fill("#F7F7F5"); }
-      doc.fillColor(c.secondary).font("Helvetica-Bold").text(String(i + 1), 56, y + 5, { width: 20 });
-      doc.fillColor(c.ink).font("Helvetica");
-      // Remise imprimée : sans elle, prix unitaire × quantité ne redonnait pas le total.
-      const disc = Number(line.discount) || 0;
-      doc.text(`${String(line.description || "").slice(0, disc ? 44 : 58)}${disc ? ` (remise ${disc} %)` : ""}`, 78, y + 5, { width: 216 });
-      doc.text(`${line.quantity ?? 0}${line.unit && line.unit !== "unité" ? ` ${line.unit}` : ""}`.slice(0, 9), 300, y + 5, { width: 34, align: "center" });
-      doc.text(num(line.unitPrice || 0), 340, y + 5, { width: 62, align: "right" });
-      doc.text(`${Math.round((line.tvaRate || 0) * 100)} %`, 408, y + 5, { width: 38, align: "center" });
-      doc.text(FCFA(line.totalTTC || 0), 452, y + 5, { width: 88, align: "right" });
-      y += 20;
-    }
-
-    // Totaux.
-    y += 14;
-    if (y > 660) { doc.addPage(); y = 60; }
-    const totalRow = (label: string, value: string, bold = false) => {
-      doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(9).fillColor(bold ? c.ink : c.muted);
-      doc.text(label, 330, y); doc.text(value, 430, y, { width: 115, align: "right" });
-      y += 15;
-    };
-    doc.moveTo(330, y - 4).lineTo(545, y - 4).strokeColor(c.line).stroke();
-    if ((inv.totalHT ?? 0) > 0) totalRow("Sous-total HT", FCFA(inv.totalHT!));
-    if ((inv.totalTVA ?? 0) > 0) totalRow("TVA", FCFA(inv.totalTVA!));
-    if ((inv.totalDTS ?? 0) > 0) totalRow("Droit de timbre", FCFA(inv.totalDTS!));
-
-    doc.rect(330, y, 215, 24).fill(c.primary);
-    doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10);
-    doc.text(isCredit ? "TOTAL AVOIR" : "TOTAL TTC", 340, y + 7);
-    doc.text(FCFA(inv.totalTTC ?? 0), 430, y + 7, { width: 105, align: "right" });
-
-    // Montant arrêté en toutes lettres (à gauche, en regard du total).
-    doc.fillColor(c.ink).font("Helvetica-Oblique").fontSize(8.5)
-      .text(`Arrêté${isCredit ? " le présent avoir" : " la présente facture"} à la somme de ${amountInWordsFr(inv.totalTTC ?? 0)} francs CFA.`, 50, y + 2, { width: 270 });
-    y += 32;
-
-    const retention = !isCredit && inv.status !== "cancelled" ? (inv.retentionAmount ?? 0) : 0;
-    if (retention > 0) {
-      doc.fillColor(c.muted).font("Helvetica").fontSize(9);
-      doc.text(`Retenue de garantie (${Math.round((inv.retentionRate ?? 0) * 1000) / 10} %)`, 330, y); doc.text(`− ${FCFA(retention)}`, 430, y, { width: 115, align: "right" });
-      y += 14;
-      doc.fillColor(c.ink).font("Helvetica-Bold");
-      doc.text("Net à payer", 330, y); doc.text(FCFA((inv.totalTTC ?? 0) - retention), 430, y, { width: 115, align: "right" });
-      y += 18;
-    }
-
-    if (!isCredit && (inv.paidAmount ?? 0) > 0) {
-      doc.fillColor("#1C5D4C").font("Helvetica").fontSize(9);
-      doc.text("Encaissé", 330, y); doc.text(FCFA(inv.paidAmount!), 430, y, { width: 115, align: "right" });
-      const remaining = (inv.totalTTC ?? 0) - (inv.creditedAmount ?? 0) - (inv.paidAmount ?? 0) - retention;
-      if (remaining > 0) {
-        y += 14;
-        doc.fillColor("#B23B2E").font("Helvetica-Bold");
-        doc.text("Reste dû", 330, y); doc.text(FCFA(remaining), 430, y, { width: 115, align: "right" });
-      }
-    }
-
-    // Échéancier convenu : un versement par ligne, avec sa date.
-    if (!isCredit && inv.installments?.length) {
-      y += 20;
-      doc.fillColor(c.secondary).font("Helvetica-Bold").fontSize(8).text("ÉCHÉANCIER DE PAIEMENT", 330, y, { characterSpacing: 1 });
-      doc.font("Helvetica").fontSize(8).fillColor(c.muted);
-      for (const x of inv.installments.slice(0, 12)) {
-        y += 12;
-        doc.text(`${x.label ? `${x.label} — ` : ""}${new Date(x.dueDate).toLocaleDateString("fr-FR")}`, 330, y, { width: 100 });
-        doc.text(FCFA(x.amount), 430, y, { width: 115, align: "right" });
-      }
-      if (inv.installments.length > 12) { y += 12; doc.text(`… et ${inv.installments.length - 12} autre(s) versement(s)`, 330, y); }
-    }
-
-    // Conditions destinées au client (jamais les notes internes) ; motif de
-    // l'avoir en tête de l'encadré.
-    const terms = [isCredit && inv.creditReason ? `Motif de l'avoir : ${inv.creditReason}` : "", inv.termsAndConditions || tenant.branding?.defaultTerms || ""]
-      .filter(Boolean).join("\n");
-    if (terms) {
-      const ty = Math.min(y + 24, 686);
-      const th = Math.min(70, 24 + Math.ceil(terms.length / 90) * 11);
-      doc.rect(50, ty, 495, th).fill("#F4F2EE");
-      doc.fillColor(c.secondary).font("Helvetica-Bold").fontSize(8).text("CONDITIONS", 62, ty + 10, { characterSpacing: 1 });
-      doc.fillColor(c.muted).font("Helvetica").fontSize(8).text(terms, 62, ty + 24, { width: 460 });
-    }
-
-    // Lien du portail client : le client scanne, consulte et règle en ligne.
-    const due = (inv.totalTTC ?? 0) - (inv.creditedAmount ?? 0) - (inv.paidAmount ?? 0) - retention;
-    if (opts.portalUrl && !isCredit && due > 0) {
-      await drawDocumentQr(doc, opts.portalUrl, { x: 380, y: 700, size: 74, caption: "Consulter et payer en ligne" });
-    }
-
-    // QR — en bas à droite, au-dessus du pied.
-    if (qrPayload) {
-      await drawDocumentQr(doc, qrPayload, {
-        x: 470, y: 700, size: 74,
-        caption: inv.secef?.code ? "Vérification SECeF" : "Vérification",
-      });
-    }
-
-    drawBrandedFooter(doc, tenant);
-  });
+export async function generateInvoicePdf(inv: InvoiceForPdf, tenant: TenantIdentity, opts: { portalUrl?: string | null; style?: DocStyle } = {}): Promise<Buffer> {
+  return renderBusinessPdf(invoiceDoc(inv, tenant as DocTenant, opts), tenant as DocTenant, { style: opts.style });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Devis — même structure de lignes que la facture, mais « validité » au lieu
-// d'« échéance » et pas de règlement.
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface QuoteForPdf {
-  number?: string;
-  issueDate?: Date | string;
-  validUntil?: Date | string;
-  status?: string;
-  lines?: Array<{ description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; totalTTC?: number }>;
-  totalHT?: number; totalTVA?: number; totalTTC?: number; notes?: string;
-  clientId?: { name?: string; nif?: string; rccm?: string; code?: string; address?: string; phone?: string } | null;
-}
-
-const QUOTE_STATUS_FR: Record<string, string> = {
-  draft: "Brouillon", sent: "Envoyé", accepted: "Accepté", rejected: "Refusé", expired: "Expiré",
-};
-
-/** Dessine le tableau des lignes puis les totaux. Partagé facture / devis. */
-function drawLinesAndTotals(
-  doc: Doc, c: ReturnType<typeof colors>, y: number,
-  lines: Array<{ description?: string; quantity?: number; unitPrice?: number; tvaRate?: number; totalTTC?: number }>,
-  totals: { ht?: number; tva?: number; dts?: number; ttc?: number; totalLabel: string }
-): number {
-  doc.rect(50, y, 495, 22).fill(c.primary);
-  doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(8.5);
-  doc.text("N°", 56, y + 7, { width: 20 });
-  doc.text("Désignation et caractéristiques", 78, y + 7);
-  doc.text("Qté", 300, y + 7, { width: 34, align: "center" });
-  doc.text("P.U. HT", 340, y + 7, { width: 62, align: "right" });
-  doc.text("TVA", 408, y + 7, { width: 38, align: "center" });
-  doc.text("Total TTC", 452, y + 7, { width: 88, align: "right" });
-  y += 22;
-
-  doc.font("Helvetica").fontSize(8.5);
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (y > 700) { doc.addPage(); y = 60; }
-    if (i % 2 === 0) doc.rect(50, y, 495, 20).fill("#F7F7F5");
-    doc.fillColor(c.secondary).font("Helvetica-Bold").text(String(i + 1), 56, y + 5, { width: 20 });
-    doc.fillColor(c.ink).font("Helvetica");
-    doc.text(String(line.description || "").slice(0, 58), 78, y + 5, { width: 216 });
-    doc.text(String(line.quantity ?? 0), 300, y + 5, { width: 34, align: "center" });
-    doc.text(num(line.unitPrice || 0), 340, y + 5, { width: 62, align: "right" });
-    doc.text(`${Math.round((line.tvaRate || 0) * 100)} %`, 408, y + 5, { width: 38, align: "center" });
-    doc.text(FCFA(line.totalTTC || 0), 452, y + 5, { width: 88, align: "right" });
-    y += 20;
-  }
-
-  y += 14;
-  if (y > 660) { doc.addPage(); y = 60; }
-  doc.moveTo(330, y - 4).lineTo(545, y - 4).strokeColor(c.line).stroke();
-  const row = (label: string, value: string) => {
-    doc.font("Helvetica").fontSize(9).fillColor(c.muted);
-    doc.text(label, 330, y); doc.text(value, 430, y, { width: 115, align: "right" });
-    y += 15;
-  };
-  if ((totals.ht ?? 0) > 0) row("Sous-total HT", FCFA(totals.ht!));
-  if ((totals.tva ?? 0) > 0) row("TVA", FCFA(totals.tva!));
-  if ((totals.dts ?? 0) > 0) row("Droit de timbre", FCFA(totals.dts!));
-
-  doc.rect(330, y, 215, 24).fill(c.primary);
-  doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10);
-  doc.text(totals.totalLabel, 340, y + 7);
-  doc.text(FCFA(totals.ttc ?? 0), 430, y + 7, { width: 105, align: "right" });
-  return y + 32;
-}
-
-export async function generateQuotePdf(q: QuoteForPdf, tenant: TenantIdentity, opts: { proforma?: boolean } = {}): Promise<Buffer> {
-  const c = colors(tenant);
-  const withQr = tenant.branding?.documentQr !== false;
-  const date = q.issueDate ? new Date(q.issueDate).toLocaleDateString("fr-FR") : "";
-
-  return createPDFBuffer(async (doc) => {
-    let y = drawBrandedHeader(doc, tenant, {
-      // Proforma : le devis présenté comme facture d'engagement, sans valeur comptable.
-      title: opts.proforma ? "Facture proforma" : "Devis", number: q.number || "—",
-      lines: [
-        ["Établi le", date],
-        ...(q.validUntil ? [["Valable jusqu'au", new Date(q.validUntil).toLocaleDateString("fr-FR")] as [string, string]] : []),
-        ["Statut", QUOTE_STATUS_FR[q.status || ""] || q.status || "—"],
-      ],
-    }, q.clientId || undefined);
-
-    y = drawLinesAndTotals(doc, c, y, q.lines ?? [], {
-      ht: q.totalHT, tva: q.totalTVA, ttc: q.totalTTC, totalLabel: "TOTAL TTC",
-    });
-
-    // Montant arrêté en toutes lettres.
-    doc.fillColor(c.ink).font("Helvetica-Oblique").fontSize(8.5)
-      .text(`Arrêté le présent devis à la somme de ${amountInWordsFr(q.totalTTC ?? 0)} francs CFA.`, 50, y - 26, { width: 270 });
-
-    const terms = q.notes || tenant.branding?.defaultTerms;
-    if (terms) {
-      const ty = Math.min(y + 6, 686);
-      const th = Math.min(70, 24 + Math.ceil(terms.length / 90) * 11);
-      doc.rect(50, ty, 495, th).fill("#F4F2EE");
-      doc.fillColor(c.secondary).font("Helvetica-Bold").fontSize(8).text("CONDITIONS", 62, ty + 10, { characterSpacing: 1 });
-      doc.fillColor(c.muted).font("Helvetica").fontSize(8).text(terms, 62, ty + 24, { width: 460 });
-    }
-
-    if (withQr) {
-      await drawDocumentQr(doc, `Kanoo | Devis ${q.number ?? ""} | ${tenant.name ?? ""} | ${FCFA(q.totalTTC ?? 0)} | ${date}`,
-        { x: 470, y: 700, size: 74, caption: "Vérification" });
-    }
-    drawBrandedFooter(doc, tenant);
-  });
+export async function generateQuotePdf(q: QuoteForPdf, tenant: TenantIdentity, opts: { proforma?: boolean; style?: DocStyle } = {}): Promise<Buffer> {
+  return renderBusinessPdf(quoteDoc(q, tenant as DocTenant, opts), tenant as DocTenant, { style: opts.style });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

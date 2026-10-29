@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Upload, Check, QrCode } from "lucide-react";
-import { FormField, inputCls, textareaCls } from "@/components/ui/FormField";
+import { ArrowLeft, Upload, Check, QrCode, Eye } from "lucide-react";
+import { FormField, inputCls, textareaCls, selectCls } from "@/components/ui/FormField";
 import { Inset } from "@/components/ui/Primitives";
 
 import { buttonClass } from "@/components/ui/button-class";
@@ -13,6 +13,8 @@ interface Branding {
   showLogo?: boolean; tagline?: string; legalFooter?: string;
   paymentInstructions?: string; defaultTerms?: string;
   documentQr?: boolean; headerLayout?: "left" | "centered";
+  documentStyle?: "prestige" | "moderne" | "signature"; city?: string; website?: string; extraIds?: string; legalForm?: string;
+  signatoryName?: string; signatoryTitle?: string; stamp?: string; clientApproval?: boolean | null;
 }
 interface Company {
   name?: string; logo?: string; nif?: string; rccm?: string;
@@ -45,6 +47,10 @@ export default function BrandingPage() {
           defaultTerms: c.branding?.defaultTerms || "",
           documentQr: c.branding?.documentQr !== false,
           headerLayout: c.branding?.headerLayout || "left",
+          documentStyle: c.branding?.documentStyle || "prestige",
+          city: c.branding?.city || "", website: c.branding?.website || "", extraIds: c.branding?.extraIds || "", legalForm: c.branding?.legalForm || "",
+          signatoryName: c.branding?.signatoryName || "", signatoryTitle: c.branding?.signatoryTitle || "",
+          stamp: c.branding?.stamp || "", clientApproval: c.branding?.clientApproval ?? null,
         });
       })
       .catch(() => setError("Chargement impossible."))
@@ -55,6 +61,13 @@ export default function BrandingPage() {
     if (file.size > 500_000) { setError("Logo trop lourd (500 Ko max)."); return; }
     const reader = new FileReader();
     reader.onload = () => setForm(f => ({ ...f, logo: String(reader.result) }));
+    reader.readAsDataURL(file);
+  }
+
+  function pickStamp(file: File) {
+    if (file.size > 500_000) { setError("Cachet trop lourd (500 Ko max)."); return; }
+    const reader = new FileReader();
+    reader.onload = () => setForm(f => ({ ...f, stamp: String(reader.result) }));
     reader.readAsDataURL(file);
   }
 
@@ -145,6 +158,71 @@ export default function BrandingPage() {
             onChange={e => setForm(f => ({ ...f, tagline: e.target.value }))}
             placeholder="Ex. Solutions numériques pour le Sahel" />
         </FormField>
+      </section>
+
+      {/* Style des documents commerciaux et signature */}
+      <section className="surface-card p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold text-ink">Style des devis, factures et bons</h2>
+          <a href={`/api/company/branding/preview?style=${form.documentStyle}`} target="_blank" rel="noreferrer" className={buttonClass("secondary", "sm")}>
+            <Eye size={14} /> Aperçu (enregistrez d&apos;abord)
+          </a>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-3" role="radiogroup" aria-label="Style des documents">
+          {([["prestige", "Prestige", "Bandeau sombre avec le logo, titre centré à empattements, encadré destinataire, conditions sur fond clair, signature et cachet."],
+             ["moderne", "Moderne", "Fond blanc, logo et identité en tête, encadrés Client et Objet, lignes groupées par poste, double signature « Bon pour accord »."],
+             ["signature", "Signature", "Filet bicolore, identité légale complète en tête, titre à empattements, total TTC en pavé, conditions en colonnes, pied sombre avec banque et contact."]] as const).map(([value, label, hint]) => (
+            <button key={value} type="button" role="radio" aria-checked={form.documentStyle === value}
+              onClick={() => setForm(f => ({ ...f, documentStyle: value }))}
+              className={`text-left rounded-xl border p-4 transition-colors ${form.documentStyle === value ? "border-section bg-section-soft" : "border-line2 hover:bg-surface2"}`}>
+              <span className="block font-semibold text-ink">{label}</span>
+              <span className="block text-xs text-ink2 mt-1">{hint}</span>
+            </button>
+          ))}
+        </div>
+        <FormField label="Forme et capital" hint="Imprimés en tête du style Signature, après la raison sociale.">
+          <input className={inputCls} value={form.legalForm} onChange={e => setForm(f => ({ ...f, legalForm: e.target.value }))} maxLength={160} placeholder="SARL au capital de 100 000 FCFA" />
+        </FormField>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <FormField label="Ville (signature)" hint="« Niamey, le 27 octobre 2026 ».">
+            <input className={inputCls} value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Niamey · Niger" />
+          </FormField>
+          <FormField label="Site web">
+            <input className={inputCls} value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} placeholder="numatechservices.net" />
+          </FormField>
+          <FormField label="Autres identifiants" hint="Ex. UNGM, agrément.">
+            <input className={inputCls} value={form.extraIds} onChange={e => setForm(f => ({ ...f, extraIds: e.target.value }))} placeholder="UNGM 901454" />
+          </FormField>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <FormField label="Signataire">
+            <input className={inputCls} value={form.signatoryName} onChange={e => setForm(f => ({ ...f, signatoryName: e.target.value }))} placeholder="Nom et prénom" />
+          </FormField>
+          <FormField label="Qualité">
+            <input className={inputCls} value={form.signatoryTitle} onChange={e => setForm(f => ({ ...f, signatoryTitle: e.target.value }))} placeholder="Gérant" />
+          </FormField>
+        </div>
+        <div className="flex flex-wrap items-start gap-5">
+          <div className="w-28 h-28 rounded-lg border border-line2 bg-surface2 grid place-items-center overflow-hidden shrink-0">
+            {form.stamp ? <img src={form.stamp} alt="Cachet" className="max-w-full max-h-full object-contain" /> : <span className="text-xs text-ink3 text-center px-2">Aucun cachet</span>}
+          </div>
+          <div className="space-y-2">
+            <label className="inline-flex items-center gap-2 px-3 h-9 rounded-lg border border-line2 text-sm text-ink2 hover:bg-surface2 cursor-pointer">
+              <Upload size={15} /> Cachet et signature (image)
+              <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={e => e.target.files?.[0] && pickStamp(e.target.files[0])} />
+            </label>
+            {form.stamp && <button type="button" onClick={() => setForm(f => ({ ...f, stamp: "" }))} className="block text-xs text-neg hover:underline">Retirer le cachet</button>}
+            <p className="text-xs text-ink3 max-w-sm">Image PNG à fond transparent de préférence : elle est apposée sous le nom du signataire.</p>
+            <FormField label="Case « Bon pour accord » sur les devis et proformas">
+              <select className={selectCls} value={form.clientApproval === null || form.clientApproval === undefined ? "" : form.clientApproval ? "yes" : "no"}
+                onChange={e => setForm(f => ({ ...f, clientApproval: e.target.value === "" ? null : e.target.value === "yes" }))}>
+                <option value="">Selon le style (Moderne et Signature : oui)</option>
+                <option value="yes">Toujours</option>
+                <option value="no">Jamais</option>
+              </select>
+            </FormField>
+          </div>
+        </div>
       </section>
 
       {/* Textes de document */}

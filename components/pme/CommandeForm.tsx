@@ -10,6 +10,8 @@ import { apiJson } from "@/lib/api-client";
 interface CmdLine { 
   productId?: string; // CRUCIAL pour le stock
   description: string; 
+  /** Imprimés sur le bon (descriptif, unité, poste) ; repris tels quels à la modification. */
+  details?: string; unit?: string; section?: string;
   quantity: number; 
   unitPrice: number; 
   tvaRate: number; 
@@ -27,6 +29,7 @@ interface CommandeInitialData {
   orderDate?: string;
   expectedDeliveryDate?: string;
   notes?: string;
+  object?: string;
   projectId?: unknown;
   activityId?: unknown;
   costCenter?: string;
@@ -51,6 +54,7 @@ function calcLine(l: Partial<CmdLine>): CmdLine {
   return { 
     productId: l.productId,
     description: l.description || "", 
+    details: l.details, unit: l.unit, section: l.section,
     quantity: qty, 
     unitPrice: price, 
     tvaRate: tva, 
@@ -70,6 +74,7 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
   const [imputation, setImputation] = useState<ImputationValue>({});
   const [notes, setNotes] = useState("");
+  const [object, setObject] = useState("");
   const [lines, setLines] = useState<CmdLine[]>([calcLine({ description: "", quantity: 1, unitPrice: 0 })]);
   const [saving, setSaving] = useState(false);
 
@@ -94,6 +99,7 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
       setOrderDate(initialData.orderDate ? new Date(initialData.orderDate).toISOString().split('T')[0] : "");
       setExpectedDeliveryDate(initialData.expectedDeliveryDate ? new Date(initialData.expectedDeliveryDate).toISOString().split('T')[0] : "");
       setNotes(initialData.notes || "");
+      setObject(initialData.object || "");
       const idOf = (v: unknown) => (v && typeof v === "object" ? String((v as { _id: string })._id) : v ? String(v) : undefined);
       setImputation({ projectId: idOf(initialData.projectId), activityId: idOf(initialData.activityId), costCenter: initialData.costCenter });
       if (initialData.lines) setLines(initialData.lines.map((l) => ({ ...l, productId: idOf(l.productId) }) as CmdLine));
@@ -131,9 +137,9 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
     <form onSubmit={async(e)=>{
       e.preventDefault();
       setSaving(true);
-      await onSave({supplierId, orderDate, expectedDeliveryDate, notes, ...imputation,
+      await onSave({supplierId, orderDate, expectedDeliveryDate, notes, object, ...imputation,
         projectId: imputation.projectId ?? null, activityId: imputation.activityId ?? null, costCenter: imputation.costCenter ?? null,
-        lines: lines.map(l => ({ productId: l.productId || undefined, description: l.description, quantity: l.quantity, unitPrice: l.unitPrice, tvaRate: l.tvaRate })) });
+        lines: lines.map(l => ({ productId: l.productId || undefined, description: l.description, details: l.details, unit: l.unit, section: l.section, quantity: l.quantity, unitPrice: l.unitPrice, tvaRate: l.tvaRate })) });
       setSaving(false);
     }} className="space-y-5">
       
@@ -191,6 +197,11 @@ export function CommandeForm({ initialData, onSave, onCancel }: CommandeFormProp
                     className="text-ink2 hover:text-neg font-bold text-center">×</button>
           </div>
         ))}
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[10px] font-bold text-ink2 uppercase mb-1 block">Objet (imprimé sur le bon)</label>
+        <input className={inputCls} value={object} onChange={e => setObject(e.target.value)} maxLength={600} placeholder="Ex. Fourniture d'écrans et de caméras pour la salle de réunion" />
       </div>
 
       <div className="space-y-1">

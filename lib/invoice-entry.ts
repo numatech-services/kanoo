@@ -88,8 +88,14 @@ export function findSaleEntry(tenantId: string, invoiceId: unknown, session?: Cl
   }).session(session ?? null);
 }
 
-/** Annulation d'une facture : son écriture de vente est extournée. */
-export async function reverseSaleEntry(opts: { tenantId: string; userId: string; invoiceId: unknown; reason: string }, session?: ClientSession) {
+/**
+ * Annulation d'une facture : son écriture de vente est extournée (à la date
+ * du jour). `atEntryDate` : extourne datée comme l'écriture d'origine — pour
+ * une correction, qui doit laisser le chiffre d'affaires et la TVA dans le
+ * mois de la facture (sinon ce mois porterait l'ancienne et la nouvelle
+ * écriture, et le mois courant l'extourne).
+ */
+export async function reverseSaleEntry(opts: { tenantId: string; userId: string; invoiceId: unknown; reason: string; atEntryDate?: boolean }, session?: ClientSession) {
   const entry = await findSaleEntry(opts.tenantId, opts.invoiceId, session);
-  if (entry) await reverseEntry({ tenantId: opts.tenantId, userId: opts.userId, entryId: entry._id, reason: opts.reason }, session);
+  if (entry) await reverseEntry({ tenantId: opts.tenantId, userId: opts.userId, entryId: entry._id, reason: opts.reason, ...(opts.atEntryDate ? { date: entry.entryDate } : {}) }, session);
 }

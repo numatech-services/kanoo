@@ -22,6 +22,8 @@ import { ImputationFields } from "@/components/shared/ImputationFields";
 import { apiJson, apiSend } from "@/lib/api-client";
 import { buttonClass } from "@/components/ui/button-class";
 import { todayLocal } from "@/lib/format";
+import { useMe } from "@/lib/useMe";
+import { hasTenantAdminRole } from "@/lib/roles-ui";
 interface Line {
   _id: string;
   date: string;
@@ -72,6 +74,8 @@ const EMPTY_LINE = () => ({
 
 export default function NoteDeFraisPage() {
   const { id } = useParams();
+  const me = useMe();
+  const isAdmin = hasTenantAdminRole(me.user ?? {});
   const router = useRouter();
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -204,6 +208,24 @@ export default function NoteDeFraisPage() {
             <button onClick={() => setPayOpen(true)} disabled={busy}
               className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-onink text-sm font-semibold hover:brightness-95">
               <Banknote size={15} /> Rembourser
+            </button>
+          )}
+          {report.status === "approved" && isAdmin && (
+            <button
+              onClick={async () => {
+                const reason = await promptDialog({
+                  title: "Renvoyer la note en brouillon ?",
+                  message: "Pour corriger une note approuvée par erreur. Son écriture comptable est extournée à la date du jour ; la note repasse ensuite par la validation.",
+                  label: "Motif",
+                  confirmLabel: "Renvoyer en brouillon",
+                  required: true,
+                  multiline: true,
+                });
+                if (reason?.trim()) patch({ status: "draft", reason });
+              }}
+              disabled={busy}
+              className={buttonClass("secondary", "md")}>
+              Renvoyer en brouillon
             </button>
           )}
         </div>

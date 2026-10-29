@@ -26,9 +26,20 @@ export interface QuotaState {
   remaining: number;
 }
 
-/** Plafond effectif d'une organisation (surcharge éventuelle, sinon global). */
-function effectiveQuota(override?: number | null): number {
-  return typeof override === "number" && override >= 0 ? override : AI_MONTHLY_QUOTA;
+/** Plafond par défaut d'une organisation qui paie avec sa propre clé (lib/ai-client). */
+export const OWN_KEY_DEFAULT_QUOTA = 500;
+
+type QuotaFields = { aiUsage?: { monthlyQuota?: number | null }; ai?: { keyHint?: string; monthlyQuota?: number | null } };
+
+/**
+ * Plafond effectif d'une organisation. Avec sa propre clé : celui qu'elle a
+ * fixé (sa dépense, son choix). Sinon : surcharge de la plateforme, ou global.
+ */
+export function effectiveQuota(t: QuotaFields | null | undefined): number {
+  const valid = (q: unknown): q is number => typeof q === "number" && Number.isFinite(q) && q >= 0;
+  if (t?.ai?.keyHint) return valid(t.ai.monthlyQuota) ? Math.floor(t.ai.monthlyQuota) : OWN_KEY_DEFAULT_QUOTA;
+  const override = t?.aiUsage?.monthlyQuota;
+  return valid(override) ? Math.floor(override) : AI_MONTHLY_QUOTA;
 }
 
 /**
@@ -46,10 +57,8 @@ export async function reserveAiCredit(
   // Plafond propre à l'organisation (rare), sinon global. Lu d'abord pour
   // borner la condition d'incrément ; la course éventuelle est tranchée par
   // l'update conditionnel ci-dessous, pas par cette lecture.
-  const current = await TenantModel.findById(_id).select("aiUsage").lean<{
-    aiUsage?: { monthlyQuota?: number | null };
-  } | null>();
-  const quota = effectiveQuota(current?.aiUsage?.monthlyQuota);
+  const current = await TenantModel.findById(_id).select("aiUsage ai.keyHint ai.monthlyQuota").lean<QuotaFields | null>();
+  const quota = effectiveQuota(current);
 
   if (quota <= 0) {
     return { ok: false, state: { month, used: 0, quota, remaining: 0 } };
@@ -108,10 +117,10 @@ export async function refundAiCredit(tenantId: string, month: string): Promise<v
 /** État du quota sans rien réserver (pour l'affichage). */
 export async function readAiQuota(tenantId: string): Promise<QuotaState> {
   const month = currentMonth();
-  const current = await TenantModel.findById(new Types.ObjectId(tenantId)).select("aiUsage").lean<{
-    aiUsage?: { month?: string; count?: number; monthlyQuota?: number | null };
+  const current = await TenantModel.findById(new Types.ObjectId(tenantId)).select("aiUsage ai.keyHint ai.monthlyQuota").lean<QuotaFields & {
+    aiUsage?: { month?: string; count?: number };
   } | null>();
-  const quota = effectiveQuota(current?.aiUsage?.monthlyQuota);
+  const quota = effectiveQuota(current);
   // Un compteur d'un mois révolu vaut zéro tant qu'aucune réservation ne l'a remis à jour.
   const used = current?.aiUsage?.month === month ? current?.aiUsage?.count ?? 0 : 0;
   return { month, used, quota, remaining: Math.max(0, quota - used) };

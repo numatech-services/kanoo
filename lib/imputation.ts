@@ -1,4 +1,6 @@
-import { Types } from "mongoose";
+import { Types, type ClientSession } from "mongoose";
+import { AccountingEntryModel } from "@/models/AccountingEntry";
+import { BusinessRuleError } from "@/lib/errors";
 import { ProjectModel } from "@/models/Project";
 import { ActivityModel } from "@/models/Activity";
 
@@ -62,4 +64,31 @@ export async function checkImputations(tenantId: string, items: Raw[]): Promise<
   if (np !== projects.size) return "Projet d'imputation introuvable.";
   if (na !== activities.size) return "Secteur d'activité introuvable.";
   return null;
+}
+
+/**
+ * Réimputation d'une pièce déjà comptabilisée : seul le rattachement
+ * analytique (projet, secteur, service) change, jamais un montant ni un
+ * compte — c'est la correction d'une erreur de saisie, pas une écriture
+ * nouvelle. `byIndex[i]` vaut pour la ligne i de l'écriture ; les lignes
+ * absentes restent telles quelles. Une écriture extournée ne se réimpute
+ * plus ; la période verrouillée est gardée par l'écriture elle-même.
+ */
+export async function reimputeEntry(
+  tenantId: string, entryId: unknown, byIndex: Map<number, Imputation>, session?: ClientSession,
+) {
+  const entry = await AccountingEntryModel.findOne({ _id: entryId, tenantId }).session(session ?? null);
+  if (!entry) return null;
+  if (entry.reversedBy || entry.reverses) throw new BusinessRuleError("Écriture extournée : elle ne se réimpute plus.");
+  const lines = entry.lines as Array<{ projectId?: unknown; activityId?: unknown; costCenter?: string; set: (k: string, v: unknown) => void }>;
+  for (const [i, imp] of byIndex) {
+    const l = lines[i];
+    if (!l) continue;
+    l.set("projectId", imp.projectId ?? undefined);
+    l.set("activityId", imp.activityId ?? undefined);
+    l.set("costCenter", imp.costCenter ?? undefined);
+  }
+  entry.markModified("lines");
+  await entry.save({ session });
+  return entry;
 }

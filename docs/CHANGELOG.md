@@ -1,5 +1,84 @@
 # Kanoo — Changelog
 
+## Documents prêts à l'envoi, corrections de l'administrateur, Claude dans Kanoo (octobre 2026)
+
+**1. Devis, proformas, factures, bons de livraison et de commande** — `lib/pdf-business.ts`, `lib/business-doc.ts`, `components/docs/DocEditors.tsx`
+- Nouveau moteur de mise en page, trois styles au choix dans Réglages → Apparence des documents :
+  - **Prestige** (par défaut) : bandeau, titre centré, encadré destinataire ;
+  - **Moderne** : logo à gauche, titre aligné à droite, « Bon pour accord » du client ;
+  - **Signature** (maquette Numatech) :
+    - filet bicolore ;
+    - logo et raison sociale à gauche ; forme et capital, siège, RCCM/NIF et autres identifiants à droite ;
+    - titre en Newsreader, bandeau des références, intitulés à empattements ;
+    - somme en lettres en italique et total TTC en pavé ;
+    - conditions en colonnes ;
+    - accord du client dans un cadre pointillé ;
+    - pied sombre avec coordonnées bancaires et contact sur chaque page.
+    Nouveau réglage « Forme et capital ». Polices Newsreader et Hanken Grotesk (licence SIL OFL, graisses fixes Fontsource, jeu latin).
+- Chaque document imprime :
+  - ses mentions : objet, référence, période, « à l'attention de » ;
+  - ses lignes : intitulé en gras, descriptif, unité, postes regroupés (« Audiovisuel », « Prestations ») ;
+  - la somme en toutes lettres (« Arrêtée la présente facture à la somme de… ») ;
+  - les conditions (« Titre — texte » met le titre en gras) ;
+  - le lieu, la date, le signataire, une place réservée au cachet (2 à 3 cm) et la pagination ;
+  - sur la facture, les coordonnées de paiement dans le corps du document ;
+  - sur la proforma, « offre de prix, elle ne vaut pas facture » ;
+  - le code SECeF en clair. Sans certification, le QR est légendé « Référence Kanoo ».
+- Deux signatures (bon pour accord, reçu par, accusé de réception) sont côte à côte au même niveau, dans les deux styles. Le QR n'empiète plus sur la place du cachet.
+- De longues conditions se coupent proprement entre deux paragraphes au lieu de déborder sur le pied de page.
+- Somme en lettres en orthographe traditionnelle (« vingt et un », « deux millions de francs »), en minuscules dans la phrase.
+- Polices intégrées Lato et PT Serif (`assets/fonts`, licence SIL OFL jointe) : accents et caractères spéciaux s'impriment et se copient correctement.
+- Le devis porte son type, « Devis » ou « Facture proforma ». Le même document se télécharge sous l'autre intitulé.
+- Nouveaux PDF : bon de livraison (colonnes Commandé / Livré, « Reçu par ») et bon de commande (« Accusé de réception »). Les boutons sont sur leurs fiches.
+- Ajouts sur les autres écrans :
+  - fiche devis : lignes, mentions et conditions affichées ; modification avec le formulaire complet ;
+  - bon de commande : un objet, et des lignes avec descriptif et unité ;
+  - réglages : aperçu du style choisi.
+- Nouveaux champs, tous facultatifs ; `npm run indexes` n'est pas nécessaire. Anciens documents : un devis sans conditions imprime ses notes, comme avant.
+
+**2. Corrections de l'administrateur** — `lib/invoice-correction.ts`, `lib/imputation.ts`
+- **Facture émise.** L'administrateur de l'organisation peut en corriger la date ou les lignes, sous le même numéro.
+  - Le motif est obligatoire.
+  - L'écriture de vente est extournée **à la date de l'écriture d'origine**, puis repassée : chiffre d'affaires et TVA restent dans le mois de la facture.
+  - Le motif et l'avant/après sont écrits au journal d'audit dans la même transaction.
+  - Le PDF porte « Rectifiée le … — annule et remplace la version précédente ». Si le client a déjà reçu la facture, l'écran rappelle de le prévenir.
+  - La correction est refusée dans ces cas, où il faut émettre un avoir :
+    - changement de client ;
+    - facture certifiée SECeF, encaissée, ou ayant déjà un avoir ;
+    - facture livrée, de marché, ou qui déduit des acomptes ;
+    - créance douteuse ;
+    - période verrouillée ;
+    - TVA du mois déclarée dans Kanoo (déposée, payée ou en retard) ;
+    - date déplacée vers une autre année.
+  - Une déclaration de TVA déposée hors de Kanoo n'est pas connue : l'écran le rappelle.
+  - Les autres utilisateurs modifient toujours l'échéance, les mentions, les conditions et les notes. Avant, le formulaire renvoyait les lignes inchangées et ce changement était refusé à tort.
+- **Facture certifiée SECeF.** Ses mentions et ses conditions imprimées sont figées. La modification de mentions d'une facture émise garde l'avant/après.
+- **Facture soldée.** Son imputation (projet, secteur) se corrige encore. Sur une facture émise, seule l'imputation des lignes de produits change dans l'écriture ; les montants et les comptes ne bougent pas.
+- **Devis.** Quand sa facture est annulée, le devis redevient transformable (il restait bloqué « déjà converti »). Sa conversion en facture ne reprend plus la validité de l'offre.
+- **Achat validé ou payé.** « Corriger l'imputation » change le projet, le secteur et le service, sur l'achat et sur son écriture. Les montants ne bougent pas. Un identifiant invalide est refusé, et non plus effacé.
+- **Écriture manuelle.** Sa réimputation passe par `PATCH /api/accounting-entries/[id]` avec `imputations`.
+- **Note de frais approuvée par erreur.** L'administrateur la renvoie en brouillon, motif obligatoire, tant qu'elle n'est pas remboursée. Son écriture est extournée à la date du jour.
+
+**3. Assistant Claude** — `lib/ai-client.ts`, `lib/ai-devis.ts`, Réglages → Assistant Claude
+- **Clé d'API Anthropic par organisation.**
+  - La clé est chiffrée au repos et n'est jamais réaffichée : seuls ses quatre derniers caractères s'affichent (« sk-ant-…abcd »).
+  - Une clé devenue illisible coupe l'assistant ; il ne bascule plus en silence sur la clé de la plateforme.
+  - Le test de clé est limité à 10 par heure et tracé. Les changements de cachet et de signataire sont tracés au journal d'audit.
+  - L'organisation choisit le modèle (Opus 5.5 par défaut, Sonnet 5.5, Haiku 5.5) et son plafond mensuel (500 par défaut).
+  - « Tester la connexion » vérifie la clé sans rien générer.
+  - Sans clé propre, la clé et le plafond de la plateforme restent en place.
+- **« Préparer avec Claude »** dans le devis et la proforma.
+  - Une description du besoin devient l'objet, les postes, les lignes avec descriptif et les conditions. La proposition remplit le formulaire, à relire avant d'enregistrer.
+  - Les prix viennent du catalogue Kanoo, quoi qu'écrive le modèle, et chaque rapprochement est signalé.
+  - Hors catalogue, un prix n'est gardé que s'il figure dans la description ; sinon la ligne est signalée « à chiffrer ».
+  - Si des lignes sont déjà saisies, une confirmation est demandée avant de les remplacer.
+  - Sont transmis : la description telle que saisie, le catalogue et les conditions habituelles. Les fiches clients ne sont pas transmises. L'écran demande de n'écrire aucune donnée personnelle et nomme Anthropic comme destinataire.
+- Les courriers et la lecture des factures fournisseurs utilisent la clé de l'organisation. Quand l'assistant n'est pas branché, un lien « Brancher Claude » s'affiche.
+
+Tests :
+- `__tests__/unit/business-docs.test.ts` et `__tests__/unit/claude-tenant.test.ts` ;
+- scénario `scripts/e2e/e2e-docs.mjs` (texte des PDF relu, correction, extournes, réimputation, clé jamais renvoyée).
+
 ## Cohérence et robustesse — hors-ligne, fuseau, numérotation, mobile (octobre 2026)
 
 **1. Mode hors ligne sûr** — `public/sw-policy.js` (règles testées), `public/sw.js`

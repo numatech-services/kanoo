@@ -8,6 +8,8 @@ const InvoiceLineSchema = new Schema(
     quantity: { type: Number, required: true, min: 0 },
     /** Unité saisie (kg, heure, forfait…) : elle était jetée faute de champ. */
     unit: { type: String, maxlength: 20 },
+    /** Descriptif sous l'intitulé, et poste (« Audiovisuel », « Travaux ») qui regroupe les lignes sur le document. */
+    details: { type: String, maxlength: 2000 }, section: { type: String, maxlength: 80 },
     // Négatif seulement sur une ligne de déduction d'acompte.
     unitPrice: {
       type: Number, required: true,
@@ -84,6 +86,10 @@ const InvoiceSchema = new Schema<IInvoice>(
     kind: { type: String, enum: ["standard", "deposit"], default: "standard" },
     depositUsedHT: { type: Number, default: 0, min: 0 },
     lines: { type: [InvoiceLineSchema], required: true },
+    /** Mentions du document : objet, référence (convention, bon de commande du client), période, « à l'attention de ». */
+    object: { type: String, maxlength: 600 }, reference: { type: String, maxlength: 120 }, period: { type: String, maxlength: 120 }, attention: { type: String, maxlength: 160 },
+    /** Correction contrôlée d'une facture émise (lib/invoice-correction) : le PDF porte « rectifiée le … ». */
+    correctedAt: Date, correctionCount: { type: Number, default: 0 }, correctionReason: { type: String, maxlength: 500 },
     totalHT: { type: Number, required: true },
     totalTVA: { type: Number, required: true },
     totalDTS: { type: Number, default: 0 },         // Droits de timbre Niger

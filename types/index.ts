@@ -42,6 +42,7 @@ export interface ITenant {
   secef?: { isf?: string; mcfId?: string; certifiedSince?: Date };
   /** Quota mensuel de l'assistant IA — voir lib/ai-quota.ts. */
   aiUsage?: { month?: string; count?: number; monthlyQuota?: number | null };
+  ai?: { apiKeyEnc?: string; keyHint?: string; keySetAt?: Date; keySetBy?: unknown; model?: string; monthlyQuota?: number };
   documentPrefixes?: DocumentPrefixes;
   documentSequences?: DocumentSequences;
   numberingConfig?: NumberingConfig;
@@ -283,6 +284,10 @@ export type CommandeStatus = "draft" | "confirmed" | "partially_received" | "rec
 export interface IInvoiceLine {
   productId?: Types.ObjectId;
   description: string;
+  /** Descriptif sous l'intitulé ; poste qui regroupe les lignes ; unité. */
+  details?: string;
+  section?: string;
+  unit?: string;
   quantity: number;
   unitPrice: number;
   tvaRate: number;
@@ -299,7 +304,12 @@ export type InvoiceDocumentType = "invoice" | "credit_note";
 /** Facture ordinaire, ou facture d'acompte (avance sur un marché, compte 419). */
 export type InvoiceKind = "standard" | "deposit";
 
-export interface IInvoice {
+/** Mentions d'un document commercial (objet, référence, période, « à l'attention de »). */
+export interface DocMentions { object?: string; reference?: string; period?: string; attention?: string }
+/** Correction contrôlée d'une facture émise. */
+export interface InvoiceCorrection { correctedAt?: Date; correctionCount?: number; correctionReason?: string }
+
+export interface IInvoice extends DocMentions, InvoiceCorrection {
   installments?: Array<{ dueDate: Date; amount: number; label?: string }>;
   _id: Types.ObjectId;
   tenantId: Types.ObjectId;
@@ -363,7 +373,10 @@ export interface IInvoice {
   };
 }
 
-export interface IDevis {
+export interface IDevis extends DocMentions {
+  /** Présenté comme devis ou comme facture proforma. */
+  docKind?: "devis" | "proforma";
+  termsAndConditions?: string;
   /** Acceptation par le client sur son portail. */
   acceptedOnline?: { at: Date; name: string; ip?: string };
   _id: Types.ObjectId;
@@ -408,6 +421,8 @@ export interface IPayment {
 }
 
 export interface ICommande {
+  /** Objet du bon de commande, imprimé. */
+  object?: string;
   _id: Types.ObjectId;
   tenantId: Types.ObjectId;
   number: string;

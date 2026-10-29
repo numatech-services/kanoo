@@ -5,6 +5,7 @@ import { ClientModel } from "@/models/Client";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { computeInvoiceLines } from "@/lib/invoice-entry";
+import { mentionsFrom } from "@/lib/doc-mentions";
 
 export const GET = withAuth("devis", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   const d = await DevisModel.findOne({ _id: params.id, ...tenantFilter(auth) }).populate("clientId", "name code nif").lean();
@@ -32,13 +33,18 @@ export const PATCH = withAuth("devis", "update", async (req: NextRequest, auth: 
     const t = computeInvoiceLines(update.lines as never);
     update.lines = t.lines; update.totalHT = t.totalHT; update.totalTVA = t.totalTVA; update.totalTTC = t.totalHT + t.totalTVA;
   }
+  Object.assign(update, mentionsFrom(body));
+  if ("termsAndConditions" in body) update.termsAndConditions = String(body.termsAndConditions ?? "").slice(0, 4000);
+  if ("notes" in body) update.notes = String(body.notes ?? "").slice(0, 4000);
+  if (body.docKind !== undefined && !["devis", "proforma"].includes(String(body.docKind))) return badRequest("Type de document invalide.");
   if (body.status !== undefined) {
     if (!["draft", "sent", "accepted", "rejected", "expired"].includes(String(body.status))) return badRequest("Statut invalide.");
     update.status = body.status;
   }
+  const before = { totalTTC: d.totalTTC, lines: d.lines?.length, status: d.status };
   d.set(update);
   await d.save();
-  await logAudit(auth, "UPDATE", "devis", { resourceId: params.id });
+  await logAudit(auth, "UPDATE", "devis", { resourceId: params.id, before, after: { totalTTC: d.totalTTC, lines: d.lines?.length, status: d.status } });
   return ok(d);
 });
 

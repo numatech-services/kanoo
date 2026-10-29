@@ -2,7 +2,7 @@ import { Types } from "mongoose";
 import { ProductModel } from "@/models/Product";
 import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 
-export interface CmdLineIn { productId?: unknown; description?: unknown; quantity?: unknown; unitPrice?: unknown; tvaRate?: unknown; receivedQty?: unknown }
+export interface CmdLineIn { productId?: unknown; description?: unknown; details?: unknown; unit?: unknown; section?: unknown; quantity?: unknown; unitPrice?: unknown; tvaRate?: unknown; receivedQty?: unknown }
 
 /**
  * Lignes de bon de commande recalculées côté serveur (jamais les totaux du
@@ -35,6 +35,10 @@ export async function buildCommandeLines(tenantId: string, raw: unknown) {
     lines.push({
       ...(product ? { productId: product._id } : {}),
       description: description.slice(0, 300), quantity, unitPrice, tvaRate,
+      // Imprimés sur le bon (lib/pdf-business) : descriptif, unité, poste.
+      ...(String(l.details ?? "").trim() ? { details: String(l.details).trim().slice(0, 2000) } : {}),
+      ...(String(l.unit ?? "").trim() ? { unit: String(l.unit).trim().slice(0, 20) } : {}),
+      ...(String(l.section ?? "").trim() ? { section: String(l.section).trim().slice(0, 80) } : {}),
       totalHT: lineHT, totalTVA: lineTVA, totalTTC: lineHT + lineTVA,
       receivedQty: Math.max(0, Number(l.receivedQty) || 0),
     });

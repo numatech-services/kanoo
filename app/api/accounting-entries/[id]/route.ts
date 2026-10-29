@@ -4,6 +4,7 @@ import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-help
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TenantModel } from "@/models/Tenant";
 import { logAudit } from "@/lib/audit";
+import { checkImputations, pickImputation, reimputeEntry, type Imputation } from "@/lib/imputation";
 import { TokenPayload } from "@/lib/auth";
 
 export const GET = withAuth("accountingEntries", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
@@ -16,10 +17,28 @@ export const GET = withAuth("accountingEntries", "read", async (_req: NextReques
   return ok(e);
 });
 
-/** PATCH — libellé et référence seulement : les montants se corrigent par extourne. */
+/**
+ * PATCH — libellé et référence seulement : les montants se corrigent par
+ * extourne. `imputations` (une par ligne) corrige le rattachement analytique
+ * d'une écriture MANUELLE ; celle d'un document se corrige sur le document.
+ */
 export const PATCH = withAuth("accountingEntries", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const body = await req.json().catch(() => ({}));
+  if (Array.isArray(body.imputations)) {
+    const cur = await AccountingEntryModel.findOne({ _id: params.id, ...tenantFilter(auth) }).select("linkedDocType lines")
+      .lean<{ linkedDocType?: string; lines: Imputation[] } | null>();
+    if (!cur) return notFound();
+    if (cur.linkedDocType && cur.linkedDocType !== "manual") return badRequest("Écriture produite par un document : corrigez l'imputation sur le document (facture, achat…).");
+    if (body.imputations.length !== cur.lines.length) return badRequest("Une imputation par ligne de l'écriture.");
+    // Contrôle sur la saisie brute : un identifiant invalide est refusé, pas effacé en silence.
+    const err = await checkImputations(auth.tenantId, body.imputations.map((x: unknown) => (x && typeof x === "object" ? x : {})));
+    if (err) return badRequest(err);
+    const imps: Imputation[] = body.imputations.map(pickImputation);
+    const e = await reimputeEntry(auth.tenantId, params.id, new Map(imps.map((imp, i) => [i, imp])));
+    await logAudit(auth, "UPDATE", "accountingEntries", { resourceId: params.id, before: { imputations: cur.lines.map(pickImputation) }, after: { imputations: imps }, metadata: { action: "reimpute" } });
+    return ok(e);
+  }
   const set: Record<string, string> = {};
   if (typeof body.label === "string" && body.label.trim()) set.label = body.label.trim().slice(0, 300);
   if (typeof body.reference === "string" && body.reference.trim()) set.reference = body.reference.trim().slice(0, 80);

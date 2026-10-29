@@ -7,6 +7,8 @@ import { showToast } from "@/components/ui/Toast";
 
 import { apiJson, apiSend } from "@/lib/api-client";
 import { PageLoading } from "@/components/ui/PageState";
+import { hasTenantAdminRole } from "@/lib/roles-ui";
+import { promptDialog } from "@/components/ui/Dialogs";
 // Rendu côté navigateur uniquement : faux au rendu serveur (et à l'hydratation), vrai ensuite.
 const noSubscribe = () => () => {};
 export default function EditInvoicePage() {
@@ -15,11 +17,13 @@ export default function EditInvoicePage() {
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [loading, setLoading] = useState(true);
   const [invoiceData, setInvoiceData] = useState<Partial<InvoiceFormData> | null>(null);
+  // Facture émise : son contenu ne change que par la correction contrôlée de l'administrateur.
+  const [issued, setIssued] = useState<{ number: string; admin: boolean } | null>(null);
 
   // Pré-remplissage du formulaire : les états ne changent qu'à l'arrivée de la réponse.
   useEffect(() => {
-    apiJson(`/api/invoices/${id}`)
-      .then(d => {
+    Promise.all([apiJson(`/api/invoices/${id}`), apiJson("/api/auth/me").catch(() => null)])
+      .then(([d, me]) => {
         const invoice = d.data || d;
         if (!invoice) return;
         if (["paid", "cancelled"].includes(invoice.status)) {
@@ -28,6 +32,7 @@ export default function EditInvoicePage() {
           return;
         }
 
+        if (invoice.status !== "draft") setIssued({ number: invoice.number, admin: hasTenantAdminRole(me?.data?.user ?? {}) });
         setInvoiceData({
           clientId: invoice.clientId?._id || invoice.clientId,
           issueDate: invoice.issueDate,
@@ -35,6 +40,7 @@ export default function EditInvoicePage() {
           lines: invoice.lines || [],
           notes: invoice.notes || "",
           termsAndConditions: invoice.termsAndConditions || "",
+          object: invoice.object || "", reference: invoice.reference || "", period: invoice.period || "", attention: invoice.attention || "",
         });
       })
       .catch(err => console.error("Erreur de chargement de la facture :", err))
@@ -53,7 +59,20 @@ export default function EditInvoicePage() {
 
   async function handleUpdate(updatedData: InvoiceFormData) {
 
-    const res = await apiSend("PATCH", `/api/invoices/${id}`, updatedData);
+    let res = await apiSend("PATCH", `/api/invoices/${id}`, updatedData);
+    // Correction d'une facture émise : le serveur exige un motif ; on le demande puis on renvoie.
+    if (!res.ok && /motif de la correction/.test(res.data?.error ?? "")) {
+      const reason = await promptDialog({
+        title: `Corriger la facture ${issued?.number ?? ""} ?`,
+        message: "Elle garde son numéro et portera « rectifiée le … ». Si le client l'a déjà reçue, prévenez-le et envoyez-lui la nouvelle version.",
+        label: "Motif de la correction",
+        confirmLabel: "Corriger la facture",
+        required: true,
+        multiline: true,
+      });
+      if (!reason?.trim()) throw new Error("Correction abandonnée : aucun motif saisi.");
+      res = await apiSend("PATCH", `/api/invoices/${id}`, { ...updatedData, correctionReason: reason.trim() });
+    }
 
     // Gestion sécurisée si le serveur renvoie une réponse vide (ex: status 204)
     if (!res.ok) {
@@ -78,8 +97,22 @@ export default function EditInvoicePage() {
         <button onClick={() => router.push(`/invoices/${id}`)} className="text-xs text-ink2 hover:text-ink">
           Retour au détail
         </button>
-        <h1 className="page-title mt-1">Modifier la facture</h1>
+        <h1 className="page-title mt-1">{issued ? `Corriger la facture ${issued.number}` : "Modifier la facture"}</h1>
       </div>
+
+      {issued && (
+        <div className={`px-4 py-3 rounded-xl text-sm border ${issued.admin ? "bg-info-50 border-info/25 text-ink" : "bg-warn-50 border-warn/25 text-warn"}`}>
+          {issued.admin ? (
+            <>Facture déjà émise : l&apos;échéance, les mentions, les conditions et les notes se modifient librement.
+              Changer la date ou les lignes la <strong>corrige</strong> : même numéro, mention « rectifiée » sur le PDF, motif et avant/après gardés.
+              Impossible si elle est payée, livrée, certifiée SECeF ou déclarée en TVA, ou pour changer de client : émettez alors un avoir.
+              Seules les déclarations de TVA saisies dans Kanoo sont connues : vérifiez celles déposées ailleurs.</>
+          ) : (
+            <>Facture déjà émise : vous pouvez modifier l&apos;échéance, les mentions, les conditions et les notes.
+              Seul l&apos;administrateur de l&apos;organisation peut corriger la date ou les lignes ; sinon, émettez un avoir.</>
+          )}
+        </div>
+      )}
 
       <div className="bg-surface rounded-2xl border border-line p-6">
         <InvoiceForm 

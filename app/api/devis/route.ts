@@ -9,6 +9,7 @@ import { nextDocumentNumber } from "@/lib/numbering";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { searchCondition, withSearch } from "@/lib/list-search";
+import { mentionsFrom } from "@/lib/doc-mentions";
 
 export const GET = withAuth("devis", "read", async (req: NextRequest, auth: TokenPayload) => {
   const pagination = getPagination(req);
@@ -52,6 +53,9 @@ export const POST = withAuth("devis", "create", async (req: NextRequest, auth: T
       // marché sont posés par leurs routes, jamais par le formulaire.
       clientId: body.clientId, issueDate: body.issueDate, validUntil: body.validUntil,
       notes: body.notes === undefined ? undefined : String(body.notes ?? "").slice(0, 4000),
+      termsAndConditions: body.termsAndConditions === undefined ? undefined : String(body.termsAndConditions ?? "").slice(0, 4000),
+      docKind: body.docKind === "proforma" ? "proforma" : "devis",
+      ...mentionsFrom(body),
       lines, number, totalHT, totalTVA, totalTTC: totalHT + totalTVA,
       tenantId: auth.tenantId, createdBy: auth.userId,
     }], { session });

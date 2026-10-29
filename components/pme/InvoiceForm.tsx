@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
-import { calculerTVA, TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 
 import { buttonClass } from "@/components/ui/button-class";
@@ -10,20 +9,10 @@ import { apiJson } from "@/lib/api-client";
 import { localDay, todayLocal } from "@/lib/format";
 import { useFormDraft } from "@/lib/use-draft";
 import { DraftBanner } from "@/components/ui/DraftBanner";
-export type UnitType = "unité" | "m³" | "L" | "kg" | "m²" | "Année" | "Mois";
-
-interface InvoiceLine {
-  description: string;
-  quantity: number;
-  unit: UnitType;
-  unitPrice: number;
-  tvaRate: number;
-  discount: number;
-  totalHT: number;
-  totalTVA: number;
-  totalTTC: number;
-}
-
+import { LinesEditor, MentionsFields, calcDocLine, emptyLine, emptyMentions, linesForApi, type EditLine, type Mentions } from "@/components/docs/DocEditors";
+/** Unité libre (u, m², forfait, h/j…) : imprimée sur la facture. */
+export type UnitType = string;
+type InvoiceLine = EditLine;
 export interface InvoiceFormData {
   clientId: string;
   issueDate: string;
@@ -33,6 +22,7 @@ export interface InvoiceFormData {
   termsAndConditions?: string;
   projectId?: string | null;
   activityId?: string | null;
+  object?: string; reference?: string; period?: string; attention?: string;
 }
 
 interface Client { 
@@ -48,37 +38,6 @@ interface InvoiceFormProps {
   draftKey?: string;
   onSave: (data: InvoiceFormData) => Promise<void>;
   onCancel: () => void;
-}
-
-const UNIT_OPTIONS: { value: UnitType; label: string }[] = [
-  { value: "unité", label: "Unité (Unité/Pcs)" },
-  { value: "m³", label: "Volume (m³)" },
-  { value: "L", label: "Volume (Litres)" },
-  { value: "kg", label: "Masse (Kg)" },
-  { value: "m²", label: "Surface (m²)" },
-  { value: "Année", label: "Année" },
-  { value: "Mois", label: "Mois" },
-];
-
-function calcLine(line: Partial<InvoiceLine>): InvoiceLine {
-  const qty = line.quantity || 0;
-  const price = line.unitPrice || 0;
-  const disc = line.discount || 0;
-  const tva = line.tvaRate ?? TVA_TAUX_STANDARD;
-  const ht = Math.round(qty * price * (1 - disc / 100));
-  const tvaAmt = calculerTVA(ht, tva);
-  
-  return { 
-    description: line.description || "", 
-    quantity: qty, 
-    unit: line.unit || "unité",
-    unitPrice: price, 
-    tvaRate: tva, 
-    discount: disc, 
-    totalHT: ht, 
-    totalTVA: tvaAmt, 
-    totalTTC: ht + tvaAmt 
-  };
 }
 
 export function InvoiceForm({ initial, draftKey, onSave, onCancel }: InvoiceFormProps) {
@@ -100,16 +59,18 @@ export function InvoiceForm({ initial, draftKey, onSave, onCancel }: InvoiceForm
   const idOf = (v: unknown) => (v && typeof v === "object" ? String((v as { _id: string })._id) : v ? String(v) : undefined);
   const [imputation, setImputation] = useState<ImputationValue>({ projectId: idOf(initial?.projectId), activityId: idOf(initial?.activityId) });
   const [lines, setLines] = useState<InvoiceLine[]>(
-    initial?.lines?.length ? initial.lines : [calcLine({ description: "", quantity: 1, unit: "unité", unitPrice: 0 })]
+    initial?.lines?.length ? initial.lines.map(calcDocLine) : [emptyLine()]
   );
+  const [mentions, setMentions] = useState<Mentions>(emptyMentions(initial));
 
   // Saisie gardée sur l'appareil (déconnexion pour inactivité, rechargement…).
-  const draft = useFormDraft(draftKey ?? null, { clientId, issueDate, dueDate, notes, terms, imputation, lines });
+  const draft = useFormDraft(draftKey ?? null, { clientId, issueDate, dueDate, notes, terms, imputation, mentions, lines });
   function restoreDraft() {
     const d = draft.restore();
     if (!d) return;
     setClientId(d.clientId); setIssueDate(d.issueDate); setDueDate(d.dueDate); setNotes(d.notes); setTerms(d.terms);
-    setImputation(d.imputation); setLines(d.lines.length ? d.lines.map(calcLine) : lines);
+    setImputation(d.imputation); setLines(d.lines.length ? d.lines.map(calcDocLine) : lines);
+    if (d.mentions) setMentions(d.mentions);
   }
 
   useEffect(() => {
@@ -126,23 +87,6 @@ export function InvoiceForm({ initial, draftKey, onSave, onCancel }: InvoiceForm
     }
   }
 
-  function updateLine(i: number, field: keyof InvoiceLine, value: string | number) {
-    setLines(prev => prev.map((l, idx) => idx === i ? calcLine({ ...l, [field]: value }) : l));
-  }
-
-  function addLine() {
-    setLines(prev => [...prev, calcLine({ description: "", quantity: 1, unit: "unité", unitPrice: 0 })]);
-  }
-
-  function removeLine(i: number) {
-    if (lines.length === 1) return;
-    setLines(prev => prev.filter((_, idx) => idx !== i));
-  }
-
-  const totalHT = lines.reduce((s, l) => s + l.totalHT, 0);
-  const totalTVA = lines.reduce((s, l) => s + l.totalTVA, 0);
-  const totalTTC = totalHT + totalTVA;
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!clientId) return setError("Sélectionnez un client");
@@ -152,7 +96,7 @@ export function InvoiceForm({ initial, draftKey, onSave, onCancel }: InvoiceForm
     setError("");
     
     try {
-      await onSave({ clientId, issueDate, dueDate, lines, notes, termsAndConditions: terms, projectId: imputation.projectId ?? null, activityId: imputation.activityId ?? null });
+      await onSave({ clientId, issueDate, dueDate, lines: linesForApi(lines) as InvoiceLine[], notes, termsAndConditions: terms, ...mentions, projectId: imputation.projectId ?? null, activityId: imputation.activityId ?? null });
       draft.clear();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue");
@@ -181,85 +125,9 @@ export function InvoiceForm({ initial, draftKey, onSave, onCancel }: InvoiceForm
         </FormField>
       </div>
 
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-ink">Lignes de facturation</p>
-          <button type="button" onClick={addLine} className="text-xs text-section hover:underline">Ajouter une ligne</button>
-        </div>
-        <div className="bg-surface2 rounded-xl overflow-hidden border border-line">
-          <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-semibold text-ink2 uppercase tracking-wide">
-            <span className="col-span-3">Description</span>
-            <span className="col-span-2 text-center">Volume</span>
-            <span className="col-span-2 text-right">P.U. HT</span>
-            <span className="col-span-1 text-right">TVA%</span>
-            <span className="col-span-1 text-right">Rem%</span>
-            <span className="col-span-2 text-right">Total TTC</span>
-            <span className="col-span-1"></span>
-          </div>
-          {lines.map((line, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2 px-3 py-2 border-t border-line bg-surface items-center">
-              {/* Description */}
-              <div className="col-span-3">
-                <input className={inputCls} value={line.description} onChange={e => updateLine(i, "description", e.target.value)} placeholder="Description du produit/service" required />
-              </div>
+      <MentionsFields value={mentions} onChange={setMentions} />
 
-              {/* Quantité & Unité (Nombre ou Volume) */}
-              <div className="col-span-2 flex gap-1">
-                <input type="number" className={inputCls + " w-1/2 px-1 text-center"} value={line.quantity} onChange={e => updateLine(i, "quantity", parseFloat(e.target.value) || 0)} min={0} step="0.01" />
-                <select className={selectCls + " w-1/2 px-1 text-xs"} value={line.unit} onChange={e => updateLine(i, "unit", e.target.value)}>
-                  {UNIT_OPTIONS.map(u => (
-                    <option key={u.value} value={u.value}>{u.value}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Prix Unitaire HT */}
-              <div className="col-span-2">
-                <input type="number" className={inputCls + " text-right"} value={line.unitPrice} onChange={e => updateLine(i, "unitPrice", parseFloat(e.target.value) || 0)} min={0} />
-              </div>
-
-              {/* TVA */}
-              <div className="col-span-1">
-                <select className={selectCls} value={line.tvaRate} onChange={e => updateLine(i, "tvaRate", parseFloat(e.target.value))}>
-                  <option value={0.19}>19%</option>
-                  <option value={0.10}>10%</option>
-                  <option value={0}>0%</option>
-                </select>
-              </div>
-
-              {/* Remise */}
-              <div className="col-span-1">
-                <input type="number" className={inputCls + " text-right"} value={line.discount} onChange={e => updateLine(i, "discount", parseFloat(e.target.value) || 0)} min={0} max={100} />
-              </div>
-
-              {/* Total TTC */}
-              <div className="col-span-2 flex items-center justify-end">
-                <span className="font-mono text-sm font-semibold text-ink">{line.totalTTC.toLocaleString("fr-FR")}</span>
-              </div>
-
-              {/* Suppression */}
-              <div className="col-span-1 flex items-center justify-center">
-                <button type="button" onClick={() => removeLine(i)} disabled={lines.length === 1} className="text-ink2 hover:text-neg disabled:opacity-30 text-lg">×</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-        <div className="w-64 space-y-2 bg-surface rounded-xl border border-line p-4">
-          {[
-            ["Total HT", `${totalHT.toLocaleString("fr-FR")} FCFA`, "text-ink2"],
-            ["TVA", `${totalTVA.toLocaleString("fr-FR")} FCFA`, "text-ink2"],
-            ["Total TTC", `${totalTTC.toLocaleString("fr-FR")} FCFA`, "text-ink font-bold text-base"],
-          ].map(([label, value, cls]) => (
-            <div key={label} className="flex justify-between text-sm border-b border-line pb-1.5 last:border-0 last:pt-1">
-              <span className="text-ink2">{label}</span>
-              <span className={`font-mono ${cls}`}>{value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <LinesEditor lines={lines} onChange={setLines} title="Lignes de facturation" />
 
       <div className="space-y-1">
         <p className="text-sm font-semibold text-ink">Imputation de la recette</p>

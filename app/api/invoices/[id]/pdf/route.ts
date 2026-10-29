@@ -1,3 +1,4 @@
+import { isDocStyle } from "@/lib/pdf-business";
 import { NextRequest, NextResponse } from "next/server";
 import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { connectDB } from "@/lib/db";
@@ -45,7 +46,9 @@ export async function GET(req: NextRequest, ctx: RouteParams) {
     // Client doté d'un lien de portail : QR « consulter et payer en ligne » sur la facture.
     const clientRef = (invoice as unknown as { clientId?: { _id?: unknown } | unknown }).clientId;
     const portalUrl = await currentPortalLink(auth.tenantId, (clientRef as { _id?: unknown })?._id ?? clientRef);
-    const pdfBuffer = await generateInvoicePdf(invoice, tenant ?? { name: "Organisation" }, { portalUrl });
+    const st = new URL(req.url).searchParams.get("style");
+    const style = isDocStyle(st) ? st : undefined;
+    const pdfBuffer = await generateInvoicePdf(invoice, tenant ?? { name: "Organisation" }, { portalUrl, style });
 
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,

@@ -65,6 +65,15 @@ const TenantSchema = new Schema<ITenant>(
       documentQr: { type: Boolean, default: true },
       /** Disposition de l'en-tête : logo à gauche + infos à droite, ou centré. */
       headerLayout: { type: String, enum: ["left", "centered"], default: "left" },
+      /** Documents commerciaux (lib/pdf-business) : style, ville de signature, site, identifiants (UNGM…). */
+      documentStyle: { type: String, enum: ["prestige", "moderne", "signature"], default: "prestige" },
+      /** Forme et capital, imprimés en tête du style signature (« SARL au capital de 100 000 FCFA »). */
+      legalForm: { type: String, maxlength: 160 },
+      city: String, website: String, extraIds: String,
+      /** Signataire des devis et factures, et image du cachet (data-URI PNG/JPEG). */
+      signatoryName: String, signatoryTitle: String, stamp: String,
+      /** Case « Bon pour accord » sur devis et proformas (vide : selon le style). */
+      clientApproval: { type: Boolean, default: undefined },
     },
     // Numérotation personnalisée — Q5
     documentPrefixes: {
@@ -106,6 +115,19 @@ const TenantSchema = new Schema<ITenant>(
       month: String,
       count: { type: Number, default: 0 },
       monthlyQuota: { type: Number, default: null },
+    },
+    /**
+     * Claude de l'organisation (lib/ai-client) : sa propre clé d'API Anthropic,
+     * chiffrée au repos et jamais renvoyée (seuls ses 4 derniers caractères),
+     * le modèle choisi et son plafond mensuel. Sans clé : celle de la plateforme.
+     */
+    ai: {
+      apiKeyEnc: { type: String, select: false },
+      keyHint: String,
+      keySetAt: Date,
+      keySetBy: { type: Schema.Types.ObjectId, ref: "User" },
+      model: String,
+      monthlyQuota: { type: Number, min: 0, max: 100000 },
     },
   },
   { timestamps: true }

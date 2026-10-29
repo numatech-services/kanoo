@@ -16,6 +16,7 @@
  * fonctionnalité se signale indisponible plutôt que de planter.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import type { TenantAi } from "@/lib/ai-client";
 
 const AI_MODEL = process.env.AI_MODEL || "claude-opus-5-5";
 const AI_MAX_TOKENS = Number(process.env.AI_MAX_TOKENS || "6000");
@@ -126,8 +127,8 @@ export interface DraftResult {
  * Génère un premier jet. Lève si la clé n'est pas configurée (à filtrer en
  * amont avec `isAiConfigured`) ou si l'API échoue.
  */
-export async function generateDraft(req: DraftRequest): Promise<DraftResult> {
-  if (!isAiConfigured()) {
+export async function generateDraft(req: DraftRequest, ai?: TenantAi): Promise<DraftResult> {
+  if (!ai && !isAiConfigured()) {
     throw new Error("Assistant IA non configuré (clé absente).");
   }
 
@@ -136,8 +137,9 @@ export async function generateDraft(req: DraftRequest): Promise<DraftResult> {
   // coût/qualité pour de la rédaction.
   // Repli côté serveur : si le modèle décline la demande, l'API la rejoue
   // sur un modèle de secours choisi selon le motif, dans le même appel.
-  const response = await client().beta.messages.create({
-    model: AI_MODEL,
+  // Clé et modèle de l'organisation si elle en a branché (lib/ai-client).
+  const response = await (ai?.client ?? client()).beta.messages.create({
+    model: ai?.model ?? AI_MODEL,
     max_tokens: AI_MAX_TOKENS,
     thinking: { type: "adaptive" },
     output_config: { effort: "medium" },

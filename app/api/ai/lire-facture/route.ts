@@ -3,10 +3,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, paymentRequired, serverError } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
-import { readSupplierInvoice, isAiInvoiceConfigured, INVOICE_MAX_BYTES, type InvoiceMediaType } from "@/lib/ai-invoice";
+import { readSupplierInvoice, INVOICE_MAX_BYTES, type InvoiceMediaType } from "@/lib/ai-invoice";
 import { reserveAiCredit, refundAiCredit, readAiQuota } from "@/lib/ai-quota";
 import { SupplierModel } from "@/models/Supplier";
 import { logAudit } from "@/lib/audit";
+import { tenantAi, aiErrorMessage } from "@/lib/ai-client";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -26,7 +27,7 @@ const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 /** GET — la lecture automatique est-elle disponible, et combien de crédits restent ce mois-ci ? */
 export const GET = withAuth("purchases", "create", async (_req: NextRequest, auth: TokenPayload) => {
   await connectDB();
-  return ok({ configured: isAiInvoiceConfigured(), quota: await readAiQuota(auth.tenantId) });
+  return ok({ configured: Boolean(await tenantAi(auth.tenantId)), quota: await readAiQuota(auth.tenantId) });
 });
 
 /**
@@ -37,7 +38,8 @@ export const GET = withAuth("purchases", "create", async (_req: NextRequest, aut
  */
 export const POST = withAuth("purchases", "create", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
-  if (!isAiInvoiceConfigured()) return paymentRequired("Lecture automatique des factures non activée sur cette instance.");
+  const ai = await tenantAi(auth.tenantId);
+  if (!ai) return paymentRequired("Lecture automatique non activée : l'administrateur branche une clé d'API dans Réglages → Assistant Claude.");
 
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");
@@ -51,7 +53,7 @@ export const POST = withAuth("purchases", "create", async (req: NextRequest, aut
   if (!reservation.ok) return paymentRequired(`Quota IA mensuel atteint (${reservation.state.quota}). Il repart au 1er du mois prochain.`);
 
   try {
-    const { invoice, warnings, model } = await readSupplierInvoice({ data, mediaType });
+    const { invoice, warnings, model } = await readSupplierInvoice({ data, mediaType }, ai);
 
     // Fournisseur connu ? Par NIF d'abord, sinon par nom normalisé.
     const suppliers = await SupplierModel.find({ tenantId: auth.tenantId }).select("_id name nif paymentTermDays")
@@ -72,6 +74,8 @@ export const POST = withAuth("purchases", "create", async (req: NextRequest, aut
     await refundAiCredit(auth.tenantId, reservation.state.month);
     // Erreur de l'API (réseau, surcharge…) : 500 ; refus métier de la lecture
     // (document illisible, pas une facture) : 400 avec son message.
+    const msg = aiErrorMessage(err);
+    if (msg) return badRequest(msg);
     if (err instanceof Anthropic.APIError || !(err instanceof Error)) return serverError(err);
     return badRequest(err.message);
   }

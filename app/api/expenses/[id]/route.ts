@@ -20,6 +20,8 @@ import { checkImputations } from "@/lib/imputation";
 import { TokenPayload } from "@/lib/auth";
 import { authCan } from "@/lib/role-resources";
 import { paymentDate } from "@/lib/payment-date";
+import { hasTenantAdminRole } from "@/lib/roles-ui";
+import { reverseEntry } from "@/lib/accounting-reversal";
 
 export const dynamic = "force-dynamic";
 
@@ -148,6 +150,33 @@ export const PATCH = withAuth("expenses", "read", async (req: NextRequest, auth:
   if (body.status) {
     const to = String(body.status) as ExpenseStatus;
     const from = report.status as ExpenseStatus;
+
+    // Note approuvée par erreur (montant, nature, imputation) : l'administrateur
+    // la renvoie en brouillon tant qu'elle n'est pas remboursée. L'écriture
+    // d'engagement est extournée (jamais effacée) ; la note repasse ensuite par
+    // la validation normale.
+    if (from === "approved" && to === "draft") {
+      if (!hasTenantAdminRole(auth)) return forbidden("Seul l'administrateur de l'organisation peut renvoyer en brouillon une note approuvée.");
+      const reason = String(body.reason || "").trim();
+      if (!reason) return badRequest("Indiquez le motif : il reste au journal d'audit et sur l'extourne.");
+      await withTransaction(async (session) => {
+        const r = await ExpenseReportModel.updateOne(
+          { _id: report._id, ...tenantFilter(auth), status: "approved" },
+          { $set: { status: "draft" }, $unset: { approvedAt: 1, approvedBy: 1, submittedAt: 1 } },
+          { session }
+        );
+        if (r.modifiedCount !== 1) throw new BusinessRuleError("Cette note vient d'être traitée.");
+        const entries = await AccountingEntryModel.find({
+          tenantId: auth.tenantId, linkedDocType: "expense", linkedDocId: report._id, journalCode: "OD", reversedBy: null, reverses: null,
+        }).select("_id").session(session ?? null).lean<Array<{ _id: unknown }>>();
+        for (const e of entries) await reverseEntry({ tenantId: auth.tenantId, userId: auth.userId, entryId: e._id, reason: `note renvoyée en brouillon : ${reason}`.slice(0, 200) }, session);
+      });
+      await logAudit(auth, "UPDATE", "expenses", {
+        resourceId: String(params.id), before: { status: "approved" }, after: { status: "draft" },
+        metadata: { action: "reopen", reference: report.reference, reason: reason.slice(0, 500) },
+      });
+      return ok({ status: "draft", message: "Note renvoyée en brouillon ; son écriture est extournée à la date du jour." });
+    }
 
     if (!canTransition(from, to)) return conflict(transitionError(from, to));
 

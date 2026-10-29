@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { InvoiceModel } from "@/models/Invoice";
+import { DevisModel } from "@/models/Devis";
 import { reverseSaleEntry } from "@/lib/invoice-entry";
 import { releaseMarketInvoice } from "@/lib/market-invoice";
 import { logAudit } from "@/lib/audit";
@@ -33,6 +34,8 @@ export const POST = withAuth("invoices", "update", async (_req: NextRequest, aut
     await invoice.save({ session });
     // Facture de marché : acomptes déduits libérés, échéance de nouveau à facturer.
     await releaseMarketInvoice(auth.tenantId, invoice, session);
+    // Devis d'origine : de nouveau transformable (il restait bloqué « déjà converti » sur une facture annulée).
+    await DevisModel.updateMany({ tenantId: auth.tenantId, convertedToInvoiceId: invoice._id }, { $unset: { convertedToInvoiceId: 1 } }, { session });
     await reverseSaleEntry({ tenantId: auth.tenantId, userId: auth.userId, invoiceId: invoice._id, reason: "facture annulée" }, session);
   });
   await logAudit(auth, "UPDATE", "invoices", { resourceId: params.id, after: { status: "cancelled" } });

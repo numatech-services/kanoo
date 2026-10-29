@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
-import { connectDB } from "@/lib/db";
+import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, notFound, noContent, badRequest, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { PurchaseModel } from "@/models/Purchase";
 import { CommandeModel } from "@/models/Commande";
 import { buildPurchaseLines, checkSupplier, PurchaseError, commandeMatch } from "@/lib/purchases";
 import { logAudit } from "@/lib/audit";
+import { checkImputations, pickImputation, reimputeEntry, type Imputation } from "@/lib/imputation";
 
 export const GET = withAuth("purchases", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
@@ -21,13 +22,36 @@ export const GET = withAuth("purchases", "read", async (_req: NextRequest, auth:
   return ok({ ...p, match });
 });
 
-/** PATCH — modification d'un BROUILLON (après validation : extourne puis nouvelle saisie). */
+/**
+ * PATCH — modification d'un BROUILLON (après validation : extourne puis
+ * nouvelle saisie). Seule exception : `imputations` (une par ligne) corrige le
+ * rattachement analytique d'un achat validé ou payé, sur l'achat et sur son
+ * écriture, sans toucher aux montants.
+ */
 export const PATCH = withAuth("purchases", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const p = await PurchaseModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!p) return notFound("Achat introuvable");
-  if (p.status !== "draft") return badRequest("Achat validé : il ne se modifie plus. Annulez-le puis ressaisissez-le.");
   const body = await req.json().catch(() => ({}));
+  if (Array.isArray(body.imputations) && p.status !== "draft") {
+    if (p.status === "cancelled") return badRequest("Achat annulé : il ne se réimpute plus.");
+    if (body.imputations.length !== p.lines.length) return badRequest("Une imputation par ligne de l'achat.");
+    // Contrôle sur la saisie brute : un identifiant invalide est refusé, pas effacé en silence.
+    const e = await checkImputations(auth.tenantId, body.imputations.map((x: unknown) => (x && typeof x === "object" ? x : {})));
+    if (e) return badRequest(e);
+    const imps: Imputation[] = body.imputations.map(pickImputation);
+    const before = p.lines.map((l: Imputation) => pickImputation(l));
+    await withTransaction(async session => {
+      imps.forEach((imp, i) => { const l = p.lines[i]; l.projectId = imp.projectId; l.activityId = imp.activityId; l.costCenter = imp.costCenter; });
+      p.markModified("lines");
+      await p.save({ session });
+      // Les premières lignes de l'écriture d'achat sont les lignes de charge, dans l'ordre de l'achat.
+      if (p.entryId) await reimputeEntry(auth.tenantId, p.entryId, new Map(imps.map((imp, i) => [i, imp])), session);
+    });
+    await logAudit(auth, "UPDATE", "purchases", { resourceId: params.id, before: { imputations: before }, after: { imputations: imps }, metadata: { action: "reimpute" } });
+    return ok(p);
+  }
+  if (p.status !== "draft") return badRequest("Achat validé : il ne se modifie plus. Annulez-le puis ressaisissez-le (ou corrigez seulement son imputation).");
   try {
     if ("supplierId" in body || "payee" in body) {
       const s = await checkSupplier(auth.tenantId, body.supplierId);

@@ -73,7 +73,8 @@ export default function CommandeDetailPage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button onClick={() => window.print()} className={buttonClass("secondary", "md")}><Printer size={16} /> Imprimer</button>
+          <a href={`/api/commandes/${id}/pdf`} target="_blank" rel="noopener" className={buttonClass("primary", "md")}><FileText size={16} /> Bon de commande (PDF)</a>
+          <button onClick={() => window.print()} className={buttonClass("secondary", "md")}><Printer size={16} /> Imprimer la page</button>
           {canEdit && item.status === "draft" && (
             <button onClick={() => act(() => send(`/api/commandes/${id}`, "PATCH", { status: "confirmed" }))} className={buttonClass("secondary", "md")}><CheckCircle2 size={16} /> Confirmer</button>
           )}

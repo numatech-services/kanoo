@@ -68,7 +68,8 @@ export const POST = withAuth("livraisons", "create", async (req: NextRequest, au
     if (!alloc.ok) throw new BusinessRuleError(alloc.error);
     const lines = alloc.lines.map((l, k) => {
       const raw = requested.find(r => Number(r.invoiceLineIndex) === l.invoiceLineIndex) ?? requested[k] ?? {};
-      return { ...l, unit: (invoice.lines[l.invoiceLineIndex] as { unit?: string }).unit || String(raw.unit || "unité"),
+      const src = invoice.lines[l.invoiceLineIndex] as { unit?: string; details?: string; section?: string };
+      return { ...l, unit: src.unit || String(raw.unit || "unité"), ...(src.details ? { details: src.details } : {}), ...(src.section ? { section: src.section } : {}),
         ...(raw.serialNumber ? { serialNumber: String(raw.serialNumber).slice(0, 80) } : {}), ...(raw.notes ? { notes: String(raw.notes).slice(0, 300) } : {}) };
     });
     // Numéro attribué automatiquement, mais une référence saisie à la main est

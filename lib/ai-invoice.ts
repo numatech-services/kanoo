@@ -10,6 +10,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { EXPENSE_ACCOUNTS } from "@/lib/syscohada";
+import type { TenantAi } from "@/lib/ai-client";
 
 const AI_MODEL = process.env.AI_MODEL || "claude-opus-5-5";
 
@@ -131,8 +132,8 @@ export function normalizeExtraction(raw: ExtractedInvoice): ExtractedInvoice {
  * Envoie le document au modèle et retourne l'extraction normalisée et les
  * écarts constatés. Lève une Error au message affichable en cas d'échec.
  */
-export async function readSupplierInvoice(file: { data: Buffer; mediaType: InvoiceMediaType }): Promise<{ invoice: ExtractedInvoice; warnings: string[]; model: string }> {
-  if (!isAiInvoiceConfigured()) throw new Error("Lecture automatique non configurée (clé d'API absente).");
+export async function readSupplierInvoice(file: { data: Buffer; mediaType: InvoiceMediaType }, ai?: TenantAi): Promise<{ invoice: ExtractedInvoice; warnings: string[]; model: string }> {
+  if (!ai && !isAiInvoiceConfigured()) throw new Error("Lecture automatique non configurée (clé d'API absente).");
   const data = file.data.toString("base64");
   const source: Anthropic.Beta.BetaContentBlockParam = file.mediaType === "application/pdf"
     ? { type: "document", source: { type: "base64", media_type: "application/pdf", data } }
@@ -141,8 +142,8 @@ export async function readSupplierInvoice(file: { data: Buffer; mediaType: Invoi
   // Repli côté serveur sur décision du modèle (fallbacks), sortie contrainte
   // par le schéma. Effort « medium » : une facture photographiée de travers
   // demande de la lecture attentive, pas un raisonnement long.
-  const response = await client().beta.messages.create({
-    model: AI_MODEL,
+  const response = await (ai?.client ?? client()).beta.messages.create({
+    model: ai?.model ?? AI_MODEL,
     max_tokens: 8000,
     thinking: { type: "adaptive" },
     output_config: { effort: "medium", format: { type: "json_schema", schema: INVOICE_SCHEMA as unknown as Record<string, unknown> } },

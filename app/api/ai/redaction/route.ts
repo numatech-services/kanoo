@@ -3,10 +3,11 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, paymentRequired, serverError } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { TenantModel } from "@/models/Tenant";
-import { generateDraft, isAiConfigured, DraftKind } from "@/lib/ai";
+import { generateDraft, DraftKind } from "@/lib/ai";
 import { gatherReportContext } from "@/lib/ai-context";
 import { reserveAiCredit, refundAiCredit, readAiQuota } from "@/lib/ai-quota";
 import { logAudit } from "@/lib/audit";
+import { tenantAi, aiErrorMessage } from "@/lib/ai-client";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,8 @@ const KINDS: DraftKind[] = ["courrier", "rapport", "attestation", "note", "repon
 export const GET = withAuth("documents", "read", async (_req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const quota = await readAiQuota(auth.tenantId);
-  return ok({ configured: isAiConfigured(), quota });
+  const ai = await tenantAi(auth.tenantId);
+  return ok({ configured: Boolean(ai), source: ai?.source ?? null, quota });
 });
 
 /**
@@ -32,8 +34,9 @@ export const GET = withAuth("documents", "read", async (_req: NextRequest, auth:
 export const POST = withAuth("documents", "create", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
 
-  if (!isAiConfigured()) {
-    return paymentRequired("Assistant IA non activé sur cette instance. Contactez le support.");
+  const ai = await tenantAi(auth.tenantId);
+  if (!ai) {
+    return paymentRequired("Assistant Claude non activé : l'administrateur branche une clé d'API dans Réglages → Assistant Claude.");
   }
 
   const body = await req.json().catch(() => ({}));
@@ -70,7 +73,7 @@ export const POST = withAuth("documents", "create", async (req: NextRequest, aut
         stats: report?.stats,
         period: report?.period,
       },
-    });
+    }, ai);
 
     await logAudit(auth, "CREATE", "documents", {
       metadata: { ai: true, kind, model: result.model, usedReport: Boolean(report) },
@@ -84,6 +87,7 @@ export const POST = withAuth("documents", "create", async (req: NextRequest, aut
   } catch (err) {
     // L'appel IA a échoué : on rend le crédit réservé.
     await refundAiCredit(auth.tenantId, reservation.state.month);
-    return serverError(err);
+    const msg = aiErrorMessage(err);
+    return msg ? badRequest(msg) : serverError(err);
   }
 });

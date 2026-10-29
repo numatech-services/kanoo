@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DevisForm } from "@/components/pme/DevisForm";
+import { ClaudeQuoteAssistant } from "@/components/docs/ClaudeQuoteAssistant";
 import { apiSend } from "@/lib/api-client";
 export default function NewDevisPage() {
   const router = useRouter();
@@ -12,8 +13,9 @@ export default function NewDevisPage() {
   }
   return (
     <div className="max-w-4xl space-y-5">
-      <div><Link href="/devis" className="text-xs text-ink2 hover:text-ink">← Devis</Link><h1 className="page-title mt-1">Nouveau devis</h1></div>
-      <div className="bg-surface rounded-2xl border border-line p-6"><DevisForm draftKey="devis-new" onSave={handleSave} onCancel={() => router.push("/devis")} /></div>
+      <div><Link href="/devis" className="text-xs text-ink2 hover:text-ink">← Devis</Link><h1 className="page-title mt-1">Nouveau devis ou proforma</h1></div>
+      <div className="bg-surface rounded-2xl border border-line p-6"><DevisForm draftKey="devis-new" onSave={handleSave} onCancel={() => router.push("/devis")}
+        assistant={(fill, ctx) => <ClaudeQuoteAssistant fill={fill} docKind={ctx.docKind} filledLines={ctx.filledLines} />} /></div>
     </div>
   );
 }

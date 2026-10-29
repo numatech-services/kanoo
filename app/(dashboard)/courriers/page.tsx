@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { Plus, FileText, Trash2, Download, Sparkles, Archive, ArchiveRestore, Paperclip, ArrowUpRight, ArrowDownLeft, CheckCircle2, Clock } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, textareaCls, selectCls } from "@/components/ui/FormField";
@@ -381,11 +382,17 @@ function ComposeDialog({
         </FormField>
 
         {/* Assistant IA rédactionnel — inutile pour un courrier reçu */}
+        {!incoming && ai && !ai.configured && (
+          <p className="text-xs text-ink2 bg-surface2 rounded-xl px-3 py-2 inline-flex items-center gap-2">
+            <Sparkles size={14} className="text-section" /> Claude peut rédiger ce courrier.{" "}
+            <Link href="/company/assistant" className="text-section font-semibold hover:underline">Activer Claude</Link>
+          </p>
+        )}
         {!incoming && ai?.configured && (
           <div className="rounded-xl border border-section/30 bg-section/5 p-3 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-section">
-                <Sparkles size={15} /> Rédiger avec l&apos;IA
+                <Sparkles size={15} /> Rédiger avec Claude
               </span>
               <span className="text-[11px] text-ink3">
                 {ai.remaining}/{ai.quota} générations restantes ce mois

@@ -46,7 +46,7 @@ export const PATCH = withAuth("commandes", "update", async (req: NextRequest, au
     if (next === "confirmed") { cmd.approvedBy = auth.userId as never; cmd.approvedAt = new Date(); }
   }
 
-  const editsContent = ["lines", "supplierId", "orderDate", "expectedDeliveryDate", "notes", "projectId", "activityId", "costCenter"].some(k => k in body);
+  const editsContent = ["lines", "supplierId", "orderDate", "expectedDeliveryDate", "notes", "object", "projectId", "activityId", "costCenter"].some(k => k in body);
   if (editsContent) {
     if (!["draft", "confirmed"].includes(cmd.status)) return badRequest("Commande reçue, facturée ou annulée : elle ne se modifie plus.");
     if ("lines" in body) {
@@ -62,6 +62,7 @@ export const PATCH = withAuth("commandes", "update", async (req: NextRequest, au
     if (body.orderDate) cmd.orderDate = new Date(body.orderDate);
     if ("expectedDeliveryDate" in body) cmd.expectedDeliveryDate = body.expectedDeliveryDate ? new Date(body.expectedDeliveryDate) : undefined;
     if ("notes" in body) cmd.notes = String(body.notes ?? "").slice(0, 2000);
+    if ("object" in body) cmd.object = String(body.object ?? "").trim().slice(0, 600) || undefined;
     if (["projectId", "activityId", "costCenter"].some(k => k in body)) {
       const imp = pickImputation(body);
       const e = await checkImputations(auth.tenantId, [imp]);

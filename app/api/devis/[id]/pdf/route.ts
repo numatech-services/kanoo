@@ -1,3 +1,4 @@
+import { isDocStyle } from "@/lib/pdf-business";
 import { NextRequest, NextResponse } from "next/server";
 import { isInternFor, INTERN_EXPORT_MESSAGE } from "@/lib/role-resources";
 import { connectDB } from "@/lib/db";
@@ -30,8 +31,12 @@ export async function GET(req: NextRequest, ctx: RouteParams) {
     ]);
     if (!devis) return NextResponse.json({ error: "Devis introuvable" }, { status: 404 });
 
-    const proforma = new URL(req.url).searchParams.get("proforma") === "1";
-    const buf = await generateQuotePdf(devis, tenant ?? { name: "Organisation" }, { proforma });
+    // Type du devis (devis ou proforma), sauf ?proforma=1 / 0 ; ?style=prestige|moderne|signature pour un aperçu.
+    const sp = new URL(req.url).searchParams;
+    const proforma = sp.get("proforma") === "1" ? true : sp.get("proforma") === "0" ? false : devis.docKind === "proforma";
+    const st = sp.get("style");
+    const style = isDocStyle(st) ? st : undefined;
+    const buf = await generateQuotePdf(devis, tenant ?? { name: "Organisation" }, { proforma, style });
     return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {

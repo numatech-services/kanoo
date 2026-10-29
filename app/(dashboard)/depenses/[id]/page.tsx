@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
+import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 import { PurchaseForm, type PurchaseFormValue } from "@/components/achats/PurchaseForm";
 import { useMe, meCanDo } from "@/lib/useMe";
 
@@ -47,6 +48,7 @@ export default function PurchaseDetailPage() {
   const [error, setError] = useState("");
   const [payOpen, setPayOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [impOpen, setImpOpen] = useState(false);
 
   async function act(fn: () => Promise<unknown>) { setError(""); try { await fn(); load(); } catch (e) { setError(e instanceof Error ? e.message : "Action impossible"); } }
   // Facture supérieure à la réception : le serveur refuse ; on propose alors
@@ -78,6 +80,7 @@ export default function PurchaseDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           {canUpdate && p.status === "draft" && <button onClick={() => setEditOpen(true)} className={buttonClass("secondary", "md")}><Edit3 size={16} /> Modifier</button>}
+          {canUpdate && ["validated", "partial", "paid"].includes(p.status) && <button onClick={() => setImpOpen(true)} className={buttonClass("secondary", "md")} title="Projet, secteur, service — sans toucher aux montants"><Edit3 size={16} /> Corriger l&apos;imputation</button>}
           {canUpdate && p.status === "draft" && <button onClick={validate} className={buttonClass("primary", "md")}><CheckCircle2 size={16} /> Valider</button>}
           {canUpdate && ["validated", "partial"].includes(p.status) && <button onClick={() => setPayOpen(true)} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg bg-pos text-onink text-sm font-semibold"><Banknote size={16} /> Enregistrer un règlement</button>}
           {canDelete && p.status === "draft" && <button onClick={async () => { if (!(await confirmDialog({ title: "Supprimer ce brouillon ?", danger: true }))) return; try { await send(`/api/achats/${id}`, "DELETE"); router.push("/depenses"); } catch (e) { setError(e instanceof Error ? e.message : "Suppression impossible"); } }} className="px-4 h-10 inline-flex items-center gap-2 rounded-lg border border-neg/25 text-neg text-sm hover:bg-neg-50"><Trash2 size={16} /> Supprimer</button>}
@@ -143,6 +146,7 @@ export default function PurchaseDetailPage() {
       {p.notes && <p className="text-sm text-ink2 whitespace-pre-wrap">{p.notes}</p>}
       <AttachmentPanel host="purchases" hostId={p._id} title="Justificatifs (facture, reçu)" defaultCategory="facture" readOnly={!canUpdate} />
 
+      {impOpen && <ReimputeDialog purchase={p} onClose={() => setImpOpen(false)} onDone={() => { setImpOpen(false); load(); }} />}
       {payOpen && <PayDialog id={p._id} rest={rest} onClose={() => setPayOpen(false)} onDone={() => { setPayOpen(false); load(); }} />}
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title={`Modifier ${p.number}`} size="xl">
         <PurchaseForm
@@ -200,6 +204,39 @@ function PayDialog({ id, rest, onClose, onDone }: { id: string; rest: number; on
         </FormField>
         <FormField label="Référence (chèque, virement…)"><input className={inputCls} value={f.reference} onChange={e => setF(p => ({ ...p, reference: e.target.value }))} /></FormField>
         <button onClick={submit} disabled={saving} className="w-full h-10 rounded-lg bg-pos text-onink text-sm font-semibold disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer le règlement"}</button>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Réimputation d'un achat validé : projet, secteur et service de chaque ligne,
+ * reportés sur l'écriture d'achat. Montants et comptes ne bougent pas.
+ */
+function ReimputeDialog({ purchase, onClose, onDone }: { purchase: Purchase; onClose: () => void; onDone: () => void }) {
+  const [imps, setImps] = useState<ImputationValue[]>(() => purchase.lines.map(l => ({ projectId: idOf(l.projectId), activityId: idOf(l.activityId), costCenter: l.costCenter })));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  async function submit() {
+    setSaving(true); setError("");
+    try { await send(`/api/achats/${purchase._id}`, "PATCH", { imputations: imps }); onDone(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Correction impossible"); setSaving(false); }
+  }
+  return (
+    <Modal open onClose={onClose} title="Corriger l'imputation" size="lg">
+      <div className="space-y-4">
+        <p className="text-sm text-ink2">Le rattachement (projet, secteur, service) change sur l&apos;achat et sur son écriture comptable ; les montants et les comptes restent tels quels. Refusé si la période est verrouillée.</p>
+        {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
+        {purchase.lines.map((l, i) => (
+          <div key={i} className="space-y-1.5">
+            <p className="text-sm font-medium text-ink">{l.description} <span className="text-ink3 font-mono text-xs">{fmt(l.amountHT)} HT</span></p>
+            <ImputationFields value={imps[i]} onChange={v => setImps(all => all.map((x, k) => (k === i ? v : x)))} />
+          </div>
+        ))}
+        <div className="flex justify-end gap-2 pt-2 border-t border-line">
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button onClick={submit} disabled={saving} className={buttonClass("primary", "md")}>{saving ? "Enregistrement…" : "Enregistrer"}</button>
+        </div>
       </div>
     </Modal>
   );

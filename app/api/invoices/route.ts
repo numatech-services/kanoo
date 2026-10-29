@@ -11,6 +11,7 @@ import { provisionalNumber } from "@/lib/numbering";
 import { withTransaction } from "@/lib/db";
 import { TokenPayload } from "@/lib/auth";
 import { searchCondition, withSearch } from "@/lib/list-search";
+import { mentionsFrom } from "@/lib/doc-mentions";
 
 // GET /api/invoices
 export const GET = withAuth("invoices", "read", async (req: NextRequest, auth: TokenPayload) => {
@@ -99,6 +100,7 @@ export const POST = withAuth("invoices", "create", async (req: NextRequest, auth
         clientId: client._id, issueDate: body.issueDate, dueDate: body.dueDate,
         notes: body.notes === undefined ? undefined : String(body.notes ?? "").slice(0, 4000),
         termsAndConditions: body.termsAndConditions === undefined ? undefined : String(body.termsAndConditions ?? "").slice(0, 4000),
+        ...mentionsFrom(body),
         lines, number, totalHT, totalTVA, totalDTS, totalTTC, projectId: imp.projectId, activityId: imp.activityId,
         paidAmount: 0, tenantId: auth.tenantId, createdBy: auth.userId, status: "draft",
       }],

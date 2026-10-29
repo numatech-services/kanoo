@@ -1,4 +1,6 @@
+import { isDocStyle } from "@/lib/pdf-business";
 import { NextRequest } from "next/server";
+import { logAudit } from "@/lib/audit";
 import { withAuth, ok, badRequest, notFound } from "@/lib/api-helpers";
 import { TenantModel } from "@/models/Tenant";
 import { TokenPayload } from "@/lib/auth";
@@ -51,6 +53,20 @@ export const PATCH = withAuth("companies", "update", async (req: NextRequest, au
   if (body.defaultTerms !== undefined) set["branding.defaultTerms"] = text(body.defaultTerms, 1000);
   if (body.showLogo !== undefined) set["branding.showLogo"] = Boolean(body.showLogo);
   if (body.documentQr !== undefined) set["branding.documentQr"] = Boolean(body.documentQr);
+  if (body.documentStyle !== undefined) set["branding.documentStyle"] = isDocStyle(body.documentStyle) ? body.documentStyle : "prestige";
+  if (body.legalForm !== undefined) set["branding.legalForm"] = text(body.legalForm, 160);
+  if (body.city !== undefined) set["branding.city"] = text(body.city, 80);
+  if (body.website !== undefined) set["branding.website"] = text(body.website, 120);
+  if (body.extraIds !== undefined) set["branding.extraIds"] = text(body.extraIds, 160);
+  if (body.signatoryName !== undefined) set["branding.signatoryName"] = text(body.signatoryName, 100);
+  if (body.signatoryTitle !== undefined) set["branding.signatoryTitle"] = text(body.signatoryTitle, 80);
+  if (body.clientApproval !== undefined) set["branding.clientApproval"] = body.clientApproval === null ? undefined : Boolean(body.clientApproval);
+  if (body.stamp !== undefined) {
+    const stamp = String(body.stamp || "");
+    if (stamp && !/^data:image\/(png|jpe?g);base64,/i.test(stamp)) return badRequest("Cachet : image PNG ou JPEG attendue.");
+    if (stamp.length > MAX_LOGO) return badRequest("Cachet trop lourd (700 Ko maximum). Réduisez l'image.");
+    set["branding.stamp"] = stamp || undefined;
+  }
   if (body.headerLayout !== undefined) {
     set["branding.headerLayout"] = body.headerLayout === "centered" ? "centered" : "left";
   }
@@ -60,5 +76,10 @@ export const PATCH = withAuth("companies", "update", async (req: NextRequest, au
   const t = await TenantModel.findByIdAndUpdate(auth.tenantId, { $set: set }, { new: true })
     .select("name logo branding nif rccm address phone email").lean();
   if (!t) return notFound();
+  // Cachet et signataire engagent l'entreprise sur chaque document envoyé : tracés (sans l'image).
+  await logAudit(auth, "UPDATE", "companies", {
+    resourceId: auth.tenantId,
+    metadata: { branding: Object.keys(set).map(k => k.replace("branding.", "")), ...("branding.stamp" in set ? { stamp: set["branding.stamp"] ? "remplacé" : "retiré" } : {}) },
+  });
   return ok(t);
 });

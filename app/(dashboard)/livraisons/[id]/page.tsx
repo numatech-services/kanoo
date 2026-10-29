@@ -51,10 +51,11 @@ export default function LivraisonDetailPage() {
 
   return (
     <div className="space-y-5 max-w-3xl">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div><Link href="/livraisons" className="text-xs text-ink2 hover:text-ink">← Bons de livraison</Link><h1 className="page-title mt-1">{delivery.number}</h1></div>
-        <div className="flex gap-2 mt-2">
-          <button onClick={()=>window.print()} className={buttonClass("secondary", "md")}>Imprimer</button>
+        <div className="flex gap-2 mt-2 flex-wrap">
+          <a href={`/api/livraisons/${id}/pdf`} target="_blank" rel="noopener" className={buttonClass("primary", "md")}>Bon de livraison (PDF)</a>
+          <button onClick={()=>window.print()} className={buttonClass("secondary", "md")}>Imprimer la page</button>
           {canCancelBl && <button onClick={async()=>{
             if(!(await confirmDialog({ title: "Annuler ce bon de livraison ?", message: "Les articles sortis seront remis en stock.", danger: true }))) return;
             const res=await apiSend("DELETE", `/api/livraisons/${id}`);
