@@ -38,7 +38,7 @@ export interface VoidData { saleId: string; reason?: string }
 export interface TopupData { topupId: string; amount: number }
 export interface StockData { movementId: string; kind: "receipt" | "loss" | "count"; item: ItemRef; quantity?: number; countedQuantity?: number; reason?: string }
 export interface PreorderData {
-  orderId: string; status: PreorderStatus; pickupDay: string; service?: string; amount?: number;
+  orderId: string; status: PreorderStatus; pickupDay: string; service?: string; amount?: number; sequence?: number;
   lines: Array<{ item: ItemRef; quantity: number }>;
 }
 export type PreorderStatus = "booked" | "ready" | "picked_up" | "cancelled" | "no_show";
@@ -188,8 +188,8 @@ export function parseEvent(raw: unknown): { ok: true; event: ParsedEvent } | { o
       need(quantity > 0, `ligne ${i + 1} : quantité invalide.`);
       return { item: itemRef(x.item, `ligne ${i + 1}`), quantity };
     });
-    const service = str(d.service, 30), amount = int(d.amount);
-    return { ok: true, event: { id, type, occurredAt, data: { orderId, status, pickupDay, lines, ...(service ? { service } : {}), ...(amount >= 0 ? { amount } : {}) } } };
+    const service = str(d.service, 30), amount = int(d.amount), sequence = int(d.sequence);
+    return { ok: true, event: { id, type, occurredAt, data: { orderId, status, pickupDay, lines, ...(service ? { service } : {}), ...(amount >= 0 ? { amount } : {}), ...(sequence >= 1 ? { sequence } : {}) } } };
   } catch (e) {
     if (e instanceof Invalid) return { ok: false, ...(id ? { id } : {}), error: e.message };
     throw e;

@@ -5,6 +5,7 @@ import { isId, ownDesk, canSeeDeskCosts } from "@/lib/comptoir";
 import { hasFinanceAccess } from "@/lib/role-resources";
 import { generateApiKey } from "@/lib/api-key";
 import { ApiKeyModel } from "@/models/ApiKey";
+import { EasypayDayCloseModel } from "@/models/EasypayDayClose";
 import { IntegrationEventModel } from "@/models/IntegrationEvent";
 import { easypayBalance, recordRemittance, SOURCE } from "@/lib/easypay-server";
 import { EASYPAY_ACCOUNT } from "@/lib/easypay";
@@ -40,7 +41,14 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   ]);
   const daily = await dailyReconciliation(auth.tenantId, deskId, hasFinanceAccess(auth));
   const last = await IntegrationEventModel.findOne(base).sort({ createdAt: -1 }).select("createdAt").lean<{ createdAt: Date } | null>();
-  return ok({ keys, events, counts: Object.fromEntries(counts.map(c => [c._id, c.n])), balance, daily, lastEventAt: last?.createdAt ?? null });
+  // Contrat v1 : bilans du jour envoyés par EasyPay et trous dans la file (événements mis de côté chez EasyPay).
+  const [closes, seq] = await Promise.all([
+    EasypayDayCloseModel.find({ ...tenantFilter(auth), deskId }).sort({ businessDate: -1 }).limit(14)
+      .select("businessDate revision receivedAt data.sales data.offline.loss_amount data.topups data.settlement data.reconciliation.matches").lean(),
+    IntegrationEventModel.aggregate<{ n: number; max: number }>([{ $match: { ...base, sequence: { $gte: 1 } } }, { $group: { _id: null, n: { $sum: 1 }, max: { $max: "$sequence" } } }]),
+  ]);
+  const sequence = seq[0] ? { last: seq[0].max, missing: Math.max(0, seq[0].max - seq[0].n) } : null;
+  return ok({ keys, events, counts: Object.fromEntries(counts.map(c => [c._id, c.n])), balance, daily, lastEventAt: last?.createdAt ?? null, dayCloses: closes, sequence });
 });
 
 /**

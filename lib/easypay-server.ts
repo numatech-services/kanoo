@@ -18,6 +18,9 @@ import { createSale, cancelSale, localDay, assertDayOpen, firstOpenDate } from "
 import { recordLoss, recordCounts } from "@/lib/spot-server";
 import { treasuryLedger, registerLedgerAccount } from "@/lib/treasury";
 import { productionPlan } from "@/lib/campus-server";
+import { EasypayDayCloseModel } from "@/models/EasypayDayClose";
+import { ApiKeyModel } from "@/models/ApiKey";
+import type { V1Plan } from "@/lib/easypay-v1";
 import { EASYPAY_ACCOUNT, parseEvent, lossReasonFor, sameName, catalogueVersion, type ItemRef, type ParsedEvent } from "@/lib/easypay";
 import type { ApiV1Context } from "@/lib/api-v1-middleware";
 import type { TokenPayload } from "@/lib/auth";
@@ -177,11 +180,13 @@ export async function applyEvent(actor: TokenPayload, deskId: string, ev: Parsed
   const lines = [];
   for (const l of ev.data.lines) lines.push({ itemId: (await item(l.item))._id, quantity: l.quantity });
   const key = { tenantId, source: SOURCE, externalId: ev.data.orderId };
-  const current = await DeskPreorderModel.findOne(key).select("statusAt").session(session ?? null).lean<{ statusAt: Date } | null>();
-  // Un état plus ancien arrivé après le suivant (réseau) ne revient pas en arrière.
-  if (current && current.statusAt > ev.occurredAt) return { warnings: ["état plus ancien que celui déjà connu : ignoré"] };
+  const current = await DeskPreorderModel.findOne(key).select("statusAt sequence").session(session ?? null).lean<{ statusAt: Date; sequence?: number } | null>();
+  // Un état plus ancien arrivé après le suivant (renvoi, réseau) ne revient pas en arrière :
+  // par rang dans la file d'EasyPay quand les deux le portent, sinon par l'heure.
+  const older = current && (current.sequence && ev.data.sequence ? current.sequence > ev.data.sequence : current.statusAt > ev.occurredAt);
+  if (older) return { warnings: ["état plus ancien que celui déjà connu : ignoré"] };
   await DeskPreorderModel.updateOne(key,
-    { $set: { deskId, status: ev.data.status, pickupDay: ev.data.pickupDay, service: ev.data.service, amount: ev.data.amount, lines, statusAt: ev.occurredAt } },
+    { $set: { deskId, status: ev.data.status, pickupDay: ev.data.pickupDay, service: ev.data.service, amount: ev.data.amount, lines, statusAt: ev.occurredAt, ...(ev.data.sequence ? { sequence: ev.data.sequence } : {}) } },
     { upsert: true, session });
   return { warnings: [] };
 }
@@ -214,22 +219,22 @@ export async function ingestEvents(ctx: ApiV1Context & { deskId: string }, raws:
   return results;
 }
 
-async function saveTrace(ctx: { tenantId: string; deskId: string; keyId?: string }, raw: unknown, r: { status: string; error?: string; ref?: unknown; occurredAt?: Date; type?: string }, session?: ClientSession) {
+async function saveTrace(ctx: { tenantId: string; deskId: string; keyId?: string }, raw: unknown, r: { status: string; error?: string; ref?: unknown; occurredAt?: Date; type?: string; sequence?: number }, session?: ClientSession) {
   const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   await IntegrationEventModel.create([{
     tenantId: ctx.tenantId, deskId: ctx.deskId, source: SOURCE, externalId: String(o.id).slice(0, 64), type: String(r.type ?? o.type ?? "?").slice(0, 30),
     ...(r.occurredAt ? { occurredAt: r.occurredAt } : {}), payload: o, status: r.status, ...(r.error ? { error: r.error.slice(0, 500) } : {}),
-    ...(r.ref ? { ref: r.ref } : {}), ...(ctx.keyId ? { keyId: ctx.keyId } : {}), ...(r.status === "applied" ? { appliedAt: new Date() } : {}),
+    ...(r.ref ? { ref: r.ref } : {}), ...(ctx.keyId ? { keyId: ctx.keyId } : {}), ...(r.sequence ? { sequence: r.sequence } : {}), ...(r.status === "applied" ? { appliedAt: new Date() } : {}),
   }], { session });
 }
 
 const isDup = (e: unknown) => (e as { code?: number })?.code === 11000;
 
-async function applyAndTrace(ctx: ApiV1Context & { deskId: string }, actor: TokenPayload, ev: ParsedEvent, raw: unknown): Promise<IngestResult> {
+async function applyAndTrace(ctx: ApiV1Context & { deskId: string }, actor: TokenPayload, ev: ParsedEvent, raw: unknown, sequence?: number): Promise<IngestResult> {
   try {
     const out = await withTransaction(async session => {
       const r = await applyEvent(actor, ctx.deskId, ev, session);
-      await saveTrace(ctx, raw, { status: "applied", ref: r.ref, occurredAt: ev.occurredAt, type: ev.type }, session);
+      await saveTrace(ctx, raw, { status: "applied", ref: r.ref, occurredAt: ev.occurredAt, type: ev.type, sequence }, session);
       return r;
     });
     return { id: ev.id, status: "applied", ...(out.ref?.number ? { ref: out.ref.number } : {}), ...(out.warnings.length ? { warnings: out.warnings } : {}) };
@@ -237,9 +242,60 @@ async function applyAndTrace(ctx: ApiV1Context & { deskId: string }, actor: Toke
     if (isDup(e) && await IntegrationEventModel.exists({ tenantId: ctx.tenantId, source: SOURCE, externalId: ev.id })) return { id: ev.id, status: "duplicate" };
     const error = e instanceof BusinessRuleError ? e.message : "Erreur interne de Kanoo : l'événement est gardé et pourra être rejoué.";
     if (!(e instanceof BusinessRuleError)) console.error("[easypay] application impossible", ev.type, ev.id, e);
-    await saveTrace(ctx, raw, { status: "failed", error, occurredAt: ev.occurredAt, type: ev.type }).catch(() => undefined);
+    await saveTrace(ctx, raw, { status: "failed", error, occurredAt: ev.occurredAt, type: ev.type, sequence }).catch(() => undefined);
     return { id: ev.id, status: "failed", error };
   }
+}
+
+export interface V1Reply { status: number; body: Record<string, unknown> }
+
+/**
+ * Reçoit UN événement du contrat v1 (signature déjà vérifiée). Réponses du
+ * §8 : 200 « accepted » (y compris quand une règle de Kanoo le refuse : il est
+ * gardé et se rejoue depuis le comptoir, EasyPay n'a pas à le renvoyer),
+ * 200 « duplicate », 200 « ignored » (type inconnu), 422 corps invalide (rien
+ * n'est gardé : le renvoi corrigé d'EasyPay, même event_id, sera reçu).
+ */
+export async function ingestV1(ctx: ApiV1Context & { deskId: string }, plan: V1Plan, original: unknown): Promise<V1Reply> {
+  if (plan.kind === "invalid") return { status: 422, body: { error: "invalid_payload", message: plan.error } };
+  const { env } = plan;
+  const seen = await IntegrationEventModel.exists({ tenantId: ctx.tenantId, source: SOURCE, externalId: env.eventId });
+  if (seen) return { status: 200, body: { status: "duplicate" } };
+  await ApiKeyModel.updateOne({ _id: ctx.keyId }, { $max: { lastSequence: env.sequence } });
+  const occurredAt = new Date(env.occurredAt);
+  const trace = (status: string, extra: { error?: string; type?: string } = {}, session?: ClientSession) =>
+    saveTrace(ctx, { id: env.eventId, type: env.type, _v1: original }, { status, occurredAt, type: extra.type ?? env.type, sequence: env.sequence, ...(extra.error ? { error: extra.error } : {}) }, session);
+  const once = async (fn: () => Promise<void>): Promise<V1Reply | null> => {
+    try { await fn(); return null; } catch (e) { if (isDup(e)) return { status: 200, body: { status: "duplicate" } }; throw e; }
+  };
+
+  if (plan.kind === "ignored") return (await once(() => trace("ignored", { error: "type inconnu de Kanoo (version future du contrat)" }))) ?? { status: 200, body: { status: "ignored" } };
+  if (plan.kind === "log") return (await once(() => trace("applied", { error: plan.note }))) ?? { status: 200, body: { status: "accepted" } };
+
+  if (plan.kind === "day") {
+    const dup = await once(() => withTransaction(async session => {
+      await trace("applied", { type: "day.closed" }, session);
+      const key = { tenantId: ctx.tenantId, deskId: ctx.deskId, businessDate: plan.businessDate };
+      const cur = await EasypayDayCloseModel.findOne(key).select("revision").session(session ?? null).lean<{ revision: number } | null>();
+      // Le bilan de plus grande révision fait foi ; un renvoi plus ancien ne le remplace pas.
+      if (!cur || cur.revision < plan.revision) {
+        await EasypayDayCloseModel.updateOne(key, { $set: { revision: plan.revision, eventId: env.eventId, data: plan.data, receivedAt: new Date() } }, { upsert: true, session });
+      }
+    }));
+    return dup ?? { status: 200, body: { status: "accepted" } };
+  }
+
+  const parsed = parseEvent(plan.raw);
+  if (!parsed.ok) return { status: 422, body: { error: "invalid_payload", message: parsed.error } };
+  if (plan.voidOfUnknownSale && parsed.event.type === "sale_void") {
+    const known = await ComptoirSaleModel.exists({ tenantId: ctx.tenantId, deskId: ctx.deskId, clientRef: parsed.event.data.saleId });
+    if (!known) return (await once(() => trace("applied", { error: "annulation d'une vente jamais reçue : rien à annuler" }))) ?? { status: 200, body: { status: "accepted" } };
+  }
+  const actor = await easypayActor(ctx);
+  const r = await applyAndTrace(ctx, actor, parsed.event, { ...plan.raw, _v1: original }, env.sequence);
+  if (r.status === "duplicate") return { status: 200, body: { status: "duplicate" } };
+  if (r.status === "failed") return { status: 200, body: { status: "accepted", applied: false, message: r.error } };
+  return { status: 200, body: { status: "accepted", ...(r.ref ? { ref: r.ref } : {}) } };
 }
 
 /** Rejoue un événement en échec (après correction dans Kanoo : journée rouverte, article relié…). */

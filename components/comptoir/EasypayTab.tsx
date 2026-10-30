@@ -15,10 +15,20 @@ const MONEY = (n: number) => `${Math.round(n || 0).toLocaleString("fr-FR")} FCFA
 const WHEN = (d?: string | null) => (d ? new Date(d).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—");
 const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-interface Key { _id: string; name: string; keyPrefix?: string; isActive: boolean; revokedAt?: string; lastUsedAt?: string; expiresAt?: string; createdAt: string; requestCount?: number }
+interface Key { _id: string; name: string; keyPrefix?: string; easypaySite?: string; easypaySiteName?: string; handshakeAt?: string; isActive: boolean; revokedAt?: string; lastUsedAt?: string; expiresAt?: string; createdAt: string; requestCount?: number }
 interface Ev { _id: string; type: string; externalId: string; occurredAt?: string; createdAt: string; status: "applied" | "failed" | "rejected" | "ignored"; error?: string; ref?: { kind: string; number?: string }; attempts: number }
 interface Day { day: string; sales: number; card: number; voids: number; voided: number; topups: number; topup: number; net: number; received: number; paid: number; events: { applied: number; pending: number; ignored: number } }
-interface Data { keys: Key[]; events: Ev[]; counts: Record<string, number>; balance: number | null; daily?: Day[]; lastEventAt?: string | null }
+/** Bilan du jour envoyé par EasyPay (contrat v1, day.closed). Les montants « null » sont inconnus d'EasyPay. */
+interface Close {
+  _id: string; businessDate: string; revision: number; receivedAt: string;
+  data: {
+    sales?: { sales_count?: number; total_amount?: number; card_amount?: number; cash_amount?: number; voided_amount?: number; net_amount?: number };
+    offline?: { loss_amount?: number }; topups?: { amount?: number };
+    settlement?: { balance_collected_amount?: number; counter_topups_amount?: number; net_due_to_site_amount?: number };
+    reconciliation?: { matches?: boolean };
+  };
+}
+interface Data { keys: Key[]; events: Ev[]; counts: Record<string, number>; balance: number | null; daily?: Day[]; lastEventAt?: string | null; dayCloses?: Close[]; sequence?: { last: number; missing: number } | null }
 
 const STATUS: Record<Ev["status"], { label: string; tone: "pos" | "neg" | "warn" | "mute" }> = {
   applied: { label: "appliqué", tone: "pos" }, failed: { label: "en échec", tone: "neg" }, rejected: { label: "illisible", tone: "warn" }, ignored: { label: "écarté", tone: "mute" },
@@ -65,6 +75,7 @@ export function EasypayTab({ deskId, onChange }: { deskId: string; onChange: () 
   }
 
   const days = data.daily ?? [];
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
   const stale = active.length > 0 && (!data.lastEventAt || renderedAt - new Date(data.lastEventAt).getTime() > 86_400_000);
   const DAYLBL = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
   return (
@@ -93,7 +104,42 @@ export function EasypayTab({ deskId, onChange }: { deskId: string; onChange: () 
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-ink3">« Dû par Numatech » : ventes payées par carte, moins les annulations et les recharges de cartes encaissées au comptoir. Le solde cumulé figure plus bas (compte courant). Pour un rapprochement à deux sources, EasyPay devra envoyer son total de clôture par jour (en préparation côté EasyPay).</p>
+        <p className="text-xs text-ink3">« Dû par Numatech » : ventes payées par carte, moins les annulations et les recharges de cartes encaissées au comptoir, d&apos;après ce que Kanoo a reçu. Le solde cumulé figure plus bas (compte courant). Les bilans envoyés chaque nuit par EasyPay, ci-dessous, donnent la seconde source.</p>
+      </section>
+
+      <section className="surface-card p-4 space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="font-semibold text-ink flex items-center gap-2"><ArrowLeftRight size={17} /> Bilans du jour envoyés par EasyPay</h3>
+          {data.sequence && <p className={`text-xs ${data.sequence.missing ? "text-warn font-semibold" : "text-ink3"}`}>Dernier rang reçu : {data.sequence.last}{data.sequence.missing ? ` — ${data.sequence.missing} événement(s) mis de côté chez EasyPay (Finances → Kanoo : à renvoyer)` : ", aucun trou"}</p>}
+        </div>
+        {(data.dayCloses ?? []).length === 0 ? (
+          <p className="text-sm text-ink3">Aucun bilan reçu. EasyPay envoie le bilan de la veille chaque nuit, après minuit, une fois le restaurant relié au contrat v1.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table-dense w-full">
+              <thead><tr><th>Jour</th><th className="text-right">Ventes nettes</th><th className="text-right">dont solde EasyPay</th><th className="text-right">Pertes hors ligne</th><th className="text-right">Prélevé sur les soldes</th><th className="text-right">Recharges au comptoir</th><th className="text-right">Dû au restaurant</th><th>Concordance</th></tr></thead>
+              <tbody>
+                {(data.dayCloses ?? []).map(c => {
+                  const st = c.data.settlement ?? {}, sa = c.data.sales ?? {}, due = st.net_due_to_site_amount;
+                  const N = (v?: number | null) => (typeof v === "number" ? MONEY(v) : "—");
+                  return (
+                    <tr key={c._id} className="border-t border-line">
+                      <td className="whitespace-nowrap">{DAYLBL(c.businessDate)}{c.revision > 1 && <span className="block text-[11px] text-ink3">révision {c.revision}</span>}</td>
+                      <td className="text-right font-mono">{N(sa.net_amount)}{typeof sa.sales_count === "number" && <span className="block text-[11px] text-ink3">{sa.sales_count} vente(s)</span>}</td>
+                      <td className="text-right font-mono">{N(sa.card_amount)}</td>
+                      <td className="text-right font-mono">{c.data.offline?.loss_amount ? <span className="text-neg">−{MONEY(c.data.offline.loss_amount)}</span> : "—"}</td>
+                      <td className="text-right font-mono">{N(st.balance_collected_amount)}</td>
+                      <td className="text-right font-mono">{N(st.counter_topups_amount)}</td>
+                      <td className={`text-right font-mono font-semibold ${typeof due === "number" && due < 0 ? "text-neg" : ""}`}>{N(due)}</td>
+                      <td>{c.data.reconciliation?.matches === true ? <Pill tone="pos">conforme</Pill> : c.data.reconciliation?.matches === false ? <Pill tone="neg">écart</Pill> : "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-xs text-ink3">Chiffres des rapports du back-office d&apos;EasyPay. « Dû au restaurant » : ce qu&apos;EasyPay a prélevé sur les soldes des étudiants pour le restaurant, moins les recharges en espèces encaissées pour EasyPay ; négatif, c&apos;est le restaurant qui doit à EasyPay. « Écart » : des événements du jour manquent chez Kanoo (jour d&apos;avant la liaison, ou événement mis de côté) : demander le renvoi de la période à EasyPay.</p>
       </section>
 
       <div className="surface-card p-4 space-y-3">
@@ -105,7 +151,7 @@ export function EasypayTab({ deskId, onChange }: { deskId: string; onChange: () 
               mouvements de stock et pré-commandes : ils deviennent des tickets, des encaissements et des mouvements de stock ici.
             </p>
             <p className="text-xs text-ink3 mt-1">
-              Adresse de l&apos;API : <code className="font-mono">/api/v1/spot</code> sur l&apos;adresse de Kanoo. Les ventes payées par carte sont dues par Numatech (compte 467100) ;
+              Adresse de base à donner à EasyPay : <code className="font-mono">{origin}/api/v1/spot</code>, avec la clé du comptoir (par un canal sûr). Les ventes payées par carte sont dues par Numatech (compte 467100) ;
               les recharges encaissées au comptoir lui reviennent.
             </p>
           </div>
@@ -113,10 +159,11 @@ export function EasypayTab({ deskId, onChange }: { deskId: string; onChange: () 
         </div>
         {data.keys.length > 0 && (
           <div className="overflow-x-auto"><table className="table-dense">
-            <thead><tr><th>Clé</th><th>Créée</th><th>Dernier appel</th><th>Expire</th><th>État</th><th></th></tr></thead>
+            <thead><tr><th>Clé</th><th>Restaurant relié</th><th>Créée</th><th>Dernier appel</th><th>Expire</th><th>État</th><th></th></tr></thead>
             <tbody>{data.keys.map(k => (
               <tr key={k._id} className={k.isActive ? "" : "opacity-50"}>
                 <td className="font-mono text-xs">{k.keyPrefix ?? "kno_…"}</td>
+                <td className="text-ink2">{k.easypaySite ? <>{k.easypaySiteName || k.easypaySite}<span className="block text-[11px] text-ink3">poignée de main : {WHEN(k.handshakeAt)}</span></> : <span className="text-ink3">pas encore</span>}</td>
                 <td className="text-ink2">{WHEN(k.createdAt)}</td>
                 <td className="text-ink2">{WHEN(k.lastUsedAt)}{k.requestCount ? <span className="text-ink3"> · {k.requestCount} appels</span> : null}</td>
                 <td className="text-ink2">{k.expiresAt ? new Date(k.expiresAt).toLocaleDateString("fr-FR") : "—"}</td>

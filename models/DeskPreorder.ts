@@ -19,6 +19,8 @@ export interface IDeskPreorder {
   lines: Array<{ itemId: Types.ObjectId; quantity: number }>;
   /** Heure de l'état reçu (un état plus ancien, arrivé en retard, ne l'écrase pas). */
   statusAt: Date;
+  /** Contrat EasyPay v1 : rang de l'événement ; l'état de plus grand rang l'emporte. */
+  sequence?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +36,7 @@ const DeskPreorderSchema = new Schema<IDeskPreorder>({
   amount: { type: Number, min: 0 },
   lines: [{ _id: false, itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true }, quantity: { type: Number, required: true, min: 0 } }],
   statusAt: { type: Date, required: true },
+  sequence: Number,
 }, { timestamps: true });
 
 DeskPreorderSchema.index({ tenantId: 1, source: 1, externalId: 1 }, { unique: true });

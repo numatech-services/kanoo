@@ -29,6 +29,8 @@ export interface IIntegrationEvent {
   /** Ce que l'événement a créé dans Kanoo (ticket, encaissement…). */
   ref?: { kind: string; id: Types.ObjectId; number?: string };
   keyId?: Types.ObjectId;
+  /** Contrat v1 : rang dans la file du restaurant chez EasyPay. */
+  sequence?: number;
   appliedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -47,6 +49,7 @@ const IntegrationEventSchema = new Schema<IIntegrationEvent>({
   attempts: { type: Number, default: 1 },
   ref: { _id: false, kind: String, id: Schema.Types.ObjectId, number: String },
   keyId: { type: Schema.Types.ObjectId, ref: "ApiKey" },
+  sequence: Number,
   appliedAt: Date,
 }, { timestamps: true });
 

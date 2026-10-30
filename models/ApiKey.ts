@@ -19,6 +19,12 @@ export interface IApiKey {
   deskId?: Types.ObjectId;
   /** Application reliée (« easypay »). */
   source?: string;
+  /** Contrat EasyPay v1 : restaurant relié (« the-spot »), secret de signature chiffré, dernière poignée de main. */
+  easypaySite?: string;
+  easypaySiteName?: string;
+  signingSecret?: string;
+  handshakeAt?: Date;
+  lastSequence?: number;
   isActive: boolean;
   revokedAt?: Date;
   lastUsedAt?: Date;
@@ -37,6 +43,12 @@ const ApiKeySchema = new Schema<IApiKey>({
   scopes: [String],
   deskId: { type: Schema.Types.ObjectId, ref: "ActivityDesk", index: true },
   source: { type: String, maxlength: 30 },
+  easypaySite: { type: String, maxlength: 64 },
+  easypaySiteName: { type: String, maxlength: 120 },
+  // Chiffré (lib/crypto-field) et jamais renvoyé par défaut.
+  signingSecret: { type: String, select: false },
+  handshakeAt: Date,
+  lastSequence: Number,
   isActive: { type: Boolean, default: true },
   revokedAt: Date,
   lastUsedAt: Date,
