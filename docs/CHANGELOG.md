@@ -1,5 +1,22 @@
 # Kanoo — Changelog
 
+## Restauration — fiches techniques, production et cuisine (novembre 2026)
+
+**Fiches techniques** (Restauration → Fiches techniques) : la recette de chaque plat ou boisson préparé.
+- Pour chaque ingrédient, la quantité nette et le rendement (poids net ÷ poids brut : épluchage, découpe, cuisson).
+- Le nombre de portions produites par la recette, le grammage servi, les allergènes (les 14 à déclarer) et le procédé.
+- Le coût par portion, la marge nette et le prix minimum se mettent à jour pendant la saisie. Impression pour la cuisine.
+- Une portion vendue sort du stock : quantité nette ÷ rendement ÷ portions. La règle vaut partout : vente, perte d'un plat, prévision, marges, prix.
+
+**Alertes de prix** : après une réception en réserve ou d'une commande fournisseur, les plats qui passent sous leur prix minimum sont signalés avec le prix conseillé. L'écran Prix et marges montre aussi le prix moyen réellement encaissé (promotions, remises, prix saisis en caisse).
+
+**Production et cuisine** (Restauration → Production) :
+- prévision des ventes du jour : d'après l'emploi du temps du campus, sinon la moyenne des quatre mêmes jours de semaine précédents ; jamais moins que les réservations EasyPay ;
+- menu de chaque service (midi, soir, journée), avec le coût matière total et par portion ;
+- ingrédients nécessaires comparés au stock du comptoir et de la réserve : ce qu'il faut monter, ce qu'il faut acheter ;
+- **bon de sortie de la réserve** en un clic pour le plan du jour ;
+- **fin de service** : produit, vendu (repris des tickets) et restes. Les restes passent en perte « invendus » : leurs ingrédients sortent au coût de la fiche technique.
+
 ## Module Restauration — vue d'ensemble, prix et marges (objectif 20 %), équipe et paie, inventaire de fin de semaine (octobre 2026)
 
 **Une section « Restauration » dans le menu** regroupe tout ce qui concerne les restaurants :

@@ -25,7 +25,7 @@ interface Row {
   pack: { label?: string; size?: number; cost?: number } | null;
   economics: Economics; outlook: { expectedRevenue: number; expectedMargin: number | null; stockValue: number };
   sold: { quantity: number; revenueTTC: number; revenueHT: number; margin: number; tickets: number; rank: number; unvaluedQty: number } | null;
-  recipe: Array<{ itemId: string; quantity: number; name: string }>; recipeMissing: number;
+  recipe: Array<{ itemId: string; quantity: number; yield?: number; name: string }>; portions?: number; recipeMissing: number;
   losses: { quantity: number; value: number } | null;
   target: number; targetOwn: boolean;
   gap: Gap | null;
@@ -280,10 +280,13 @@ function MarginCalculator({ vatRate, target }: { vatRate: number; target: number
 /** Prix de vente, famille et conditionnement d'un article, avec la marge en direct. */
 function PricingDialog({ row, all, vatRate, target, onClose, onSaved }: { row: Row; all: Row[]; vatRate: number; target: number; onClose: () => void; onSaved: () => void }) {
   // Fiche recette : ingrédients parmi les articles simples du comptoir.
+  // Les rendements et le nombre de portions se règlent dans la fiche technique ; ils sont conservés ici.
+  const yields = new Map(row.recipe.map(r => [r.itemId, r.yield]));
+  const portions = row.portions && row.portions > 1 ? row.portions : 1;
   const [recipe, setRecipe] = useState(row.recipe.map(r => ({ itemId: r.itemId, quantity: String(r.quantity) })));
   const ingredients = all.filter(x => x._id !== row._id && !x.recipe.length);
   const costOf = (id: string) => all.find(x => x._id === id)?.economics.unitCost ?? 0;
-  const recipeCost = recipe.reduce((t, r) => t + (Number(r.quantity) || 0) * costOf(r.itemId), 0);
+  const recipeCost = recipe.reduce((t, r) => t + ((Number(r.quantity) || 0) / (yields.get(r.itemId) || 1) / portions) * costOf(r.itemId), 0);
   const isPrepared = recipe.some(r => r.itemId && Number(r.quantity) > 0);
   const [f, setF] = useState({
     salePrice: String(row.salePrice ?? ""), category: row.category,
@@ -300,7 +303,7 @@ function PricingDialog({ row, all, vatRate, target, onClose, onSaved }: { row: R
     const res = await apiSend("PATCH", `/api/comptoir/items/${row._id}`, {
       salePrice: Number(f.salePrice) || 0, category: f.category, pack: isPrepared ? null : pack ?? null,
       targetMarkup: f.target === "" ? null : Math.min(95, Math.max(0, Number(f.target) || 0)) / 100,
-      recipe: recipe.filter(r => r.itemId && Number(r.quantity) > 0).map(r => ({ itemId: r.itemId, quantity: Number(r.quantity) })),
+      recipe: recipe.filter(r => r.itemId && Number(r.quantity) > 0).map(r => ({ itemId: r.itemId, quantity: Number(r.quantity), ...(yields.get(r.itemId) ? { yield: yields.get(r.itemId) } : {}) })),
       ...(!row.linked && !pack?.cost && f.unitCost !== "" ? { unitCost: Number(f.unitCost) || 0 } : {}),
     });
     setBusy(false);

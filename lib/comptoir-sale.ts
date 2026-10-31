@@ -13,6 +13,7 @@ import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { BusinessRuleError } from "@/lib/errors";
 import { transferStock, applyMovement, reverseMovement } from "@/lib/stock";
+import { portionRecipe } from "@/lib/restaurant";
 import { deskWarehouse } from "@/lib/comptoir-stock";
 import { accountForMethod } from "@/lib/comptoir";
 import { treasuryLedger, registerLedgerAccount } from "@/lib/treasury";
@@ -219,7 +220,8 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
     // stock ; le coût de la ligne est leur somme. Sinon, l'article lui-même.
     let unitCost: number, stockMovementId: Types.ObjectId | undefined, moveId: Types.ObjectId | undefined, after: number | null = null;
     const ingredients: NonNullable<ISaleLine["ingredients"]> = [];
-    const parts = raw.components?.length ? raw.components : item.recipe;
+    // Fiche technique : quantités brutes par portion vendue (rendement et nombre de portions).
+    const parts = raw.components?.length ? raw.components : portionRecipe(item.recipe, item.portions);
     let missingCost: string[] = [];
     if (parts?.length) {
       let total = 0;
@@ -230,7 +232,7 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
         if (!(q > 0)) continue;
         // Un composant qui a lui-même une recette sort ses ingrédients (plat d'une formule).
         if (ing.recipe?.length) {
-          for (const g of ing.recipe) {
+          for (const g of portionRecipe(ing.recipe, ing.portions)) {
             const sub = await ActivityItemModel.findOne({ _id: g.itemId, tenantId, deskId: desk._id }).session(session ?? null);
             if (!sub) throw new BusinessRuleError(`Ingrédient introuvable dans la recette de ${ing.name}.`);
             const sq = Math.round(g.quantity * q * 1000) / 1000;

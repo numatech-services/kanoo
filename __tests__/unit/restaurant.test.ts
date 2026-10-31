@@ -117,3 +117,13 @@ describe("restaurant — corrections du second passage", () => {
     expect(m.find(x => x.id === "d")?.class).toBe("puzzle");
   });
 });
+
+describe("restaurant — fiches techniques (portions et rendement)", () => {
+  it("quantité brute par portion = nette ÷ rendement ÷ portions", async () => {
+    const { perPortion, portionRecipe } = await import("@/lib/restaurant");
+    expect(perPortion({ quantity: 1, yield: 0.8 }, 10)).toBe(0.125);
+    expect(perPortion({ quantity: 0.2 }, undefined)).toBe(0.2);
+    expect(perPortion({ quantity: 0.2, yield: 1.5 }, 0)).toBe(0.2);
+    expect(portionRecipe([{ itemId: "a", quantity: 2, yield: 0.5 }], 4)[0].quantity).toBe(1);
+  });
+});

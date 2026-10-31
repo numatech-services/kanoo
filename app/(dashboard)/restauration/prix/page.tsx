@@ -15,7 +15,7 @@ const MONEY = (n?: number | null) => (n === undefined || n === null ? "—" : `$
 const PCT = (n?: number | null) => (n === undefined || n === null ? "—" : `${n.toLocaleString("fr-FR")} %`);
 
 interface Row {
-  itemId: string; name: string; category?: string; preparation: boolean; soldQty: number; lostMargin: number | null;
+  itemId: string; name: string; category?: string; preparation: boolean; soldQty: number; lostMargin: number | null; avgPaidTTC: number | null;
   priceTTC: number; priceHT: number; cost: number | null; grossMargin: number | null; grossMarginPct: number | null;
   overhead: number; netMargin: number | null; netMarginPct: number | null; minPriceHT: number | null; minPriceTTC: number | null;
   status: "ok" | "below" | "no_cost" | "no_price" | "impossible";
@@ -103,7 +103,7 @@ export default function PrixPage() {
                 <tr key={r.itemId} className="border-t border-line">
                   <td className="text-ink font-medium">{r.name}<span className="block text-[11px] text-ink3 font-normal">{[r.category, r.preparation ? "recette" : null, r.soldQty ? `${r.soldQty} vendu(s)` : null].filter(Boolean).join(" · ")}</span></td>
                   <td className="text-right font-mono">{MONEY(r.cost)}</td>
-                  <td className="text-right font-mono">{MONEY(r.priceTTC)}<span className="block text-[11px] text-ink3">{MONEY(r.priceHT)} HT</span></td>
+                  <td className="text-right font-mono">{MONEY(r.priceTTC)}<span className="block text-[11px] text-ink3">{MONEY(r.priceHT)} HT</span>{r.avgPaidTTC !== null && Math.abs(r.avgPaidTTC - r.priceTTC) >= 1 ? <span className={`block text-[11px] ${r.avgPaidTTC < r.priceTTC ? "text-warn" : "text-ink3"}`}>encaissé en moyenne {MONEY(r.avgPaidTTC)}</span> : null}</td>
                   <td className="text-right font-mono">{MONEY(r.grossMargin)}<span className="block text-[11px] text-ink3">{PCT(r.grossMarginPct)}</span></td>
                   <td className="text-right font-mono text-ink2">{MONEY(r.overhead)}</td>
                   <td className={`text-right font-mono font-semibold ${(r.netMargin ?? 0) < 0 ? "text-neg" : ""}`}>{MONEY(r.netMargin)}<span className="block text-[11px] font-normal text-ink3">{PCT(r.netMarginPct)}</span></td>

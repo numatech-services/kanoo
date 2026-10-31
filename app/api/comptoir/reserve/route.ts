@@ -6,6 +6,7 @@ import { isId, ownDesk, canSeeDeskCosts } from "@/lib/comptoir";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { notifyRoles } from "@/lib/notify";
+import { priceAlertsAfterCost } from "@/lib/restaurant-overview";
 import { restaurantStock, reserveMoves, receiveInReserve, moveBetweenLevels, ensureLinked, reserveLoss } from "@/lib/restaurant-stock";
 
 export const dynamic = "force-dynamic";
@@ -55,8 +56,17 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
           linkedTo: "comptoir", linkedId: String(body.deskId),
         }).catch(() => undefined);
       }
+      // Prix de vente devenus trop bas avec le nouveau coût : prix conseillé pour garder la marge nette visée.
+      const below = await priceAlertsAfterCost(auth.tenantId, body.deskId, lines.map((l: { itemId: string }) => String(l.itemId))).catch(() => []);
+      if (below.length) {
+        await notifyRoles(auth.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "svc_compta", "svc_spot"], {
+          type: "stock_alert", title: "Prix de vente sous le minimum après une hausse d'achat",
+          message: below.slice(0, 6).map(b => `${b.name} : ${Math.round(b.priceTTC)} FCFA, conseillé ${b.minPriceTTC} FCFA`).join(" • ") + " (Restauration → Prix et marges)",
+          linkedTo: "comptoir", linkedId: String(body.deskId),
+        }).catch(() => undefined);
+      }
       await logAudit(auth, "CREATE", "comptoir", { metadata: { reserveReceive: lines.length, total: r.total } });
-      return created(r);
+      return created({ ...r, belowMinimum: below });
     }
     if (body.action === "supply" || body.action === "return") {
       const r = await moveBetweenLevels(auth, body.deskId, lines, body.action);

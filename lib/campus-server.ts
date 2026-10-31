@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 import { DeskScheduleModel } from "@/models/DeskSchedule";
 import { ComptoirSaleModel } from "@/models/ComptoirSale";
+import { portionRecipe } from "@/lib/restaurant";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { DeskPreorderModel } from "@/models/DeskPreorder";
 import { withPreorders } from "@/lib/easypay";
@@ -29,7 +30,7 @@ export async function saleFacts(tenantId: string, deskId: string, fromDay: strin
   return rows.map(r => ({ at: new Date(r.date), itemId: String(r.itemId), quantity: r.quantity }));
 }
 
-type ItemLite = { _id: Types.ObjectId; name: string; unit: string; quantity: number; salePrice?: number; unitCost: number; recipe?: Array<{ itemId: Types.ObjectId; quantity: number }> };
+type ItemLite = { _id: Types.ObjectId; name: string; unit: string; quantity: number; salePrice?: number; unitCost: number; portions?: number; recipe?: Array<{ itemId: Types.ObjectId; quantity: number; yield?: number }> };
 
 /** Consommation apprise sur les 28 jours qui précèdent `day`. */
 async function rates(tenantId: string, deskId: string, s: Schedule, day: string) {
@@ -45,7 +46,7 @@ function expand(total: Map<string, number>, items: Map<string, ItemLite>) {
   const need = new Map<string, number>();
   for (const [id, q] of total) {
     const it = items.get(id);
-    if (it?.recipe?.length) for (const r of it.recipe) need.set(String(r.itemId), (need.get(String(r.itemId)) ?? 0) + r.quantity * q);
+    if (it?.recipe?.length) for (const r of portionRecipe(it.recipe, it.portions)) need.set(String(r.itemId), (need.get(String(r.itemId)) ?? 0) + r.quantity * q);
     else need.set(id, (need.get(id) ?? 0) + q);
   }
   return need;
@@ -69,7 +70,7 @@ export async function preorderedFor(tenantId: string, deskId: string, day: strin
 export async function productionPlan(tenantId: string, deskId: string, day: string) {
   const s = await loadSchedule(tenantId, deskId);
   const itemsArr = await ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true } })
-    .select("name unit quantity salePrice unitCost recipe").lean<ItemLite[]>();
+    .select("name unit quantity salePrice unitCost recipe portions").lean<ItemLite[]>();
   const items = new Map(itemsArr.map(i => [String(i._id), i]));
   const name = (id: string) => items.get(id)?.name ?? "—";
   // Pré-commandes de l'appli : préparées quoi qu'il arrive.
@@ -120,7 +121,7 @@ export async function scheduledDemand(tenantId: string, deskId: string, fromDay:
   if (!s) return null;
   const r = await rates(tenantId, deskId, s, fromDay);
   if (!r.size) return null;
-  const itemsArr = await ActivityItemModel.find({ tenantId, deskId }).select("name unit quantity recipe unitCost").lean<ItemLite[]>();
+  const itemsArr = await ActivityItemModel.find({ tenantId, deskId }).select("name unit quantity recipe portions unitCost").lean<ItemLite[]>();
   const items = new Map(itemsArr.map(i => [String(i._id), i]));
   const total = new Map<string, number>();
   for (let k = 0; k < days; k++) {

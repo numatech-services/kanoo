@@ -40,7 +40,18 @@ export interface IActivityItem {
    * (autres articles du comptoir) et quantité par unité vendue. La vente sort
    * les ingrédients du stock ; le coût est leur somme.
    */
-  recipe?: Array<{ itemId: Types.ObjectId; quantity: number }>;
+  recipe?: Array<{ itemId: Types.ObjectId; quantity: number; yield?: number }>;
+  /**
+   * Fiche technique : la recette est écrite pour `portions` portions (1 par
+   * défaut) ; chaque ligne donne la quantité NETTE utilisée et son rendement
+   * (`yield`, poids net ÷ poids brut : 0,8 = 20 % de perte à l'épluchage ou à la
+   * découpe). Une portion vendue consomme quantité ÷ rendement ÷ portions.
+   */
+  portions?: number;
+  /** Grammage servi par portion (g), allergènes, procédé : pour la cuisine et la fiche imprimée. */
+  servingWeight?: number;
+  allergens?: string[];
+  procedure?: string;
   archived: boolean;
   /** Identifiant de l'article dans EasyPay (caisse reliée), pour relier les ventes reçues. */
   easypayId?: string;
@@ -63,7 +74,11 @@ const ActivityItemSchema = new Schema<IActivityItem>({
   barcode: { type: String, trim: true, maxlength: 60 },
   productId: { type: Schema.Types.ObjectId, ref: "Product", index: true },
   category: { type: String, trim: true, maxlength: 60 },
-  recipe: [{ _id: false, itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true }, quantity: { type: Number, required: true, min: 0 } }],
+  recipe: [{ _id: false, itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true }, quantity: { type: Number, required: true, min: 0 }, yield: { type: Number, min: 0.05, max: 1 } }],
+  portions: { type: Number, min: 1, max: 10_000 },
+  servingWeight: { type: Number, min: 0 },
+  allergens: [{ type: String, maxlength: 40 }],
+  procedure: { type: String, maxlength: 4000 },
   pack: {
     label: { type: String, trim: true, maxlength: 30 },
     size: { type: Number, min: 1 },

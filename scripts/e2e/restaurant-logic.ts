@@ -19,6 +19,7 @@ import { openInventory, saveCounts, validateInventory } from "../../lib/restaura
 import { deskMonthResult, maskPayroll } from "../../lib/restaurant-result";
 import { deskPricing, restaurantOverview } from "../../lib/restaurant-overview";
 import { AUTOMATION_RUNNERS } from "../../lib/automation-jobs";
+import { dayPlan, saveMenu, issueForDay, closeService } from "../../lib/restaurant-production";
 import { UserModel } from "../../models/User";
 import { ActivityModel } from "../../models/Activity";
 import { ActivityDeskModel } from "../../models/ActivityDesk";
@@ -151,6 +152,26 @@ async function main() {
   const before = (await row(coca._id)).desk;
   await withTransaction(s => ensureLinked(auth, deskId, coca._id, s));
   check("liaison au catalogue idempotente", (await row(coca._id)).desk === before);
+
+  console.log("\n▶ Fiches techniques, production et cuisine");
+  // Sauce : recette pour 10 portions, 1 kg d'oignons nets à 80 % de rendement → 0,125 kg brut par portion.
+  const oignon = await mk({ name: "Oignon", unit: "kg", category: "Légumes", unitCost: 400 });
+  await receiveInReserve(auth, deskId, [{ itemId: String(oignon._id), quantity: 10, unitCost: 400 }], {});
+  const sauce = await mk({ name: "Sauce oignon", unit: "portion", category: "Plats", salePrice: 300, portions: 10, recipe: [{ itemId: oignon._id, quantity: 1, yield: 0.8 }] });
+  const prs = await deskPricing(tenantId, deskId);
+  check("fiche technique : coût par portion = 1 kg ÷ 80 % ÷ 10 portions × 400 = 50", prs.rows.find(x => x.itemId === String(sauce._id))?.cost === 50, prs.rows.find(x => x.itemId === String(sauce._id)));
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  await saveMenu(auth, deskId, day, "midi", [{ itemId: String(sauce._id), quantity: 8 }]);
+  const plan = await dayPlan(tenantId, deskId, day, true);
+  const on = plan.needs.find(n => n.itemId === String(oignon._id));
+  check("plan du jour : 8 portions → 1 kg d'oignons brut à monter de la réserve", near((on?.needed ?? 0) * 1000, 1000) && near((on?.toSupply ?? 0) * 1000, 1000) && plan.menuCost === 400, { on, cost: plan.menuCost });
+  const iss = await issueForDay(auth, deskId, day);
+  check("bon de sortie : oignons montés au comptoir", !!iss.reference && near((await row(oignon._id)).desk * 1000, 1000), { iss, desk: (await row(oignon._id)).desk });
+  await withTransaction(s => createSale(auth, { deskId, payments: [], payMethod: "cash", lines: [{ itemId: String(sauce._id), quantity: 6 }] }, s));
+  check("vente de 6 portions : 0,75 kg d'oignons sortis (0,125 par portion)", near((await row(oignon._id)).desk * 1000, 250), (await row(oignon._id)).desk);
+  const cs = await closeService(auth, deskId, day, "midi", [{ itemId: String(sauce._id), produced: 8, leftover: 2 }]);
+  check("fin de service : 2 portions restantes en perte (0,25 kg, 100 FCFA)", near((await row(oignon._id)).desk * 1000, 0) && near(cs.leftoverValue, 100), { cs, desk: (await row(oignon._id)).desk });
+  check("service clos : menu non modifiable, seconde clôture refusée", await refuses(() => saveMenu(auth, deskId, day, "midi", [{ itemId: String(sauce._id), quantity: 9 }]), /clos/) && await refuses(() => closeService(auth, deskId, day, "midi", []), /clos/));
 
   console.log(`\n${pass} réussis, ${fail} en échec`);
   await mongoose.disconnect();

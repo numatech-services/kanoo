@@ -14,6 +14,28 @@
  *    passé au comptoir.
  */
 
+/**
+ * Quantité BRUTE d'un ingrédient consommée par portion vendue : quantité
+ * nette de la fiche ÷ rendement (poids net ÷ brut) ÷ nombre de portions de la
+ * recette. Sans rendement ni portions : la quantité telle quelle.
+ */
+export function perPortion(line: { quantity: number; yield?: number | null }, portions?: number | null): number {
+  const y = line.yield && line.yield > 0 && line.yield <= 1 ? line.yield : 1;
+  const p = portions && portions >= 1 ? portions : 1;
+  return Math.round((Number(line.quantity) / y / p) * 1e6) / 1e6;
+}
+
+/**
+ * Recette ramenée à une portion vendue, en quantités brutes. Champs repris un
+ * à un : une ligne lue par Mongoose (sous-document) ne se recopie pas par
+ * décomposition (« ...r » perdrait l'identifiant de l'ingrédient).
+ */
+export const portionRecipe = <I>(recipe: Array<{ itemId: I; quantity: number; yield?: number | null }> | undefined, portions?: number | null) =>
+  (recipe ?? []).map(r => ({ itemId: r.itemId, quantity: perPortion({ quantity: r.quantity, yield: r.yield }, portions) }));
+
+/** Les 14 allergènes à déclarer (règlement UE 1169/2011, annexe II), repère pour la carte. */
+export const ALLERGENS = ["Gluten", "Crustacés", "Œufs", "Poissons", "Arachides", "Soja", "Lait", "Fruits à coque", "Céleri", "Moutarde", "Sésame", "Sulfites", "Lupin", "Mollusques"] as const;
+
 /** Hausse du coût d'achat notable (5 % et plus) : en points de % arrondis, sinon null. */
 export function costRise(before: number, after: number, threshold = 0.05): number | null {
   if (!(before > 0) || !(after > before)) return null;

@@ -69,6 +69,8 @@ const KEYWORDS: Record<string, string> = {
   "/documents-administratifs": "rccm nif attestation patente agrément assurance bail échéance renouvellement expiration",
   "/comptoir": "the spot caisse stock matière arrêté bar vente",
   "/restauration": "restaurant restauration cantine marge nette objectif vue d'ensemble",
+  "/restauration/fiches": "fiche technique recette portion rendement allergène grammage",
+  "/restauration/production": "production cuisine menu prévision couverts bon de sortie restes fin de service",
   "/restauration/prix": "prix de vente prix d'achat marge minimum 20 % carte",
   "/restauration/equipe": "personnel équipe paie cuisinier serveur restaurant",
   "/isic": "carte étudiant lot impression",

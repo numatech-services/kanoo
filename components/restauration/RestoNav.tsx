@@ -1,11 +1,13 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Store, Tags, Users } from "lucide-react";
+import { LayoutDashboard, Store, Tags, Users, ChefHat, CookingPot } from "lucide-react";
 
 const LINKS = [
   { href: "/restauration", label: "Vue d'ensemble", icon: <LayoutDashboard size={15} /> },
   { href: "/comptoir", label: "Comptoirs (caisse, stock, résultat)", icon: <Store size={15} /> },
+  { href: "/restauration/fiches", label: "Fiches techniques", icon: <ChefHat size={15} /> },
+  { href: "/restauration/production", label: "Production", icon: <CookingPot size={15} /> },
   { href: "/restauration/prix", label: "Prix et marges", icon: <Tags size={15} /> },
   { href: "/restauration/equipe", label: "Équipe et paie", icon: <Users size={15} /> },
 ];

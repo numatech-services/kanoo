@@ -5,6 +5,9 @@ import { TokenPayload } from "@/lib/auth";
 import { CommandeModel } from "@/models/Commande";
 import { applyMovement, StockError, type LotInput } from "@/lib/stock";
 import { deskReserve } from "@/lib/restaurant-stock";
+import { priceAlertsAfterCost } from "@/lib/restaurant-overview";
+import { notifyRoles } from "@/lib/notify";
+import { ActivityItemModel } from "@/models/ActivityItem";
 import { receptionStatus } from "@/lib/commande";
 import { logAudit } from "@/lib/audit";
 import { GoodsReceiptModel } from "@/models/GoodsReceipt";
@@ -80,5 +83,16 @@ export const POST = withAuth("commandes", "update", async (req: NextRequest, aut
     throw e;
   }
   await logAudit(auth, "UPDATE", "commandes", { resourceId: params.id, metadata: { received: wanted, date }, after: { status: cmd.status } });
+  // Commande d'un restaurant : un nouveau coût d'achat peut faire passer des plats sous leur prix minimum.
+  if (sourceDesk) {
+    const pids = wanted.map(w => lines[w.index].productId).filter(Boolean);
+    const itemIds = (await ActivityItemModel.find({ tenantId: auth.tenantId, deskId: sourceDesk, productId: { $in: pids } }).select("_id").lean<Array<{ _id: unknown }>>()).map(i => String(i._id));
+    const below = await priceAlertsAfterCost(auth.tenantId, String(sourceDesk), itemIds).catch(() => []);
+    if (below.length) await notifyRoles(auth.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "svc_compta", "svc_spot"], {
+      type: "stock_alert", title: "Prix de vente sous le minimum après une hausse d'achat",
+      message: below.slice(0, 6).map(b => `${b.name} : ${Math.round(b.priceTTC)} FCFA, conseillé ${b.minPriceTTC} FCFA`).join(" • ") + " (Restauration → Prix et marges)",
+      linkedTo: "comptoir", linkedId: String(sourceDesk),
+    }).catch(() => undefined);
+  }
   return ok(cmd);
 });

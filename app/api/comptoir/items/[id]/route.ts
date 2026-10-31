@@ -59,8 +59,10 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
   if ("category" in clean) update.category = String(clean.category || "").trim().slice(0, 60) || undefined;
   // Fiche recette : ingrédients = autres articles du même comptoir, sans recette eux-mêmes.
   if ("recipe" in clean) {
-    const raw = Array.isArray(clean.recipe) ? clean.recipe as Array<{ itemId?: string; quantity?: number }> : [];
-    const lines = raw.filter(r => isId(r.itemId) && Number(r.quantity) > 0).map(r => ({ itemId: String(r.itemId), quantity: Math.round(Number(r.quantity) * 10000) / 10000 }));
+    const raw = Array.isArray(clean.recipe) ? clean.recipe as Array<{ itemId?: string; quantity?: number; yield?: number }> : [];
+    // Rendement (poids net ÷ brut) entre 5 et 100 % ; absent = 100 %.
+    const lines = raw.filter(r => isId(r.itemId) && Number(r.quantity) > 0).map(r => ({ itemId: String(r.itemId), quantity: Math.round(Number(r.quantity) * 10000) / 10000,
+      ...(Number(r.yield) > 0 && Number(r.yield) < 1 ? { yield: Math.max(0.05, Math.round(Number(r.yield) * 1000) / 1000) } : {}) }));
     if (lines.some(r => r.itemId === params.id)) return badRequest("Un article ne peut pas être son propre ingrédient.");
     if (lines.length) {
       const cur = await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth) }).select("deskId").lean<{ deskId: unknown } | null>();
@@ -74,6 +76,16 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
   if (("salePrice" in clean || "recipe" in clean) && !canSeeDeskCosts(auth)) return forbidden("Le prix de vente et la recette ne sont modifiables que par le chef du comptoir, la gérance ou la comptabilité.");
   // Coût d'achat et prix du paquet : données de coût, modifiables par qui les voit (chef, gérance, finance).
   if (("unitCost" in clean || (clean.pack && typeof clean.pack === "object" && "cost" in (clean.pack as object))) && !canSeeDeskCosts(auth)) return forbidden("Le coût d'achat n'est modifiable que par le chef du comptoir, la gérance ou la comptabilité.");
+  // Fiche technique : portions de la recette, grammage, allergènes, procédé.
+  if (("portions" in clean || "servingWeight" in clean) && !canSeeDeskCosts(auth)) return forbidden("La fiche technique se modifie par le chef du comptoir, la gérance ou la comptabilité.");
+  if ("portions" in clean) {
+    const n = Math.round(Number(clean.portions));
+    if (!(n >= 1 && n <= 10_000)) return badRequest("Nombre de portions de la recette : entre 1 et 10 000.");
+    update.portions = n;
+  }
+  if ("servingWeight" in clean) { const n = Number(clean.servingWeight); if (!(n >= 0)) return badRequest("Grammage invalide."); update.servingWeight = n; }
+  if ("allergens" in clean) update.allergens = (Array.isArray(clean.allergens) ? clean.allergens : []).map(a => String(a).trim().slice(0, 40)).filter(Boolean).slice(0, 30);
+  if ("procedure" in clean) update.procedure = String(clean.procedure || "").slice(0, 4000);
   if ("pack" in clean) {
     const pack = parsePack(clean.pack);
     if (pack === "invalid") return badRequest("Conditionnement invalide (nombre d'unités par paquet, prix du paquet).");

@@ -9,7 +9,7 @@ import { productSales } from "@/lib/comptoir-session";
 import { deskMonthResult, maskPayroll, payrollHidden } from "@/lib/restaurant-result";
 import { ProductModel } from "@/models/Product";
 import { restaurantStock } from "@/lib/restaurant-stock";
-import { monthBounds, staffCost } from "@/lib/restaurant";
+import { monthBounds, staffCost, portionRecipe } from "@/lib/restaurant";
 import { DEFAULT_TARGET_NET_MARGIN, priceCheck, targetGap, unitCostOf, type PriceCheck } from "@/lib/restaurant-pricing";
 
 type Id = Types.ObjectId;
@@ -46,7 +46,7 @@ export async function overheadRate(tenantId: string, deskId: string, now = new D
   };
 }
 
-export interface PricingRow extends PriceCheck { itemId: string; name: string; category?: string; preparation: boolean; soldQty: number; lostMargin: number | null }
+export interface PricingRow extends PriceCheck { itemId: string; name: string; category?: string; preparation: boolean; soldQty: number; lostMargin: number | null; avgPaidTTC: number | null }
 
 /**
  * Prix et marge nette de chaque article vendu au comptoir : coût de revient
@@ -59,17 +59,20 @@ export async function deskPricing(tenantId: string, deskId: string, canPayroll =
   if (!desk) throw new Error("Comptoir introuvable");
   const target = desk.targetNetMargin ?? DEFAULT_TARGET_NET_MARGIN;
   const [items, oh] = await Promise.all([
-    ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true } }).select("name category unitCost salePrice recipe productId").lean<Array<{ _id: Id; name: string; category?: string; unitCost?: number; salePrice?: number; productId?: Id; recipe?: Array<{ itemId: Id; quantity: number }> }>>(),
+    ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true } }).select("name category unitCost salePrice recipe portions productId").lean<Array<{ _id: Id; name: string; category?: string; unitCost?: number; salePrice?: number; productId?: Id; portions?: number; recipe?: Array<{ itemId: Id; quantity: number; yield?: number }> }>>(),
     overheadRate(tenantId, deskId),
   ]);
   const ref = oh.months[0] ?? null;
   const b = ref ? monthBounds(ref) : null;
-  const sold = b ? new Map((await productSales(tenantId, deskId, b.fromDay, b.toDay)).map(s => [s.itemId, s.quantity])) : new Map<string, number>();
+  const salesRows = b ? await productSales(tenantId, deskId, b.fromDay, b.toDay) : [];
+  const sold = new Map(salesRows.map(s => [s.itemId, s.quantity]));
+  // Prix moyen réellement encaissé (promotions, remises, prix saisis en caisse compris).
+  const paid = new Map(salesRows.filter(s => s.quantity > 0).map(s => [s.itemId, Math.round(s.revenueTTC / s.quantity)]));
   // Coût retenu : le plus élevé du coût moyen et du dernier prix d'achat (prudent quand les prix montent).
   // TVA : celle de la vente (fiche du catalogue, sauf fiches du restaurant qui suivent le comptoir).
   const products = new Map((await ProductModel.find({ tenantId, _id: { $in: items.map(i => i.productId).filter(Boolean) } }).select("code tvaRate lastPurchaseCost").lean<Array<{ _id: Id; code?: string; tvaRate?: number; lastPurchaseCost?: number }>>()).map(p => [String(p._id), p]));
   const costs = new Map(items.map(i => { const p = i.productId ? products.get(String(i.productId)) : undefined; return [String(i._id), Math.max(i.unitCost ?? 0, p?.lastPurchaseCost ?? 0)]; }));
-  const recipes = new Map(items.map(i => [String(i._id), { unitCost: i.unitCost, recipe: i.recipe?.map(r => ({ itemId: String(r.itemId), quantity: r.quantity })) }]));
+  const recipes = new Map(items.map(i => [String(i._id), { unitCost: i.unitCost, recipe: i.recipe?.length ? portionRecipe(i.recipe, i.portions).map(r => ({ itemId: String(r.itemId), quantity: r.quantity })) : undefined }]));
   const vatOf = (i: { productId?: Id }) => { const p = i.productId ? products.get(String(i.productId)) : undefined; return !desk.vatRate ? 0 : p && !p.code?.startsWith("RST-") && p.tvaRate !== undefined ? p.tvaRate : desk.vatRate; };
   const rows: PricingRow[] = items
     .filter(i => (i.salePrice ?? 0) > 0 || sold.has(String(i._id)))
@@ -79,7 +82,7 @@ export async function deskPricing(tenantId: string, deskId: string, canPayroll =
       const c = priceCheck({ priceTTC: i.salePrice ?? 0, vatRate: vatOf(i), cost, overheadRate: oh.rate, shrinkRate: oh.shrink, target });
       const q = sold.get(String(i._id)) ?? 0;
       const lost = c.status === "below" && c.minPriceHT ? Math.round((c.minPriceHT - c.priceHT) * q) : null;
-      return { ...c, itemId: String(i._id), name: i.name, category: i.category, preparation: !!i.recipe?.length, soldQty: q, lostMargin: lost };
+      return { ...c, itemId: String(i._id), name: i.name, category: i.category, preparation: !!i.recipe?.length, soldQty: q, lostMargin: lost, avgPaidTTC: paid.get(String(i._id)) ?? null };
     })
     .sort((a, b2) => (a.status === "below" ? 0 : 1) - (b2.status === "below" ? 0 : 1) || (b2.lostMargin ?? 0) - (a.lostMargin ?? 0) || a.name.localeCompare(b2.name));
   return {
@@ -169,4 +172,18 @@ export async function restaurantTeam(tenantId: string, scope: string[] | null, m
     })),
     unassigned: free.map(e => ({ employeeId: String(e._id), name: `${e.lastName} ${e.firstName}`, position: e.position })),
   };
+}
+
+/**
+ * Après une hausse du coût d'achat : les articles du comptoir (l'ingrédient
+ * lui-même ou les plats qui l'utilisent) désormais sous leur prix minimum,
+ * avec le prix conseillé. Vide si rien ne bascule.
+ */
+export async function priceAlertsAfterCost(tenantId: string, deskId: string, ingredientIds: string[]) {
+  if (!ingredientIds.length) return [];
+  const users = await ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true }, $or: [{ _id: { $in: ingredientIds } }, { "recipe.itemId": { $in: ingredientIds } }] }).select("_id").lean<Array<{ _id: Id }>>();
+  if (!users.length) return [];
+  const touched = new Set(users.map(u => String(u._id)));
+  const { rows } = await deskPricing(tenantId, deskId);
+  return rows.filter(r => touched.has(r.itemId) && r.status === "below" && r.minPriceTTC).map(r => ({ name: r.name, priceTTC: r.priceTTC, minPriceTTC: r.minPriceTTC!, netMarginPct: r.netMarginPct }));
 }

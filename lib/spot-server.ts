@@ -5,6 +5,7 @@ import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ComptoirSaleModel } from "@/models/ComptoirSale";
 import { ItemCountModel } from "@/models/ItemCount";
 import { ProductModel } from "@/models/Product";
+import { portionRecipe } from "@/lib/restaurant";
 import { ProductStockModel } from "@/models/ProductStock";
 import { BusinessRuleError } from "@/lib/errors";
 import { applyMovement } from "@/lib/stock";
@@ -37,7 +38,7 @@ export async function recordLoss(auth: TokenPayload, input: { deskId: string; it
   // Plat ou boisson préparé perdu (invendu, raté, retour) : ses ingrédients sortent du stock au coût de la recette.
   if (item.recipe?.length) {
     let lossValue = 0, move: LossResult["move"] = null;
-    for (const ing of item.recipe) {
+    for (const ing of portionRecipe(item.recipe, item.portions)) {
       const r = await recordLoss(auth, { ...input, itemId: String(ing.itemId), quantity: Math.round(ing.quantity * qty * 10000) / 10000, note: `${item.name} × ${qty}${input.note ? ` — ${input.note}` : ""}`, lenient: true }, session);
       lossValue += r.lossValue; move = move ?? r.move;
     }

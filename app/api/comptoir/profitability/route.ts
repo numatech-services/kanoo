@@ -9,6 +9,7 @@ import { syncLinkedItems } from "@/lib/comptoir-stock";
 import { productSales } from "@/lib/comptoir-session";
 import { lossesReport } from "@/lib/spot-server";
 import { recipeUnitCost } from "@/lib/spot";
+import { portionRecipe } from "@/lib/restaurant";
 import { itemEconomics, stockOutlook, marginGap, THIN_MARKUP } from "@/lib/comptoir-economics";
 import { loadAutomationSettings } from "@/lib/automation-store";
 import { localDay } from "@/lib/comptoir-sale";
@@ -40,7 +41,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   const [desk, items, sold] = await Promise.all([
     ActivityDeskModel.findOne({ _id: deskId, ...tenantFilter(auth) }).select("vatRate targetMarkup").lean<{ vatRate?: number; targetMarkup?: number } | null>(),
     ActivityItemModel.find({ ...tenantFilter(auth), deskId: new Types.ObjectId(deskId), archived: { $ne: true } }).sort({ name: 1 })
-      .lean<Array<{ _id: Types.ObjectId; name: string; unit: string; category?: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number; targetMarkup?: number; productId?: unknown; pack?: { label?: string; size?: number; cost?: number }; recipe?: Array<{ itemId: Types.ObjectId; quantity: number }> }>>(),
+      .lean<Array<{ _id: Types.ObjectId; name: string; unit: string; category?: string; quantity: number; unitCost: number; salePrice?: number; threshold?: number; targetMarkup?: number; productId?: unknown; pack?: { label?: string; size?: number; cost?: number }; portions?: number; recipe?: Array<{ itemId: Types.ObjectId; quantity: number; yield?: number }> }>>(),
     productSales(auth.tenantId, deskId, from, to),
   ]);
   const [losses, settings] = await Promise.all([lossesReport(auth.tenantId, deskId, from, to), loadAutomationSettings(auth.tenantId)]);
@@ -54,7 +55,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
     // paquet ne sert qu'à compter. Article propre : le prix du paquet fait foi.
     const pack = it.productId && it.unitCost > 0 && it.pack ? { label: it.pack.label, size: it.pack.size } : it.pack;
     // Préparation : coût = ingrédients de la fiche recette ; pas de stock propre.
-    const recipe = it.recipe?.length ? recipeUnitCost(it.recipe.map(r => ({ itemId: String(r.itemId), quantity: r.quantity })), id => costBy.get(id) ?? 0) : null;
+    const recipe = it.recipe?.length ? recipeUnitCost(portionRecipe(it.recipe, it.portions).map(r => ({ itemId: String(r.itemId), quantity: r.quantity })), id => costBy.get(id) ?? 0) : null;
     const itemTarget = it.targetMarkup ?? target;
     const e = itemEconomics({ unitCost: recipe ? recipe.cost : it.unitCost, pack: recipe ? null : pack, salePrice: it.salePrice, vatRate: desk?.vatRate, targetMarkup: itemTarget });
     const s = soldBy.get(String(it._id));
@@ -68,7 +69,8 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
       _id: String(it._id), name: it.name, unit: it.unit, category: it.category ?? "", quantity: it.quantity, salePrice: it.salePrice ?? null,
       pack: it.pack ?? null, linked: !!it.productId, threshold: it.threshold ?? null,
       target: itemTarget, targetOwn: it.targetMarkup !== undefined && it.targetMarkup !== null, gap,
-      recipe: it.recipe?.map(r => ({ itemId: String(r.itemId), quantity: r.quantity, name: items.find(x => String(x._id) === String(r.itemId))?.name ?? "—" })) ?? [],
+      recipe: it.recipe?.map(r => ({ itemId: String(r.itemId), quantity: r.quantity, ...(r.yield ? { yield: r.yield } : {}), name: items.find(x => String(x._id) === String(r.itemId))?.name ?? "—" })) ?? [],
+      portions: it.portions ?? 1,
       recipeMissing: recipe?.missing.length ?? 0,
       losses: lossBy.get(String(it._id)) ?? null,
       economics: e, outlook: recipe ? { expectedRevenue: 0, expectedMargin: null, stockValue: 0 } : stockOutlook(it.quantity, e),
