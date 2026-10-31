@@ -32,7 +32,7 @@ interface Result {
   menu: Array<{ id: string; name: string; category?: string; quantity: number; unitMargin: number; mix: number; class: MenuClass }>;
   trend?: Array<{ month: string; revenueHT: number; materialMargin: number; charges: number; result: number; foodCostPct: number | null }>;
 }
-interface All { month: string; rows: Array<{ deskId: string; name: string; hasSector: boolean; closed: boolean; revenueHT: number; materialMargin: number; charges: number; result: number; foodCostPct: number | null; staffCostPct: number | null; tickets: number }>; totals: { revenueHT: number; materialMargin: number; charges: number; result: number; tickets: number } }
+interface All { month: string; rows: Array<{ deskId: string; name: string; hasSector: boolean; closed: boolean; revenueHT: number; unvaluedRevenueHT: number; warnings: number; materialMargin: number; charges: number; result: number; foodCostPct: number | null; staffCostPct: number | null; tickets: number }>; totals: { revenueHT: number; materialMargin: number; charges: number; result: number; tickets: number } }
 
 /**
  * Résultat du restaurant (gestion), mois par mois : ce que le comptoir a
@@ -244,7 +244,7 @@ function AllDesks({ data }: { data: All | null }) {
         <tbody>
           {data.rows.map(r => (
             <tr key={r.deskId} className="border-t border-line">
-              <td>{r.name}{!r.hasSector && <span className="block text-[11px] text-warn">sans secteur : charges non reprises</span>}</td>
+              <td>{r.name}{!r.hasSector && <span className="block text-[11px] text-warn">sans secteur : charges non reprises</span>}{r.unvaluedRevenueHT > 0 && <span className="block text-[11px] text-warn">{MONEY(r.unvaluedRevenueHT)} de ventes sans coût, hors marge</span>}{r.warnings > 0 && <span className="block text-[11px] text-ink3">{r.warnings} point(s) d&apos;attention : voir le comptoir</span>}</td>
               <td className="text-right font-mono">{r.tickets}</td>
               <td className="text-right font-mono">{MONEY(r.revenueHT)}</td>
               <td className="text-right font-mono">{MONEY(r.materialMargin)}</td>

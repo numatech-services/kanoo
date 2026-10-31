@@ -5,12 +5,14 @@ import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { ComptoirSaleModel, type ISaleLine } from "@/models/ComptoirSale";
 import { DeskMonthCloseModel } from "@/models/DeskMonthClose";
+import { ProductStockModel } from "@/models/ProductStock";
+import { StockLotModel } from "@/models/StockLot";
 import { CashClosingModel } from "@/models/CashClosing";
 import { ProductModel } from "@/models/Product";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { BusinessRuleError } from "@/lib/errors";
-import { applyMovement, reverseMovement } from "@/lib/stock";
+import { transferStock, applyMovement, reverseMovement } from "@/lib/stock";
 import { deskWarehouse } from "@/lib/comptoir-stock";
 import { accountForMethod } from "@/lib/comptoir";
 import { treasuryLedger, registerLedgerAccount } from "@/lib/treasury";
@@ -98,7 +100,7 @@ export interface SaleInput {
   external?: { source: "easypay" };
 }
 
-type DeskLite = { _id: Types.ObjectId; name: string };
+type DeskLite = { _id: Types.ObjectId; name: string; reserveWarehouseId?: Types.ObjectId };
 type ItemDoc = InstanceType<typeof ActivityItemModel>;
 
 /**
@@ -111,10 +113,32 @@ async function stockOut(auth: TokenPayload, desk: DeskLite, item: ItemDoc, qty: 
   let unitCost = item.unitCost || 0, stockMovementId: unknown, after: number;
   if (item.productId) {
     const wh = await deskWarehouse(tenantId, desk._id, session);
+    // Vente tolérante d'un article qui manque au comptoir : le manque monte d'abord de la réserve
+    // (il a été pris en réserve sans approvisionnement), pour ne pas ressortir en écart d'inventaire.
+    if (lenient && desk.reserveWarehouseId) {
+      const [here, there] = await Promise.all([
+        ProductStockModel.findOne({ tenantId, warehouseId: wh, productId: item.productId }).select("qty").session(session ?? null).lean<{ qty: number } | null>(),
+        ProductStockModel.findOne({ tenantId, warehouseId: desk.reserveWarehouseId, productId: item.productId }).select("qty").session(session ?? null).lean<{ qty: number } | null>(),
+      ]);
+      // Article suivi par lot : seuls les lots non périmés de la réserve peuvent monter.
+      const tracked = (await ProductModel.findOne({ _id: item.productId, tenantId }).select("trackingMode").session(session ?? null).lean<{ trackingMode?: string } | null>())?.trackingMode;
+      let inReserve = Math.max(0, there?.qty ?? 0);
+      if (tracked === "lot" || tracked === "serial") {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const lots = await StockLotModel.find({ tenantId, warehouseId: desk.reserveWarehouseId, productId: item.productId, qty: { $gt: 0 }, $or: [{ expiryDate: null }, { expiryDate: { $gte: today } }] }).select("qty").session(session ?? null).lean<Array<{ qty: number }>>();
+        inReserve = Math.min(inReserve, lots.reduce((t, l) => t + l.qty, 0));
+      }
+      const missing = Math.round((qty - Math.max(0, here?.qty ?? 0)) * 1000) / 1000, take = Math.min(missing, inReserve);
+      if (take > 0) {
+        const t = await transferStock({ tenantId, userId: auth.userId, productId: item.productId, fromWarehouseId: desk.reserveWarehouseId, toWarehouseId: wh, quantity: take,
+          reason: `Monté de la réserve pour le ticket ${number}`, linkedDocType: "comptoir", linkedDocId: desk._id, linkedDocNumber: number }, session);
+        await ActivityStockMoveModel.create([{ tenantId, deskId: desk._id, itemId: item._id, type: "supply", quantity: take, quantityAfter: t.in.after, reason: `Depuis la réserve (ticket ${number})`, stockMovementId: t.in.movement._id, date, createdBy: auth.userId }], { session });
+      }
+    }
     const r = await applyMovement({
       tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: "exit", quantity: qty,
       reason: `Ticket ${number}`, linkedDocType: "comptoir", linkedDocId: desk._id, linkedDocNumber: number,
-      ...(lenient ? { allowPartial: true } : {}),
+      ...(lenient ? { allowPartial: true, skipExpired: true } : {}),
     }, session);
     unitCost = Number(r.movement.unitCost) || 0;
     stockMovementId = r.movement._id;
@@ -178,10 +202,11 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
     const item = await ActivityItemModel.findOne({ _id: raw.itemId, tenantId, deskId: desk._id, archived: { $ne: true } }).session(session ?? null);
     if (!item) throw new BusinessRuleError("Article introuvable sur ce comptoir.");
     const product = item.productId
-      ? await ProductModel.findOne({ _id: item.productId, tenantId }).select("tvaRate category accountCode label").session(session ?? null).lean<{ tvaRate?: number; category?: string; accountCode?: string } | null>()
+      ? await ProductModel.findOne({ _id: item.productId, tenantId }).select("tvaRate category accountCode label code").session(session ?? null).lean<{ tvaRate?: number; category?: string; accountCode?: string; code?: string } | null>()
       : null;
     // TVA de l'ARTICLE (comptoir assujetti) ; un comptoir non assujetti (taux 0) vend sans TVA.
-    const tvaRate = !desk.vatRate ? 0 : product?.tvaRate ?? desk.vatRate;
+    // Fiche créée par le restaurant (code RST-) : elle suit TOUJOURS le taux du comptoir, même s'il change ensuite.
+    const tvaRate = !desk.vatRate ? 0 : product?.code?.startsWith("RST-") ? desk.vatRate : product?.tvaRate ?? desk.vatRate;
     // Prix : saisi en caisse, sinon le prix affiché, ou le meilleur prix d'une
     // promotion en cours (happy hour, prix de gros…).
     const manual = raw.unitPriceTTC !== undefined && raw.unitPriceTTC !== null;
@@ -195,6 +220,7 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
     let unitCost: number, stockMovementId: Types.ObjectId | undefined, moveId: Types.ObjectId | undefined, after: number | null = null;
     const ingredients: NonNullable<ISaleLine["ingredients"]> = [];
     const parts = raw.components?.length ? raw.components : item.recipe;
+    let missingCost: string[] = [];
     if (parts?.length) {
       let total = 0;
       for (const r of parts) {
@@ -211,6 +237,7 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
             if (!(sq > 0)) continue;
             const so = await stockOut(auth, desk, sub, sq, number, date, session, !!external || lenientIngredients);
             total += so.unitCost * sq;
+            if (!so.unitCost) missingCost.push(sub.name);
             ingredients.push({ itemId: sub._id, quantity: sq, unitCost: so.unitCost, stockMovementId: so.stockMovementId, stockMoveId: so.moveId });
           }
           continue;
@@ -219,6 +246,7 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
         const o = await stockOut(auth, desk, ing, q, number, date, session, !!external || lenientIngredients);
         if (lenientIngredients && q > shortBefore) warnings.push(`${ing.name} : manque au comptoir (${shortBefore} ${ing.unit} pour ${q}), vendu quand même — à régulariser à l'inventaire.`);
         total += o.unitCost * q;
+        if (!o.unitCost) missingCost.push(ing.name);
         ingredients.push({ itemId: ing._id, quantity: q, unitCost: o.unitCost, stockMovementId: o.stockMovementId, stockMoveId: o.moveId });
         if (ing.threshold != null && o.after <= ing.threshold) warnings.push(`${ing.name} : stock bas (${o.after} ${ing.unit}).`);
       }
@@ -231,6 +259,9 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
     }
 
     const line = saleLine({ quantity: qty, unitPriceTTC: price, discount: Number(raw.discount) || 0, tvaRate, unitCost } as SaleLineInput);
+    // Recette dont un ingrédient n'a pas de coût : la marge n'est pas connue (on ne suppose pas un ingrédient gratuit).
+    if (missingCost.length) { line.marginHT = null; warnings.push(`${item.name} : ingrédient(s) sans coût (${[...new Set(missingCost)].join(", ")}), marge non calculée.`); }
+    missingCost = [];
     if (line.marginHT !== null && line.marginHT < 0) warnings.push(`${item.name} : vendu sous son coût (marge ${line.marginHT.toLocaleString("fr-FR")} FCFA).`);
     if (!unitCost) warnings.push(`${item.name} : sans coût d'achat, marge non calculée.`);
     if (after !== null && item.threshold != null && after <= item.threshold) warnings.push(`${item.name} : stock bas (${after} ${item.unit}).`);

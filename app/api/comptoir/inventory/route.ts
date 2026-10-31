@@ -22,9 +22,11 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   const costs = canSeeDeskCosts(auth);
   const id = url.searchParams.get("id");
   if (isId(id)) {
-    const inv = await DeskInventoryModel.findOne({ _id: id, tenantId: auth.tenantId }).lean<{ deskId: unknown; lines: Line[] } | null>();
+    const inv = await DeskInventoryModel.findOne({ _id: id, tenantId: auth.tenantId }).lean<{ deskId: unknown; status: string; lines: Array<Line & { expectedAtCount?: number }> } | null>();
     if (!inv || !(await ownDesk(auth, String(inv.deskId)))) return notFound("Inventaire introuvable");
-    return ok(mask(inv, costs));
+    // Comptage à l'aveugle : le stock théorique ne s'affiche pas tant que l'inventaire est ouvert.
+    const blind = inv.status === "open" ? { ...inv, lines: inv.lines.map(({ expectedAtCount: _e, ...l }) => l) } : inv;
+    return ok(mask(blind, costs));
   }
   const deskId = url.searchParams.get("deskId");
   if (!isId(deskId) || !(await ownDesk(auth, deskId))) return notFound("Comptoir introuvable");
@@ -48,7 +50,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
         return ok(r);
       }
       if (body.action === "cancel") {
-        await cancelInventory(auth, body.id);
+        await cancelInventory(auth, body.id, canSeeDeskCosts(auth));
         await logAudit(auth, "UPDATE", "comptoir", { resourceId: String(body.id), metadata: { inventoryCancelled: inv.number } });
         return ok({ cancelled: true });
       }
@@ -56,7 +58,9 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     }
     if (!isId(body.deskId) || !(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
     const level = body.level === "reserve" ? "reserve" : "desk";
-    const inv = await openInventory(auth, body.deskId, level, typeof body.category === "string" && body.category.trim() ? body.category.trim().slice(0, 60) : undefined);
+    // Stock initial : ses écarts constituent le stock (hors résultat) ; réservé au chef ou à la finance.
+    const opening = body.opening === true && canSeeDeskCosts(auth);
+    const inv = await openInventory(auth, body.deskId, level, typeof body.category === "string" && body.category.trim() ? body.category.trim().slice(0, 60) : undefined, opening);
     return created(inv.toObject());
   } catch (e) {
     if (e instanceof BusinessRuleError) return badRequest(e.message);

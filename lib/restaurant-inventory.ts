@@ -29,7 +29,7 @@ async function theoretical(tenantId: string, deskId: string, level: Level, itemI
 }
 
 /** Ouvre un inventaire (comptoir ou réserve) : un seul ouvert par niveau. Les préparations (recettes) ne se comptent pas. */
-export async function openInventory(auth: TokenPayload, deskId: string, level: Level, category?: string) {
+export async function openInventory(auth: TokenPayload, deskId: string, level: Level, category?: string, opening = false) {
   const { rows } = await restaurantStock(auth.tenantId, deskId, false);
   const lines = rows.filter(r => !r.preparation && (!category || r.category === category) && (level === "desk" || r.linked || r.reserve > 0))
     .map(r => ({ itemId: new Types.ObjectId(r.itemId), name: r.name, unit: r.unit, ...(r.barcode ? { barcode: r.barcode } : {}), ...(r.pack?.size ? { packSize: r.pack.size } : {}) }));
@@ -37,7 +37,7 @@ export async function openInventory(auth: TokenPayload, deskId: string, level: L
   const d = new Date(), p = (n: number) => String(n).padStart(2, "0");
   const number = `INV-${localDay(d).replace(/-/g, "")}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${level === "desk" ? "C" : "R"}`;
   try {
-    return await DeskInventoryModel.create({ tenantId: auth.tenantId, deskId, number, level, ...(category ? { category } : {}), lines, startedBy: auth.userId });
+    return await DeskInventoryModel.create({ tenantId: auth.tenantId, deskId, number, level, ...(category ? { category } : {}), ...(opening ? { opening: true } : {}), lines, startedBy: auth.userId });
   } catch (e) {
     if ((e as { code?: number })?.code === 11000) throw new BusinessRuleError(`Un inventaire ${level === "desk" ? "du comptoir" : "de la réserve"} est déjà ouvert : terminez-le ou annulez-le.`);
     throw e;
@@ -124,7 +124,8 @@ export async function validateInventory(auth: TokenPayload, id: string) {
         item.quantity = Math.max(0, Math.round(((item.quantity || 0) + gap) * 1000) / 1000);
         await item.save({ session });
       }
-      const gapValue = Math.round(gap * unitCost);
+      // Même arrondi que la valeur de perte (au franc, symétrique) : le rapport des pertes et l'écart concordent.
+      const gapValue = gap < 0 ? -Math.round(-gap * unitCost) : Math.round(gap * unitCost);
       l.expected = expected; l.gap = gap; l.unitCost = unitCost; l.gapValue = gapValue;
       if (inv.level === "desk") {
         if (gap !== 0) await ActivityStockMoveModel.create([{ tenantId: auth.tenantId, deskId, itemId: item._id, type: "adjust", quantity: Math.abs(gap), quantityAfter: item.productId ? await theoretical(auth.tenantId, deskId, "desk", item._id, session) : item.quantity, unitCost, reason, stockMovementId,
@@ -142,7 +143,8 @@ export async function validateInventory(auth: TokenPayload, id: string) {
 }
 
 /** Annulation d'un inventaire encore ouvert (le stock ne bouge pas). */
-export async function cancelInventory(auth: TokenPayload, id: string) {
-  const r = await DeskInventoryModel.updateOne({ _id: id, tenantId: auth.tenantId, status: "open" }, { $set: { status: "cancelled" } });
-  if (r.modifiedCount !== 1) throw new BusinessRuleError("Inventaire déjà validé ou annulé.");
+export async function cancelInventory(auth: TokenPayload, id: string, canManage: boolean) {
+  // Annuler fait perdre les comptages de tous les appareils : le chef (ou la finance), ou celui qui a ouvert l'inventaire.
+  const r = await DeskInventoryModel.updateOne({ _id: id, tenantId: auth.tenantId, status: "open", ...(canManage ? {} : { startedBy: auth.userId }) }, { $set: { status: "cancelled" } });
+  if (r.modifiedCount !== 1) throw new BusinessRuleError(canManage ? "Inventaire déjà validé ou annulé." : "Seuls le chef du comptoir et la personne qui l'a ouvert annulent un inventaire (ou il est déjà clos).");
 }

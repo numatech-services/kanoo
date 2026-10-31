@@ -14,6 +14,7 @@ import { ProductStockModel } from "@/models/ProductStock";
 import { ProductModel } from "@/models/Product";
 import { StockMovementModel } from "@/models/StockMovement";
 import { lossesReport } from "@/lib/spot-server";
+import { EXPENSE_ACCOUNTS } from "@/lib/expense-categories";
 import { computePnl, chargeCategory, isGoodsPurchase, monthBounds, staffCost, CHARGE_CATEGORIES, type ChargeCategory, type Pnl } from "@/lib/restaurant";
 
 type Id = Types.ObjectId;
@@ -62,12 +63,14 @@ async function salesOf(tenantId: string, deskId: string, from: Date, to: Date) {
 /** Lignes de classe 6 du mois, par compte : imputées au secteur (`activityId`) ou communes (sans secteur). */
 async function class6(tenantId: string, from: Date, to: Date, activityId: Id | null) {
   const lineMatch = activityId ? { "lines.activityId": activityId } : { "lines.activityId": { $exists: false } };
-  return AccountingEntryModel.aggregate<{ _id: string; label: string; amount: number }>([
+  const rows = await AccountingEntryModel.aggregate<{ _id: { code: string; cash: boolean }; label: string; amount: number }>([
     { $match: { tenantId: oid(tenantId), entryDate: { $gte: from, $lte: to }, ...(activityId ? { "lines.activityId": activityId } : {}), "lines.accountCode": { $regex: "^6" } } },
     { $unwind: "$lines" },
     { $match: { ...lineMatch, "lines.accountCode": { $regex: "^6" } } },
-    { $group: { _id: "$lines.accountCode", label: { $last: "$lines.accountLabel" }, amount: { $sum: { $subtract: [{ $ifNull: ["$lines.debit", 0] }, { $ifNull: ["$lines.credit", 0] }] } } } },
+    { $group: { _id: { code: "$lines.accountCode", cash: { $eq: ["$linkedDocType", "desk_cash"] } }, label: { $last: "$lines.accountLabel" }, amount: { $sum: { $subtract: [{ $ifNull: ["$lines.debit", 0] }, { $ifNull: ["$lines.credit", 0] }] } } } },
   ]);
+  // `cash` : dépense de caisse du comptoir (primes, repas du personnel…), jamais un bulletin de paie.
+  return rows.map(r => ({ _id: r._id.code, cash: r._id.cash, label: r.label, amount: r.amount }));
 }
 
 /** Classe 7 du secteur : chiffre d'affaires comptable, pour le rapprochement. */
@@ -123,7 +126,7 @@ async function consumptionOf(tenantId: string, deskId: string, from: Date, to: D
 
 /** Résultat de gestion d'un comptoir pour un mois « AAAA-MM ». */
 export async function deskMonthResult(tenantId: string, deskId: string, month: string): Promise<MonthResult> {
-  const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("name activityId warehouseId reserveWarehouseId staff plannedCosts openDaysPerMonth commonCostShare").lean<DeskLean | null>();
+  const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("name activityId warehouseId reserveWarehouseId treasuryAccountId vatRate staff plannedCosts openDaysPerMonth commonCostShare").lean<DeskLean & { treasuryAccountId?: Id; vatRate?: number } | null>();
   if (!desk) throw new Error("Comptoir introuvable");
   const b = monthBounds(month);
   const warnings: string[] = [];
@@ -133,7 +136,7 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
     salesOf(tenantId, deskId, b.from, b.to),
     lossesReport(tenantId, deskId, b.fromDay, b.toDay),
     ItemCountModel.aggregate<{ v: number }>([{ $match: { tenantId: oid(tenantId), deskId: oid(deskId), day: { $gte: b.fromDay, $lte: b.toDay } } }, { $group: { _id: null, v: { $sum: "$gapValue" } } }]),
-    DeskInventoryModel.find({ tenantId, deskId, status: "validated", validatedAt: { $gte: b.from, $lte: b.to } }).select("number level gapValue validatedAt lines.itemId lines.gap").lean<Array<{ number: string; level: string; gapValue?: number; validatedAt: Date; lines: Array<{ itemId: Id; gap?: number }> }>>(),
+    DeskInventoryModel.find({ tenantId, deskId, status: "validated", validatedAt: { $gte: b.from, $lte: b.to } }).select("number level opening gapValue validatedAt lines.itemId lines.gap").lean<Array<{ number: string; level: string; opening?: boolean; gapValue?: number; validatedAt: Date; lines: Array<{ itemId: Id; gap?: number }> }>>(),
     desk.activityId ? class6(tenantId, b.from, b.to, desk.activityId) : Promise.resolve([]),
     desk.commonCostShare ? class6(tenantId, b.from, b.to, null) : Promise.resolve([]),
     staffOf(tenantId, desk, b.year, b.m),
@@ -142,7 +145,8 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
     desk.activityId ? revenueOf(tenantId, b.from, b.to, desk.activityId) : Promise.resolve(0),
     whs.length ? StockMovementModel.aggregate<{ _id: boolean; v: number; n: number }>([
       { $match: { tenantId: oid(tenantId), warehouseId: { $in: whs }, type: "entry", createdAt: { $gte: b.from, $lte: b.to } } },
-      { $group: { _id: { $gt: [{ $ifNull: ["$unitCost", 0] }, 0] }, v: { $sum: { $multiply: ["$quantity", { $ifNull: ["$unitCost", 0] }] } }, n: { $sum: 1 } } },
+      // Entrée « à valoriser » (réception sans prix) : repérée par son motif, même si le CMUP précédent lui a été appliqué.
+      { $group: { _id: { $and: [{ $gt: [{ $ifNull: ["$unitCost", 0] }, 0] }, { $not: [{ $regexMatch: { input: "$reason", regex: "à valoriser" } }] }] }, v: { $sum: { $multiply: ["$quantity", { $ifNull: ["$unitCost", 0] }] } }, n: { $sum: 1 } } },
     ]) : Promise.resolve([]),
   ]);
 
@@ -155,8 +159,9 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
   for (const c of tagged) {
     if (isGoodsPurchase(c._id)) { purchases += c.amount; continue; }
     const cat = chargeCategory(c._id);
-    // Personnel réparti par les bulletins : les 66 imputés au secteur ne s'y ajoutent pas.
-    if (!cat || (cat === "personnel" && hasStaff)) continue;
+    // Personnel réparti par les bulletins : les 66 de la paie imputés au secteur ne s'y ajoutent pas ;
+    // les primes et repas payés en caisse du comptoir, eux, restent.
+    if (!cat || (cat === "personnel" && hasStaff && !c.cash)) continue;
     const amount = Math.round(c.amount / split);
     if (amount) chargesDetail.push({ category: cat, accountCode: c._id, accountLabel: c.label, amount });
   }
@@ -170,6 +175,17 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
     const amount = Math.round(c.amount * share);
     if (amount) chargesDetail.push({ category: cat, accountCode: c._id, accountLabel: `${c.label} (quote-part ${Math.round(share * 100)} %)`, amount, common: true });
   }
+  // Dépenses de caisse sans écriture (comptoir sans caisse de trésorerie liée) : reprises par leur nature.
+  const unposted = await ActivityCashEntryModel.aggregate<{ _id: string; v: number }>([
+    { $match: { tenantId: oid(tenantId), deskId: oid(deskId), direction: "out", entryId: { $exists: false }, category: { $nin: ["supply", "ingredients", "purchase"] }, date: { $gte: b.from, $lte: b.to } } },
+    { $group: { _id: "$category", v: { $sum: "$amount" } } },
+  ]);
+  for (const u of unposted) {
+    const acc = EXPENSE_ACCOUNTS[u._id] ?? EXPENSE_ACCOUNTS.other!;
+    const cat = acc ? chargeCategory(acc.accountCode) : null;
+    if (cat && u.v) chargesDetail.push({ category: cat, accountCode: acc!.accountCode, accountLabel: `${acc!.accountLabel} (caisse, sans écriture)`, amount: Math.round(u.v) });
+  }
+  if (!desk.treasuryAccountId) warnings.push("Comptoir sans caisse de trésorerie liée : ses encaissements et dépenses ne passent pas en comptabilité ; le résultat les reprend depuis la caisse du comptoir.");
   chargesDetail.sort((a, b2) => a.accountCode.localeCompare(b2.accountCode));
   const byCat: Partial<Record<ChargeCategory, number>> = {};
   for (const c of chargesDetail) byCat[c.category] = (byCat[c.category] ?? 0) + c.amount;
@@ -183,15 +199,25 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
   const declared = losses.byReason.filter(r => r.reason !== "inventory");
   const staffMeals = declared.filter(r => STAFF_LOSSES.includes(r.reason)).reduce((t, r) => t + r.value, 0);
   const otherLosses = declared.filter(r => !STAFF_LOSSES.includes(r.reason)).reduce((t, r) => t + r.value, 0);
-  const reserveInv = invs.filter(i => i.level === "reserve");
+  // Inventaire de stock initial (première saisie) : il constitue le stock, ce n'est pas un gain du mois.
+  const reserveInv = invs.filter(i => i.level === "reserve" && !i.opening);
+  const openingGap = invs.filter(i => i.opening).reduce((t, i) => t + (i.gapValue ?? 0), 0);
   const reserveGap = reserveInv.reduce((t, i) => t + (i.gapValue ?? 0), 0);
   const cashPurchases = cash[0]?.v ?? 0;
+  // Ventes hors ticket (entrée de caisse « vente », sans ticket ni client à crédit) : au chiffre d'affaires, hors marge (coût inconnu).
+  const [offTicket] = await ActivityCashEntryModel.aggregate<{ v: number }>([
+    { $match: { tenantId: oid(tenantId), deskId: oid(deskId), direction: "in", saleId: { $exists: false }, customerId: { $exists: false }, category: { $ne: "non_sale" }, date: { $gte: b.from, $lte: b.to } } },
+    { $group: { _id: null, v: { $sum: "$amount" } } },
+  ]);
+  const offTicketHT = Math.round((offTicket?.v ?? 0) / (1 + (desk.vatRate ?? 0)));
+  if (offTicketHT) warnings.push(`${offTicketHT.toLocaleString("fr-FR")} FCFA HT de ventes hors ticket (entrées de caisse) : au chiffre d'affaires, hors marge. Passez les ventes par un ticket pour suivre leur marge.`);
   const thisMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
   const pnl = computePnl({
-    revenueHT: sales.ht, costOfSales: sales.cost, unvaluedRevenueHT: sales.unvaluedHT, tickets: sales.tickets, cashPurchases,
-    losses: otherLosses, staffAndOffered: staffMeals, inventoryGap: (counts[0]?.v ?? 0) + reserveGap,
+    revenueHT: sales.ht + offTicketHT, costOfSales: sales.cost, unvaluedRevenueHT: sales.unvaluedHT + offTicketHT, tickets: sales.tickets, cashPurchases,
+    losses: otherLosses, staffAndOffered: staffMeals, inventoryGap: (counts[0]?.v ?? 0) - invs.filter(i => i.opening && i.level === "desk").reduce((t, i) => t + (i.gapValue ?? 0), 0) + reserveGap,
     charges: byCat, planned, openDays: desk.openDaysPerMonth ?? 26, pastMonth: month < thisMonth,
   });
+  if (openingGap) warnings.push(`Stock initial saisi ce mois-ci par inventaire (${Math.round(openingGap).toLocaleString("fr-FR")} FCFA au coût) : hors résultat.`);
   if (sales.unvaluedHT > 0) warnings.push(`${sales.unvaluedLines} ligne(s) vendue(s) sans coût connu : leur chiffre d'affaires est hors marge tant que le coût n'est pas renseigné.`);
   if (!desk.activityId) warnings.push("Comptoir sans secteur analytique : les charges comptables (eau, électricité, loyer…) ne sont pas reprises.");
   const unvaluedReceptions = entries.find(e => e._id === false)?.n ?? 0;
@@ -212,7 +238,7 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
     lossesByItem: lossItems.map(l => ({ name: l.label || (itemNames.get(l.itemId) ?? "—"), reason: l.reason, quantity: l.quantity, value: l.value })),
     inventories: invs.map(i => ({ number: i.number, level: i.level, gapValue: i.gapValue ?? 0, validatedAt: i.validatedAt })),
     chargesDetail, staffDetail: staff.rows.map(({ hasSlip: _h, ...r }) => r), staffTotal, consumption,
-    reconciliation: { accountingRevenue: revenueAcc, accountingPurchases: Math.round(purchases / split), stockEntriesValued: Math.round(entries.find(e => e._id === true)?.v ?? 0), unvaluedReceptions, untaggedCharges: Math.round(untagged) },
+    reconciliation: { accountingRevenue: Math.round(revenueAcc / split), accountingPurchases: Math.round(purchases / split), stockEntriesValued: Math.round(entries.find(e => e._id === true)?.v ?? 0), unvaluedReceptions, untaggedCharges: Math.round(untagged) },
     warnings,
     closed: closed ? { closedAt: closed.closedAt, result: closed.snapshot.result ?? 0, drift: pnl.result - (closed.snapshot.result ?? 0), snapshot: closed.snapshot } : null,
   };

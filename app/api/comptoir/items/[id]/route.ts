@@ -49,7 +49,13 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
     // Un inventaire en cours reconnaît aussitôt le code attribué.
     if (code) await DeskInventoryModel.updateMany({ ...tenantFilter(auth), status: "open", deskId: (await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }).select("deskId").lean<{ deskId: unknown } | null>())?.deskId, "lines.itemId": params.id }, { $set: { "lines.$[l].barcode": code } }, { arrayFilters: [{ "l.itemId": new Types.ObjectId(params.id) }] });
   }
-  if ("archived" in clean) update.archived = Boolean(clean.archived);
+  if ("archived" in clean) {
+    update.archived = Boolean(clean.archived);
+    if (update.archived) {
+      const cur = await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }).select("deskId productId name").lean<{ deskId: unknown; productId?: unknown; name: string } | null>();
+      if (cur?.productId && (await reserveQty(auth, cur.deskId, cur.productId)) > 0) return badRequest(`« ${cur.name} » a encore du stock en réserve : sortez-le ou montez-le au comptoir avant d'archiver l'article.`);
+    }
+  }
   if ("category" in clean) update.category = String(clean.category || "").trim().slice(0, 60) || undefined;
   // Fiche recette : ingrédients = autres articles du même comptoir, sans recette eux-mêmes.
   if ("recipe" in clean) {
@@ -104,16 +110,18 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
       if (await ActivityItemModel.exists({ ...tenantFilter(auth), deskId: cur.deskId, productId: p._id, archived: { $ne: true } })) return badRequest("Cet article du catalogue est déjà au comptoir.");
       try {
         await withTransaction(async session => {
+          // Revendication d'abord, quantité relue dans la transaction : un double clic ne reprend pas le stock deux fois.
+          const claimed = await ActivityItemModel.findOneAndUpdate({ _id: cur._id, ...tenantFilter(auth), productId: { $exists: false } }, { $set: { ...update, productId: p._id } }, { session, new: false }).lean<{ quantity?: number; unitCost?: number } | null>();
+          if (!claimed) throw new StockError("Article déjà relié au catalogue.");
           const whId = await deskWarehouse(auth.tenantId, cur.deskId, session);
-          if ((cur.quantity ?? 0) > 0) {
+          if ((claimed.quantity ?? 0) > 0) {
             await applyMovement({
               tenantId: auth.tenantId, userId: auth.userId, productId: p._id, type: "entry", warehouseId: whId,
-              quantity: cur.quantity, unitCost: cur.unitCost || undefined, reason: `Reprise du stock du comptoir (${cur.name})`,
-              lots: p.trackingMode && p.trackingMode !== "none" ? [{ lotNumber: "REPRISE-COMPTOIR", qty: cur.quantity }] : undefined,
+              quantity: claimed.quantity!, unitCost: claimed.unitCost || undefined, reason: `Reprise du stock du comptoir (${cur.name})`,
+              lots: p.trackingMode && p.trackingMode !== "none" ? [{ lotNumber: "REPRISE-COMPTOIR", qty: claimed.quantity! }] : undefined,
               linkedDocType: "comptoir", linkedDocId: cur._id,
             }, session);
           }
-          await ActivityItemModel.updateOne({ _id: cur._id }, { $set: { ...update, productId: p._id } }, { session });
         });
       } catch (e) { if (e instanceof StockError) return badRequest(e.message); throw e; }
       await syncLinkedItems(auth.tenantId, cur.deskId);

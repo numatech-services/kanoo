@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound, tenantFilter, requireFields } from "@/lib/api-helpers";
-import { isId, ownDesk, postDeskCash } from "@/lib/comptoir";
+import { isId, ownDesk, postDeskCash, canSeeDeskCosts } from "@/lib/comptoir";
+import { ProductModel } from "@/models/Product";
+import { ProductStockModel } from "@/models/ProductStock";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
@@ -40,6 +42,8 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   if (err) return badRequest(err);
   if (!isId(body.itemId)) return badRequest("Article invalide");
   if (!(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
+  // Le coût d'achat met à jour le CMUP de l'article (et du catalogue) : réservé à qui voit les coûts.
+  if (!canSeeDeskCosts(auth)) { delete body.unitCost; delete body.packCost; }
   const type = body.type as "in" | "out" | "adjust";
   if (!["in", "out", "adjust"].includes(type)) return badRequest("Type de mouvement invalide");
   // Entrée par paquets : « 3 paquets de 24 à 5 100 » → 72 unités à 212,50.
@@ -73,7 +77,17 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       {
         // Une erreur de stock interrompt la transaction (rien n'est écrit) et
         // revient en 400 avec son message.
-        const r = await applyMovement({
+        // Ajustement d'un article suivi par lot sans lot précisé : on passe l'écart (perte ou reprise, lot automatique).
+        const product = await ProductModel.findOne({ _id: item.productId, ...tenantFilter(auth) }).select("trackingMode").session(session ?? null).lean<{ trackingMode?: string } | null>();
+        const lotAdjust = type === "adjust" && product?.trackingMode && product.trackingMode !== "none" && !(Array.isArray(body.lots) && body.lots.length);
+        const current = lotAdjust ? Math.max(0, (await ProductStockModel.findOne({ ...tenantFilter(auth), warehouseId: whId, productId: item.productId }).select("qty").session(session ?? null).lean<{ qty: number } | null>())?.qty ?? 0) : 0;
+        const gap = Math.round((qty - current) * 1000) / 1000;
+        if (lotAdjust && gap === 0) return { error: "Le stock est déjà à cette quantité." as const };
+        const r = lotAdjust ? await applyMovement({
+          tenantId: auth.tenantId, userId: auth.userId, productId: item.productId, warehouseId: whId, type: gap < 0 ? "loss" : "return", quantity: Math.abs(gap),
+          allowPartial: true, autoLot: `AJU-${new Date().toISOString().slice(0, 10)}`,
+          reason: String(body.reason || "Inventaire du comptoir").slice(0, 300), linkedDocType: "comptoir", linkedDocId: body.deskId,
+        }, session) : await applyMovement({
           tenantId: auth.tenantId, userId: auth.userId, productId: item.productId, warehouseId: whId,
           type: type === "in" ? "entry" : type === "out" ? "exit" : "adjustment", quantity: qty,
           unitCost: type === "in" && body.unitCost != null ? Number(body.unitCost) : undefined,

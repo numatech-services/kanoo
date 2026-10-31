@@ -47,16 +47,17 @@ export function InventoryPanel({ deskId, costs, categories, onChange }: { deskId
   const [openId, setOpenId] = useState<string | null>(null);
   const [start, setStart] = useState<"desk" | "reserve" | null>(null);
   const [category, setCategory] = useState("");
+  const [opening, setOpening] = useState(false);
   const [busy, setBusy] = useState(false);
   const open = list.filter(i => i.status === "open");
 
   async function create() {
     if (!start) return;
     setBusy(true);
-    const r = await apiSend<{ data: Inv; error?: string }>("POST", "/api/comptoir/inventory", { deskId, level: start, ...(category ? { category } : {}) });
+    const r = await apiSend<{ data: Inv; error?: string }>("POST", "/api/comptoir/inventory", { deskId, level: start, ...(category ? { category } : {}), ...(opening ? { opening: true } : {}) });
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Ouverture impossible", "error");
-    setStart(null); setCategory(""); reload(); setOpenId(r.data.data._id);
+    setStart(null); setCategory(""); setOpening(false); reload(); setOpenId(r.data.data._id);
   }
 
   return (
@@ -105,6 +106,7 @@ export function InventoryPanel({ deskId, costs, categories, onChange }: { deskId
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </FormField>
+        {costs && <label className="mt-3 inline-flex items-start gap-2 text-sm text-ink2"><input type="checkbox" className="mt-1" checked={opening} onChange={e => setOpening(e.target.checked)} /> Stock initial : première saisie du stock existant (les écarts constituent le stock, sans gain ni perte dans le résultat)</label>}
       </Modal>
       {openId && <CountScreen id={openId} costs={costs} onClose={() => { setOpenId(null); reload(); }} onValidated={() => { reload(); onChange(); }} />}
     </section>

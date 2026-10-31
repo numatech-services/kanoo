@@ -14,6 +14,8 @@ export interface IDeskInventory {
   level: "desk" | "reserve";
   status: "open" | "validated" | "cancelled";
   category?: string;
+  /** Stock initial (première saisie) : ses écarts constituent le stock, hors résultat du mois. */
+  opening?: boolean;
   /**
    * `parts` : un sous-total par appareil (deux magasiniers comptent le même
    * article à deux endroits, leurs comptages s'additionnent) ; `counted` en est
@@ -38,6 +40,7 @@ const DeskInventorySchema = new Schema<IDeskInventory>({
   level: { type: String, enum: ["desk", "reserve"], required: true },
   status: { type: String, enum: ["open", "validated", "cancelled"], default: "open" },
   category: { type: String, maxlength: 60 },
+  opening: { type: Boolean, default: false },
   lines: [{
     _id: false,
     itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true },

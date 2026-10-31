@@ -46,6 +46,8 @@ export interface MovementInput {
    * d'inventaire, réception sans numéro) : numéro du lot créé pour elle.
    */
   autoLot?: string;
+  /** Sortie tolérante (vente déjà servie) : les lots périmés ne sortent pas, la sortie s'arrête aux lots valables. */
+  skipExpired?: boolean;
 }
 
 type ProductLean = { _id: Types.ObjectId; label: string; stockQty?: number; purchaseCost?: number; isService?: boolean; trackingMode?: "none" | "lot" | "serial" };
@@ -150,7 +152,7 @@ async function availableLots(tenantId: string, productId: Types.ObjectId, wareho
 type ExpiredPolicy = "block" | "skip" | "allow";
 const isExpired = (d?: Date) => !!d && new Date(d).getTime() < new Date().setHours(0, 0, 0, 0);
 
-async function takeLots(tenantId: string, product: ProductLean, warehouseId: Types.ObjectId, qty: number, wanted: LotAlloc[] | null, session?: ClientSession, expired: ExpiredPolicy = "allow"): Promise<LotAlloc[]> {
+async function takeLots(tenantId: string, product: ProductLean, warehouseId: Types.ObjectId, qty: number, wanted: LotAlloc[] | null, session?: ClientSession, expired: ExpiredPolicy = "allow", partial = false): Promise<LotAlloc[]> {
   const avail = await availableLots(tenantId, product._id, warehouseId, session);
   let plan: LotAlloc[];
   if (wanted && wanted.length) {
@@ -172,7 +174,7 @@ async function takeLots(tenantId: string, product: ProductLean, warehouseId: Typ
       plan.push({ lotNumber: a.lotNumber, expiryDate: a.expiryDate, qty: take, unitCost: a.unitCost });
       rest -= take;
     }
-    if (rest > 0) throw new StockError(`« ${product.label} » : lots insuffisants dans cet entrepôt (${qty - rest} disponible(s)${skipped ? `, sans compter ${skipped} périmé(s) à sortir en perte` : ""}).`);
+    if (rest > 0 && !partial) throw new StockError(`« ${product.label} » : lots insuffisants dans cet entrepôt (${qty - rest} disponible(s)${skipped ? `, sans compter ${skipped} périmé(s) à sortir en perte` : ""}).`);
   }
   for (const p of plan) {
     const r = await StockLotModel.updateOne(
@@ -288,8 +290,10 @@ async function moveCore(input: CoreInput, session?: ClientSession) {
       }
       if (lotsIn.length) { await putLots(input.tenantId, product, wh._id, lotsIn, input.unitCost, session); lotsTouched.push(...lotsIn); }
     } else if (delta < 0) {
-      const policy: ExpiredPolicy = input.type === "exit" && input.linkedDocType !== "reversal" ? "block" : input.type === "transfer" ? "skip" : "allow";
-      const taken = await takeLots(input.tenantId, product, wh._id, -delta, lotsOut, session, policy);
+      const policy: ExpiredPolicy = input.skipExpired ? "skip" : input.type === "exit" && input.linkedDocType !== "reversal" ? "block" : input.type === "transfer" ? "skip" : "allow";
+      const taken = await takeLots(input.tenantId, product, wh._id, -delta, lotsOut, session, policy, !!input.allowPartial && !lotsOut);
+      // Sortie plafonnée : elle ne porte que sur ce que les lots valables ont fourni.
+      if (input.allowPartial && !lotsOut) delta = -taken.reduce((t, l) => t + l.qty, 0);
       lotsTouched = taken.map(t => ({ ...t, qty: -t.qty }));
     } else if (delta > 0) {
       await putLots(input.tenantId, product, wh._id, lotsIn, input.unitCost, session);

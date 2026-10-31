@@ -8,6 +8,8 @@ import { isId, allDesks } from "@/lib/comptoir";
 import { authCan } from "@/lib/role-resources";
 import { CHARGE_CATEGORIES } from "@/lib/restaurant";
 import { EmployeeModel } from "@/models/Employee";
+import { ActivityItemModel } from "@/models/ActivityItem";
+import { ProductModel } from "@/models/Product";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -58,7 +60,8 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
   }
   if ("expenseAccount" in clean) {
     const c = String(clean.expenseAccount || "").trim();
-    if (!/^6\d{2,7}$/.test(c)) return badRequest("Compte de charge (6…) attendu.");
+    // Compte d'achats de marchandises ou de matières seulement : au résultat de gestion, ces achats passent par le coût des ventes.
+    if (!/^60[12]\d{0,5}$/.test(c)) return badRequest("Compte d'achats du comptoir : 601… (marchandises) ou 602… (matières premières).");
     $set.expenseAccount = c;
   }
   // Réassort, objectifs de la semaine, inventaire tournant.
@@ -119,8 +122,15 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
   const update: Record<string, unknown> = {};
   if (Object.keys($set).length) update.$set = $set;
   if (Object.keys($unset).length) update.$unset = $unset;
-  const desk = await ActivityDeskModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, update, { new: true });
+  const desk = await ActivityDeskModel.findOneAndUpdate({ _id: params.id, ...tenantFilter(auth) }, update, { new: true }).lean<Record<string, unknown> | null>();
   if (!desk) return notFound("Comptoir introuvable");
+  // Nouveau taux du comptoir : ses fiches catalogue créées par le restaurant (RST-) le suivent.
+  if ("vatRate" in $set) {
+    const pids = (await ActivityItemModel.find({ ...tenantFilter(auth), deskId: params.id, productId: { $exists: true } }).select("productId").lean<Array<{ productId: unknown }>>()).map(i => i.productId);
+    if (pids.length) await ProductModel.updateMany({ ...tenantFilter(auth), _id: { $in: pids }, code: { $regex: "^RST-" } }, { $set: { tvaRate: $set.vatRate } });
+  }
   await logAudit(auth, "UPDATE", "comptoir", { resourceId: String(params.id) });
-  return ok(desk);
+  // Personnel affecté : renvoyé seulement à qui gère la paie.
+  const { staff, ...rest } = desk;
+  return ok(authCan(auth, "payslips", "read") ? desk : { ...rest, staff: staff === undefined ? undefined : [] });
 });

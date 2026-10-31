@@ -537,7 +537,7 @@ function CaisseTab({ deskId, deskName, onChange }: { deskId: string; deskName: s
 }
 
 function CashDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ direction: "in" as "in" | "out", amount: "", label: "", method: "cash", date: localDay(), category: "supply" });
+  const [form, setForm] = useState({ direction: "in" as "in" | "out", amount: "", label: "", method: "cash", date: localDay(), category: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function save() {
@@ -545,6 +545,8 @@ function CashDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
     if (!(Number(form.amount) > 0)) { setError("Montant invalide."); return; }
     setSaving(true); setError(null);
     try {
+      // Une dépense sans nature serait comptée comme achat de marchandises : la nature est obligatoire.
+      if (form.direction === "out" && !form.category) { setError("Choisissez la nature de la dépense."); setSaving(false); return; }
       await post("/api/comptoir/cash", { deskId, ...form, amount: Number(form.amount) });
       onSaved();
     } catch (e) { setError(e instanceof Error ? e.message : "Enregistrement impossible"); }
@@ -580,6 +582,7 @@ function CashDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
         {form.direction === "out" && (
           <FormField label="Nature de la dépense" hint="Elle fixe le compte de charge (eau, électricité, loyer…) et la ligne du résultat du comptoir.">
             <select className={selectCls} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+              <option value="">Choisir la nature…</option>
               {Object.entries(EXPENSE_CATEGORIES).filter(([k]) => k !== "utilities").map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </FormField>

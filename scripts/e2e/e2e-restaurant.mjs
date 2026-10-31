@@ -1,7 +1,7 @@
-// Scénario de bout en bout : pilotage — objectif de marge par article et écart
-// attendu/réalisé, échéancier fournisseurs, liquidation de la TVA, et les
-// automatisations (marges, EasyPay, réassort, contrôles comptables, calendrier
-// fiscal, factures fournisseurs, offres sans réponse).
+// Scénario de bout en bout : restauration — réserve et comptoir (réception,
+// approvisionnement, pertes, péremption), inventaires au scanner (plusieurs
+// appareils, vente pendant le comptage), résultat de gestion du mois (charges,
+// personnel, consommation, rapprochement), dossier Excel, clôture qui verrouille.
 import { readFileSync } from "fs";
 import { execFileSync } from "child_process";
 import { createRequire } from "module";
@@ -144,9 +144,12 @@ const notifs = async g => { const r = await g.req("GET", "/api/notifications?lim
   check("coût des ventes au coût de revient (canettes et riz de la recette)", r.pnl.costOfSales > 0 && r.pnl.grossMargin === r.pnl.valuedRevenueHT - r.pnl.costOfSales - r.pnl.cashPurchases, J({ cogs: r.pnl.costOfSales, v: r.pnl.valuedRevenueHT }));
   check("consommation théorique et réelle : le riz du plat invendu compte en pertes", r.consumption?.some(c => c.name === "Riz" && c.losses >= 0.2), J(r.consumption));
   check("rapprochement : CA comptable du secteur repris", r.reconciliation?.accountingRevenue >= 20_500, J(r.reconciliation));
-  check("écarts d'inventaire des deux niveaux comptés une fois", r.pnl.inventoryGap < 0 && r.inventories.length === 2 && !r.lossesByReason.some(l => l.reason === "inventory" && r.pnl.losses > 0), J({ gap: r.pnl.inventoryGap, losses: r.pnl.losses, by: r.lossesByReason }));
+  const near = (a, b) => Math.abs(a - b) <= 1;
+  const declared = r.lossesByReason.filter(l => !["inventory", "staff", "offered"].includes(l.reason)).reduce((t, l) => t + l.value, 0);
+  check("écarts d'inventaire des deux niveaux comptés une fois, hors pertes déclarées", r.inventories.length === 2 && near(r.pnl.inventoryGap, -938) && near(r.pnl.losses, declared) && near(r.pnl.losses, 745), J({ gap: r.pnl.inventoryGap, losses: r.pnl.losses, declared, by: r.lossesByReason }));
   check("charges : électricité 30 000 (prévu 25 000), personnel 60 000 (mi-temps de 120 000)", ch("electricite")?.actual === 30_000 && ch("electricite").planned === 25_000 && ch("personnel")?.actual === 60_000 && r.staffDetail[0]?.allocated === 60_000, J(r.pnl.charges));
-  check("achats de marchandises payés en caisse exclus des charges (au coût des ventes)", !r.chargesDetail.some(c => /^60[123]/.test(c.accountCode)), J(r.chargesDetail));
+  check("coût des ventes au CMUP (canettes à 312,50 après la hausse, riz de la recette) : 7 763", near(r.pnl.costOfSales, 7_763), J({ cogs: r.pnl.costOfSales }));
+  check("achats payés en caisse : au rapprochement (601 du secteur, 36 600), pas en charges ni en achats de caisse hors réception", r.reconciliation.accountingPurchases === 36_600 && r.pnl.cashPurchases === 0 && !r.chargesDetail.some(c => /^60[123]/.test(c.accountCode)), J({ rec: r.reconciliation, cash: r.pnl.cashPurchases }));
   check("résultat = marge matière − charges ; point mort par jour calculé", r.pnl.result === r.pnl.materialMargin - r.pnl.totalCharges && r.pnl.ratios.breakEvenPerDay > 0, J({ res: r.pnl.result, mm: r.pnl.materialMargin, c: r.pnl.totalCharges, be: r.pnl.ratios }));
   check("douze mois de tendance et analyse de la carte", r.trend?.length === 12 && r.menu?.length >= 1, J({ t: r.trend?.length, m: r.menu }));
   const all = D(await g.req("GET", `/api/comptoir/result?all=1&month=${month}`));

@@ -47,6 +47,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     if (!isId(body.activityId) || !(await ActivityModel.exists({ _id: body.activityId, ...tenantFilter(auth) }))) {
       return badRequest("Secteur analytique introuvable.");
     }
+    if (await ActivityDeskModel.exists({ ...tenantFilter(auth), activityId: body.activityId, archived: { $ne: true } })) return badRequest("Ce secteur analytique est déjà celui d'un autre comptoir : créez un secteur propre à chaque comptoir.");
     activityId = body.activityId;
   }
   const desk = await ActivityDeskModel.create({

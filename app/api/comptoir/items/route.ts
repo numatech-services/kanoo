@@ -49,6 +49,8 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     }
     await deskWarehouse(auth.tenantId, body.deskId);
   }
+  // Coût saisi à la création : seulement par qui voit les coûts (sinon l'article naît sans coût, à compléter par le chef).
+  if (!canSeeDeskCosts(auth)) { delete body.unitCost; if (body.pack && typeof body.pack === "object") delete (body.pack as { cost?: unknown }).cost; }
   const pack = "pack" in body ? parsePack(body.pack) : null;
   if (pack === "invalid") return badRequest("Conditionnement invalide (nombre d'unités par paquet, prix du paquet).");
   const barcode = typeof body.barcode === "string" ? body.barcode.replace(/\s+/g, "").slice(0, 60) : "";

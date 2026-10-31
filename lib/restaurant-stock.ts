@@ -13,7 +13,7 @@ import { BusinessRuleError } from "@/lib/errors";
 import { applyMovement, transferStock, type LotInput } from "@/lib/stock";
 import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
 import { postDeskCash } from "@/lib/comptoir";
-import { assertDayOpen } from "@/lib/comptoir-sale";
+import { assertDayOpen, assertMonthOpen } from "@/lib/comptoir-sale";
 import { costRise, supplySuggestion } from "@/lib/restaurant";
 import { LOSS_REASONS } from "@/lib/spot";
 import type { TokenPayload } from "@/lib/auth";
@@ -41,7 +41,8 @@ export async function deskReserve(tenantId: string, deskId: unknown, session?: C
   if (!desk) throw new BusinessRuleError("Comptoir introuvable.");
   if (desk.reserveWarehouseId && await WarehouseModel.exists({ _id: desk.reserveWarehouseId, tenantId, deskId: desk._id }).session(session ?? null)) return desk.reserveWarehouseId;
   // Code tiré de l'identifiant complet du comptoir : pas de collision entre deux comptoirs.
-  const code = `RES-${String(desk._id).toUpperCase()}`;
+  // Code de 20 caractères au plus (limite des entrepôts) : les 16 derniers caractères de l'identifiant du comptoir.
+  const code = `RES-${String(desk._id).slice(-16).toUpperCase()}`;
   let wh: { _id: Id; deskId?: Id } | null;
   try {
     wh = await WarehouseModel.findOneAndUpdate({ tenantId, code },
@@ -117,10 +118,13 @@ export async function restaurantStock(tenantId: string, deskId: string, costs: b
   const [res, lots] = await Promise.all([
     ProductStockModel.find({ tenantId, warehouseId: reserveId, productId: { $in: pids } }).select("productId qty").lean<Array<{ productId: Id; qty: number }>>(),
     StockLotModel.find({ tenantId, warehouseId: { $in: [reserveId, deskWh] }, productId: { $in: pids }, qty: { $gt: 0 }, expiryDate: { $ne: null } })
-      .select("productId expiryDate qty").sort({ expiryDate: 1 }).lean<Array<{ productId: Id; expiryDate: Date; qty: number }>>(),
+      .select("productId warehouseId expiryDate qty").sort({ expiryDate: 1 }).lean<Array<{ productId: Id; expiryDate: Date; qty: number }>>(),
   ]);
   const reserveQty = new Map(res.map(r => [String(r.productId), r.qty]));
-  const soon = now.getTime() + 7 * 86_400_000;
+  const reserveLots = lots.filter(l => String((l as { warehouseId?: Id }).warehouseId) === String(reserveId));
+  // Jugé au jour local : un lot est périmé le lendemain de sa date limite, comme au blocage des ventes.
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  const soon = today.getTime() + 8 * 86_400_000;
   const rows: StockRow[] = items.map(i => {
     const pid = i.productId ? String(i.productId) : "";
     const reserve = pid ? Math.max(0, reserveQty.get(pid) ?? 0) : 0;
@@ -134,9 +138,10 @@ export async function restaurantStock(tenantId: string, deskId: string, costs: b
       threshold: i.threshold, reserveThreshold: i.reserveThreshold,
       lowDesk: i.threshold != null && desk <= i.threshold, lowReserve: i.reserveThreshold != null && reserve <= i.reserveThreshold,
       nextExpiry: own[0] ? own[0].expiryDate.toISOString().slice(0, 10) : null,
-      expiringQty: own.filter(l => l.expiryDate.getTime() <= soon && l.expiryDate.getTime() >= now.getTime()).reduce((t, l) => t + l.qty, 0),
-      expiredQty: own.filter(l => l.expiryDate.getTime() < now.getTime()).reduce((t, l) => t + l.qty, 0),
-      suggestion: supplySuggestion({ desk, reserve, threshold: i.threshold, packSize: i.pack?.size }),
+      expiringQty: own.filter(l => l.expiryDate.getTime() < soon && l.expiryDate.getTime() >= today.getTime()).reduce((t, l) => t + l.qty, 0),
+      expiredQty: own.filter(l => l.expiryDate.getTime() < today.getTime()).reduce((t, l) => t + l.qty, 0),
+      // Les lots périmés de la réserve ne montent pas au comptoir : ils ne comptent pas dans la suggestion.
+      suggestion: supplySuggestion({ desk, reserve: Math.max(0, reserve - reserveLots.filter(l => String(l.productId) === pid && l.expiryDate.getTime() < today.getTime()).reduce((t, l) => t + l.qty, 0)), threshold: i.threshold, packSize: i.pack?.size }),
     };
   });
   const sum = (f: (r: StockRow) => number) => rows.reduce((t, r) => t + f(r), 0);
@@ -174,7 +179,9 @@ export async function receiveInReserve(auth: TokenPayload, deskId: string, lines
   let unvalued = 0;
   const total = await withTransaction(async session => {
     alerts.length = 0; unvalued = 0;
-    await assertDayOpen(auth.tenantId, deskId, date, session);
+    // La réserve ne touche pas la caisse : seul le mois clos l'arrête ; payée depuis la caisse, la journée doit être ouverte.
+    if (meta.paidFromCash) await assertDayOpen(auth.tenantId, deskId, date, session);
+    else await assertMonthOpen(auth.tenantId, deskId, date, session);
     const reserveId = await deskReserve(auth.tenantId, deskId, session);
     let sum = 0;
     for (const l of lines) {
@@ -234,7 +241,7 @@ export async function moveBetweenLevels(auth: TokenPayload, deskId: string, line
   if (!desk) throw new BusinessRuleError("Comptoir introuvable.");
   const reference = ref(direction === "supply" ? "APR" : "RTR", desk._id);
   await withTransaction(async session => {
-    await assertDayOpen(auth.tenantId, deskId, new Date(), session);
+    await assertMonthOpen(auth.tenantId, deskId, new Date(), session);
     const [reserveId, deskWh] = await Promise.all([deskReserve(auth.tenantId, deskId, session), deskWarehouse(auth.tenantId, deskId, session)]);
     for (const l of lines) {
       const it = await ActivityItemModel.findOne({ _id: l.itemId, tenantId: auth.tenantId, deskId }).select("name pack").session(session ?? null)
@@ -272,7 +279,7 @@ export async function reserveLoss(auth: TokenPayload, deskId: string, lines: Arr
   let value = 0;
   await withTransaction(async session => {
     value = 0;
-    await assertDayOpen(auth.tenantId, deskId, new Date(), session);
+    await assertMonthOpen(auth.tenantId, deskId, new Date(), session);
     const reserveId = await deskReserve(auth.tenantId, deskId, session);
     for (const l of lines) {
       const it = await ActivityItemModel.findOne({ _id: l.itemId, tenantId: auth.tenantId, deskId }).select("name pack productId quantity unitCost").session(session ?? null)

@@ -23,8 +23,21 @@ async function menuOf(tenantId: string, deskId: string, month: string) {
   return menuEngineering(sold.filter(s => s.valuedQty > 0).map(s => ({ id: s.itemId, name: s.label, category: s.category, quantity: s.valuedQty, marginHT: s.valuedHT - s.valuedCost })));
 }
 
-/** Paie : le détail nominatif ne sort que pour qui lit les bulletins ; les autres voient le total. */
-const forViewer = (r: MonthResult, auth: TokenPayload): MonthResult => (authCan(auth, "payslips", "read") ? r : { ...r, staffDetail: [] });
+/**
+ * Paie : le détail nominatif ne sort que pour qui lit les bulletins. Les
+ * autres voient le total du personnel, sauf si moins de trois personnes sont
+ * affectées (le total révélerait leur salaire) : il est alors fondu dans les
+ * autres charges, sans ratio de personnel.
+ */
+function forViewer(r: MonthResult, auth: TokenPayload): MonthResult {
+  if (authCan(auth, "payslips", "read")) return r;
+  if (r.staffDetail.length === 0 || r.staffDetail.length >= 3) return { ...r, staffDetail: [] };
+  const hidden = r.staffTotal;
+  const charges = r.pnl.charges.map(c => c.category === "personnel" ? { ...c, actual: c.actual - hidden } : c).filter(c => c.actual || c.planned);
+  const other = charges.find(c => c.category === "autres");
+  if (other) other.actual += hidden; else charges.push({ category: "autres", label: "Autres charges (dont personnel affecté)", actual: hidden, planned: 0 });
+  return { ...r, staffDetail: [], staffTotal: 0, pnl: { ...r.pnl, charges, ratios: { ...r.pnl.ratios, staffCostPct: null, primeCostPct: null } } };
+}
 
 /**
  * GET /api/comptoir/result?deskId=&month=AAAA-MM[&trend=1][&format=xlsx]
@@ -44,11 +57,11 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   if (url.searchParams.get("all") === "1") {
     const scope = deskScope(auth);
     const desks = await ActivityDeskModel.find({ tenantId: auth.tenantId, archived: { $ne: true }, ...(scope ? { _id: { $in: scope } } : {}) }).select("_id name").sort({ name: 1 }).lean<Array<{ _id: unknown; name: string }>>();
-    type Row = { deskId: string; name: string; hasSector: boolean; closed: boolean; revenueHT: number; materialMargin: number; charges: number; result: number; foodCostPct: number | null; staffCostPct: number | null; tickets: number };
+    type Row = { deskId: string; name: string; hasSector: boolean; closed: boolean; revenueHT: number; unvaluedRevenueHT: number; warnings: number; materialMargin: number; charges: number; result: number; foodCostPct: number | null; staffCostPct: number | null; tickets: number };
     const rows: Row[] = [];
     for (const d of desks) {
-      const r = await deskMonthResult(auth.tenantId, String(d._id), month);
-      rows.push({ deskId: String(d._id), name: d.name, hasSector: r.desk.hasSector, closed: !!r.closed, revenueHT: r.pnl.revenueHT, materialMargin: r.pnl.materialMargin, charges: r.pnl.totalCharges, result: r.pnl.result, foodCostPct: r.pnl.ratios.foodCostPct, staffCostPct: r.pnl.ratios.staffCostPct, tickets: r.sales.tickets });
+      const r = forViewer(await deskMonthResult(auth.tenantId, String(d._id), month), auth);
+      rows.push({ deskId: String(d._id), name: d.name, hasSector: r.desk.hasSector, closed: !!r.closed, revenueHT: r.pnl.revenueHT, unvaluedRevenueHT: r.pnl.unvaluedRevenueHT, warnings: r.warnings.length, materialMargin: r.pnl.materialMargin, charges: r.pnl.totalCharges, result: r.pnl.result, foodCostPct: r.pnl.ratios.foodCostPct, staffCostPct: r.pnl.ratios.staffCostPct, tickets: r.sales.tickets });
     }
     const sum = (k: "revenueHT" | "materialMargin" | "charges" | "result" | "tickets") => rows.reduce((t, r) => t + r[k], 0);
     return ok({ month, rows, totals: { revenueHT: sum("revenueHT"), materialMargin: sum("materialMargin"), charges: sum("charges"), result: sum("result"), tickets: sum("tickets") } });

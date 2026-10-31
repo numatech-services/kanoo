@@ -27,10 +27,12 @@ export function costRise(before: number, after: number, threshold = 0.05): numbe
  * comptoir est au-dessus de son seuil ou sans seuil.
  */
 export function supplySuggestion(i: { desk: number; reserve: number; threshold?: number; packSize?: number }): number {
-  if (i.threshold == null || i.desk > i.threshold || i.reserve <= 0) return 0;
-  const want = Math.max(i.threshold * 2 - i.desk, i.packSize ?? 1);
-  const rounded = i.packSize ? Math.ceil(want / i.packSize) * i.packSize : Math.ceil(want);
-  return Math.min(i.reserve, rounded);
+  if (i.threshold == null || !Number.isFinite(i.threshold) || !Number.isFinite(i.desk) || !Number.isFinite(i.reserve) || i.desk > i.threshold || i.reserve <= 0) return 0;
+  const pack = i.packSize && i.packSize > 0 ? i.packSize : 0;
+  const want = Math.max(i.threshold * 2 - i.desk, pack || 1);
+  // Arrondi au paquet entier sans erreur de virgule flottante (0,3 / 0,1 = 2,9999…).
+  const rounded = pack ? Math.ceil(Math.round((want / pack) * 1e9) / 1e9) * pack : Math.ceil(want);
+  return Math.min(i.reserve, Math.round(rounded * 1000) / 1000);
 }
 
 export const CHARGE_CATEGORIES = {
@@ -128,31 +130,35 @@ const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 1000) / 10 :
  * réel, pour le mois en cours seulement).
  */
 export function computePnl(i: PnlInput): Pnl {
-  const r = (n: number) => Math.round(n || 0);
-  const valued = Math.max(0, i.revenueHT - i.unvaluedRevenueHT);
-  const cash = i.cashPurchases ?? 0, staffMeals = i.staffAndOffered ?? 0;
-  const grossMargin = r(valued - i.costOfSales - cash);
-  const materialMargin = r(grossMargin - i.losses - staffMeals + i.inventoryGap);
+  // Entrées arrondies d'abord (une valeur manquante ou invalide vaut 0) : chaque ligne affichée s'additionne exactement.
+  const r = (n: number | undefined) => (Number.isFinite(n) ? Math.round(n as number) : 0);
+  const revenue = r(i.revenueHT), unvalued = Math.min(revenue, Math.max(0, r(i.unvaluedRevenueHT)));
+  const valued = revenue - unvalued;
+  const cost = r(i.costOfSales), cash = r(i.cashPurchases), losses = r(i.losses), staffMeals = r(i.staffAndOffered), gap = r(i.inventoryGap);
+  const grossMargin = valued - cost - cash;
+  const materialMargin = grossMargin - losses - staffMeals + gap;
   const cats = Object.keys(CHARGE_CATEGORIES) as ChargeCategory[];
   const charges = cats
-    .map(c => ({ category: c, label: CHARGE_CATEGORIES[c], actual: r(i.charges[c] ?? 0), planned: r(i.planned[c] ?? 0) }))
+    .map(c => ({ category: c, label: CHARGE_CATEGORIES[c], actual: r(i.charges[c]), planned: r(i.planned[c]) }))
     .filter(c => c.actual || c.planned);
   const totalCharges = charges.reduce((t, c) => t + c.actual, 0);
   const plannedCharges = charges.reduce((t, c) => t + c.planned, 0);
   const result = materialMargin - totalCharges;
-  const staff = i.charges.personnel ?? 0;
-  // Coût matière : ce que la marchandise a coûté pour vendre (hors repas du personnel et offerts).
-  const foodCost = i.costOfSales + cash + i.losses - i.inventoryGap;
+  const staff = r(i.charges.personnel);
+  // Coût matière : ce que la marchandise a coûté pour vendre (hors repas du personnel et offerts), rapporté au CA au coût connu.
+  const foodCost = cost + cash + losses - gap;
   const marginRate = valued > 0 ? materialMargin / valued : null;
-  const fixed = i.pastMonth ? totalCharges : Math.max(totalCharges, plannedCharges);
+  // Mois en cours : pour chaque rubrique, le plus élevé du prévu et du réel ; mois écoulé : le réel.
+  const fixed = i.pastMonth ? totalCharges : charges.reduce((t, c) => t + Math.max(c.actual, c.planned), 0);
   const breakEvenRevenue = marginRate && marginRate > 0 && fixed > 0 ? r(fixed / marginRate) : null;
   return {
-    revenueHT: r(i.revenueHT), valuedRevenueHT: r(valued), costOfSales: r(i.costOfSales), cashPurchases: r(cash), grossMargin,
-    losses: r(i.losses), staffAndOffered: r(staffMeals), inventoryGap: r(i.inventoryGap), materialMargin,
+    revenueHT: revenue, valuedRevenueHT: valued, costOfSales: cost, cashPurchases: cash, grossMargin,
+    losses, staffAndOffered: staffMeals, inventoryGap: gap, materialMargin,
     charges, totalCharges, plannedCharges, result,
     ratios: {
-      foodCostPct: pct(foodCost, valued), staffCostPct: pct(staff, valued), primeCostPct: pct(foodCost + staff, valued),
-      resultPct: pct(result, valued), averageTicket: i.tickets ? r(i.revenueHT / i.tickets) : null,
+      // Personnel et résultat : rapportés au CA total, comme d'usage ; coût matière et marge : au CA au coût connu.
+      foodCostPct: pct(foodCost, valued), staffCostPct: pct(staff, revenue), primeCostPct: valued > 0 && revenue > 0 ? Math.round((foodCost / valued + staff / revenue) * 1000) / 10 : null,
+      resultPct: pct(result, revenue), averageTicket: i.tickets ? r(i.revenueHT / i.tickets) : null,
       costPerTicket: i.tickets ? r((foodCost + staffMeals + totalCharges) / i.tickets) : null, marginRate: marginRate === null ? null : Math.round(marginRate * 1000) / 10,
       breakEvenRevenue, breakEvenPerDay: breakEvenRevenue && i.openDays > 0 ? r(breakEvenRevenue / i.openDays) : null,
     },
@@ -162,7 +168,7 @@ export function computePnl(i: PnlInput): Pnl {
 
 /** Coût du personnel affecté : coût employeur du mois × part du temps au comptoir. */
 export function staffCost(payslips: Array<{ employeeId: string; employerCost?: number; grossTotal?: number; cnssEmployer?: number }>, staff: Array<{ employeeId: string; share: number }>): number {
-  const share = new Map(staff.map(s => [String(s.employeeId), Math.min(1, Math.max(0, s.share))]));
+  const share = new Map(staff.map(s => [String(s.employeeId), Number.isFinite(s.share) ? Math.min(1, Math.max(0, s.share)) : 0]));
   return Math.round(payslips.reduce((t, p) => {
     const s = share.get(String(p.employeeId)) ?? 0;
     const cost = p.employerCost && p.employerCost > 0 ? p.employerCost : (p.grossTotal ?? 0) + (p.cnssEmployer ?? 0);
