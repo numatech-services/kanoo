@@ -74,6 +74,7 @@ const KEYWORDS: Record<string, string> = {
   "/restauration/prix": "prix de vente prix d'achat marge minimum 20 % carte",
   "/restauration/achats": "achats fournisseur comparaison historique prix facture rapprochement",
   "/restauration/equipe": "personnel équipe paie cuisinier serveur restaurant affectation",
+  "/restauration/pilotage": "pilotage point mort charges fixes variables simulation baisse budget réel amortissement équipement répartition clé",
   "/restauration/planning": "planning pointage horaires heures service présence absence repas du personnel",
   "/isic": "carte étudiant lot impression",
   "/isic/registre": "étudiant numéro licence renouvellement isic registre",

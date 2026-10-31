@@ -88,6 +88,10 @@ const AutomationSettingsSchema = new Schema(
       day: { type: Number, default: 6, min: 0, max: 6 },
       level: { type: String, enum: ["desk", "both"], default: "both" },
     },
+    restaurantReport: {
+      enabled: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+    },
     updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }

@@ -256,3 +256,65 @@ export function monthBounds(month: string): { from: Date; to: Date; fromDay: str
 }
 
 export const isMonth = (v: unknown): v is string => typeof v === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
+
+/**
+ * Charges qui suivent le volume vendu (par défaut) : consommables et
+ * emballages, gaz de cuisson, livraisons, frais de paiement. Les autres
+ * (personnel, loyer, électricité, assurances, amortissements…) sont tenues
+ * pour fixes sur le mois. Chaque restaurant peut corriger la liste.
+ */
+export const DEFAULT_VARIABLE_CATEGORIES: ChargeCategory[] = ["consommables", "energie", "transport", "banque"];
+
+/**
+ * Charges fixes et variables d'un mois, point mort et effet d'une baisse du
+ * volume vendu (prix et coûts unitaires inchangés). Variables : coût matière
+ * complet (coût des ventes, pertes, repas, écarts d'inventaire) et charges
+ * variables ; fixes : le reste.
+ */
+export function volumeSimulation(pnl: Pick<Pnl, "revenueHT" | "materialMargin" | "charges">, variableCats: string[] = DEFAULT_VARIABLE_CATEGORIES, drops = [0.1, 0.2, 0.3]) {
+  const R = pnl.revenueHT;
+  const variableCharges = pnl.charges.filter(c => variableCats.includes(c.category)).reduce((t, c) => t + c.actual, 0);
+  const fixed = pnl.charges.filter(c => !variableCats.includes(c.category)).reduce((t, c) => t + c.actual, 0);
+  const variable = Math.round(R - pnl.materialMargin + variableCharges);
+  const contribution = R - variable;
+  const rate = R > 0 ? contribution / R : null;
+  const breakEven = rate && rate > 0 ? Math.round(fixed / rate) : null;
+  return {
+    revenueHT: R, variable, variableCharges: Math.round(variableCharges), fixed: Math.round(fixed), contribution: Math.round(contribution),
+    contributionPct: rate === null ? null : Math.round(rate * 1000) / 10,
+    breakEvenRevenue: breakEven, safetyMarginPct: breakEven !== null && R > 0 ? Math.round(((R - breakEven) / R) * 1000) / 10 : null,
+    scenarios: drops.map(d => {
+      const r = R * (1 - d), result = Math.round(r * (rate ?? 0) - fixed);
+      return { dropPct: Math.round(d * 100), revenueHT: Math.round(r), result, resultPct: r > 0 ? Math.round((result / r) * 1000) / 10 : null };
+    }),
+  };
+}
+
+const dayMs = 86_400_000;
+const utcDay = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+/**
+ * Dotation aux amortissements d'un équipement pour un mois, au prorata des
+ * jours. Linéaire : (coût − valeur résiduelle) ÷ durée, du jour d'acquisition
+ * jusqu'à la fin de la durée ; autre méthode : annuité du plan de l'exercice
+ * répartie sur ses jours. Rien avant l'acquisition, après la cession ou la fin.
+ */
+export function monthlyDepreciation(a: {
+  acquisitionDate: Date | string; acquisitionCost: number; residualValue?: number; usefulLifeYears?: number; depreciationMethod?: string;
+  disposalDate?: Date | string | null; depreciationSchedule?: Array<{ year: number; annuity: number }>;
+}, year: number, month: number): number {
+  if (a.depreciationMethod === "none") return 0;
+  const acq = new Date(a.acquisitionDate), life = a.usefulLifeYears && a.usefulLifeYears > 0 ? a.usefulLifeYears : 5;
+  const endLife = Date.UTC(acq.getUTCFullYear() + life, acq.getUTCMonth(), acq.getUTCDate()); // exclu
+  const stop = a.disposalDate ? Math.min(endLife, utcDay(new Date(a.disposalDate)) + dayMs) : endLife;
+  const mStart = Date.UTC(year, month - 1, 1), mEnd = Date.UTC(year, month, 1);
+  const from = Math.max(mStart, utcDay(acq)), to = Math.min(mEnd, stop);
+  if (to <= from) return 0;
+  const days = (to - from) / dayMs;
+  if (a.depreciationMethod === "degressive") {
+    const annuity = a.depreciationSchedule?.find(s => s.year === year)?.annuity ?? 0;
+    const yFrom = Math.max(Date.UTC(year, 0, 1), utcDay(acq)), yTo = Math.min(Date.UTC(year + 1, 0, 1), stop);
+    return yTo > yFrom ? Math.round(annuity * days / ((yTo - yFrom) / dayMs)) : 0;
+  }
+  const base = Math.max(0, a.acquisitionCost - (a.residualValue ?? 0));
+  return Math.round(base * days / ((endLife - utcDay(acq)) / dayMs));
+}

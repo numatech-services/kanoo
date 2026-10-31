@@ -75,6 +75,8 @@ const FixedAssetSchema = new Schema({
   supplierId:     { type: Schema.Types.ObjectId, ref: "Supplier" },
   invoiceRef:     String,
   location:       String,
+  /** Restaurant (comptoir) qui utilise l'équipement : sa dotation mensuelle entre dans le résultat du restaurant. */
+  deskId:         { type: Schema.Types.ObjectId, ref: "ActivityDesk" },
   serialNumber:   String,
   notes:          String,
   createdBy:      { type: Schema.Types.ObjectId, ref: "User" },

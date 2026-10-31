@@ -16,13 +16,14 @@ import { StockMovementModel } from "@/models/StockMovement";
 import { lossesReport } from "@/lib/spot-server";
 import { EXPENSE_ACCOUNTS } from "@/lib/expense-categories";
 import { DEFAULT_TARGET_NET_MARGIN, targetGap } from "@/lib/restaurant-pricing";
-import { computePnl, chargeCategory, isGoodsPurchase, monthBounds, monthShares, staffCost, CHARGE_CATEGORIES, type ChargeCategory, type Pnl } from "@/lib/restaurant";
+import { FixedAssetModel } from "@/models/FixedAsset";
+import { computePnl, chargeCategory, isGoodsPurchase, monthBounds, monthlyDepreciation, monthShares, staffCost, CHARGE_CATEGORIES, type ChargeCategory, type Pnl } from "@/lib/restaurant";
 
 type Id = Types.ObjectId;
 const oid = (v: unknown) => new Types.ObjectId(String(v));
 const STAFF_LOSSES = ["staff", "offered"];
 
-interface DeskLean { _id: Id; name: string; activityId?: Id; warehouseId?: Id; reserveWarehouseId?: Id; staff?: Array<{ employeeId: Id; share: number; from?: string; to?: string }>; plannedCosts?: Array<{ category: string; label?: string; amount: number }>; openDaysPerMonth?: number; commonCostShare?: number }
+interface DeskLean { _id: Id; name: string; activityId?: Id; warehouseId?: Id; reserveWarehouseId?: Id; staff?: Array<{ employeeId: Id; share: number; from?: string; to?: string }>; plannedCosts?: Array<{ category: string; label?: string; amount: number }>; openDaysPerMonth?: number; commonCostShare?: number; sectorShare?: number }
 
 export interface ConsumptionRow { itemId: string; name: string; unit: string; sold: number; losses: number; inventoryGap: number; real: number; unitCost: number; varianceValue: number; variancePct: number | null }
 
@@ -130,7 +131,7 @@ async function consumptionOf(tenantId: string, deskId: string, from: Date, to: D
 
 /** Résultat de gestion d'un comptoir pour un mois « AAAA-MM ». */
 export async function deskMonthResult(tenantId: string, deskId: string, month: string): Promise<MonthResult> {
-  const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("name activityId warehouseId reserveWarehouseId treasuryAccountId vatRate staff plannedCosts openDaysPerMonth commonCostShare targetNetMargin").lean<DeskLean & { treasuryAccountId?: Id; vatRate?: number; targetNetMargin?: number } | null>();
+  const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("name activityId warehouseId reserveWarehouseId treasuryAccountId vatRate staff plannedCosts openDaysPerMonth commonCostShare sectorShare targetNetMargin").lean<DeskLean & { treasuryAccountId?: Id; vatRate?: number; targetNetMargin?: number } | null>();
   if (!desk) throw new Error("Comptoir introuvable");
   const b = monthBounds(month);
   const warnings: string[] = [];
@@ -154,9 +155,17 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
     ]) : Promise.resolve([]),
   ]);
 
-  // Charges imputées au secteur. Secteur partagé par plusieurs comptoirs : réparties à parts égales (avertissement).
+  // Charges imputées au secteur. Secteur partagé par plusieurs comptoirs : réparties selon la clé
+  // d'activité du comptoir (part saisie), à défaut à parts égales (avertissement).
   const split = 1 + sharing.length;
-  if (sharing.length) warnings.push(`Secteur analytique partagé avec ${sharing.map(s => s.name).join(", ")} : ses charges sont réparties à parts égales (1/${split}). Donnez un secteur propre à chaque comptoir pour un résultat exact.`);
+  const sectorPart = sharing.length ? (desk.sectorShare ?? 1 / split) : 1;
+  if (sharing.length) warnings.push(desk.sectorShare !== undefined && desk.sectorShare !== null
+    ? `Secteur analytique partagé avec ${sharing.map(s => s.name).join(", ")} : ce comptoir en porte ${Math.round(desk.sectorShare * 1000) / 10} % (clé de répartition).`
+    : `Secteur analytique partagé avec ${sharing.map(s => s.name).join(", ")} : ses charges sont réparties à parts égales (1/${split}). Fixez la part de chaque comptoir (Restauration → Pilotage) ou donnez-lui un secteur propre.`);
+  // Équipements rattachés au restaurant : leur dotation du mois remplace les dotations annuelles du secteur.
+  const assets = await FixedAssetModel.find({ tenantId, deskId: desk._id, status: { $ne: "disposed" } }).select("name acquisitionDate acquisitionCost residualValue usefulLifeYears depreciationMethod disposalDate depreciationSchedule")
+    .lean<Array<{ name: string; acquisitionDate: Date; acquisitionCost: number; residualValue?: number; usefulLifeYears?: number; depreciationMethod?: string; disposalDate?: Date; depreciationSchedule?: Array<{ year: number; annuity: number }> }>>();
+  const ownDepreciation = assets.length > 0;
   const hasStaff = (desk.staff ?? []).length > 0;
   const chargesDetail: MonthResult["chargesDetail"] = [];
   let purchases = 0;
@@ -165,8 +174,8 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
     const cat = chargeCategory(c._id);
     // Personnel réparti par les bulletins : les 66 de la paie imputés au secteur ne s'y ajoutent pas ;
     // les primes et repas payés en caisse du comptoir, eux, restent.
-    if (!cat || (cat === "personnel" && hasStaff && !c.cash)) continue;
-    const amount = Math.round(c.amount / split);
+    if (!cat || (cat === "personnel" && hasStaff && !c.cash) || (cat === "amortissements" && ownDepreciation)) continue;
+    const amount = Math.round(c.amount * sectorPart);
     if (amount) chargesDetail.push({ category: cat, accountCode: c._id, accountLabel: c.label, amount });
   }
   // Quote-part des charges communes (sans secteur), hors achats de marchandises et hors paie (répartie par les bulletins).
@@ -174,10 +183,14 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
   let untagged = 0;
   for (const c of common) {
     const cat = chargeCategory(c._id);
-    if (!cat || cat === "personnel") continue;
+    if (!cat || cat === "personnel" || (cat === "amortissements" && ownDepreciation)) continue;
     untagged += c.amount;
     const amount = Math.round(c.amount * share);
     if (amount) chargesDetail.push({ category: cat, accountCode: c._id, accountLabel: `${c.label} (quote-part ${Math.round(share * 100)} %)`, amount, common: true });
+  }
+  for (const a of assets) {
+    const amount = monthlyDepreciation(a, b.year, b.m);
+    if (amount) chargesDetail.push({ category: "amortissements", accountCode: "681", accountLabel: `Dotation du mois — ${a.name}`, amount });
   }
   // Dépenses de caisse sans écriture (comptoir sans caisse de trésorerie liée) : reprises par leur nature.
   const unposted = await ActivityCashEntryModel.aggregate<{ _id: string; v: number }>([
@@ -245,7 +258,7 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
     lossesByItem: lossItems.map(l => ({ name: l.label || (itemNames.get(l.itemId) ?? "—"), reason: l.reason, quantity: l.quantity, value: l.value })),
     inventories: invs.map(i => ({ number: i.number, level: i.level, gapValue: i.gapValue ?? 0, validatedAt: i.validatedAt })),
     chargesDetail, staffDetail: staff.rows.map(({ hasSlip: _h, ...r }) => r), staffTotal, consumption,
-    reconciliation: { accountingRevenue: Math.round(revenueAcc / split), accountingPurchases: Math.round(purchases / split), stockEntriesValued: Math.round(entries.find(e => e._id === true)?.v ?? 0), unvaluedReceptions, untaggedCharges: Math.round(untagged) },
+    reconciliation: { accountingRevenue: Math.round(revenueAcc * sectorPart), accountingPurchases: Math.round(purchases * sectorPart), stockEntriesValued: Math.round(entries.find(e => e._id === true)?.v ?? 0), unvaluedReceptions, untaggedCharges: Math.round(untagged) },
     warnings,
     closed: closed ? { closedAt: closed.closedAt, result: closed.snapshot.result ?? 0, drift: pnl.result - (closed.snapshot.result ?? 0), snapshot: closed.snapshot } : null,
   };

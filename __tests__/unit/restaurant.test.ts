@@ -154,3 +154,45 @@ describe("shiftHours — durée d'un poste", () => {
     expect(shiftHours("08:00", "08:00")).toBe(24);
   });
 });
+
+describe("volumeSimulation — fixes, variables, point mort", () => {
+  it("sépare les charges et calcule le point mort et les baisses de volume", async () => {
+    const { volumeSimulation } = await import("@/lib/restaurant");
+    // CA 1 000 000, marge matière 650 000 (matière 350 000), consommables 50 000 (variables), personnel 300 000 et loyer 100 000 (fixes).
+    const s = volumeSimulation({ revenueHT: 1_000_000, materialMargin: 650_000, charges: [
+      { category: "consommables", label: "", actual: 50_000, planned: 0 }, { category: "personnel", label: "", actual: 300_000, planned: 0 }, { category: "loyer", label: "", actual: 100_000, planned: 0 },
+    ] });
+    expect(s.variable).toBe(400_000);
+    expect(s.fixed).toBe(400_000);
+    expect(s.contributionPct).toBe(60);
+    expect(s.breakEvenRevenue).toBe(666_667);
+    expect(s.safetyMarginPct).toBe(33.3);
+    expect(s.scenarios.map(x => x.result)).toEqual([140_000, 80_000, 20_000]);
+  });
+  it("sans marge sur coûts variables : pas de point mort", async () => {
+    const { volumeSimulation } = await import("@/lib/restaurant");
+    expect(volumeSimulation({ revenueHT: 100, materialMargin: -10, charges: [] }).breakEvenRevenue).toBeNull();
+  });
+});
+
+describe("monthlyDepreciation — dotation du mois au prorata des jours", () => {
+  const four = { acquisitionDate: "2025-01-01", acquisitionCost: 1_200_000, usefulLifeYears: 5, depreciationMethod: "linear" };
+  it("linéaire : base × jours du mois ÷ jours de la durée", async () => {
+    const { monthlyDepreciation } = await import("@/lib/restaurant");
+    expect(monthlyDepreciation(four, 2026, 10)).toBe(Math.round(1_200_000 * 31 / 1826));
+  });
+  it("rien avant l'acquisition, après la fin de durée ou la cession ; prorata le mois d'acquisition", async () => {
+    const { monthlyDepreciation } = await import("@/lib/restaurant");
+    expect(monthlyDepreciation(four, 2024, 12)).toBe(0);
+    expect(monthlyDepreciation(four, 2030, 1)).toBe(0);
+    expect(monthlyDepreciation({ ...four, disposalDate: "2026-09-30" }, 2026, 10)).toBe(0);
+    expect(monthlyDepreciation({ ...four, acquisitionDate: "2026-10-17" }, 2026, 10)).toBe(Math.round(1_200_000 * 15 / 1826));
+    expect(monthlyDepreciation({ ...four, depreciationMethod: "none" }, 2026, 10)).toBe(0);
+  });
+  it("sur toute la durée, les dotations font la base amortissable", async () => {
+    const { monthlyDepreciation } = await import("@/lib/restaurant");
+    let t = 0;
+    for (let y = 2025; y <= 2029; y++) for (let m = 1; m <= 12; m++) t += monthlyDepreciation(four, y, m);
+    expect(Math.abs(t - 1_200_000)).toBeLessThanOrEqual(60);
+  });
+});

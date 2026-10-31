@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import type { CronJob } from "@/lib/cron-jobs";
 import { notify, getAdmins, getRecipients, actAs, liveTenants, type Id, type ActingUser } from "@/lib/cron-helpers";
 import { openInventory } from "@/lib/restaurant-inventory";
+import { weeklyReport } from "@/lib/restaurant-pilotage";
 import { DeskInventoryModel } from "@/models/DeskInventory";
 import { BusinessRuleError } from "@/lib/errors";
 import { loadAutomationSettings, claimOnce, claimEvery, releaseClaim, PLATFORM_TENANT } from "@/lib/automation-store";
@@ -515,7 +516,7 @@ const fcfa = (n: number) => formatMoney(Math.round(n));
 const MARGIN_MATERIALITY = 1_000;
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
-interface DeskReader { _id: Id; costs: boolean; operate: boolean; scope: string[] | null }
+interface DeskReader { _id: Id; costs: boolean; operate: boolean; payroll: boolean; scope: string[] | null }
 
 /**
  * Lecteurs possibles des comptoirs d'une organisation, selon leurs droits
@@ -535,7 +536,7 @@ async function deskReaders(tenantId: Id): Promise<DeskReader[]> {
     // de modifier le comptoir pour encaisser.
     const manages = effectiveRoles(a.auth.role, a.auth.roles).some(r => r === "pme_activity_manager" || r === "pme_manager");
     const costs = canSeeDeskCosts(auth), operate = costs || (manages && authCan(a.auth, "comptoir", "update"));
-    if (costs || operate) out.push({ _id: u._id, costs, operate, scope: deskScope(auth) });
+    if (costs || operate) out.push({ _id: u._id, costs, operate, payroll: authCan(a.auth, "payslips", "read"), scope: deskScope(auth) });
   }
   return out;
 }
@@ -879,6 +880,58 @@ async function runWeeklyInventory(now = new Date()): Promise<string> {
   return summary([[opened, "inventaire(s) de fin de semaine ouvert(s)"], [reminded, "relance(s) de validation"]], errors);
 }
 
+// ─── 19. Restauration : rapport du lundi ─────────────────────────────────────
+
+/**
+ * Le lundi matin, à chaque lecteur des coûts (chef du comptoir, gérance,
+ * comptabilité) : un rapport par restaurant de son périmètre. Paie masquée
+ * comme à l'écran pour qui ne la lit pas.
+ */
+async function runRestaurantReport(now = new Date()): Promise<string> {
+  let sent = 0;
+  const errors: string[] = [];
+  const d = niameyDate(now);
+  if (d.weekday !== 1) return "rien à faire (pas lundi)";
+  const today = new Date(d.year, d.month - 1, d.day);
+  const weekKey = `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+  const fm = (n: number) => formatMoney(n);
+  for (const { tenant, settings } of await tenantsWhere(s => s.restaurantReport.enabled)) {
+    try {
+      const desks = await ActivityDeskModel.find({ tenantId: tenant._id, archived: { $ne: true } }).select("name").sort({ name: 1 }).lean<Array<{ _id: Id; name: string }>>();
+      if (!desks.length) continue;
+      const readers = (await deskReaders(tenant._id)).filter(r => r.costs);
+      const cache = new Map<string, Awaited<ReturnType<typeof weeklyReport>>>();
+      for (const r of readers) {
+        const mine = desks.filter(x => onDesk(r, x._id));
+        if (!mine.length || !(await claimOnce(tenant._id, `restaurant-report:${weekKey}:${r._id}`))) continue;
+        const parts: string[] = [];
+        for (const desk of mine) {
+          const k = `${desk._id}:${r.payroll}`;
+          if (!cache.has(k)) cache.set(k, await weeklyReport(String(tenant._id), String(desk._id), today, r.payroll));
+          const w = cache.get(k)!;
+          // Restaurant sans activité ni sur la semaine ni sur le mois : rien à dire.
+          if (!w.week.tickets && !w.month.revenueHT && !w.week.losses) continue;
+          const monthLabel = new Date(`${w.month.month}-15T12:00:00`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+          parts.push(`${desk.name} — semaine du ${w.week.from.split("-").reverse().join("/")} : ${w.week.tickets} tickets, ${fm(w.week.revenueHT)} HT`
+            + `${w.week.foodCostPct !== null ? `, coût matière ${w.week.foodCostPct} %` : ""}, pertes ${fm(w.week.losses)}${w.week.inventoryGap ? `, écart d'inventaire ${fm(w.week.inventoryGap)}` : ""}. `
+            + `${w.month.complete ? "Mois de" : "Mois en cours,"} ${monthLabel} : résultat ${w.month.beforeStaff ? "avant personnel " : ""}${fm(w.month.result)}${w.month.resultPct !== null ? ` (${w.month.resultPct} % du CA, objectif ${w.month.target} %)` : ""}`
+            + `${w.month.gapToTarget ? `, il manque ${fm(w.month.gapToTarget)} pour l'objectif` : ""}.${w.belowMinPrice ? ` ${w.belowMinPrice} article(s) sous le prix minimum.` : ""}`);
+        }
+        if (!parts.length) { await releaseClaim(tenant._id, `restaurant-report:${weekKey}:${r._id}`); continue; }
+        await notify(tenant._id, r._id, "stock_alert", "Restaurants — rapport de la semaine", parts.join("\n"), "/restauration");
+        if (settings.restaurantReport.email) {
+          const u = await UserModel.findById(r._id).select("email").lean<{ email?: string } | null>();
+          if (u?.email) await sendEmail({ to: u.email, subject: `Restaurants — rapport de la semaine — ${tenant.name}`, html: mailBody("Rapport de la semaine des restaurants", parts.map(esc), { href: "/restauration", label: "Ouvrir la vue d'ensemble" }), text: parts.join("\n\n") });
+        }
+        sent++;
+      }
+    } catch (err) {
+      errors.push(`${tenant.name} : ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return summary([[sent, "rapport(s) du lundi envoyé(s)"]], errors);
+}
+
 // ─── 17. Appels d'offres sans réponse ────────────────────────────────────────
 
 async function runTenderFollowup(now = new Date()): Promise<string> {
@@ -931,11 +984,12 @@ export const AUTOMATION_JOBS: CronJob[] = [
   { id: "supplier-payments", label: "Factures fournisseurs à payer", cadence: "daily", schedule: "20 7 * * *", run: () => runSupplierPayments() },
   { id: "tender-followup", label: "Offres sans réponse", cadence: "daily", schedule: "40 7 * * *", run: () => runTenderFollowup() },
   { id: "weekly-inventory", label: "Restauration : inventaire de fin de semaine", cadence: "daily", schedule: "0 15 * * *", run: () => runWeeklyInventory() },
+  { id: "restaurant-report", label: "Restauration : rapport du lundi", cadence: "daily", schedule: "10 7 * * *", run: () => runRestaurantReport() },
 ];
 
 /** Pour les tests et le déclenchement manuel à une date donnée. */
 export const AUTOMATION_RUNNERS = {
   runDepreciation, runMorningBrief, runTreasuryAlert, runPayroll, runAccountantPacket,
   runApprovalReminders, runBudgetAlerts, runCotisationReminders, runDailyBackup, runErrorDigest,
-  runComptoirMorning, runEasypayBalance, runAccountingChecks, runFiscalCalendar, runSupplierPayments, runTenderFollowup, runWeeklyInventory,
+  runComptoirMorning, runEasypayBalance, runAccountingChecks, runFiscalCalendar, runSupplierPayments, runTenderFollowup, runWeeklyInventory, runRestaurantReport,
 };

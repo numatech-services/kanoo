@@ -29,6 +29,10 @@ export interface IActivityDesk {
   openDaysPerMonth?: number;
   /** Quote-part des charges communes non imputées (loyer global, compteur commun…) portée par ce comptoir (0,25 = 25 %). */
   commonCostShare?: number;
+  /** Part des charges du secteur analytique portée par ce comptoir quand le secteur est partagé (clé d'activité : surface, couverts, temps…). Absente = parts égales. */
+  sectorShare?: number;
+  /** Rubriques de charges qui suivent le volume vendu (simulation d'une baisse d'activité). Absente = liste par défaut. */
+  variableCategories?: string[];
   /** Vente d'un plat permise même si un ingrédient manque au comptoir : l'écart se régularise à l'inventaire. */
   lenientStock?: boolean;
   /** Marge nette visée, tous frais compris (personnel, eau, électricité…) : 0,20 = 20 % du CA HT. */
@@ -62,6 +66,8 @@ const ActivityDeskSchema = new Schema<IActivityDesk>({
   plannedCosts: [{ _id: false, category: { type: String, required: true, maxlength: 30 }, label: { type: String, maxlength: 80 }, amount: { type: Number, required: true, min: 0 } }],
   openDaysPerMonth: { type: Number, default: 26, min: 1, max: 31 },
   commonCostShare: { type: Number, min: 0, max: 1 },
+  sectorShare: { type: Number, min: 0, max: 1 },
+  variableCategories: { type: [String], default: undefined },
   lenientStock: { type: Boolean, default: false },
   targetNetMargin: { type: Number, default: 0.2, min: 0, max: 0.9 },
   treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount" },

@@ -25,6 +25,9 @@ import { priceHistory, toInvoice, markInvoiced } from "../../lib/restaurant-purc
 import { upsertShift, clock, deleteShift, weekPlanning, monthLabor } from "../../lib/restaurant-staff";
 import { validateStaff } from "../../lib/restaurant-team";
 import { SupplierModel } from "../../models/Supplier";
+import { FixedAssetModel } from "../../models/FixedAsset";
+import { pilotage, saveBudget, saveAllocation, linkAsset, weeklyReport } from "../../lib/restaurant-pilotage";
+import { volumeSimulation } from "../../lib/restaurant";
 import { StaffShiftModel } from "../../models/StaffShift";
 import { UserModel } from "../../models/User";
 import { ActivityModel } from "../../models/Activity";
@@ -237,6 +240,38 @@ async function main() {
   const labNo = await monthLabor(tenantId, deskId, month, false);
   check("sans droit paie : heures visibles, coûts et repas masqués", labNo.people[0]?.realHours === 4.5 && !("cost" in labNo.people[0]) && !("staffMeals" in labNo.people[0]) && !("cost" in (labNo.services[0] ?? {})));
   await StaffShiftModel.deleteMany({ tenantId, deskId });
+
+  console.log("\n▶ Pilotage : répartition, amortissements, budget, simulation, rapport du lundi");
+  const other = await ActivityDeskModel.findOne({ tenantId, name: "Autre restaurant" }).select("_id").lean<{ _id: Types.ObjectId }>();
+  check("clé de répartition partielle (un seul comptoir sur deux) : refusée", await refuses(() => saveAllocation(auth, deskId, { shares: [{ deskId, share: 0.7 }] }), /chaque comptoir/));
+  check("clé de répartition au-delà de 100 % : refusée", await refuses(() => saveAllocation(auth, deskId, { shares: [{ deskId, share: 0.8 }, { deskId: String(other!._id), share: 0.3 }] }), /dépassent/));
+  await saveAllocation(auth, deskId, { shares: [{ deskId, share: 0.7 }, { deskId: String(other!._id), share: 0.3 }] });
+  const rAlloc = await deskMonthResult(tenantId, deskId, month);
+  check("électricité du secteur partagé : 70 % de 30 000 = 21 000", rAlloc.pnl.charges.find(x => x.category === "electricite")?.actual === 21_000, rAlloc.pnl.charges.find(x => x.category === "electricite"));
+  const four = await FixedAssetModel.create({ tenantId, code: "IMMO-LOG-1", name: "Four mixte", category: "equipment", acquisitionDate: new Date("2025-01-01"), acquisitionCost: 1_200_000, usefulLifeYears: 5, depreciationMethod: "linear", status: "active" });
+  await linkAsset(auth, deskId, String(four._id), true);
+  check("équipement déjà rattaché : second rattachement refusé", await refuses(() => linkAsset(auth, String(other!._id), String(four._id), true), /déjà rattaché/));
+  const expDep = Math.round(1_200_000 * dim / ((Date.UTC(2030, 0, 1) - Date.UTC(2025, 0, 1)) / 86_400_000));
+  const rDep = await deskMonthResult(tenantId, deskId, month);
+  check(`dotation du mois du four : 1 200 000 × ${dim} j ÷ 1 826 j = ${expDep}`, rDep.pnl.charges.find(x => x.category === "amortissements")?.actual === expDep, rDep.pnl.charges.find(x => x.category === "amortissements"));
+  check("budget : onze mois au lieu de douze — refusé", await refuses(() => saveBudget(auth, deskId, y, { revenue: Array(11).fill(100_000), materialPct: 0.35, charges: [] }), /douze/));
+  await saveBudget(auth, deskId, y, { revenue: Array(12).fill(120_000), materialPct: 0.35, charges: [{ category: "electricite", annual: 240_000 }, { category: "personnel", annual: 600_000 }] });
+  const pil = await pilotage(tenantId, deskId, month, true, true);
+  const bm = pil.months[mo - 1];
+  check("budget du mois : 120 000 de CA, 78 000 de marge matière, 70 000 de charges, résultat 8 000", bm.budget?.revenueHT === 120_000 && bm.budget.materialMargin === 78_000 && bm.budget.charges === 70_000 && bm.budget.result === 8_000, bm.budget);
+  check("réel du mois face au budget, cumul de l'année", bm.actual?.result === rDep.pnl.result && pil.ytd?.budgetRevenue === 120_000 * mo, { a: bm.actual, ytd: pil.ytd });
+  check("pilotage : équipement listé avec sa dotation", pil.assets.some(a => a.name === "Four mixte" && a.monthly === expDep));
+  const sim = volumeSimulation(rDep.pnl);
+  const cvr = (rDep.pnl.revenueHT - sim.variable) / rDep.pnl.revenueHT;
+  check("simulation : fixes + variables = coûts totaux, point mort = fixes ÷ taux de marge sur coûts variables",
+    near(sim.variable + sim.fixed, rDep.pnl.revenueHT - rDep.pnl.result) && (sim.breakEvenRevenue === null ? cvr <= 0 : near(sim.breakEvenRevenue, Math.round(sim.fixed / cvr))), sim);
+  check("simulation : à volume −10 %, résultat = CA × 0,9 × taux − fixes", near(sim.scenarios[0].result, Math.round(rDep.pnl.revenueHT * 0.9 * cvr - sim.fixed)), sim.scenarios[0]);
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + ((8 - now.getDay()) % 7 || 7));
+  const wr = await weeklyReport(tenantId, deskId, monday, true);
+  check("rapport du lundi : la semaine écoulée compte les ventes du test", wr.week.tickets >= 1 && wr.week.revenueHT > 0 && wr.week.losses > 0, wr.week);
+  const runRep = await (AUTOMATION_RUNNERS as Record<string, (n?: Date) => Promise<string>>).runRestaurantReport(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate(), 8));
+  check("rapport du lundi envoyé, une fois par semaine", /envoyé/.test(runRep) && !/envoyé/.test(await (AUTOMATION_RUNNERS as Record<string, (n?: Date) => Promise<string>>).runRestaurantReport(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate(), 9))), runRep);
+  check("pas lundi : aucun rapport", /pas lundi/.test(await (AUTOMATION_RUNNERS as Record<string, (n?: Date) => Promise<string>>).runRestaurantReport(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 1, 8))));
 
   console.log(`\n${pass} réussis, ${fail} en échec`);
   await mongoose.disconnect();

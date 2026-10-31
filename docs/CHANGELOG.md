@@ -1,5 +1,20 @@
 # Kanoo — Changelog
 
+## Restauration — pilotage (novembre 2026)
+
+**Pilotage** (Restauration → Pilotage), réservé au chef du comptoir, à la gérance et à la comptabilité :
+- **charges fixes et variables** du mois. Les variables : coût matière complet, plus les rubriques qui suivent le volume (par défaut consommables, gaz, livraisons, frais de paiement ; liste modifiable par restaurant). Avec elles : marge sur coûts variables, **point mort**, marge de sécurité ;
+- **simulation d'une baisse du volume** de 10, 20 et 30 % : CA, résultat et marge nette, prix et coûts unitaires inchangés ;
+- **budget annuel par restaurant** : CA HT mois par mois, coût matière visé, charges annuelles par rubrique. Il est comparé au réel mois par mois et en cumul (les mois clos reprennent leur résultat figé) ;
+- **amortissement des équipements** : un équipement du registre des immobilisations se rattache à un restaurant. Sa dotation est comptée chaque mois au prorata des jours (linéaire ; dégressif d'après le plan de l'exercice). Elle remplace les dotations annuelles du secteur, sans double compte ;
+- **clé de répartition** des charges d'un secteur analytique partagé par plusieurs restaurants (surface, couverts, heures…), au lieu des parts égales. Toutes les parts sont fixées ou aucune, et leur total ne dépasse pas 100 %. Elle relève de la comptabilité ou de la gérance.
+
+**Rapport du lundi** (Paramètres → Automatisations, activé par défaut) : chaque lundi matin, pour chaque restaurant de son périmètre, le chef, la gérance et la comptabilité reçoivent :
+- la semaine écoulée : tickets, CA HT, coût matière, pertes, écarts d'inventaire ;
+- le mois : le mois écoulé pendant la première semaine, ensuite le mois en cours. Résultat, marge nette contre l'objectif et ce qu'il manque, articles sous le prix minimum ;
+- en notification, et par e-mail si l'option est cochée ;
+- la paie reste masquée comme à l'écran.
+
 ## Restauration — achats et personnel (novembre 2026)
 
 **Achats du restaurant** (Restauration → Achats) :

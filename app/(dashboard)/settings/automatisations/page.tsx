@@ -250,6 +250,13 @@ export default function AutomationsPage() {
                   Compter aussi la réserve (stock en gros)
                 </label>
               </Section>
+              <Section icon={<ClipboardCheck size={18} />} title="Rapport du lundi des restaurants" disabled={ro} on={s.restaurantReport.enabled} onToggle={v => set("restaurantReport", { enabled: v })}
+                desc="Chaque lundi matin, pour chaque restaurant : la semaine écoulée (tickets, CA, coût matière, pertes, écarts d'inventaire) et le mois (résultat et marge nette contre l'objectif, prix sous le minimum). Au chef du comptoir, à la gérance et à la comptabilité.">
+                <label className="flex items-center gap-2 text-sm text-ink2">
+                  <input type="checkbox" className="accent-section" disabled={ro} checked={s.restaurantReport.email} onChange={e => set("restaurantReport", { email: e.target.checked })} />
+                  Envoyer aussi par e-mail
+                </label>
+              </Section>
               {data.hasEasypay && (
                 <Section icon={<PlugZap size={18} />} title="EasyPay" disabled={ro} on={s.easypayRecon.enabled} onToggle={v => set("easypayRecon", { enabled: v })}
                   desc="Dans le point du matin : envois de la caisse en attente de traitement (quelle que soit leur date), tickets payés par carte hors comptabilité, caisse silencieuse depuis plus de 24 h. Une fois par semaine au plus, aux responsables financiers : reversement à faire.">
