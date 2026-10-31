@@ -196,3 +196,24 @@ describe("monthlyDepreciation — dotation du mois au prorata des jours", () => 
     expect(Math.abs(t - 1_200_000)).toBeLessThanOrEqual(60);
   });
 });
+
+describe("codes-barres — unité, carton, autres", () => {
+  const rows = [
+    { name: "Coca 33 cl", barcode: "5449000000996", packBarcode: "15449000000993", altBarcodes: ["6111000000011"] },
+    { name: "Fanta 33 cl", barcode: "5449000011527" },
+    { name: "Eau Belvie 1,5 L" },
+  ];
+  it("le code du carton désigne l'article en carton, les autres codes en unité", async () => {
+    const { matchCode } = await import("@/lib/barcodes");
+    expect(matchCode(rows, "15449000000993")).toEqual({ row: rows[0], pack: true });
+    expect(matchCode(rows, " 5449000000996 ")).toEqual({ row: rows[0], pack: false });
+    expect(matchCode(rows, "6111000000011")?.pack).toBe(false);
+    expect(matchCode(rows, "belvie")?.row.name).toBe("Eau Belvie 1,5 L");
+    expect(matchCode(rows, "33 cl")).toBeNull();
+    expect(matchCode(rows, "0000")).toBeNull();
+  });
+  it("codesOf rassemble les codes non vides", async () => {
+    const { codesOf } = await import("@/lib/barcodes");
+    expect(codesOf({ barcode: "A1", packBarcode: "", altBarcodes: ["B 2", ""] })).toEqual(["A1", "B2"]);
+  });
+});

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Store, Tags, Users, ChefHat, CookingPot, ShoppingBasket, CalendarClock, Gauge, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Store, Tags, Users, ChefHat, CookingPot, ShoppingBasket, CalendarClock, Gauge, ShieldCheck, Truck, Smartphone } from "lucide-react";
 
 const LINKS = [
   { href: "/restauration", label: "Vue d'ensemble", icon: <LayoutDashboard size={15} /> },
@@ -14,6 +14,8 @@ const LINKS = [
   { href: "/restauration/planning", label: "Planning", icon: <CalendarClock size={15} /> },
   { href: "/restauration/pilotage", label: "Pilotage", icon: <Gauge size={15} /> },
   { href: "/restauration/hygiene", label: "Hygiène", icon: <ShieldCheck size={15} /> },
+  { href: "/restauration/transferts", label: "Transferts", icon: <Truck size={15} /> },
+  { href: "/restauration/magasin", label: "Magasin (mobile)", icon: <Smartphone size={15} /> },
 ];
 
 /** Les pages du module Restauration, d'un clic. */

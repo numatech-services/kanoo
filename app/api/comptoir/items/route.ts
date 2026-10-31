@@ -54,7 +54,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   const pack = "pack" in body ? parsePack(body.pack) : null;
   if (pack === "invalid") return badRequest("Conditionnement invalide (nombre d'unités par paquet, prix du paquet).");
   const barcode = typeof body.barcode === "string" ? body.barcode.replace(/\s+/g, "").slice(0, 60) : "";
-  if (barcode && await ActivityItemModel.exists({ ...tenantFilter(auth), deskId: body.deskId, barcode, archived: { $ne: true } })) return badRequest("Ce code-barres est déjà celui d'un autre article du comptoir.");
+  if (barcode && await ActivityItemModel.exists({ ...tenantFilter(auth), deskId: body.deskId, archived: { $ne: true }, $or: [{ barcode }, { packBarcode: barcode }, { altBarcodes: barcode }] })) return badRequest("Ce code-barres est déjà celui d'un autre article du comptoir.");
   const item = await ActivityItemModel.create({
     tenantId: auth.tenantId,
     deskId: body.deskId,

@@ -3,7 +3,8 @@
  * sans serveur compilé : les fonctions serveur sont appelées directement
  * (réserve, approvisionnement, ventes, pertes, inventaires, résultat, prix,
  * vue d'ensemble, inventaire de fin de semaine, verrou du mois clos, fiches
- * techniques, production, achats et rapprochement, planning et pointage).
+ * techniques, production, achats et rapprochement, planning et pointage,
+ * pilotage, hygiène, transferts entre restaurants).
  * Complète le scénario HTTP e2e-restaurant.mjs, qui exige une compilation.
  *
  *   MONGODB_URI=mongodb://127.0.0.1:27099/kanoo_e2e?directConnection=true npx tsx scripts/e2e/restaurant-logic.ts
@@ -28,6 +29,7 @@ import { SupplierModel } from "../../models/Supplier";
 import { FixedAssetModel } from "../../models/FixedAsset";
 import { pilotage, saveBudget, saveAllocation, linkAsset, weeklyReport } from "../../lib/restaurant-pilotage";
 import { volumeSimulation } from "../../lib/restaurant";
+import { sendTransfer, receiveTransfer, getTransfer } from "../../lib/restaurant-transfer";
 import { saveHygieneSetup, recordTemperature, receiveControlled, recordSample, discardSample, recordCleaning, hygieneOverview, itemLots, traceLot } from "../../lib/restaurant-hygiene";
 import { StaffShiftModel } from "../../models/StaffShift";
 import { UserModel } from "../../models/User";
@@ -307,6 +309,25 @@ async function main() {
   const tr = await traceLot(tenantId, deskId, String(poulet._id), "LOT-P1");
   const dish = tr.dishes.find(x => x.label === "Poulet braisé");
   check("traçabilité : LOT-P1 reçu (BL-P1), monté au comptoir, vendu dans 4 « Poulet braisé »", tr.movements.some(m => m.type === "entry") && tr.movements.some(m => m.type === "transfer") && dish?.quantity === 4 && tr.tickets.length === 1, tr);
+
+  console.log("\n▶ Transferts entre restaurants");
+  const sigPng = `data:image/png;base64,${"iVBORw0KGgo".padEnd(400, "A")}=`;
+  const otherId = String(other!._id);
+  check("transfert sans signature : refusé", await refuses(() => sendTransfer(auth, deskId, otherId, [{ itemId: String(poulet._id), quantity: 1 }], { name: "Awa", signature: "" }), /signature/i));
+  check("transfert vers le même restaurant : refusé", await refuses(() => sendTransfer(auth, deskId, deskId, [{ itemId: String(poulet._id), quantity: 1 }], { name: "Awa", signature: sigPng }), /autre restaurant/));
+  check("transfert d'une préparation : refusé", await refuses(() => sendTransfer(auth, deskId, otherId, [{ itemId: String(braise._id), quantity: 1 }], { name: "Awa", signature: sigPng }), /préparation/));
+  check("transfert au-delà de la réserve : refusé", await refuses(() => sendTransfer(auth, deskId, otherId, [{ itemId: String(poulet._id), quantity: 50 }], { name: "Awa", signature: sigPng }), /insuffisant|disponible/i));
+  const tr1 = await sendTransfer(auth, deskId, otherId, [{ itemId: String(poulet._id), quantity: 1 }], { name: "Awa Cuisine", signature: sigPng }, "Dépannage");
+  const otherRows = (await restaurantStock(tenantId, otherId, true)).rows;
+  const op = otherRows.find(r => r.name === "Poulet");
+  const tdoc = await getTransfer(tenantId, tr1._id, true) as unknown as { value: number; status: string; lines: Array<{ lots: Array<{ lotNumber: string }> }> };
+  check("transfert : 1 kg sorti de la réserve d'origine, entré dans celle du destinataire (article créé, même produit)", (await row(poulet._id)).reserve === 2 && op?.reserve === 1, { from: (await row(poulet._id)).reserve, op });
+  check("bon : lot LOT-P1 conservé, valeur au coût 2 500, à réceptionner", tdoc.lines[0].lots[0]?.lotNumber === "LOT-P1" && tdoc.value === 2500 && tdoc.status === "sent", tdoc);
+  check("réception signée par un autre restaurant que le destinataire : refusée", await refuses(() => receiveTransfer(auth, tr1._id, async id => id !== otherId, { name: "Moussa", signature: sigPng }), /destinataire/));
+  await receiveTransfer(auth, tr1._id, async id => id === otherId, { name: "Moussa", signature: sigPng }, "RAS");
+  check("réception signée ; seconde signature refusée", (await getTransfer(tenantId, tr1._id, true) as unknown as { status: string }).status === "received" && await refuses(() => receiveTransfer(auth, tr1._id, async () => true, { name: "Moussa", signature: sigPng }), /déjà/));
+  await sendTransfer(auth, deskId, otherId, [{ itemId: String(poulet._id), quantity: 0.5 }], { name: "Awa Cuisine", signature: sigPng });
+  check("second transfert : même article destinataire réutilisé (pas de doublon)", (await restaurantStock(tenantId, otherId, true)).rows.filter(r => r.name === "Poulet").length === 1 && near(((await restaurantStock(tenantId, otherId, true)).rows.find(r => r.name === "Poulet")?.reserve ?? 0) * 1000, 1500));
 
   console.log(`\n${pass} réussis, ${fail} en échec`);
   await mongoose.disconnect();

@@ -9,6 +9,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { showToast } from "@/components/ui/Toast";
 import { apiJson, apiSend } from "@/lib/api-client";
 import { BarcodeScanner, beep } from "@/components/shared/BarcodeScanner";
+import { matchCode } from "@/lib/barcodes";
 
 const MONEY = (n?: number | null) => (n === undefined || n === null ? "—" : `${Math.round(n).toLocaleString("fr-FR")} FCFA`);
 const QTY = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 3 });
@@ -16,7 +17,7 @@ const QTY = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 3 
 const num = (v: string) => { const t = v.replace(/\s/g, "").replace(",", "."); return t === "" ? NaN : Number(t); };
 
 export interface StockRow {
-  itemId: string; name: string; unit: string; category?: string; barcode?: string; linked: boolean; preparation: boolean;
+  itemId: string; name: string; unit: string; category?: string; barcode?: string; packBarcode?: string; altBarcodes?: string[]; linked: boolean; preparation: boolean;
   pack: { label?: string; size?: number } | null;
   desk: number; reserve: number; total: number; unitCost: number | null; value: number | null;
   threshold?: number; reserveThreshold?: number; lowDesk: boolean; lowReserve: boolean;
@@ -170,10 +171,13 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
     <Modal open onClose={onClose} size="xl" title="Réception en réserve" description="Achat au marché ou livraison sans bon de commande. Une commande passée depuis le comptoir entre en réserve à sa réception (Achats → Commandes)."
       footer={<><button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button><button disabled={busy} onClick={save} className={buttonClass("primary", "md")}>Enregistrer{costs && total ? ` (${MONEY(total)})` : ""}</button></>}>
       <div className="space-y-3">
-        <BarcodeScanner placeholder="Scanner l'article reçu ou taper son nom, puis Entrée" onCode={code => {
-          const c = code.toLowerCase();
-          const hit = stock.find(r => r.barcode?.toLowerCase() === c) ?? (() => { const m = stock.filter(r => r.name.toLowerCase().includes(c)); return m.length === 1 ? m[0] : undefined; })();
-          beep(!!hit); if (hit) add(hit); else showToast(`« ${code} » : article inconnu (attribuez le code dans les réglages de l'article).`, "error");
+        <BarcodeScanner placeholder="Scanner l'article reçu (unité ou carton) ou taper son nom, puis Entrée" onCode={code => {
+          const m = matchCode(stock, code);
+          beep(!!m);
+          if (!m) return showToast(`« ${code} » : article inconnu (attribuez le code dans les réglages de l'article).`, "error");
+          // Code du carton : chaque lecture ajoute un carton.
+          if (m.pack && m.row.pack?.size) setLines(ls => ls.some(l => l.itemId === m.row.itemId) ? ls.map(l => l.itemId === m.row.itemId ? { ...l, packs: String((num(l.packs) || 0) + 1) } : l) : [...ls, { ...emptyLine(m.row), packs: "1" }]);
+          else add(m.row);
         }} />
         <select className={selectCls} value="" onChange={e => { const r = byId.get(e.target.value); if (r) add(r); }}>
           <option value="">Ajouter un article…</option>
@@ -249,10 +253,14 @@ export function LevelMoveDialog({ deskId, rows, direction, initial, onClose, onD
       description={direction === "supply" ? "Les lots les plus proches de leur péremption sortent les premiers." : "Invendus ou surplus redescendus en réserve."}
       footer={<><button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button><button disabled={busy} onClick={save} className={buttonClass("primary", "md")}>Valider</button></>}>
       <div className="space-y-3">
-        <BarcodeScanner placeholder="Scanner ou taper un article, puis Entrée" onCode={code => {
-          const c = code.toLowerCase();
-          const hit = stock.find(r => r.barcode?.toLowerCase() === c) ?? (() => { const m = stock.filter(r => r.name.toLowerCase().includes(c)); return m.length === 1 ? m[0] : undefined; })();
-          beep(!!hit); if (hit) setQty(q => hit.itemId in q ? q : { ...q, [hit.itemId]: { packs: "", units: "" } });
+        <BarcodeScanner placeholder="Scanner (unité ou carton) ou taper un article, puis Entrée" onCode={code => {
+          const m = matchCode(stock, code);
+          beep(!!m);
+          if (!m) return;
+          const id = m.row.itemId;
+          // Code du carton : chaque lecture ajoute un carton ; code de l'unité : une unité de plus si l'article est déjà choisi.
+          if (m.pack && m.row.pack?.size) setQty(q => ({ ...q, [id]: { packs: String((num(q[id]?.packs ?? "") || 0) + 1), units: "" } }));
+          else setQty(q => id in q ? (num(q[id].packs) > 0 ? q : { ...q, [id]: { packs: "", units: String((num(q[id].units) || 0) + 1) } }) : { ...q, [id]: { packs: "", units: "" } });
         }} />
         <select className={selectCls} value="" onChange={e => e.target.value && setQty(q => ({ ...q, [e.target.value]: { packs: "", units: "" } }))}>
           <option value="">Ajouter un article…</option>
@@ -279,24 +287,32 @@ export function LevelMoveDialog({ deskId, rows, direction, initial, onClose, onD
 /** Réglages de stock d'un article : code-barres et seuils des deux niveaux. */
 export function StockItemDialog({ row, onClose, onDone }: { row: StockRow; onClose: () => void; onDone: () => void }) {
   const [barcode, setBarcode] = useState(row.barcode ?? "");
+  const [packBarcode, setPackBarcode] = useState(row.packBarcode ?? "");
+  const [alt, setAlt] = useState<string[]>(row.altBarcodes ?? []);
   const [threshold, setThreshold] = useState(row.threshold != null ? String(row.threshold) : "");
   const [reserveThreshold, setReserveThreshold] = useState(row.reserveThreshold != null ? String(row.reserveThreshold) : "");
   const [busy, setBusy] = useState(false);
   async function save() {
     setBusy(true);
     const r = await apiSend<{ error?: string }>("PATCH", `/api/comptoir/items/${row.itemId}`, {
-      barcode, ...(threshold !== "" ? { threshold: Number(threshold) } : {}), ...(reserveThreshold !== "" ? { reserveThreshold: Number(reserveThreshold) } : {}),
+      barcode, packBarcode, altBarcodes: alt, ...(threshold !== "" ? { threshold: Number(threshold) } : {}), ...(reserveThreshold !== "" ? { reserveThreshold: Number(reserveThreshold) } : {}),
     });
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Enregistrement refusé", "error");
     showToast("Article mis à jour", "success"); onDone();
   }
   return (
-    <Modal open onClose={onClose} title={row.name} description="Code-barres lu au scanner, seuils d'alerte du comptoir et de la réserve."
+    <Modal open onClose={onClose} title={row.name} description="Codes-barres lus au scanner (unité, carton, autres étiquettes), seuils d'alerte du comptoir et de la réserve."
       footer={<><button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button><button disabled={busy} onClick={save} className={buttonClass("primary", "md")}>Enregistrer</button></>}>
       <div className="space-y-3">
-        <FormField label="Code-barres"><BarcodeScanner placeholder="Scanner l'article ou taper son code" onCode={c => { beep(true); setBarcode(c); }} /></FormField>
+        <FormField label="Code-barres de l'unité"><BarcodeScanner placeholder="Scanner l'article ou taper son code" onCode={c => { beep(true); setBarcode(c); }} /></FormField>
         {barcode && <p className="text-sm">Code retenu : <span className="font-mono">{barcode}</span> <button onClick={() => setBarcode("")} className="text-xs text-ink3 underline">effacer</button></p>}
+        {row.pack?.size ? <>
+          <FormField label={`Code-barres du ${row.pack.label || "carton"} (${row.pack.size} ${row.unit})`}><BarcodeScanner placeholder="Scanner le carton" onCode={c => { beep(true); setPackBarcode(c); }} /></FormField>
+          {packBarcode && <p className="text-sm">Carton : <span className="font-mono">{packBarcode}</span> <button onClick={() => setPackBarcode("")} className="text-xs text-ink3 underline">effacer</button></p>}
+        </> : <p className="text-xs text-ink3">Pas de conditionnement en carton déclaré : le code du carton se règle avec le paquet de l&apos;article.</p>}
+        <FormField label="Autres codes de l'unité (autre fournisseur, autre étiquette)"><BarcodeScanner placeholder="Scanner un autre code" onCode={c => { beep(true); setAlt(a => a.includes(c) || a.length >= 10 ? a : [...a, c]); }} /></FormField>
+        {alt.length > 0 && <p className="text-sm flex flex-wrap gap-2">{alt.map(c => <span key={c} className="font-mono">{c} <button onClick={() => setAlt(a => a.filter(x => x !== c))} className="text-xs text-ink3 underline">retirer</button></span>)}</p>}
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label={`Seuil du comptoir (${row.unit})`}><input className={inputCls} inputMode="decimal" value={threshold} onChange={e => setThreshold(e.target.value)} /></FormField>
           <FormField label={`Seuil de la réserve (${row.unit})`}><input className={inputCls} inputMode="decimal" value={reserveThreshold} onChange={e => setReserveThreshold(e.target.value)} /></FormField>

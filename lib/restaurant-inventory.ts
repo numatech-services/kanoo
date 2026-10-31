@@ -34,7 +34,7 @@ async function theoretical(tenantId: string, deskId: string, level: Level, itemI
 export async function openInventory(auth: TokenPayload, deskId: string, level: Level, category?: string, opening = false, weekly = false) {
   const { rows } = await restaurantStock(auth.tenantId, deskId, false);
   const lines = rows.filter(r => !r.preparation && (!category || r.category === category) && (level === "desk" || r.linked || r.reserve > 0))
-    .map(r => ({ itemId: new Types.ObjectId(r.itemId), name: r.name, unit: r.unit, ...(r.barcode ? { barcode: r.barcode } : {}), ...(r.pack?.size ? { packSize: r.pack.size } : {}) }));
+    .map(r => ({ itemId: new Types.ObjectId(r.itemId), name: r.name, unit: r.unit, ...(r.barcode ? { barcode: r.barcode } : {}), ...(r.packBarcode ? { packBarcode: r.packBarcode } : {}), ...(r.altBarcodes?.length ? { altBarcodes: r.altBarcodes } : {}), ...(r.pack?.size ? { packSize: r.pack.size } : {}) }));
   if (!lines.length) throw new BusinessRuleError("Aucun article à compter.");
   const d = new Date(), p = (n: number) => String(n).padStart(2, "0");
   const number = `INV-${localDay(d).replace(/-/g, "")}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${level === "desk" ? "C" : "R"}`;

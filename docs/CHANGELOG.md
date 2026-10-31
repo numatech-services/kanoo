@@ -1,5 +1,28 @@
 # Kanoo — Changelog
 
+## Restauration — confort du magasin (novembre 2026)
+
+**Écran du magasinier** (Restauration → Magasin), pensé pour le téléphone et la douchette. Trois gros boutons :
+- **Recevoir** une livraison en réserve, avec son contrôle à réception ;
+- **Monter au comptoir** : les articles sous leur seuil sont proposés d'office ;
+- **Compter** : l'inventaire au scanner, à plusieurs appareils.
+
+Un lien mène aussi aux transferts.
+
+**Plusieurs codes-barres par article** (réglages de stock de l'article) :
+- le code de l'unité ;
+- le **code du carton** : une lecture vaut un carton entier, à la réception, à la montée au comptoir, à l'inventaire et au transfert ;
+- d'autres codes de l'unité (autre fournisseur, autre étiquette).
+
+Chaque code reste unique sur le comptoir, et un inventaire en cours reconnaît aussitôt les codes attribués.
+
+**Transferts entre restaurants** (Restauration → Transferts) :
+- de la réserve d'un restaurant à celle d'un autre ;
+- lots et coût conservés : les lots les plus proches de leur péremption partent d'abord, un lot périmé ne part pas ;
+- l'article est créé chez le destinataire s'il n'existe pas, relié au même produit ;
+- **bon numéroté signé à l'écran** par l'expéditeur, puis par le réceptionnaire du restaurant destinataire, qui peut signaler un écart ;
+- le bon s'imprime avec les deux signatures ; la valeur au coût n'apparaît qu'à qui voit les coûts.
+
 ## Restauration — hygiène (HACCP) (novembre 2026)
 
 **Hygiène** (Restauration → Hygiène) : le registre du restaurant. On y ajoute des lignes, on ne les réécrit pas.

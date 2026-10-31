@@ -76,6 +76,8 @@ const KEYWORDS: Record<string, string> = {
   "/restauration/equipe": "personnel équipe paie cuisinier serveur restaurant affectation",
   "/restauration/pilotage": "pilotage point mort charges fixes variables simulation baisse budget réel amortissement équipement répartition clé",
   "/restauration/hygiene": "hygiène haccp température frigo congélateur réception plat témoin nettoyage traçabilité lot rappel",
+  "/restauration/transferts": "transfert restaurant bon signé dépannage réserve lot",
+  "/restauration/magasin": "magasin magasinier mobile téléphone douchette recevoir monter compter",
   "/restauration/planning": "planning pointage horaires heures service présence absence repas du personnel",
   "/isic": "carte étudiant lot impression",
   "/isic/registre": "étudiant numéro licence renouvellement isic registre",

@@ -24,7 +24,7 @@ export interface IDeskInventory {
    * la somme. `expectedAtCount` : stock théorique au PREMIER comptage de
    * l'article, base de l'écart (une vente faite ensuite ne crée pas d'écart).
    */
-  lines: Array<{ itemId: Types.ObjectId; name: string; unit: string; barcode?: string; packSize?: number; parts?: Array<{ device: string; qty: number; at: Date; by: Types.ObjectId }>; counted?: number; countedAt?: Date; countedBy?: Types.ObjectId; expectedAtCount?: number; expected?: number; gap?: number; unitCost?: number; gapValue?: number }>;
+  lines: Array<{ itemId: Types.ObjectId; name: string; unit: string; barcode?: string; packBarcode?: string; altBarcodes?: string[]; packSize?: number; parts?: Array<{ device: string; qty: number; at: Date; by: Types.ObjectId }>; counted?: number; countedAt?: Date; countedBy?: Types.ObjectId; expectedAtCount?: number; expected?: number; gap?: number; unitCost?: number; gapValue?: number }>;
   note?: string;
   startedBy: Types.ObjectId;
   validatedBy?: Types.ObjectId;
@@ -47,7 +47,7 @@ const DeskInventorySchema = new Schema<IDeskInventory>({
   lines: [{
     _id: false,
     itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true },
-    name: { type: String, required: true }, unit: String, barcode: String, packSize: Number,
+    name: { type: String, required: true }, unit: String, barcode: String, packBarcode: String, altBarcodes: { type: [String], default: undefined }, packSize: Number,
     parts: [{ _id: false, device: { type: String, maxlength: 64 }, qty: { type: Number, min: 0 }, at: Date, by: { type: Schema.Types.ObjectId, ref: "User" } }],
     counted: { type: Number, min: 0 }, countedAt: Date, countedBy: { type: Schema.Types.ObjectId, ref: "User" },
     expectedAtCount: Number, expected: Number, gap: Number, unitCost: Number, gapValue: Number,

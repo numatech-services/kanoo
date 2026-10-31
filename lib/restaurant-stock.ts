@@ -59,7 +59,7 @@ export async function deskReserve(tenantId: string, deskId: unknown, session?: C
   return wh._id;
 }
 
-type ItemDoc = { _id: Id; deskId: Id; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; category?: string; barcode?: string; sku?: string; productId?: Id };
+type ItemDoc = { _id: Id; deskId: Id; name: string; unit: string; quantity: number; unitCost: number; salePrice?: number; category?: string; barcode?: string; packBarcode?: string; altBarcodes?: string[]; sku?: string; productId?: Id };
 
 /**
  * Relie un article du comptoir au catalogue en créant sa fiche : même nom,
@@ -103,7 +103,7 @@ export async function ensureLinked(auth: TokenPayload, deskId: unknown, itemId: 
 }
 
 export interface StockRow {
-  itemId: string; name: string; unit: string; category?: string; barcode?: string; linked: boolean; preparation: boolean;
+  itemId: string; name: string; unit: string; category?: string; barcode?: string; packBarcode?: string; altBarcodes?: string[]; linked: boolean; preparation: boolean;
   pack: { label?: string; size?: number } | null;
   desk: number; reserve: number; total: number; unitCost: number | null; value: number | null;
   threshold?: number; reserveThreshold?: number; lowDesk: boolean; lowReserve: boolean;
@@ -134,7 +134,7 @@ export async function restaurantStock(tenantId: string, deskId: string, costs: b
     const own = lots.filter(l => String(l.productId) === pid);
     const unitCost = costs ? i.unitCost || 0 : null;
     return {
-      itemId: String(i._id), name: i.name, unit: i.unit, category: i.category, barcode: i.barcode, linked: !!pid, preparation: !!i.recipe?.length,
+      itemId: String(i._id), name: i.name, unit: i.unit, category: i.category, barcode: i.barcode, packBarcode: i.packBarcode, altBarcodes: i.altBarcodes, linked: !!pid, preparation: !!i.recipe?.length,
       pack: i.pack?.size ? { label: i.pack.label, size: i.pack.size } : null,
       desk, reserve, total: desk + reserve, unitCost, value: unitCost === null ? null : Math.round((desk + reserve) * unitCost),
       threshold: i.threshold, reserveThreshold: i.reserveThreshold,

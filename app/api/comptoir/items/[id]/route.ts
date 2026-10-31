@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, noContent, notFound, badRequest, forbidden, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { isId, deskFilter, parsePack, canSeeDeskCosts } from "@/lib/comptoir";
+import { normCode, codesOf } from "@/lib/barcodes";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { logAudit } from "@/lib/audit";
@@ -37,17 +38,25 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
   if ("name" in clean) update.name = String(clean.name || "").slice(0, 160).trim();
   if ("unit" in clean) update.unit = String(clean.unit || "unité").slice(0, 24);
   if ("sku" in clean) update.sku = String(clean.sku || "").slice(0, 60);
-  // Code-barres : unique sur le comptoir (le scanner doit désigner un seul article).
-  if ("barcode" in clean) {
-    const code = String(clean.barcode || "").replace(/\s+/g, "").slice(0, 60);
-    if (code) {
-      const cur = await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }).select("deskId").lean<{ deskId: unknown } | null>();
-      if (!cur) return notFound("Article introuvable");
-      if (await ActivityItemModel.exists({ ...tenantFilter(auth), deskId: cur.deskId, barcode: code, _id: { $ne: params.id }, archived: { $ne: true } })) return badRequest("Ce code-barres est déjà celui d'un autre article du comptoir.");
-    }
-    update.barcode = code || undefined;
-    // Un inventaire en cours reconnaît aussitôt le code attribué.
-    if (code) await DeskInventoryModel.updateMany({ ...tenantFilter(auth), status: "open", deskId: (await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }).select("deskId").lean<{ deskId: unknown } | null>())?.deskId, "lines.itemId": params.id }, { $set: { "lines.$[l].barcode": code } }, { arrayFilters: [{ "l.itemId": new Types.ObjectId(params.id) }] });
+  // Codes-barres (unité, carton, autres) : chacun unique sur le comptoir (le scanner doit désigner un seul article).
+  if ("barcode" in clean || "packBarcode" in clean || "altBarcodes" in clean) {
+    const cur = await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }).select("deskId barcode packBarcode altBarcodes").lean<{ deskId: unknown; barcode?: string; packBarcode?: string; altBarcodes?: string[] } | null>();
+    if (!cur) return notFound("Article introuvable");
+    const next = {
+      barcode: "barcode" in clean ? normCode(clean.barcode) : cur.barcode ?? "",
+      packBarcode: "packBarcode" in clean ? normCode(clean.packBarcode) : cur.packBarcode ?? "",
+      altBarcodes: "altBarcodes" in clean ? (Array.isArray(clean.altBarcodes) ? clean.altBarcodes.map(normCode).filter(Boolean).slice(0, 10) : []) : cur.altBarcodes ?? [],
+    };
+    const codes = codesOf(next);
+    if (new Set(codes.map(c => c.toLowerCase())).size !== codes.length) return badRequest("Un même code figure deux fois sur l'article.");
+    if (codes.length && await ActivityItemModel.exists({ ...tenantFilter(auth), deskId: cur.deskId, _id: { $ne: params.id }, archived: { $ne: true }, $or: [{ barcode: { $in: codes } }, { packBarcode: { $in: codes } }, { altBarcodes: { $in: codes } }] }))
+      return badRequest("Un de ces codes-barres est déjà celui d'un autre article du comptoir.");
+    update.barcode = next.barcode || undefined;
+    update.packBarcode = next.packBarcode || undefined;
+    update.altBarcodes = next.altBarcodes.length ? next.altBarcodes : undefined;
+    // Un inventaire en cours reconnaît aussitôt les codes attribués.
+    await DeskInventoryModel.updateMany({ ...tenantFilter(auth), status: "open", deskId: cur.deskId, "lines.itemId": params.id },
+      { $set: { "lines.$[l].barcode": next.barcode || null, "lines.$[l].packBarcode": next.packBarcode || null, "lines.$[l].altBarcodes": next.altBarcodes } }, { arrayFilters: [{ "l.itemId": new Types.ObjectId(params.id) }] });
   }
   if ("archived" in clean) {
     update.archived = Boolean(clean.archived);

@@ -24,6 +24,8 @@ export interface IActivityItem {
   reserveThreshold?: number;
   /** Code-barres (EAN, UPC, code interne) : lu au scanner à l'inventaire et à la réception. */
   barcode?: string;
+  packBarcode?: string;
+  altBarcodes?: string[];
   /** Article du catalogue : son stock est celui de la réserve du comptoir. */
   productId?: Types.ObjectId;
   /** Famille (boissons, biscuits, snacks…) pour les palmarès et la rentabilité. */
@@ -72,6 +74,10 @@ const ActivityItemSchema = new Schema<IActivityItem>({
   threshold: { type: Number, min: 0 },
   reserveThreshold: { type: Number, min: 0 },
   barcode: { type: String, trim: true, maxlength: 60 },
+  /** Code du carton (une lecture = un carton de pack.size unités). */
+  packBarcode: { type: String, trim: true, maxlength: 60 },
+  /** Autres codes de l'unité (autre fournisseur, autre étiquette). */
+  altBarcodes: { type: [{ type: String, trim: true, maxlength: 60 }], default: undefined },
   productId: { type: Schema.Types.ObjectId, ref: "Product", index: true },
   category: { type: String, trim: true, maxlength: 60 },
   recipe: [{ _id: false, itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true }, quantity: { type: Number, required: true, min: 0 }, yield: { type: Number, min: 0.05, max: 1 } }],
@@ -92,6 +98,8 @@ const ActivityItemSchema = new Schema<IActivityItem>({
 
 ActivityItemSchema.index({ tenantId: 1, deskId: 1, name: 1 });
 ActivityItemSchema.index({ tenantId: 1, deskId: 1, barcode: 1 }, { sparse: true });
+ActivityItemSchema.index({ tenantId: 1, deskId: 1, packBarcode: 1 }, { sparse: true });
+ActivityItemSchema.index({ tenantId: 1, deskId: 1, altBarcodes: 1 }, { sparse: true });
 ActivityItemSchema.index({ tenantId: 1, deskId: 1, easypayId: 1 }, { unique: true, partialFilterExpression: { easypayId: { $type: "string" } } });
 
 export const ActivityItemModel = models.ActivityItem || model<IActivityItem>("ActivityItem", ActivityItemSchema);

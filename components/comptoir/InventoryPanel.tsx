@@ -10,11 +10,12 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { BarcodeScanner, beep } from "@/components/shared/BarcodeScanner";
+import { matchCode } from "@/lib/barcodes";
 
 const MONEY = (n?: number | null) => (n === undefined || n === null ? "—" : `${Math.round(n).toLocaleString("fr-FR")} FCFA`);
 const QTY = (n?: number | null) => (n === undefined || n === null ? "—" : n.toLocaleString("fr-FR", { maximumFractionDigits: 3 }));
 
-interface InvLine { itemId: string; name: string; unit: string; barcode?: string; packSize?: number; parts?: Array<{ device: string; qty: number }>; counted?: number; expected?: number; gap?: number; unitCost?: number; gapValue?: number }
+interface InvLine { itemId: string; name: string; unit: string; barcode?: string; packBarcode?: string; altBarcodes?: string[]; packSize?: number; parts?: Array<{ device: string; qty: number }>; counted?: number; expected?: number; gap?: number; unitCost?: number; gapValue?: number }
 interface Inv { _id: string; number: string; level: "desk" | "reserve"; status: "open" | "validated" | "cancelled"; category?: string; createdAt: string; validatedAt?: string; gapValue?: number; lines?: InvLine[] }
 const LEVEL = { desk: "Comptoir", reserve: "Réserve" } as const;
 const num = (v: string) => { const t = v.replace(/\s/g, "").replace(",", "."); return t === "" ? NaN : Number(t); };
@@ -177,17 +178,14 @@ function CountScreen({ id, costs, onClose, onValidated }: { id: string; costs: b
     return () => { clearInterval(t); window.removeEventListener("online", on); };
   }, [flush, readOnly]);
 
-  const find = (code: string) => {
-    const c = code.toLowerCase();
-    return lines.find(l => l.barcode && l.barcode.toLowerCase() === c)
-      ?? (() => { const byName = lines.filter(l => l.name.toLowerCase().includes(c)); return byName.length === 1 ? byName[0] : undefined; })();
-  };
   function onCode(code: string) {
-    const hit = find(code);
-    if (!hit) { beep(false); setUnknown(code); return; }
+    const m = matchCode(lines, code);
+    if (!m) { beep(false); setUnknown(code); return; }
     beep(true);
-    if (plusOne) { setCount(hit.itemId, prev => prev + 1, hit.parts?.find(p => p.device === device)?.qty ?? 0); setCurrent(hit.itemId); return; }
-    setCurrent(hit.itemId); setQty(""); setPacks("");
+    const hit = m.row, step = m.pack && hit.packSize ? hit.packSize : 1;
+    // Lecture du code du carton : un carton entier (« +1 » ajoute un carton, sinon le champ carton est prérempli).
+    if (plusOne) { setCount(hit.itemId, prev => prev + step, hit.parts?.find(p => p.device === device)?.qty ?? 0); setCurrent(hit.itemId); return; }
+    setCurrent(hit.itemId); setQty(""); setPacks(m.pack && hit.packSize ? "1" : "");
     setTimeout(() => qtyRef.current?.focus(), 30);
   }
 

@@ -37,8 +37,10 @@ Réinitialiser la base (`db.dropDatabase()` puis le seed) entre deux scénarios.
 `restaurant-logic.ts` appelle directement les fonctions serveur du module
 (réserve, approvisionnement, ventes, pertes, inventaires à plusieurs appareils,
 résultat du mois, masquage de la paie, prix minimum, vue d'ensemble,
-inventaire de fin de semaine, verrou du mois clos) contre la base de test
-ensemencée. Utile quand la compilation n'est pas possible ; il ne remplace
+inventaire de fin de semaine, verrou du mois clos, fiches techniques,
+production, achats et rapprochement, planning et pointage, pilotage et
+rapport du lundi, hygiène et traçabilité, transferts entre restaurants —
+92 contrôles) contre la base de test ensemencée, à réinitialiser avant. Utile quand la compilation n'est pas possible ; il ne remplace
 pas `e2e-restaurant.mjs` (routes HTTP, droits, export Excel).
 
 ```bash
