@@ -31,3 +31,16 @@ node scripts/e2e/e2e-flux.mjs "$PWD"
 ```
 
 Réinitialiser la base (`db.dropDatabase()` puis le seed) entre deux scénarios.
+
+## Logique du module Restauration, sans compilation
+
+`restaurant-logic.ts` appelle directement les fonctions serveur du module
+(réserve, approvisionnement, ventes, pertes, inventaires à plusieurs appareils,
+résultat du mois, masquage de la paie, prix minimum, vue d'ensemble,
+inventaire de fin de semaine, verrou du mois clos) contre la base de test
+ensemencée. Utile quand la compilation n'est pas possible ; il ne remplace
+pas `e2e-restaurant.mjs` (routes HTTP, droits, export Excel).
+
+```bash
+MONGODB_URI="mongodb://127.0.0.1:27099/kanoo_e2e?directConnection=true" npx tsx scripts/e2e/restaurant-logic.ts
+```

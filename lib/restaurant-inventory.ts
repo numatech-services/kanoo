@@ -36,11 +36,15 @@ export async function openInventory(auth: TokenPayload, deskId: string, level: L
   if (!lines.length) throw new BusinessRuleError("Aucun article à compter.");
   const d = new Date(), p = (n: number) => String(n).padStart(2, "0");
   const number = `INV-${localDay(d).replace(/-/g, "")}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${level === "desk" ? "C" : "R"}`;
-  try {
-    return await DeskInventoryModel.create({ tenantId: auth.tenantId, deskId, number, level, ...(category ? { category } : {}), ...(opening ? { opening: true } : {}), lines, startedBy: auth.userId });
-  } catch (e) {
-    if ((e as { code?: number })?.code === 11000) throw new BusinessRuleError(`Un inventaire ${level === "desk" ? "du comptoir" : "de la réserve"} est déjà ouvert : terminez-le ou annulez-le.`);
-    throw e;
+  for (let k = 1; ; k++) {
+    try {
+      return await DeskInventoryModel.create({ tenantId: auth.tenantId, deskId, number: k === 1 ? number : `${number}-${k}`, level, ...(category ? { category } : {}), ...(opening ? { opening: true } : {}), lines, startedBy: auth.userId });
+    } catch (e) {
+      if ((e as { code?: number })?.code !== 11000) throw e;
+      // Doublon : soit un inventaire est déjà ouvert à ce niveau, soit le numéro existe (deux inventaires dans la même seconde).
+      if (await DeskInventoryModel.exists({ tenantId: auth.tenantId, deskId, level, status: "open" })) throw new BusinessRuleError(`Un inventaire ${level === "desk" ? "du comptoir" : "de la réserve"} est déjà ouvert : terminez-le ou annulez-le.`);
+      if (k >= 9) throw e;
+    }
   }
 }
 
