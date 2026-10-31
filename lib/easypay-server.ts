@@ -152,7 +152,7 @@ export async function applyEvent(actor: TokenPayload, deskId: string, ev: Parsed
     const note = ev.data.reason ? `EasyPay : ${ev.data.reason}` : "EasyPay";
     if (ev.data.kind === "loss") {
       const r = await recordLoss(actor, { deskId, itemId: String(it._id), quantity: ev.data.quantity!, reason: lossReasonFor(ev.data.reason), note, date: date.toISOString(), lenient: true }, session);
-      return { ref: { kind: "stock", id: r.move._id as Types.ObjectId }, warnings: [] };
+      return { ...(r.move ? { ref: { kind: "stock", id: r.move._id as Types.ObjectId } } : {}), warnings: [] };
     }
     if (ev.data.kind === "count") {
       await recordCounts(actor, deskId, [{ itemId: String(it._id), counted: ev.data.countedQuantity! }], session, { recount: true, reason: `Inventaire (${note})` });
@@ -164,7 +164,7 @@ export async function applyEvent(actor: TokenPayload, deskId: string, ev: Parsed
     let after = (it.quantity || 0) + qty, stockMovementId: unknown;
     if (it.productId) {
       const wh = await deskWarehouse(tenantId, deskId, session);
-      const r = await applyMovement({ tenantId, userId: actor.userId, productId: it.productId, warehouseId: wh, type: "entry", quantity: qty, unitCost: it.unitCost || undefined, reason: `Réception (${note})`, linkedDocType: "comptoir", linkedDocId: deskId }, session);
+      const r = await applyMovement({ tenantId, userId: actor.userId, productId: it.productId, warehouseId: wh, type: "entry", quantity: qty, unitCost: it.unitCost || undefined, reason: `Réception (${note})`, linkedDocType: "comptoir", linkedDocId: deskId, autoLot: `EP-${date.toISOString().slice(0, 10)}` }, session);
       after = r.after; stockMovementId = r.movement._id;
     }
     const [move] = await ActivityStockMoveModel.create([{

@@ -31,6 +31,6 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   const body = await req.json().catch(() => ({}));
   if (!(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
   const r = await withTransaction(session => recordLoss(auth, body, session));
-  await logAudit(auth, "CREATE", "comptoir", { resourceId: String(r.move._id), metadata: { loss: body.reason, quantity: body.quantity, value: r.lossValue } });
+  await logAudit(auth, "CREATE", "comptoir", { resourceId: String(r.move?._id ?? ""), metadata: { loss: body.reason, quantity: body.quantity, value: r.lossValue } });
   return created({ move: r.move, lossValue: canSeeDeskCosts(auth) ? r.lossValue : undefined });
 });

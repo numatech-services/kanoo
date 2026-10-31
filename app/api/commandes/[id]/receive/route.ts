@@ -4,6 +4,7 @@ import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-help
 import { TokenPayload } from "@/lib/auth";
 import { CommandeModel } from "@/models/Commande";
 import { applyMovement, StockError, type LotInput } from "@/lib/stock";
+import { deskReserve } from "@/lib/restaurant-stock";
 import { receptionStatus } from "@/lib/commande";
 import { logAudit } from "@/lib/audit";
 import { GoodsReceiptModel } from "@/models/GoodsReceipt";
@@ -44,6 +45,9 @@ export const POST = withAuth("commandes", "update", async (req: NextRequest, aut
   const landed = Math.max(0, Math.round(Number(body.landedCosts) || 0));
   const costs = landedUnitCosts(wanted.map(w => ({ quantity: w.quantity, unitPrice: lines[w.index].unitPrice, stocked: !!lines[w.index].productId })), landed);
 
+  // Commande passée depuis un comptoir (réassort) : elle entre dans la réserve du restaurant, sauf entrepôt choisi.
+  const sourceDesk = (cmd as { sourceDeskId?: unknown }).sourceDeskId;
+  const targetWarehouse = body.warehouseId || (sourceDesk ? await deskReserve(auth.tenantId, sourceDesk) : undefined);
   try {
     await withTransaction(async session => {
       for (const [k, w] of wanted.entries()) {
@@ -52,7 +56,7 @@ export const POST = withAuth("commandes", "update", async (req: NextRequest, aut
           await applyMovement({
             tenantId: auth.tenantId, userId: auth.userId, productId: l.productId, type: "entry",
             quantity: w.quantity, unitCost: costs[k], reason: `Réception BC ${cmd.number}${landed ? " (frais d'approche inclus)" : ""}`,
-            warehouseId: body.warehouseId || undefined, lots: w.lots,
+            warehouseId: targetWarehouse || undefined, lots: w.lots,
             linkedDocType: "commande", linkedDocId: cmd._id, linkedDocNumber: cmd.number,
           }, session);
         }

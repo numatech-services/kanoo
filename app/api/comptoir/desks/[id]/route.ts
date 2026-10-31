@@ -5,6 +5,9 @@ import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityModel } from "@/models/Activity";
 import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 import { isId, allDesks } from "@/lib/comptoir";
+import { authCan } from "@/lib/role-resources";
+import { CHARGE_CATEGORIES } from "@/lib/restaurant";
+import { EmployeeModel } from "@/models/Employee";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
@@ -35,6 +38,9 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
     if (!clean.activityId) $unset.activityId = 1;
     else if (!isId(clean.activityId) || !(await ActivityModel.exists({ _id: clean.activityId, ...tenantFilter(auth) }))) {
       return badRequest("Secteur analytique introuvable.");
+    } else if (await ActivityDeskModel.exists({ ...tenantFilter(auth), activityId: clean.activityId, archived: { $ne: true }, _id: { $ne: params.id } })) {
+      // Un secteur par comptoir : sinon ses charges seraient portées par chaque comptoir.
+      return badRequest("Ce secteur analytique est déjà celui d'un autre comptoir : créez un secteur propre à chaque comptoir (les charges communes se répartissent par la quote-part).");
     } else $set.activityId = clean.activityId;
   }
 
@@ -62,6 +68,42 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
     const n = Number(clean[k]);
     if (!(n >= lo && n <= hi)) return badRequest(`Valeur invalide : ${k}.`);
     $set[k] = Math.round(n);
+  }
+  if ("commonCostShare" in clean) {
+    const n = Number(clean.commonCostShare);
+    if (!(n >= 0 && n <= 1)) return badRequest("Quote-part des charges communes : entre 0 et 100 %.");
+    const total = (await ActivityDeskModel.find({ ...tenantFilter(auth), _id: { $ne: params.id }, archived: { $ne: true } }).select("commonCostShare").lean<Array<{ commonCostShare?: number }>>()).reduce((t, d) => t + (d.commonCostShare ?? 0), 0);
+    if (total + n > 1.0001) return badRequest(`Les quotes-parts des comptoirs dépasseraient 100 % des charges communes (${Math.round((total + n) * 100)} %).`);
+    $set.commonCostShare = Math.round(n * 1000) / 1000;
+  }
+  if ("lenientStock" in clean) $set.lenientStock = Boolean(clean.lenientStock);
+  if ("openDaysPerMonth" in clean) {
+    const n = Math.round(Number(clean.openDaysPerMonth));
+    if (!(n >= 1 && n <= 31)) return badRequest("Jours d'ouverture par mois : entre 1 et 31.");
+    $set.openDaysPerMonth = n;
+  }
+  // Personnel affecté (part de temps au comptoir) : son coût employeur entre dans le résultat du comptoir.
+  if ("staff" in clean) {
+    // Affecter du personnel donne accès à son coût employeur : réservé à qui gère la paie.
+    if (!authCan(auth, "payslips", "read")) return forbidden("L'affectation du personnel au comptoir revient à qui gère la paie (gérant, chef comptable).");
+    const raw = Array.isArray(clean.staff) ? clean.staff as Array<{ employeeId?: unknown; share?: unknown }> : [];
+    const staff = raw.filter(x => isId(x.employeeId) && Number(x.share) > 0).map(x => ({ employeeId: String(x.employeeId), share: Math.min(1, Math.round(Number(x.share) * 100) / 100) }));
+    if (new Set(staff.map(x => x.employeeId)).size !== staff.length) return badRequest("Un employé figure deux fois.");
+    if (staff.length && (await EmployeeModel.countDocuments({ _id: { $in: staff.map(x => x.employeeId) }, ...tenantFilter(auth) })) !== staff.length) return badRequest("Employé introuvable.");
+    // Une personne ne peut pas être affectée à plus de 100 % de son temps, tous comptoirs confondus.
+    const others = await ActivityDeskModel.find({ ...tenantFilter(auth), _id: { $ne: params.id }, archived: { $ne: true }, "staff.employeeId": { $in: staff.map(x => x.employeeId) } }).select("name staff").lean<Array<{ name: string; staff?: Array<{ employeeId: unknown; share: number }> }>>();
+    for (const x of staff) {
+      const elsewhere = others.reduce((t, d) => t + (d.staff ?? []).filter(y => String(y.employeeId) === x.employeeId).reduce((u, y) => u + y.share, 0), 0);
+      if (elsewhere + x.share > 1.0001) return badRequest(`Un employé serait affecté à ${Math.round((elsewhere + x.share) * 100)} % de son temps (déjà ${Math.round(elsewhere * 100)} % sur d'autres comptoirs).`);
+    }
+    $set.staff = staff;
+  }
+  // Charges prévues par mois (budget) : comparées au réel, base du point mort.
+  if ("plannedCosts" in clean) {
+    const raw = Array.isArray(clean.plannedCosts) ? clean.plannedCosts as Array<{ category?: unknown; label?: unknown; amount?: unknown }> : [];
+    const rows = raw.filter(x => typeof x.category === "string" && x.category in CHARGE_CATEGORIES && Number(x.amount) > 0)
+      .map(x => ({ category: String(x.category), ...(typeof x.label === "string" && x.label.trim() ? { label: x.label.trim().slice(0, 80) } : {}), amount: Math.round(Number(x.amount)) }));
+    $set.plannedCosts = rows.slice(0, 40);
   }
   if ("targetMarkup" in clean) {
     const r = Number(clean.targetMarkup);

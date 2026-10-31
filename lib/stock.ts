@@ -41,6 +41,11 @@ export interface MovementInput {
   linkedDocNumber?: string;
   /** Sortie au-delà du stock : refusée (défaut) ou plafonnée au stock disponible. */
   allowPartial?: boolean;
+  /**
+   * Entrée d'un article suivi par lot sans lot fourni (reprise, excédent
+   * d'inventaire, réception sans numéro) : numéro du lot créé pour elle.
+   */
+  autoLot?: string;
 }
 
 type ProductLean = { _id: Types.ObjectId; label: string; stockQty?: number; purchaseCost?: number; isService?: boolean; trackingMode?: "none" | "lot" | "serial" };
@@ -235,7 +240,9 @@ async function moveCore(input: CoreInput, session?: ClientSession) {
   let delta: number;
   let lotsIn: LotAlloc[] = [];
   let lotsOut: LotAlloc[] | null = null;
-  const given = input.forcedLots ?? (input.lots?.length ? cleanLots(input.lots, serial) : []);
+  const autoLots = !serial && input.autoLot && !input.lots?.length && !input.forcedLots
+    && (input.type === "entry" || input.type === "return") ? [{ lotNumber: input.autoLot.slice(0, 80), qty: q }] : null;
+  const given = input.forcedLots ?? (autoLots ? cleanLots(autoLots, false) : input.lots?.length ? cleanLots(input.lots, serial) : []);
 
   if (input.type === "adjustment") {
     if (tracked) {

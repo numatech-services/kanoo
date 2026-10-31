@@ -37,12 +37,12 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   if (!(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
   // Article du catalogue : son stock vit dans la réserve du comptoir (quantité
   // jamais saisie ici — elle arrive par approvisionnement ou achat).
-  type CatalogProduct = { _id: unknown; label: string; unit?: string; unitPrice?: number; purchaseCost?: number; code: string };
+  type CatalogProduct = { _id: unknown; label: string; unit?: string; unitPrice?: number; purchaseCost?: number; code: string; barcode?: string };
   let product: CatalogProduct | null = null;
   if (body.productId) {
     if (!isId(body.productId)) return badRequest("Article du catalogue invalide.");
     product = await ProductModel.findOne({ _id: body.productId, ...tenantFilter(auth), isService: { $ne: true } })
-      .select("label unit unitPrice purchaseCost code").lean<CatalogProduct | null>();
+      .select("label unit unitPrice purchaseCost code barcode").lean<CatalogProduct | null>();
     if (!product) return badRequest("Article du catalogue introuvable (ou service).");
     if (await ActivityItemModel.exists({ ...tenantFilter(auth), deskId: body.deskId, productId: product._id, archived: { $ne: true } })) {
       return badRequest("Cet article du catalogue est déjà au comptoir.");
@@ -51,6 +51,8 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   }
   const pack = "pack" in body ? parsePack(body.pack) : null;
   if (pack === "invalid") return badRequest("Conditionnement invalide (nombre d'unités par paquet, prix du paquet).");
+  const barcode = typeof body.barcode === "string" ? body.barcode.replace(/\s+/g, "").slice(0, 60) : "";
+  if (barcode && await ActivityItemModel.exists({ ...tenantFilter(auth), deskId: body.deskId, barcode, archived: { $ne: true } })) return badRequest("Ce code-barres est déjà celui d'un autre article du comptoir.");
   const item = await ActivityItemModel.create({
     tenantId: auth.tenantId,
     deskId: body.deskId,
@@ -65,6 +67,8 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     ...(body.category ? { category: String(body.category).trim().slice(0, 60) } : {}),
     salePrice: body.salePrice != null ? Math.max(0, Number(body.salePrice)) : undefined,
     threshold: body.threshold != null ? Math.max(0, Number(body.threshold)) : undefined,
+    ...(body.reserveThreshold != null && Number(body.reserveThreshold) >= 0 ? { reserveThreshold: Number(body.reserveThreshold) } : {}),
+    ...(typeof body.barcode === "string" && body.barcode.trim() ? { barcode: body.barcode.replace(/\s+/g, "").slice(0, 60) } : product?.barcode ? { barcode: product.barcode } : {}),
     createdBy: auth.userId,
   });
   await logAudit(auth, "CREATE", "comptoir", { resourceId: item._id.toString(), metadata: { item: item.name } });

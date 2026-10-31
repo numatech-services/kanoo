@@ -2,7 +2,7 @@
 import { csvCell } from "@/lib/csv";
 
 import { useCallback, useEffect, useState } from "react";
-import { Store, Plus, Wallet, Receipt, CalendarCheck2, Percent, BookUser, Tag, Zap, Smartphone, ShoppingCart, GraduationCap, PlugZap, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText, Settings2 } from "lucide-react";
+import { Store, Plus, Wallet, Receipt, CalendarCheck2, Percent, BookUser, Tag, Zap, Smartphone, ShoppingCart, GraduationCap, PlugZap, Package, AlertTriangle, ArrowDownLeft, ArrowUpRight, Trash2, RotateCcw, Coins, Download, FileText, Settings2, Scale } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
@@ -28,6 +28,9 @@ import { ProfitabilityTab } from "@/components/comptoir/ProfitabilityTab";
 import { EXPENSE_CATEGORIES } from "@/lib/expense-categories";
 import { itemEconomics } from "@/lib/comptoir-economics";
 import { ClosingDialog } from "@/components/comptoir/ClosingDialog";
+import { StockLevels, ReceiveDialog, LevelMoveDialog, StockItemDialog, ReserveLossDialog, type ReserveData, type StockRow } from "@/components/comptoir/RestaurantStock";
+import { InventoryPanel } from "@/components/comptoir/InventoryPanel";
+import { ResultTab } from "@/components/comptoir/ResultTab";
 interface Desk { _id: string; name: string; description?: string; activityId?: string; treasuryAccountId?: string; revenueAccount?: string; expenseAccount?: string; vatRate?: number; targetMarkup?: number;
   leadDays?: number; coverDays?: number; weeklyRevenueTarget?: number; weeklyMarginTarget?: number; cycleCountSize?: number }
 interface Item { _id: string; name: string; unit: string; quantity: number; unitCost: number | null; category?: string; pack?: { label?: string; size?: number; cost?: number }; salePrice?: number; threshold?: number; productId?: { _id: string; code: string; label: string; trackingMode?: string } | null }
@@ -71,8 +74,8 @@ async function post(url: string, body: unknown, method: "POST" | "PATCH" | "DELE
   return res.status === 204 ? null : res.json();
 }
 
-type Tab = "tickets" | "semaine" | "caisse" | "stock" | "rentabilite" | "ardoises" | "promos" | "planning" | "easypay";
-const TAB_KEYS: Tab[] = ["tickets", "semaine", "caisse", "stock", "rentabilite", "ardoises", "promos", "planning", "easypay"];
+type Tab = "tickets" | "semaine" | "caisse" | "stock" | "rentabilite" | "resultat" | "ardoises" | "promos" | "planning" | "easypay";
+const TAB_KEYS: Tab[] = ["tickets", "semaine", "caisse", "stock", "rentabilite", "resultat", "ardoises", "promos", "planning", "easypay"];
 
 export default function ComptoirPage() {
   const [desks, setDesks] = useState<Desk[]>([]);
@@ -333,7 +336,7 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <MetricCard icon={<Wallet size={18} />} tone="blue" label="Solde de caisse" value={MONEY(summary?.cashBalance ?? 0)}
           sub={summary ? `${MONEY(summary.cashIn)} encaissés · ${MONEY(summary.cashOut)} sortis` : "—"} />
-        {summary?.stockValue !== null && <MetricCard icon={<Coins size={18} />} tone="green" label="Valeur du stock" value={MONEY(summary?.stockValue ?? 0)} sub="Au coût moyen pondéré" />}
+        {summary?.stockValue !== null && <MetricCard icon={<Coins size={18} />} tone="green" label="Valeur du stock" value={MONEY(summary?.stockValue ?? 0)} sub="Réserve et comptoir, au coût moyen" />}
         <MetricCard icon={<Package size={18} />} tone="violet" label="Articles" value={String(summary?.itemCount ?? 0)} sub="Suivis en stock matière" />
         <MetricCard icon={<AlertTriangle size={18} />} tone={summary?.lowStock?.length ? "red" : "amber"} label="Sous le seuil" value={String(summary?.lowStock?.length ?? 0)}
           valueCls={summary?.lowStock?.length ? "text-neg" : ""} sub={summary?.lowStock?.length ? "Réassort à prévoir" : "Stock suffisant"} />
@@ -367,10 +370,10 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PillTabs label="Rubriques du comptoir" value={tab} onChange={setTab} tabs={[
           { key: "tickets" as Tab, label: "Tickets", icon: <Receipt size={15} /> },
-          ...(summary && summary.stockValue !== null ? [{ key: "rentabilite" as Tab, label: "Marges", icon: <Percent size={15} /> }] : []),
+          ...(summary && summary.stockValue !== null ? [{ key: "rentabilite" as Tab, label: "Marges", icon: <Percent size={15} /> }, { key: "resultat" as Tab, label: "Résultat", icon: <Scale size={15} /> }] : []),
           { key: "semaine" as Tab, label: "Semaine", icon: <CalendarCheck2 size={15} /> },
           { key: "caisse" as Tab, label: "Caisse", icon: <Wallet size={15} /> },
-          { key: "stock" as Tab, label: "Stock matière", icon: <Package size={15} />, count: summary?.lowStock?.length || null },
+          { key: "stock" as Tab, label: "Stock", icon: <Package size={15} />, count: summary?.lowStock?.length || null },
           { key: "ardoises" as Tab, label: "Ardoises", icon: <BookUser size={15} /> },
           { key: "promos" as Tab, label: "Promotions", icon: <Tag size={15} /> },
           { key: "planning" as Tab, label: "Planning", icon: <GraduationCap size={15} /> },
@@ -388,6 +391,8 @@ function DeskView({ deskId, deskName, tab, setTab }: { deskId: string; deskName:
         ? <SessionTab deskId={deskId} deskName={deskName} onChange={reloadSummary} />
         : tab === "rentabilite"
         ? <ProfitabilityTab deskId={deskId} onChange={reloadSummary} />
+        : tab === "resultat"
+        ? <ResultTab deskId={deskId} />
         : tab === "ardoises"
         ? <CreditTab deskId={deskId} deskName={deskName} onChange={reloadSummary} />
         : tab === "promos"
@@ -573,9 +578,20 @@ function CashDialog({ deskId, onClose, onSaved }: { deskId: string; onClose: () 
           </FormField>
         </div>
         {form.direction === "out" && (
-          <FormField label="Nature de la dépense" hint="Pour le bilan de la semaine.">
+          <FormField label="Nature de la dépense" hint="Elle fixe le compte de charge (eau, électricité, loyer…) et la ligne du résultat du comptoir.">
             <select className={selectCls} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-              {Object.entries(EXPENSE_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              {Object.entries(EXPENSE_CATEGORIES).filter(([k]) => k !== "utilities").map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </FormField>
+        )}
+        {form.direction === "out" && (form.category === "supply" || form.category === "ingredients") && (
+          <p className="text-xs text-warn">Pour des marchandises qui entrent en stock, préférez Stock → Réception en réserve, « payé depuis la caisse » : le stock et le coût des plats suivent. Une dépense ici est comptée comme consommée dans le mois ; ne saisissez pas aussi l&apos;entrée en stock à la main.</p>
+        )}
+        {form.direction === "in" && (
+          <FormField label="Nature de l'entrée">
+            <select className={selectCls} value={form.category === "non_sale" ? "non_sale" : "sale"} onChange={e => setForm(f => ({ ...f, category: e.target.value === "non_sale" ? "non_sale" : "supply" }))}>
+              <option value="sale">Vente hors ticket (chiffre d&apos;affaires, TVA du comptoir)</option>
+              <option value="non_sale">Hors vente : remboursement, apport, correction (à classer par le comptable)</option>
             </select>
           </FormField>
         )}
@@ -604,10 +620,17 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
   const [reorderOpen, setReorderOpen] = useState(false);
   const [supplyOpen, setSupplyOpen] = useState(false);
   const [linkFor, setLinkFor] = useState<Item | null>(null);
+  const [view, setView] = useState<"levels" | "desk" | "reserve" | "inventory">("levels");
+  const [levels, setLevels] = useState<ReserveData | null>(null);
+  const [receive, setReceive] = useState<StockRow[] | null>(null);
+  const [levelMove, setLevelMove] = useState<{ dir: "supply" | "return"; rows?: StockRow[] } | null>(null);
+  const [editRow, setEditRow] = useState<StockRow | null>(null);
+  const [reserveLoss, setReserveLoss] = useState<StockRow[] | null>(null);
 
   const load = useCallback(() => {
     apiJson(`/api/comptoir/items?deskId=${deskId}`).then(d => setItems(d.data || [])).catch(() => {});
     apiJson(`/api/comptoir/stock?deskId=${deskId}`).then(d => setMoves(d.data || [])).catch(() => {});
+    apiJson(`/api/comptoir/reserve?deskId=${deskId}`).then(d => setLevels(d.data || null)).catch(() => {});
   }, [deskId]);
   useEffect(() => { load(); }, [load]);
 
@@ -627,8 +650,48 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
     downloadCsv(`stock-comptoir-${localDay()}.csv`, rows);
   }
 
+  const refresh = () => { load(); onChange(); };
+  const VIEWS = [["levels", "Réserve et comptoir"], ["desk", "Comptoir : entrées, sorties, pertes"], ["reserve", "Flux de la réserve"], ["inventory", "Inventaires"]] as const;
   return (
     <div className="space-y-5">
+      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Vues du stock">
+        {VIEWS.map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={view === k} onClick={() => setView(k)} className={`px-3 h-8 rounded-full border text-[13px] font-semibold ${view === k ? "bg-ink text-white border-ink" : "border-line text-ink2 hover:bg-surface2"}`}>{l}</button>
+        ))}
+      </div>
+
+      {view === "levels" && (levels ? <StockLevels data={levels} costs={showCosts} onReceive={rows => setReceive(rows ?? [])} onMove={(dir, rows) => setLevelMove({ dir, rows })} onEdit={setEditRow} onLoss={rows => setReserveLoss(rows ?? [])} /> : <div className="h-48 surface-card animate-pulse" />)}
+
+      {view === "reserve" && levels && (
+        <div className="surface-card overflow-hidden"><div className="overflow-x-auto">
+          <table className="table-dense w-full">
+            <thead><tr><th>Date</th><th>Article</th><th>Mouvement</th><th className="text-right">Quantité</th><th className="text-right">Reste en réserve</th>{showCosts && <th className="text-right">Coût unit.</th>}<th>Motif</th></tr></thead>
+            <tbody>
+              {levels.moves.map(m => (
+                <tr key={m._id} className="border-t border-line">
+                  <td className="text-ink2 whitespace-nowrap">{new Date(m.createdAt).toLocaleDateString("fr-FR")}</td>
+                  <td>{m.name}</td>
+                  <td>{m.type === "entry" ? <Pill tone="pos">Réception</Pill> : m.type === "transfer" ? <Pill tone="info">{m.quantity < 0 ? "Vers le comptoir" : "Retour du comptoir"}</Pill> : m.type === "loss" ? <Pill tone="neg">Perte / manquant</Pill> : m.type === "return" ? <Pill tone="pos">Reprise</Pill> : <Pill tone="mute">{m.type}</Pill>}</td>
+                  <td className="text-right font-mono">{m.quantity > 0 ? "+" : ""}{m.quantity.toLocaleString("fr-FR")} <span className="text-ink3 text-xs">{m.unit}</span></td>
+                  <td className="text-right font-mono text-ink2">{m.quantityAfter.toLocaleString("fr-FR")}</td>
+                  {showCosts && <td className="text-right font-mono text-ink2">{m.unitCost ? MONEY(Math.round(m.unitCost)) : "—"}</td>}
+                  <td className="text-ink2 text-sm">{m.reason}</td>
+                </tr>
+              ))}
+              {!levels.moves.length && <tr><td colSpan={7} className="text-ink3 text-sm">Aucun mouvement en réserve : enregistrez une réception pour commencer.</td></tr>}
+            </tbody>
+          </table>
+        </div></div>
+      )}
+
+      {view === "inventory" && <InventoryPanel deskId={deskId} costs={showCosts} categories={[...new Set(items.map(i => i.category).filter(Boolean) as string[])].sort()} onChange={refresh} />}
+
+      {receive && levels && <ReceiveDialog deskId={deskId} rows={levels.rows} initial={receive} costs={showCosts} onClose={() => setReceive(null)} onDone={() => { setReceive(null); refresh(); }} />}
+      {levelMove && levels && <LevelMoveDialog deskId={deskId} rows={levels.rows} direction={levelMove.dir} initial={levelMove.rows} onClose={() => setLevelMove(null)} onDone={() => { setLevelMove(null); refresh(); }} />}
+      {editRow && <StockItemDialog row={editRow} onClose={() => setEditRow(null)} onDone={() => { setEditRow(null); refresh(); }} />}
+      {reserveLoss && levels && <ReserveLossDialog deskId={deskId} rows={levels.rows} initial={reserveLoss} onClose={() => setReserveLoss(null)} onDone={() => { setReserveLoss(null); refresh(); }} />}
+
+      {view === "desk" && <>
       <div className="flex justify-end gap-2">
         {items.length > 0 && (
           <button onClick={exportCsv} className={buttonClass("secondary", "md")}>
@@ -713,6 +776,14 @@ function StockTab({ deskId, onChange }: { deskId: string; onChange: () => void }
         </div>
       )}
 
+      </>}
+      {view === "levels" && (
+        <div className="flex justify-end gap-2">
+          <button onClick={() => setReorderOpen(true)} className={buttonClass("secondary", "md")}><ShoppingCart size={15} /> Réassort fournisseur</button>
+          {items.some(i => i.productId) && <button onClick={() => setSupplyOpen(true)} className={buttonClass("secondary", "md")}><Package size={15} /> Magasin central ⇄ comptoir</button>}
+          <button onClick={() => setItemOpen(true)} className={buttonClass("primary", "md")}><Plus size={15} /> Nouvel article</button>
+        </div>
+      )}
       {itemOpen && <ItemDialog deskId={deskId} onClose={() => setItemOpen(false)} onSaved={() => { setItemOpen(false); load(); onChange(); }} />}
       {lossFor && <LossDialog deskId={deskId} item={lossFor} onClose={() => setLossFor(null)} onDone={() => { setLossFor(null); load(); onChange(); }} />}
       {reorderOpen && <ReorderDialog deskId={deskId} onClose={() => setReorderOpen(false)} />}

@@ -13,7 +13,18 @@ import { applyMovement, StockError } from "@/lib/stock";
 import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
 import { TokenPayload } from "@/lib/auth";
 
+import { DeskInventoryModel } from "@/models/DeskInventory";
+import { Types } from "mongoose";
+
 export const dynamic = "force-dynamic";
+
+/** Quantité de l'article dans la réserve du restaurant (stock en gros). */
+async function reserveQty(auth: TokenPayload, deskId: unknown, productId: unknown) {
+  const desk = await ActivityDeskModel.findOne({ _id: deskId, ...tenantFilter(auth) }).select("reserveWarehouseId").lean<{ reserveWarehouseId?: unknown } | null>();
+  if (!desk?.reserveWarehouseId) return 0;
+  const row = await ProductStockModel.findOne({ ...tenantFilter(auth), productId, warehouseId: desk.reserveWarehouseId }).select("qty").lean<{ qty: number } | null>();
+  return Math.max(0, row?.qty ?? 0);
+}
 
 export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
@@ -26,6 +37,18 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
   if ("name" in clean) update.name = String(clean.name || "").slice(0, 160).trim();
   if ("unit" in clean) update.unit = String(clean.unit || "unité").slice(0, 24);
   if ("sku" in clean) update.sku = String(clean.sku || "").slice(0, 60);
+  // Code-barres : unique sur le comptoir (le scanner doit désigner un seul article).
+  if ("barcode" in clean) {
+    const code = String(clean.barcode || "").replace(/\s+/g, "").slice(0, 60);
+    if (code) {
+      const cur = await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }).select("deskId").lean<{ deskId: unknown } | null>();
+      if (!cur) return notFound("Article introuvable");
+      if (await ActivityItemModel.exists({ ...tenantFilter(auth), deskId: cur.deskId, barcode: code, _id: { $ne: params.id }, archived: { $ne: true } })) return badRequest("Ce code-barres est déjà celui d'un autre article du comptoir.");
+    }
+    update.barcode = code || undefined;
+    // Un inventaire en cours reconnaît aussitôt le code attribué.
+    if (code) await DeskInventoryModel.updateMany({ ...tenantFilter(auth), status: "open", deskId: (await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }).select("deskId").lean<{ deskId: unknown } | null>())?.deskId, "lines.itemId": params.id }, { $set: { "lines.$[l].barcode": code } }, { arrayFilters: [{ "l.itemId": new Types.ObjectId(params.id) }] });
+  }
   if ("archived" in clean) update.archived = Boolean(clean.archived);
   if ("category" in clean) update.category = String(clean.category || "").trim().slice(0, 60) || undefined;
   // Fiche recette : ingrédients = autres articles du même comptoir, sans recette eux-mêmes.
@@ -41,12 +64,14 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
     }
     update.recipe = lines;
   }
+  // Coût d'achat et prix du paquet : données de coût, modifiables par qui les voit (chef, gérance, finance).
+  if (("unitCost" in clean || (clean.pack && typeof clean.pack === "object" && "cost" in (clean.pack as object))) && !canSeeDeskCosts(auth)) return forbidden("Le coût d'achat se modifie par le chef du comptoir, la gérance ou la comptabilité.");
   if ("pack" in clean) {
     const pack = parsePack(clean.pack);
     if (pack === "invalid") return badRequest("Conditionnement invalide (nombre d'unités par paquet, prix du paquet).");
     update.pack = pack ?? undefined;
   }
-  for (const f of ["unitCost", "salePrice", "threshold"]) {
+  for (const f of ["unitCost", "salePrice", "threshold", "reserveThreshold"]) {
     if (f in clean) {
       const n = Number(clean[f]);
       if (!Number.isFinite(n) || n < 0) return badRequest(`Valeur invalide : ${f}`);
@@ -96,6 +121,8 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
       return ok(await ActivityItemModel.findById(cur._id).lean());
     }
     if (!clean.productId && cur.productId) {
+      const inReserve = await reserveQty(auth, cur.deskId, cur.productId);
+      if (inReserve > 0) return badRequest(`« ${cur.name} » a encore ${inReserve} ${cur.unit} en réserve : montez-les au comptoir ou sortez-les avant de détacher l'article.`);
       // Détachement : la réserve SORT du stock de l'entreprise et devient le
       // stock propre du comptoir, valorisée au CMUP. Elle restait des deux
       // côtés (réserve + quantité figée) : comptée deux fois.
@@ -140,6 +167,10 @@ export const DELETE = withAuth("comptoir", "delete", async (_req: NextRequest, a
       ? await ProductStockModel.findOne({ ...tenantFilter(auth), productId: it.productId, warehouseId: desk.warehouseId }).select("qty").lean<{ qty: number } | null>()
       : null;
     if ((row?.qty ?? 0) > 0) return badRequest(`« ${it.name} » a encore ${row!.qty} en réserve : renvoyez-les au magasin (Retour des invendus) ou sortez-les avant de supprimer l'article.`);
+  }
+  if (it.productId) {
+    const inReserve = await reserveQty(auth, it.deskId, it.productId);
+    if (inReserve > 0) return badRequest(`« ${it.name} » a encore ${inReserve} en réserve (stock en gros) : sortez-les ou montez-les au comptoir avant de supprimer l'article.`);
   }
   // Article propre : son stock ne disparaît pas sans trace.
   const own = await ActivityItemModel.findById(it._id).select("quantity").lean<{ quantity?: number } | null>();

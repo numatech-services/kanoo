@@ -6,6 +6,8 @@ import { canPerformAction, effectiveRoles, hasFinanceAccess } from "@/lib/role-r
 import { UserRole } from "@/types";
 
 import { postCashFlow } from "@/lib/cash-posting";
+import { registerLedgerAccount } from "@/lib/treasury";
+import { EXPENSE_ACCOUNTS } from "@/lib/expense-categories";
 import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 import type { ClientSession } from "mongoose";
 export const isId = (v: unknown): v is string =>
@@ -68,7 +70,7 @@ export function deskFilter(auth: TokenPayload): Record<string, unknown> {
 export async function postDeskCash(
   auth: TokenPayload,
   deskId: unknown,
-  entry: { _id: unknown; direction: "in" | "out"; amount: number; date: Date; label: string; method?: string; entryId?: unknown; movementId?: unknown; save: (o?: { session?: ClientSession }) => Promise<unknown> },
+  entry: { _id: unknown; direction: "in" | "out"; amount: number; date: Date; label: string; method?: string; category?: string; entryId?: unknown; movementId?: unknown; save: (o?: { session?: ClientSession }) => Promise<unknown> },
   session?: ClientSession,
 ) {
   const desk = await ActivityDeskModel.findOne({ _id: deskId, ...tenantFilter(auth) }).session(session ?? null)
@@ -76,17 +78,23 @@ export async function postDeskCash(
     .lean<{ name: string; activityId?: unknown; treasuryAccountId?: unknown; revenueAccount?: string; expenseAccount?: string; vatRate?: number } | null>();
   if (!desk?.treasuryAccountId) return null;
   const isIn = entry.direction === "in";
+  // Dépense de caisse : le compte de sa nature (eau, électricité, loyer…), sinon le compte d'achats du comptoir.
+  const nature = !isIn && entry.category ? EXPENSE_ACCOUNTS[entry.category] ?? null : null;
+  // Entrée hors vente : pas de chiffre d'affaires ni de TVA ; compte d'attente à classer par le comptable.
+  const nonSale = isIn && entry.category === "non_sale" ? { accountCode: "471000", accountLabel: "Compte d'attente — entrée de caisse à classer" } : null;
+  if (nonSale) await registerLedgerAccount(auth.tenantId, nonSale.accountCode, nonSale.accountLabel, session);
+  if (nature) await registerLedgerAccount(auth.tenantId, nature.accountCode, nature.accountLabel, session);
   const posted = await postCashFlow({
     tenantId: auth.tenantId, userId: auth.userId,
     treasuryAccountId: await accountForMethod(auth.tenantId, desk.treasuryAccountId, entry.method, session),
     direction: entry.direction, amount: entry.amount, date: entry.date,
     label: `${desk.name} — ${entry.label}`, reference: `CPT-${String(entry._id).slice(-6).toUpperCase()}`,
     account: isIn
-      ? { accountCode: desk.revenueAccount || "701100", accountLabel: "Ventes du comptoir" }
-      : { accountCode: desk.expenseAccount || "601100", accountLabel: "Dépenses du comptoir" },
+      ? nonSale ?? { accountCode: desk.revenueAccount || "701100", accountLabel: "Ventes du comptoir" }
+      : nature ?? { accountCode: desk.expenseAccount || "601100", accountLabel: "Dépenses du comptoir" },
     // Dépense de caisse : pas de TVA déductible sans facture du fournisseur
     // (CGI) ; elle était déduite au taux du comptoir sur chaque ticket d'achat.
-    vatRate: isIn ? desk.vatRate ?? 0 : 0, activityId: desk.activityId,
+    vatRate: isIn && !nonSale ? desk.vatRate ?? 0 : 0, activityId: desk.activityId,
     linkedDocType: "desk_cash", linkedDocId: entry._id,
   }, session);
   entry.entryId = posted.entryId;

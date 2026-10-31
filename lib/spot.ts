@@ -50,6 +50,10 @@ export const LOSS_REASONS: Record<string, string> = {
   broken: "Cassé / abîmé",
   offered: "Offert (geste commercial)",
   staff: "Consommé par le personnel",
+  unsold: "Invendus, restes du service",
+  prep_waste: "Déchets de préparation",
+  prep_error: "Plat raté, erreur de préparation",
+  returned: "Retour d'un client",
   unknown: "Manquant inexpliqué",
   inventory: "Écart d'inventaire",
 };

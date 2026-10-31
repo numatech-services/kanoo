@@ -1,5 +1,76 @@
 # Kanoo — Changelog
 
+## Restauration — stock à deux niveaux, inventaire au scanner, résultat du comptoir (octobre 2026)
+
+**Comptoir → Stock**, en quatre vues :
+- **Réserve et comptoir.** Chaque comptoir a sa réserve (stock en gros : cartons, sacs, bidons) à côté de son stock de vente. On y voit, article par article :
+  - les quantités en paquets et en unités ;
+  - la valeur au coût ;
+  - les seuils des deux niveaux ;
+  - les dates de péremption, avec l'alerte à 7 jours et les lots périmés à sortir ;
+  - la quantité conseillée à monter au comptoir.
+  Sur téléphone, une carte par article.
+- **Réception en réserve** (marché, livraison sans bon de commande) : par lecture du code-barres ou au choix, en paquets ou en unités, avec le prix d'achat, le lot et la date de péremption, payée ou non depuis la caisse. Une réception sans prix reste « à valoriser ». Une hausse du coût d'achat de 5 % ou plus est signalée, avec les plats qu'elle touche.
+- **Approvisionner le comptoir depuis la réserve** et **retour en réserve** : un numéro de bon par opération ; le lot le plus proche de sa péremption sort le premier ; un lot périmé reste en réserve.
+- **Perte en réserve** (carton périmé, sac abîmé), comptée dans les pertes du comptoir.
+- **Commandes passées depuis le comptoir** : elles entrent dans sa réserve à leur réception.
+- **Réassort fournisseur** : il compte la réserve dans le stock disponible.
+- **Flux de la réserve** : réceptions, transferts, pertes, inventaires.
+- **Liaison automatique au catalogue** : un article du comptoir est relié dès qu'il passe par la réserve. Sa fiche prend le taux de TVA du comptoir, le prix hors taxe, le coût de l'article, son code-barres et le suivi par lot.
+
+**Inventaires au scanner** (comptoir ou réserve, tout ou une famille) :
+- lecture par douchette USB ou Bluetooth (chaque lecture compte) ou par la caméra du téléphone (un code ne compte à nouveau qu'après être sorti du champ), avec un bip ;
+- mode « +1 à chaque lecture » pour compter pièce par pièce ;
+- saisie en paquets et en unités, décimales à la virgule ;
+- un code inconnu s'attribue à un article sur le moment ;
+- plusieurs appareils comptent le même inventaire, et leurs comptages s'additionnent ;
+- les comptages sont gardés sur l'appareil si le réseau tombe.
+
+La validation revient au chef du comptoir ou à la comptabilité. L'écart se calcule sur le stock théorique relevé au moment du comptage : une vente faite ensuite ne crée pas de faux écart. L'écart est passé en stock et chiffré au coût. La validation est possible après l'arrêté de caisse ; elle se fait d'un seul tenant et ne peut pas être passée deux fois.
+
+**Pertes** : nouveaux motifs (invendus et restes du service, déchets de préparation, plat raté, retour d'un client). La perte d'un plat préparé fait sortir ses ingrédients au coût de la recette. Un écart d'inventaire ne se déclare plus à la main.
+
+**Comptoir → Résultat** (chef du comptoir, direction, comptabilité) :
+- **Compte de résultat de gestion du mois** :
+  - chiffre d'affaires et coût des marchandises vendues ;
+  - achats payés en caisse hors réception ;
+  - pertes déclarées ;
+  - repas du personnel et offerts, à part ;
+  - écarts d'inventaire des deux niveaux ;
+  - marge matière ;
+  - charges ;
+  - résultat.
+  Le prévu est mis face au réel. Les ventes sans coût connu sont affichées, mais restent hors marge.
+- **Charges** : elles viennent des écritures comptables imputées au secteur du comptoir (factures d'achats, dépenses de caisse), hors achats de marchandises (déjà au coût des ventes). Elles sont classées par rubrique : personnel, eau, électricité, énergies, consommables, petit matériel, loyer, entretien, assurances, transport, télécoms, honoraires, publicité, frais bancaires, impôts, amortissements, autres.
+- **Personnel** : le coût employeur des bulletins du mois, au prorata du temps passé au comptoir. Une même personne ne dépasse pas 100 % de son temps sur l'ensemble des comptoirs. Le détail nominatif et l'affectation sont réservés à qui gère la paie ; les autres voient le total.
+- **Charges communes sans secteur** (loyer global, compteur commun) : réparties par une quote-part propre à chaque comptoir, la somme des quotes-parts ne dépassant pas 100 %. Un secteur analytique ne sert plus qu'à un seul comptoir.
+- **Repères** : coût matière, coût du personnel, matière et personnel, taux de marge, ticket moyen, coût de revient par ticket, point mort du mois et par jour d'ouverture. Pour un mois écoulé, le point mort se calcule sur les charges réelles.
+- **Consommation théorique et réelle**, article par article : le théorique vient des ventes et des recettes ; le réel ajoute les pertes et les manquants d'inventaire. Les écarts sont chiffrés.
+- **Rapprochement avec la comptabilité** : chiffre d'affaires comptable du secteur comparé à celui des tickets ; achats 601 à 603 comparés aux entrées en stock valorisées ; charges du mois sans secteur.
+- **Analyse de la carte par famille** : locomotives, vaches à lait, énigmes, poids morts, chacune avec un conseil.
+- **Douze derniers mois**, une **vue de tous les comptoirs**, et le **dossier Excel du mois** (refusé aux stagiaires). Il contient :
+  - le résultat et le rapprochement ;
+  - la TVA collectée par taux et les encaissements par moyen ;
+  - les charges par compte et le personnel ;
+  - les pertes par article et les inventaires ;
+  - la consommation ;
+  - le stock de fin de mois des deux niveaux au CMUP ;
+  - l'analyse de la carte.
+- **Clôture mensuelle** par la comptabilité. Elle exige qu'aucun inventaire ne soit ouvert ; ventes sans coût, entrées sans prix ou paie manquante la bloquent, sauf motif écrit. **Un mois clos est verrouillé** : ventes, caisse, pertes, mouvements et inventaires datés de ce mois sont refusés. La réouverture exige un motif, et la clôture précédente reste dans l'historique.
+
+**Caisse du comptoir** :
+- Chaque dépense va au compte de sa nature : eau 605100, électricité 605200, autres énergies 605300, entretien 605400, petit matériel 605600, loyer 622000, entretien et réparations 624000, télécoms 628000, transport 618000, primes 661200, charges diverses 658000. Les achats et ingrédients restent sur le compte d'achats du comptoir.
+- Une entrée **hors vente** (remboursement, apport, correction) passe en compte d'attente 471000, sans chiffre d'affaires ni TVA, à classer par le comptable.
+- *Numéros de comptes à faire confirmer par le comptable de l'organisation.*
+
+**Option du comptoir** : vendre un plat même si un ingrédient manque au comptoir. La vente passe, avec un avertissement, et l'écart se régularise à l'inventaire.
+
+**Droits** :
+- Coût d'achat et prix du paquet ne sont modifiables que par qui voit les coûts.
+- Budgets et objectifs de marge ne sont plus envoyés aux caissiers.
+- Un article qui a encore du stock en réserve ne se supprime pas et ne se détache pas.
+- La liaison au catalogue reste limitée aux articles du comptoir de l'appelant.
+
 ## Pilotage — marges par article, EasyPay, réassort, TVA, fournisseurs, offres (octobre 2026)
 
 **Comptoir → Marges** (anciennement « Rentabilité », désormais en 2e onglet)

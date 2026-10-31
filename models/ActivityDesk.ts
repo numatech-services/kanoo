@@ -19,6 +19,18 @@ export interface IActivityDesk {
   /** Secteur analytique lié (rentabilité par secteur), s'il y a lieu. */
   activityId?: Types.ObjectId;
   warehouseId?: Types.ObjectId;
+  /** Réserve du restaurant (stock en gros : cartons, sacs, bidons), entrepôt de la gestion de stock. */
+  reserveWarehouseId?: Types.ObjectId;
+  /** Personnel affecté au comptoir et part de son temps (0,5 = mi-temps) : son coût entre dans le résultat. */
+  staff?: Array<{ employeeId: Types.ObjectId; share: number }>;
+  /** Charges prévues par mois (budget), comparées au réel et utilisées pour le point mort. */
+  plannedCosts?: Array<{ category: string; label?: string; amount: number }>;
+  /** Jours d'ouverture par mois (point mort par jour). */
+  openDaysPerMonth?: number;
+  /** Quote-part des charges communes non imputées (loyer global, compteur commun…) portée par ce comptoir (0,25 = 25 %). */
+  commonCostShare?: number;
+  /** Vente d'un plat permise même si un ingrédient manque au comptoir : l'écart se régularise à l'inventaire. */
+  lenientStock?: boolean;
   /** Caisse de trésorerie qui reçoit les ventes ; sans elle, la caisse reste hors comptabilité. */
   treasuryAccountId?: Types.ObjectId;
   /** Produit des ventes (701100 marchandises, 706300 restauration…). */
@@ -42,6 +54,12 @@ const ActivityDeskSchema = new Schema<IActivityDesk>({
   activityId: { type: Schema.Types.ObjectId, ref: "Activity" },
   /** Réserve du comptoir dans la gestion de stock (créée automatiquement). */
   warehouseId: { type: Schema.Types.ObjectId, ref: "Warehouse" },
+  reserveWarehouseId: { type: Schema.Types.ObjectId, ref: "Warehouse" },
+  staff: [{ _id: false, employeeId: { type: Schema.Types.ObjectId, ref: "Employee", required: true }, share: { type: Number, required: true, min: 0, max: 1 } }],
+  plannedCosts: [{ _id: false, category: { type: String, required: true, maxlength: 30 }, label: { type: String, maxlength: 80 }, amount: { type: Number, required: true, min: 0 } }],
+  openDaysPerMonth: { type: Number, default: 26, min: 1, max: 31 },
+  commonCostShare: { type: Number, min: 0, max: 1 },
+  lenientStock: { type: Boolean, default: false },
   treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount" },
   revenueAccount: { type: String, default: "701100", match: /^7\d{2,7}$/ },
   expenseAccount: { type: String, default: "601100", match: /^6\d{2,7}$/ },

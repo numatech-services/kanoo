@@ -5,6 +5,7 @@ import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ComptoirSaleModel } from "@/models/ComptoirSale";
 import { ItemCountModel } from "@/models/ItemCount";
 import { ProductModel } from "@/models/Product";
+import { ProductStockModel } from "@/models/ProductStock";
 import { BusinessRuleError } from "@/lib/errors";
 import { applyMovement } from "@/lib/stock";
 import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
@@ -20,9 +21,12 @@ const DAY = 86_400_000;
  * Perte, casse, offert, consommation du personnel : sortie de stock motivée,
  * valorisée au coût. Elle compte dans la marge de la semaine.
  */
-export async function recordLoss(auth: TokenPayload, input: { deskId: string; itemId: string; quantity: number; reason: string; note?: string; date?: string; lenient?: boolean }, session?: ClientSession) {
+type LossResult = { move: { _id: unknown } | null; lossValue: number };
+export async function recordLoss(auth: TokenPayload, input: { deskId: string; itemId: string; quantity: number; reason: string; note?: string; date?: string; lenient?: boolean }, session?: ClientSession): Promise<LossResult> {
   const tenantId = auth.tenantId;
   if (!(input.reason in LOSS_REASONS)) throw new BusinessRuleError("Motif de perte inconnu.");
+  // Les écarts d'inventaire ne se déclarent pas à la main : ils naissent d'un comptage validé.
+  if (input.reason === "inventory") throw new BusinessRuleError("Un écart d'inventaire se constate par un inventaire, pas par une perte.");
   const qty = Number(input.quantity);
   if (!(qty > 0)) throw new BusinessRuleError("Quantité invalide.");
   const date = input.date ? new Date(input.date) : new Date();
@@ -30,7 +34,15 @@ export async function recordLoss(auth: TokenPayload, input: { deskId: string; it
   await assertDayOpen(tenantId, input.deskId, date, session);
   const item = await ActivityItemModel.findOne({ _id: input.itemId, tenantId, deskId: input.deskId }).session(session ?? null);
   if (!item) throw new BusinessRuleError("Article introuvable.");
-  if (item.recipe?.length) throw new BusinessRuleError("Préparation : déclarez la perte sur ses ingrédients.");
+  // Plat ou boisson préparé perdu (invendu, raté, retour) : ses ingrédients sortent du stock au coût de la recette.
+  if (item.recipe?.length) {
+    let lossValue = 0, move: LossResult["move"] = null;
+    for (const ing of item.recipe) {
+      const r = await recordLoss(auth, { ...input, itemId: String(ing.itemId), quantity: Math.round(ing.quantity * qty * 10000) / 10000, note: `${item.name} × ${qty}${input.note ? ` — ${input.note}` : ""}`, lenient: true }, session);
+      lossValue += r.lossValue; move = move ?? r.move;
+    }
+    return { move, lossValue };
+  }
   const reason = `${LOSS_REASONS[input.reason]}${input.note ? ` — ${String(input.note).slice(0, 120)}` : ""}`;
   let unitCost = item.unitCost || 0, stockMovementId: unknown, after: number;
   if (item.productId) {
@@ -58,7 +70,9 @@ export async function lossesReport(tenantId: string, deskId: unknown, fromDay: s
   const names = new Map((await ActivityItemModel.find({ _id: { $in: rows.map(r => r._id.i) } }).select("name").lean<Array<{ _id: Types.ObjectId; name: string }>>()).map(i => [String(i._id), i.name]));
   const byReason = Object.keys(LOSS_REASONS).map(r => ({ reason: r, label: LOSS_REASONS[r], value: rows.filter(x => x._id.r === r).reduce((t, x) => t + x.value, 0) })).filter(x => x.value > 0);
   const byItem = [...new Set(rows.map(r => String(r._id.i)))].map(id => ({ itemId: id, label: names.get(id) ?? "—", quantity: rows.filter(r => String(r._id.i) === id).reduce((t, r) => t + r.qty, 0), value: rows.filter(r => String(r._id.i) === id).reduce((t, r) => t + r.value, 0) })).sort((a, b) => b.value - a.value);
-  return { total: byReason.reduce((t, r) => t + r.value, 0), byReason, byItem };
+  // Détail par article ET par motif (le résultat sépare les manquants d'inventaire des pertes déclarées).
+  const detail = rows.map(r => ({ itemId: String(r._id.i), label: names.get(String(r._id.i)) ?? "—", reason: r._id.r, quantity: r.qty, value: r.value }));
+  return { total: byReason.reduce((t, r) => t + r.value, 0), byReason, byItem, detail };
 }
 
 /**
@@ -84,8 +98,8 @@ export async function reorderPlan(tenantId: string, deskId: string) {
   // Stock des articles du catalogue à jour (livraison de la veille reçue en réserve).
   await syncLinkedItems(tenantId, deskId);
   const [desk, items, used] = await Promise.all([
-    ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("leadDays coverDays").lean<{ leadDays?: number; coverDays?: number } | null>(),
-    ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true } }).lean<Array<{ _id: Types.ObjectId; name: string; unit: string; quantity: number; unitCost: number; threshold?: number; productId?: Types.ObjectId; pack?: { label?: string; size?: number; cost?: number }; recipe?: unknown[] }>>(),
+    ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("leadDays coverDays reserveWarehouseId").lean<{ leadDays?: number; coverDays?: number; reserveWarehouseId?: Types.ObjectId } | null>(),
+    ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true } }).lean<Array<{ _id: Types.ObjectId; name: string; unit: string; quantity: number; unitCost: number; threshold?: number; reserveThreshold?: number; productId?: Types.ObjectId; pack?: { label?: string; size?: number; cost?: number }; recipe?: unknown[] }>>(),
     consumption(tenantId, deskId, WINDOW),
   ]);
   // Déjà en commande pour ce comptoir (bons non reçus) : quantité restant à recevoir par article du catalogue.
@@ -93,6 +107,11 @@ export async function reorderPlan(tenantId: string, deskId: string) {
     .select("lines.productId lines.quantity lines.receivedQty").lean<Array<{ lines: Array<{ productId?: Types.ObjectId; quantity?: number; receivedQty?: number }> }>>();
   const onOrder = new Map<string, number>();
   for (const c of open) for (const l of c.lines) if (l.productId) onOrder.set(String(l.productId), (onOrder.get(String(l.productId)) ?? 0) + Math.max(0, (l.quantity ?? 0) - (l.receivedQty ?? 0)));
+  // Réserve du restaurant (stock en gros) : elle compte dans le stock disponible, avec son propre seuil.
+  const reserveRows = desk?.reserveWarehouseId
+    ? await ProductStockModel.find({ tenantId, warehouseId: desk.reserveWarehouseId, productId: { $in: items.map(i => i.productId).filter(Boolean) } }).select("productId qty").lean<Array<{ productId: Types.ObjectId; qty: number }>>()
+    : [];
+  const reserve = new Map(reserveRows.map(r => [String(r.productId), Math.max(0, r.qty)]));
   const lead = desk?.leadDays ?? 2, cover = desk?.coverDays ?? 7;
   // Campus : la demande vient de l'emploi du temps (vacances, examens, jours
   // sans cours) plutôt que de la moyenne des 28 derniers jours.
@@ -100,13 +119,16 @@ export async function reorderPlan(tenantId: string, deskId: string) {
   const products = await ProductModel.find({ tenantId, _id: { $in: items.map(i => i.productId).filter(Boolean) } }).select("preferredSupplierId purchaseCost").populate("preferredSupplierId", "name").lean<Array<{ _id: Types.ObjectId; purchaseCost?: number; preferredSupplierId?: { _id: Types.ObjectId; name: string } }>>();
   const prod = new Map(products.map(p => [String(p._id), p]));
   const lines = items.filter(i => !i.recipe?.length).map(i => {
+    const inReserve = i.productId ? reserve.get(String(i.productId)) ?? 0 : 0;
+    const stock = i.quantity + inReserve;
+    const threshold = i.threshold != null || i.reserveThreshold != null ? (i.threshold ?? 0) + (i.reserveThreshold ?? 0) : undefined;
     const s = planned
-      ? reorderSuggestion({ stock: i.quantity, soldInWindow: planned.get(String(i._id)) ?? 0, windowDays: lead + cover, leadDays: lead, coverDays: cover, packSize: i.pack?.size, threshold: i.threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 })
-      : reorderSuggestion({ stock: i.quantity, soldInWindow: used.get(String(i._id))?.quantity ?? 0, windowDays: WINDOW, leadDays: lead, coverDays: cover, packSize: i.pack?.size, threshold: i.threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 });
+      ? reorderSuggestion({ stock, soldInWindow: planned.get(String(i._id)) ?? 0, windowDays: lead + cover, leadDays: lead, coverDays: cover, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 })
+      : reorderSuggestion({ stock, soldInWindow: used.get(String(i._id))?.quantity ?? 0, windowDays: WINDOW, leadDays: lead, coverDays: cover, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 });
     const p = i.productId ? prod.get(String(i.productId)) : undefined;
     const unitCost = p?.purchaseCost || i.unitCost || 0;
     return {
-      itemId: String(i._id), name: i.name, unit: i.unit, stock: i.quantity, ...s, packLabel: i.pack?.label,
+      itemId: String(i._id), name: i.name, unit: i.unit, stock, reserve: inReserve, ...s, packLabel: i.pack?.label,
       estimatedCost: Math.round(s.quantity * unitCost), linked: !!i.productId, productId: i.productId ? String(i.productId) : null,
       supplier: p?.preferredSupplierId ? { _id: String(p.preferredSupplierId._id), name: p.preferredSupplierId.name } : null,
     };
@@ -161,7 +183,7 @@ export async function recordCounts(auth: TokenPayload, deskId: string, counts: A
     if (gap !== 0) {
       if (item.productId) {
         const wh = await deskWarehouse(tenantId, deskId, session);
-        const r = await applyMovement({ tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: gap < 0 ? "loss" : "return", quantity: Math.abs(gap), allowPartial: true, reason, linkedDocType: "comptoir", linkedDocId: item.deskId }, session);
+        const r = await applyMovement({ tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: gap < 0 ? "loss" : "return", quantity: Math.abs(gap), allowPartial: true, autoLot: `INV-${day}`, reason, linkedDocType: "comptoir", linkedDocId: item.deskId }, session);
         unitCost = Number(r.movement.unitCost) || unitCost; stockMovementId = r.movement._id;
       }
       await ActivityStockMoveModel.create([{ tenantId, deskId, itemId: item._id, type: "adjust", quantity: Math.abs(gap), quantityAfter: counted, unitCost, reason, stockMovementId,

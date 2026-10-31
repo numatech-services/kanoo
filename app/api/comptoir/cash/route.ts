@@ -60,7 +60,9 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       amount,
       label: String(body.label).slice(0, 200).trim(),
       method: METHODS.includes(body.method) ? body.method : "cash",
-      ...(body.direction === "out" ? { category: body.category && body.category in EXPENSE_CATEGORIES ? body.category : "other" } : {}),
+      // Sortie sans nature : un achat (compte d'achats du comptoir). Entrée : une vente, sauf « hors vente »
+      // (remboursement, apport, correction), passée en compte d'attente sans TVA pour le comptable.
+      ...(body.direction === "out" ? { category: body.category && body.category in EXPENSE_CATEGORIES ? body.category : "supply" } : body.category === "non_sale" ? { category: "non_sale" } : {}),
       date,
       createdBy: auth.userId,
     }], { session });

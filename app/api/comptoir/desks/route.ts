@@ -3,7 +3,8 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, created, badRequest, conflict, forbidden, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityModel } from "@/models/Activity";
-import { isId, deskScope, allDesks } from "@/lib/comptoir";
+import { isId, deskScope, allDesks, canSeeDeskCosts } from "@/lib/comptoir";
+import { authCan } from "@/lib/role-resources";
 import { logAudit } from "@/lib/audit";
 import { deskWarehouse } from "@/lib/comptoir-stock";
 import { TokenPayload } from "@/lib/auth";
@@ -19,8 +20,13 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   const scope = deskScope(auth);
   if (scope) filter._id = { $in: scope.filter(isId) };
   filter.archived = url.searchParams.get("archived") === "1" ? true : { $ne: true };
-  const items = await ActivityDeskModel.find(filter).sort({ createdAt: 1 }).lean();
-  return ok(items);
+  const items = await ActivityDeskModel.find(filter).sort({ createdAt: 1 }).lean<Array<Record<string, unknown>>>();
+  // Budget, objectifs de marge et personnel affecté : pas pour la caisse ; le personnel, pour la paie seulement.
+  const costs = canSeeDeskCosts(auth), payroll = authCan(auth, "payslips", "read");
+  return ok(items.map(d => {
+    const { plannedCosts, targetMarkup, weeklyMarginTarget, commonCostShare, staff, ...rest } = d;
+    return { ...rest, ...(costs ? { plannedCosts, targetMarkup, weeklyMarginTarget, commonCostShare } : {}), ...(payroll ? { staff } : {}) };
+  }));
 });
 
 // Création d'un comptoir — c'est ainsi qu'on « lance » une activité (The Spot).

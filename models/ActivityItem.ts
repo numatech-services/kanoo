@@ -20,6 +20,10 @@ export interface IActivityItem {
   salePrice?: number;
   /** Seuil d'alerte de réapprovisionnement. */
   threshold?: number;
+  /** Seuil d'alerte de la réserve (stock en gros du restaurant). */
+  reserveThreshold?: number;
+  /** Code-barres (EAN, UPC, code interne) : lu au scanner à l'inventaire et à la réception. */
+  barcode?: string;
   /** Article du catalogue : son stock est celui de la réserve du comptoir. */
   productId?: Types.ObjectId;
   /** Famille (boissons, biscuits, snacks…) pour les palmarès et la rentabilité. */
@@ -55,6 +59,8 @@ const ActivityItemSchema = new Schema<IActivityItem>({
   unitCost: { type: Number, default: 0, min: 0 },
   salePrice: { type: Number, min: 0 },
   threshold: { type: Number, min: 0 },
+  reserveThreshold: { type: Number, min: 0 },
+  barcode: { type: String, trim: true, maxlength: 60 },
   productId: { type: Schema.Types.ObjectId, ref: "Product", index: true },
   category: { type: String, trim: true, maxlength: 60 },
   recipe: [{ _id: false, itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true }, quantity: { type: Number, required: true, min: 0 } }],
@@ -70,6 +76,7 @@ const ActivityItemSchema = new Schema<IActivityItem>({
 }, { timestamps: true });
 
 ActivityItemSchema.index({ tenantId: 1, deskId: 1, name: 1 });
+ActivityItemSchema.index({ tenantId: 1, deskId: 1, barcode: 1 }, { sparse: true });
 ActivityItemSchema.index({ tenantId: 1, deskId: 1, easypayId: 1 }, { unique: true, partialFilterExpression: { easypayId: { $type: "string" } } });
 
 export const ActivityItemModel = models.ActivityItem || model<IActivityItem>("ActivityItem", ActivityItemSchema);

@@ -78,6 +78,8 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
           type: type === "in" ? "entry" : type === "out" ? "exit" : "adjustment", quantity: qty,
           unitCost: type === "in" && body.unitCost != null ? Number(body.unitCost) : undefined,
           lots: Array.isArray(body.lots) ? body.lots : undefined,
+          // Article suivi par lot reçu sans lot précisé : un lot daté du jour.
+          ...(type === "in" ? { autoLot: `ENT-${new Date().toISOString().slice(0, 10)}` } : {}),
           reason: String(body.reason || (type === "out" ? "Vente au comptoir" : type === "in" ? "Achat au comptoir" : "Inventaire du comptoir")).slice(0, 300),
           linkedDocType: "comptoir", linkedDocId: body.deskId,
         }, session);

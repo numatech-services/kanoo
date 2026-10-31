@@ -4,6 +4,7 @@ import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { ComptoirSaleModel, type ISaleLine } from "@/models/ComptoirSale";
+import { DeskMonthCloseModel } from "@/models/DeskMonthClose";
 import { CashClosingModel } from "@/models/CashClosing";
 import { ProductModel } from "@/models/Product";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
@@ -40,6 +41,14 @@ export function localDay(d: Date): string {
 export async function assertDayOpen(tenantId: string, deskId: unknown, date: Date, session?: ClientSession) {
   const closed = await CashClosingModel.exists({ tenantId, deskId, day: { $gte: localDay(date) } }).session(session ?? null);
   if (closed) throw new BusinessRuleError(`La caisse est arrêtée au ${date.toLocaleDateString("fr-FR")} (ou après) : cette journée ne se modifie plus.`);
+  await assertMonthOpen(tenantId, deskId, date, session);
+}
+
+/** Mois de gestion clos (lui ou un mois suivant) : plus rien ne s'y écrit, sauf réouverture motivée par la comptabilité. */
+export async function assertMonthOpen(tenantId: string, deskId: unknown, date: Date, session?: ClientSession) {
+  const month = localDay(date).slice(0, 7);
+  const closed = await DeskMonthCloseModel.findOne({ tenantId, deskId, status: "closed", month: { $gte: month } }).select("month").session(session ?? null).lean<{ month: string } | null>();
+  if (closed) throw new BusinessRuleError(`Le mois ${closed.month} est clos en gestion${closed.month === month ? "" : ` (et donc ${month})`} : la comptabilité doit le rouvrir pour y écrire.`);
 }
 
 /**
@@ -50,8 +59,12 @@ export async function assertDayOpen(tenantId: string, deskId: unknown, date: Dat
  */
 export async function firstOpenDate(tenantId: string, deskId: unknown, at: Date, session?: ClientSession): Promise<Date> {
   const last = await CashClosingModel.findOne({ tenantId, deskId, day: { $gte: localDay(at) } }).sort({ day: -1 }).select("day").session(session ?? null).lean<{ day: string } | null>();
-  if (!last) return at;
-  const next = new Date(`${last.day}T08:00:00`); next.setDate(next.getDate() + 1);
+  // Mois de gestion clos : l'opération passe au premier jour du mois suivant.
+  const month = await DeskMonthCloseModel.findOne({ tenantId, deskId, status: "closed", month: { $gte: localDay(at).slice(0, 7) } }).sort({ month: -1 }).select("month").session(session ?? null).lean<{ month: string } | null>();
+  if (!last && !month) return at;
+  let next = at;
+  if (last) { next = new Date(`${last.day}T08:00:00`); next.setDate(next.getDate() + 1); }
+  if (month) { const [y, m] = month.month.split("-").map(Number); const first = new Date(y, m, 1, 8); if (first > next) next = first; }
   return next > new Date() ? next : new Date();
 }
 
@@ -128,8 +141,10 @@ async function stockOut(auth: TokenPayload, desk: DeskLite, item: ItemDoc, qty: 
 export async function createSale(auth: TokenPayload, input: SaleInput, session?: ClientSession) {
   const tenantId = auth.tenantId;
   const desk = await ActivityDeskModel.findOne({ _id: input.deskId, tenantId }).session(session ?? null)
-    .lean<{ _id: Types.ObjectId; name: string; activityId?: unknown; treasuryAccountId?: unknown; revenueAccount?: string; vatRate?: number } | null>();
+    .lean<{ _id: Types.ObjectId; name: string; activityId?: unknown; treasuryAccountId?: unknown; revenueAccount?: string; vatRate?: number; lenientStock?: boolean } | null>();
   if (!desk) throw new BusinessRuleError("Comptoir introuvable.");
+  // Option du comptoir : un plat se vend même si un ingrédient manque au comptoir (pris en réserve sans approvisionnement) ; l'écart sort à l'inventaire.
+  const lenientIngredients = !!desk.lenientStock;
   const external = input.external?.source === "easypay" ? input.external : undefined;
   let date = input.date ? new Date(input.date) : new Date();
   if (isNaN(date.getTime())) throw new BusinessRuleError("Date invalide.");
@@ -194,13 +209,15 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
             if (!sub) throw new BusinessRuleError(`Ingrédient introuvable dans la recette de ${ing.name}.`);
             const sq = Math.round(g.quantity * q * 1000) / 1000;
             if (!(sq > 0)) continue;
-            const so = await stockOut(auth, desk, sub, sq, number, date, session, !!external);
+            const so = await stockOut(auth, desk, sub, sq, number, date, session, !!external || lenientIngredients);
             total += so.unitCost * sq;
             ingredients.push({ itemId: sub._id, quantity: sq, unitCost: so.unitCost, stockMovementId: so.stockMovementId, stockMoveId: so.moveId });
           }
           continue;
         }
-        const o = await stockOut(auth, desk, ing, q, number, date, session, !!external);
+        const shortBefore = ing.quantity || 0;
+        const o = await stockOut(auth, desk, ing, q, number, date, session, !!external || lenientIngredients);
+        if (lenientIngredients && q > shortBefore) warnings.push(`${ing.name} : manque au comptoir (${shortBefore} ${ing.unit} pour ${q}), vendu quand même — à régulariser à l'inventaire.`);
         total += o.unitCost * q;
         ingredients.push({ itemId: ing._id, quantity: q, unitCost: o.unitCost, stockMovementId: o.stockMovementId, stockMoveId: o.moveId });
         if (ing.threshold != null && o.after <= ing.threshold) warnings.push(`${ing.name} : stock bas (${o.after} ${ing.unit}).`);
