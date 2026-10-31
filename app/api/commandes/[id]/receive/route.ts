@@ -8,6 +8,8 @@ import { deskReserve } from "@/lib/restaurant-stock";
 import { priceAlertsAfterCost } from "@/lib/restaurant-overview";
 import { notifyRoles } from "@/lib/notify";
 import { ActivityItemModel } from "@/models/ActivityItem";
+import { SupplierModel } from "@/models/Supplier";
+import { PurchasePriceLogModel } from "@/models/PurchasePriceLog";
 import { receptionStatus } from "@/lib/commande";
 import { logAudit } from "@/lib/audit";
 import { GoodsReceiptModel } from "@/models/GoodsReceipt";
@@ -83,10 +85,17 @@ export const POST = withAuth("commandes", "update", async (req: NextRequest, aut
     throw e;
   }
   await logAudit(auth, "UPDATE", "commandes", { resourceId: params.id, metadata: { received: wanted, date }, after: { status: cmd.status } });
-  // Commande d'un restaurant : un nouveau coût d'achat peut faire passer des plats sous leur prix minimum.
+  // Commande d'un restaurant : prix d'achat au journal (historique, comparaison des fournisseurs) ; un nouveau
+  // coût peut faire passer des plats sous leur prix minimum.
   if (sourceDesk) {
     const pids = wanted.map(w => lines[w.index].productId).filter(Boolean);
-    const itemIds = (await ActivityItemModel.find({ tenantId: auth.tenantId, deskId: sourceDesk, productId: { $in: pids } }).select("_id").lean<Array<{ _id: unknown }>>()).map(i => String(i._id));
+    const deskItems = await ActivityItemModel.find({ tenantId: auth.tenantId, deskId: sourceDesk, productId: { $in: pids } }).select("_id productId").lean<Array<{ _id: unknown; productId: unknown }>>();
+    const itemIds = deskItems.map(i => String(i._id));
+    const supplierName = (await SupplierModel.findOne({ _id: cmd.supplierId, tenantId: auth.tenantId }).select("name").lean<{ name?: string } | null>())?.name;
+    await PurchasePriceLogModel.insertMany(wanted.flatMap((w, k) => {
+      const it = deskItems.find(i => String(i.productId) === String(lines[w.index].productId));
+      return it ? [{ tenantId: auth.tenantId, deskId: sourceDesk, itemId: it._id, supplierId: cmd.supplierId, ...(supplierName ? { supplierName } : {}), unitCost: costs[k] ?? 0, quantity: w.quantity, date, source: "commande", reference: cmd.number, commandeId: cmd._id, paidFromCash: false, createdBy: auth.userId }] : [];
+    })).catch(() => undefined);
     const below = await priceAlertsAfterCost(auth.tenantId, String(sourceDesk), itemIds).catch(() => []);
     if (below.length) await notifyRoles(auth.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "svc_compta", "svc_spot"], {
       type: "stock_alert", title: "Prix de vente sous le minimum après une hausse d'achat",

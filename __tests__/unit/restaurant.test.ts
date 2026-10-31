@@ -127,3 +127,30 @@ describe("restaurant — fiches techniques (portions et rendement)", () => {
     expect(portionRecipe([{ itemId: "a", quantity: 2, yield: 0.5 }], 4)[0].quantity).toBe(1);
   });
 });
+
+describe("monthShares — affectations datées ramenées au mois", () => {
+  it("sans dates : la part vaut pour tout le mois", async () => {
+    const { monthShares } = await import("@/lib/restaurant");
+    expect(monthShares([{ employeeId: "a", share: 0.5 }], 2026, 10)).toEqual([{ employeeId: "a", share: 0.5 }]);
+  });
+  it("à partir du 16 octobre : 16 jours sur 31", async () => {
+    const { monthShares, staffCost } = await import("@/lib/restaurant");
+    const s = monthShares([{ employeeId: "a", share: 1, from: "2026-10-16" }], 2026, 10);
+    expect(staffCost([{ employeeId: "a", employerCost: 120_000 }], s)).toBe(61_935);
+  });
+  it("deux périodes successives du même collaborateur s'additionnent ; hors du mois : rien", async () => {
+    const { monthShares } = await import("@/lib/restaurant");
+    const s = monthShares([{ employeeId: "a", share: 1, to: "2026-10-15" }, { employeeId: "a", share: 0.5, from: "2026-10-16" }, { employeeId: "b", share: 1, to: "2026-09-30" }], 2026, 10);
+    expect(s).toHaveLength(1);
+    expect(s[0].share).toBeCloseTo((15 + 0.5 * 16) / 31, 5);
+  });
+});
+
+describe("shiftHours — durée d'un poste", () => {
+  it("compte les heures, y compris un service qui finit après minuit", async () => {
+    const { shiftHours } = await import("@/lib/restaurant-staff");
+    expect(shiftHours("10:00", "15:00")).toBe(5);
+    expect(shiftHours("18:30", "00:30")).toBe(6);
+    expect(shiftHours("08:00", "08:00")).toBe(24);
+  });
+});

@@ -9,7 +9,7 @@ import { productSales } from "@/lib/comptoir-session";
 import { deskMonthResult, maskPayroll, payrollHidden } from "@/lib/restaurant-result";
 import { ProductModel } from "@/models/Product";
 import { restaurantStock } from "@/lib/restaurant-stock";
-import { monthBounds, staffCost, portionRecipe } from "@/lib/restaurant";
+import { monthBounds, monthShares, staffCost, portionRecipe } from "@/lib/restaurant";
 import { DEFAULT_TARGET_NET_MARGIN, priceCheck, targetGap, unitCostOf, type PriceCheck } from "@/lib/restaurant-pricing";
 
 type Id = Types.ObjectId;
@@ -149,7 +149,7 @@ export async function restaurantOverview(tenantId: string, scope: string[] | nul
  */
 export async function restaurantTeam(tenantId: string, scope: string[] | null, month: string, payroll: boolean) {
   const desks = await ActivityDeskModel.find({ tenantId, archived: { $ne: true }, ...(scope ? { _id: { $in: scope } } : {}) }).select("name staff").sort({ name: 1 })
-    .lean<Array<{ _id: Id; name: string; staff?: Array<{ employeeId: Id; share: number }> }>>();
+    .lean<Array<{ _id: Id; name: string; staff?: Array<{ employeeId: Id; share: number; from?: string; to?: string }> }>>();
   const ids = [...new Set(desks.flatMap(d => (d.staff ?? []).map(s => String(s.employeeId))))];
   const b = monthBounds(month);
   const [emps, slips, free] = await Promise.all([
@@ -165,8 +165,8 @@ export async function restaurantTeam(tenantId: string, scope: string[] | null, m
       staff: (d.staff ?? []).map(s => {
         const e = byId.get(String(s.employeeId)), own = slips.filter(p => String(p.employeeId) === String(s.employeeId));
         return {
-          employeeId: String(s.employeeId), name: e ? `${e.lastName} ${e.firstName}` : "—", position: e?.position, active: e?.isActive !== false, share: s.share,
-          ...(payroll ? { payslip: own.length > 0, payslipId: own[0] ? String(own[0]._id) : undefined, paid: own.some(p => p.isPaid), allocated: staffCost(own.map(p => ({ ...p, employeeId: String(p.employeeId) })), [{ employeeId: String(s.employeeId), share: s.share }]) } : {}),
+          employeeId: String(s.employeeId), name: e ? `${e.lastName} ${e.firstName}` : "—", position: e?.position, active: e?.isActive !== false, share: s.share, from: s.from, to: s.to,
+          ...(payroll ? { payslip: own.length > 0, payslipId: own[0] ? String(own[0]._id) : undefined, paid: own.some(p => p.isPaid), allocated: staffCost(own.map(p => ({ ...p, employeeId: String(p.employeeId) })), monthShares([s], b.year, b.m)) } : {}),
         };
       }),
     })),

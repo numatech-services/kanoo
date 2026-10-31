@@ -16,6 +16,8 @@ export interface IDeskInventory {
   category?: string;
   /** Stock initial (première saisie) : ses écarts constituent le stock, hors résultat du mois. */
   opening?: boolean;
+  /** Inventaire de fin de semaine ouvert d'office : sa validation propose la commande de réassort. */
+  weekly?: boolean;
   /**
    * `parts` : un sous-total par appareil (deux magasiniers comptent le même
    * article à deux endroits, leurs comptages s'additionnent) ; `counted` en est
@@ -41,6 +43,7 @@ const DeskInventorySchema = new Schema<IDeskInventory>({
   status: { type: String, enum: ["open", "validated", "cancelled"], default: "open" },
   category: { type: String, maxlength: 60 },
   opening: { type: Boolean, default: false },
+  weekly: { type: Boolean, default: false },
   lines: [{
     _id: false,
     itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true },

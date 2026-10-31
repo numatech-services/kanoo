@@ -125,11 +125,13 @@ export function CycleCountPanel({ deskId, onChange }: { deskId: string; onChange
 
 /** Perte, casse, offert, consommation du personnel : sortie de stock motivée et chiffrée. */
 export function LossDialog({ deskId, item, onClose, onDone }: { deskId: string; item: { _id: string; name: string; unit: string; quantity: number }; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ quantity: "", reason: "broken", note: "" });
+  const [f, setF] = useState({ quantity: "", reason: "broken", note: "", employeeId: "" });
   const [busy, setBusy] = useState(false);
+  // Repas du personnel : rattaché au collaborateur (avantage en nature sur son bulletin).
+  const { data: team } = useApi<Array<{ employeeId: string; name: string }>>(f.reason === "staff" ? `/api/restauration/planning?deskId=${deskId}` : null, d => ((d?.data as { team?: Array<{ employeeId: string; name: string }> })?.team ?? []), [], { quiet: true });
   async function save() {
     setBusy(true);
-    const res = await apiSend("POST", "/api/comptoir/losses", { deskId, itemId: item._id, quantity: Number(f.quantity), reason: f.reason, note: f.note || undefined });
+    const res = await apiSend("POST", "/api/comptoir/losses", { deskId, itemId: item._id, quantity: Number(f.quantity), reason: f.reason, note: f.note || undefined, employeeId: f.reason === "staff" && f.employeeId ? f.employeeId : undefined });
     setBusy(false);
     if (!res.ok) { showToast(res.data?.error || "Déclaration refusée.", "error"); return; }
     const v = res.data.data.lossValue;
@@ -143,6 +145,14 @@ export function LossDialog({ deskId, item, onClose, onDone }: { deskId: string; 
           <FormField label="Quantité" required><input type="number" min={0} step="any" className={inputCls} value={f.quantity} onChange={e => setF(p => ({ ...p, quantity: e.target.value }))} /></FormField>
           <FormField label="Motif"><select className={selectCls} value={f.reason} onChange={e => setF(p => ({ ...p, reason: e.target.value }))}>{Object.entries(LOSS_REASONS).filter(([k]) => k !== "inventory").map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
         </div>
+        {f.reason === "staff" && (
+          <FormField label="Collaborateur (facultatif)" hint="Le repas compte dans ses avantages en nature du mois.">
+            <select className={selectCls} value={f.employeeId} onChange={e => setF(p => ({ ...p, employeeId: e.target.value }))}>
+              <option value="">— Non nominatif —</option>
+              {team.map(t => <option key={t.employeeId} value={t.employeeId}>{t.name}</option>)}
+            </select>
+          </FormField>
+        )}
         <FormField label="Précision (facultatif)"><input className={inputCls} maxLength={120} value={f.note} onChange={e => setF(p => ({ ...p, note: e.target.value }))} /></FormField>
         <div className="flex justify-end gap-2"><button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button><button disabled={busy || !(Number(f.quantity) > 0)} onClick={save} className={buttonClass("primary", "md")}><Trash2 size={14} /> Déclarer</button></div>
       </div>

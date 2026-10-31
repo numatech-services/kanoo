@@ -54,6 +54,8 @@ async function main() {
     import("../models/DeskInventory").then(m => m.DeskInventoryModel),
     import("../models/DeskMonthClose").then(m => m.DeskMonthCloseModel),
     import("../models/DeskMenu").then(m => m.DeskMenuModel),
+    import("../models/PurchasePriceLog").then(m => m.PurchasePriceLogModel),
+    import("../models/StaffShift").then(m => m.StaffShiftModel),
     // Compteurs des séries à format fixe (reçus, notes de frais, courriers…).
     import("../models/SerialCounter").then(m => m.SerialCounterModel),
     // Une cotisation par adhérent et par année (index unique) ; reçus de dons.

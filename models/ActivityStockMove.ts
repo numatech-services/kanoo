@@ -20,6 +20,7 @@ export interface IActivityStockMove {
   /** Perte : motif (lib/spot LOSS_REASONS) et valeur au coût. */
   lossReason?: string;
   lossValue?: number;
+  employeeId?: Types.ObjectId;
   date: Date;
   createdBy: Types.ObjectId;
   createdAt: Date;
@@ -39,6 +40,8 @@ const ActivityStockMoveSchema = new Schema<IActivityStockMove>({
   stockMovementId: { type: Schema.Types.ObjectId, ref: "StockMovement" },
   lossReason: { type: String, maxlength: 20 },
   lossValue: { type: Number, min: 0 },
+  // Repas du personnel : le collaborateur nourri (avantage en nature à reporter sur son bulletin).
+  employeeId: { type: Schema.Types.ObjectId, ref: "Employee" },
   date: { type: Date, required: true, default: Date.now, index: true },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: true });

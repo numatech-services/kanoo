@@ -7,7 +7,7 @@ import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { moduleEnabled } from "@/lib/modules";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent, UtensilsCrossed, Tags, ChefHat, CookingPot } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent, UtensilsCrossed, Tags, ChefHat, CookingPot, ShoppingBasket } from "lucide-react";
 
 import { apiJson, apiSend } from "@/lib/api-client";
 import { getPendingCount, purgeOfflineData } from "@/lib/offline/sync-queue";
@@ -118,8 +118,10 @@ const PME_NAV: NavGroup[] = [
     { label: "Comptoirs", href: "/comptoir", icon: <Store size={18} /> },
     { label: "Fiches techniques", href: "/restauration/fiches", icon: <ChefHat size={18} /> },
     { label: "Production", href: "/restauration/production", icon: <CookingPot size={18} /> },
+    { label: "Achats du restaurant", href: "/restauration/achats", icon: <ShoppingBasket size={18} /> },
     { label: "Prix et marges", href: "/restauration/prix", icon: <Tags size={18} /> },
     { label: "Équipe et paie", href: "/restauration/equipe", icon: <Users size={18} /> },
+    { label: "Planning et pointage", href: "/restauration/planning", icon: <CalendarClock size={18} /> },
   ]},
   { section: "Modules", tone: "abonnements", items: [
     { label: "Cartes ISIC", href: "/isic", icon: <CreditCard size={18} /> },

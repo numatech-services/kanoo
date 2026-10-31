@@ -859,7 +859,7 @@ async function runWeeklyInventory(now = new Date()): Promise<string> {
           const levels: Array<"desk" | "reserve"> = cfg.level === "both" ? ["desk", "reserve"] : ["desk"];
           const done: string[] = [];
           for (const level of levels) {
-            try { await openInventory(actor.auth as never, String(desk._id), level); done.push(level === "desk" ? "du comptoir" : "de la réserve"); }
+            try { await openInventory(actor.auth as never, String(desk._id), level, undefined, false, true); done.push(level === "desk" ? "du comptoir" : "de la réserve"); }
             catch (e) { if (!(e instanceof BusinessRuleError)) throw e; }
           }
           if (!done.length) continue;

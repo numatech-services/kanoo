@@ -2,7 +2,8 @@
  * Vérification de la logique du module Restauration contre la base de TEST,
  * sans serveur compilé : les fonctions serveur sont appelées directement
  * (réserve, approvisionnement, ventes, pertes, inventaires, résultat, prix,
- * vue d'ensemble, inventaire de fin de semaine, verrou du mois clos).
+ * vue d'ensemble, inventaire de fin de semaine, verrou du mois clos, fiches
+ * techniques, production, achats et rapprochement, planning et pointage).
  * Complète le scénario HTTP e2e-restaurant.mjs, qui exige une compilation.
  *
  *   MONGODB_URI=mongodb://127.0.0.1:27099/kanoo_e2e?directConnection=true npx tsx scripts/e2e/restaurant-logic.ts
@@ -20,6 +21,11 @@ import { deskMonthResult, maskPayroll } from "../../lib/restaurant-result";
 import { deskPricing, restaurantOverview } from "../../lib/restaurant-overview";
 import { AUTOMATION_RUNNERS } from "../../lib/automation-jobs";
 import { dayPlan, saveMenu, issueForDay, closeService } from "../../lib/restaurant-production";
+import { priceHistory, toInvoice, markInvoiced } from "../../lib/restaurant-purchasing";
+import { upsertShift, clock, deleteShift, weekPlanning, monthLabor } from "../../lib/restaurant-staff";
+import { validateStaff } from "../../lib/restaurant-team";
+import { SupplierModel } from "../../models/Supplier";
+import { StaffShiftModel } from "../../models/StaffShift";
 import { UserModel } from "../../models/User";
 import { ActivityModel } from "../../models/Activity";
 import { ActivityDeskModel } from "../../models/ActivityDesk";
@@ -172,6 +178,65 @@ async function main() {
   const cs = await closeService(auth, deskId, day, "midi", [{ itemId: String(sauce._id), produced: 8, leftover: 2 }]);
   check("fin de service : 2 portions restantes en perte (0,25 kg, 100 FCFA)", near((await row(oignon._id)).desk * 1000, 0) && near(cs.leftoverValue, 100), { cs, desk: (await row(oignon._id)).desk });
   check("service clos : menu non modifiable, seconde clôture refusée", await refuses(() => saveMenu(auth, deskId, day, "midi", [{ itemId: String(sauce._id), quantity: 9 }]), /clos/) && await refuses(() => closeService(auth, deskId, day, "midi", []), /clos/));
+
+  console.log("\n▶ Achats : historique, comparaison, rapprochement, réassort");
+  const fA = await SupplierModel.create({ tenantId, code: "FRS-LOG-A", name: "Grossiste Oignons" });
+  await receiveInReserve(auth, deskId, [{ itemId: String(oignon._id), quantity: 5, unitCost: 380 }], { supplierId: String(fA._id), reference: "BL-A1" });
+  await receiveInReserve(auth, deskId, [{ itemId: String(oignon._id), quantity: 5, unitCost: 450 }], { supplier: "Marché", reference: "BL-M1" });
+  const ph = (await priceHistory(tenantId, deskId)).find(x => x.itemId === String(oignon._id));
+  check("historique : dernier prix 450 (Marché), le moins cher est le fournisseur du référentiel", ph?.last.unitCost === 450 && ph.last.supplier === "Marché" && ph.best === "Grossiste Oignons" && ph.suppliers[0].avg === 380, ph);
+  const ti = await toInvoice(tenantId, deskId);
+  const mine = ti.receptions.filter(x => x.reference === "BL-A1" || x.reference === "BL-M1");
+  check("à rapprocher : les deux réceptions non payées en caisse, pas celle payée en caisse", mine.length === 2 && !ti.receptions.some(x => x.reference === "BL-1"), ti.receptions.map(x => x.reference));
+  const mk1 = await markInvoiced(auth, deskId, mine.filter(x => x.reference === "BL-A1").map(x => x._id), "FAC-A-001");
+  check("rapprochement d'une facture : la réception sort de la liste", mk1.matched === 1 && !(await toInvoice(tenantId, deskId)).receptions.some(x => x.reference === "BL-A1"));
+  check("rapprochement sans numéro de facture : refusé", await refuses(() => markInvoiced(auth, deskId, [mine[0]._id], " "), /facture/i));
+  check("inventaire ordinaire : pas de réassort proposé", v1.proposal === null);
+  const huile = await mk({ name: "Huile", unit: "L", category: "Épicerie", unitCost: 1200, threshold: 20 });
+  await receiveInReserve(auth, deskId, [{ itemId: String(huile._id), quantity: 2, unitCost: 1200 }], {});
+  await DeskInventoryModel.updateMany({ tenantId, deskId, status: "open" }, { $set: { status: "cancelled" } });
+  const wInv = await openInventory(auth, deskId, "reserve", undefined, false, true);
+  await saveCounts(auth, String(wInv._id), "A", [{ itemId: String(huile._id), counted: 2 }]);
+  const wv = await validateInventory(auth, String(wInv._id));
+  check("inventaire du samedi : réassort proposé aussitôt (huile sous le seuil)", !!wv.proposal && wv.proposal.orders + wv.proposal.shopping + wv.proposal.noSupplier >= 1, wv.proposal);
+
+  console.log("\n▶ Personnel : affectation datée, planning, pointage, repas");
+  const y = now.getFullYear(), mo = now.getMonth() + 1, mm = String(mo).padStart(2, "0"), dim = new Date(y, mo, 0).getDate();
+  await ActivityDeskModel.updateOne({ _id: desk._id }, { $set: { staff: [{ employeeId: emp.insertedId, share: 1, from: `${y}-${mm}-16` }] } });
+  const rDated = await deskMonthResult(tenantId, deskId, month);
+  const expected = Math.round(120_000 * (dim - 15) / dim);
+  check(`affectation à partir du 16 : ${dim - 15} jours sur ${dim} du coût employeur (${expected})`, near(rDated.pnl.charges.find(x => x.category === "personnel")?.actual ?? 0, expected), rDated.pnl.charges.find(x => x.category === "personnel"));
+  check("même personne sur deux périodes qui se chevauchent : refusé", await refuses(() => validateStaff(tenantId, deskId, [{ employeeId: String(emp.insertedId), share: 1, from: `${y}-${mm}-01`, to: `${y}-${mm}-20` }, { employeeId: String(emp.insertedId), share: 1, from: `${y}-${mm}-10` }]), /chevauchent/));
+  const okTwo = await validateStaff(tenantId, deskId, [{ employeeId: String(emp.insertedId), share: 1, from: `${y}-${mm}-01`, to: `${y}-${mm}-09` }, { employeeId: String(emp.insertedId), share: 1, from: `${y}-${mm}-16` }]);
+  check("même personne sur deux périodes successives : accepté", okTwo.length === 2);
+  check("fin d'affectation avant son début : refusé", await refuses(() => validateStaff(tenantId, deskId, [{ employeeId: String(emp.insertedId), share: 1, from: `${y}-${mm}-10`, to: `${y}-${mm}-01` }]), /avant/));
+  await upsertShift(auth, deskId, { employeeId: String(emp.insertedId), day, service: "midi", start: "10:00", end: "15:00" });
+  await upsertShift(auth, deskId, { employeeId: String(emp.insertedId), day, service: "soir", start: "18:00", end: "23:00" });
+  const wp = await weekPlanning(tenantId, deskId, day);
+  const sMidi = wp.shifts.find(x => x.service === "midi")!, sSoir = wp.shifts.find(x => x.service === "soir")!;
+  check("planning : deux postes de 5 h, la cuisinière dans l'équipe de la semaine", sMidi?.plannedHours === 5 && !!sSoir && wp.team.some(t => t.employeeId === String(emp.insertedId)), wp);
+  const tIn = new Date(`${day}T10:15:00`);
+  await clock(auth, deskId, sMidi._id, "in", tIn);
+  await clock(auth, deskId, sMidi._id, "out", new Date(tIn.getTime() + 4.5 * 3_600_000));
+  check("pointage : départ avant arrivée, double arrivée, absence après arrivée — refusés",
+    await refuses(() => clock(auth, deskId, sSoir._id, "out"), /arrivée/) && await refuses(() => clock(auth, deskId, sMidi._id, "in"), /déjà/) && await refuses(() => clock(auth, deskId, sMidi._id, "absent"), /pointé/));
+  check("poste pointé : ne se supprime plus", await refuses(() => deleteShift(auth, deskId, sMidi._id), /pointé/));
+  await clock(auth, deskId, sSoir._id, "absent");
+  check("conflit : même collaborateur au même service dans un autre restaurant — refusé", await (async () => {
+    const other = await ActivityDeskModel.create({ tenantId, name: "Autre restaurant", activityId: sector._id, treasuryAccountId: caisse._id, revenueAccount: "706300", vatRate: 0, createdBy: admin._id });
+    return refuses(() => upsertShift(auth, String(other._id), { employeeId: String(emp.insertedId), day, service: "midi", start: "10:00", end: "15:00" }), /autre restaurant/);
+  })());
+  await withTransaction(s => recordLoss(auth, { deskId, itemId: String(coca._id), quantity: 1, reason: "staff", employeeId: String(emp.insertedId) }, s));
+  check("repas du personnel rattaché à un collaborateur inconnu : refusé", await refuses(() => withTransaction(s => recordLoss(auth, { deskId, itemId: String(coca._id), quantity: 1, reason: "staff", employeeId: String(new Types.ObjectId()) }, s)), /introuvable/));
+  const lab = await monthLabor(tenantId, deskId, month, true);
+  const pe = lab.people.find(x => x.employeeId === String(emp.insertedId))!;
+  const rate = 120_000 / 173.33;
+  check("heures du mois : 10 h prévues, 4,5 h réelles (absence au soir), 1 absence", pe?.plannedHours === 10 && pe.realHours === 4.5 && pe.absences === 1, pe);
+  check(`coût horaire ${Math.round(rate)} et coût du midi ${Math.round(rate * 4.5)}`, pe.hourlyCost === Math.round(rate) && near(pe.cost ?? 0, Math.round(rate * 4.5)) && near(lab.services.find(x => x.service === "midi")?.cost ?? 0, Math.round(rate * 4.5)), { pe, s: lab.services });
+  check("repas du personnel : 1 repas valorisé au coût, rattaché à la cuisinière", pe.staffMeals?.count === 1 && (pe.staffMeals?.value ?? 0) > 0, pe.staffMeals);
+  const labNo = await monthLabor(tenantId, deskId, month, false);
+  check("sans droit paie : heures visibles, coûts et repas masqués", labNo.people[0]?.realHours === 4.5 && !("cost" in labNo.people[0]) && !("staffMeals" in labNo.people[0]) && !("cost" in (labNo.services[0] ?? {})));
+  await StaffShiftModel.deleteMany({ tenantId, deskId });
 
   console.log(`\n${pass} réussis, ${fail} en échec`);
   await mongoose.disconnect();

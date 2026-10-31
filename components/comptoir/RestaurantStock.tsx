@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Warehouse, Store, ArrowUpFromLine, ArrowDownToLine, PackagePlus, AlertTriangle, CalendarClock, Settings2, Search, Trash2 } from "lucide-react";
 import { LOSS_REASONS } from "@/lib/spot";
 import { Modal } from "@/components/ui/Modal";
@@ -7,7 +7,7 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill } from "@/components/ui/Primitives";
 import { buttonClass } from "@/components/ui/button-class";
 import { showToast } from "@/components/ui/Toast";
-import { apiSend } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 import { BarcodeScanner, beep } from "@/components/shared/BarcodeScanner";
 
 const MONEY = (n?: number | null) => (n === undefined || n === null ? "—" : `${Math.round(n).toLocaleString("fr-FR")} FCFA`);
@@ -123,6 +123,9 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
   const stock = rows.filter(r => !r.preparation);
   const [lines, setLines] = useState<Line[]>(() => (initial ?? []).map(emptyLine));
   const [supplier, setSupplier] = useState("");
+  const [supplierId, setSupplierId] = useState("");
+  const [suppliers, setSuppliers] = useState<Array<{ _id: string; name: string }>>([]);
+  useEffect(() => { apiJson("/api/suppliers?limit=500").then(d => setSuppliers(Array.isArray(d.data) ? d.data : d.data?.items ?? [])).catch(() => {}); }, []);
   const [reference, setReference] = useState("");
   const [paid, setPaid] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -145,7 +148,7 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
     });
     if (!payload.length) return showToast("Saisissez au moins une quantité.", "error");
     setBusy(true);
-    const r = await apiSend<{ data: { total: number; unvalued: number; alerts: Array<{ name: string; pct: number; dishes: string[] }> }; error?: string }>("POST", "/api/comptoir/reserve", { deskId, action: "receive", lines: payload, supplier, reference, paidFromCash: paid });
+    const r = await apiSend<{ data: { total: number; unvalued: number; alerts: Array<{ name: string; pct: number; dishes: string[] }> }; error?: string }>("POST", "/api/comptoir/reserve", { deskId, action: "receive", lines: payload, supplier, ...(supplierId ? { supplierId } : {}), reference, paidFromCash: paid });
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Réception refusée", "error");
     const a = r.data.data.alerts;
@@ -183,7 +186,10 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
           </table></div>
         )}
         <div className="grid gap-3 sm:grid-cols-2">
-          <FormField label="Fournisseur (facultatif)"><input className={inputCls} value={supplier} onChange={e => setSupplier(e.target.value)} placeholder="Marché de Katako, grossiste…" /></FormField>
+          <FormField label="Fournisseur">
+            {suppliers.length > 0 && <select className={selectCls} value={supplierId} onChange={e => setSupplierId(e.target.value)}><option value="">Hors référentiel (marché…)</option>{suppliers.map(f => <option key={f._id} value={f._id}>{f.name}</option>)}</select>}
+            {!supplierId && <input className={`${inputCls} ${suppliers.length ? "mt-1" : ""}`} value={supplier} onChange={e => setSupplier(e.target.value)} placeholder="Marché de Katako, vendeur…" />}
+          </FormField>
           <FormField label="Référence (bon, reçu)"><input className={inputCls} value={reference} onChange={e => setReference(e.target.value)} /></FormField>
         </div>
         {costs && <label className="inline-flex items-center gap-2 text-sm text-ink2"><input type="checkbox" checked={paid} onChange={e => setPaid(e.target.checked)} /> Payé en espèces depuis la caisse du comptoir (sortie de caisse et écriture d&apos;achat passées avec la réception)</label>}

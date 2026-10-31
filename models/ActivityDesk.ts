@@ -22,7 +22,7 @@ export interface IActivityDesk {
   /** Réserve du restaurant (stock en gros : cartons, sacs, bidons), entrepôt de la gestion de stock. */
   reserveWarehouseId?: Types.ObjectId;
   /** Personnel affecté au comptoir et part de son temps (0,5 = mi-temps) : son coût entre dans le résultat. */
-  staff?: Array<{ employeeId: Types.ObjectId; share: number }>;
+  staff?: Array<{ employeeId: Types.ObjectId; share: number; from?: string; to?: string }>;
   /** Charges prévues par mois (budget), comparées au réel et utilisées pour le point mort. */
   plannedCosts?: Array<{ category: string; label?: string; amount: number }>;
   /** Jours d'ouverture par mois (point mort par jour). */
@@ -57,7 +57,8 @@ const ActivityDeskSchema = new Schema<IActivityDesk>({
   /** Réserve du comptoir dans la gestion de stock (créée automatiquement). */
   warehouseId: { type: Schema.Types.ObjectId, ref: "Warehouse" },
   reserveWarehouseId: { type: Schema.Types.ObjectId, ref: "Warehouse" },
-  staff: [{ _id: false, employeeId: { type: Schema.Types.ObjectId, ref: "Employee", required: true }, share: { type: Number, required: true, min: 0, max: 1 } }],
+  // Affectation datée (AAAA-MM-JJ, bornes incluses ; absentes = sans limite) : un mois passé ne change pas quand l'équipe bouge.
+  staff: [{ _id: false, employeeId: { type: Schema.Types.ObjectId, ref: "Employee", required: true }, share: { type: Number, required: true, min: 0, max: 1 }, from: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ }, to: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ } }],
   plannedCosts: [{ _id: false, category: { type: String, required: true, maxlength: 30 }, label: { type: String, maxlength: 80 }, amount: { type: Number, required: true, min: 0 } }],
   openDaysPerMonth: { type: Number, default: 26, min: 1, max: 31 },
   commonCostShare: { type: Number, min: 0, max: 1 },

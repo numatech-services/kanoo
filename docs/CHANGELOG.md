@@ -1,5 +1,27 @@
 # Kanoo — Changelog
 
+## Restauration — achats et personnel (novembre 2026)
+
+**Achats du restaurant** (Restauration → Achats) :
+- chaque réception en réserve et chaque commande reçue enregistre le prix payé, le fournisseur et la quantité ;
+- **historique des prix sur 90 jours** pour chaque article : dernier prix, prix moyen, prix le plus bas et le plus haut, variation depuis l'achat précédent ;
+- **comparaison des fournisseurs** : prix moyen chez chacun, le moins cher, et ce qu'aurait coûté l'achat chez lui sur la période ;
+- **rapprochement pour le comptable** : réceptions non payées en caisse et sans facture, commandes reçues sans facture d'achat ; on rattache une réception au numéro de facture du fournisseur ;
+- à la réception en réserve, le fournisseur se choisit dans le référentiel (la saisie libre reste possible).
+
+**Réassort après l'inventaire du samedi** : dès la validation de l'inventaire de fin de semaine, le réassort est calculé sur le stock tout juste compté. Il est proposé en bons de commande brouillon, un par fournisseur habituel, que l'acheteur valide.
+
+**Planning et pointage** (Restauration → Planning) :
+- les postes de la semaine : collaborateur, jour, service (midi, soir, journée), horaires ;
+- un collaborateur ne peut pas être à deux restaurants pour le même service ;
+- pointage de l'arrivée et du départ, ou absence. Un poste pointé ne se supprime plus ;
+- **heures du mois** : prévues et réelles par collaborateur (un poste non pointé compte pour ses heures prévues), et absences ;
+- pour qui gère la paie, **coût par service** : coût horaire = coût employeur du bulletin ÷ 173,33 h (base 40 h par semaine, à confirmer selon les contrats).
+
+**Affectations datées** (Équipe et paie) : chaque affectation peut avoir une date de début et de fin. Une affectation qui commence ou finit dans le mois n'en compte que les jours couverts dans le coût du personnel. Une même personne peut revenir sur une autre période.
+
+**Repas du personnel** : la perte « repas du personnel » peut être rattachée à un collaborateur. Le planning en donne, pour qui gère la paie, le nombre et la valeur au coût par personne et par mois : c'est l'avantage en nature à reporter, s'il y a lieu, sur le bulletin (barème à confirmer avec le comptable).
+
 ## Restauration — fiches techniques, production et cuisine (novembre 2026)
 
 **Fiches techniques** (Restauration → Fiches techniques) : la recette de chaque plat ou boisson préparé.

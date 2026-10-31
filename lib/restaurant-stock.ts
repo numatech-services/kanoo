@@ -9,6 +9,8 @@ import { ProductModel } from "@/models/Product";
 import { ProductStockModel } from "@/models/ProductStock";
 import { StockLotModel } from "@/models/StockLot";
 import { StockMovementModel } from "@/models/StockMovement";
+import { SupplierModel } from "@/models/Supplier";
+import { PurchasePriceLogModel } from "@/models/PurchasePriceLog";
 import { BusinessRuleError } from "@/lib/errors";
 import { applyMovement, transferStock, type LotInput } from "@/lib/stock";
 import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
@@ -169,12 +171,14 @@ const ref = (prefix: string, deskId: unknown) => {
  * coûts), elle reste « à valoriser » et apparaît comme telle au résultat.
  * Renvoie les hausses de coût et les préparations qu'elles touchent.
  */
-export async function receiveInReserve(auth: TokenPayload, deskId: string, lines: ReceiveLine[], meta: { supplier?: string; reference?: string; paidFromCash?: boolean; method?: string; date?: string }) {
+export async function receiveInReserve(auth: TokenPayload, deskId: string, lines: ReceiveLine[], meta: { supplier?: string; supplierId?: string; reference?: string; paidFromCash?: boolean; method?: string; date?: string }) {
   if (!lines.length) throw new BusinessRuleError("Aucun article reçu.");
   const date = meta.date ? new Date(meta.date) : new Date();
   if (isNaN(date.getTime()) || date.getTime() > Date.now() + 3_600_000) throw new BusinessRuleError("Date de réception invalide.");
   const method = METHODS.includes(String(meta.method)) ? String(meta.method) : "cash";
-  const supplier = text(meta.supplier, 120), reference = text(meta.reference, 60);
+  // Fournisseur du référentiel s'il est choisi (comparaison des prix, rapprochement), sinon le nom saisi.
+  const ref0 = meta.supplierId && /^[a-f0-9]{24}$/i.test(meta.supplierId) ? await SupplierModel.findOne({ _id: meta.supplierId, tenantId: auth.tenantId }).select("name").lean<{ _id: Id; name: string } | null>() : null;
+  const supplier = ref0?.name ?? text(meta.supplier, 120), reference = text(meta.reference, 60);
   const alerts: Array<{ name: string; before: number; after: number; pct: number; dishes: string[] }> = [];
   let unvalued = 0;
   const total = await withTransaction(async session => {
@@ -208,6 +212,8 @@ export async function receiveInReserve(auth: TokenPayload, deskId: string, lines
         reason: `Réception en réserve${supplier ? ` — ${supplier}` : ""}${reference ? ` (${reference})` : ""}${unitCost === undefined ? " — à valoriser" : ""}`.slice(0, 300),
         linkedDocType: "comptoir", linkedDocId: it.deskId, ...(reference ? { linkedDocNumber: reference } : {}),
       }, session);
+      await PurchasePriceLogModel.create([{ tenantId: auth.tenantId, deskId, itemId: it._id, ...(ref0 ? { supplierId: ref0._id } : {}), ...(supplier ? { supplierName: supplier } : {}),
+        unitCost: unitCost ?? 0, quantity: qty, date, source: "reception", ...(reference ? { reference } : {}), paidFromCash: !!meta.paidFromCash, createdBy: auth.userId }], { session });
       if (unitCost === undefined) { unvalued++; continue; }
       sum += qty * unitCost;
       const rise = costRise(p?.purchaseCost ?? 0, unitCost);

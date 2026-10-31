@@ -5,6 +5,7 @@ import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ComptoirSaleModel } from "@/models/ComptoirSale";
 import { ItemCountModel } from "@/models/ItemCount";
 import { ProductModel } from "@/models/Product";
+import { EmployeeModel } from "@/models/Employee";
 import { portionRecipe } from "@/lib/restaurant";
 import { ProductStockModel } from "@/models/ProductStock";
 import { BusinessRuleError } from "@/lib/errors";
@@ -23,7 +24,7 @@ const DAY = 86_400_000;
  * valorisée au coût. Elle compte dans la marge de la semaine.
  */
 type LossResult = { move: { _id: unknown } | null; lossValue: number };
-export async function recordLoss(auth: TokenPayload, input: { deskId: string; itemId: string; quantity: number; reason: string; note?: string; date?: string; lenient?: boolean }, session?: ClientSession): Promise<LossResult> {
+export async function recordLoss(auth: TokenPayload, input: { deskId: string; itemId: string; quantity: number; reason: string; note?: string; date?: string; lenient?: boolean; employeeId?: string }, session?: ClientSession): Promise<LossResult> {
   const tenantId = auth.tenantId;
   if (!(input.reason in LOSS_REASONS)) throw new BusinessRuleError("Motif de perte inconnu.");
   // Les écarts d'inventaire ne se déclarent pas à la main : ils naissent d'un comptage validé.
@@ -33,6 +34,9 @@ export async function recordLoss(auth: TokenPayload, input: { deskId: string; it
   const date = input.date ? new Date(input.date) : new Date();
   if (isNaN(date.getTime())) throw new BusinessRuleError("Date invalide.");
   await assertDayOpen(tenantId, input.deskId, date, session);
+  // Repas du personnel rattaché à un collaborateur de l'organisation (avantage en nature).
+  if (input.reason === "staff" && input.employeeId && !input.lenient && !(/^[a-f0-9]{24}$/i.test(input.employeeId) && await EmployeeModel.exists({ _id: input.employeeId, tenantId }).session(session ?? null)))
+    throw new BusinessRuleError("Collaborateur introuvable.");
   const item = await ActivityItemModel.findOne({ _id: input.itemId, tenantId, deskId: input.deskId }).session(session ?? null);
   if (!item) throw new BusinessRuleError("Article introuvable.");
   // Plat ou boisson préparé perdu (invendu, raté, retour) : ses ingrédients sortent du stock au coût de la recette.
@@ -56,7 +60,7 @@ export async function recordLoss(auth: TokenPayload, input: { deskId: string; it
     after = Math.max(0, Math.round(((item.quantity || 0) - qty) * 1000) / 1000);
   }
   const lossValue = Math.round(qty * unitCost);
-  const [move] = await ActivityStockMoveModel.create([{ tenantId, deskId: item.deskId, itemId: item._id, type: "out", quantity: qty, quantityAfter: after, unitCost, reason, stockMovementId, lossReason: input.reason, lossValue, date, createdBy: auth.userId }], { session });
+  const [move] = await ActivityStockMoveModel.create([{ tenantId, deskId: item.deskId, itemId: item._id, type: "out", quantity: qty, quantityAfter: after, unitCost, reason, stockMovementId, lossReason: input.reason, lossValue, ...(input.reason === "staff" && input.employeeId && /^[a-f0-9]{24}$/i.test(input.employeeId) ? { employeeId: input.employeeId } : {}), date, createdBy: auth.userId }], { session });
   item.quantity = Math.max(0, after);
   await item.save({ session });
   return { move, lossValue };

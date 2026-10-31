@@ -45,6 +45,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       const costs = canSeeDeskCosts(auth);
       const r = await receiveInReserve(auth, body.deskId, costs ? lines : lines.map((l: Record<string, unknown>) => ({ ...l, unitCost: undefined, packCost: undefined })), {
         supplier: typeof body.supplier === "string" ? body.supplier.slice(0, 120) : undefined,
+        supplierId: typeof body.supplierId === "string" ? body.supplierId : undefined,
         reference: typeof body.reference === "string" ? body.reference.slice(0, 60) : undefined,
         paidFromCash: costs && body.paidFromCash === true, method: typeof body.method === "string" ? body.method : undefined,
         date: typeof body.date === "string" ? body.date : undefined,

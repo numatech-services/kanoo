@@ -198,6 +198,26 @@ export function staffCost(payslips: Array<{ employeeId: string; employerCost?: n
   }, 0));
 }
 
+/**
+ * Affectations datées ramenées au mois : part de temps × jours couverts ÷
+ * jours du mois, cumulée par collaborateur (deux périodes successives dans le
+ * même mois s'additionnent). Sans dates, la part vaut pour tout le mois.
+ */
+export function monthShares(staff: Array<{ employeeId: unknown; share: number; from?: string | null; to?: string | null }>, year: number, m: number): Array<{ employeeId: string; share: number }> {
+  const mm = String(m).padStart(2, "0"), days = new Date(year, m, 0).getDate();
+  const first = `${year}-${mm}-01`, last = `${year}-${mm}-${String(days).padStart(2, "0")}`;
+  const covered = (from?: string | null, to?: string | null) => {
+    const a = from && from > first ? from : first, b = to && to < last ? to : last;
+    return a > b ? 0 : Math.round((new Date(`${b}T12:00:00`).getTime() - new Date(`${a}T12:00:00`).getTime()) / 86_400_000) + 1;
+  };
+  const out = new Map<string, number>();
+  for (const s of staff) {
+    const v = s.share * (covered(s.from, s.to) / days);
+    if (v > 0) out.set(String(s.employeeId), (out.get(String(s.employeeId)) ?? 0) + v);
+  }
+  return [...out].map(([employeeId, v]) => ({ employeeId, share: Math.round(Math.min(1, v) * 1e6) / 1e6 }));
+}
+
 export type MenuClass = "star" | "plowhorse" | "puzzle" | "dog";
 export const MENU_LABELS: Record<MenuClass, { label: string; advice: string }> = {
   star: { label: "Locomotive", advice: "très vendu et rentable : à garder en vue, ne pas toucher au prix" },

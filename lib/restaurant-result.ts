@@ -16,13 +16,13 @@ import { StockMovementModel } from "@/models/StockMovement";
 import { lossesReport } from "@/lib/spot-server";
 import { EXPENSE_ACCOUNTS } from "@/lib/expense-categories";
 import { DEFAULT_TARGET_NET_MARGIN, targetGap } from "@/lib/restaurant-pricing";
-import { computePnl, chargeCategory, isGoodsPurchase, monthBounds, staffCost, CHARGE_CATEGORIES, type ChargeCategory, type Pnl } from "@/lib/restaurant";
+import { computePnl, chargeCategory, isGoodsPurchase, monthBounds, monthShares, staffCost, CHARGE_CATEGORIES, type ChargeCategory, type Pnl } from "@/lib/restaurant";
 
 type Id = Types.ObjectId;
 const oid = (v: unknown) => new Types.ObjectId(String(v));
 const STAFF_LOSSES = ["staff", "offered"];
 
-interface DeskLean { _id: Id; name: string; activityId?: Id; warehouseId?: Id; reserveWarehouseId?: Id; staff?: Array<{ employeeId: Id; share: number }>; plannedCosts?: Array<{ category: string; label?: string; amount: number }>; openDaysPerMonth?: number; commonCostShare?: number }
+interface DeskLean { _id: Id; name: string; activityId?: Id; warehouseId?: Id; reserveWarehouseId?: Id; staff?: Array<{ employeeId: Id; share: number; from?: string; to?: string }>; plannedCosts?: Array<{ category: string; label?: string; amount: number }>; openDaysPerMonth?: number; commonCostShare?: number }
 
 export interface ConsumptionRow { itemId: string; name: string; unit: string; sold: number; losses: number; inventoryGap: number; real: number; unitCost: number; varianceValue: number; variancePct: number | null }
 
@@ -88,7 +88,8 @@ async function revenueOf(tenantId: string, from: Date, to: Date, activityId: Id)
 
 /** Personnel affecté : coût employeur des bulletins du mois × part de temps au comptoir. */
 async function staffOf(tenantId: string, desk: DeskLean, year: number, m: number) {
-  const staff = (desk.staff ?? []).map(s => ({ employeeId: String(s.employeeId), share: s.share }));
+  // Affectation datée : part de temps × jours d'affectation dans le mois ÷ jours du mois.
+  const staff = monthShares(desk.staff ?? [], year, m);
   if (!staff.length) return { rows: [], missing: [] as string[] };
   const [slips, emps] = await Promise.all([
     PayslipModel.find({ tenantId, year, month: m, employeeId: { $in: staff.map(s => s.employeeId) } }).select("employeeId employerCost grossTotal cnssEmployer").lean<Array<{ employeeId: Id; employerCost?: number; grossTotal?: number; cnssEmployer?: number }>>(),
