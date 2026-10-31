@@ -161,7 +161,7 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
         <BarcodeScanner placeholder="Scanner l'article reçu ou taper son nom, puis Entrée" onCode={code => {
           const c = code.toLowerCase();
           const hit = stock.find(r => r.barcode?.toLowerCase() === c) ?? (() => { const m = stock.filter(r => r.name.toLowerCase().includes(c)); return m.length === 1 ? m[0] : undefined; })();
-          beep(!!hit); if (hit) add(hit); else showToast(`« ${code} » : article inconnu (attribuez le code dans les réglages de l'article)`, "error");
+          beep(!!hit); if (hit) add(hit); else showToast(`« ${code} » : article inconnu (attribuez le code dans les réglages de l'article).`, "error");
         }} />
         <select className={selectCls} value="" onChange={e => { const r = byId.get(e.target.value); if (r) add(r); }}>
           <option value="">Ajouter un article…</option>
@@ -306,7 +306,7 @@ export function ReserveLossDialog({ deskId, rows, initial, onClose, onDone }: { 
           <div key={r.itemId} className="flex items-center gap-2"><span className="flex-1 text-sm">{r.name}{r.expiredQty ? <span className="block text-[11px] text-neg">{QTY(r.expiredQty)} périmé(s)</span> : null}</span>
             <input className={`${inputCls} w-28`} inputMode="decimal" placeholder={r.unit} value={qty[r.itemId]} onChange={e => setQty(q => ({ ...q, [r.itemId]: e.target.value }))} /></div>
         ))}
-        <FormField label="Précision (facultatif)"><input className={inputCls} value={note} onChange={e => setNote(e.target.value)} /></FormField>
+        <FormField label="Précision (facultative)"><input className={inputCls} value={note} onChange={e => setNote(e.target.value)} /></FormField>
       </div>
     </Modal>
   );

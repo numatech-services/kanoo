@@ -71,9 +71,9 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
     update.recipe = lines;
   }
   // Prix de vente et fiche recette : ils font la marge ; modifiables par le chef, la gérance ou la finance, pas par la caisse.
-  if (("salePrice" in clean || "recipe" in clean) && !canSeeDeskCosts(auth)) return forbidden("Le prix de vente et la recette se modifient par le chef du comptoir, la gérance ou la comptabilité.");
+  if (("salePrice" in clean || "recipe" in clean) && !canSeeDeskCosts(auth)) return forbidden("Le prix de vente et la recette ne sont modifiables que par le chef du comptoir, la gérance ou la comptabilité.");
   // Coût d'achat et prix du paquet : données de coût, modifiables par qui les voit (chef, gérance, finance).
-  if (("unitCost" in clean || (clean.pack && typeof clean.pack === "object" && "cost" in (clean.pack as object))) && !canSeeDeskCosts(auth)) return forbidden("Le coût d'achat se modifie par le chef du comptoir, la gérance ou la comptabilité.");
+  if (("unitCost" in clean || (clean.pack && typeof clean.pack === "object" && "cost" in (clean.pack as object))) && !canSeeDeskCosts(auth)) return forbidden("Le coût d'achat n'est modifiable que par le chef du comptoir, la gérance ou la comptabilité.");
   if ("pack" in clean) {
     const pack = parsePack(clean.pack);
     if (pack === "invalid") return badRequest("Conditionnement invalide (nombre d'unités par paquet, prix du paquet).");
@@ -89,7 +89,7 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
   // Objectif de marge de l'article (taux de marque) : donnée de coût, réservée au chef et à la finance.
   let clearTarget = false;
   if ("targetMarkup" in clean) {
-    if (!canSeeDeskCosts(auth)) return forbidden("Objectif de marge réservé au chef du comptoir, au gérant et à la comptabilité.");
+    if (!canSeeDeskCosts(auth)) return forbidden("Objectif de marge réservé au chef du comptoir, à la gérance et à la comptabilité.");
     if (clean.targetMarkup === null || clean.targetMarkup === "") clearTarget = true;
     else {
       const n = Number(clean.targetMarkup);
@@ -108,7 +108,7 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
       if (cur.productId) return badRequest("Détachez d'abord l'article actuel.");
       if (!isId(clean.productId)) return badRequest("Article du catalogue invalide.");
       const p = await ProductModel.findOne({ _id: clean.productId, ...tenantFilter(auth), isService: { $ne: true } }).select("trackingMode label").lean<{ _id: unknown; trackingMode?: string; label: string } | null>();
-      if (!p) return badRequest("Article du catalogue introuvable (ou service).");
+      if (!p) return badRequest("Article du catalogue introuvable (ou il s'agit d'un service).");
       if (await ActivityItemModel.exists({ ...tenantFilter(auth), deskId: cur.deskId, productId: p._id, archived: { $ne: true } })) return badRequest("Cet article du catalogue est déjà au comptoir.");
       try {
         await withTransaction(async session => {
@@ -183,12 +183,12 @@ export const DELETE = withAuth("comptoir", "delete", async (_req: NextRequest, a
   }
   if (it.productId) {
     const inReserve = await reserveQty(auth, it.deskId, it.productId);
-    if (inReserve > 0) return badRequest(`« ${it.name} » a encore ${inReserve} en réserve (stock en gros) : sortez-les ou montez-les au comptoir avant de supprimer l'article.`);
+    if (inReserve > 0) return badRequest(`« ${it.name} » a encore ${inReserve} unité(s) en réserve (stock en gros) : sortez-les ou montez-les au comptoir avant de supprimer l'article.`);
   }
   // Article propre : son stock ne disparaît pas sans trace.
   const own = await ActivityItemModel.findById(it._id).select("quantity").lean<{ quantity?: number } | null>();
   if (!it.productId && (own?.quantity ?? 0) > 0) {
-    return badRequest(`« ${it.name} » a encore ${own!.quantity} en stock : enregistrez une sortie (casse, perte) ou un inventaire à zéro avant de le supprimer.`);
+    return badRequest(`« ${it.name} » a encore ${own!.quantity} en stock : déclarez une perte ou passez un inventaire à zéro avant de le supprimer.`);
   }
   // Un article déjà vendu ou mouvementé est archivé : ses tickets et son
   // historique gardent leur référence.

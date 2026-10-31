@@ -76,7 +76,7 @@ export default function EquipePage() {
                           <option value="">Collaborateur…</option>
                           {everyone.map(e => <option key={e.employeeId} value={e.employeeId}>{e.name}{e.position ? ` — ${e.position}` : ""}</option>)}
                         </select>
-                        <input className={`${inputCls} w-20`} inputMode="numeric" value={s.share} onChange={e => setDraft(x => x.map((y, j) => j === i ? { ...y, share: e.target.value } : y))} aria-label="Part du temps en %" />
+                        <input className={`${inputCls} w-20`} inputMode="numeric" value={s.share} onChange={e => setDraft(x => x.map((y, j) => j === i ? { ...y, share: e.target.value } : y))} aria-label="Part de temps en %" />
                         <span className="self-center text-sm text-ink3">%</span>
                         <button onClick={() => setDraft(x => x.filter((_, j) => j !== i))} className={buttonClass("ghost", "sm")} aria-label="Retirer"><Trash2 size={14} /></button>
                       </div>

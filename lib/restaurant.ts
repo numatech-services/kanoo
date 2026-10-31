@@ -179,7 +179,7 @@ export function staffCost(payslips: Array<{ employeeId: string; employerCost?: n
 export type MenuClass = "star" | "plowhorse" | "puzzle" | "dog";
 export const MENU_LABELS: Record<MenuClass, { label: string; advice: string }> = {
   star: { label: "Locomotive", advice: "très vendu et rentable : à garder en vue, ne pas toucher au prix" },
-  plowhorse: { label: "Vache à lait", advice: "très vendu, peu rentable : revoir la portion, la recette ou le prix" },
+  plowhorse: { label: "Cheval de labour", advice: "très vendu, peu rentable : revoir la portion, la recette ou le prix" },
   puzzle: { label: "Énigme", advice: "rentable, peu vendu : mettre en avant (carte, conseil du caissier)" },
   dog: { label: "Poids mort", advice: "peu vendu, peu rentable : à retravailler ou retirer de la carte" },
 };

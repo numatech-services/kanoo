@@ -215,7 +215,7 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
   const offTicketHT = Math.round(offTicket.reduce((t, e) => t + e.amount, 0) / (1 + (desk.vatRate ?? 0)));
   const linked = offTicket.map(e => e.linkedMoveId).filter(Boolean) as Id[];
   const offTicketCost = linked.length ? Math.round((await ActivityStockMoveModel.find({ _id: { $in: linked }, tenantId }).select("quantity unitCost").lean<Array<{ quantity: number; unitCost?: number }>>()).reduce((t, m) => t + m.quantity * (m.unitCost ?? 0), 0)) : 0;
-  if (offTicketHT) warnings.push(`${offTicketHT.toLocaleString("fr-FR")} FCFA HT de ventes hors ticket (entrées de caisse) : au CA et à la marge ; leur coût est repris des sorties de stock liées, sinon par l'inventaire. Passez les ventes par un ticket pour suivre leur marge article par article.`);
+  if (offTicketHT) warnings.push(`${offTicketHT.toLocaleString("fr-FR")} FCFA HT de ventes hors ticket (entrées de caisse) : comptées dans le CA et la marge ; leur coût est repris des sorties de stock liées, sinon par l'inventaire. Passez les ventes par un ticket pour suivre leur marge article par article.`);
   const thisMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
   const pnl = computePnl({
     revenueHT: sales.ht + offTicketHT, costOfSales: sales.cost + offTicketCost, unvaluedRevenueHT: sales.unvaluedHT, tickets: sales.tickets, cashPurchases,
@@ -319,6 +319,6 @@ export function maskPayroll(r: MonthResult, canPayroll: boolean): MonthResult & 
     pnl: { ...r.pnl, charges, totalCharges, plannedCharges, result, ratios: { ...r.pnl.ratios, staffCostPct: null, primeCostPct: null, resultPct: pct, costPerTicket: null, breakEvenRevenue: null, breakEvenPerDay: null } },
     target: targetGap({ revenueHT: r.pnl.revenueHT, result, target: r.desk.target }),
     closed: r.closed ? { closedAt: r.closed.closedAt, result: result - r.closed.drift, drift: r.closed.drift, snapshot: {} } : null,
-    warnings: ["Résultat AVANT personnel : le coût de l'équipe affectée (une ou deux personnes) est réservé à qui gère la paie.", ...r.warnings],
+    warnings: ["Résultat avant personnel : le coût de l'équipe affectée (une ou deux personnes) est réservé à qui gère la paie.", ...r.warnings],
   };
 }

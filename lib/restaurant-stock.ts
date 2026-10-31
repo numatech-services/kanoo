@@ -87,7 +87,7 @@ export async function ensureLinked(auth: TokenPayload, deskId: unknown, itemId: 
   if (claim.modifiedCount !== 1) {
     const again = await ActivityItemModel.findOne({ _id: it._id }).select("productId").session(session ?? null).lean<{ productId?: Id } | null>();
     if (again?.productId) return again.productId;
-    throw new BusinessRuleError("Liaison au catalogue impossible, réessayez.");
+    throw new BusinessRuleError("Liaison au catalogue impossible : réessayez.");
   }
   if ((it.quantity ?? 0) > 0) {
     const whId = await deskWarehouse(auth.tenantId, it.deskId, session);
@@ -198,7 +198,7 @@ export async function receiveInReserve(auth: TokenPayload, deskId: string, lines
       const productId = await ensureLinked(auth, deskId, it._id, session);
       const p = await ProductModel.findOne({ _id: productId, tenantId: auth.tenantId }).select("purchaseCost trackingMode").session(session ?? null).lean<{ purchaseCost?: number; trackingMode?: string } | null>();
       const tracked = p?.trackingMode === "lot" || p?.trackingMode === "serial";
-      if (!tracked && expiry) throw new BusinessRuleError(`${it.name} n'est pas suivi par lot dans le catalogue : sa date de péremption ne serait pas gardée. Activez le suivi par lot de sa fiche, ou laissez la date vide.`);
+      if (!tracked && expiry) throw new BusinessRuleError(`${it.name} n'est pas suivi par lot dans le catalogue : sa date de péremption ne serait pas gardée. Activez le suivi par lot dans sa fiche ou laissez la date vide.`);
       const lots: LotInput[] | undefined = tracked
         ? [{ lotNumber: text(l.lotNumber, 80) || `REC-${date.toISOString().slice(0, 10)}`, qty, ...(expiry ? { expiryDate: expiry } : {}) }]
         : undefined;
@@ -287,7 +287,7 @@ export async function reserveLoss(auth: TokenPayload, deskId: string, lines: Arr
       if (!it?.productId) throw new BusinessRuleError("Article absent de la réserve.");
       const qty = Number(l.packs) > 0 ? Number(l.packs) * (it.pack?.size ?? NaN) : Number(l.quantity);
       if (!(qty > 0)) throw new BusinessRuleError(`${it.name} : quantité invalide.`);
-      const label = `${LOSS_REASONS[reason]} en réserve${note ? ` — ${text(note, 120)}` : ""} (${reference})`;
+      const label = `Perte en réserve : ${LOSS_REASONS[reason].toLowerCase()}${note ? ` — ${text(note, 120)}` : ""} (${reference})`;
       const r = await applyMovement({ tenantId: auth.tenantId, userId: auth.userId, productId: it.productId, warehouseId: reserveId, type: "loss", quantity: qty, reason: label, linkedDocType: "comptoir", linkedDocId: deskId, linkedDocNumber: reference }, session);
       const unitCost = Number(r.movement.unitCost) || it.unitCost || 0, lossValue = Math.round(qty * unitCost);
       value += lossValue;

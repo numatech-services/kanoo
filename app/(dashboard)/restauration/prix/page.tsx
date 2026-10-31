@@ -45,14 +45,14 @@ export default function PrixPage() {
 
   async function apply(r: Row) {
     if (!r.minPriceTTC) return;
-    if (!(await confirmDialog({ title: `Passer « ${r.name} » à ${MONEY(r.minPriceTTC)} TTC ?`, message: `Prix actuel ${MONEY(r.priceTTC)}. Le nouveau prix s'applique aux prochains tickets (caisse et EasyPay).` }))) return;
+    if (!(await confirmDialog({ title: `Passer « ${r.name} » à ${MONEY(r.minPriceTTC)} TTC ?`, message: `Prix actuel : ${MONEY(r.priceTTC)}. Le nouveau prix s'applique aux prochains tickets (caisse et EasyPay).` }))) return;
     const res = await apiSend<{ error?: string }>("PATCH", `/api/comptoir/items/${r.itemId}`, { salePrice: r.minPriceTTC });
     if (!res.ok) return showToast(res.data.error || "Changement refusé", "error");
     showToast("Prix mis à jour", "success"); reload();
   }
   function exportCsv() {
     if (!data) return;
-    const head = ["Article", "Famille", "Vendus (mois de référence)", "Prix TTC", "Prix HT", "Coût de revient", "Marge brute", "Marge brute %", "Part des frais", "Marge nette", "Marge nette %", "Prix minimum HT", "Prix minimum TTC", "État"];
+    const head = ["Article", "Famille", "Vendus (mois de référence)", "Prix TTC", "Prix HT", "Prix d'achat (coût de revient)", "Marge brute", "Marge brute %", "Part des frais", "Marge nette", "Marge nette %", "Prix minimum HT", "Prix minimum TTC", "État"];
     const lines = data.rows.map(r => [r.name, r.category ?? "", r.soldQty, r.priceTTC, r.priceHT, r.cost ?? "", r.grossMargin ?? "", r.grossMarginPct ?? "", r.overhead, r.netMargin ?? "", r.netMarginPct ?? "", r.minPriceHT ?? "", r.minPriceTTC ?? "", STATUS[r.status].label]);
     const csv = "﻿" + [head, ...lines].map(l => l.map(csvCell).join(";")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -75,20 +75,20 @@ export default function PrixPage() {
       {error && <p className="text-sm text-neg">{error}</p>}
       {data && (
         <section className="surface-card p-4 space-y-1.5 text-sm">
-          <p><span className="font-semibold">Marge nette visée : {PCT(Math.round(data.desk.target * 1000) / 10)}</span> du CA HT, tous frais compris, avant impôt sur les bénéfices (modifiable : comptoir → Résultat → Personnel et charges prévues).</p>
+          <p><span className="font-semibold">Marge nette visée : {PCT(Math.round(data.desk.target * 1000) / 10)}</span> du CA HT, tous frais compris, avant impôt sur les bénéfices (modifiable : Comptoir → Résultat → Personnel et charges prévues).</p>
           <p className="text-ink2">
-            Frais de fonctionnement {data.overhead.months.length ? `(moyenne de ${data.overhead.months.length} mois : ${data.overhead.months.map(m => new Date(`${m}-15T12:00:00`).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })).join(", ")} ; pour chaque rubrique, le plus élevé du prévu et du réel)` : ""}
-            {data.overhead.charges !== null ? <> : {MONEY(data.overhead.charges)} pour {MONEY(data.overhead.revenueHT)} de CA HT par mois</> : null}, soit <span className="font-semibold">{PCT(data.overhead.rate)}</span> du prix de chaque article.
+            Frais de fonctionnement {data.overhead.months.length ? `(${data.overhead.months.length > 1 ? `moyenne de ${data.overhead.months.length} mois` : "un seul mois"} : ${data.overhead.months.map(m => new Date(`${m}-15T12:00:00`).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })).join(", ")} ; pour chaque rubrique, le plus élevé du prévu et du réel)` : ""}
+            {data.overhead.charges !== null ? <> : {MONEY(data.overhead.charges)} pour {MONEY(data.overhead.revenueHT)} de CA HT par mois</> : null}, soit <span className="font-semibold">{PCT(data.overhead.rate)}</span> du prix HT de chaque article.
             Démarque (pertes, repas du personnel, offerts, manquants, achats de caisse) : <span className="font-semibold">{PCT(data.overhead.shrink)}</span> du coût des ventes, ajoutée au coût de revient.
             Prix minimum HT = coût × (1 + démarque) ÷ (1 − marge visée − taux de frais).
           </p>
-          {data.overhead.provisional && <p className="text-warn flex gap-1.5"><AlertTriangle size={15} className="mt-0.5 shrink-0" /> Taux provisoire (mois en cours, ou bulletins de paie manquants) : les prix minimum sont indicatifs, l&apos;application est bloquée tant que le mois n&apos;est pas complet.</p>}
+          {data.overhead.provisional && <p className="text-warn flex gap-1.5"><AlertTriangle size={15} className="mt-0.5 shrink-0" /> Taux provisoire (mois en cours, ou bulletins de paie manquants) : les prix minimum sont indicatifs ; leur application est bloquée tant que le mois n&apos;est pas complet et la paie passée.</p>}
           {data.counts.impossible && <p className="text-neg flex gap-1.5"><AlertTriangle size={15} className="mt-0.5 shrink-0" /> Les frais dépassent ce que les prix peuvent couvrir à cette marge : il faut d&apos;abord vendre davantage ou réduire les charges.</p>}
-          {!data.overhead.months.length && <p className="text-warn">Pas encore de ventes : le taux de frais est à 0, les prix minimum ne couvrent que la marge visée.</p>}
+          {!data.overhead.months.length && <p className="text-warn">Pas encore de ventes : le taux de frais est de 0 %, les prix minimum ne couvrent que la marge visée.</p>}
         </section>
       )}
       <div className="flex gap-1.5">
-        {([["below", `À revoir${data ? ` (${data.counts.below + data.counts.noCost})` : ""}`], ["all", "Tous les articles"]] as const).map(([k, l]) => (
+        {([["below", `À revoir${data ? ` (${data.rows.filter(r => r.status === "below" || r.status === "no_cost" || r.status === "impossible").length})` : ""}`], ["all", "Tous les articles"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setOnly(k)} className={`px-3 h-8 rounded-full border text-[13px] font-semibold ${only === k ? "bg-ink text-white border-ink" : "border-line text-ink2"}`}>{l}</button>
         ))}
       </div>
@@ -97,7 +97,7 @@ export default function PrixPage() {
       ) : (
         <div className="surface-card overflow-hidden"><div className="overflow-x-auto">
           <table className="table-dense w-full">
-            <thead><tr><th>Article</th><th className="text-right">Prix d&apos;achat</th><th className="text-right">Prix de vente TTC</th><th className="text-right">Marge brute</th><th className="text-right">Part des frais</th><th className="text-right">Marge nette</th><th className="text-right">Prix minimum TTC</th><th>État</th><th></th></tr></thead>
+            <thead><tr><th>Article</th><th className="text-right">Prix d&apos;achat (coût de revient)</th><th className="text-right">Prix de vente TTC</th><th className="text-right">Marge brute</th><th className="text-right">Part des frais</th><th className="text-right">Marge nette</th><th className="text-right">Prix minimum TTC</th><th>État</th><th></th></tr></thead>
             <tbody>
               {rows.map(r => (
                 <tr key={r.itemId} className="border-t border-line">
@@ -116,7 +116,7 @@ export default function PrixPage() {
           </table>
         </div></div>
       )}
-      <p className="text-xs text-ink3">Les frais sont répartis au prorata du chiffre d&apos;affaires : un article vendu 1 000 FCFA HT porte 1 000 × le taux de frais. Le coût de revient d&apos;une recette est la somme de ses ingrédients au coût moyen pondéré ; un ingrédient sans coût rend la recette « coût inconnu ».</p>
+      <p className="text-xs text-ink3">Les frais sont répartis au prorata du chiffre d&apos;affaires : un article vendu 1 000 FCFA HT porte 1 000 × le taux de frais. Le coût retenu est le plus élevé du coût moyen pondéré et du dernier prix d&apos;achat ; celui d&apos;une recette est la somme de ses ingrédients ; un ingrédient sans coût rend la recette « coût inconnu ».</p>
     </div>
   );
 }

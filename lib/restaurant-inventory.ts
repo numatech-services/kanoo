@@ -146,5 +146,5 @@ export async function validateInventory(auth: TokenPayload, id: string) {
 export async function cancelInventory(auth: TokenPayload, id: string, canManage: boolean) {
   // Annuler fait perdre les comptages de tous les appareils : le chef (ou la finance), ou celui qui a ouvert l'inventaire.
   const r = await DeskInventoryModel.updateOne({ _id: id, tenantId: auth.tenantId, status: "open", ...(canManage ? {} : { startedBy: auth.userId }) }, { $set: { status: "cancelled" } });
-  if (r.modifiedCount !== 1) throw new BusinessRuleError(canManage ? "Inventaire déjà validé ou annulé." : "Seuls le chef du comptoir et la personne qui l'a ouvert annulent un inventaire (ou il est déjà clos).");
+  if (r.modifiedCount !== 1) throw new BusinessRuleError(canManage ? "Inventaire déjà validé ou annulé." : "Annulation impossible : seuls le chef du comptoir et la personne qui l'a ouvert peuvent annuler un inventaire, ou celui-ci est déjà clos.");
 }

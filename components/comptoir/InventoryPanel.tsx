@@ -100,7 +100,7 @@ export function InventoryPanel({ deskId, costs, categories, onChange }: { deskId
       <Modal open={!!start} onClose={() => setStart(null)} title={start === "reserve" ? "Inventaire de la réserve" : "Inventaire du comptoir"}
         description="Tous les articles à compter, ou une seule famille pour un inventaire tournant."
         footer={<><button onClick={() => setStart(null)} className={buttonClass("secondary", "md")}>Annuler</button><button disabled={busy} onClick={create} className={buttonClass("primary", "md")}>Commencer</button></>}>
-        <FormField label="Famille (facultatif)">
+        <FormField label="Famille (facultative)">
           <select className={selectCls} value={category} onChange={e => setCategory(e.target.value)}>
             <option value="">Tous les articles</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -156,7 +156,7 @@ function CountScreen({ id, costs, onClose, onValidated }: { id: string; costs: b
     const r = await apiSend<{ error?: string; data?: { rejected?: number } }>("PATCH", "/api/comptoir/inventory", { id, device, counts });
     setSaving(false);
     if (!r.ok) {
-      if (r.status === 400 && /clos/.test(r.data.error ?? "")) { closedRef.current = true; showToast("Inventaire déjà validé ou annulé : les comptages de cet appareil n'ont pas été pris.", "error"); writeQueue(id, {}); setPending({}); reload(); }
+      if (r.status === 400 && /clos/.test(r.data.error ?? "")) { closedRef.current = true; showToast("Inventaire déjà validé ou annulé : les comptages de cet appareil n'ont pas été pris en compte.", "error"); writeQueue(id, {}); setPending({}); reload(); }
       else if (r.status) showToast(r.data.error || "Enregistrement impossible", "error");
       return false;
     }
@@ -260,7 +260,7 @@ function CountScreen({ id, costs, onClose, onValidated }: { id: string; costs: b
                 <button onClick={() => apply("replace")} className={buttonClass("secondary", "md")}>Remplacer</button>
               </div>
             )}
-            {queued > 0 && <p className="text-xs text-warn flex items-center gap-1"><CloudOff size={13} /> {queued} comptage(s) gardé(s) sur cet appareil, envoyés dès que possible.</p>}
+            {queued > 0 && <p className="text-xs text-warn flex items-center gap-1"><CloudOff size={13} /> {queued} comptage(s) gardé(s) sur cet appareil, envoyé(s) dès que possible.</p>}
           </>}
           <div className="flex gap-1 text-xs">
             {(readOnly ? [["all", "Tous"], ["gaps", "Écarts"]] : [["todo", "À compter"], ["all", "Tous"]]).map(([k, l]) => (

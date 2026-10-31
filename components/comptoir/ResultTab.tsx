@@ -118,7 +118,7 @@ function DeskResult({ r }: { r: Result }) {
           <p className="text-sm flex-1 min-w-[16rem]">
             Objectif : <span className="font-semibold">{PCT(Math.round(r.desk.target * 1000) / 10)} de marge nette</span>, tous frais compris (personnel, eau, électricité, loyer…), soit un résultat de {MONEY(r.target.targetResult)}.{" "}
             {r.target.missing
-              ? <>Il manque <span className="font-semibold text-warn">{MONEY(r.target.missing)}</span>{r.target.priceUpliftPct !== null ? <>, soit une hausse moyenne des prix de <span className="font-semibold">{PCT(r.target.priceUpliftPct)}</span> à volumes égaux</> : null} — ou moins de charges, de pertes, plus de ventes. Voir les articles sous leur prix minimum dans Restauration → Prix et marges.</>
+              ? <>Il manque <span className="font-semibold text-warn">{MONEY(r.target.missing)}</span>{r.target.priceUpliftPct !== null ? <>, soit une hausse moyenne des prix de <span className="font-semibold">{PCT(r.target.priceUpliftPct)}</span> à volumes égaux</> : null} — ou moins de charges et de pertes, ou plus de ventes. Voir les articles sous leur prix minimum dans Restauration → Prix et marges.</>
               : <span className="text-pos font-semibold">Objectif atteint.</span>}
           </p>
         </section>
@@ -136,7 +136,7 @@ function DeskResult({ r }: { r: Result }) {
               {p.charges.map(c => (
                 <tr key={c.category} className="border-t border-line cursor-pointer hover:bg-surface2" onClick={() => setOpen(o => o === c.category ? null : c.category)}>
                   <td className="pl-4">− {c.label}
-                    {open === c.category && <span className="block text-[11px] text-ink3">{c.category === "personnel" && r.staffDetail.length ? r.staffDetail.map(s => `${s.name} (${Math.round(s.share * 100)} %) ${MONEY(s.allocated)}`).join(" · ") : c.category === "personnel" && r.staffTotal ? `personnel affecté ${MONEY(r.staffTotal)} (détail réservé à la paie) · ` : null}{r.chargesDetail.filter(d => d.category === c.category).map(d => `${d.accountCode} ${d.accountLabel} ${MONEY(d.amount)}`).join(" · ")}</span>}
+                    {open === c.category && <span className="block text-[11px] text-ink3">{c.category === "personnel" && r.staffDetail.length ? r.staffDetail.map(s => `${s.name} (${Math.round(s.share * 100)} %) ${MONEY(s.allocated)}`).join(" · ") : c.category === "personnel" && r.staffTotal ? `personnel affecté ${MONEY(r.staffTotal)} (détail réservé à la paie)` : null}{r.chargesDetail.filter(d => d.category === c.category).map(d => `${d.accountCode} ${d.accountLabel} ${MONEY(d.amount)}`).join(" · ")}</span>}
                   </td>
                   <td className="text-right font-mono text-neg">{MONEY(-c.actual)}</td><td className="text-right text-xs text-ink3">{share(c.actual, ca)}</td>
                   <td className={`text-right font-mono text-xs ${c.planned && c.actual > c.planned ? "text-warn font-semibold" : "text-ink2"}`}>{c.planned ? MONEY(-c.planned) : ""}</td>
@@ -146,7 +146,7 @@ function DeskResult({ r }: { r: Result }) {
               <tr className="border-t-2 border-ink"><td className="font-bold">= Résultat du comptoir</td><td className={`text-right font-mono font-bold ${p.result < 0 ? "text-neg" : "text-pos"}`}>{MONEY(p.result)}</td><td className="text-right text-xs text-ink3">{share(p.result, ca)}</td><td></td></tr>
             </tbody>
           </table>
-          <p className="text-[11px] text-ink3 mt-2">Charges : écritures comptables imputées au secteur du comptoir (factures, dépenses de caisse), hors achats de marchandises (601 à 603, déjà comptés au coût des ventes){r.desk.commonShare ? `, plus ${Math.round(r.desk.commonShare * 100)} % des charges communes sans secteur` : ""}. Personnel : coût employeur des bulletins du mois au prorata du temps passé au comptoir. Cliquez une ligne pour le détail par compte.</p>
+          <p className="text-[11px] text-ink3 mt-2">Charges : écritures comptables imputées au secteur du comptoir (factures, dépenses de caisse), hors achats de marchandises (601 à 603, déjà comptés au coût des ventes){r.desk.commonShare ? `, plus ${Math.round(r.desk.commonShare * 100)} % des charges communes sans secteur` : ""}. Personnel : coût employeur des bulletins du mois au prorata du temps passé au comptoir. Cliquez sur une ligne pour le détail par compte.</p>
         </section>
 
         <div className="space-y-5">
@@ -161,7 +161,7 @@ function DeskResult({ r }: { r: Result }) {
               <dt className="text-ink2">Point mort du mois</dt><dd className="text-right font-mono">{MONEY(q.breakEvenRevenue)}</dd>
               <dt className="text-ink2">soit par jour d&apos;ouverture</dt><dd className="text-right font-mono font-semibold">{MONEY(q.breakEvenPerDay)}</dd>
             </dl>
-            <p className="text-[11px] text-ink3">Point mort : chiffre d&apos;affaires HT qui couvre les charges du mois (les prévues si elles dépassent le réel) au taux de marge matière constaté.</p>
+            <p className="text-[11px] text-ink3">Point mort : chiffre d&apos;affaires HT qui couvre les charges du mois au taux de marge matière constaté (pour le mois en cours, rubrique par rubrique, les charges prévues si elles dépassent le réel).</p>
           </section>
           {(r.lossesByReason.length > 0 || r.inventories.length > 0) && (
             <section className="surface-card p-4 space-y-2">
@@ -332,15 +332,15 @@ function SettingsDialog({ deskId, payroll, onClose, onSaved }: { deskId: string;
           {staff.map((s, i) => (
             <div key={i} className="flex gap-2">
               <select className={selectCls} value={s.employeeId} onChange={e => setStaff(x => x.map((y, j) => j === i ? { ...y, employeeId: e.target.value } : y))}>
-                <option value="">Employé…</option>
+                <option value="">Collaborateur…</option>
                 {emps.map(e => <option key={e._id} value={e._id}>{e.lastName} {e.firstName}{e.position ? ` — ${e.position}` : ""}</option>)}
               </select>
-              <input className={`${inputCls} w-24`} inputMode="numeric" value={s.share} onChange={e => setStaff(x => x.map((y, j) => j === i ? { ...y, share: e.target.value } : y))} aria-label="Part du temps en %" />
+              <input className={`${inputCls} w-24`} inputMode="numeric" value={s.share} onChange={e => setStaff(x => x.map((y, j) => j === i ? { ...y, share: e.target.value } : y))} aria-label="Part de temps en %" />
               <span className="self-center text-sm text-ink3">%</span>
               <button onClick={() => setStaff(x => x.filter((_, j) => j !== i))} className={buttonClass("ghost", "sm")} aria-label="Retirer"><Trash2 size={14} /></button>
             </div>
           ))}
-          <button onClick={() => setStaff(x => [...x, { employeeId: "", share: "100" }])} className={buttonClass("secondary", "sm")}><Plus size={14} /> Ajouter un employé</button>
+          <button onClick={() => setStaff(x => [...x, { employeeId: "", share: "100" }])} className={buttonClass("secondary", "sm")}><Plus size={14} /> Ajouter un collaborateur</button>
         </div> : <p className="text-xs text-ink3">L&apos;affectation du personnel revient à qui gère la paie (gérant, chef comptable).</p>}
         <div className="space-y-2">
           <p className="text-sm font-semibold text-ink">Charges prévues par mois</p>
@@ -349,7 +349,7 @@ function SettingsDialog({ deskId, payroll, onClose, onSaved }: { deskId: string;
               <select className={selectCls} value={p.category} onChange={e => setPlanned(x => x.map((y, j) => j === i ? { ...y, category: e.target.value } : y))}>
                 {(Object.keys(CHARGE_CATEGORIES) as ChargeCategory[]).map(c => <option key={c} value={c}>{CHARGE_CATEGORIES[c]}</option>)}
               </select>
-              <input className={inputCls} placeholder="Précision (facultatif)" value={p.label} onChange={e => setPlanned(x => x.map((y, j) => j === i ? { ...y, label: e.target.value } : y))} />
+              <input className={inputCls} placeholder="Précision (facultative)" value={p.label} onChange={e => setPlanned(x => x.map((y, j) => j === i ? { ...y, label: e.target.value } : y))} />
               <input className={`${inputCls} w-32`} inputMode="numeric" placeholder="FCFA" value={p.amount} onChange={e => setPlanned(x => x.map((y, j) => j === i ? { ...y, amount: e.target.value } : y))} />
               <button onClick={() => setPlanned(x => x.filter((_, j) => j !== i))} className={buttonClass("ghost", "sm")} aria-label="Retirer"><Trash2 size={14} /></button>
             </div>
@@ -361,7 +361,7 @@ function SettingsDialog({ deskId, payroll, onClose, onSaved }: { deskId: string;
           <FormField label="Jours d'ouverture par mois"><input className={inputCls} inputMode="numeric" value={days} onChange={e => setDays(e.target.value)} /></FormField>
           <FormField label="Marge nette visée (%)" hint="Tous frais compris : personnel, eau, électricité, loyer… Sert au prix minimum de chaque article."><input className={inputCls} inputMode="decimal" value={target} onChange={e => setTarget(e.target.value)} /></FormField>
         </div>
-        <label className="inline-flex items-start gap-2 text-sm text-ink2"><input type="checkbox" className="mt-1" checked={lenient} onChange={e => setLenient(e.target.checked)} /> Vendre un plat même si un ingrédient manque au comptoir (pris en réserve sans approvisionnement) : la vente passe, l&apos;écart se régularise à l&apos;inventaire.</label>
+        <label className="inline-flex items-start gap-2 text-sm text-ink2"><input type="checkbox" className="mt-1" checked={lenient} onChange={e => setLenient(e.target.checked)} /> Vendre un plat même si un ingrédient manque au comptoir (pris en réserve sans approvisionnement enregistré) : le manque est d&apos;abord monté de la réserve, le reste se régularise à l&apos;inventaire.</label>
         <p className="text-xs text-ink3">Les factures réelles (eau, électricité, loyer…) se saisissent dans Achats ou en dépense de caisse du comptoir, avec leur nature : elles remontent ici par le secteur du comptoir.</p>
       </div>}
     </Modal>
@@ -386,7 +386,7 @@ function CloseDialog({ deskId, month, action, onClose, onDone }: { deskId: strin
       description={action === "close" ? "Le résultat est figé et le mois verrouillé : ventes, caisse, pertes, mouvements et inventaires datés de ce mois sont refusés." : "La clôture précédente est gardée dans l'historique ; la réouverture est tracée."}
       footer={<><button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button><button disabled={busy || (action === "reopen" && text.trim().length < 10)} onClick={go} className={buttonClass(action === "close" ? "primary" : "danger", "md")}>{action === "close" ? "Clôturer" : "Rouvrir"}</button></>}>
       <div className="space-y-3">
-        <FormField label={action === "close" ? "Commentaire (obligatoire pour passer outre un préalable)" : "Motif de la réouverture (10 caractères au moins)"}><textarea className={inputCls} rows={3} value={text} onChange={e => setText(e.target.value)} /></FormField>
+        <FormField label={action === "close" ? "Motif (obligatoire pour passer outre un préalable)" : "Motif de la réouverture (10 caractères au moins)"}><textarea className={inputCls} rows={3} value={text} onChange={e => setText(e.target.value)} /></FormField>
         {action === "close" && <label className="inline-flex items-center gap-2 text-sm text-ink2"><input type="checkbox" checked={force} onChange={e => setForce(e.target.checked)} /> Clôturer malgré les préalables non remplis (ventes sans coût, entrées sans prix, paie manquante)</label>}
         {error && <p className="text-sm text-neg">{error}</p>}
       </div>

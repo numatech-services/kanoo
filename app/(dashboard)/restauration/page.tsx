@@ -48,7 +48,7 @@ export default function RestaurationPage() {
           <MetricCard icon={<UtensilsCrossed size={18} />} tone="blue" label="Chiffre d'affaires HT" value={MONEY(t?.revenueHT)} sub={`${data.desks.length} restaurant(s)`} />
           <MetricCard icon={<Tags size={18} />} tone="green" label="Marge matière" value={MONEY(t?.materialMargin)} sub="ventes − coût des marchandises − pertes" />
           <MetricCard icon={<PackageCheck size={18} />} tone="violet" label="Charges de fonctionnement" value={MONEY(t?.charges)} sub="personnel, eau, électricité, loyer…" />
-          <MetricCard icon={<Target size={18} />} tone={(t?.result ?? 0) < 0 ? "red" : "green"} label="Résultat, marge nette" value={MONEY(t?.result)} valueCls={(t?.result ?? 0) < 0 ? "text-neg" : ""} sub={`marge nette ${PCT(t?.netMarginPct)}`} />
+          <MetricCard icon={<Target size={18} />} tone={(t?.result ?? 0) < 0 ? "red" : "green"} label="Résultat (marge nette)" value={MONEY(t?.result)} valueCls={(t?.result ?? 0) < 0 ? "text-neg" : ""} sub={`marge nette ${PCT(t?.netMarginPct)}`} />
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
           {data.desks.map(d => {
@@ -59,7 +59,7 @@ export default function RestaurationPage() {
               ...(a.noCost ? [[<AlertTriangle key="c" size={14} />, `${a.noCost} article(s) sans coût d'achat`, `/comptoir?desk=${d.deskId}&tab=rentabilite`] as [React.ReactNode, string, string]] : []),
               ...(a.toSupply ? [[<PackageCheck key="s" size={14} />, `${a.toSupply} article(s) à monter de la réserve`, `/comptoir?desk=${d.deskId}&tab=stock`] as [React.ReactNode, string, string]] : []),
               ...(a.low ? [[<AlertTriangle key="l" size={14} />, `${a.low} article(s) sous leur seuil`, `/comptoir?desk=${d.deskId}&tab=stock`] as [React.ReactNode, string, string]] : []),
-              ...(a.expired || a.expiring ? [[<CalendarClock key="e" size={14} />, `${a.expired ? `${a.expired} périmé(s)` : ""}${a.expired && a.expiring ? ", " : ""}${a.expiring ? `${a.expiring} à consommer sous 7 jours` : ""}`, `/comptoir?desk=${d.deskId}&tab=stock`] as [React.ReactNode, string, string]] : []),
+              ...(a.expired || a.expiring ? [[<CalendarClock key="e" size={14} />, `${a.expired ? `${a.expired} article(s) périmé(s)` : ""}${a.expired && a.expiring ? ", " : ""}${a.expiring ? `${a.expiring} à consommer sous 7 jours` : ""}`, `/comptoir?desk=${d.deskId}&tab=stock`] as [React.ReactNode, string, string]] : []),
               ...(a.openInventories ? [[<ClipboardCheck key="i" size={14} />, `${a.openInventories} inventaire(s) en cours à valider`, `/comptoir?desk=${d.deskId}&tab=stock`] as [React.ReactNode, string, string]]
                 : a.inventoryDue ? [[<ClipboardCheck key="i" size={14} />, a.lastInventory ? `Dernier inventaire le ${new Date(a.lastInventory.at).toLocaleDateString("fr-FR")} : celui de la semaine est à faire` : "Aucun inventaire validé : faites le premier (stock initial)", `/comptoir?desk=${d.deskId}&tab=stock`] as [React.ReactNode, string, string]] : []),
               ...a.ordersToReceive.map(o => [<Truck key={o._id} size={14} />, `Commande ${o.number}${o.supplier ? ` (${o.supplier})` : ""} à réceptionner en réserve`, `/commandes/${o._id}`] as [React.ReactNode, string, string]),

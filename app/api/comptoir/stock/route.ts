@@ -49,7 +49,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   const type = body.type as "in" | "out" | "adjust";
   if (!["in", "out", "adjust"].includes(type)) return badRequest("Type de mouvement invalide");
   // Un ajustement change la valeur du stock et la marge : il revient au chef (ou à la finance) et compte comme écart d'inventaire.
-  if (type === "adjust" && !canSeeDeskCosts(auth)) return forbidden("L'ajustement du stock revient au chef du comptoir ou à la comptabilité (ou passez par un inventaire).");
+  if (type === "adjust" && !canSeeDeskCosts(auth)) return forbidden("L'ajustement du stock revient au chef du comptoir, à la gérance ou à la comptabilité (ou passez par un inventaire).");
   // Une sortie sans encaissement disparaîtrait du résultat : vente → ticket ; casse, péremption, offert → perte.
   if (type === "out" && !(Number(body.cashAmount) > 0)) return badRequest("Sortie sans encaissement : passez par un ticket (vente) ou déclarez une perte (casse, péremption, offert, repas du personnel).");
   // Entrée par paquets : « 3 paquets de 24 à 5 100 » → 72 unités à 212,50.

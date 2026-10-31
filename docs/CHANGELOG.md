@@ -4,40 +4,41 @@
 
 **Une section « Restauration » dans le menu** regroupe tout ce qui concerne les restaurants :
 
-- **Vue d'ensemble.** Pour chaque restaurant, le mois choisi :
+- **Vue d'ensemble** : pour chaque restaurant, le mois choisi :
   - CA HT, marge matière, charges (personnel compris), résultat ;
   - marge nette comparée à l'objectif ; s'il n'est pas atteint, ce qu'il manque et la hausse moyenne des prix qui le comblerait à volumes égaux ;
   - les actions à mener : articles sous le prix minimum ou sans coût, articles à monter de la réserve ou sous leur seuil, produits périmés ou proches de leur date limite, inventaire de la semaine à faire ou à valider, commandes à réceptionner en réserve.
 - **Comptoirs** : caisse, stock à deux niveaux, marges, résultat (inchangé).
-- **Prix et marges.** Le calcul est prudent :
-  - frais de fonctionnement en moyenne des trois derniers mois complets, et pour chaque rubrique le plus élevé du prévu et du réel ;
+- **Prix et marges** : le calcul est prudent.
+  - frais de fonctionnement : moyenne des trois derniers mois complets et, pour chaque rubrique, le plus élevé du prévu et du réel ;
   - démarque (pertes, repas du personnel, offerts, manquants, achats de caisse) ajoutée au coût ;
   - coût retenu : le plus élevé du coût moyen et du dernier prix d'achat ;
   - taux marqué « provisoire » et application bloquée quand des bulletins manquent ou que le mois est partiel.
 
   Pour chaque produit, on voit :
-  - le prix d'achat (coût de revient au coût moyen pondéré, somme des ingrédients pour une recette) ;
+  - le prix d'achat (coût de revient : le plus élevé du coût moyen et du dernier prix d'achat ; somme des ingrédients pour une recette) ;
   - le prix de vente TTC et HT, et la marge brute ;
-  - la part des frais de fonctionnement (personnel, eau, électricité, loyer et le reste), répartie au prorata du chiffre d'affaires du dernier mois complet ;
+  - la part des frais de fonctionnement (personnel, eau, électricité, loyer et le reste), répartie au prorata du chiffre d'affaires ;
   - la marge nette ;
   - le **prix minimum** qui garde la marge nette visée, avec le manque à gagner du mois.
+
   Le bouton « Appliquer » met le prix minimum en caisse. Les frais trop lourds pour être couverts par les prix sont signalés. Export CSV.
-- **Équipe et paie** (pour qui gère la paie, sur tous les restaurants) : le personnel de chaque restaurant, sa part de temps, l'affectation sans avoir à paramétrer le comptoir, et un lien vers le bulletin du mois. Pour qui gère la paie : l'affectation, l'état du bulletin du mois (à faire, fait, payé) et le coût employeur imputé à chaque restaurant.
+- **Équipe et paie** : réservée à qui gère la paie, sur tous les restaurants. Elle montre le personnel de chaque restaurant et sa part de temps, permet de l'affecter sans paramétrer le comptoir, et donne un lien vers le bulletin du mois. Pour qui gère la paie : l'affectation, l'état du bulletin du mois (à faire, fait, payé) et le coût employeur imputé à chaque restaurant.
 
 **Droits** :
-- le prix de vente, la recette, le budget et la marge visée se modifient par le chef, la gérance ou la comptabilité, avec l'ancien et le nouveau prix au journal d'audit ;
-- un ajustement de stock est réservé au chef et compte comme écart d'inventaire ; une sortie sans encaissement est refusée (ticket ou perte) ;
-- avec une ou deux personnes affectées, qui ne lit pas la paie voit un résultat avant personnel, partout.
+- le prix de vente, la recette, le budget et la marge visée ne sont modifiables que par le chef, la gérance ou la comptabilité, avec l'ancien et le nouveau prix au journal d'audit ;
+- un ajustement de stock est réservé au chef, à la gérance ou à la comptabilité, et compte comme écart d'inventaire ; une sortie sans encaissement est refusée (ticket ou perte) ;
+- lorsque seules une ou deux personnes sont affectées, qui n'a pas accès à la paie voit partout un résultat avant personnel.
 
 **Résultat** : les recharges de cartes EasyPay ne sont plus comptées comme ventes ; les ventes hors ticket entrent au chiffre d'affaires et à la marge.
 
-**Marge nette visée** : 20 % du CA HT (avant impôt sur les bénéfices) par défaut, réglable par comptoir (Résultat → Personnel et charges prévues). L'onglet Résultat montre l'objectif, ce qu'il manque et la hausse de prix qui le comblerait.
+**Marge nette visée** : 20 % du CA HT (avant impôt sur les bénéfices) par défaut, réglable par comptoir (Comptoir → Résultat → Personnel et charges prévues). L'onglet Résultat montre l'objectif, ce qu'il manque et la hausse de prix qui le comblerait.
 
-**Inventaire de fin de semaine** (Automatisations), actif d'office le samedi. Ce jour-là à 15 h, l'inventaire du comptoir (et de la réserve, au choix) est ouvert au nom du chef ; l'équipe est prévenue et compte au scanner avant la fermeture. Le chef est relancé les deux jours suivants tant que l'inventaire n'est pas validé.
+**Inventaire de fin de semaine** (Automatisations), actif d'office le samedi. Ce jour-là, à 15 h, l'inventaire du comptoir (et de la réserve, au choix) est ouvert au nom du chef ; l'équipe est prévenue et compte au scanner avant la fermeture. Le chef est relancé les deux jours suivants tant que l'inventaire n'est pas validé.
 
 ## Restauration — stock à deux niveaux, inventaire au scanner, résultat du comptoir (octobre 2026)
 
-**Comptoir → Stock**, en quatre vues :
+**Comptoir → Stock**, en quatre vues (réserve et comptoir, mouvements du comptoir, flux de la réserve, inventaires) :
 - **Réserve et comptoir.** Chaque comptoir a sa réserve (stock en gros : cartons, sacs, bidons) à côté de son stock de vente. On y voit, article par article :
   - les quantités en paquets et en unités ;
   - la valeur au coût ;
@@ -45,13 +46,13 @@
   - les dates de péremption, avec l'alerte à 7 jours et les lots périmés à sortir ;
   - la quantité conseillée à monter au comptoir.
   Sur téléphone, une carte par article.
-- **Réception en réserve** (marché, livraison sans bon de commande) : par lecture du code-barres ou au choix, en paquets ou en unités, avec le prix d'achat, le lot et la date de péremption, payée ou non depuis la caisse. Une réception sans prix reste « à valoriser ». Une hausse du coût d'achat de 5 % ou plus est signalée, avec les plats qu'elle touche.
+- **Réception en réserve** (marché, livraison sans bon de commande) : par lecture du code-barres ou par choix dans la liste, en paquets ou en unités, avec le prix d'achat, le lot et la date de péremption, payée ou non depuis la caisse. Une réception sans prix reste « à valoriser ». Une hausse du coût d'achat de 5 % ou plus est signalée, avec les plats qu'elle touche.
 - **Approvisionner le comptoir depuis la réserve** et **retour en réserve** : un numéro de bon par opération ; le lot le plus proche de sa péremption sort le premier ; un lot périmé reste en réserve.
 - **Perte en réserve** (carton périmé, sac abîmé), comptée dans les pertes du comptoir.
 - **Commandes passées depuis le comptoir** : elles entrent dans sa réserve à leur réception.
 - **Réassort fournisseur** : il compte la réserve dans le stock disponible.
 - **Flux de la réserve** : réceptions, transferts, pertes, inventaires.
-- **Liaison automatique au catalogue** : un article du comptoir est relié dès qu'il passe par la réserve. Sa fiche prend le taux de TVA du comptoir, le prix hors taxe, le coût de l'article, son code-barres et le suivi par lot.
+- **Liaison automatique au catalogue** : un article du comptoir est relié dès qu'il passe par la réserve. Sa fiche prend le taux de TVA du comptoir, le prix hors taxes, le coût de l'article, son code-barres et le suivi par lot.
 
 **Inventaires au scanner** (comptoir ou réserve, tout ou une famille) :
 - lecture par douchette USB ou Bluetooth (chaque lecture compte) ou par la caméra du téléphone (un code ne compte à nouveau qu'après être sorti du champ), avec un bip ;
@@ -79,10 +80,10 @@ La validation revient au chef du comptoir ou à la comptabilité. L'écart se ca
 - **Charges** : elles viennent des écritures comptables imputées au secteur du comptoir (factures d'achats, dépenses de caisse), hors achats de marchandises (déjà au coût des ventes). Elles sont classées par rubrique : personnel, eau, électricité, énergies, consommables, petit matériel, loyer, entretien, assurances, transport, télécoms, honoraires, publicité, frais bancaires, impôts, amortissements, autres.
 - **Personnel** : le coût employeur des bulletins du mois, au prorata du temps passé au comptoir. Une même personne ne dépasse pas 100 % de son temps sur l'ensemble des comptoirs. Le détail nominatif et l'affectation sont réservés à qui gère la paie ; les autres voient le total.
 - **Charges communes sans secteur** (loyer global, compteur commun) : réparties par une quote-part propre à chaque comptoir, la somme des quotes-parts ne dépassant pas 100 %. Un secteur analytique ne sert plus qu'à un seul comptoir.
-- **Repères** : coût matière, coût du personnel, matière et personnel, taux de marge, ticket moyen, coût de revient par ticket, point mort du mois et par jour d'ouverture. Pour un mois écoulé, le point mort se calcule sur les charges réelles.
+- **Repères** : coût matière, coût du personnel, matière et personnel, taux de marge matière, ticket moyen, coût de revient par ticket, point mort du mois et par jour d'ouverture. Pour un mois écoulé, le point mort se calcule sur les charges réelles.
 - **Consommation théorique et réelle**, article par article : le théorique vient des ventes et des recettes ; le réel ajoute les pertes et les manquants d'inventaire. Les écarts sont chiffrés.
 - **Rapprochement avec la comptabilité** : chiffre d'affaires comptable du secteur comparé à celui des tickets ; achats 601 à 603 comparés aux entrées en stock valorisées ; charges du mois sans secteur.
-- **Analyse de la carte par famille** : locomotives, vaches à lait, énigmes, poids morts, chacune avec un conseil.
+- **Analyse de la carte par famille** : locomotives, chevaux de labour, énigmes, poids morts, chacune avec un conseil.
 - **Douze derniers mois**, une **vue de tous les comptoirs**, et le **dossier Excel du mois** (refusé aux stagiaires). Il contient :
   - le résultat et le rapprochement ;
   - la TVA collectée par taux et les encaissements par moyen ;
