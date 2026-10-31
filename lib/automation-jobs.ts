@@ -3,6 +3,7 @@ import type { CronJob } from "@/lib/cron-jobs";
 import { notify, getAdmins, getRecipients, actAs, liveTenants, type Id, type ActingUser } from "@/lib/cron-helpers";
 import { openInventory } from "@/lib/restaurant-inventory";
 import { weeklyReport } from "@/lib/restaurant-pilotage";
+import { HygieneLogModel } from "@/models/HygieneLog";
 import { DeskInventoryModel } from "@/models/DeskInventory";
 import { BusinessRuleError } from "@/lib/errors";
 import { loadAutomationSettings, claimOnce, claimEvery, releaseClaim, PLATFORM_TENANT } from "@/lib/automation-store";
@@ -932,6 +933,43 @@ async function runRestaurantReport(now = new Date()): Promise<string> {
   return summary([[sent, "rapport(s) du lundi envoyé(s)"]], errors);
 }
 
+// ─── 20. Restauration : rappels d'hygiène ────────────────────────────────────
+
+/**
+ * Chaque matin (l'heure dépend de l'ordonnanceur de l'hébergeur) : enceintes
+ * restées sans relevé la veille — un trou dans le registre — et plats témoins
+ * arrivés à échéance. Rappel à l'équipe du comptoir, une fois par jour.
+ */
+async function runHygieneReminders(now = new Date()): Promise<string> {
+  let sent = 0;
+  const errors: string[] = [];
+  const d = niameyDate(now), y = niameyDate(new Date(now.getTime() - DAY));
+  const day = `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+  const yesterday = `${y.year}-${String(y.month).padStart(2, "0")}-${String(y.day).padStart(2, "0")}`;
+  for (const { tenant } of await tenantsWhere(s => s.hygieneReminders.enabled)) {
+    try {
+      const desks = await ActivityDeskModel.find({ tenantId: tenant._id, archived: { $ne: true }, "coldUnits.0": { $exists: true } }).select("name coldUnits").lean<Array<{ _id: Id; name: string; coldUnits: Array<{ _id: Id; name: string }> }>>();
+      const withSamples = await HygieneLogModel.distinct("deskId", { tenantId: tenant._id, kind: "sample", discardedAt: { $exists: false }, keepUntil: { $lte: now } }) as Id[];
+      const all = await ActivityDeskModel.find({ tenantId: tenant._id, archived: { $ne: true }, _id: { $in: [...desks.map(x => x._id), ...withSamples] } }).select("name coldUnits").lean<Array<{ _id: Id; name: string; coldUnits?: Array<{ _id: Id; name: string }> }>>();
+      if (!all.length) continue;
+      const readers = await deskReaders(tenant._id);
+      for (const desk of all) {
+        const read = new Set((await HygieneLogModel.distinct("unitId", { tenantId: tenant._id, deskId: desk._id, kind: "temperature", day: yesterday })).map(String));
+        const missing = (desk.coldUnits ?? []).filter(u => !read.has(String(u._id))).map(u => u.name);
+        const due = await HygieneLogModel.countDocuments({ tenantId: tenant._id, deskId: desk._id, kind: "sample", discardedAt: { $exists: false }, keepUntil: { $lte: now } });
+        if (!missing.length && !due) continue;
+        if (!(await claimOnce(tenant._id, `hygiene:${desk._id}:${day}`))) continue;
+        const msg = [missing.length ? `Aucun relevé de température hier pour : ${missing.join(", ")}. Relevez chaque enceinte chaque jour (Restauration → Hygiène).` : "", due ? `${due} plat(s) témoin(s) à jeter et à noter.` : ""].filter(Boolean).join(" ");
+        for (const r of readers.filter(x => onDesk(x, desk._id))) await notify(tenant._id, r._id, "stock_alert", `${desk.name} — hygiène`, msg, "/restauration/hygiene");
+        sent++;
+      }
+    } catch (err) {
+      errors.push(`${tenant.name} : ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return summary([[sent, "rappel(s) d'hygiène"]], errors);
+}
+
 // ─── 17. Appels d'offres sans réponse ────────────────────────────────────────
 
 async function runTenderFollowup(now = new Date()): Promise<string> {
@@ -985,11 +1023,12 @@ export const AUTOMATION_JOBS: CronJob[] = [
   { id: "tender-followup", label: "Offres sans réponse", cadence: "daily", schedule: "40 7 * * *", run: () => runTenderFollowup() },
   { id: "weekly-inventory", label: "Restauration : inventaire de fin de semaine", cadence: "daily", schedule: "0 15 * * *", run: () => runWeeklyInventory() },
   { id: "restaurant-report", label: "Restauration : rapport du lundi", cadence: "daily", schedule: "10 7 * * *", run: () => runRestaurantReport() },
+  { id: "hygiene-reminders", label: "Restauration : rappels d'hygiène", cadence: "daily", schedule: "50 6 * * *", run: () => runHygieneReminders() },
 ];
 
 /** Pour les tests et le déclenchement manuel à une date donnée. */
 export const AUTOMATION_RUNNERS = {
   runDepreciation, runMorningBrief, runTreasuryAlert, runPayroll, runAccountantPacket,
   runApprovalReminders, runBudgetAlerts, runCotisationReminders, runDailyBackup, runErrorDigest,
-  runComptoirMorning, runEasypayBalance, runAccountingChecks, runFiscalCalendar, runSupplierPayments, runTenderFollowup, runWeeklyInventory, runRestaurantReport,
+  runComptoirMorning, runEasypayBalance, runAccountingChecks, runFiscalCalendar, runSupplierPayments, runTenderFollowup, runWeeklyInventory, runRestaurantReport, runHygieneReminders,
 };

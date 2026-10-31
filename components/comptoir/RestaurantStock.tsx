@@ -115,7 +115,7 @@ function Expiry({ r }: { r: StockRow }) {
   );
 }
 
-type Line = { itemId: string; packs: string; quantity: string; cost: string; lotNumber: string; expiryDate: string };
+type Line = { itemId: string; packs: string; quantity: string; cost: string; lotNumber: string; expiryDate: string; refused?: boolean; reason?: string };
 const emptyLine = (r: StockRow): Line => ({ itemId: r.itemId, packs: "", quantity: "", cost: "", lotNumber: "", expiryDate: "" });
 
 /** Réception en réserve : on scanne ou choisit les articles, quantités en paquets ou en unités, prix d'achat, lot et péremption. */
@@ -129,10 +129,13 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
   const [reference, setReference] = useState("");
   const [paid, setPaid] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Contrôle à réception (HACCP) : conservation, température, emballages, dates ; refus ligne par ligne.
+  const [ctl, setCtl] = useState({ chain: "ambient", temperature: "", packagingOk: true, datesOk: true });
   const byId = useMemo(() => new Map(stock.map(r => [r.itemId, r])), [stock]);
   const add = (r: StockRow) => setLines(ls => ls.some(l => l.itemId === r.itemId) ? ls : [...ls, emptyLine(r)]);
+  const setRefused = (i: number, refused: boolean, reason = "") => setLines(ls => ls.map((l, j) => j === i ? { ...l, refused, reason } : l));
   const set = (i: number, k: keyof Line, v: string) => setLines(ls => ls.map((l, j) => j === i ? { ...l, [k]: v } : l));
-  const total = lines.reduce((t, l) => {
+  const total = lines.filter(l => !l.refused).reduce((t, l) => {
     const r = byId.get(l.itemId); const packs = num(l.packs) || 0, qty = num(l.quantity) || 0, cost = num(l.cost) || 0;
     return t + (packs && r?.pack?.size ? packs * cost : qty * cost);
   }, 0);
@@ -144,13 +147,19 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
       const r = byId.get(l.itemId); const byPack = num(l.packs) > 0 && !!r?.pack?.size;
       return { itemId: l.itemId, ...(byPack ? { packs: num(l.packs) } : { quantity: num(l.quantity) }),
         ...(costs && l.cost.trim() !== "" ? (byPack ? { packCost: num(l.cost) } : { unitCost: num(l.cost) }) : {}),
-        ...(l.lotNumber ? { lotNumber: l.lotNumber } : {}), ...(l.expiryDate ? { expiryDate: l.expiryDate } : {}) };
+        ...(l.lotNumber ? { lotNumber: l.lotNumber } : {}), ...(l.expiryDate ? { expiryDate: l.expiryDate } : {}),
+        ...(l.refused ? { refused: true, reason: l.reason ?? "" } : {}) };
     });
+    if (lines.some(l => l.refused && !(l.reason ?? "").trim())) return showToast("Indiquez le motif de chaque refus.", "error");
+    if (ctl.chain !== "ambient" && ctl.temperature.trim() === "") return showToast("Produit frais ou surgelé : relevez sa température.", "error");
     if (!payload.length) return showToast("Saisissez au moins une quantité.", "error");
     setBusy(true);
-    const r = await apiSend<{ data: { total: number; unvalued: number; alerts: Array<{ name: string; pct: number; dishes: string[] }> }; error?: string }>("POST", "/api/comptoir/reserve", { deskId, action: "receive", lines: payload, supplier, ...(supplierId ? { supplierId } : {}), reference, paidFromCash: paid });
+    const r = await apiSend<{ data: { total: number; unvalued: number; alerts: Array<{ name: string; pct: number; dishes: string[] }> }; error?: string }>("POST", "/api/comptoir/reserve", { deskId, action: "receive", lines: payload, supplier, ...(supplierId ? { supplierId } : {}), reference, paidFromCash: paid,
+      control: { chain: ctl.chain, temperature: ctl.temperature.trim() === "" ? null : num(ctl.temperature), packagingOk: ctl.packagingOk, datesOk: ctl.datesOk } });
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Réception refusée", "error");
+    const refusedN = lines.filter(l => l.refused).length;
+    if (refusedN === payload.length) { showToast(`${refusedN} ligne(s) refusée(s) : rien n'entre en stock, le refus est noté au registre d'hygiène.`, "info"); onDone(); return; }
     const a = r.data.data.alerts;
     const unv = r.data.data.unvalued ? ` ${r.data.data.unvalued} ligne(s) sans prix : à valoriser par le chef ou la comptabilité.` : "";
     showToast(a.length ? `Réception enregistrée. Hausse de coût : ${a.map(x => `${x.name} +${x.pct} %${x.dishes.length ? ` (${x.dishes.join(", ")})` : ""}`).join(" ; ")}.${unv}` : `Réception enregistrée en réserve.${unv}`, a.length || unv ? "info" : "success");
@@ -172,7 +181,7 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
         </select>
         {lines.length > 0 && (
           <div className="overflow-x-auto"><table className="table-dense w-full">
-            <thead><tr><th>Article</th><th>Paquets</th><th>ou unités</th>{costs && <th>Prix d&apos;achat</th>}<th>Lot</th><th>Péremption</th><th></th></tr></thead>
+            <thead><tr><th>Article</th><th>Paquets</th><th>ou unités</th>{costs && <th>Prix d&apos;achat</th>}<th>Lot</th><th>Péremption</th><th>Refus</th><th></th></tr></thead>
             <tbody>{lines.map((l, i) => { const r = byId.get(l.itemId)!; return (
               <tr key={l.itemId} className="border-t border-line">
                 <td>{r.name}<span className="block text-[11px] text-ink3">{r.pack?.size ? `${r.pack.label || "paquet"} de ${r.pack.size} ${r.unit}` : r.unit}</span></td>
@@ -181,6 +190,10 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
                 {costs && <td><input className={`${inputCls} w-28`} inputMode="decimal" placeholder={num(l.packs) > 0 ? "TTC par paquet" : "TTC par unité"} value={l.cost} onChange={e => set(i, "cost", e.target.value)} /></td>}
                 <td><input className={`${inputCls} w-28`} value={l.lotNumber} onChange={e => set(i, "lotNumber", e.target.value)} /></td>
                 <td><input type="date" className={`${inputCls} w-36`} value={l.expiryDate} onChange={e => set(i, "expiryDate", e.target.value)} /></td>
+                <td>
+                  <label className="inline-flex items-center gap-1 text-xs"><input type="checkbox" checked={!!l.refused} onChange={e => setRefused(i, e.target.checked)} /> refusé</label>
+                  {l.refused && <input className={`${inputCls} w-40 mt-1`} placeholder="Motif (température, état…)" value={l.reason ?? ""} onChange={e => setRefused(i, true, e.target.value)} />}
+                </td>
                 <td><button onClick={() => setLines(ls => ls.filter((_, j) => j !== i))} className={buttonClass("ghost", "sm")}>Retirer</button></td>
               </tr>); })}</tbody>
           </table></div>
@@ -192,6 +205,18 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
           </FormField>
           <FormField label="Référence (bon, reçu)"><input className={inputCls} value={reference} onChange={e => setReference(e.target.value)} /></FormField>
         </div>
+        <fieldset className="border border-line rounded-lg p-3 space-y-2">
+          <legend className="text-sm font-semibold px-1">Contrôle à réception</legend>
+          <div className="flex gap-3 flex-wrap items-end">
+            <FormField label="Conservation"><select className={selectCls} value={ctl.chain} onChange={e => setCtl(c => ({ ...c, chain: e.target.value }))}>
+              <option value="ambient">Ambiante (sec, conserves)</option><option value="chilled">Réfrigéré (repère : +4 °C au plus)</option><option value="frozen">Surgelé (repère : −18 °C au plus)</option>
+            </select></FormField>
+            {ctl.chain !== "ambient" && <FormField label="Température relevée (°C)"><input className={`${inputCls} w-28`} inputMode="decimal" value={ctl.temperature} onChange={e => setCtl(c => ({ ...c, temperature: e.target.value }))} /></FormField>}
+            <label className="inline-flex items-center gap-2 text-sm text-ink2"><input type="checkbox" checked={ctl.packagingOk} onChange={e => setCtl(c => ({ ...c, packagingOk: e.target.checked }))} /> Emballages intacts, produits propres</label>
+            <label className="inline-flex items-center gap-2 text-sm text-ink2"><input type="checkbox" checked={ctl.datesOk} onChange={e => setCtl(c => ({ ...c, datesOk: e.target.checked }))} /> Dates limites conformes</label>
+          </div>
+          <p className="text-[11px] text-ink3">Noté au registre d&apos;hygiène (Restauration → Hygiène). Une ligne refusée n&apos;entre pas en stock. Repères usuels, à adapter au plan HACCP de l&apos;établissement.</p>
+        </fieldset>
         {costs && <label className="inline-flex items-center gap-2 text-sm text-ink2"><input type="checkbox" checked={paid} onChange={e => setPaid(e.target.checked)} /> Payé en espèces depuis la caisse du comptoir (sortie de caisse et écriture d&apos;achat passées avec la réception)</label>}
         <p className="text-xs text-ink3">Prix d&apos;achat payé (TTC, sans TVA récupérée). Le lot et la date de péremption sont gardés : les sorties prennent le lot le plus proche de sa péremption, un lot périmé reste en réserve. Un article non relié au catalogue l&apos;est automatiquement, au taux de TVA du comptoir.</p>
       </div>

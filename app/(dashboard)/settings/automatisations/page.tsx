@@ -257,6 +257,8 @@ export default function AutomationsPage() {
                   Envoyer aussi par e-mail
                 </label>
               </Section>
+              <Section icon={<ClipboardCheck size={18} />} title="Rappels d'hygiène des restaurants" disabled={ro} on={s.hygieneReminders.enabled} onToggle={v => set("hygieneReminders", { enabled: v })}
+                desc="Chaque matin, l'équipe du comptoir est relancée pour les enceintes froides ou chaudes restées sans relevé de température la veille, et pour les plats témoins arrivés à échéance (à jeter et à noter)." />
               {data.hasEasypay && (
                 <Section icon={<PlugZap size={18} />} title="EasyPay" disabled={ro} on={s.easypayRecon.enabled} onToggle={v => set("easypayRecon", { enabled: v })}
                   desc="Dans le point du matin : envois de la caisse en attente de traitement (quelle que soit leur date), tickets payés par carte hors comptabilité, caisse silencieuse depuis plus de 24 h. Une fois par semaine au plus, aux responsables financiers : reversement à faire.">

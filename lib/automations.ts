@@ -37,6 +37,8 @@ export interface AutomationSettings {
   weeklyInventory: { enabled: boolean; day: number; level: "desk" | "both" };
   /** Restauration : rapport du lundi (semaine écoulée et mois) au chef, à la gérance et à la comptabilité ; par e-mail en plus si demandé. */
   restaurantReport: { enabled: boolean; email: boolean };
+  /** Restauration : chaque matin, enceintes restées sans relevé de température la veille ; plats témoins arrivés à échéance. */
+  hygieneReminders: { enabled: boolean };
 }
 
 export const DEFAULT_AUTOMATION_SETTINGS: AutomationSettings = {
@@ -57,6 +59,7 @@ export const DEFAULT_AUTOMATION_SETTINGS: AutomationSettings = {
   tenderFollowup: { enabled: true, afterDays: 30 },
   weeklyInventory: { enabled: true, day: 6, level: "both" },
   restaurantReport: { enabled: true, email: true },
+  hygieneReminders: { enabled: true },
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -88,7 +91,7 @@ export function normalizeAutomationSettings(raw: unknown): AutomationSettings {
   const mb = obj(r.morningBrief), ta = obj(r.treasuryAlert), dep = obj(r.depreciation), pay = obj(r.payroll);
   const ap = obj(r.accountantPacket), ar = obj(r.approvalReminders), ba = obj(r.budgetAlerts), co = obj(r.cotisationReminders);
   const cm = obj(r.comptoirMargins), er = obj(r.easypayRecon), cr = obj(r.comptoirReorder), ac = obj(r.accountingChecks);
-  const fc = obj(r.fiscalCalendar), sp = obj(r.supplierPayments), tf = obj(r.tenderFollowup), wi = obj(r.weeklyInventory), rr = obj(r.restaurantReport);
+  const fc = obj(r.fiscalCalendar), sp = obj(r.supplierPayments), tf = obj(r.tenderFollowup), wi = obj(r.weeklyInventory), rr = obj(r.restaurantReport), hr = obj(r.hygieneReminders);
   const days = Array.isArray(mb.days) ? [...new Set(mb.days.map(Number).filter(x => Number.isInteger(x) && x >= 0 && x <= 6))].sort() : d.morningBrief.days;
   const thresholds = Array.isArray(ba.thresholds)
     ? [...new Set(ba.thresholds.map(Number).filter(x => Number.isFinite(x) && x >= 10 && x <= 200).map(Math.round))].sort((a, b) => a - b)
@@ -135,6 +138,7 @@ export function normalizeAutomationSettings(raw: unknown): AutomationSettings {
     tenderFollowup: { enabled: bool(tf.enabled, d.tenderFollowup.enabled), afterDays: int(tf.afterDays, 7, 180, d.tenderFollowup.afterDays) },
     weeklyInventory: { enabled: bool(wi.enabled, d.weeklyInventory.enabled), day: int(wi.day, 0, 6, d.weeklyInventory.day), level: wi.level === "desk" ? "desk" : wi.level === "both" ? "both" : d.weeklyInventory.level },
     restaurantReport: { enabled: bool(rr.enabled, d.restaurantReport.enabled), email: bool(rr.email, d.restaurantReport.email) },
+    hygieneReminders: { enabled: bool(hr.enabled, d.hygieneReminders.enabled) },
   };
 }
 

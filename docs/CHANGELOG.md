@@ -1,5 +1,23 @@
 # Kanoo — Changelog
 
+## Restauration — hygiène (HACCP) (novembre 2026)
+
+**Hygiène** (Restauration → Hygiène) : le registre du restaurant. On y ajoute des lignes, on ne les réécrit pas.
+- **Températures** :
+  - les enceintes se déclarent dans les réglages : réfrigérateurs, congélateurs, maintien au chaud ;
+  - limites propres à chaque enceinte, ou repères usuels : 0 à +4 °C, −18 °C au plus, +63 °C au moins, à adapter au plan HACCP ;
+  - un relevé hors limites demande une action corrective et prévient aussitôt les responsables.
+- **Contrôle à réception**, dans la réception en réserve :
+  - conservation (ambiante, réfrigérée, surgelée) et température relevée, obligatoire pour le frais et le surgelé ;
+  - état des emballages et dates limites ;
+  - **refus ligne par ligne avec son motif** : une ligne refusée n'entre pas en stock. Le contrôle est noté au registre, même quand tout est refusé.
+- **Plats témoins** :
+  - prélèvement par plat et service, à garder 5 jours (repère usuel, réglementation applicable à confirmer) ;
+  - signalés à jeter à échéance, puis notés jetés.
+- **Plan de nettoyage** : zones, tâches et fréquence (service, jour, semaine, mois). L'état « fait / à faire » vaut pour la période en cours.
+- **Traçabilité d'un lot** : pour un lot d'ingrédient, sa réception, ses passages de la réserve au comptoir, puis les tickets et plats vendus qui l'ont utilisé. C'est la base d'un rappel de lot.
+- **Rappels d'hygiène** (Paramètres → Automatisations) : chaque matin, ils signalent les enceintes restées sans relevé la veille et les plats témoins à jeter.
+
 ## Restauration — pilotage (novembre 2026)
 
 **Pilotage** (Restauration → Pilotage), réservé au chef du comptoir, à la gérance et à la comptabilité :

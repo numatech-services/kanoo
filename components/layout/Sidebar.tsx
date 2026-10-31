@@ -123,6 +123,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Équipe et paie", href: "/restauration/equipe", icon: <Users size={18} /> },
     { label: "Planning et pointage", href: "/restauration/planning", icon: <CalendarClock size={18} /> },
     { label: "Pilotage", href: "/restauration/pilotage", icon: <Gauge size={18} /> },
+    { label: "Hygiène (HACCP)", href: "/restauration/hygiene", icon: <ShieldCheck size={18} /> },
   ]},
   { section: "Modules", tone: "abonnements", items: [
     { label: "Cartes ISIC", href: "/isic", icon: <CreditCard size={18} /> },

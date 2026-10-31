@@ -33,6 +33,10 @@ export interface IActivityDesk {
   sectorShare?: number;
   /** Rubriques de charges qui suivent le volume vendu (simulation d'une baisse d'activité). Absente = liste par défaut. */
   variableCategories?: string[];
+  /** HACCP : enceintes à relever (réfrigérateur, congélateur, maintien au chaud) et leurs limites en °C. */
+  coldUnits?: Array<{ _id: Types.ObjectId; name: string; kind: "fridge" | "freezer" | "hot"; min?: number; max?: number }>;
+  /** HACCP : plan de nettoyage (zone, tâche, fréquence). */
+  cleaningTasks?: Array<{ _id: Types.ObjectId; zone: string; task: string; frequency: "service" | "daily" | "weekly" | "monthly" }>;
   /** Vente d'un plat permise même si un ingrédient manque au comptoir : l'écart se régularise à l'inventaire. */
   lenientStock?: boolean;
   /** Marge nette visée, tous frais compris (personnel, eau, électricité…) : 0,20 = 20 % du CA HT. */
@@ -68,6 +72,8 @@ const ActivityDeskSchema = new Schema<IActivityDesk>({
   commonCostShare: { type: Number, min: 0, max: 1 },
   sectorShare: { type: Number, min: 0, max: 1 },
   variableCategories: { type: [String], default: undefined },
+  coldUnits: [{ name: { type: String, required: true, maxlength: 80 }, kind: { type: String, enum: ["fridge", "freezer", "hot"], required: true }, min: Number, max: Number }],
+  cleaningTasks: [{ zone: { type: String, required: true, maxlength: 80 }, task: { type: String, required: true, maxlength: 120 }, frequency: { type: String, enum: ["service", "daily", "weekly", "monthly"], required: true } }],
   lenientStock: { type: Boolean, default: false },
   targetNetMargin: { type: Number, default: 0.2, min: 0, max: 0.9 },
   treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount" },

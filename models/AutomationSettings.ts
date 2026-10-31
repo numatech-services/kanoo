@@ -92,6 +92,9 @@ const AutomationSettingsSchema = new Schema(
       enabled: { type: Boolean, default: true },
       email: { type: Boolean, default: true },
     },
+    hygieneReminders: {
+      enabled: { type: Boolean, default: true },
+    },
     updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }

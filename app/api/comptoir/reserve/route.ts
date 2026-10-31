@@ -7,7 +7,8 @@ import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { notifyRoles } from "@/lib/notify";
 import { priceAlertsAfterCost } from "@/lib/restaurant-overview";
-import { restaurantStock, reserveMoves, receiveInReserve, moveBetweenLevels, ensureLinked, reserveLoss } from "@/lib/restaurant-stock";
+import { receiveControlled, type ReceptionControl } from "@/lib/restaurant-hygiene";
+import { restaurantStock, reserveMoves, moveBetweenLevels, ensureLinked, reserveLoss } from "@/lib/restaurant-stock";
 
 export const dynamic = "force-dynamic";
 
@@ -41,15 +42,26 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   const lines = Array.isArray(body.lines) ? body.lines.filter((l: { itemId?: unknown }) => isId(l?.itemId)) : [];
   try {
     if (body.action === "receive") {
+      // Contrôle à réception (HACCP) : vérifié d'abord ; une ligne refusée n'entre pas en stock.
+      const control: ReceptionControl | null = body.control && typeof body.control === "object" ? {
+        chain: String(body.control.chain ?? "ambient"), temperature: body.control.temperature === "" || body.control.temperature === null || body.control.temperature === undefined ? null : Number(body.control.temperature),
+        packagingOk: body.control.packagingOk !== false, datesOk: body.control.datesOk !== false, note: typeof body.control.note === "string" ? body.control.note : undefined,
+      } : null;
       // Le coût d'achat met à jour le CMUP : réservé à qui voit les coûts.
       const costs = canSeeDeskCosts(auth);
-      const r = await receiveInReserve(auth, body.deskId, costs ? lines : lines.map((l: Record<string, unknown>) => ({ ...l, unitCost: undefined, packCost: undefined })), {
+      const res = await receiveControlled(auth, body.deskId, costs ? lines : lines.map((l: Record<string, unknown>) => ({ ...l, unitCost: undefined, packCost: undefined })), {
         supplier: typeof body.supplier === "string" ? body.supplier.slice(0, 120) : undefined,
         supplierId: typeof body.supplierId === "string" ? body.supplierId : undefined,
         reference: typeof body.reference === "string" ? body.reference.slice(0, 60) : undefined,
         paidFromCash: costs && body.paidFromCash === true, method: typeof body.method === "string" ? body.method : undefined,
         date: typeof body.date === "string" ? body.date : undefined,
-      });
+      }, control);
+      const accepted = res.accepted;
+      if (!res.received) {
+        await logAudit(auth, "CREATE", "comptoir", { metadata: { reserveReceiveRefused: lines.length } });
+        return created({ total: 0, unvalued: 0, alerts: [], belowMinimum: [], control: res.control });
+      }
+      const r = res.received;
       if (r.alerts.length) {
         await notifyRoles(auth.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "svc_compta"], {
           type: "stock_alert", title: "Hausse du coût d'achat",
@@ -58,7 +70,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
         }).catch(() => undefined);
       }
       // Prix de vente devenus trop bas avec le nouveau coût : prix conseillé pour garder la marge nette visée.
-      const below = await priceAlertsAfterCost(auth.tenantId, body.deskId, lines.map((l: { itemId: string }) => String(l.itemId))).catch(() => []);
+      const below = await priceAlertsAfterCost(auth.tenantId, body.deskId, accepted.map((l: { itemId: string }) => String(l.itemId))).catch(() => []);
       if (below.length) {
         await notifyRoles(auth.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "svc_compta", "svc_spot"], {
           type: "stock_alert", title: "Prix de vente sous le minimum après une hausse d'achat",
@@ -66,8 +78,9 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
           linkedTo: "comptoir", linkedId: String(body.deskId),
         }).catch(() => undefined);
       }
-      await logAudit(auth, "CREATE", "comptoir", { metadata: { reserveReceive: lines.length, total: r.total } });
-      return created({ ...r, belowMinimum: below });
+      const h = res.control;
+      await logAudit(auth, "CREATE", "comptoir", { metadata: { reserveReceive: accepted.length, refused: lines.length - accepted.length, total: r.total } });
+      return created({ ...r, belowMinimum: below, ...(h ? { control: h } : {}) });
     }
     if (body.action === "supply" || body.action === "return") {
       const r = await moveBetweenLevels(auth, body.deskId, lines, body.action);
