@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { BellRing, Sunrise, TrendingDown, Landmark, Wallet, Send, Stamp, PieChart, Users, AlertTriangle, Percent, PlugZap, PackageCheck, ShieldCheck, CalendarClock, ReceiptText, Gavel } from "lucide-react";
+import { BellRing, Sunrise, TrendingDown, Landmark, Wallet, Send, Stamp, PieChart, Users, AlertTriangle, Percent, PlugZap, PackageCheck, ShieldCheck, CalendarClock, ReceiptText, Gavel, ClipboardCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { inputCls } from "@/components/ui/FormField";
@@ -23,6 +23,7 @@ const KIND_LABEL: Record<string, string> = {
   approvals: "Relance de validation", budget: "Alerte budgétaire", chapter: "Alerte de crédits", cotisation: "Relance de cotisation",
   "comptoir-morning": "Point du matin du comptoir", "easypay-balance": "Reversement EasyPay",
   checks: "Contrôles comptables", fiscal: "Rappel fiscal", suppliers: "Factures fournisseurs", tender: "Offre sans réponse",
+  "weekly-inventory": "Inventaire de fin de semaine", "weekly-inventory-reminder": "Relance d'inventaire",
 };
 
 function Section({ icon, title, desc, on, onToggle, disabled, children, external }: {
@@ -235,6 +236,18 @@ export default function AutomationsPage() {
                 <label className="flex items-center gap-2 text-sm text-ink2">
                   <input type="checkbox" className="accent-section" disabled={ro} checked={s.comptoirReorder.autoOrder} onChange={e => set("comptoirReorder", { autoOrder: e.target.checked })} />
                   Préparer aussi les bons de commande brouillon, par fournisseur habituel (à valider par l&apos;acheteur ou le gérant)
+                </label>
+              </Section>
+              <Section icon={<ClipboardCheck size={18} />} title="Inventaire de fin de semaine" disabled={ro} on={s.weeklyInventory.enabled} onToggle={v => set("weeklyInventory", { enabled: v })}
+                desc="Le jour choisi, au matin, l'inventaire de chaque comptoir est ouvert d'office : l'équipe compte au scanner avant la fermeture, le chef valide et le stock est mis à jour. Relance du chef les deux jours suivants tant qu'il n'est pas validé.">
+                <label className="flex items-center gap-2 text-sm text-ink2">Jour
+                  <select className="h-9 rounded-lg border border-line bg-surface px-2 text-sm" disabled={ro} value={s.weeklyInventory.day} onChange={e => set("weeklyInventory", { day: Number(e.target.value) })}>
+                    {["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"].map((j, i) => <option key={j} value={i}>{j}</option>)}
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 text-sm text-ink2">
+                  <input type="checkbox" className="accent-section" disabled={ro} checked={s.weeklyInventory.level === "both"} onChange={e => set("weeklyInventory", { level: e.target.checked ? "both" : "desk" })} />
+                  Compter aussi la réserve (stock en gros)
                 </label>
               </Section>
               {data.hasEasypay && (

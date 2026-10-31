@@ -31,6 +31,8 @@ export interface IActivityDesk {
   commonCostShare?: number;
   /** Vente d'un plat permise même si un ingrédient manque au comptoir : l'écart se régularise à l'inventaire. */
   lenientStock?: boolean;
+  /** Marge nette visée, tous frais compris (personnel, eau, électricité…) : 0,20 = 20 % du CA HT. */
+  targetNetMargin?: number;
   /** Caisse de trésorerie qui reçoit les ventes ; sans elle, la caisse reste hors comptabilité. */
   treasuryAccountId?: Types.ObjectId;
   /** Produit des ventes (701100 marchandises, 706300 restauration…). */
@@ -60,6 +62,7 @@ const ActivityDeskSchema = new Schema<IActivityDesk>({
   openDaysPerMonth: { type: Number, default: 26, min: 1, max: 31 },
   commonCostShare: { type: Number, min: 0, max: 1 },
   lenientStock: { type: Boolean, default: false },
+  targetNetMargin: { type: Number, default: 0.2, min: 0, max: 0.9 },
   treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount" },
   revenueAccount: { type: String, default: "701100", match: /^7\d{2,7}$/ },
   expenseAccount: { type: String, default: "601100", match: /^6\d{2,7}$/ },

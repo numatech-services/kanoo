@@ -7,7 +7,7 @@ import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { moduleEnabled } from "@/lib/modules";
-import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent } from "lucide-react";
+import { LayoutDashboard, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent, UtensilsCrossed, Tags } from "lucide-react";
 
 import { apiJson, apiSend } from "@/lib/api-client";
 import { getPendingCount, purgeOfflineData } from "@/lib/offline/sync-queue";
@@ -113,8 +113,13 @@ const PME_NAV: NavGroup[] = [
     { label: "Courriers", href: "/courriers", icon: <Mail size={18} /> },
     { label: "Coffre administratif", href: "/documents-administratifs", icon: <FileClock size={18} /> },
   ]},
-  { section: "Modules", tone: "abonnements", items: [
+  { section: "Restauration", tone: "abonnements", items: [
+    { label: "Vue d'ensemble", href: "/restauration", icon: <UtensilsCrossed size={18} /> },
     { label: "Comptoirs", href: "/comptoir", icon: <Store size={18} /> },
+    { label: "Prix et marges", href: "/restauration/prix", icon: <Tags size={18} /> },
+    { label: "Équipe et paie", href: "/restauration/equipe", icon: <Users size={18} /> },
+  ]},
+  { section: "Modules", tone: "abonnements", items: [
     { label: "Cartes ISIC", href: "/isic", icon: <CreditCard size={18} /> },
     { label: "Registre ISIC", href: "/isic/registre", icon: <BookUser size={18} /> },
     { label: "Licences : portefeuille", href: "/abonnements", icon: <Repeat size={18} /> },

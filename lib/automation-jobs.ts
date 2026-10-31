@@ -1,6 +1,9 @@
 import { Types } from "mongoose";
 import type { CronJob } from "@/lib/cron-jobs";
 import { notify, getAdmins, getRecipients, actAs, liveTenants, type Id, type ActingUser } from "@/lib/cron-helpers";
+import { openInventory } from "@/lib/restaurant-inventory";
+import { DeskInventoryModel } from "@/models/DeskInventory";
+import { BusinessRuleError } from "@/lib/errors";
 import { loadAutomationSettings, claimOnce, claimEvery, releaseClaim, PLATFORM_TENANT } from "@/lib/automation-store";
 import {
   niameyDate, dayKey, dateLabel, isSendDay, payrollReminderDue, isLastDayOfMonth, packetPeriodDue,
@@ -820,6 +823,62 @@ async function runSupplierPayments(now = new Date()): Promise<string> {
   return summary([[alerted, "alerte(s) de paiement fournisseur"]], errors);
 }
 
+// ─── 18. Restauration : inventaire de fin de semaine ─────────────────────────
+
+/**
+ * Le jour choisi, chaque comptoir reçoit son inventaire de fin de semaine
+ * (comptoir, et réserve si demandé), ouvert d'office au nom d'un responsable
+ * du comptoir : l'équipe compte au scanner avant la fermeture. Les deux jours
+ * suivants, tant qu'il reste ouvert, le chef est relancé pour le valider.
+ */
+async function runWeeklyInventory(now = new Date()): Promise<string> {
+  let opened = 0, reminded = 0;
+  const errors: string[] = [];
+  const d = niameyDate(now);
+  const today = new Date(Date.UTC(d.year, d.month - 1, d.day));
+  const weekday = today.getUTCDay();
+  const dayKey = `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+  for (const { tenant, settings } of await tenantsWhere(s => s.weeklyInventory.enabled)) {
+    const cfg = settings.weeklyInventory;
+    const since = (weekday - cfg.day + 7) % 7; // 0 = le jour même, 1-2 = jours de relance
+    if (since > 2) continue;
+    const desks = await ActivityDeskModel.find({ tenantId: tenant._id, archived: { $ne: true } }).select("name").lean<Array<{ _id: Id; name: string }>>();
+    if (!desks.length) continue;
+    const readers = await deskReaders(tenant._id);
+    // Semaine repérée par le jour d'ouverture de l'inventaire.
+    const opening = new Date(today.getTime() - since * DAY), weekKey = opening.toISOString().slice(0, 10);
+    for (const desk of desks) {
+      try {
+        const mine = readers.filter(r => onDesk(r, desk._id));
+        const chefs = mine.filter(r => r.costs);
+        const link = `/comptoir?desk=${desk._id}&tab=stock`;
+        if (since === 0) {
+          if (!chefs.length || !(await claimOnce(tenant._id, `weekly-inventory:${desk._id}:${weekKey}`))) continue;
+          const actor = await actAs(chefs[0]._id);
+          if (!actor) continue;
+          const levels: Array<"desk" | "reserve"> = cfg.level === "both" ? ["desk", "reserve"] : ["desk"];
+          const done: string[] = [];
+          for (const level of levels) {
+            try { await openInventory(actor.auth as never, String(desk._id), level); done.push(level === "desk" ? "du comptoir" : "de la réserve"); }
+            catch (e) { if (!(e instanceof BusinessRuleError)) throw e; }
+          }
+          if (!done.length) continue;
+          for (const r of mine) await notify(tenant._id, r._id, "stock_alert", `${desk.name} — inventaire de fin de semaine`, `Inventaire ${done.join(" et ")} ouvert : comptez au scanner avant la fermeture (Stock → Inventaires), puis le chef le valide.`, link);
+          opened++;
+        } else {
+          const open = await DeskInventoryModel.countDocuments({ tenantId: tenant._id, deskId: desk._id, status: "open", createdAt: { $gte: new Date(opening.getTime() - DAY) } });
+          if (!open || !(await claimOnce(tenant._id, `weekly-inventory-reminder:${desk._id}:${dayKey}`))) continue;
+          for (const r of chefs) await notify(tenant._id, r._id, "stock_alert", `${desk.name} — inventaire de la semaine à valider`, `${open} inventaire(s) de fin de semaine encore ouvert(s) : vérifiez les comptages et validez pour mettre le stock à jour.`, link);
+          reminded++;
+        }
+      } catch (err) {
+        errors.push(`${tenant.name} / ${desk.name} : ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  }
+  return summary([[opened, "inventaire(s) de fin de semaine ouvert(s)"], [reminded, "relance(s) de validation"]], errors);
+}
+
 // ─── 17. Appels d'offres sans réponse ────────────────────────────────────────
 
 async function runTenderFollowup(now = new Date()): Promise<string> {
@@ -871,11 +930,12 @@ export const AUTOMATION_JOBS: CronJob[] = [
   { id: "fiscal-calendar", label: "Calendrier fiscal (TVA, acomptes d'IS, DSF)", cadence: "daily", schedule: "5 7 * * *", run: () => runFiscalCalendar() },
   { id: "supplier-payments", label: "Factures fournisseurs à payer", cadence: "daily", schedule: "20 7 * * *", run: () => runSupplierPayments() },
   { id: "tender-followup", label: "Offres sans réponse", cadence: "daily", schedule: "40 7 * * *", run: () => runTenderFollowup() },
+  { id: "weekly-inventory", label: "Restauration : inventaire de fin de semaine", cadence: "daily", schedule: "0 8 * * *", run: () => runWeeklyInventory() },
 ];
 
 /** Pour les tests et le déclenchement manuel à une date donnée. */
 export const AUTOMATION_RUNNERS = {
   runDepreciation, runMorningBrief, runTreasuryAlert, runPayroll, runAccountantPacket,
   runApprovalReminders, runBudgetAlerts, runCotisationReminders, runDailyBackup, runErrorDigest,
-  runComptoirMorning, runEasypayBalance, runAccountingChecks, runFiscalCalendar, runSupplierPayments, runTenderFollowup,
+  runComptoirMorning, runEasypayBalance, runAccountingChecks, runFiscalCalendar, runSupplierPayments, runTenderFollowup, runWeeklyInventory,
 };

@@ -19,7 +19,8 @@ const monthOf = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 
 const MONTH_LABEL = (m: string) => new Date(`${m}-15T12:00:00`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
 interface Result {
-  month: string; desk: { _id: string; name: string; hasSector: boolean; sharedWith: string[]; commonShare: number }; pnl: Pnl;
+  month: string; desk: { _id: string; name: string; hasSector: boolean; sharedWith: string[]; commonShare: number; target: number }; pnl: Pnl;
+  target: { targetResult: number; missing: number; priceUpliftPct: number | null };
   sales: { tickets: number; revenueTTC: number; cancelled: number; unvaluedLines: number; vatByRate: Array<{ rate: number; ht: number; tva: number }>; byMethod: Array<{ method: string; amount: number }> };
   warnings: string[]; staffTotal: number;
   consumption: Array<{ itemId: string; name: string; unit: string; sold: number; losses: number; inventoryGap: number; real: number; varianceValue: number; variancePct: number | null }>;
@@ -109,8 +110,19 @@ function DeskResult({ r }: { r: Result }) {
         <MetricCard icon={<TrendingUp size={18} />} tone="blue" label="Chiffre d'affaires HT" value={MONEY(ca)} sub={q.averageTicket ? `ticket moyen ${MONEY(q.averageTicket)}` : "—"} />
         <MetricCard icon={<Utensils size={18} />} tone="green" label="Marge matière" value={MONEY(p.materialMargin)} sub={`coût matière ${PCT(q.foodCostPct)} du CA`} />
         <MetricCard icon={<Users size={18} />} tone="violet" label="Charges de fonctionnement" value={MONEY(p.totalCharges)} sub={`dont personnel ${PCT(q.staffCostPct)} du CA`} />
-        <MetricCard icon={<Scale size={18} />} tone={p.result < 0 ? "red" : "green"} label="Résultat du comptoir" value={MONEY(p.result)} valueCls={p.result < 0 ? "text-neg" : ""} sub={`${PCT(q.resultPct)} du CA`} />
+        <MetricCard icon={<Scale size={18} />} tone={p.result < 0 ? "red" : "green"} label="Résultat du comptoir" value={MONEY(p.result)} valueCls={p.result < 0 ? "text-neg" : ""} sub={`marge nette ${PCT(q.resultPct)} du CA`} />
       </div>
+      {p.revenueHT > 0 && (
+        <section className={`surface-card p-4 flex flex-wrap items-center gap-3 ${r.target.missing ? "border-warn" : "border-pos"}`}>
+          <Target size={18} className={r.target.missing ? "text-warn" : "text-pos"} />
+          <p className="text-sm flex-1 min-w-[16rem]">
+            Objectif : <span className="font-semibold">{PCT(Math.round(r.desk.target * 1000) / 10)} de marge nette</span>, tous frais compris (personnel, eau, électricité, loyer…), soit un résultat de {MONEY(r.target.targetResult)}.{" "}
+            {r.target.missing
+              ? <>Il manque <span className="font-semibold text-warn">{MONEY(r.target.missing)}</span>{r.target.priceUpliftPct !== null ? <>, soit une hausse moyenne des prix de <span className="font-semibold">{PCT(r.target.priceUpliftPct)}</span> à volumes égaux</> : null} — ou moins de charges, de pertes, plus de ventes. Voir les articles sous leur prix minimum dans Restauration → Prix et marges.</>
+              : <span className="text-pos font-semibold">Objectif atteint.</span>}
+          </p>
+        </section>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
         <section className="surface-card p-4">
@@ -265,7 +277,7 @@ function AllDesks({ data }: { data: All | null }) {
   );
 }
 
-interface DeskCfg { staff?: Array<{ employeeId: string; share: number }>; plannedCosts?: Array<{ category: string; label?: string; amount: number }>; openDaysPerMonth?: number; commonCostShare?: number; lenientStock?: boolean }
+interface DeskCfg { staff?: Array<{ employeeId: string; share: number }>; plannedCosts?: Array<{ category: string; label?: string; amount: number }>; openDaysPerMonth?: number; commonCostShare?: number; lenientStock?: boolean; targetNetMargin?: number }
 
 /**
  * Personnel affecté au comptoir (part de son temps ; réservé à qui gère la
@@ -279,6 +291,7 @@ function SettingsDialog({ deskId, payroll, onClose, onSaved }: { deskId: string;
   const [days, setDays] = useState("26");
   const [common, setCommon] = useState("");
   const [lenient, setLenient] = useState(false);
+  const [target, setTarget] = useState("20");
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -291,6 +304,7 @@ function SettingsDialog({ deskId, payroll, onClose, onSaved }: { deskId: string;
       setDays(String(desk.openDaysPerMonth ?? 26));
       setCommon(desk.commonCostShare ? String(Math.round(desk.commonCostShare * 1000) / 10) : "");
       setLenient(!!desk.lenientStock);
+      setTarget(String(Math.round((desk.targetNetMargin ?? 0.2) * 1000) / 10));
       setLoaded(true);
     }).catch(() => showToast("Paramètres du comptoir illisibles : réessayez.", "error"));
   }, [deskId, payroll]);
@@ -303,6 +317,7 @@ function SettingsDialog({ deskId, payroll, onClose, onSaved }: { deskId: string;
       openDaysPerMonth: Number(days) || 26,
       commonCostShare: (Number(common.replace(",", ".")) || 0) / 100,
       lenientStock: lenient,
+      targetNetMargin: (Number(target.replace(",", ".")) || 0) / 100,
     });
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Enregistrement refusé", "error");
@@ -344,6 +359,7 @@ function SettingsDialog({ deskId, payroll, onClose, onSaved }: { deskId: string;
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label="Quote-part des charges communes (%)" hint="Loyer global, compteur commun, gardiennage… sans secteur : la part portée par ce comptoir."><input className={inputCls} inputMode="decimal" value={common} onChange={e => setCommon(e.target.value)} /></FormField>
           <FormField label="Jours d'ouverture par mois"><input className={inputCls} inputMode="numeric" value={days} onChange={e => setDays(e.target.value)} /></FormField>
+          <FormField label="Marge nette visée (%)" hint="Tous frais compris : personnel, eau, électricité, loyer… Sert au prix minimum de chaque article."><input className={inputCls} inputMode="decimal" value={target} onChange={e => setTarget(e.target.value)} /></FormField>
         </div>
         <label className="inline-flex items-start gap-2 text-sm text-ink2"><input type="checkbox" className="mt-1" checked={lenient} onChange={e => setLenient(e.target.checked)} /> Vendre un plat même si un ingrédient manque au comptoir (pris en réserve sans approvisionnement) : la vente passe, l&apos;écart se régularise à l&apos;inventaire.</label>
         <p className="text-xs text-ink3">Les factures réelles (eau, électricité, loyer…) se saisissent dans Achats ou en dépense de caisse du comptoir, avec leur nature : elles remontent ici par le secteur du comptoir.</p>

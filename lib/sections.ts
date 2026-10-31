@@ -57,6 +57,7 @@ const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
   // Modules optionnels (comptoirs, ISIC, revente de licences, événements)
   ["/abonnements", "abonnements"],
   ["/comptoir", "abonnements"],
+  ["/restauration", "abonnements"],
   ["/isic", "abonnements"],
   ["/activites", "abonnements"],
 

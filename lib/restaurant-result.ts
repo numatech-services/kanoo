@@ -15,6 +15,7 @@ import { ProductModel } from "@/models/Product";
 import { StockMovementModel } from "@/models/StockMovement";
 import { lossesReport } from "@/lib/spot-server";
 import { EXPENSE_ACCOUNTS } from "@/lib/expense-categories";
+import { DEFAULT_TARGET_NET_MARGIN, targetGap } from "@/lib/restaurant-pricing";
 import { computePnl, chargeCategory, isGoodsPurchase, monthBounds, staffCost, CHARGE_CATEGORIES, type ChargeCategory, type Pnl } from "@/lib/restaurant";
 
 type Id = Types.ObjectId;
@@ -26,7 +27,9 @@ interface DeskLean { _id: Id; name: string; activityId?: Id; warehouseId?: Id; r
 export interface ConsumptionRow { itemId: string; name: string; unit: string; sold: number; losses: number; inventoryGap: number; real: number; unitCost: number; varianceValue: number; variancePct: number | null }
 
 export interface MonthResult {
-  month: string; desk: { _id: string; name: string; hasSector: boolean; sharedWith: string[]; commonShare: number };
+  month: string; desk: { _id: string; name: string; hasSector: boolean; sharedWith: string[]; commonShare: number; target: number };
+  /** Marge nette visée (tous frais compris) : ce qu'il manque et la hausse moyenne des prix qui le comblerait. */
+  target: { targetResult: number; missing: number; priceUpliftPct: number | null };
   pnl: Pnl;
   sales: { tickets: number; revenueTTC: number; cancelled: number; unvaluedLines: number; vatByRate: Array<{ rate: number; ht: number; tva: number }>; byMethod: Array<{ method: string; amount: number }> };
   lossesByReason: Array<{ reason: string; label: string; value: number }>;
@@ -126,7 +129,7 @@ async function consumptionOf(tenantId: string, deskId: string, from: Date, to: D
 
 /** Résultat de gestion d'un comptoir pour un mois « AAAA-MM ». */
 export async function deskMonthResult(tenantId: string, deskId: string, month: string): Promise<MonthResult> {
-  const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("name activityId warehouseId reserveWarehouseId treasuryAccountId vatRate staff plannedCosts openDaysPerMonth commonCostShare").lean<DeskLean & { treasuryAccountId?: Id; vatRate?: number } | null>();
+  const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("name activityId warehouseId reserveWarehouseId treasuryAccountId vatRate staff plannedCosts openDaysPerMonth commonCostShare targetNetMargin").lean<DeskLean & { treasuryAccountId?: Id; vatRate?: number; targetNetMargin?: number } | null>();
   if (!desk) throw new Error("Comptoir introuvable");
   const b = monthBounds(month);
   const warnings: string[] = [];
@@ -232,7 +235,8 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
   const consumption = await consumptionOf(tenantId, deskId, b.from, b.to, b.fromDay, b.toDay, lossItems.map(l => ({ itemId: l.itemId, quantity: l.quantity })), reserveGaps);
 
   return {
-    month, desk: { _id: String(desk._id), name: desk.name, hasSector: !!desk.activityId, sharedWith: sharing.map(s => s.name), commonShare: share }, pnl,
+    month, desk: { _id: String(desk._id), name: desk.name, hasSector: !!desk.activityId, sharedWith: sharing.map(s => s.name), commonShare: share, target: desk.targetNetMargin ?? DEFAULT_TARGET_NET_MARGIN }, pnl,
+    target: targetGap({ revenueHT: pnl.revenueHT, result: pnl.result, target: desk.targetNetMargin ?? DEFAULT_TARGET_NET_MARGIN }),
     sales: { tickets: sales.tickets, revenueTTC: Math.round(sales.ttc), cancelled: sales.cancelled, unvaluedLines: sales.unvaluedLines, vatByRate: sales.vatByRate, byMethod: sales.byMethod },
     lossesByReason: losses.byReason,
     lossesByItem: lossItems.map(l => ({ name: l.label || (itemNames.get(l.itemId) ?? "—"), reason: l.reason, quantity: l.quantity, value: l.value })),

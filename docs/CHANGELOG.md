@@ -1,5 +1,27 @@
 # Kanoo — Changelog
 
+## Module Restauration — vue d'ensemble, prix et marges (objectif 20 %), équipe et paie, inventaire de fin de semaine (octobre 2026)
+
+**Une section « Restauration » dans le menu** regroupe tout ce qui concerne les restaurants :
+
+- **Vue d'ensemble.** Pour chaque restaurant, le mois choisi :
+  - CA HT, marge matière, charges (personnel compris), résultat ;
+  - marge nette comparée à l'objectif ; s'il n'est pas atteint, ce qu'il manque et la hausse moyenne des prix qui le comblerait à volumes égaux ;
+  - les actions à mener : articles sous le prix minimum ou sans coût, articles à monter de la réserve ou sous leur seuil, produits périmés ou proches de leur date limite, inventaire de la semaine à faire ou à valider, commandes à réceptionner en réserve.
+- **Comptoirs** : caisse, stock à deux niveaux, marges, résultat (inchangé).
+- **Prix et marges.** Pour chaque produit, on voit :
+  - le prix d'achat (coût de revient au coût moyen pondéré, somme des ingrédients pour une recette) ;
+  - le prix de vente TTC et HT, et la marge brute ;
+  - la part des frais de fonctionnement (personnel, eau, électricité, loyer et le reste), répartie au prorata du chiffre d'affaires du dernier mois complet ;
+  - la marge nette ;
+  - le **prix minimum** qui garde la marge nette visée, avec le manque à gagner du mois.
+  Le bouton « Appliquer » met le prix minimum en caisse. Les frais trop lourds pour être couverts par les prix sont signalés. Export CSV.
+- **Équipe et paie** : le personnel de chaque restaurant et sa part de temps. Pour qui gère la paie : l'affectation, l'état du bulletin du mois (à faire, fait, payé) et le coût employeur imputé à chaque restaurant.
+
+**Marge nette visée** : 20 % du CA HT par défaut, réglable par comptoir (Résultat → Personnel et charges prévues). L'onglet Résultat montre l'objectif, ce qu'il manque et la hausse de prix qui le comblerait.
+
+**Inventaire de fin de semaine** (Automatisations), actif d'office le samedi. Ce jour-là au matin, l'inventaire du comptoir (et de la réserve, au choix) est ouvert au nom du chef ; l'équipe est prévenue et compte au scanner avant la fermeture. Le chef est relancé les deux jours suivants tant que l'inventaire n'est pas validé.
+
 ## Restauration — stock à deux niveaux, inventaire au scanner, résultat du comptoir (octobre 2026)
 
 **Comptoir → Stock**, en quatre vues :

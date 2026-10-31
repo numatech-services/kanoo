@@ -52,7 +52,8 @@ describe("Menu en espaces", () => {
 
   it("donne à chaque entrée la teinte de son groupe", () => {
     const groups = [...pme.matchAll(/section: "([^"]+)", tone: "([^"]+)", items: \[([\s\S]*?)\]\}/g)];
-    expect(groups.length).toBe(9);
+    // 10 groupes depuis la section Restauration (vue d'ensemble, comptoirs, prix, équipe).
+    expect(groups.length).toBe(10);
     for (const [, name, tone, body] of groups) {
       for (const [, href] of body.matchAll(/href: "([^"]+)"/g)) {
         expect(`${name} › ${href} → ${sectionForPath(href)}`).toBe(`${name} › ${href} → ${tone}`);

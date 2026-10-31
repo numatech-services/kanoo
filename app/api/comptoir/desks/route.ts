@@ -24,8 +24,8 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   // Budget, objectifs de marge et personnel affecté : pas pour la caisse ; le personnel, pour la paie seulement.
   const costs = canSeeDeskCosts(auth), payroll = authCan(auth, "payslips", "read");
   return ok(items.map(d => {
-    const { plannedCosts, targetMarkup, weeklyMarginTarget, commonCostShare, staff, ...rest } = d;
-    return { ...rest, ...(costs ? { plannedCosts, targetMarkup, weeklyMarginTarget, commonCostShare } : {}), ...(payroll ? { staff } : {}) };
+    const { plannedCosts, targetMarkup, weeklyMarginTarget, commonCostShare, targetNetMargin, staff, ...rest } = d;
+    return { ...rest, ...(costs ? { plannedCosts, targetMarkup, weeklyMarginTarget, commonCostShare, targetNetMargin } : {}), ...(payroll ? { staff } : {}) };
   }));
 });
 

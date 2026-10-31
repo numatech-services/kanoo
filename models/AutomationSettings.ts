@@ -81,6 +81,11 @@ const AutomationSettingsSchema = new Schema(
     },
     tenderFollowup: {
       enabled: { type: Boolean, default: true },
+    weeklyInventory: {
+      enabled: { type: Boolean, default: true },
+      day: { type: Number, default: 6, min: 0, max: 6 },
+      level: { type: String, enum: ["desk", "both"], default: "both" },
+    },
       afterDays: { type: Number, default: 30, min: 7, max: 180 },
     },
     updatedBy: { type: Schema.Types.ObjectId, ref: "User" },

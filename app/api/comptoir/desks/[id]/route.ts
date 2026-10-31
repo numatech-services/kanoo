@@ -80,6 +80,11 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
     $set.commonCostShare = Math.round(n * 1000) / 1000;
   }
   if ("lenientStock" in clean) $set.lenientStock = Boolean(clean.lenientStock);
+  if ("targetNetMargin" in clean) {
+    const n = Number(clean.targetNetMargin);
+    if (!(n >= 0 && n <= 0.9)) return badRequest("Marge nette visée : entre 0 et 90 %.");
+    $set.targetNetMargin = Math.round(n * 1000) / 1000;
+  }
   if ("openDaysPerMonth" in clean) {
     const n = Math.round(Number(clean.openDaysPerMonth));
     if (!(n >= 1 && n <= 31)) return badRequest("Jours d'ouverture par mois : entre 1 et 31.");
