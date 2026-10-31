@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, notFound, forbidden } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { canSeeDeskCosts, isId, ownDesk } from "@/lib/comptoir";
+import { authCan } from "@/lib/role-resources";
 import { deskPricing } from "@/lib/restaurant-overview";
 
 export const dynamic = "force-dynamic";
@@ -18,5 +19,5 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   if (!canSeeDeskCosts(auth)) return forbidden("Prix de revient réservés au chef du comptoir, à la direction et à la comptabilité.");
   const deskId = new URL(req.url).searchParams.get("deskId");
   if (!isId(deskId) || !(await ownDesk(auth, deskId))) return notFound("Comptoir introuvable");
-  return ok(await deskPricing(auth.tenantId, deskId));
+  return ok(await deskPricing(auth.tenantId, deskId, authCan(auth, "payslips", "read")));
 });

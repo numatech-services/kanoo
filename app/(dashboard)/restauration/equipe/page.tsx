@@ -13,7 +13,7 @@ import { RestoNav } from "@/components/restauration/RestoNav";
 const MONEY = (n?: number | null) => (n === undefined || n === null ? "—" : `${Math.round(n).toLocaleString("fr-FR")} FCFA`);
 const monthOf = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-interface Member { employeeId: string; name: string; position?: string; active: boolean; share: number; payslip?: boolean; paid?: boolean; allocated?: number }
+interface Member { employeeId: string; name: string; position?: string; active: boolean; share: number; payslip?: boolean; payslipId?: string; paid?: boolean; allocated?: number }
 interface Data { month: string; payroll: boolean; desks: Array<{ deskId: string; name: string; staff: Member[] }>; unassigned: Array<{ employeeId: string; name: string; position?: string }> }
 
 /**
@@ -36,7 +36,7 @@ export default function EquipePage() {
   }
   async function save(deskId: string) {
     setBusy(true);
-    const r = await apiSend<{ error?: string }>("PATCH", `/api/comptoir/desks/${deskId}`, { staff: draft.filter(s => s.employeeId && Number(s.share) > 0).map(s => ({ employeeId: s.employeeId, share: Number(s.share) / 100 })) });
+    const r = await apiSend<{ error?: string }>("PATCH", "/api/restauration/team", { deskId, staff: draft.filter(s => s.employeeId && Number(s.share) > 0).map(s => ({ employeeId: s.employeeId, share: Number(s.share) / 100 })) });
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Affectation refusée", "error");
     showToast("Équipe enregistrée", "success"); setEdit(null); reload();
@@ -98,7 +98,7 @@ export default function EquipePage() {
                           <td><Link href={`/employees/${s.employeeId}`} className="hover:text-section">{s.name}</Link>{s.position ? <span className="block text-[11px] text-ink3">{s.position}</span> : null}{!s.active && <span className="block"><Pill tone="mute">parti</Pill></span>}</td>
                           <td className="text-right font-mono">{Math.round(s.share * 100)} %</td>
                           {data.payroll && <>
-                            <td>{s.payslip ? <Pill tone={s.paid ? "pos" : "info"}>{s.paid ? "payé" : "bulletin fait"}</Pill> : <Pill tone="warn">bulletin à faire</Pill>}</td>
+                            <td>{s.payslip ? <Link href={`/payslips/${s.payslipId}`}><Pill tone={s.paid ? "pos" : "info"}>{s.paid ? "payé" : "bulletin fait"}</Pill></Link> : <Pill tone="warn">bulletin à faire</Pill>}</td>
                             <td className="text-right font-mono">{MONEY(s.allocated)}</td>
                           </>}
                         </tr>

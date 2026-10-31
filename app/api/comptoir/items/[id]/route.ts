@@ -70,6 +70,8 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
     }
     update.recipe = lines;
   }
+  // Prix de vente et fiche recette : ils font la marge ; modifiables par le chef, la gérance ou la finance, pas par la caisse.
+  if (("salePrice" in clean || "recipe" in clean) && !canSeeDeskCosts(auth)) return forbidden("Le prix de vente et la recette se modifient par le chef du comptoir, la gérance ou la comptabilité.");
   // Coût d'achat et prix du paquet : données de coût, modifiables par qui les voit (chef, gérance, finance).
   if (("unitCost" in clean || (clean.pack && typeof clean.pack === "object" && "cost" in (clean.pack as object))) && !canSeeDeskCosts(auth)) return forbidden("Le coût d'achat se modifie par le chef du comptoir, la gérance ou la comptabilité.");
   if ("pack" in clean) {
@@ -153,11 +155,14 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
       } catch (e) { if (e instanceof StockError) return badRequest(e.message); throw e; }
     }
   }
+  const before = await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }).select("salePrice unitCost").lean<{ salePrice?: number; unitCost?: number } | null>();
   const item = await ActivityItemModel.findOneAndUpdate(
     { _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }, { $set: update, ...(clearTarget ? { $unset: { targetMarkup: 1 } } : {}) }, { new: true }
   );
   if (!item) return notFound("Article introuvable");
-  await logAudit(auth, "UPDATE", "comptoir", { resourceId: String(params.id) });
+  // Journal : l'ancien et le nouveau prix de vente et coût (qui a changé quoi, quand).
+  const changed = (["salePrice", "unitCost"] as const).filter(f => f in update);
+  await logAudit(auth, "UPDATE", "comptoir", { resourceId: String(params.id), ...(changed.length && before ? { before: Object.fromEntries(changed.map(f => [f, before[f]])), after: Object.fromEntries(changed.map(f => [f, update[f]])) } : {}) });
   return ok(item);
 });
 

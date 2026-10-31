@@ -4,10 +4,11 @@ import { withAuth, ok, notFound, badRequest, conflict, forbidden, tenantFilter, 
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityModel } from "@/models/Activity";
 import { TreasuryAccountModel } from "@/models/TreasuryAccount";
-import { isId, allDesks } from "@/lib/comptoir";
+import { isId, allDesks, canSeeDeskCosts } from "@/lib/comptoir";
+import { validateStaff } from "@/lib/restaurant-team";
+import { BusinessRuleError } from "@/lib/errors";
 import { authCan } from "@/lib/role-resources";
 import { CHARGE_CATEGORIES } from "@/lib/restaurant";
-import { EmployeeModel } from "@/models/Employee";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ProductModel } from "@/models/Product";
 import { logAudit } from "@/lib/audit";
@@ -94,19 +95,10 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
   if ("staff" in clean) {
     // Affecter du personnel donne accès à son coût employeur : réservé à qui gère la paie.
     if (!authCan(auth, "payslips", "read")) return forbidden("L'affectation du personnel au comptoir revient à qui gère la paie (gérant, chef comptable).");
-    const raw = Array.isArray(clean.staff) ? clean.staff as Array<{ employeeId?: unknown; share?: unknown }> : [];
-    const staff = raw.filter(x => isId(x.employeeId) && Number(x.share) > 0).map(x => ({ employeeId: String(x.employeeId), share: Math.min(1, Math.round(Number(x.share) * 100) / 100) }));
-    if (new Set(staff.map(x => x.employeeId)).size !== staff.length) return badRequest("Un employé figure deux fois.");
-    if (staff.length && (await EmployeeModel.countDocuments({ _id: { $in: staff.map(x => x.employeeId) }, ...tenantFilter(auth) })) !== staff.length) return badRequest("Employé introuvable.");
-    // Une personne ne peut pas être affectée à plus de 100 % de son temps, tous comptoirs confondus.
-    const others = await ActivityDeskModel.find({ ...tenantFilter(auth), _id: { $ne: params.id }, archived: { $ne: true }, "staff.employeeId": { $in: staff.map(x => x.employeeId) } }).select("name staff").lean<Array<{ name: string; staff?: Array<{ employeeId: unknown; share: number }> }>>();
-    for (const x of staff) {
-      const elsewhere = others.reduce((t, d) => t + (d.staff ?? []).filter(y => String(y.employeeId) === x.employeeId).reduce((u, y) => u + y.share, 0), 0);
-      if (elsewhere + x.share > 1.0001) return badRequest(`Un employé serait affecté à ${Math.round((elsewhere + x.share) * 100)} % de son temps (déjà ${Math.round(elsewhere * 100)} % sur d'autres comptoirs).`);
-    }
-    $set.staff = staff;
+    try { $set.staff = await validateStaff(auth.tenantId, params.id, clean.staff); } catch (e) { if (e instanceof BusinessRuleError) return badRequest(e.message); throw e; }
   }
   // Charges prévues par mois (budget) : comparées au réel, base du point mort.
+  if (("plannedCosts" in clean || "targetNetMargin" in clean || "commonCostShare" in clean) && !canSeeDeskCosts(auth)) return forbidden("Budget, marge visée et quote-part des charges : réservés au chef du comptoir, à la gérance et à la comptabilité.");
   if ("plannedCosts" in clean) {
     const raw = Array.isArray(clean.plannedCosts) ? clean.plannedCosts as Array<{ category?: unknown; label?: unknown; amount?: unknown }> : [];
     const rows = raw.filter(x => typeof x.category === "string" && x.category in CHARGE_CATEGORIES && Number(x.amount) > 0)

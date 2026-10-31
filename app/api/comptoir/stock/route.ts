@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
-import { withAuth, ok, created, badRequest, notFound, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, notFound, forbidden, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { isId, ownDesk, postDeskCash, canSeeDeskCosts } from "@/lib/comptoir";
 import { ProductModel } from "@/models/Product";
 import { ProductStockModel } from "@/models/ProductStock";
+import { ItemCountModel } from "@/models/ItemCount";
+import { localDay as localDayOf } from "@/lib/format";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
@@ -46,6 +48,10 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   if (!canSeeDeskCosts(auth)) { delete body.unitCost; delete body.packCost; }
   const type = body.type as "in" | "out" | "adjust";
   if (!["in", "out", "adjust"].includes(type)) return badRequest("Type de mouvement invalide");
+  // Un ajustement change la valeur du stock et la marge : il revient au chef (ou à la finance) et compte comme écart d'inventaire.
+  if (type === "adjust" && !canSeeDeskCosts(auth)) return forbidden("L'ajustement du stock revient au chef du comptoir ou à la comptabilité (ou passez par un inventaire).");
+  // Une sortie sans encaissement disparaîtrait du résultat : vente → ticket ; casse, péremption, offert → perte.
+  if (type === "out" && !(Number(body.cashAmount) > 0)) return badRequest("Sortie sans encaissement : passez par un ticket (vente) ou déclarez une perte (casse, péremption, offert, repas du personnel).");
   // Entrée par paquets : « 3 paquets de 24 à 5 100 » → 72 unités à 212,50.
   if (type === "in" && Number(body.packs) > 0) {
     const it = await ActivityItemModel.findOne({ _id: body.itemId, ...tenantFilter(auth), deskId: body.deskId }).select("pack").lean<{ pack?: { size?: number; cost?: number } } | null>();
@@ -106,15 +112,23 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       after = before - qty;
     } else after = qty; // ajustement : la quantité DEVIENT la valeur saisie
 
+    const adjustGap = type === "adjust" ? Math.round((after - before) * 1000) / 1000 : 0;
+    const adjustCost = item.unitCost || 0;
     const [move] = await ActivityStockMoveModel.create([{
       tenantId: auth.tenantId, deskId: body.deskId, itemId: item._id,
       type, quantity: type === "adjust" ? Math.abs(after - before) : qty, quantityAfter: after,
       unitCost: body.unitCost != null ? Math.max(0, Number(body.unitCost)) : item.unitCost,
       reason: String(body.reason || "").slice(0, 300),
       stockMovementId,
+      ...(adjustGap < 0 ? { lossReason: "inventory", lossValue: Math.round(-adjustGap * adjustCost) } : {}),
       date: body.date ? new Date(body.date) : new Date(),
       createdBy: auth.userId,
     }], { session });
+    // Ajustement = constat d'inventaire : il entre dans les écarts du résultat du mois.
+    if (adjustGap !== 0) {
+      await ItemCountModel.create([{ tenantId: auth.tenantId, deskId: body.deskId, itemId: item._id, day: localDayOf(body.date ? new Date(body.date) : new Date()), expected: before, counted: after, gap: adjustGap,
+        gapValue: adjustGap < 0 ? -Math.round(-adjustGap * adjustCost) : Math.round(adjustGap * adjustCost), countedBy: auth.userId }], { session });
+    }
 
     item.quantity = Math.max(0, after);
     if (type === "in" && body.unitCost != null) item.unitCost = Math.max(0, Number(body.unitCost));

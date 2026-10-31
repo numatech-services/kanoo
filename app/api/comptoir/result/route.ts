@@ -7,7 +7,7 @@ import { hasFinanceAccess, authCan, isInternFor, INTERN_EXPORT_MESSAGE } from "@
 import { logAudit } from "@/lib/audit";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { DeskMonthCloseModel } from "@/models/DeskMonthClose";
-import { deskMonthResult, deskTrend, deskStockAt, type MonthResult } from "@/lib/restaurant-result";
+import { deskMonthResult, deskTrend, deskStockAt, maskPayroll, payrollHidden, type MonthResult } from "@/lib/restaurant-result";
 import { productSales } from "@/lib/comptoir-session";
 import { isMonth, monthBounds, menuEngineering } from "@/lib/restaurant";
 import { DeskInventoryModel } from "@/models/DeskInventory";
@@ -23,21 +23,8 @@ async function menuOf(tenantId: string, deskId: string, month: string) {
   return menuEngineering(sold.filter(s => s.valuedQty > 0).map(s => ({ id: s.itemId, name: s.label, category: s.category, quantity: s.valuedQty, marginHT: s.valuedHT - s.valuedCost })));
 }
 
-/**
- * Paie : le détail nominatif ne sort que pour qui lit les bulletins. Les
- * autres voient le total du personnel, sauf si moins de trois personnes sont
- * affectées (le total révélerait leur salaire) : il est alors fondu dans les
- * autres charges, sans ratio de personnel.
- */
-function forViewer(r: MonthResult, auth: TokenPayload): MonthResult {
-  if (authCan(auth, "payslips", "read")) return r;
-  if (r.staffDetail.length === 0 || r.staffDetail.length >= 3) return { ...r, staffDetail: [] };
-  const hidden = r.staffTotal;
-  const charges = r.pnl.charges.map(c => c.category === "personnel" ? { ...c, actual: c.actual - hidden } : c).filter(c => c.actual || c.planned);
-  const other = charges.find(c => c.category === "autres");
-  if (other) other.actual += hidden; else charges.push({ category: "autres", label: "Autres charges (dont personnel affecté)", actual: hidden, planned: 0 });
-  return { ...r, staffDetail: [], staffTotal: 0, pnl: { ...r.pnl, charges, ratios: { ...r.pnl.ratios, staffCostPct: null, primeCostPct: null } } };
-}
+/** Paie : une seule règle de masquage pour toutes les sorties (lib/restaurant-result maskPayroll). */
+const forViewer = (r: MonthResult, auth: TokenPayload) => maskPayroll(r, authCan(auth, "payslips", "read"));
 
 /**
  * GET /api/comptoir/result?deskId=&month=AAAA-MM[&trend=1][&format=xlsx]
@@ -81,7 +68,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
     const name = `resultat-${result.desk.name.normalize("NFD").replace(/[^\w-]+/g, "-").toLowerCase()}-${month}.xlsx`;
     return new NextResponse(new Uint8Array(buf), { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${name}"` } });
   }
-  const trend = url.searchParams.get("trend") === "1" ? await deskTrend(auth.tenantId, deskId, month) : undefined;
+  const trend = url.searchParams.get("trend") === "1" ? await deskTrend(auth.tenantId, deskId, month, 12, payrollHidden(raw.staffDetail.length, authCan(auth, "payslips", "read"))) : undefined;
   return ok({ ...result, menu, ...(trend ? { trend } : {}) });
 });
 

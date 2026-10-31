@@ -38,3 +38,22 @@ describe("restauration — prix minimum pour 20 % de marge nette", () => {
     expect(targetGap({ revenueHT: 1_000_000, result: 250_000, target: 0.2 }).missing).toBe(0);
   });
 });
+
+describe("restauration — prudence du prix minimum et confidentialité de la paie", () => {
+  it("la démarque (pertes, repas, manquants) s'ajoute au coût : tous articles au minimum, la cible est tenue", () => {
+    // Coût 400, démarque 10 % du coût, frais 30 % : minimum HT = 440 / 0,5 = 880 ; à 880, marge nette = 880 − 440 − 264 = 176 = 20 %.
+    const c = priceCheck({ priceTTC: 880, vatRate: 0, cost: 400, overheadRate: 0.3, shrinkRate: 0.1, target: 0.2 });
+    expect(c.minPriceHT).toBe(880);
+    expect(c.netMargin).toBe(176);
+    expect(c.status).toBe("ok");
+    expect(priceCheck({ priceTTC: 850, vatRate: 0, cost: 400, overheadRate: 0.3, shrinkRate: 0.1, target: 0.2 }).status).toBe("below");
+  });
+  it("paie masquée seulement pour qui ne lit pas les bulletins, avec une ou deux personnes affectées", async () => {
+    const { payrollHidden } = await import("@/lib/restaurant-result");
+    expect(payrollHidden(1, false)).toBe(true);
+    expect(payrollHidden(2, false)).toBe(true);
+    expect(payrollHidden(3, false)).toBe(false);
+    expect(payrollHidden(0, false)).toBe(false);
+    expect(payrollHidden(1, true)).toBe(false);
+  });
+});

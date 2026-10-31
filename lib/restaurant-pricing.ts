@@ -15,12 +15,20 @@
 
 export const DEFAULT_TARGET_NET_MARGIN = 0.2;
 
-/** Coût de revient unitaire : coût de l'article, ou somme de sa recette (null si un ingrédient n'a pas de coût). */
-export function unitCostOf(item: { unitCost?: number; recipe?: Array<{ itemId: string; quantity: number }> }, costs: Map<string, number>): number | null {
+type Costed = { unitCost?: number; recipe?: Array<{ itemId: string; quantity: number }> };
+
+/**
+ * Coût de revient unitaire : coût de l'article, ou somme de sa recette ; une
+ * formule (recette d'une recette) se décompose sur deux niveaux, comme à la
+ * vente. null si un ingrédient n'a pas de coût.
+ */
+export function unitCostOf(item: Costed, costs: Map<string, number>, recipes: Map<string, Costed> = new Map(), depth = 0): number | null {
   if (item.recipe?.length) {
+    if (depth > 2) return null;
     let t = 0;
     for (const r of item.recipe) {
-      const c = costs.get(String(r.itemId));
+      const sub = recipes.get(String(r.itemId));
+      const c = sub?.recipe?.length ? unitCostOf(sub, costs, recipes, depth + 1) : costs.get(String(r.itemId));
       if (!c || !(c > 0)) return null;
       t += c * r.quantity;
     }
@@ -40,18 +48,25 @@ export interface PriceCheck {
   status: "ok" | "below" | "no_cost" | "no_price" | "impossible";
 }
 
-/** Contrôle d'un article : marge brute, part des frais, marge nette, prix minimum pour la cible. */
-export function priceCheck(i: { priceTTC: number; vatRate: number; cost: number | null; overheadRate: number; target: number; step?: number }): PriceCheck {
+/**
+ * Contrôle d'un article : marge brute, part des frais, marge nette, prix
+ * minimum pour la cible. `shrinkRate` : démarque rapportée au coût des ventes
+ * (pertes, repas du personnel et offerts, manquants d'inventaire, achats de
+ * caisse hors réception) — le coût réel d'une unité vendue est coût × (1 + démarque).
+ */
+export function priceCheck(i: { priceTTC: number; vatRate: number; cost: number | null; overheadRate: number; target: number; shrinkRate?: number; step?: number }): PriceCheck {
   const priceTTC = Math.max(0, i.priceTTC || 0), vat = Math.max(0, i.vatRate || 0);
   const priceHT = Math.round((priceTTC / (1 + vat)) * 100) / 100;
   const rate = Number.isFinite(i.overheadRate) ? Math.max(0, i.overheadRate) : 0;
+  const shrink = Number.isFinite(i.shrinkRate) ? Math.max(0, i.shrinkRate ?? 0) : 0;
+  const realCost = i.cost === null ? null : i.cost * (1 + shrink);
   const overhead = Math.round(priceHT * rate);
   const room = 1 - i.target - rate;
-  const minHT = i.cost !== null && room > 0 ? i.cost / room : null;
-  const base = { priceTTC, priceHT: Math.round(priceHT), cost: i.cost, overhead, minPriceHT: minHT === null ? null : Math.ceil(minHT), minPriceTTC: minHT === null ? null : roundUp(minHT * (1 + vat), i.step ?? 25) };
+  const minHT = realCost !== null && room > 0 ? realCost / room : null;
+  const base = { priceTTC, priceHT: Math.round(priceHT), cost: i.cost, overhead, minPriceHT: minHT === null ? null : Math.ceil(Math.round(minHT * 100) / 100), minPriceTTC: minHT === null ? null : roundUp(minHT * (1 + vat), i.step ?? 25) };
   if (!priceTTC) return { ...base, grossMargin: null, grossMarginPct: null, netMargin: null, netMarginPct: null, status: "no_price" };
   if (i.cost === null) return { ...base, grossMargin: null, grossMarginPct: null, netMargin: null, netMarginPct: null, status: "no_cost" };
-  const gross = priceHT - i.cost, net = gross - priceHT * rate;
+  const gross = priceHT - i.cost, net = priceHT - realCost! - priceHT * rate;
   const pct = (v: number) => Math.round((v / priceHT) * 1000) / 10;
   return {
     ...base, grossMargin: Math.round(gross), grossMarginPct: pct(gross), netMargin: Math.round(net), netMarginPct: pct(net),

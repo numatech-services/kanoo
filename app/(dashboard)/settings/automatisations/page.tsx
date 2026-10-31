@@ -239,7 +239,7 @@ export default function AutomationsPage() {
                 </label>
               </Section>
               <Section icon={<ClipboardCheck size={18} />} title="Inventaire de fin de semaine" disabled={ro} on={s.weeklyInventory.enabled} onToggle={v => set("weeklyInventory", { enabled: v })}
-                desc="Le jour choisi, au matin, l'inventaire de chaque comptoir est ouvert d'office : l'équipe compte au scanner avant la fermeture, le chef valide et le stock est mis à jour. Relance du chef les deux jours suivants tant qu'il n'est pas validé.">
+                desc="Le jour choisi, à 15 h, l'inventaire de chaque comptoir est ouvert d'office : l'équipe compte au scanner avant la fermeture, le chef valide et le stock est mis à jour. Relance du chef les deux jours suivants tant qu'il n'est pas validé.">
                 <label className="flex items-center gap-2 text-sm text-ink2">Jour
                   <select className="h-9 rounded-lg border border-line bg-surface px-2 text-sm" disabled={ro} value={s.weeklyInventory.day} onChange={e => set("weeklyInventory", { day: Number(e.target.value) })}>
                     {["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"].map((j, i) => <option key={j} value={i}>{j}</option>)}

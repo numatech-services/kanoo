@@ -20,7 +20,7 @@ interface Row {
   overhead: number; netMargin: number | null; netMarginPct: number | null; minPriceHT: number | null; minPriceTTC: number | null;
   status: "ok" | "below" | "no_cost" | "no_price" | "impossible";
 }
-interface Data { desk: { _id: string; name: string; vatRate: number; target: number }; overhead: { rate: number; month: string | null; charges: number; revenueHT: number }; rows: Row[]; counts: { below: number; noCost: number; impossible: boolean } }
+interface Data { desk: { _id: string; name: string; vatRate: number; target: number }; overhead: { rate: number; shrink: number; months: string[]; provisional: boolean; charges: number | null; revenueHT: number | null }; rows: Row[]; counts: { below: number; noCost: number; impossible: boolean } }
 
 const STATUS: Record<Row["status"], { label: string; tone: "pos" | "warn" | "neg" | "mute" }> = {
   ok: { label: "objectif atteint", tone: "pos" }, below: { label: "sous le prix minimum", tone: "neg" }, no_cost: { label: "coût inconnu", tone: "warn" },
@@ -75,10 +75,16 @@ export default function PrixPage() {
       {error && <p className="text-sm text-neg">{error}</p>}
       {data && (
         <section className="surface-card p-4 space-y-1.5 text-sm">
-          <p><span className="font-semibold">Marge nette visée : {PCT(Math.round(data.desk.target * 1000) / 10)}</span> du CA HT, tous frais compris (modifiable : comptoir → Résultat → Personnel et charges prévues).</p>
-          <p className="text-ink2">Frais de fonctionnement {data.overhead.month ? `de ${new Date(`${data.overhead.month}-15T12:00:00`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}` : ""} : {MONEY(data.overhead.charges)} pour {MONEY(data.overhead.revenueHT)} de CA HT, soit <span className="font-semibold">{PCT(data.overhead.rate)}</span> du prix de chaque article. Prix minimum HT = coût de revient ÷ (1 − marge visée − taux de frais).</p>
+          <p><span className="font-semibold">Marge nette visée : {PCT(Math.round(data.desk.target * 1000) / 10)}</span> du CA HT, tous frais compris, avant impôt sur les bénéfices (modifiable : comptoir → Résultat → Personnel et charges prévues).</p>
+          <p className="text-ink2">
+            Frais de fonctionnement {data.overhead.months.length ? `(moyenne de ${data.overhead.months.length} mois : ${data.overhead.months.map(m => new Date(`${m}-15T12:00:00`).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })).join(", ")} ; pour chaque rubrique, le plus élevé du prévu et du réel)` : ""}
+            {data.overhead.charges !== null ? <> : {MONEY(data.overhead.charges)} pour {MONEY(data.overhead.revenueHT)} de CA HT par mois</> : null}, soit <span className="font-semibold">{PCT(data.overhead.rate)}</span> du prix de chaque article.
+            Démarque (pertes, repas du personnel, offerts, manquants, achats de caisse) : <span className="font-semibold">{PCT(data.overhead.shrink)}</span> du coût des ventes, ajoutée au coût de revient.
+            Prix minimum HT = coût × (1 + démarque) ÷ (1 − marge visée − taux de frais).
+          </p>
+          {data.overhead.provisional && <p className="text-warn flex gap-1.5"><AlertTriangle size={15} className="mt-0.5 shrink-0" /> Taux provisoire (mois en cours, ou bulletins de paie manquants) : les prix minimum sont indicatifs, l&apos;application est bloquée tant que le mois n&apos;est pas complet.</p>}
           {data.counts.impossible && <p className="text-neg flex gap-1.5"><AlertTriangle size={15} className="mt-0.5 shrink-0" /> Les frais dépassent ce que les prix peuvent couvrir à cette marge : il faut d&apos;abord vendre davantage ou réduire les charges.</p>}
-          {!data.overhead.month && <p className="text-warn">Pas encore de ventes : le taux de frais est à 0, les prix minimum ne couvrent que la marge visée.</p>}
+          {!data.overhead.months.length && <p className="text-warn">Pas encore de ventes : le taux de frais est à 0, les prix minimum ne couvrent que la marge visée.</p>}
         </section>
       )}
       <div className="flex gap-1.5">
@@ -103,7 +109,7 @@ export default function PrixPage() {
                   <td className={`text-right font-mono font-semibold ${(r.netMargin ?? 0) < 0 ? "text-neg" : ""}`}>{MONEY(r.netMargin)}<span className="block text-[11px] font-normal text-ink3">{PCT(r.netMarginPct)}</span></td>
                   <td className="text-right font-mono">{MONEY(r.minPriceTTC)}{r.lostMargin ? <span className="block text-[11px] text-neg">manque {MONEY(r.lostMargin)} sur le mois</span> : null}</td>
                   <td><Pill tone={STATUS[r.status].tone}>{STATUS[r.status].label}</Pill></td>
-                  <td className="text-right">{r.status === "below" && r.minPriceTTC ? <button onClick={() => apply(r)} className={buttonClass("secondary", "sm")}>Appliquer</button> : null}</td>
+                  <td className="text-right">{r.status === "below" && r.minPriceTTC && !data?.overhead.provisional ? <button onClick={() => apply(r)} className={buttonClass("secondary", "sm")}>Appliquer</button> : null}</td>
                 </tr>
               ))}
             </tbody>

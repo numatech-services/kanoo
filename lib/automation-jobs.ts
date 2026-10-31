@@ -826,7 +826,7 @@ async function runSupplierPayments(now = new Date()): Promise<string> {
 // ─── 18. Restauration : inventaire de fin de semaine ─────────────────────────
 
 /**
- * Le jour choisi, chaque comptoir reçoit son inventaire de fin de semaine
+ * Le jour choisi, à 15 h (après le service du midi), chaque comptoir reçoit son inventaire de fin de semaine
  * (comptoir, et réserve si demandé), ouvert d'office au nom d'un responsable
  * du comptoir : l'équipe compte au scanner avant la fermeture. Les deux jours
  * suivants, tant qu'il reste ouvert, le chef est relancé pour le valider.
@@ -930,7 +930,7 @@ export const AUTOMATION_JOBS: CronJob[] = [
   { id: "fiscal-calendar", label: "Calendrier fiscal (TVA, acomptes d'IS, DSF)", cadence: "daily", schedule: "5 7 * * *", run: () => runFiscalCalendar() },
   { id: "supplier-payments", label: "Factures fournisseurs à payer", cadence: "daily", schedule: "20 7 * * *", run: () => runSupplierPayments() },
   { id: "tender-followup", label: "Offres sans réponse", cadence: "daily", schedule: "40 7 * * *", run: () => runTenderFollowup() },
-  { id: "weekly-inventory", label: "Restauration : inventaire de fin de semaine", cadence: "daily", schedule: "0 8 * * *", run: () => runWeeklyInventory() },
+  { id: "weekly-inventory", label: "Restauration : inventaire de fin de semaine", cadence: "daily", schedule: "0 15 * * *", run: () => runWeeklyInventory() },
 ];
 
 /** Pour les tests et le déclenchement manuel à une date donnée. */

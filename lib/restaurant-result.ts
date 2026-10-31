@@ -207,16 +207,18 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
   const openingGap = invs.filter(i => i.opening).reduce((t, i) => t + (i.gapValue ?? 0), 0);
   const reserveGap = reserveInv.reduce((t, i) => t + (i.gapValue ?? 0), 0);
   const cashPurchases = cash[0]?.v ?? 0;
-  // Ventes hors ticket (entrée de caisse « vente », sans ticket ni client à crédit) : au chiffre d'affaires, hors marge (coût inconnu).
-  const [offTicket] = await ActivityCashEntryModel.aggregate<{ v: number }>([
-    { $match: { tenantId: oid(tenantId), deskId: oid(deskId), direction: "in", saleId: { $exists: false }, customerId: { $exists: false }, category: { $ne: "non_sale" }, date: { $gte: b.from, $lte: b.to } } },
-    { $group: { _id: null, v: { $sum: "$amount" } } },
-  ]);
-  const offTicketHT = Math.round((offTicket?.v ?? 0) / (1 + (desk.vatRate ?? 0)));
-  if (offTicketHT) warnings.push(`${offTicketHT.toLocaleString("fr-FR")} FCFA HT de ventes hors ticket (entrées de caisse) : au chiffre d'affaires, hors marge. Passez les ventes par un ticket pour suivre leur marge.`);
+  // Ventes hors ticket : entrées de caisse « vente » sans ticket, ni règlement d'ardoise, ni recette EasyPay
+  // (une recharge de carte appartient à Numatech), ni entrée hors vente. Elles comptent au CA ET à la marge :
+  // le coût de la marchandise sortie avec elles est repris, sinon il ressort par l'inventaire.
+  const offTicket = await ActivityCashEntryModel.find({ tenantId, deskId, direction: "in", saleId: { $exists: false }, customerId: { $exists: false }, category: { $nin: ["non_sale", "easypay_topup"] }, date: { $gte: b.from, $lte: b.to } })
+    .select("amount linkedMoveId").lean<Array<{ amount: number; linkedMoveId?: Id }>>();
+  const offTicketHT = Math.round(offTicket.reduce((t, e) => t + e.amount, 0) / (1 + (desk.vatRate ?? 0)));
+  const linked = offTicket.map(e => e.linkedMoveId).filter(Boolean) as Id[];
+  const offTicketCost = linked.length ? Math.round((await ActivityStockMoveModel.find({ _id: { $in: linked }, tenantId }).select("quantity unitCost").lean<Array<{ quantity: number; unitCost?: number }>>()).reduce((t, m) => t + m.quantity * (m.unitCost ?? 0), 0)) : 0;
+  if (offTicketHT) warnings.push(`${offTicketHT.toLocaleString("fr-FR")} FCFA HT de ventes hors ticket (entrées de caisse) : au CA et à la marge ; leur coût est repris des sorties de stock liées, sinon par l'inventaire. Passez les ventes par un ticket pour suivre leur marge article par article.`);
   const thisMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })();
   const pnl = computePnl({
-    revenueHT: sales.ht + offTicketHT, costOfSales: sales.cost, unvaluedRevenueHT: sales.unvaluedHT + offTicketHT, tickets: sales.tickets, cashPurchases,
+    revenueHT: sales.ht + offTicketHT, costOfSales: sales.cost + offTicketCost, unvaluedRevenueHT: sales.unvaluedHT, tickets: sales.tickets, cashPurchases,
     losses: otherLosses, staffAndOffered: staffMeals, inventoryGap: (counts[0]?.v ?? 0) - invs.filter(i => i.opening && i.level === "desk").reduce((t, i) => t + (i.gapValue ?? 0), 0) + reserveGap,
     charges: byCat, planned, openDays: desk.openDaysPerMonth ?? 26, pastMonth: month < thisMonth,
   });
@@ -281,12 +283,42 @@ export async function deskStockAt(tenantId: string, deskId: string, at: Date) {
 }
 
 /** Douze mois glissants jusqu'au mois donné : CA, marge, charges, résultat (mois clos : leur instantané). */
-export async function deskTrend(tenantId: string, deskId: string, month: string, n = 12) {
+export async function deskTrend(tenantId: string, deskId: string, month: string, n = 12, hidePayroll = false) {
   const [y, m] = month.split("-").map(Number);
   const months = Array.from({ length: n }, (_, k) => { const d = new Date(y, m - 1 - (n - 1 - k), 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; });
   const closes = new Map((await DeskMonthCloseModel.find({ tenantId, deskId, month: { $in: months }, status: "closed" }).select("month snapshot").lean<Array<{ month: string; snapshot: Pnl }>>()).map(c => [c.month, c.snapshot]));
   return Promise.all(months.map(async mo => {
     const p = closes.get(mo) ?? (await deskMonthResult(tenantId, deskId, mo)).pnl;
-    return { month: mo, revenueHT: p.revenueHT, materialMargin: p.materialMargin, charges: p.totalCharges, result: p.result, foodCostPct: p.ratios?.foodCostPct ?? null, closed: closes.has(mo) };
+    // Paie masquée : charges et résultat avant personnel.
+    const staff = hidePayroll ? (p.charges ?? []).find(c => c.category === "personnel")?.actual ?? 0 : 0;
+    return { month: mo, revenueHT: p.revenueHT, materialMargin: p.materialMargin, charges: p.totalCharges - staff, result: p.result + staff, foodCostPct: p.ratios?.foodCostPct ?? null, closed: closes.has(mo) };
   }));
+}
+
+/**
+ * Confidentialité de la paie. Qui ne lit pas les bulletins ne voit jamais le
+ * détail nominatif. Si moins de trois personnes sont affectées au comptoir,
+ * leur coût se déduirait de n'importe quel total (charges, résultat, ratios) :
+ * cette personne voit alors un résultat AVANT PERSONNEL, partout (résultat,
+ * vue d'ensemble, tendance, mois clos), avec un avertissement.
+ */
+export function payrollHidden(staffCount: number, canPayroll: boolean) {
+  return !canPayroll && staffCount > 0 && staffCount < 3;
+}
+
+export function maskPayroll(r: MonthResult, canPayroll: boolean): MonthResult & { payrollHidden?: boolean } {
+  if (canPayroll) return r;
+  if (!payrollHidden(r.staffDetail.length, false)) return { ...r, staffDetail: [] };
+  const charges = r.pnl.charges.filter(c => c.category !== "personnel");
+  const totalCharges = charges.reduce((t, c) => t + c.actual, 0), plannedCharges = charges.reduce((t, c) => t + c.planned, 0);
+  const result = r.pnl.materialMargin - totalCharges;
+  const pct = r.pnl.revenueHT > 0 ? Math.round((result / r.pnl.revenueHT) * 1000) / 10 : null;
+  return {
+    ...r, staffDetail: [], staffTotal: 0, payrollHidden: true,
+    chargesDetail: r.chargesDetail.filter(c => c.category !== "personnel"),
+    pnl: { ...r.pnl, charges, totalCharges, plannedCharges, result, ratios: { ...r.pnl.ratios, staffCostPct: null, primeCostPct: null, resultPct: pct, costPerTicket: null, breakEvenRevenue: null, breakEvenPerDay: null } },
+    target: targetGap({ revenueHT: r.pnl.revenueHT, result, target: r.desk.target }),
+    closed: r.closed ? { closedAt: r.closed.closedAt, result: result - r.closed.drift, drift: r.closed.drift, snapshot: {} } : null,
+    warnings: ["Résultat AVANT personnel : le coût de l'équipe affectée (une ou deux personnes) est réservé à qui gère la paie.", ...r.warnings],
+  };
 }

@@ -20,8 +20,8 @@ export interface ModuleMeta {
 }
 
 export const OPTIONAL_MODULES: ModuleMeta[] = [
-  { key: "comptoir", label: "Comptoirs", hrefs: ["/comptoir"],
-    description: "Points de vente (bar, boutique, buvette) : caisse, stock du comptoir, arrêtés et marge." },
+  { key: "comptoir", label: "Restauration et comptoirs", hrefs: ["/comptoir", "/restauration"],
+    description: "Restaurants et points de vente (bar, boutique, buvette) : caisse, stock en réserve et au comptoir, inventaires, prix et marges, équipe, résultat." },
   { key: "isic", label: "Cartes ISIC", hrefs: ["/isic"],
     description: "Lots de cartes étudiantes, registre des étudiants, licences annuelles et coûts d'impression." },
   { key: "licences", label: "Revente de licences", hrefs: ["/abonnements"],
