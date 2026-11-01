@@ -1,5 +1,26 @@
 # Kanoo — Changelog
 
+## Restauration — nouveau départ et ouverture des sites (novembre 2026)
+
+**Ouverture des sites** (Restauration → Ouverture des sites), réservé à la direction et à la comptabilité.
+
+**1. Archiver les sites actuels**, avant de repartir de zéro :
+- l'état de chaque site s'affiche d'abord : articles, stock restant au coût, stocks négatifs, inventaires ouverts ;
+- l'archivage ne supprime rien : ventes, caisses, écritures et mouvements restent consultables, et les mois passés ne changent pas ;
+- le site archivé libère son nom ;
+- en option, le stock restant est soldé par un ajustement tracé « Clôture avant nouveau départ ». Il ne compte alors pas deux fois avec le stock d'ouverture des nouveaux sites ;
+- confirmation en tapant ARCHIVER.
+
+**2. Ouvrir un site** en une fois :
+- nom et date d'ouverture ;
+- caisse propre avec le **montant de départ** (fonds de caisse), dont la nature est à enregistrer par la comptable ;
+- secteur analytique propre, taux de TVA, marge visée, quote-part des charges communes ;
+- **charges prévues par rubrique** (loyer, électricité, eau, gaz, consommables, transport…) ;
+- **agents** affectés à partir de la date d'ouverture, et comptes d'accès au site ;
+- **stock de départ** en cartons et unités, au coût (par unité ou par carton), avec prix de vente et rythme. Il entre par un mouvement tracé « Stock d'ouverture » : ni achat, ni dette fournisseur, ni écart d'inventaire, ni effet sur le résultat. Un inventaire d'ouverture validé en garde la liste.
+
+**Audit de l'existant** (lot 0 du plan d'amélioration) : `docs/audit-restauration-lot0.md`. On y trouve la cartographie, les réponses aux huit points de contrôle, les anomalies avec leurs corrections, le tableau « conserver / corriger / développer », les règles à faire valider par la comptable et le plan des lots 1 à 6.
+
 ## Restauration — rythme des articles, pain du jour, gaz (novembre 2026)
 
 **Rythme de chaque article** (réglages de stock de l'article) : chaque semaine, toutes les deux semaines ou chaque mois.

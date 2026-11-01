@@ -31,6 +31,8 @@ import { pilotage, saveBudget, saveAllocation, linkAsset, weeklyReport } from ".
 import { volumeSimulation } from "../../lib/restaurant";
 import { sendTransfer, receiveTransfer, getTransfer } from "../../lib/restaurant-transfer";
 import { saveStanding, standingDay, confirmStanding, payStanding, startGasBottle } from "../../lib/restaurant-standing";
+import { restartReport, archiveForRestart, openSite } from "../../lib/restaurant-opening";
+import { PurchasePriceLogModel } from "../../models/PurchasePriceLog";
 import { saveHygieneSetup, recordTemperature, receiveControlled, recordSample, discardSample, recordCleaning, hygieneOverview, itemLots, traceLot } from "../../lib/restaurant-hygiene";
 import { StaffShiftModel } from "../../models/StaffShift";
 import { UserModel } from "../../models/User";
@@ -39,6 +41,7 @@ import { ActivityDeskModel } from "../../models/ActivityDesk";
 import { ActivityItemModel } from "../../models/ActivityItem";
 import { ActivityCashEntryModel } from "../../models/ActivityCashEntry";
 import { TreasuryAccountModel } from "../../models/TreasuryAccount";
+import { ProductStockModel } from "../../models/ProductStock";
 import { ProductModel } from "../../models/Product";
 import { AccountingEntryModel } from "../../models/AccountingEntry";
 import { EmployeeModel } from "../../models/Employee";
@@ -363,6 +366,38 @@ async function main() {
   check("bouteille de gaz : seconde mise en service dans l'heure refusée", await refuses(() => startGasBottle(auth, deskId), /deux heures/));
   const pg = await pilotage(tenantId, deskId, month, true, true);
   check("pilotage : gaz du mois et bouteille comptée", pg.gas.bottlesInMonth === 1 && typeof pg.gas.spend === "number", pg.gas);
+
+  console.log("\n▶ Nouveau départ : archivage, ouverture d'un site (Jus IRA)");
+  const rep0 = await restartReport(tenantId);
+  const repOther = rep0.find(x => x.deskId === otherId);
+  check("état avant nouveau départ : stock restant de l'autre restaurant chiffré", !!repOther && repOther.stockLines >= 1 && repOther.stockValue > 0, repOther);
+  const arch = await archiveForRestart(auth, [otherId], true);
+  const otherAfter = await ActivityDeskModel.findById(otherId).lean<{ archived: boolean; name: string }>();
+  const otherStock = await ProductStockModel.find({ tenantId, warehouseId: { $in: [(await ActivityDeskModel.findById(otherId).lean<{ reserveWarehouseId: Types.ObjectId }>())!.reserveWarehouseId] } }).lean<Array<{ qty: number }>>();
+  check("archivage : site archivé et renommé, stock soldé par ajustement tracé, rien de supprimé", otherAfter!.archived && /archivé/.test(otherAfter!.name) && otherStock.every(x => x.qty === 0) && arch[0].soldLines >= 1 && (await ActivityItemModel.countDocuments({ deskId: otherId })) > 0, { otherAfter, otherStock, arch });
+  const emp2 = await EmployeeModel.collection.insertOne({ tenantId: admin.tenantId, code: "EMP-LOG-2", firstName: "Ibrahim", lastName: "Caisse", position: "Caissier", isActive: true, createdAt: new Date(), updatedAt: new Date() });
+  const site = await openSite(auth, {
+    name: "Autre restaurant", cash: { openingBalance: 200_000 }, vatRate: 0, targetNetMargin: 0.2,
+    staff: [{ employeeId: String(emp2.insertedId), share: 1 }], plannedCosts: [{ category: "electricite", amount: 25_000 }, { category: "eau", amount: 8_000 }], commonCostShare: 0,
+    items: [
+      { name: "Jus IRA", unit: "bouteille", category: "Boissons", salePrice: 300, unitCost: 4_800 / 24, pack: { label: "carton", size: 24 }, level: "reserve", packs: 3 },
+      { name: "Œufs", unit: "œuf", category: "Matières premières", unitCost: 90, level: "desk", quantity: 60, rhythm: "week" },
+    ],
+  }, true);
+  const sRows = (await restaurantStock(tenantId, site.deskId, true)).rows;
+  const ira = sRows.find(r => r.name === "Jus IRA"), oeufs = sRows.find(r => r.name === "Œufs");
+  check("même nom qu'un site archivé : le nouveau site se crée", !!site.deskId && site.name === "Autre restaurant");
+  check("Jus IRA : 3 cartons de 24 → 72 bouteilles en réserve au coût de 200 ; œufs 60 au comptoir", ira?.reserve === 72 && ira.unitCost === 200 && oeufs?.desk === 60, { ira, oeufs });
+  check("valeur du stock d'ouverture : 72 × 200 + 60 × 90 = 19 800", site.stockValue === 19_800, site);
+  const sDesk = await ActivityDeskModel.findById(site.deskId).lean<{ treasuryAccountId: Types.ObjectId; activityId: Types.ObjectId; staff: Array<{ from?: string }>; plannedCosts: unknown[] }>();
+  const caisseNew = await TreasuryAccountModel.findById(sDesk!.treasuryAccountId).lean<{ openingBalance: number; ledgerCode: string }>();
+  check("caisse du site : montant de départ 200 000, compte propre ; secteur propre ; agent affecté depuis l'ouverture ; charges prévues", caisseNew?.openingBalance === 200_000 && !!caisseNew.ledgerCode && !!sDesk!.activityId && sDesk!.staff[0]?.from === day && sDesk!.plannedCosts.length === 2, { caisseNew, sDesk });
+  const rOpen = await deskMonthResult(tenantId, site.deskId, month);
+  check("résultat du site : le stock d'ouverture n'est ni un achat, ni une perte, ni un écart d'inventaire", rOpen.pnl.revenueHT === 0 && rOpen.pnl.costOfSales === 0 && rOpen.pnl.losses === 0 && rOpen.pnl.inventoryGap === 0 && rOpen.pnl.cashPurchases === 0, rOpen.pnl);
+  check("stock d'ouverture : aucune dette fournisseur ni réception à rapprocher", (await PurchasePriceLogModel.countDocuments({ tenantId, deskId: site.deskId })) === 0);
+  await receiveInReserve(auth, site.deskId, [{ itemId: ira!.itemId, packs: 10, packCost: 4_800 }], { supplier: "Grossiste IRA", reference: "BL-IRA-1" });
+  check("réception de 10 cartons de Jus IRA : +240 bouteilles, coût unitaire 200", (await restaurantStock(tenantId, site.deskId, true)).rows.find(r => r.name === "Jus IRA")?.reserve === 312);
+  check("nom déjà pris par un site actif : refusé", await refuses(() => openSite(auth, { name: "Autre restaurant", cash: { openingBalance: 0 } }, true), /déjà ce nom/));
 
   console.log(`\n${pass} réussis, ${fail} en échec`);
   await mongoose.disconnect();

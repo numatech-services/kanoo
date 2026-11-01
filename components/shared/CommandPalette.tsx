@@ -78,6 +78,7 @@ const KEYWORDS: Record<string, string> = {
   "/restauration/hygiene": "hygiène haccp température frigo congélateur réception plat témoin nettoyage traçabilité lot rappel",
   "/restauration/transferts": "transfert restaurant bon signé dépannage réserve lot",
   "/restauration/magasin": "magasin magasinier mobile téléphone douchette recevoir monter compter",
+  "/restauration/ouverture": "ouverture site nouveau départ archiver montant de départ fonds de caisse stock initial ouverture",
   "/restauration/planning": "planning pointage horaires heures service présence absence repas du personnel",
   "/isic": "carte étudiant lot impression",
   "/isic/registre": "étudiant numéro licence renouvellement isic registre",
