@@ -39,8 +39,8 @@ Réinitialiser la base (`db.dropDatabase()` puis le seed) entre deux scénarios.
 résultat du mois, masquage de la paie, prix minimum, vue d'ensemble,
 inventaire de fin de semaine, verrou du mois clos, fiches techniques,
 production, achats et rapprochement, planning et pointage, pilotage et
-rapport du lundi, hygiène et traçabilité, transferts entre restaurants —
-92 contrôles) contre la base de test ensemencée, à réinitialiser avant. Utile quand la compilation n'est pas possible ; il ne remplace
+rapport du lundi, hygiène et traçabilité, transferts entre restaurants,
+pain du jour payé le soir, rythme des articles, gaz — 103 contrôles) contre la base de test ensemencée, à réinitialiser avant. Utile quand la compilation n'est pas possible ; il ne remplace
 pas `e2e-restaurant.mjs` (routes HTTP, droits, export Excel).
 
 ```bash

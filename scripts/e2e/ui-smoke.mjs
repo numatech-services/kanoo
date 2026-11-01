@@ -4,6 +4,9 @@
 // chargement », page vide.
 //
 //   node scripts/e2e/ui-smoke.mjs <racine> [--out rapport.json] [--compare reference.json]
+//        [--only /restauration] [--shots dossier] [--mobile]
+//   --only : seulement les routes qui commencent par ce préfixe ; --shots : capture
+//   pleine page de chaque écran dans ce dossier ; --mobile : écran de téléphone (390 × 844).
 //
 // Exige une instance sur le port 3099 et la base de test ensemencée
 // (scripts/seed-test.ts, idéalement complétée par un scénario). Utilise le
@@ -60,10 +63,12 @@ async function main() {
     || ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/usr/bin/google-chrome", "/usr/bin/chromium-browser", "/usr/bin/chromium"].find(existsSync);
   const browser = await chromium.launch({ executablePath, headless: true });
   const all = pages(path.join(ROOT, "app")).filter(p => !p.route.includes("/client/") && !p.group.includes("portail") && !/\/(offline|reunion)/.test(p.route));
+  const only = arg("--only"), shots = arg("--shots"), mobile = process.argv.includes("--mobile");
+  if (only) all.splice(0, all.length, ...all.filter(p => p.route.startsWith(only)));
   const contexts = new Map();
   async function contextFor(email) {
     if (contexts.has(email)) return contexts.get(email);
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const ctx = await browser.newContext(mobile ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: 1280, height: 900 } });
     if (email) {
       const page = await ctx.newPage();
       await page.goto(`${BASE}/login`);
@@ -113,6 +118,7 @@ async function main() {
       url: location.pathname,
     })).catch(() => ({ errorBoundary: false, pulses: 0, text: 0, url: "" }));
     if (info.errorBoundary) errors.push("page d'erreur affichée");
+    if (shots) await page.screenshot({ path: path.join(shots, `${(route.replace(/\//g, "_") || "_racine")}${mobile ? "-mobile" : ""}.png`), fullPage: true }).catch(() => {});
     results.push({ route: p.route, path: route, status, finalUrl: info.url, errors, pulses: info.pulses, text: info.text });
     await page.close();
   }

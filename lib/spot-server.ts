@@ -6,7 +6,7 @@ import { ComptoirSaleModel } from "@/models/ComptoirSale";
 import { ItemCountModel } from "@/models/ItemCount";
 import { ProductModel } from "@/models/Product";
 import { EmployeeModel } from "@/models/Employee";
-import { portionRecipe } from "@/lib/restaurant";
+import { portionRecipe, RHYTHMS } from "@/lib/restaurant";
 import { ProductStockModel } from "@/models/ProductStock";
 import { BusinessRuleError } from "@/lib/errors";
 import { applyMovement } from "@/lib/stock";
@@ -104,7 +104,7 @@ export async function reorderPlan(tenantId: string, deskId: string) {
   await syncLinkedItems(tenantId, deskId);
   const [desk, items, used] = await Promise.all([
     ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("leadDays coverDays reserveWarehouseId").lean<{ leadDays?: number; coverDays?: number; reserveWarehouseId?: Types.ObjectId } | null>(),
-    ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true } }).lean<Array<{ _id: Types.ObjectId; name: string; unit: string; quantity: number; unitCost: number; threshold?: number; reserveThreshold?: number; productId?: Types.ObjectId; pack?: { label?: string; size?: number; cost?: number }; recipe?: unknown[] }>>(),
+    ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true } }).lean<Array<{ _id: Types.ObjectId; name: string; unit: string; quantity: number; unitCost: number; threshold?: number; reserveThreshold?: number; productId?: Types.ObjectId; pack?: { label?: string; size?: number; cost?: number }; recipe?: unknown[]; rhythm?: string }>>(),
     consumption(tenantId, deskId, WINDOW),
   ]);
   // Déjà en commande pour ce comptoir (bons non reçus) : quantité restant à recevoir par article du catalogue.
@@ -126,10 +126,12 @@ export async function reorderPlan(tenantId: string, deskId: string) {
   const lines = items.filter(i => !i.recipe?.length).map(i => {
     const inReserve = i.productId ? reserve.get(String(i.productId)) ?? 0 : 0;
     const stock = i.quantity + inReserve;
+    // Rythme de l'article : le réassort couvre sa période (semaine, deux semaines, mois).
+    const cov = i.rhythm && i.rhythm in RHYTHMS ? RHYTHMS[i.rhythm as keyof typeof RHYTHMS].days : cover;
     const threshold = i.threshold != null || i.reserveThreshold != null ? (i.threshold ?? 0) + (i.reserveThreshold ?? 0) : undefined;
     const s = planned
-      ? reorderSuggestion({ stock, soldInWindow: planned.get(String(i._id)) ?? 0, windowDays: lead + cover, leadDays: lead, coverDays: cover, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 })
-      : reorderSuggestion({ stock, soldInWindow: used.get(String(i._id))?.quantity ?? 0, windowDays: WINDOW, leadDays: lead, coverDays: cover, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 });
+      ? reorderSuggestion({ stock, soldInWindow: planned.get(String(i._id)) ?? 0, windowDays: lead + cover, leadDays: lead, coverDays: cov, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 })
+      : reorderSuggestion({ stock, soldInWindow: used.get(String(i._id))?.quantity ?? 0, windowDays: WINDOW, leadDays: lead, coverDays: cov, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 });
     const p = i.productId ? prod.get(String(i.productId)) : undefined;
     const unitCost = p?.purchaseCost || i.unitCost || 0;
     return {

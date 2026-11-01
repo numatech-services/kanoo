@@ -9,6 +9,7 @@ import { showToast } from "@/components/ui/Toast";
 import { apiJson, apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { RestoNav } from "@/components/restauration/RestoNav";
+import { StandingSetup } from "@/components/restauration/StandingDeliveries";
 
 const MONEY = (n?: number | null) => (n === undefined || n === null ? "—" : `${(Math.round(n * 100) / 100).toLocaleString("fr-FR")} FCFA`);
 const DATE = (d: string) => new Date(d).toLocaleDateString("fr-FR");
@@ -103,6 +104,7 @@ export default function AchatsPage() {
           )}
         </section>
       </>}
+      {deskId && <StandingSetup key={deskId} deskId={deskId} />}
     </div>
   );
 }

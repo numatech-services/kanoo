@@ -58,6 +58,7 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
     await DeskInventoryModel.updateMany({ ...tenantFilter(auth), status: "open", deskId: cur.deskId, "lines.itemId": params.id },
       { $set: { "lines.$[l].barcode": next.barcode || null, "lines.$[l].packBarcode": next.packBarcode || null, "lines.$[l].altBarcodes": next.altBarcodes } }, { arrayFilters: [{ "l.itemId": new Types.ObjectId(params.id) }] });
   }
+  if ("rhythm" in clean) update.rhythm = ["week", "fortnight", "month"].includes(String(clean.rhythm)) ? String(clean.rhythm) : undefined;
   if ("archived" in clean) {
     update.archived = Boolean(clean.archived);
     if (update.archived) {

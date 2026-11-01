@@ -37,6 +37,10 @@ export interface IActivityDesk {
   coldUnits?: Array<{ _id: Types.ObjectId; name: string; kind: "fridge" | "freezer" | "hot"; min?: number; max?: number }>;
   /** HACCP : plan de nettoyage (zone, tâche, fréquence). */
   cleaningTasks?: Array<{ _id: Types.ObjectId; zone: string; task: string; frequency: "service" | "daily" | "weekly" | "monthly" }>;
+  /** Livraisons permanentes (pain du jour…) : quantité attendue par jour de la semaine (0 = dimanche), prix, frais de livraison, payées chaque soir. */
+  standingDeliveries?: Array<{ _id: Types.ObjectId; itemId: Types.ObjectId; supplierId?: Types.ObjectId; supplierName?: string; unitCost: number; quantities: number[]; dailyFee?: number; toDesk: boolean; active: boolean }>;
+  /** Bouteilles de gaz mises en service (date), pour la durée d'une bouteille et le coût du gaz par jour. */
+  gasBottles?: Array<{ startedAt: Date; by: Types.ObjectId }>;
   /** Vente d'un plat permise même si un ingrédient manque au comptoir : l'écart se régularise à l'inventaire. */
   lenientStock?: boolean;
   /** Marge nette visée, tous frais compris (personnel, eau, électricité…) : 0,20 = 20 % du CA HT. */
@@ -73,6 +77,9 @@ const ActivityDeskSchema = new Schema<IActivityDesk>({
   sectorShare: { type: Number, min: 0, max: 1 },
   variableCategories: { type: [String], default: undefined },
   coldUnits: [{ name: { type: String, required: true, maxlength: 80 }, kind: { type: String, enum: ["fridge", "freezer", "hot"], required: true }, min: Number, max: Number }],
+  standingDeliveries: [{ itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true }, supplierId: { type: Schema.Types.ObjectId, ref: "Supplier" }, supplierName: { type: String, maxlength: 120 },
+    unitCost: { type: Number, required: true, min: 0 }, quantities: { type: [Number], validate: (v: number[]) => v.length === 7 && v.every(n => n >= 0) }, dailyFee: { type: Number, min: 0 }, toDesk: { type: Boolean, default: true }, active: { type: Boolean, default: true } }],
+  gasBottles: [{ _id: false, startedAt: { type: Date, required: true }, by: { type: Schema.Types.ObjectId, ref: "User" } }],
   cleaningTasks: [{ zone: { type: String, required: true, maxlength: 80 }, task: { type: String, required: true, maxlength: 120 }, frequency: { type: String, enum: ["service", "daily", "weekly", "monthly"], required: true } }],
   lenientStock: { type: Boolean, default: false },
   targetNetMargin: { type: Number, default: 0.2, min: 0, max: 0.9 },

@@ -1,5 +1,31 @@
 # Kanoo — Changelog
 
+## Restauration — rythme des articles, pain du jour, gaz (novembre 2026)
+
+**Rythme de chaque article** (réglages de stock de l'article) : chaque semaine, toutes les deux semaines ou chaque mois.
+- L'inventaire du samedi ne propose que les articles dont c'est le tour. Les articles mensuels sont comptés la première semaine du mois.
+- Le réassort proposé couvre la période de l'article : 7, 14 ou 30 jours.
+- Sans réglage, l'article garde le rythme hebdomadaire et le réassort du restaurant.
+
+**Livraisons permanentes** (réglage dans Restauration → Achats) : le pain du matin, ou toute autre livraison quotidienne.
+- On règle l'article, le fournisseur, le prix unitaire, la quantité attendue du dimanche au samedi, les frais de livraison par jour et la montée directe au comptoir.
+- **Le matin**, sur l'écran Magasin, on confirme la livraison du jour, en corrigeant la quantité au besoin. Elle entre en stock au prix convenu.
+- **Le soir**, on la paie depuis la caisse du comptoir. La sortie de caisse « achat » est passée en comptabilité comme une réception payée en caisse ; les frais de livraison sont passés en transport (618).
+- Une seule réception et un seul paiement par jour. La livraison payée sort du rapprochement des factures, et le pain n'est compté dans le coût matière qu'à la vente.
+
+**Gaz** :
+- un bouton « Bouteille de gaz entamée » (écran Magasin) note la mise en service de chaque bouteille ;
+- le Pilotage affiche le gaz du mois, son coût par ticket, le nombre de bouteilles et la durée moyenne d'une bouteille ;
+- la dépense de gaz reste une charge du restaurant, comprise dans le prix minimum.
+
+**Écrans** :
+- sur téléphone, la barre du module Restauration tient sur une ligne qui défile ;
+- dans Pilotage, un restaurant sous son point mort voit la hausse de CA nécessaire, au lieu d'une « marge de sécurité » négative.
+
+**Vérifications** :
+- le test d'écrans (`ui-smoke.mjs`) accepte `--only`, `--shots` et `--mobile` ;
+- le scénario EasyPay v1 vérifie désormais vraiment un corps modifié après signature.
+
 ## Restauration — confort du magasin (novembre 2026)
 
 **Écran du magasinier** (Restauration → Magasin), pensé pour le téléphone et la douchette. Trois gros boutons :

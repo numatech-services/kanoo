@@ -318,3 +318,26 @@ export function monthlyDepreciation(a: {
   const base = Math.max(0, a.acquisitionCost - (a.residualValue ?? 0));
   return Math.round(base * days / ((endLife - utcDay(acq)) / dayMs));
 }
+
+/**
+ * Rythme d'un article : il est compté à l'inventaire du samedi chaque semaine,
+ * une semaine sur deux, ou à la première semaine du mois ; le réassort couvre
+ * la même durée. Sans rythme : chaque semaine, réassort du restaurant.
+ */
+export const RHYTHMS = {
+  week: { label: "Chaque semaine", days: 7 },
+  fortnight: { label: "Toutes les deux semaines", days: 14 },
+  month: { label: "Chaque mois", days: 30 },
+} as const;
+export type Rhythm = keyof typeof RHYTHMS;
+
+/** L'article est-il à compter à l'inventaire de fin de semaine du jour donné (AAAA-MM-JJ) ? */
+export function countDue(rhythm: string | null | undefined, day: string): boolean {
+  if (rhythm === "fortnight") {
+    // Semaines comptées depuis le lundi 5 janvier 1970 : une sur deux, sans saut au changement d'année.
+    const weeks = Math.floor((Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10)) - Date.UTC(1970, 0, 5)) / (7 * 86_400_000));
+    return weeks % 2 === 0;
+  }
+  if (rhythm === "month") return +day.slice(8, 10) <= 7;
+  return true;
+}

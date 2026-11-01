@@ -17,7 +17,7 @@ const QTY = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 3 
 const num = (v: string) => { const t = v.replace(/\s/g, "").replace(",", "."); return t === "" ? NaN : Number(t); };
 
 export interface StockRow {
-  itemId: string; name: string; unit: string; category?: string; barcode?: string; packBarcode?: string; altBarcodes?: string[]; linked: boolean; preparation: boolean;
+  itemId: string; name: string; unit: string; category?: string; barcode?: string; packBarcode?: string; altBarcodes?: string[]; rhythm?: string; linked: boolean; preparation: boolean;
   pack: { label?: string; size?: number } | null;
   desk: number; reserve: number; total: number; unitCost: number | null; value: number | null;
   threshold?: number; reserveThreshold?: number; lowDesk: boolean; lowReserve: boolean;
@@ -289,13 +289,14 @@ export function StockItemDialog({ row, onClose, onDone }: { row: StockRow; onClo
   const [barcode, setBarcode] = useState(row.barcode ?? "");
   const [packBarcode, setPackBarcode] = useState(row.packBarcode ?? "");
   const [alt, setAlt] = useState<string[]>(row.altBarcodes ?? []);
+  const [rhythm, setRhythm] = useState(row.rhythm ?? "");
   const [threshold, setThreshold] = useState(row.threshold != null ? String(row.threshold) : "");
   const [reserveThreshold, setReserveThreshold] = useState(row.reserveThreshold != null ? String(row.reserveThreshold) : "");
   const [busy, setBusy] = useState(false);
   async function save() {
     setBusy(true);
     const r = await apiSend<{ error?: string }>("PATCH", `/api/comptoir/items/${row.itemId}`, {
-      barcode, packBarcode, altBarcodes: alt, ...(threshold !== "" ? { threshold: Number(threshold) } : {}), ...(reserveThreshold !== "" ? { reserveThreshold: Number(reserveThreshold) } : {}),
+      barcode, packBarcode, altBarcodes: alt, rhythm, ...(threshold !== "" ? { threshold: Number(threshold) } : {}), ...(reserveThreshold !== "" ? { reserveThreshold: Number(reserveThreshold) } : {}),
     });
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Enregistrement refusé", "error");
@@ -313,6 +314,14 @@ export function StockItemDialog({ row, onClose, onDone }: { row: StockRow; onClo
         </> : <p className="text-xs text-ink3">Pas de conditionnement en carton déclaré : le code du carton se règle avec le paquet de l&apos;article.</p>}
         <FormField label="Autres codes de l'unité (autre fournisseur, autre étiquette)"><BarcodeScanner placeholder="Scanner un autre code" onCode={c => { beep(true); setAlt(a => a.includes(c) || a.length >= 10 ? a : [...a, c]); }} /></FormField>
         {alt.length > 0 && <p className="text-sm flex flex-wrap gap-2">{alt.map(c => <span key={c} className="font-mono">{c} <button onClick={() => setAlt(a => a.filter(x => x !== c))} className="text-xs text-ink3 underline">retirer</button></span>)}</p>}
+        <FormField label="Rythme (comptage du samedi et durée du réassort)" hint="Légumes et pain : chaque semaine ; huile, sucre : toutes les deux semaines ; riz, conserves, gaz : chaque mois (compté la première semaine du mois).">
+          <select className={selectCls} value={rhythm} onChange={e => setRhythm(e.target.value)}>
+            <option value="">Chaque semaine (par défaut)</option>
+            <option value="week">Chaque semaine — réassort pour 7 jours</option>
+            <option value="fortnight">Toutes les deux semaines — réassort pour 14 jours</option>
+            <option value="month">Chaque mois — réassort pour 30 jours</option>
+          </select>
+        </FormField>
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label={`Seuil du comptoir (${row.unit})`}><input className={inputCls} inputMode="decimal" value={threshold} onChange={e => setThreshold(e.target.value)} /></FormField>
           <FormField label={`Seuil de la réserve (${row.unit})`}><input className={inputCls} inputMode="decimal" value={reserveThreshold} onChange={e => setReserveThreshold(e.target.value)} /></FormField>

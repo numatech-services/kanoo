@@ -18,6 +18,7 @@ interface Row { month: string; budget: { revenueHT: number; materialMargin: numb
 interface Data {
   month: string; desk: { _id: string; name: string }; payrollHidden: boolean; finance: boolean;
   simulation: { revenueHT: number; variable: number; variableCharges: number; fixed: number; contribution: number; contributionPct: number | null; breakEvenRevenue: number | null; safetyMarginPct: number | null; scenarios: Array<{ dropPct: number; revenueHT: number; result: number; resultPct: number | null }>; variableCategories: string[]; result: number; resultPct: number | null; provisional: boolean };
+  gas: { spend: number; perTicket: number | null; perDay: number | null; bottlesInMonth: number; avgBottleDays: number | null; lastStartedAt: string | null };
   categories: Array<{ key: string; label: string }>;
   budget: { revenue: number[]; materialPct: number; charges: Array<{ category: string; annual: number }>; note?: string } | null;
   months: Row[]; ytd: { budgetRevenue: number; actualRevenue: number; budgetResult: number; actualResult: number } | null;
@@ -79,7 +80,7 @@ function Simulation({ data, post }: { data: Data; post: Post }) {
   return (
     <section className="surface-card p-4 space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <p className="font-semibold text-ink">Charges fixes et variables — {data.month}{s.provisional && <span className="ml-2"><Pill tone="info">mois en cours</Pill></span>}</p>
+        <p className="font-semibold text-ink">Charges fixes et variables — {new Date(`${data.month}-15T12:00:00`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}{s.provisional && <span className="ml-2"><Pill tone="info">mois en cours</Pill></span>}</p>
         <button onClick={() => setEdit(x => !x)} className={buttonClass("ghost", "sm")}>{edit ? "Fermer" : "Charges variables…"}</button>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -88,7 +89,10 @@ function Simulation({ data, post }: { data: Data; post: Post }) {
         <Kpi label="Charges fixes" value={MONEY(s.fixed)} />
         <Kpi label="Marge sur coûts variables" value={PCT(s.contributionPct)} hint={MONEY(s.contribution)} />
         <Kpi label="Point mort (CA HT)" value={MONEY(s.breakEvenRevenue)} hint={s.breakEvenRevenue === null ? "les coûts variables absorbent tout le CA" : undefined} />
-        <Kpi label="Marge de sécurité" value={PCT(s.safetyMarginPct)} hint="baisse de CA supportable avant perte" tone={s.safetyMarginPct !== null && s.safetyMarginPct < 0 ? "neg" : undefined} />
+        {s.safetyMarginPct !== null && s.safetyMarginPct < 0 && s.breakEvenRevenue !== null
+          ? <Kpi label="Sous le point mort" value={`+${Math.round(((s.breakEvenRevenue - s.revenueHT) / Math.max(1, s.revenueHT)) * 1000) / 10} %`} hint={`hausse du CA nécessaire pour ne plus perdre (${MONEY(s.breakEvenRevenue - s.revenueHT)})`} tone="neg" />
+          : <Kpi label="Marge de sécurité" value={PCT(s.safetyMarginPct)} hint="baisse de CA supportable avant perte" />}
+        <Kpi label="Gaz du mois" value={MONEY(data.gas.spend)} hint={`${data.gas.perTicket !== null ? `${MONEY(data.gas.perTicket)} par ticket · ` : ""}${data.gas.bottlesInMonth} bouteille(s)${data.gas.avgBottleDays !== null ? ` · une bouteille dure ${data.gas.avgBottleDays} j` : ""}`} />
         <Kpi label="Résultat du mois" value={MONEY(s.result)} hint={PCT(s.resultPct)} tone={s.result < 0 ? "neg" : undefined} />
       </div>
       <table className="table-dense w-full">

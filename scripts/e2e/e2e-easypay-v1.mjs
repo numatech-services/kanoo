@@ -51,11 +51,12 @@ const ev = (id, type, data, occurred_at = new Date(Date.now() - 60_000).toISOStr
 
 const hmac = (k, m) => createHmac("sha256", k).update(m).digest("hex");
 /** Requête du contrat v1, signée comme EasyPay (corps brut, t en secondes). */
-async function v1(key, path, obj, { secret, site = "the-spot", t = Math.floor(Date.now() / 1000), raw } = {}) {
-  const body = raw ?? JSON.stringify(obj);
+// `raw` : corps envoyé tel quel (signé tel quel) ; `tampered` : corps envoyé APRÈS signature du corps d'origine.
+async function v1(key, path, obj, { secret, site = "the-spot", t = Math.floor(Date.now() / 1000), raw, tampered } = {}) {
+  const signed = raw ?? JSON.stringify(obj), body = tampered ?? signed;
   const res = await fetch(`${BASE}/api/v1/spot${path}`, { method: "POST", redirect: "manual", body, headers: {
     authorization: `Bearer ${key}`, "content-type": "application/json; charset=utf-8", accept: "application/json", "user-agent": "EasyPay-Kanoo/1",
-    "x-easypay-spec-version": "1", "x-easypay-site": site, "x-easypay-signature": `t=${t},v1=${hmac(secret, `${t}.${body}`)}`,
+    "x-easypay-spec-version": "1", "x-easypay-site": site, "x-easypay-signature": `t=${t},v1=${hmac(secret, `${t}.${signed}`)}`,
     ...(obj?.event_id ? { "idempotency-key": obj.event_id, "x-easypay-event-id": obj.event_id, "x-easypay-event-type": obj.type, "x-easypay-sequence": String(obj.sequence), "x-easypay-attempt": "1", "x-easypay-replay": "0" } : {}),
   } });
   return { status: res.status, data: await res.json().catch(() => null) };
@@ -94,7 +95,7 @@ const evt = (type, data, extra = {}) => ({ spec_version: "1", event_id: randomUU
   const dup = await v1(KEY, "/events", ev0, { secret });
   const n = await db(d => d.collection("comptoirsales").countDocuments({ deskId: oid(desk), clientRef: ev0.data.sale_id }));
   check("même event_id renvoyé : 200 duplicate, un seul ticket", dup.status === 200 && dup.data?.status === "duplicate" && n === 1, `${dup.status} ${J(dup.data)} ${n}`);
-  check("corps modifié après signature : 401", (await v1(KEY, "/events", ev0, { secret, raw: JSON.stringify({ ...ev0, sequence: 99 }) + " " })).status === 401);
+  check("corps modifié après signature : 401", (await v1(KEY, "/events", ev0, { secret, tampered: JSON.stringify({ ...ev0, sequence: 99 }) })).status === 401);
   check("horloge écartée de plus de 300 s : 401", (await v1(KEY, "/events", evt("drawer.opened", {}), { secret, t: Math.floor(Date.now() / 1000) - 400 })).status === 401);
   check("autre restaurant dans X-EasyPay-Site : 403 unknown_site", (await v1(KEY, "/events", evt("drawer.opened", {}), { secret, site: "autre" })).data?.error === "unknown_site");
   const bad = evt("sale.recorded", { sale_id: randomUUID(), payments: [{ method: "cash", amount: 999 }], lines: [{ kind: "item", ref_id: "pastel", label: "Pastel", quantity: 1, unit_price_amount: 200, amount: 200 }] });

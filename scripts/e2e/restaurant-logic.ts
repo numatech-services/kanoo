@@ -30,6 +30,7 @@ import { FixedAssetModel } from "../../models/FixedAsset";
 import { pilotage, saveBudget, saveAllocation, linkAsset, weeklyReport } from "../../lib/restaurant-pilotage";
 import { volumeSimulation } from "../../lib/restaurant";
 import { sendTransfer, receiveTransfer, getTransfer } from "../../lib/restaurant-transfer";
+import { saveStanding, standingDay, confirmStanding, payStanding, startGasBottle } from "../../lib/restaurant-standing";
 import { saveHygieneSetup, recordTemperature, receiveControlled, recordSample, discardSample, recordCleaning, hygieneOverview, itemLots, traceLot } from "../../lib/restaurant-hygiene";
 import { StaffShiftModel } from "../../models/StaffShift";
 import { UserModel } from "../../models/User";
@@ -328,6 +329,40 @@ async function main() {
   check("réception signée ; seconde signature refusée", (await getTransfer(tenantId, tr1._id, true) as unknown as { status: string }).status === "received" && await refuses(() => receiveTransfer(auth, tr1._id, async () => true, { name: "Moussa", signature: sigPng }), /déjà/));
   await sendTransfer(auth, deskId, otherId, [{ itemId: String(poulet._id), quantity: 0.5 }], { name: "Awa Cuisine", signature: sigPng });
   check("second transfert : même article destinataire réutilisé (pas de doublon)", (await restaurantStock(tenantId, otherId, true)).rows.filter(r => r.name === "Poulet").length === 1 && near(((await restaurantStock(tenantId, otherId, true)).rows.find(r => r.name === "Poulet")?.reserve ?? 0) * 1000, 1500));
+
+  console.log("\n▶ Pain du jour payé le soir, rythme des articles, gaz");
+  const pain = await mk({ name: "Pain", unit: "baguette", category: "Boulangerie", unitCost: 100 });
+  const qs = [0, 80, 80, 80, 80, 80, 40];
+  await saveStanding(auth, deskId, [{ itemId: String(pain._id), supplierName: "Boulangerie du campus", unitCost: 100, quantities: qs, dailyFee: 500, toDesk: true }]);
+  const sd0 = await standingDay(tenantId, deskId, day, true);
+  const bread = sd0[0];
+  check("livraison du jour attendue selon le jour de la semaine, ni reçue ni payée", bread?.expected === qs[now.getDay()] && bread.received === null && !bread.paid, sd0);
+  check("paiement avant réception : refusé", await refuses(() => payStanding(auth, deskId, bread._id, day), /Confirmez/));
+  const cashBefore = await ActivityCashEntryModel.countDocuments({ tenantId, deskId, direction: "out" });
+  const resBefore = await deskMonthResult(tenantId, deskId, month);
+  await confirmStanding(auth, deskId, bread._id, day, 75);
+  check("réception du matin (75 corrigées) : montées au comptoir, aucune sortie de caisse", (await row(pain._id)).desk === 75 && (await ActivityCashEntryModel.countDocuments({ tenantId, deskId, direction: "out" })) === cashBefore);
+  check("seconde réception du même jour : refusée", await refuses(() => confirmStanding(auth, deskId, bread._id, day), /déjà reçue/));
+  const paid = await payStanding(auth, deskId, bread._id, day);
+  const outs = await ActivityCashEntryModel.find({ tenantId, deskId, direction: "out", label: new RegExp(paid.reference) }).lean<Array<{ amount: number; category: string; entryId?: unknown }>>();
+  check("paiement du soir : 7 500 de pain (achat) + 500 de livraison (transport), passés en comptabilité", paid.total === 8_000 && outs.length === 2 && outs.some(o => o.category === "purchase" && o.amount === 7_500) && outs.some(o => o.category === "transport" && o.amount === 500) && outs.every(o => o.entryId), outs);
+  check("second paiement du même jour : refusé", await refuses(() => payStanding(auth, deskId, bread._id, day), /déjà payée/));
+  const resAfter = await deskMonthResult(tenantId, deskId, month);
+  // Le secteur de ce restaurant est partagé (clé 70 % fixée plus haut) : il porte 70 % des frais de livraison.
+  const dTransport = (resAfter.pnl.charges.find(c => c.category === "transport")?.actual ?? 0) - (resBefore.pnl.charges.find(c => c.category === "transport")?.actual ?? 0);
+  check("résultat : le pain n'est pas compté comme consommé (seulement à la vente) ; la livraison entre en transport (70 % de 500)", resAfter.pnl.cashPurchases === resBefore.pnl.cashPurchases && near(dTransport, 350), { a: resAfter.pnl.cashPurchases, b: resBefore.pnl.cashPurchases, dTransport });
+  check("pain payé en caisse : hors du rapprochement des factures", !(await toInvoice(tenantId, deskId)).receptions.some(r => r.reference === paid.reference));
+  await ActivityItemModel.updateOne({ _id: riz._id }, { $set: { rhythm: "month" } });
+  await ActivityItemModel.updateOne({ _id: coca._id }, { $set: { rhythm: "week" } });
+  await DeskInventoryModel.updateMany({ tenantId, deskId, status: "open" }, { $set: { status: "cancelled" } });
+  const wk2 = await openInventory(auth, deskId, "desk", undefined, false, true);
+  const hasRiz = wk2.lines.some((l: { itemId: unknown }) => String(l.itemId) === String(riz._id)), hasCoca = wk2.lines.some((l: { itemId: unknown }) => String(l.itemId) === String(coca._id));
+  check(`inventaire du samedi : le riz (mensuel) ${now.getDate() <= 7 ? "compté (première semaine)" : "pas compté"}, le coca (hebdomadaire) compté`, hasCoca && hasRiz === (now.getDate() <= 7), { hasRiz, hasCoca });
+  await DeskInventoryModel.updateMany({ tenantId, deskId, status: "open" }, { $set: { status: "cancelled" } });
+  await startGasBottle(auth, deskId);
+  check("bouteille de gaz : seconde mise en service dans l'heure refusée", await refuses(() => startGasBottle(auth, deskId), /deux heures/));
+  const pg = await pilotage(tenantId, deskId, month, true, true);
+  check("pilotage : gaz du mois et bouteille comptée", pg.gas.bottlesInMonth === 1 && typeof pg.gas.spend === "number", pg.gas);
 
   console.log(`\n${pass} réussis, ${fail} en échec`);
   await mongoose.disconnect();

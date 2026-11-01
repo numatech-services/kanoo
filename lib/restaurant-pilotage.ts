@@ -6,6 +6,7 @@ import { BusinessRuleError } from "@/lib/errors";
 import { CHARGE_CATEGORIES, DEFAULT_VARIABLE_CATEGORIES, monthlyDepreciation, volumeSimulation } from "@/lib/restaurant";
 import { deskMonthResult, deskTrend, maskPayroll, payrollHidden } from "@/lib/restaurant-result";
 import { deskPricing } from "@/lib/restaurant-overview";
+import { gasStats } from "@/lib/restaurant-standing";
 import { ComptoirSaleModel } from "@/models/ComptoirSale";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { ItemCountModel } from "@/models/ItemCount";
@@ -25,7 +26,7 @@ interface AssetLean { _id: Id; code: string; name: string; category: string; acq
  * Qui ne lit pas la paie, sur un restaurant de moins de trois personnes, voit tout avant personnel.
  */
 export async function pilotage(tenantId: string, deskId: string, month: string, canPayroll: boolean, finance: boolean) {
-  const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("name activityId staff sectorShare commonCostShare variableCategories").lean<{ _id: Id; name: string; activityId?: Id; staff?: unknown[]; sectorShare?: number; commonCostShare?: number; variableCategories?: string[] } | null>();
+  const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("name activityId staff sectorShare commonCostShare variableCategories gasBottles openDaysPerMonth").lean<{ _id: Id; name: string; activityId?: Id; staff?: unknown[]; sectorShare?: number; commonCostShare?: number; variableCategories?: string[]; gasBottles?: Array<{ startedAt: Date }>; openDaysPerMonth?: number } | null>();
   if (!desk) throw new BusinessRuleError("Restaurant introuvable.");
   const [year, m] = month.split("-").map(Number);
   const raw = await deskMonthResult(tenantId, deskId, month);
@@ -60,6 +61,7 @@ export async function pilotage(tenantId: string, deskId: string, month: string, 
   return {
     month, desk: { _id: String(desk._id), name: desk.name }, payrollHidden: hide, finance,
     simulation: { ...volumeSimulation(r.pnl, variableCats), variableCategories: variableCats, result: r.pnl.result, resultPct: r.pnl.ratios.resultPct, provisional: month >= mm(new Date().getFullYear(), new Date().getMonth() + 1) },
+    gas: gasStats(desk.gasBottles ?? [], month, r.pnl.charges.find(c => c.category === "energie")?.actual ?? 0, r.sales.tickets, desk.openDaysPerMonth ?? 26),
     categories: Object.entries(CHARGE_CATEGORIES).map(([k, label]) => ({ key: k, label })),
     budget: budget ? { revenue: budget.revenue, materialPct: budget.materialPct, charges: budget.charges.filter(c => !(hide && c.category === "personnel")), note: budget.note, updatedAt: budget.updatedAt } : null,
     months, ytd,

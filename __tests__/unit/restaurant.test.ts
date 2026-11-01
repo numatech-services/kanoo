@@ -217,3 +217,26 @@ describe("codes-barres — unité, carton, autres", () => {
     expect(codesOf({ barcode: "A1", packBarcode: "", altBarcodes: ["B 2", ""] })).toEqual(["A1", "B2"]);
   });
 });
+
+describe("rythme des articles — comptage du samedi", () => {
+  it("chaque semaine : toujours ; chaque mois : la première semaine ; deux semaines : un samedi sur deux", async () => {
+    const { countDue } = await import("@/lib/restaurant");
+    expect(countDue(undefined, "2026-11-14")).toBe(true);
+    expect(countDue("month", "2026-11-07")).toBe(true);
+    expect(countDue("month", "2026-11-14")).toBe(false);
+    const sats = ["2026-11-07", "2026-11-14", "2026-11-21", "2026-11-28", "2026-12-05", "2026-12-26", "2027-01-02"].map(d => countDue("fortnight", d));
+    expect(sats.slice(0, 5)).toEqual([sats[0], !sats[0], sats[0], !sats[0], sats[0]]);
+    expect(sats[6]).toBe(!sats[5]);
+  });
+});
+
+describe("gasStats — le gaz du mois", () => {
+  it("coût par ticket et par jour, durée moyenne d'une bouteille", async () => {
+    const { gasStats } = await import("@/lib/restaurant-standing");
+    const g = gasStats([{ startedAt: "2026-10-20T08:00:00Z" }, { startedAt: "2026-10-30T08:00:00Z" }, { startedAt: "2026-11-08T08:00:00Z" }], "2026-11", 39_000, 1_300, 26);
+    expect(g.perTicket).toBe(30);
+    expect(g.perDay).toBe(1500);
+    expect(g.bottlesInMonth).toBe(1);
+    expect(g.avgBottleDays).toBe(9.5);
+  });
+});

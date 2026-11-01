@@ -11,6 +11,7 @@ import { applyMovement } from "@/lib/stock";
 import { reorderPlan } from "@/lib/spot-server";
 import { createReorderOrders } from "@/lib/comptoir-reorder";
 import { localDay } from "@/lib/format";
+import { countDue } from "@/lib/restaurant";
 import { assertMonthOpen } from "@/lib/comptoir-sale";
 import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
 import { deskReserve, ensureLinked, restaurantStock } from "@/lib/restaurant-stock";
@@ -33,7 +34,9 @@ async function theoretical(tenantId: string, deskId: string, level: Level, itemI
 /** Ouvre un inventaire (comptoir ou réserve) : un seul ouvert par niveau. Les préparations (recettes) ne se comptent pas. */
 export async function openInventory(auth: TokenPayload, deskId: string, level: Level, category?: string, opening = false, weekly = false) {
   const { rows } = await restaurantStock(auth.tenantId, deskId, false);
-  const lines = rows.filter(r => !r.preparation && (!category || r.category === category) && (level === "desk" || r.linked || r.reserve > 0))
+  // Inventaire de fin de semaine : seulement les articles dont c'est le tour (rythme de l'article).
+  const today = localDay(new Date());
+  const lines = rows.filter(r => !r.preparation && (!category || r.category === category) && (level === "desk" || r.linked || r.reserve > 0) && (!weekly || countDue(r.rhythm, today)))
     .map(r => ({ itemId: new Types.ObjectId(r.itemId), name: r.name, unit: r.unit, ...(r.barcode ? { barcode: r.barcode } : {}), ...(r.packBarcode ? { packBarcode: r.packBarcode } : {}), ...(r.altBarcodes?.length ? { altBarcodes: r.altBarcodes } : {}), ...(r.pack?.size ? { packSize: r.pack.size } : {}) }));
   if (!lines.length) throw new BusinessRuleError("Aucun article à compter.");
   const d = new Date(), p = (n: number) => String(n).padStart(2, "0");

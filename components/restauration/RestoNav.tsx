@@ -22,12 +22,13 @@ const LINKS = [
 export function RestoNav() {
   const path = usePathname();
   return (
-    <nav aria-label="Module restauration" className="flex flex-wrap gap-1.5">
+    // Téléphone : une seule ligne qui défile ; écran large : boutons sur plusieurs lignes.
+    <nav aria-label="Module restauration" className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-1 sm:mx-0 sm:px-0 sm:pb-0 sm:flex-wrap sm:overflow-visible">
       {LINKS.map(l => {
         const on = path === l.href;
         return (
           <Link key={l.href} href={l.href} aria-current={on ? "page" : undefined}
-            className={`h-9 px-3.5 rounded-full border text-[13px] font-semibold inline-flex items-center gap-1.5 ${on ? "bg-ink text-white border-ink" : "border-line text-ink2 hover:bg-surface2"}`}>
+            className={`h-9 px-3.5 rounded-full border text-[13px] font-semibold inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${on ? "bg-ink text-white border-ink" : "border-line text-ink2 hover:bg-surface2"}`}>
             {l.icon} {l.label}
           </Link>
         );

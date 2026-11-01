@@ -25,6 +25,7 @@ export interface IActivityItem {
   /** Code-barres (EAN, UPC, code interne) : lu au scanner à l'inventaire et à la réception. */
   barcode?: string;
   packBarcode?: string;
+  rhythm?: "week" | "fortnight" | "month";
   altBarcodes?: string[];
   /** Article du catalogue : son stock est celui de la réserve du comptoir. */
   productId?: Types.ObjectId;
@@ -76,6 +77,8 @@ const ActivityItemSchema = new Schema<IActivityItem>({
   barcode: { type: String, trim: true, maxlength: 60 },
   /** Code du carton (une lecture = un carton de pack.size unités). */
   packBarcode: { type: String, trim: true, maxlength: 60 },
+  /** Rythme de l'article : comptage à l'inventaire du samedi et durée couverte par le réassort (semaine, deux semaines, mois). */
+  rhythm: { type: String, enum: ["week", "fortnight", "month"] },
   /** Autres codes de l'unité (autre fournisseur, autre étiquette). */
   altBarcodes: { type: [{ type: String, trim: true, maxlength: 60 }], default: undefined },
   productId: { type: Schema.Types.ObjectId, ref: "Product", index: true },

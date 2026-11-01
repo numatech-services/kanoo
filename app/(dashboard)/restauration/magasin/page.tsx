@@ -6,6 +6,7 @@ import { selectCls } from "@/components/ui/FormField";
 import { apiJson } from "@/lib/api-client";
 import { ReceiveDialog, LevelMoveDialog, type ReserveData } from "@/components/comptoir/RestaurantStock";
 import { InventoryPanel } from "@/components/comptoir/InventoryPanel";
+import { TodayDeliveries } from "@/components/restauration/StandingDeliveries";
 
 /**
  * Écran du magasinier, pensé pour le téléphone et la douchette : trois gestes
@@ -42,6 +43,7 @@ export default function MagasinPage() {
           <button disabled={!data} onClick={() => setMode("supply")} className={`${big} border-ink text-ink`}><ArrowUpFromLine size={30} /> Monter au comptoir</button>
           <button disabled={!deskId} onClick={() => setMode("count")} className={`${big} border-ink text-ink`}><ScanLine size={30} /> Compter</button>
           <Link href="/restauration/transferts" className="h-12 rounded-xl border border-line text-base font-semibold inline-flex items-center justify-center gap-2 text-ink2"><Truck size={18} /> Transferts entre restaurants</Link>
+          {deskId && <TodayDeliveries key={deskId} deskId={deskId} onChange={load} big />}
           {data && <p className="text-center text-sm text-ink3">{data.rows.filter(r => r.lowDesk).length} article(s) à monter · {data.rows.filter(r => r.lowReserve).length} sous le seuil de réserve</p>}
         </div>
       )}
