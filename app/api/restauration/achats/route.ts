@@ -6,6 +6,7 @@ import { isId, ownDesk, canSeeDeskCosts } from "@/lib/comptoir";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { priceHistory, toInvoice, markInvoiced } from "@/lib/restaurant-purchasing";
+import { paySupplier, returnToSupplier, supplierBalances, purchaseLines } from "@/lib/restaurant-payables";
 
 export const dynamic = "force-dynamic";
 
@@ -19,19 +20,36 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   if (!canSeeDeskCosts(auth)) return forbidden("Prix d'achat réservés au chef du comptoir, à la direction et à la comptabilité.");
   const deskId = new URL(req.url).searchParams.get("deskId");
   if (!isId(deskId) || !(await ownDesk(auth, deskId))) return notFound("Comptoir introuvable");
-  const [prices, pending] = await Promise.all([priceHistory(auth.tenantId, deskId), toInvoice(auth.tenantId, deskId)]);
-  return ok({ prices, ...pending });
+  const url = new URL(req.url), lines = url.searchParams.get("lines");
+  if (lines) return isId(lines) ? ok(await purchaseLines(auth.tenantId, lines)) : badRequest("Facture invalide.");
+  const [prices, pending, payables] = await Promise.all([priceHistory(auth.tenantId, deskId), toInvoice(auth.tenantId, deskId), supplierBalances(auth.tenantId, deskId)]);
+  return ok({ prices, ...pending, payables });
 });
 
-/** POST { deskId, ids, invoiceRef } — rapproche des réceptions de la facture du fournisseur. */
+/**
+ * POST { deskId, ids, invoiceRef } — rapproche des réceptions de la facture du fournisseur ;
+ * { action: "pay", purchaseId, amount?, treasuryAccountId? } — règle une facture (caisse du site par défaut) ;
+ * { action: "return", purchaseId, lines, reason, reference? } — retour au fournisseur et avoir.
+ */
 export const POST = withAuth("comptoir", "update", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   if (!canSeeDeskCosts(auth)) return forbidden("Rapprochement réservé au chef du comptoir, à la direction et à la comptabilité.");
   const body = await req.json().catch(() => ({}));
   if (!isId(body.deskId) || !(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
-  const ids = (Array.isArray(body.ids) ? body.ids : []).filter(isId).slice(0, 500);
-  if (!ids.length) return badRequest("Aucune réception choisie.");
   try {
+    if (body.action === "pay" || body.action === "return") {
+      if (!isId(body.purchaseId)) return badRequest("Facture invalide.");
+      if (body.action === "pay") {
+        const r = await paySupplier(auth, body.deskId, body.purchaseId, { amount: body.amount === undefined || body.amount === "" ? undefined : Number(body.amount), treasuryAccountId: isId(body.treasuryAccountId) ? body.treasuryAccountId : undefined });
+        await logAudit(auth, "UPDATE", "comptoir", { resourceId: body.deskId, metadata: { supplierPaid: r.amount, purchase: body.purchaseId } });
+        return ok(r);
+      }
+      const r = await returnToSupplier(auth, body.deskId, body.purchaseId, { lines: Array.isArray(body.lines) ? body.lines : [], reason: body.reason, reference: typeof body.reference === "string" ? body.reference : undefined });
+      await logAudit(auth, "UPDATE", "comptoir", { resourceId: body.deskId, metadata: { supplierReturn: r.amount, purchase: body.purchaseId } });
+      return ok(r);
+    }
+    const ids = (Array.isArray(body.ids) ? body.ids : []).filter(isId).slice(0, 500);
+    if (!ids.length) return badRequest("Aucune réception choisie.");
     const r = await markInvoiced(auth, body.deskId, ids, body.invoiceRef);
     await logAudit(auth, "UPDATE", "comptoir", { resourceId: body.deskId, metadata: { invoiced: body.invoiceRef, receptions: r.matched } });
     return ok(r);

@@ -3,6 +3,7 @@ import { ActivityItemModel } from "@/models/ActivityItem";
 import { PurchasePriceLogModel } from "@/models/PurchasePriceLog";
 import { CommandeModel } from "@/models/Commande";
 import { BusinessRuleError } from "@/lib/errors";
+import { linkInvoiceRef } from "@/lib/restaurant-payables";
 import type { TokenPayload } from "@/lib/auth";
 
 type Id = Types.ObjectId;
@@ -67,6 +68,8 @@ export async function toInvoice(tenantId: string, deskId: string) {
 export async function markInvoiced(auth: TokenPayload, deskId: string, ids: string[], invoiceRef: string) {
   const ref = String(invoiceRef || "").trim().slice(0, 60);
   if (!ref) throw new BusinessRuleError("Numéro de facture du fournisseur obligatoire.");
+  const linked = await PurchasePriceLogModel.find({ _id: { $in: ids }, tenantId: auth.tenantId, deskId, invoiceRef: { $exists: false }, purchaseId: { $exists: true } }).select("purchaseId").lean<Array<{ purchaseId: Id }>>();
   const r = await PurchasePriceLogModel.updateMany({ _id: { $in: ids }, tenantId: auth.tenantId, deskId, invoiceRef: { $exists: false } }, { $set: { invoiceRef: ref, invoicedAt: new Date(), invoicedBy: auth.userId } });
+  await linkInvoiceRef(auth.tenantId, linked.map(l => l.purchaseId), ref);
   return { matched: r.modifiedCount };
 }

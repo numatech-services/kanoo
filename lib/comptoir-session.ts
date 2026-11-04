@@ -102,7 +102,7 @@ export async function periodReport(tenantId: string, deskId: unknown, fromDay: s
     method: m, receipts: sum(e => e._id.m === m && e._id.d === "in"), expenses: sum(e => e._id.m === m && e._id.d === "out"),
   }));
   const cats = [...new Set(entries.filter(e => e._id.d === "out" && !internal(e)).map(e => e._id.c ?? "other"))].map(c => ({
-    category: c, label: EXPENSE_CATEGORIES[c] ?? c, amount: sum(e => e._id.d === "out" && (e._id.c ?? "other") === c),
+    category: c, label: c === "supplier_payment" ? "Règlements fournisseurs" : EXPENSE_CATEGORIES[c] ?? c, amount: sum(e => e._id.d === "out" && (e._id.c ?? "other") === c),
   })).sort((a, b) => b.amount - a.amount);
   const cash = methods.find(m => m.method === "cash");
   const valued = products.filter(p => p.valued);

@@ -58,6 +58,10 @@ const PurchaseSchema = new Schema({
   status: { type: String, enum: ["draft", "validated", "partial", "paid", "cancelled"], default: "draft", index: true },
   entryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },
   payments: [PaymentSchema],
+  /** Avoirs du fournisseur (retours) : comptés dans `paidAmount`, ils réduisent la dette sans sortie d'argent. */
+  credits: [{ _id: false, date: Date, amount: Number, reason: String, reference: String, entryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" }, by: { type: Schema.Types.ObjectId, ref: "User" } }],
+  /** Site de restauration d'où vient la dette (réception à crédit). */
+  deskId: { type: Schema.Types.ObjectId, ref: "ActivityDesk" },
   notes: { type: String, maxlength: 2000 },
   /** Validation malgré une facture supérieure à la réception (rapprochement). */
   matchOverride: { by: { type: Schema.Types.ObjectId, ref: "User" }, at: Date, gapHT: Number },
@@ -72,5 +76,6 @@ PurchaseSchema.index({ tenantId: 1, number: 1 }, { unique: true });
 PurchaseSchema.index({ tenantId: 1, supplierId: 1, date: -1 });
 PurchaseSchema.index({ tenantId: 1, "lines.projectId": 1 });
 PurchaseSchema.index({ tenantId: 1, status: 1, dueDate: 1 });
+PurchaseSchema.index({ tenantId: 1, deskId: 1, status: 1 });
 
 export const PurchaseModel = models.Purchase || model("Purchase", PurchaseSchema);

@@ -18,6 +18,7 @@ import { postDeskCash } from "@/lib/comptoir";
 import { assertDayOpen, assertMonthOpen } from "@/lib/comptoir-sale";
 import { costRise, supplySuggestion } from "@/lib/restaurant";
 import { LOSS_REASONS } from "@/lib/spot";
+import { receptionDebt } from "@/lib/restaurant-payables";
 import type { TokenPayload } from "@/lib/auth";
 
 /**
@@ -179,6 +180,8 @@ export async function receiveInReserve(auth: TokenPayload, deskId: string, lines
   // Fournisseur du référentiel s'il est choisi (comparaison des prix, rapprochement), sinon le nom saisi.
   const ref0 = meta.supplierId && /^[a-f0-9]{24}$/i.test(meta.supplierId) ? await SupplierModel.findOne({ _id: meta.supplierId, tenantId: auth.tenantId }).select("name").lean<{ _id: Id; name: string } | null>() : null;
   const supplier = ref0?.name ?? text(meta.supplier, 120), reference = text(meta.reference, 60);
+  // Site ouvert par l'assistant : une réception à crédit a un créancier, sinon la dette n'a pas de nom.
+  if (!meta.paidFromCash && !supplier && (await ActivityDeskModel.exists({ _id: deskId, tenantId: auth.tenantId, strictStock: true }))) throw new BusinessRuleError("Indiquez le fournisseur, ou cochez « payé en caisse ».");
   const alerts: Array<{ name: string; before: number; after: number; pct: number; dishes: string[] }> = [];
   let unvalued = 0;
   const total = await withTransaction(async session => {
@@ -188,6 +191,7 @@ export async function receiveInReserve(auth: TokenPayload, deskId: string, lines
     else await assertMonthOpen(auth.tenantId, deskId, date, session);
     const reserveId = await deskReserve(auth.tenantId, deskId, session);
     let sum = 0;
+    const valued: Array<{ description: string; quantity: number; unitCost: number }> = [], logIds: unknown[] = [];
     for (const l of lines) {
       const it = await ActivityItemModel.findOne({ _id: l.itemId, tenantId: auth.tenantId, deskId }).session(session ?? null)
         .lean<ItemDoc & { pack?: { size?: number; cost?: number }; recipe?: unknown[] } | null>();
@@ -212,10 +216,11 @@ export async function receiveInReserve(auth: TokenPayload, deskId: string, lines
         reason: `Réception en réserve${supplier ? ` — ${supplier}` : ""}${reference ? ` (${reference})` : ""}${unitCost === undefined ? " — à valoriser" : ""}`.slice(0, 300),
         linkedDocType: "comptoir", linkedDocId: it.deskId, ...(reference ? { linkedDocNumber: reference } : {}),
       }, session);
-      await PurchasePriceLogModel.create([{ tenantId: auth.tenantId, deskId, itemId: it._id, ...(ref0 ? { supplierId: ref0._id } : {}), ...(supplier ? { supplierName: supplier } : {}),
+      const [log] = await PurchasePriceLogModel.create([{ tenantId: auth.tenantId, deskId, itemId: it._id, ...(ref0 ? { supplierId: ref0._id } : {}), ...(supplier ? { supplierName: supplier } : {}),
         unitCost: unitCost ?? 0, quantity: qty, date, source: "reception", ...(reference ? { reference } : {}), paidFromCash: !!meta.paidFromCash, createdBy: auth.userId }], { session });
       if (unitCost === undefined) { unvalued++; continue; }
       sum += qty * unitCost;
+      valued.push({ description: it.name, quantity: qty, unitCost }); logIds.push(log._id);
       const rise = costRise(p?.purchaseCost ?? 0, unitCost);
       if (rise) {
         const dishes = await ActivityItemModel.find({ tenantId: auth.tenantId, deskId, "recipe.itemId": it._id, archived: { $ne: true } }).select("name").session(session ?? null).lean<Array<{ name: string }>>();
@@ -228,6 +233,10 @@ export async function receiveInReserve(auth: TokenPayload, deskId: string, lines
         method, category: "purchase", date, createdBy: auth.userId,
       }], { session });
       await postDeskCash(auth, deskId, cash, session);
+    } else if (!meta.paidFromCash) {
+      // Reçue et pas payée : la dette existe dès maintenant (401), même si la facture n'est pas encore là.
+      const purchaseId = await receptionDebt(auth, deskId, { supplierId: ref0?._id, supplier, reference, date, lines: valued }, session);
+      if (purchaseId) await PurchasePriceLogModel.updateMany({ _id: { $in: logIds } }, { $set: { purchaseId } }, { session });
     }
     return Math.round(sum);
   });

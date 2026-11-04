@@ -35,6 +35,7 @@ import { sitesOverview, archiveForRestart, openSite, openingStock, siteTemplates
 import { allocateFunds, addOpeningLine, cancelFunding, qualifyFunding, repayFunding, depositCash, openingPosition } from "../../lib/restaurant-funding";
 import { accountBalance } from "../../lib/treasury";
 import { openSession, periodReport } from "../../lib/comptoir-session";
+import { supplierBalances, paySupplier, returnToSupplier } from "../../lib/restaurant-payables";
 import { DeskFundingModel } from "../../models/DeskFunding";
 import { DeskTransferModel } from "../../models/DeskTransfer";
 import { PurchasePriceLogModel } from "../../models/PurchasePriceLog";
@@ -141,7 +142,7 @@ async function main() {
   check("coût des ventes au CMUP : 7 763", near(r.pnl.costOfSales, 7_763), r.pnl.costOfSales);
   check("pertes déclarées 745 et écart d'inventaire −938, comptés une fois", near(r.pnl.losses, 745) && near(r.pnl.inventoryGap, -938), { l: r.pnl.losses, g: r.pnl.inventoryGap });
   check("charges : électricité 30 000 (prévu 25 000), personnel 60 000", ch("electricite")?.actual === 30_000 && ch("electricite")?.planned === 25_000 && ch("personnel")?.actual === 60_000, r.pnl.charges);
-  check("achats payés en caisse : 601 au rapprochement (36 600), hors charges", r.reconciliation.accountingPurchases === 36_600 && !r.chargesDetail.some(c => /^60[123]/.test(c.accountCode)), r.reconciliation);
+  check("achats payés en caisse et à crédit : tous au 601 (45 600 = entrées en stock), hors charges", r.reconciliation.accountingPurchases === 45_600 && r.reconciliation.stockEntriesValued === 45_600 && !r.chargesDetail.some(c => /^60[123]/.test(c.accountCode)), r.reconciliation);
   check("résultat = marge matière − charges", r.pnl.result === r.pnl.materialMargin - r.pnl.totalCharges);
   const masked = maskPayroll(r, false);
   check("paie masquée (1 personne, sans droit paie) : résultat avant personnel, sans ratio", !masked.pnl.charges.some(c => c.category === "personnel") && masked.pnl.result === r.pnl.result + 60_000 && masked.pnl.ratios.staffCostPct === null && masked.staffDetail.length === 0);
@@ -352,8 +353,8 @@ async function main() {
   check("réception du matin (75 corrigées) : montées au comptoir, aucune sortie de caisse", (await row(pain._id)).desk === 75 && (await ActivityCashEntryModel.countDocuments({ tenantId, deskId, direction: "out" })) === cashBefore);
   check("seconde réception du même jour : refusée", await refuses(() => confirmStanding(auth, deskId, bread._id, day), /déjà reçue/));
   const paid = await payStanding(auth, deskId, bread._id, day);
-  const outs = await ActivityCashEntryModel.find({ tenantId, deskId, direction: "out", label: new RegExp(paid.reference) }).lean<Array<{ amount: number; category: string; entryId?: unknown }>>();
-  check("paiement du soir : 7 500 de pain (achat) + 500 de livraison (transport), passés en comptabilité", paid.total === 8_000 && outs.length === 2 && outs.some(o => o.category === "purchase" && o.amount === 7_500) && outs.some(o => o.category === "transport" && o.amount === 500) && outs.every(o => o.entryId), outs);
+  const outs = await ActivityCashEntryModel.find({ tenantId, deskId, direction: "out", label: new RegExp(`${paid.reference}|Règlement fournisseur — Boulangerie`) }).lean<Array<{ amount: number; category: string; entryId?: unknown }>>();
+  check("paiement du soir : 7 500 de pain (achat) + 500 de livraison (transport), passés en comptabilité", paid.total === 8_000 && outs.length === 2 && outs.some(o => o.category === "supplier_payment" && o.amount === 7_500) && outs.some(o => o.category === "transport" && o.amount === 500) && outs.every(o => o.entryId), outs);
   check("second paiement du même jour : refusé", await refuses(() => payStanding(auth, deskId, bread._id, day), /déjà payée/));
   const resAfter = await deskMonthResult(tenantId, deskId, month);
   // Le secteur de ce restaurant est partagé (clé 70 % fixée plus haut) : il porte 70 % des frais de livraison.
@@ -406,6 +407,32 @@ async function main() {
   check("stock d'ouverture : aucune dette fournisseur ni réception à rapprocher", (await PurchasePriceLogModel.countDocuments({ tenantId, deskId: site.deskId })) === 0);
   await receiveInReserve(auth, site.deskId, [{ itemId: ira!.itemId, packs: 10, packCost: 4_800 }], { supplier: "Grossiste IRA", reference: "BL-IRA-1" });
   check("réception de 10 cartons de Jus IRA : +240 bouteilles, coût unitaire 200", (await restaurantStock(tenantId, site.deskId, true)).rows.find(r => r.name === "Jus IRA")?.reserve === 312);
+  console.log("\n▶ Dette fournisseur : réception, paiement, retour");
+  const debt0 = await supplierBalances(tenantId, site.deskId);
+  const iraDebt = debt0.suppliers.find(s => s.supplier === "Grossiste IRA");
+  check("réception à crédit de 10 cartons : dette de 48 000 au 401, sans argent sorti", iraDebt?.rest === 48_000 && debt0.total === 48_000, debt0);
+  const purchaseId = String(iraDebt!.invoices[0]._id);
+  const e401 = await AccountingEntryModel.findOne({ tenantId, linkedDocType: "supplier_invoice", linkedDocId: purchaseId }).lean<{ lines: Array<{ accountCode: string; debit: number; credit: number }> }>();
+  check("écriture d'achat : 601 au débit, 401 au crédit", e401?.lines.some(l => l.accountCode === "401100" && l.credit === 48_000) === true && e401?.lines.some(l => /^601/.test(l.accountCode) && l.debit === 48_000) === true, e401);
+  const rDebt0 = await deskMonthResult(tenantId, site.deskId, month);
+  check("dette de marchandises : hors charges du résultat tant que rien n'est vendu", rDebt0.pnl.costOfSales === 0 && rDebt0.pnl.cashPurchases === 0, rDebt0.pnl);
+  check("site de l'assistant : réception à crédit sans fournisseur refusée", await refuses(() => receiveInReserve(auth, site.deskId, [{ itemId: ira!.itemId, quantity: 1, unitCost: 200 }], {}), /fournisseur/));
+  const till1 = String(sDesk!.treasuryAccountId), tillBal = (await accountBalance(tenantId, till1))!.balance;
+  const n601 = await AccountingEntryModel.countDocuments({ tenantId, "lines.accountCode": /^601/ });
+  const cs1 = await openSession(auth, { deskId: site.deskId, openingFloat: tillBal });
+  await paySupplier(auth, site.deskId, purchaseId, { amount: 20_000 });
+  const debt1 = await supplierBalances(tenantId, site.deskId);
+  const rep1 = await periodReport(tenantId, site.deskId, day, day, cs1.openingFloat);
+  check("paiement de 20 000 depuis la caisse : dette 28 000, caisse −20 000, espèces attendues justes, aucun nouvel achat", debt1.total === 28_000 && (await accountBalance(tenantId, till1))!.balance === tillBal - 20_000 && rep1.expectedCash === tillBal - 20_000 && (await AccountingEntryModel.countDocuments({ tenantId, "lines.accountCode": /^601/ })) === n601, { debt1, rep1 });
+  check("paiement au-delà de la dette : refusé", await refuses(() => paySupplier(auth, site.deskId, purchaseId, { amount: 30_000 }), /dépasse/));
+  const stockIra0 = (await restaurantStock(tenantId, site.deskId, true)).rows.find(r => r.name === "Jus IRA")!.reserve;
+  const rt = await returnToSupplier(auth, site.deskId, purchaseId, { lines: [{ itemId: ira!.itemId, quantity: 24, unitCost: 200 }], reason: "Carton abîmé à la livraison" });
+  const debt2 = await supplierBalances(tenantId, site.deskId);
+  const rRet = await deskMonthResult(tenantId, site.deskId, month);
+  check("retour d'un carton : 24 bouteilles sorties, dette 23 200, ni perte ni vente", rt.amount === 4_800 && debt2.total === 23_200 && (await restaurantStock(tenantId, site.deskId, true)).rows.find(r => r.name === "Jus IRA")!.reserve === stockIra0 - 24 && rRet.pnl.losses === 0 && rRet.pnl.revenueHT === 0, { rt, debt2 });
+  check("avoir supérieur à la dette : refusé, stock inchangé", await refuses(() => returnToSupplier(auth, site.deskId, purchaseId, { lines: [{ itemId: ira!.itemId, quantity: 200, unitCost: 200 }], reason: "Trop grand" }), /dépasse la dette/) && (await restaurantStock(tenantId, site.deskId, true)).rows.find(r => r.name === "Jus IRA")!.reserve === stockIra0 - 24);
+  await paySupplier(auth, site.deskId, purchaseId, {});
+  check("solde payé : plus rien de dû", (await supplierBalances(tenantId, site.deskId)).total === 0);
   check("nom déjà pris par un site actif : refusé", await refuses(() => openSite(auth, { name: "Autre restaurant" }, true), /déjà ce nom/));
   check("faute dans le stock : rien n'est créé", await refuses(() => openSite(auth, { name: "Site incomplet", funding: { amount: 1000, nature: "to_classify" }, items: [{ name: "Riz", unitCost: 0, level: "reserve", quantity: 10 }] }, true), /coût/) && !(await ActivityDeskModel.exists({ tenantId, name: "Site incomplet" })));
 

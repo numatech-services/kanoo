@@ -20,6 +20,8 @@ export interface IPurchasePriceLog {
   reference?: string;
   commandeId?: Types.ObjectId;
   paidFromCash: boolean;
+  /** Dette créée par cette réception (facture validée au 401). */
+  purchaseId?: Types.ObjectId;
   /** Facture du fournisseur rapprochée (numéro), qui et quand. */
   invoiceRef?: string;
   invoicedAt?: Date;
@@ -42,6 +44,7 @@ const PurchasePriceLogSchema = new Schema<IPurchasePriceLog>({
   reference: { type: String, maxlength: 60 },
   commandeId: { type: Schema.Types.ObjectId, ref: "Commande" },
   paidFromCash: { type: Boolean, default: false },
+  purchaseId: { type: Schema.Types.ObjectId, ref: "Purchase" },
   invoiceRef: { type: String, maxlength: 60 },
   invoicedAt: Date,
   invoicedBy: { type: Schema.Types.ObjectId, ref: "User" },

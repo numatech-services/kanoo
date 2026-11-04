@@ -194,7 +194,7 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
   }
   // Dépenses de caisse sans écriture (comptoir sans caisse de trésorerie liée) : reprises par leur nature.
   const unposted = await ActivityCashEntryModel.aggregate<{ _id: string; v: number }>([
-    { $match: { tenantId: oid(tenantId), deskId: oid(deskId), direction: "out", entryId: { $exists: false }, category: { $nin: ["supply", "ingredients", "purchase", "funding", "cash_transfer"] }, date: { $gte: b.from, $lte: b.to } } },
+    { $match: { tenantId: oid(tenantId), deskId: oid(deskId), direction: "out", entryId: { $exists: false }, category: { $nin: ["supply", "ingredients", "purchase", "funding", "cash_transfer", "supplier_payment"] }, date: { $gte: b.from, $lte: b.to } } },
     { $group: { _id: "$category", v: { $sum: "$amount" } } },
   ]);
   for (const u of unposted) {
