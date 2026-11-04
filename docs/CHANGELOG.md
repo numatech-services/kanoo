@@ -1,5 +1,30 @@
 # Kanoo — Changelog
 
+## Restauration — lancement des sites et corrections de l'audit (novembre 2026)
+
+**Lancer un site** (Restauration → Ouverture des sites) :
+- assistant en six étapes : site, argent, stock, équipe, charges, vérification. Seul le nom est obligatoire ;
+- le montant de départ passe en comptabilité avec son origine : virement d'un compte, avance à rembourser, apport à qualifier. Il devient le fonds de caisse proposé à la première ouverture : il n'est pas ressaisi ;
+- stock compté en cartons et en unités, repris d'un autre site ou collé depuis Excel. Un article de même nom garde la même fiche du catalogue ;
+- reprise des fiches techniques d'un autre site ;
+- argent et stock s'ajoutent aussi sur un site déjà ouvert ;
+- situation de départ : ressources et emplois, qualification, remboursement d'avance, annulation tracée ;
+- archivage refusé si une caisse est ouverte ou un transfert en route ; solde des caisses viré au choix.
+
+**Achats** : réception à crédit = dette fournisseur (401) ; paiement depuis la caisse ou un compte ; retours et avoirs ; solde par fournisseur. Le pain du soir solde cette dette au lieu de passer un second achat.
+
+**Stocks** : transferts en transit, reçus ligne par ligne, écart tranché en retour ou en perte ; stock consolidé ; clôture de semaine ; seuil de validation renforcée des écarts ; production par lot, exclusive de la préparation à la commande.
+
+**Caisse** : remise en banque depuis la caisse du site, ni recette ni dépense.
+
+**Comptabilité** : espace comptable (journal, évolution, à contrôler, équilibre, marges, stocks) ; trois niveaux de résultat, estimé ou validé.
+
+**Prévision** : événements par site (vacances, fêtes) appliqués à la prévision et au réassort ; commande groupée par fournisseur, arrondie au carton, avec transferts proposés avant achat.
+
+**Correction** : le comptage d'ouverture ne compte plus comme écart dans la consommation par article.
+
+**Documentation** : `docs/restauration-guides.md` (guides, matrice des droits, dictionnaire, reprise).
+
 ## Restauration — nouveau départ et ouverture des sites (novembre 2026)
 
 **Ouverture des sites** (Restauration → Ouverture des sites), réservé à la direction et à la comptabilité.

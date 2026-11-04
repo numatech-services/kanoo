@@ -41,7 +41,8 @@ inventaire de fin de semaine, verrou du mois clos, fiches techniques,
 production, achats et rapprochement, planning et pointage, pilotage et
 rapport du lundi, hygiène et traçabilité, transferts entre restaurants,
 pain du jour payé le soir, rythme des articles, gaz, nouveau départ et
-ouverture d'un site — 113 contrôles) contre la base de test ensemencée, à réinitialiser avant. Utile quand la compilation n'est pas possible ; il ne remplace
+ouverture d'un site, argent de départ, dette fournisseur, transit, production
+par lot, clôture de semaine, espace comptable — 169 contrôles) contre la base de test ensemencée, à réinitialiser avant. Utile quand la compilation n'est pas possible ; il ne remplace
 pas `e2e-restaurant.mjs` (routes HTTP, droits, export Excel).
 
 ```bash

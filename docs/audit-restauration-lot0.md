@@ -7,6 +7,25 @@ Ce document répond au point 2 du plan d'amélioration : cartographie, anomalies
 
 ---
 
+## 0. Suivi au 4 novembre 2026
+
+| N° | État | Ce qui a été fait |
+|---|---|---|
+| A1 | Corrigé | Réception à crédit = facture validée (601 / 401). Paiement, retour et avoir ; solde par fournisseur dans Restauration → Achats. |
+| A2 | Corrigé | Argent de départ écrit en comptabilité avec son origine ; situation de départ ; remboursement d'avance. |
+| A3 | Corrigé pour les nouveaux sites | Tout article d'un site ouvert par l'assistant est relié au catalogue commun. Les anciens sites gardent les deux mécanismes. |
+| A4 | Corrigé pour les nouveaux sites | Achat de marchandises en dépense refusé : la réception est obligatoire. |
+| A5 | Corrigé | Transit, réception ligne par ligne, écart tranché en retour ou en perte. L'état « préparé » n'existe pas : l'envoi vaut expédition. |
+| A6 | Vérifié et corrigé | Virements internes hors recettes et dépenses. Remise en banque depuis la caisse ajoutée. |
+| A7 | Corrigé | Clôture de semaine, réouverture motivée, seuil de validation par site. |
+| A8 | Corrigé sur les écrans Restauration | Clé d'opération sur les saisies de stock, d'argent, de transfert et de paiement. |
+| A9 | Corrigé | Trois niveaux de résultat, estimé ou validé. |
+| A10 | Ouvert | Avertissement React en mode développement seulement. |
+
+**Rectification de cette version.** La cartographie disait « CMUP par article et par site » (règle R1) : le coût moyen est en réalité **commun à tous les sites**, car il est porté par la fiche du catalogue. R1 est à valider sous cette forme.
+
+**Reste à faire, faute de décision ou de temps :** dépôt-vente et contrat fournisseur (R-comptable), photo du justificatif sur la dépense rapide, coût standard daté et emballage séparé, export PDF (le journal sort en CSV), date de saisie distincte de la date effective sur les mouvements de stock.
+
 ## 1. Cartographie courte du fonctionnement actuel
 
 | Élément | Fonctionnement actuel |
@@ -14,7 +33,7 @@ Ce document répond au point 2 du plan d'amélioration : cartographie, anomalies
 | Site | « Comptoir » (`ActivityDesk`) : caisse de trésorerie, secteur analytique, comptoir (stock de vente) et réserve (stock en gros), équipe, charges prévues, marge visée. |
 | Catalogue | Articles par site (`ActivityItem`) reliés à une fiche du catalogue commun (`Product`, code `RST-…` créé automatiquement). Stock tenu à l'unité ; le carton est un conditionnement (`pack.size`), jamais un second stock. |
 | Mouvements de stock | Tous passent par la gestion de stock commune (`applyMovement` / `transferStock`) : réception, vente, perte, transfert réserve ↔ comptoir, transfert entre sites, ajustement d'inventaire, stock d'ouverture. Chaque mouvement garde date, auteur, motif, pièce, lot et coût. |
-| Valorisation | Coût moyen pondéré (CMUP) par article ; le prix minimum retient le plus élevé du CMUP et du dernier prix d'achat. |
+| Valorisation | Coût moyen pondéré (CMUP) par article, commun à tous les sites ; le prix minimum retient le plus élevé du CMUP et du dernier prix d'achat. |
 | Ventes | Ticket de caisse : sortie de l'article vendu, ou des ingrédients de sa recette (au prorata des portions et du rendement). |
 | Inventaire | Comptage au scanner sur plusieurs appareils, à l'aveugle (stock théorique révélé à la validation, figé au premier comptage) ; écart passé en mouvement tracé. Inventaire du samedi ouvert d'office ; les articles mensuels ou bimensuels seulement quand c'est leur tour. |
 | Résultat | Par site et par mois : CA HT, coût des ventes, pertes, repas du personnel, écarts d'inventaire, charges par rubrique (comptabilité + caisse), personnel par les bulletins, dotations des équipements, quote-part des charges communes ; mois clos figé. |
@@ -74,7 +93,7 @@ Ce document répond au point 2 du plan d'amélioration : cartographie, anomalies
 
 | N° | Règle proposée | À décider |
 |---|---|---|
-| R1 | Valorisation au coût moyen pondéré (CMUP) par article et par site. | Validation |
+| R1 | Valorisation au coût moyen pondéré (CMUP) par article, commun à tous les sites. | Validation |
 | R2 | Frais d'approvisionnement (livraison) en charge « transport » du site, pas dans le coût du produit. | Ou incorporés au coût ? |
 | R3 | Transferts entre sites au CMUP du site expéditeur, sans marge interne. | Validation |
 | R4 | Retours fournisseur : sortie au coût d'entrée du lot, avoir attendu. | Validation |
