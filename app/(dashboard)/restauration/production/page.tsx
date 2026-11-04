@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CookingPot, Save, ArrowUpFromLine, ClipboardCheck, ShoppingCart } from "lucide-react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill, EmptyState } from "@/components/ui/Primitives";
@@ -7,6 +7,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { showToast } from "@/components/ui/Toast";
 import { apiJson, apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
+import { useOpKey } from "@/lib/use-op-key";
 import { RestoNav } from "@/components/restauration/RestoNav";
 
 const MONEY = (n?: number | null) => (n === undefined || n === null ? "—" : `${Math.round(n).toLocaleString("fr-FR")} FCFA`);
@@ -51,6 +52,7 @@ export default function ProductionPage() {
       </div>
       <RestoNav />
       {error && <p className="text-sm text-neg">{error}</p>}
+      {deskId && <BatchPanel key={deskId} deskId={deskId} day={day} />}
       {loading && !plan ? <div className="h-64 surface-card animate-pulse" /> : !plan ? null
         // Clé : un autre jour, service ou menu enregistré repart des données reçues.
         : <DayView key={`${plan.day}:${service}:${JSON.stringify(menu?.lines ?? null)}:${menu?.closing ? 1 : 0}`} plan={plan} menu={menu} service={service} deskId={deskId} reload={reload} />}
@@ -162,5 +164,33 @@ function DayView({ plan, menu, service, deskId, reload }: { plan: Plan; menu: Pl
           </section>
         )}
     </div>
+  );
+}
+
+/** Produire à l'avance : pour les plats réglés « par lot », les ingrédients sortent ici et les portions entrent au comptoir. */
+function BatchPanel({ deskId, day }: { deskId: string; day: string }) {
+  const op = useOpKey();
+  const [dishes, setDishes] = useState<Array<{ _id: string; name: string; quantity?: number }>>([]);
+  const [itemId, setItemId] = useState(""), [portions, setPortions] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => { apiJson(`/api/comptoir/items?deskId=${deskId}`).then(d => setDishes(((d.data ?? []) as Array<{ _id: string; name: string; quantity?: number; productionMode?: string }>).filter(i => i.productionMode === "batch"))).catch(() => {}); }, [deskId]);
+  useEffect(() => { load(); }, [load]);
+  if (!dishes.length) return null;
+  async function produce() {
+    setBusy(true);
+    const r = await apiSend<{ error?: string; data?: { number: string; portions: number; unitCost?: number } }>("POST", "/api/restauration/production", { deskId, day, action: "batch", itemId, portions: Number(portions.replace(",", ".")) }, op.headers());
+    setBusy(false);
+    if (!r.ok) return showToast(r.data.error || "Production refusée", "error");
+    op.done(); showToast(`${r.data.data?.portions} portion(s) produites (${r.data.data?.number})`, "success"); setPortions(""); load();
+  }
+  return (
+    <section className="surface-card p-4 space-y-2">
+      <h2 className="font-semibold text-ink">Produire un lot</h2>
+      <div className="flex gap-2 items-end flex-wrap">
+        <FormField label="Plat"><select className={selectCls} value={itemId} onChange={e => setItemId(e.target.value)}><option value="">Choisir…</option>{dishes.map(d => <option key={d._id} value={d._id}>{d.name} ({d.quantity ?? 0} en stock)</option>)}</select></FormField>
+        <FormField label="Portions"><input className={`${inputCls} w-24`} inputMode="numeric" value={portions} onChange={e => setPortions(e.target.value)} /></FormField>
+        <button disabled={busy || !itemId || !(Number(portions) > 0)} onClick={produce} className={buttonClass("primary", "md")}>Produire</button>
+      </div>
+    </section>
   );
 }

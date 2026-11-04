@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Rocket, Archive, Plus, Trash2, Store, Banknote, Boxes, Scale, Landmark, Check, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
@@ -10,18 +10,13 @@ import { showToast } from "@/components/ui/Toast";
 import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
+import { useOpKey } from "@/lib/use-op-key";
 import { RestoNav } from "@/components/restauration/RestoNav";
 import { OpeningStockEditor, MONEY, num, emptyLine, linesToItems, lineValue, type StockLine } from "@/components/restauration/OpeningStockEditor";
 import { CHARGE_CATEGORIES } from "@/lib/restaurant";
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const API = "/api/restauration/ouverture";
-// Clé d'opération : gardée tant que l'envoi n'a pas réussi, pour qu'un clic répété après une coupure réseau ne double rien.
-function useOpKey() {
-  const k = useRef("");
-  return { headers: () => { k.current ||= crypto.randomUUID(); return { "Idempotency-Key": k.current }; }, done: () => { k.current = ""; } };
-}
-
 interface Site { deskId: string; name: string; openingDate: string | null; items: number; openInventories: number; stockLines: number; stockValue: number; negatives: number; hasCash: boolean; cashBalance: number | null; funded: number; staff: number; planned: number; sessionOpen: boolean; pendingTransfers: number; todo: string[] }
 interface Account { _id: string; label: string; type: string; balance: number }
 interface Data {

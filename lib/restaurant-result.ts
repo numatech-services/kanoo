@@ -28,6 +28,7 @@ interface DeskLean { _id: Id; name: string; activityId?: Id; warehouseId?: Id; r
 export interface ConsumptionRow { itemId: string; name: string; unit: string; sold: number; losses: number; inventoryGap: number; real: number; unitCost: number; varianceValue: number; variancePct: number | null }
 
 export interface MonthResult {
+  levels: { margin: number; afterDirect: number; afterCommon: number; commonCharges: number; status: "estimated" | "validated" };
   month: string; desk: { _id: string; name: string; hasSector: boolean; sharedWith: string[]; commonShare: number; target: number };
   /** Marge nette visée (tous frais compris) : ce qu'il manque et la hausse moyenne des prix qui le comblerait. */
   target: { targetResult: number; missing: number; priceUpliftPct: number | null };
@@ -252,7 +253,12 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
   const lossItems = losses.detail.filter(l => l.reason !== "inventory");
   const consumption = await consumptionOf(tenantId, deskId, b.from, b.to, b.fromDay, b.toDay, lossItems.map(l => ({ itemId: l.itemId, quantity: l.quantity })), reserveGaps);
 
+  // Trois niveaux : la marge, le résultat du site seul, puis après sa part des charges centrales. Validé seulement une fois le mois clos.
+  const commonCharges = chargesDetail.filter(c => c.common).reduce((t, c) => t + c.amount, 0);
+  const levels = { margin: pnl.materialMargin, afterDirect: pnl.materialMargin - (pnl.totalCharges - commonCharges), afterCommon: pnl.result, commonCharges, status: closed ? "validated" as const : "estimated" as const };
+
   return {
+    levels,
     month, desk: { _id: String(desk._id), name: desk.name, hasSector: !!desk.activityId, sharedWith: sharing.map(s => s.name), commonShare: share, target: desk.targetNetMargin ?? DEFAULT_TARGET_NET_MARGIN }, pnl,
     target: targetGap({ revenueHT: pnl.revenueHT, result: pnl.result, target: desk.targetNetMargin ?? DEFAULT_TARGET_NET_MARGIN }),
     sales: { tickets: sales.tickets, revenueTTC: Math.round(sales.ttc), cancelled: sales.cancelled, unvaluedLines: sales.unvaluedLines, vatByRate: sales.vatByRate, byMethod: sales.byMethod },
@@ -331,6 +337,7 @@ export function maskPayroll(r: MonthResult, canPayroll: boolean): MonthResult & 
   const pct = r.pnl.revenueHT > 0 ? Math.round((result / r.pnl.revenueHT) * 1000) / 10 : null;
   return {
     ...r, staffDetail: [], staffTotal: 0, payrollHidden: true,
+    levels: { ...r.levels, afterDirect: r.pnl.materialMargin - (totalCharges - r.levels.commonCharges), afterCommon: result },
     chargesDetail: r.chargesDetail.filter(c => c.category !== "personnel"),
     pnl: { ...r.pnl, charges, totalCharges, plannedCharges, result, ratios: { ...r.pnl.ratios, staffCostPct: null, primeCostPct: null, resultPct: pct, costPerTicket: null, breakEvenRevenue: null, breakEvenPerDay: null } },
     target: targetGap({ revenueHT: r.pnl.revenueHT, result, target: r.desk.target }),

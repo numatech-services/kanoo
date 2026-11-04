@@ -8,6 +8,7 @@ import { showToast } from "@/components/ui/Toast";
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { apiJson, apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
+import { useOpKey } from "@/lib/use-op-key";
 
 const MONEY = (n?: number | null) => (n === undefined || n === null ? "—" : `${Math.round(n).toLocaleString("fr-FR")} FCFA`);
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -25,12 +26,13 @@ export function TodayDeliveries({ deskId, onChange, big = false }: { deskId: str
   const { data, reload } = useApi<Row[]>(deskId ? `/api/restauration/livraisons?deskId=${deskId}&day=${day}` : null, d => (d?.data as Row[]) ?? [], [], { quiet: true });
   const [qty, setQty] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const op = useOpKey();
   async function post(body: Record<string, unknown>, done: string) {
     setBusy(true);
-    const r = await apiSend<{ error?: string }>("POST", "/api/restauration/livraisons", { deskId, day, ...body });
+    const r = await apiSend<{ error?: string }>("POST", "/api/restauration/livraisons", { deskId, day, ...body }, op.headers());
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Action refusée", "error");
-    showToast(done, "success"); reload(); onChange?.();
+    op.done(); showToast(done, "success"); reload(); onChange?.();
   }
   const h = big ? "h-12 text-base" : "";
   return (

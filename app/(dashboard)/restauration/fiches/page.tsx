@@ -14,7 +14,7 @@ const MONEY = (n?: number | null) => (n === undefined || n === null ? "—" : `$
 const num = (v: string) => { const t = v.replace(/\s/g, "").replace(",", "."); return t === "" ? NaN : Number(t); };
 const esc = (v: unknown) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-interface Item { _id: string; name: string; unit: string; category?: string; unitCost: number | null; salePrice?: number; recipe?: Array<{ itemId: string; quantity: number; yield?: number }>; portions?: number; servingWeight?: number; allergens?: string[]; procedure?: string }
+interface Item { _id: string; productionMode?: "order" | "batch"; name: string; unit: string; category?: string; unitCost: number | null; salePrice?: number; recipe?: Array<{ itemId: string; quantity: number; yield?: number }>; portions?: number; servingWeight?: number; allergens?: string[]; procedure?: string }
 interface Pricing { desk: { vatRate: number; target: number }; overhead: { rate: number; shrink: number; provisional: boolean } }
 type Line = { itemId: string; quantity: string; yieldPct: string };
 
@@ -70,6 +70,7 @@ export default function FichesPage() {
 function Sheet({ item, ingredients, pricing, onSaved }: { item: Item; ingredients: Item[]; pricing: Pricing | null; onSaved: () => void }) {
   const [lines, setLines] = useState<Line[]>(() => (item.recipe ?? []).map(r => ({ itemId: String(r.itemId), quantity: String(r.quantity).replace(".", ","), yieldPct: r.yield ? String(Math.round(r.yield * 100)) : "100" })));
   const [portions, setPortions] = useState(String(item.portions ?? 1));
+  const [mode, setMode] = useState(item.productionMode ?? "order");
   const [weight, setWeight] = useState(item.servingWeight ? String(item.servingWeight) : "");
   const [allergens, setAllergens] = useState<string[]>(item.allergens ?? []);
   const [procedure, setProcedure] = useState(item.procedure ?? "");
@@ -91,7 +92,7 @@ function Sheet({ item, ingredients, pricing, onSaved }: { item: Item; ingredient
     setBusy(true);
     const r = await apiSend<{ error?: string }>("PATCH", `/api/comptoir/items/${item._id}`, {
       recipe: lines.filter(l => l.itemId && num(l.quantity) > 0).map(l => ({ itemId: l.itemId, quantity: num(l.quantity), yield: num(l.yieldPct) / 100 })),
-      portions: nPortions, servingWeight: num(weight) > 0 ? num(weight) : 0, allergens, procedure,
+      portions: nPortions, servingWeight: num(weight) > 0 ? num(weight) : 0, allergens, procedure, productionMode: mode,
     });
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Enregistrement refusé", "error");
@@ -139,6 +140,7 @@ function Sheet({ item, ingredients, pricing, onSaved }: { item: Item; ingredient
       <button onClick={() => setLines(x => [...x, { itemId: "", quantity: "", yieldPct: "100" }])} className={buttonClass("secondary", "sm")}><Plus size={14} /> Ajouter un ingrédient</button>
       <div className="grid gap-3 sm:grid-cols-3">
         <FormField label="Portions produites par la recette"><input className={inputCls} inputMode="numeric" value={portions} onChange={e => setPortions(e.target.value)} /></FormField>
+        <FormField label="Mode de production" hint="Un seul déstockage : à la vente, ou à la production."><select className={selectCls} value={mode} onChange={e => setMode(e.target.value as "order" | "batch")}><option value="order">À la commande : la vente sort les ingrédients</option><option value="batch">Par lot : la production sort les ingrédients, la vente sort les portions</option></select></FormField>
         <FormField label="Grammage servi par portion (g)"><input className={inputCls} inputMode="decimal" value={weight} onChange={e => setWeight(e.target.value)} /></FormField>
       </div>
       <div className="surface-card p-3 grid gap-2 sm:grid-cols-4 text-sm">

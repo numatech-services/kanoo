@@ -7,6 +7,7 @@ import { ItemCountModel } from "@/models/ItemCount";
 import { ProductModel } from "@/models/Product";
 import { EmployeeModel } from "@/models/Employee";
 import { portionRecipe, RHYTHMS } from "@/lib/restaurant";
+import { averageFactor } from "@/lib/restaurant-forecast";
 import { ProductStockModel } from "@/models/ProductStock";
 import { BusinessRuleError } from "@/lib/errors";
 import { applyMovement } from "@/lib/stock";
@@ -121,6 +122,8 @@ export async function reorderPlan(tenantId: string, deskId: string) {
   // Campus : la demande vient de l'emploi du temps (vacances, examens, jours
   // sans cours) plutôt que de la moyenne des 28 derniers jours.
   const planned = await scheduledDemand(tenantId, deskId, localDay(new Date(Date.now() + DAY)), lead + cover);
+  // Vacances, fêtes, promotions du site : la demande de la période à couvrir suit ses événements.
+  const demand = await averageFactor(tenantId, deskId, localDay(new Date(Date.now() + DAY)), lead + cover);
   const products = await ProductModel.find({ tenantId, _id: { $in: items.map(i => i.productId).filter(Boolean) } }).select("preferredSupplierId purchaseCost").populate("preferredSupplierId", "name").lean<Array<{ _id: Types.ObjectId; purchaseCost?: number; preferredSupplierId?: { _id: Types.ObjectId; name: string } }>>();
   const prod = new Map(products.map(p => [String(p._id), p]));
   const lines = items.filter(i => !i.recipe?.length).map(i => {
@@ -130,8 +133,8 @@ export async function reorderPlan(tenantId: string, deskId: string) {
     const cov = i.rhythm && i.rhythm in RHYTHMS ? RHYTHMS[i.rhythm as keyof typeof RHYTHMS].days : cover;
     const threshold = i.threshold != null || i.reserveThreshold != null ? (i.threshold ?? 0) + (i.reserveThreshold ?? 0) : undefined;
     const s = planned
-      ? reorderSuggestion({ stock, soldInWindow: planned.get(String(i._id)) ?? 0, windowDays: lead + cover, leadDays: lead, coverDays: cov, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 })
-      : reorderSuggestion({ stock, soldInWindow: used.get(String(i._id))?.quantity ?? 0, windowDays: WINDOW, leadDays: lead, coverDays: cov, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 });
+      ? reorderSuggestion({ stock, soldInWindow: (planned.get(String(i._id)) ?? 0) * demand, windowDays: lead + cover, leadDays: lead, coverDays: cov, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 })
+      : reorderSuggestion({ stock, soldInWindow: (used.get(String(i._id))?.quantity ?? 0) * demand, windowDays: WINDOW, leadDays: lead, coverDays: cov, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 });
     const p = i.productId ? prod.get(String(i.productId)) : undefined;
     const unitCost = p?.purchaseCost || i.unitCost || 0;
     return {

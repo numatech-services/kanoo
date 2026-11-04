@@ -14,6 +14,7 @@ import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { deskPricing } from "@/lib/restaurant-overview";
 import { portionRecipe } from "@/lib/restaurant";
+import { forecastFactor } from "@/lib/restaurant-forecast";
 import type { TokenPayload } from "@/lib/auth";
 
 type Id = Types.ObjectId;
@@ -45,15 +46,18 @@ async function soldOn(tenantId: string, deskId: string, day: string) {
  */
 export async function forecastDay(tenantId: string, deskId: string, day: string) {
   const plan = await productionPlan(tenantId, deskId, day);
+  // Événements du site (vacances, fête, promotion) : la base reste visible, l'ajustement est nommé.
+  const adj = await forecastFactor(tenantId, deskId, day);
   if (plan.configured) {
-    return { basis: "schedule" as const, tickets: null as number | null, items: new Map(plan.planned.map(p => [p.itemId, Math.ceil(p.planned)])) };
+    return { basis: "schedule" as const, tickets: null as number | null, adjustment: adj, items: new Map(plan.planned.map(p => [p.itemId, Math.ceil(p.planned * adj.factor)])) };
   }
   const history = await Promise.all([1, 2, 3, 4].map(w => soldOn(tenantId, deskId, addDays(day, -7 * w))));
   const avg = new Map<string, number>();
   for (const h of history) for (const [id, q] of h.byItem) avg.set(id, (avg.get(id) ?? 0) + q / history.length);
   const pre = await preorderedFor(tenantId, deskId, day);
   for (const [id, q] of pre) avg.set(id, Math.max(avg.get(id) ?? 0, q));
-  return { basis: "history" as const, tickets: Math.round(history.reduce((t, h) => t + h.tickets, 0) / history.length), items: new Map([...avg].map(([id, q]) => [id, Math.ceil(q)])) };
+  // Les réservations sont fermes : l'événement ne les réduit pas, elles comptent une fois.
+  return { basis: "history" as const, tickets: Math.round((history.reduce((t, h) => t + h.tickets, 0) / history.length) * adj.factor), adjustment: adj, items: new Map([...avg].map(([id, q]) => [id, Math.ceil(Math.max(q * adj.factor, pre.get(id) ?? 0))])) };
 }
 
 export interface NeedRow { itemId: string; name: string; unit: string; needed: number; desk: number; reserve: number; toSupply: number; toBuy: number; packSize?: number }

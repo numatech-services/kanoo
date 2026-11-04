@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ShoppingBasket, TrendingUp, TrendingDown, FileCheck2 } from "lucide-react";
+import { ShoppingBasket, TrendingUp, TrendingDown, FileCheck2, HandCoins } from "lucide-react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill } from "@/components/ui/Primitives";
 import { buttonClass } from "@/components/ui/button-class";
 import { showToast } from "@/components/ui/Toast";
 import { apiJson, apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
+import { useOpKey } from "@/lib/use-op-key";
+import { Modal } from "@/components/ui/Modal";
 import { RestoNav } from "@/components/restauration/RestoNav";
 import { StandingSetup } from "@/components/restauration/StandingDeliveries";
 
@@ -19,7 +21,9 @@ interface Data {
     suppliers: Array<{ name: string; avg: number; last: number; lastDate: string; purchases: number }> }>;
   receptions: Array<{ _id: string; item: string; unit: string; supplier: string | null; quantity: number; unitCost: number; amount: number; date: string; reference: string | null }>;
   orders: Array<{ _id: string; number: string; supplier: string | null; totalTTC: number; status: string; date: string }>;
+  payables: { total: number; overdue: number; suppliers: Array<{ supplier: string; total: number; credits: number; paid: number; rest: number; overdue: number; invoices: Invoice[] }> };
 }
+interface Invoice { _id: string; number: string; ref: string | null; date: string; dueDate: string | null; total: number; credits: number; paid: number; rest: number; late: boolean }
 
 /**
  * Achats du restaurant : évolution et comparaison des prix d'achat (90 jours),
@@ -54,6 +58,7 @@ export default function AchatsPage() {
       <RestoNav />
       {error && <p className="text-sm text-neg">{error}</p>}
       {loading && !data ? <div className="h-48 surface-card animate-pulse" /> : !data ? null : <>
+        <Payables deskId={deskId} data={data.payables} onDone={reload} />
         <section className="surface-card p-4 space-y-2">
           <h2 className="font-semibold text-ink">Prix d&apos;achat des 90 derniers jours</h2>
           {!data.prices.length ? <p className="text-sm text-ink3">Aucun achat valorisé : les prix apparaissent à la réception en réserve ou à la réception d&apos;une commande.</p> : (
@@ -106,5 +111,84 @@ export default function AchatsPage() {
       </>}
       {deskId && <StandingSetup key={deskId} deskId={deskId} />}
     </div>
+  );
+}
+
+/**
+ * Ce que le site doit, fournisseur par fournisseur : facturé, avoirs, déjà
+ * payé, reste dû. Payer solde la dette, ce n'est pas un nouvel achat.
+ */
+function Payables({ deskId, data, onDone }: { deskId: string; data: Data["payables"]; onDone: () => void }) {
+  const [paying, setPaying] = useState<Invoice | null>(null);
+  const [back, setBack] = useState<Invoice | null>(null);
+  return (
+    <section className="surface-card p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h2 className="font-semibold text-ink inline-flex items-center gap-2"><HandCoins size={16} /> Ce que vous devez aux fournisseurs</h2>
+        <p className="text-sm text-ink2">Total : <b className="font-mono">{MONEY(data.total)}</b>{data.overdue > 0 && <> · <span className="text-neg">en retard : {MONEY(data.overdue)}</span></>}</p>
+      </div>
+      {!data.suppliers.length ? <p className="text-sm text-ink3">Rien à payer : chaque réception à crédit apparaît ici dès qu&apos;elle est enregistrée.</p> : data.suppliers.map(s => (
+        <div key={s.supplier} className="rounded-lg border border-line p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap text-sm">
+            <p className="font-semibold">{s.supplier}</p>
+            <p className="text-ink2">Facturé {MONEY(s.total)}{s.credits ? ` − avoirs ${MONEY(s.credits)}` : ""} − payé {MONEY(s.paid)} = <b className="font-mono text-ink">{MONEY(s.rest)}</b></p>
+          </div>
+          <ul className="divide-y divide-line">{s.invoices.map(i => (
+            <li key={i._id} className="py-1.5 flex items-center justify-between gap-2 flex-wrap text-sm">
+              <span>{i.number}{i.ref ? ` · ${i.ref}` : ""} <span className="text-ink3">· {DATE(i.date)}</span> {i.late ? <Pill tone="neg">en retard</Pill> : null}</span>
+              <span className="flex items-center gap-2"><b className="font-mono">{MONEY(i.rest)}</b>
+                <button onClick={() => setPaying(i)} className={buttonClass("secondary", "sm")}>Payer</button>
+                <button onClick={() => setBack(i)} className={buttonClass("ghost", "sm")}>Retour</button>
+              </span>
+            </li>
+          ))}</ul>
+        </div>
+      ))}
+      {paying && <PayDialog deskId={deskId} invoice={paying} onClose={() => setPaying(null)} onDone={() => { setPaying(null); onDone(); }} />}
+      {back && <ReturnDialog deskId={deskId} invoice={back} onClose={() => setBack(null)} onDone={() => { setBack(null); onDone(); }} />}
+    </section>
+  );
+}
+
+function PayDialog({ deskId, invoice, onClose, onDone }: { deskId: string; invoice: Invoice; onClose: () => void; onDone: () => void }) {
+  const op = useOpKey();
+  const [amount, setAmount] = useState(String(invoice.rest)), [account, setAccount] = useState("");
+  const [accounts, setAccounts] = useState<Array<{ _id: string; label: string }>>([]);
+  useEffect(() => { apiJson("/api/treasury-accounts").then(d => setAccounts((Array.isArray(d.data) ? d.data : d.data?.items ?? []) as Array<{ _id: string; label: string }>)).catch(() => {}); }, []);
+  async function pay() {
+    const r = await apiSend<{ error?: string }>("POST", "/api/restauration/achats", { deskId, action: "pay", purchaseId: invoice._id, amount: Number(amount.replace(/\s/g, "").replace(",", ".")), treasuryAccountId: account || undefined }, op.headers());
+    if (!r.ok) return showToast(r.data.error || "Paiement refusé", "error");
+    op.done(); showToast("Paiement enregistré", "success"); onDone();
+  }
+  return (
+    <Modal open onClose={onClose} title={`Payer ${invoice.number}`} description={`Reste dû : ${MONEY(invoice.rest)}`} size="sm" footer={<button onClick={pay} className={buttonClass("primary", "md")}>Payer</button>}>
+      <div className="space-y-3">
+        <FormField label="Montant (FCFA)"><input className={inputCls} inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value)} /></FormField>
+        <FormField label="Payé depuis"><select className={selectCls} value={account} onChange={e => setAccount(e.target.value)}><option value="">La caisse du site</option>{accounts.map(a => <option key={a._id} value={a._id}>{a.label}</option>)}</select></FormField>
+      </div>
+    </Modal>
+  );
+}
+
+function ReturnDialog({ deskId, invoice, onClose, onDone }: { deskId: string; invoice: Invoice; onClose: () => void; onDone: () => void }) {
+  const op = useOpKey();
+  const { data: lines } = useApi<Array<{ itemId: string; name: string; unit: string; quantity: number; unitCost: number }>>(`/api/restauration/achats?deskId=${deskId}&lines=${invoice._id}`, d => (d?.data as never) ?? [], [], { quiet: true });
+  const [qty, setQty] = useState<Record<string, string>>({}), [reason, setReason] = useState("");
+  async function send() {
+    const out = lines.filter(l => Number(qty[l.itemId]) > 0).map(l => ({ itemId: l.itemId, quantity: Number(qty[l.itemId]), unitCost: l.unitCost }));
+    if (!out.length) return showToast("Saisissez une quantité retournée.", "error");
+    const r = await apiSend<{ error?: string; data?: { amount: number } }>("POST", "/api/restauration/achats", { deskId, action: "return", purchaseId: invoice._id, lines: out, reason }, op.headers());
+    if (!r.ok) return showToast(r.data.error || "Retour refusé", "error");
+    op.done(); showToast(`Retour enregistré : avoir de ${MONEY(r.data.data?.amount)}`, "success"); onDone();
+  }
+  return (
+    <Modal open onClose={onClose} title={`Retour sur ${invoice.number}`} description="La marchandise sort de la réserve et la dette baisse. Ce n'est ni une perte ni une vente." size="md" footer={<button onClick={send} className={buttonClass("primary", "md")}>Enregistrer le retour</button>}>
+      <div className="space-y-3">
+        {!lines.length ? <p className="text-sm text-ink3">Aucune réception reliée à cette facture.</p> : lines.map(l => (
+          <label key={l.itemId} className="flex items-center justify-between gap-2 text-sm"><span>{l.name} <span className="text-ink3">({l.quantity} {l.unit} à {MONEY(l.unitCost)})</span></span><input className={`${inputCls} w-24`} inputMode="decimal" value={qty[l.itemId] ?? ""} onChange={e => setQty(q => ({ ...q, [l.itemId]: e.target.value }))} aria-label={`Quantité retournée de ${l.name}`} /></label>
+        ))}
+        <FormField label="Motif" required><input className={inputCls} value={reason} onChange={e => setReason(e.target.value)} placeholder="Carton abîmé à la livraison" /></FormField>
+      </div>
+    </Modal>
   );
 }

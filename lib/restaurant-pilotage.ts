@@ -61,6 +61,7 @@ export async function pilotage(tenantId: string, deskId: string, month: string, 
   return {
     month, desk: { _id: String(desk._id), name: desk.name }, payrollHidden: hide, finance,
     simulation: { ...volumeSimulation(r.pnl, variableCats), variableCategories: variableCats, result: r.pnl.result, resultPct: r.pnl.ratios.resultPct, provisional: month >= mm(new Date().getFullYear(), new Date().getMonth() + 1) },
+    levels: r.levels,
     gas: gasStats(desk.gasBottles ?? [], month, r.pnl.charges.find(c => c.category === "energie")?.actual ?? 0, r.sales.tickets, desk.openDaysPerMonth ?? 26),
     categories: Object.entries(CHARGE_CATEGORIES).map(([k, label]) => ({ key: k, label })),
     budget: budget ? { revenue: budget.revenue, materialPct: budget.materialPct, charges: budget.charges.filter(c => !(hide && c.category === "personnel")), note: budget.note, updatedAt: budget.updatedAt } : null,

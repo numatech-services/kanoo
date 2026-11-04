@@ -18,6 +18,7 @@ interface Row { month: string; budget: { revenueHT: number; materialMargin: numb
 interface Data {
   month: string; desk: { _id: string; name: string }; payrollHidden: boolean; finance: boolean;
   simulation: { revenueHT: number; variable: number; variableCharges: number; fixed: number; contribution: number; contributionPct: number | null; breakEvenRevenue: number | null; safetyMarginPct: number | null; scenarios: Array<{ dropPct: number; revenueHT: number; result: number; resultPct: number | null }>; variableCategories: string[]; result: number; resultPct: number | null; provisional: boolean };
+  levels: { margin: number; afterDirect: number; afterCommon: number; commonCharges: number; status: "estimated" | "validated" };
   gas: { spend: number; perTicket: number | null; perDay: number | null; bottlesInMonth: number; avgBottleDays: number | null; lastStartedAt: string | null };
   categories: Array<{ key: string; label: string }>;
   budget: { revenue: number[]; materialPct: number; charges: Array<{ category: string; annual: number }>; note?: string } | null;
@@ -92,6 +93,9 @@ function Simulation({ data, post }: { data: Data; post: Post }) {
         {s.safetyMarginPct !== null && s.safetyMarginPct < 0 && s.breakEvenRevenue !== null
           ? <Kpi label="Sous le point mort" value={`+${Math.round(((s.breakEvenRevenue - s.revenueHT) / Math.max(1, s.revenueHT)) * 1000) / 10} %`} hint={`hausse du CA nécessaire pour ne plus perdre (${MONEY(s.breakEvenRevenue - s.revenueHT)})`} tone="neg" />
           : <Kpi label="Marge de sécurité" value={PCT(s.safetyMarginPct)} hint="baisse de CA supportable avant perte" />}
+        <Kpi label="1. Marge après coût des produits" value={MONEY(data.levels.margin)} hint={data.levels.status === "validated" ? "validé (mois clos)" : "estimé, jusqu'à la clôture"} />
+        <Kpi label="2. Après charges du site" value={MONEY(data.levels.afterDirect)} tone={data.levels.afterDirect < 0 ? "neg" : undefined} hint="ce que le site gagne seul" />
+        <Kpi label="3. Après charges centrales" value={MONEY(data.levels.afterCommon)} tone={data.levels.afterCommon < 0 ? "neg" : undefined} hint={`quote-part : ${MONEY(data.levels.commonCharges)}`} />
         <Kpi label="Gaz du mois" value={MONEY(data.gas.spend)} hint={`${data.gas.perTicket !== null ? `${MONEY(data.gas.perTicket)} par ticket · ` : ""}${data.gas.bottlesInMonth} bouteille(s)${data.gas.avgBottleDays !== null ? ` · une bouteille dure ${data.gas.avgBottleDays} j` : ""}`} />
         <Kpi label="Résultat du mois" value={MONEY(s.result)} hint={PCT(s.resultPct)} tone={s.result < 0 ? "neg" : undefined} />
       </div>

@@ -8,6 +8,7 @@ import { Pill } from "@/components/ui/Primitives";
 import { buttonClass } from "@/components/ui/button-class";
 import { showToast } from "@/components/ui/Toast";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { useOpKey } from "@/lib/use-op-key";
 import { BarcodeScanner, beep } from "@/components/shared/BarcodeScanner";
 import { matchCode } from "@/lib/barcodes";
 
@@ -121,6 +122,7 @@ const emptyLine = (r: StockRow): Line => ({ itemId: r.itemId, packs: "", quantit
 
 /** Réception en réserve : on scanne ou choisit les articles, quantités en paquets ou en unités, prix d'achat, lot et péremption. */
 export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }: { deskId: string; rows: StockRow[]; initial?: StockRow[]; costs: boolean; onClose: () => void; onDone: () => void }) {
+  const op = useOpKey();
   const stock = rows.filter(r => !r.preparation && !r.batch);
   const [lines, setLines] = useState<Line[]>(() => (initial ?? []).map(emptyLine));
   const [supplier, setSupplier] = useState("");
@@ -156,9 +158,10 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
     if (!payload.length) return showToast("Saisissez au moins une quantité.", "error");
     setBusy(true);
     const r = await apiSend<{ data: { total: number; unvalued: number; alerts: Array<{ name: string; pct: number; dishes: string[] }> }; error?: string }>("POST", "/api/comptoir/reserve", { deskId, action: "receive", lines: payload, supplier, ...(supplierId ? { supplierId } : {}), reference, paidFromCash: paid,
-      control: { chain: ctl.chain, temperature: ctl.temperature.trim() === "" ? null : num(ctl.temperature), packagingOk: ctl.packagingOk, datesOk: ctl.datesOk } });
+      control: { chain: ctl.chain, temperature: ctl.temperature.trim() === "" ? null : num(ctl.temperature), packagingOk: ctl.packagingOk, datesOk: ctl.datesOk } }, op.headers());
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Réception refusée", "error");
+    op.done();
     const refusedN = lines.filter(l => l.refused).length;
     if (refusedN === payload.length) { showToast(`${refusedN} ligne(s) refusée(s) : rien n'entre en stock, le refus est noté au registre d'hygiène.`, "info"); onDone(); return; }
     const a = r.data.data.alerts;
@@ -236,15 +239,17 @@ export function LevelMoveDialog({ deskId, rows, direction, initial, onClose, onD
     return [r.itemId, r.pack?.size && s && s % r.pack.size === 0 ? { packs: String(s / r.pack.size), units: "" } : { packs: "", units: s ? String(s) : "" }];
   })));
   const [busy, setBusy] = useState(false);
+  const op = useOpKey();
   const chosen = stock.filter(r => r.itemId in qty);
   async function save() {
     const lines = chosen.map(r => ({ r, q: qty[r.itemId] })).filter(x => num(x.q.packs) > 0 || num(x.q.units) > 0)
       .map(x => num(x.q.packs) > 0 && x.r.pack?.size ? { itemId: x.r.itemId, packs: num(x.q.packs) } : { itemId: x.r.itemId, quantity: num(x.q.units) });
     if (!lines.length) return showToast("Saisissez au moins une quantité.", "error");
     setBusy(true);
-    const r = await apiSend<{ data: { reference: string }; error?: string }>("POST", "/api/comptoir/reserve", { deskId, action: direction, lines });
+    const r = await apiSend<{ data: { reference: string }; error?: string }>("POST", "/api/comptoir/reserve", { deskId, action: direction, lines }, op.headers());
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Mouvement refusé", "error");
+    op.done();
     showToast(`${direction === "supply" ? "Comptoir approvisionné" : "Retour en réserve enregistré"} (${r.data.data.reference})`, "success");
     onDone();
   }
@@ -339,14 +344,16 @@ export function ReserveLossDialog({ deskId, rows, initial, onClose, onDone }: { 
   const [reason, setReason] = useState(initial?.length ? "expired" : "broken");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const op = useOpKey();
   const chosen = stock.filter(r => r.itemId in qty);
   async function save() {
     const lines = chosen.filter(r => num(qty[r.itemId]) > 0).map(r => ({ itemId: r.itemId, quantity: num(qty[r.itemId]) }));
     if (!lines.length) return showToast("Saisissez au moins une quantité.", "error");
     setBusy(true);
-    const r = await apiSend<{ error?: string }>("POST", "/api/comptoir/reserve", { deskId, action: "loss", lines, reason, note });
+    const r = await apiSend<{ error?: string }>("POST", "/api/comptoir/reserve", { deskId, action: "loss", lines, reason, note }, op.headers());
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Perte refusée", "error");
+    op.done();
     showToast("Perte en réserve enregistrée", "success"); onDone();
   }
   return (

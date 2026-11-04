@@ -31,6 +31,9 @@ import { pilotage, saveBudget, saveAllocation, linkAsset, weeklyReport } from ".
 import { volumeSimulation } from "../../lib/restaurant";
 import { sendTransfer, receiveTransfer, getTransfer, resolveTransferGap } from "../../lib/restaurant-transfer";
 import { closeWeek, reopenWeek } from "../../lib/restaurant-week";
+import { journal, evolution, controls, siteBalance, marginTable } from "../../lib/restaurant-accounting";
+import { groupedPlan, saveForecastEvent } from "../../lib/restaurant-grouped";
+import { forecastFactor } from "../../lib/restaurant-forecast";
 import { produceBatch } from "../../lib/restaurant-production";
 import { DeskWeekCloseModel } from "../../models/DeskWeekClose";
 import { saveStanding, standingDay, confirmStanding, payStanding, startGasBottle } from "../../lib/restaurant-standing";
@@ -555,6 +558,30 @@ async function main() {
   const r3c = await deskMonthResult(tenantId, site3.deskId, month);
   check("remise en banque : espèces attendues −150 000, ni recette ni dépense, aucun chiffre d'affaires", rep3b.expectedCash === 470_000 && rep3b.expenses === 0 && rep3b.receipts === 0 && r3c.pnl.revenueHT === 0 && (await accountBalance(tenantId, String(bank._id)))!.balance === 150_000, rep3b);
   check("archivage avec caisse ouverte : refusé", await refuses(() => archiveForRestart(auth, [site3.deskId], true), /fermez d'abord/));
+
+  console.log("\n▶ Espace comptable, trois niveaux, prévision par site, commande groupée");
+  const lv3 = (await deskMonthResult(tenantId, pSite.deskId, month));
+  check("trois niveaux : marge, après charges du site, après charges centrales ; résultat estimé tant que le mois est ouvert", lv3.levels.margin === lv3.pnl.materialMargin && lv3.levels.afterCommon === lv3.pnl.result && lv3.levels.status === "estimated", lv3.levels);
+  const jn = await journal(tenantId, [pSite.deskId], day, day);
+  check("journal : ventes du jour 2 000, sans doublon avec la caisse", jn.totals.receipts === 2_000 && jn.rows.filter(r => r.kind === "sale").length === 1, jn.totals);
+  const jn3 = await journal(tenantId, [site3.deskId], day, day);
+  check("journal : dotation et remise en banque à part, ni recette ni dépense", jn3.totals.receipts === 0 && jn3.totals.expenses === 0 && jn3.rows.some(r => r.kind === "internal"), jn3);
+  const ev = await evolution(tenantId, [pSite.deskId], day, day);
+  check("évolution : période comparée à une période de même durée", ev.days === 1 && ev.total.current.revenue === 2_000 && ev.prevTo < day, ev.total);
+  const ct = await controls(tenantId, [site2.deskId, site3.deskId]);
+  check("à contrôler : les financements à qualifier sont comptés", (ct.items.find(i => i.key === "qualify")?.count ?? 0) >= 1, ct.items);
+  const bl = await siteBalance(tenantId, site3.deskId);
+  check("équilibre du site : avance restante distincte du résultat et de la trésorerie", bl?.repayableLeft === 900_000 && typeof bl.cumulativeResult === "number" && bl.cash !== null, bl);
+  const mt = await marginTable(tenantId, pSite.deskId, month);
+  const mLot = mt.rows.find(r => r.name === "Omelette commande");
+  check("marge par article : un plat reste une estimation, pas de marge constatée exacte ; le site a sa marge constatée", mLot?.estimated === true && mLot.actualMargin === null && mt.site.actual === lv3.pnl.materialMargin, mt.rows);
+  const vacA = await openSite(auth, { name: "Site Vac A" }, true), vacB = await openSite(auth, { name: "Site Vac B" }, true);
+  await saveForecastEvent(auth, { deskIds: [vacA.deskId], from: day, to: day, label: "Vacances", factor: 0.2 });
+  check("vacances sur un site : prévision ajustée sur ce site seulement", (await forecastFactor(tenantId, vacA.deskId, day)).factor === 0.2 && (await forecastFactor(tenantId, vacB.deskId, day)).factor === 1);
+  await ActivityItemModel.updateOne({ deskId: tSrc.deskId, name: "Eau minérale" }, { $set: { reserveThreshold: 200, threshold: 0 } });
+  const gp = await groupedPlan(tenantId, [tSrc.deskId, tDst.deskId]);
+  const gLine = gp.suppliers.flatMap(s => s.lines).find(l => l.name === "Eau minérale");
+  check("commande groupée : besoin consolidé arrondi au carton, avec les sites concernés", !!gLine && gLine.total % 12 === 0 && gLine.sites.length >= 1, gLine);
 
   console.log(`\n${pass} réussis, ${fail} en échec`);
   await mongoose.disconnect();

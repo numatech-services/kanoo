@@ -7,6 +7,8 @@ import { Pill, EmptyState } from "@/components/ui/Primitives";
 import { buttonClass } from "@/components/ui/button-class";
 import { showToast } from "@/components/ui/Toast";
 import { apiJson, apiSend } from "@/lib/api-client";
+import { useOpKey } from "@/lib/use-op-key";
+import { promptDialog } from "@/components/ui/Dialogs";
 import { useApi } from "@/lib/use-api";
 import { SignaturePad } from "@/components/shared/SignaturePad";
 import { BarcodeScanner, beep } from "@/components/shared/BarcodeScanner";
@@ -20,8 +22,8 @@ const num = (v: string) => { const t = v.replace(/\s/g, "").replace(",", "."); r
 const escHtml = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
 interface Transfer {
-  _id: string; number: string; fromDeskId: string; fromName: string; toDeskId: string; toName: string; status: "sent" | "received";
-  lines: Array<{ name: string; unit: string; quantity: number; unitCost?: number; lots: Array<{ lotNumber: string; qty: number; expiryDate?: string }> }>;
+  _id: string; number: string; fromDeskId: string; fromName: string; toDeskId: string; toName: string; status: "sent" | "transit" | "received" | "gap"; gapResolution?: { decision: string; value: number };
+  lines: Array<{ fromItemId: string; name: string; unit: string; quantity: number; receivedQty?: number; unitCost?: number; lots: Array<{ lotNumber: string; qty: number; expiryDate?: string }> }>;
   value?: number; senderName: string; sentAt: string; receiverName?: string; receivedAt?: string; gapNote?: string; note?: string;
   senderSignature?: string; receiverSignature?: string;
 }
@@ -37,6 +39,16 @@ export default function TransfertsPage() {
   useEffect(() => { apiJson("/api/comptoir/desks").then(d => setDesks((d.data ?? []) as Array<{ _id: string; name: string }>)).catch(() => {}); }, []);
   const { data, loading, error, reload } = useApi<Transfer[]>("/api/restauration/transferts", d => (d?.data as Transfer[]) ?? [], [], { quiet: true });
   const mine = new Set(desks.map(d => d._id));
+
+  async function resolve(id: string) {
+    const answer = await promptDialog({ title: "Trancher l'écart", message: "Tapez RETOUR si la marchandise est revenue chez l'expéditeur, PERTE si elle est perdue (elle compte alors au résultat de l'expéditeur).", label: "RETOUR ou PERTE", required: true });
+    const decision = answer?.trim().toUpperCase() === "RETOUR" ? "return" : answer?.trim().toUpperCase() === "PERTE" ? "loss" : null;
+    if (!answer) return;
+    if (!decision) return showToast("Répondez RETOUR ou PERTE.", "error");
+    const r = await apiSend<{ error?: string }>("POST", "/api/restauration/transferts", { action: "resolve", id, decision });
+    if (!r.ok) return showToast(r.data.error || "Refusé", "error");
+    showToast("Écart tranché", "success"); reload();
+  }
 
   async function print(id: string) {
     const d = await apiJson(`/api/restauration/transferts?id=${id}`).catch(() => null);
@@ -79,9 +91,10 @@ export default function TransfertsPage() {
                 <td>{t.fromName}</td><td>{t.toName}</td>
                 <td className="text-[12px]">{t.lines.map(l => `${l.name} ${l.quantity} ${l.unit}`).join(", ")}</td>
                 {t.value !== undefined && <td className="text-right font-mono">{MONEY(t.value)}</td>}
-                <td>{t.status === "received" ? <Pill tone="pos">reçu{t.gapNote ? " avec écart" : ""}</Pill> : <Pill tone="warn">à réceptionner</Pill>}</td>
+                <td>{t.status === "gap" ? <Pill tone="neg">écart à trancher</Pill> : t.status === "received" ? <Pill tone="pos">reçu{t.gapNote ? " avec écart" : ""}</Pill> : <Pill tone="warn">en transit</Pill>}</td>
                 <td className="text-right whitespace-nowrap">
-                  {t.status === "sent" && mine.has(t.toDeskId) && <button onClick={() => setReceiving(t)} className={buttonClass("secondary", "sm")}><PenLine size={13} /> Signer la réception</button>}
+                  {(t.status === "sent" || t.status === "transit") && mine.has(t.toDeskId) && <button onClick={() => setReceiving(t)} className={buttonClass("secondary", "sm")}><PenLine size={13} /> Signer la réception</button>}
+                  {t.status === "gap" && t.value !== undefined && <button onClick={() => resolve(t._id)} className={buttonClass("secondary", "sm")}>Trancher l&apos;écart</button>}
                   <button onClick={() => print(t._id)} className={buttonClass("ghost", "sm")} title="Imprimer le bon"><Printer size={13} /></button>
                 </td>
               </tr>
@@ -107,16 +120,17 @@ function SendDialog({ desks, onClose, onDone }: { desks: Array<{ _id: string; na
   useEffect(() => { apiJson("/api/restauration/transferts?destinations=1").then(d => { const l = (d.data ?? []) as Array<{ _id: string; name: string }>; if (l.length) setAll(l); }).catch(() => {}); }, []);
   useEffect(() => { if (fromId) apiJson(`/api/comptoir/reserve?deskId=${fromId}`).then(d => setRows(((d.data as ReserveData)?.rows ?? []).filter(r => !r.preparation && r.reserve > 0))).catch(() => setRows([])); }, [fromId]);
   const chosen = rows.filter(r => r.itemId in qty);
+  const op = useOpKey();
   async function send() {
     const lines = chosen.map(r => ({ r, q: qty[r.itemId] })).filter(x => num(x.q.packs) > 0 || num(x.q.units) > 0)
       .map(x => num(x.q.packs) > 0 && x.r.pack?.size ? { itemId: x.r.itemId, packs: num(x.q.packs) } : { itemId: x.r.itemId, quantity: num(x.q.units) });
     if (!toId) return showToast("Choisissez le restaurant destinataire.", "error");
     if (!lines.length) return showToast("Saisissez au moins une quantité.", "error");
     setBusy(true);
-    const r = await apiSend<{ data: { number: string }; error?: string }>("POST", "/api/restauration/transferts", { action: "send", fromDeskId: fromId, toDeskId: toId, lines, signerName: signer, signature: sig, note: note || undefined });
+    const r = await apiSend<{ data: { number: string }; error?: string }>("POST", "/api/restauration/transferts", { action: "send", fromDeskId: fromId, toDeskId: toId, lines, signerName: signer, signature: sig, note: note || undefined }, op.headers());
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Transfert refusé", "error");
-    showToast(`Transfert ${r.data.data.number} envoyé`, "success"); onDone();
+    op.done(); showToast(`Transfert ${r.data.data.number} envoyé : en transit jusqu'à sa réception`, "success"); onDone();
   }
   return (
     <Modal open onClose={onClose} size="xl" title="Nouveau transfert" description="Sortie de la réserve du restaurant d'origine, entrée dans celle du destinataire. Les lots les plus proches de leur péremption partent les premiers ; un lot périmé ne part pas."
@@ -158,20 +172,31 @@ function SendDialog({ desks, onClose, onDone }: { desks: Array<{ _id: string; na
 
 function ReceiveTransferDialog({ t, onClose, onDone }: { t: Transfer; onClose: () => void; onDone: () => void }) {
   const [signer, setSigner] = useState(""), [sig, setSig] = useState(""), [gap, setGap] = useState("");
+  const [got, setGot] = useState<Record<string, string>>(() => Object.fromEntries(t.lines.map(l => [l.fromItemId, String(l.quantity)])));
   const [busy, setBusy] = useState(false);
+  const op = useOpKey();
+  const legacy = t.status === "sent";
+  const short = t.lines.some(l => Number((got[l.fromItemId] ?? "").replace(",", ".")) < l.quantity);
   async function save() {
     setBusy(true);
-    const r = await apiSend<{ error?: string }>("POST", "/api/restauration/transferts", { action: "receive", id: t._id, signerName: signer, signature: sig, gapNote: gap || undefined });
+    const r = await apiSend<{ error?: string }>("POST", "/api/restauration/transferts", { action: "receive", id: t._id, signerName: signer, signature: sig, gapNote: gap || undefined,
+      ...(legacy ? {} : { received: t.lines.map(l => ({ fromItemId: l.fromItemId, quantity: Number((got[l.fromItemId] ?? "").replace(",", ".")) })) }) }, op.headers());
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Réception refusée", "error");
-    showToast(gap ? "Réception signée, écart noté : régularisez-le par une perte ou à l'inventaire." : "Réception signée", "success"); onDone();
+    op.done();
+    showToast(short ? "Reçu : le manque reste en transit, à trancher par le chef ou la finance." : "Réception signée", "success"); onDone();
   }
   return (
-    <Modal open onClose={onClose} title={`Réception ${t.number}`} description={`Envoyé par ${t.fromName} (${t.senderName}) le ${dmy(t.sentAt)}. La marchandise est déjà en réserve : vérifiez-la, puis signez.`}
-      footer={<><button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button><button disabled={busy || !sig || signer.trim().length < 2} onClick={save} className={buttonClass("primary", "md")}>Signer la réception</button></>}>
+    <Modal open onClose={onClose} title={`Réception ${t.number}`} description={`Envoyé par ${t.fromName} (${t.senderName}) le ${dmy(t.sentAt)}. ${legacy ? "La marchandise est déjà en réserve : vérifiez-la, puis signez." : "Comptez ce qui est arrivé : seule cette quantité entre dans votre réserve."}`}
+      footer={<><button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button><button disabled={busy || !sig || signer.trim().length < 2 || (short && !gap.trim())} onClick={save} className={buttonClass("primary", "md")}>Signer la réception</button></>}>
       <div className="space-y-3">
-        <ul className="text-sm list-disc pl-5">{t.lines.map((l, i) => <li key={i}>{l.name} : {l.quantity} {l.unit}{l.lots.length ? ` (lots ${l.lots.map(x => x.lotNumber).join(", ")})` : ""}</li>)}</ul>
-        <FormField label="Écart constaté (facultatif)"><input className={inputCls} maxLength={400} placeholder="Ex. : 1 carton abîmé, 2 kg manquants" value={gap} onChange={e => setGap(e.target.value)} /></FormField>
+        <ul className="space-y-2">{t.lines.map(l => (
+          <li key={l.fromItemId} className="flex items-center justify-between gap-2 text-sm">
+            <span>{l.name} <span className="text-ink3">(envoyé : {l.quantity} {l.unit}{l.lots.length ? `, lots ${l.lots.map(x => x.lotNumber).join(", ")}` : ""})</span></span>
+            {!legacy && <input className={`${inputCls} w-24`} inputMode="decimal" aria-label={`Quantité reçue de ${l.name}`} value={got[l.fromItemId] ?? ""} onChange={e => setGot(g => ({ ...g, [l.fromItemId]: e.target.value }))} />}
+          </li>
+        ))}</ul>
+        <FormField label={short ? "Que s'est-il passé ?" : "Remarque (facultatif)"} required={short}><input className={inputCls} maxLength={400} placeholder="Ex. : 1 carton abîmé, 2 kg manquants" value={gap} onChange={e => setGap(e.target.value)} /></FormField>
         <FormField label="Nom du réceptionnaire" required><input className={inputCls} value={signer} onChange={e => setSigner(e.target.value)} /></FormField>
         <SignaturePad onChange={setSig} />
       </div>
