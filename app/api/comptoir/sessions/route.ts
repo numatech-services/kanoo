@@ -4,6 +4,8 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
 import { isId, ownDesk, canSeeDeskCosts } from "@/lib/comptoir";
 import { CashSessionModel } from "@/models/CashSession";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
+import { accountBalance } from "@/lib/treasury";
 import { periodReport, openSession, sessionProgress } from "@/lib/comptoir-session";
 import { localDay } from "@/lib/comptoir-sale";
 import { logAudit } from "@/lib/audit";
@@ -11,6 +13,11 @@ import { TokenPayload } from "@/lib/auth";
 import "@/models/User";
 
 export const dynamic = "force-dynamic";
+
+async function firstFloat(tenantId: string, deskId: string) {
+  const d = await ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("treasuryAccountId").lean<{ treasuryAccountId?: unknown } | null>();
+  return d?.treasuryAccountId ? Math.max(0, (await accountBalance(tenantId, String(d.treasuryAccountId)))?.balance ?? 0) : undefined;
+}
 
 type Report = Awaited<ReturnType<typeof periodReport>>;
 /** Sans droit aux coûts : chiffre d'affaires et caisse, sans coût ni marge. */
@@ -43,6 +50,8 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   return ok({
     showCosts: costs,
     current: current ? { ...current, ...(costs ? {} : { targets: targets?.revenue ? { revenue: targets.revenue } : undefined }), report: strip(live, costs), progress } : null,
+    // Première ouverture : l'argent alloué au site est proposé comme fonds de caisse, il n'est pas ressaisi.
+    suggestedFloat: !current && !history.length ? await firstFloat(auth.tenantId, deskId) : undefined,
     previous: history[0] ? strip(history[0].summary, costs) : null,
     history: history.map(h => ({ ...h, summary: strip(h.summary, costs) })),
   });

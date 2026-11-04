@@ -149,7 +149,7 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
     ActivityCashEntryModel.aggregate<{ v: number }>([{ $match: { tenantId: oid(tenantId), deskId: oid(deskId), direction: "out", category: { $in: ["supply", "ingredients"] }, date: { $gte: b.from, $lte: b.to } } }, { $group: { _id: null, v: { $sum: "$amount" } } }]),
     desk.activityId ? revenueOf(tenantId, b.from, b.to, desk.activityId) : Promise.resolve(0),
     whs.length ? StockMovementModel.aggregate<{ _id: boolean; v: number; n: number }>([
-      { $match: { tenantId: oid(tenantId), warehouseId: { $in: whs }, type: "entry", createdAt: { $gte: b.from, $lte: b.to } } },
+      { $match: { tenantId: oid(tenantId), warehouseId: { $in: whs }, type: "entry", createdAt: { $gte: b.from, $lte: b.to }, reason: { $not: /^Stock d'ouverture/ } } },
       // Entrée « à valoriser » (réception sans prix) : repérée par son motif, même si le CMUP précédent lui a été appliqué.
       { $group: { _id: { $and: [{ $gt: [{ $ifNull: ["$unitCost", 0] }, 0] }, { $not: [{ $regexMatch: { input: "$reason", regex: "à valoriser" } }] }] }, v: { $sum: { $multiply: ["$quantity", { $ifNull: ["$unitCost", 0] }] } }, n: { $sum: 1 } } },
     ]) : Promise.resolve([]),
@@ -194,7 +194,7 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
   }
   // Dépenses de caisse sans écriture (comptoir sans caisse de trésorerie liée) : reprises par leur nature.
   const unposted = await ActivityCashEntryModel.aggregate<{ _id: string; v: number }>([
-    { $match: { tenantId: oid(tenantId), deskId: oid(deskId), direction: "out", entryId: { $exists: false }, category: { $nin: ["supply", "ingredients", "purchase"] }, date: { $gte: b.from, $lte: b.to } } },
+    { $match: { tenantId: oid(tenantId), deskId: oid(deskId), direction: "out", entryId: { $exists: false }, category: { $nin: ["supply", "ingredients", "purchase", "funding", "cash_transfer"] }, date: { $gte: b.from, $lte: b.to } } },
     { $group: { _id: "$category", v: { $sum: "$amount" } } },
   ]);
   for (const u of unposted) {
@@ -224,7 +224,7 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
   // Ventes hors ticket : entrées de caisse « vente » sans ticket, ni règlement d'ardoise, ni recette EasyPay
   // (une recharge de carte appartient à Numatech), ni entrée hors vente. Elles comptent au CA ET à la marge :
   // le coût de la marchandise sortie avec elles est repris, sinon il ressort par l'inventaire.
-  const offTicket = await ActivityCashEntryModel.find({ tenantId, deskId, direction: "in", saleId: { $exists: false }, customerId: { $exists: false }, category: { $nin: ["non_sale", "easypay_topup"] }, date: { $gte: b.from, $lte: b.to } })
+  const offTicket = await ActivityCashEntryModel.find({ tenantId, deskId, direction: "in", saleId: { $exists: false }, customerId: { $exists: false }, category: { $nin: ["non_sale", "easypay_topup", "funding", "cash_transfer"] }, date: { $gte: b.from, $lte: b.to } })
     .select("amount linkedMoveId").lean<Array<{ amount: number; linkedMoveId?: Id }>>();
   const offTicketHT = Math.round(offTicket.reduce((t, e) => t + e.amount, 0) / (1 + (desk.vatRate ?? 0)));
   const linked = offTicket.map(e => e.linkedMoveId).filter(Boolean) as Id[];

@@ -31,7 +31,12 @@ import { pilotage, saveBudget, saveAllocation, linkAsset, weeklyReport } from ".
 import { volumeSimulation } from "../../lib/restaurant";
 import { sendTransfer, receiveTransfer, getTransfer } from "../../lib/restaurant-transfer";
 import { saveStanding, standingDay, confirmStanding, payStanding, startGasBottle } from "../../lib/restaurant-standing";
-import { restartReport, archiveForRestart, openSite } from "../../lib/restaurant-opening";
+import { sitesOverview, archiveForRestart, openSite, openingStock, siteTemplates, copyRecipes } from "../../lib/restaurant-opening";
+import { allocateFunds, addOpeningLine, cancelFunding, qualifyFunding, repayFunding, depositCash, openingPosition } from "../../lib/restaurant-funding";
+import { accountBalance } from "../../lib/treasury";
+import { openSession, periodReport } from "../../lib/comptoir-session";
+import { DeskFundingModel } from "../../models/DeskFunding";
+import { DeskTransferModel } from "../../models/DeskTransfer";
 import { PurchasePriceLogModel } from "../../models/PurchasePriceLog";
 import { saveHygieneSetup, recordTemperature, receiveControlled, recordSample, discardSample, recordCleaning, hygieneOverview, itemLots, traceLot } from "../../lib/restaurant-hygiene";
 import { StaffShiftModel } from "../../models/StaffShift";
@@ -368,16 +373,18 @@ async function main() {
   check("pilotage : gaz du mois et bouteille comptée", pg.gas.bottlesInMonth === 1 && typeof pg.gas.spend === "number", pg.gas);
 
   console.log("\n▶ Nouveau départ : archivage, ouverture d'un site (Jus IRA)");
-  const rep0 = await restartReport(tenantId);
+  const rep0 = await sitesOverview(tenantId);
   const repOther = rep0.find(x => x.deskId === otherId);
   check("état avant nouveau départ : stock restant de l'autre restaurant chiffré", !!repOther && repOther.stockLines >= 1 && repOther.stockValue > 0, repOther);
+  check("archivage avec un transfert en attente : refusé", await refuses(() => archiveForRestart(auth, [otherId], true), /transfert attend/));
+  await DeskTransferModel.updateMany({ tenantId, status: "sent" }, { $set: { status: "received" } });
   const arch = await archiveForRestart(auth, [otherId], true);
   const otherAfter = await ActivityDeskModel.findById(otherId).lean<{ archived: boolean; name: string }>();
   const otherStock = await ProductStockModel.find({ tenantId, warehouseId: { $in: [(await ActivityDeskModel.findById(otherId).lean<{ reserveWarehouseId: Types.ObjectId }>())!.reserveWarehouseId] } }).lean<Array<{ qty: number }>>();
   check("archivage : site archivé et renommé, stock soldé par ajustement tracé, rien de supprimé", otherAfter!.archived && /archivé/.test(otherAfter!.name) && otherStock.every(x => x.qty === 0) && arch[0].soldLines >= 1 && (await ActivityItemModel.countDocuments({ deskId: otherId })) > 0, { otherAfter, otherStock, arch });
   const emp2 = await EmployeeModel.collection.insertOne({ tenantId: admin.tenantId, code: "EMP-LOG-2", firstName: "Ibrahim", lastName: "Caisse", position: "Caissier", isActive: true, createdAt: new Date(), updatedAt: new Date() });
   const site = await openSite(auth, {
-    name: "Autre restaurant", cash: { openingBalance: 200_000 }, vatRate: 0, targetNetMargin: 0.2,
+    name: "Autre restaurant", funding: { amount: 200_000, nature: "advance", label: "Avance du gérant" }, vatRate: 0, targetNetMargin: 0.2,
     staff: [{ employeeId: String(emp2.insertedId), share: 1 }], plannedCosts: [{ category: "electricite", amount: 25_000 }, { category: "eau", amount: 8_000 }], commonCostShare: 0,
     items: [
       { name: "Jus IRA", unit: "bouteille", category: "Boissons", salePrice: 300, unitCost: 4_800 / 24, pack: { label: "carton", size: 24 }, level: "reserve", packs: 3 },
@@ -391,13 +398,69 @@ async function main() {
   check("valeur du stock d'ouverture : 72 × 200 + 60 × 90 = 19 800", site.stockValue === 19_800, site);
   const sDesk = await ActivityDeskModel.findById(site.deskId).lean<{ treasuryAccountId: Types.ObjectId; activityId: Types.ObjectId; staff: Array<{ from?: string }>; plannedCosts: unknown[] }>();
   const caisseNew = await TreasuryAccountModel.findById(sDesk!.treasuryAccountId).lean<{ openingBalance: number; ledgerCode: string }>();
-  check("caisse du site : montant de départ 200 000, compte propre ; secteur propre ; agent affecté depuis l'ouverture ; charges prévues", caisseNew?.openingBalance === 200_000 && !!caisseNew.ledgerCode && !!sDesk!.activityId && sDesk!.staff[0]?.from === day && sDesk!.plannedCosts.length === 2, { caisseNew, sDesk });
+  const balNew = await accountBalance(tenantId, String(sDesk!.treasuryAccountId));
+  const entNew = await AccountingEntryModel.findOne({ tenantId, linkedDocType: "desk_funding", linkedDocId: site.deskId }).lean<{ lines: Array<{ accountCode: string; debit: number; credit: number }> }>();
+  check("caisse du site : montant de départ 200 000 écrit en comptabilité (caisse au débit, avance 462 au crédit), compte propre ; secteur propre ; agent daté ; charges prévues", balNew?.balance === 200_000 && entNew?.lines.some(l => l.accountCode === caisseNew!.ledgerCode && l.debit === 200_000) === true && entNew?.lines.some(l => l.accountCode === "462000" && l.credit === 200_000) === true && !!sDesk!.activityId && sDesk!.staff[0]?.from === day && sDesk!.plannedCosts.length === 2, { balNew, entNew, caisseNew });
   const rOpen = await deskMonthResult(tenantId, site.deskId, month);
   check("résultat du site : le stock d'ouverture n'est ni un achat, ni une perte, ni un écart d'inventaire", rOpen.pnl.revenueHT === 0 && rOpen.pnl.costOfSales === 0 && rOpen.pnl.losses === 0 && rOpen.pnl.inventoryGap === 0 && rOpen.pnl.cashPurchases === 0, rOpen.pnl);
   check("stock d'ouverture : aucune dette fournisseur ni réception à rapprocher", (await PurchasePriceLogModel.countDocuments({ tenantId, deskId: site.deskId })) === 0);
   await receiveInReserve(auth, site.deskId, [{ itemId: ira!.itemId, packs: 10, packCost: 4_800 }], { supplier: "Grossiste IRA", reference: "BL-IRA-1" });
   check("réception de 10 cartons de Jus IRA : +240 bouteilles, coût unitaire 200", (await restaurantStock(tenantId, site.deskId, true)).rows.find(r => r.name === "Jus IRA")?.reserve === 312);
-  check("nom déjà pris par un site actif : refusé", await refuses(() => openSite(auth, { name: "Autre restaurant", cash: { openingBalance: 0 } }, true), /déjà ce nom/));
+  check("nom déjà pris par un site actif : refusé", await refuses(() => openSite(auth, { name: "Autre restaurant" }, true), /déjà ce nom/));
+  check("faute dans le stock : rien n'est créé", await refuses(() => openSite(auth, { name: "Site incomplet", funding: { amount: 1000, nature: "to_classify" }, items: [{ name: "Riz", unitCost: 0, level: "reserve", quantity: 10 }] }, true), /coût/) && !(await ActivityDeskModel.exists({ tenantId, name: "Site incomplet" })));
+
+  console.log("\n▶ Ajout d'argent et de stock sur un site ouvert ; situation de départ");
+  const site2 = await openSite(auth, { name: "Site B" }, true);
+  check("site ouvert sans argent ni stock : le reste à faire le dit", (await sitesOverview(tenantId)).find(x => x.deskId === site2.deskId)!.todo.join() === "montant de départ,stock de départ,agents,charges prévues");
+  const site2Desk = await ActivityDeskModel.findById(site2.deskId).lean<{ treasuryAccountId: Types.ObjectId }>();
+  const srcBal0 = (await accountBalance(tenantId, String(sDesk!.treasuryAccountId)))!.balance;
+  await allocateFunds(auth, site2.deskId, { amount: 50_000, nature: "transfer", fromAccountId: String(sDesk!.treasuryAccountId) });
+  check("virement de départ : 50 000 quittent un compte et arrivent au site, sans recette", (await accountBalance(tenantId, String(sDesk!.treasuryAccountId)))!.balance === srcBal0 - 50_000 && (await accountBalance(tenantId, String(site2Desk!.treasuryAccountId)))!.balance === 50_000);
+  check("virement supérieur au solde : refusé", await refuses(() => allocateFunds(auth, site2.deskId, { amount: 90_000_000, nature: "transfer", fromAccountId: String(sDesk!.treasuryAccountId) }), /Solde insuffisant/));
+  await openingStock(auth, site2.deskId, [{ name: "jus ira", unit: "bouteille", unitCost: 200, pack: { label: "carton", size: 24 }, level: "desk", packs: 2, quantity: 5 }]);
+  const b2 = (await restaurantStock(tenantId, site2.deskId, true)).rows.find(r => r.name === "Jus IRA");
+  const prodOf = async (d: string) => String((await ActivityItemModel.findOne({ deskId: d, name: "Jus IRA" }).lean<{ productId: Types.ObjectId }>())!.productId);
+  check("même article sur deux sites : une seule fiche du catalogue ; 2 cartons + 5 = 53 au comptoir", b2?.desk === 53 && (await prodOf(site2.deskId)) === (await prodOf(site.deskId)), b2);
+  const tpl = await siteTemplates(tenantId, site.deskId);
+  check("reprise des articles d'un autre site : fiche, carton et coût", tpl.find(t => t.name === "Jus IRA")?.packSize === 24 && tpl.find(t => t.name === "Jus IRA")?.unitCost === 200, tpl);
+  await ActivityItemModel.create({ tenantId, deskId: site.deskId, name: "Omelette", unit: "portion", quantity: 0, unitCost: 0, salePrice: 500, recipe: [{ itemId: oeufs!.itemId, quantity: 2 }], portions: 1, createdBy: admin._id });
+  const cp = await copyRecipes(auth, site.deskId, site2.deskId);
+  const om2 = await ActivityItemModel.findOne({ deskId: site2.deskId, name: "Omelette" }).lean<{ recipe: Array<{ itemId: Types.ObjectId }> }>();
+  const oe2 = await ActivityItemModel.findOne({ deskId: site2.deskId, name: "Œufs" }).lean<{ _id: Types.ObjectId }>();
+  check("reprise des fiches techniques : recette reliée à l'ingrédient du nouveau site", cp.recipes >= 1 && String(om2!.recipe[0].itemId) === String(oe2!._id), { cp, om2 });
+  const f3 = await allocateFunds(auth, site2.deskId, { amount: 10_000, nature: "contribution" });
+  check("apport : compte d'attente, à qualifier", (await openingPosition(tenantId, site2.deskId, 0)).lines.find(l => l._id === String(f3._id))?.toQualify === true);
+  await qualifyFunding(auth, String(f3._id), "101000", "Capital social");
+  check("qualification par la comptable : compte d'attente soldé vers le capital", !(await openingPosition(tenantId, site2.deskId, 0)).lines.find(l => l._id === String(f3._id))?.toQualify && !!(await AccountingEntryModel.findOne({ tenantId, reference: `QUAL-${String(f3._id).slice(-6).toUpperCase()}` })));
+  const f4 = await allocateFunds(auth, site2.deskId, { amount: 7_000, nature: "to_classify" });
+  const balB = (await accountBalance(tenantId, String(site2Desk!.treasuryAccountId)))!.balance;
+  await cancelFunding(auth, String(f4._id), "Saisie en double");
+  check("annulation d'un montant : solde rétabli, écriture extournée, ligne gardée", (await accountBalance(tenantId, String(site2Desk!.treasuryAccountId)))!.balance === balB - 7_000 && !!(await DeskFundingModel.findById(f4._id).lean<{ cancelledAt?: Date }>())?.cancelledAt);
+  // L'exemple du plan : 1 000 000 d'avance dont 300 000 déjà transformés en stock.
+  const site3 = await openSite(auth, { name: "Site C", funding: { amount: 700_000, nature: "advance" }, items: [{ name: "Stock acheté avec l'avance", unitCost: 1_000, level: "reserve", quantity: 300 }] }, true);
+  await addOpeningLine(auth, site3.deskId, { kind: "owner_paid", amount: 300_000, label: "Stock payé par le dirigeant sur l'avance" });
+  const pos3 = await openingPosition(tenantId, site3.deskId, site3.stockValue);
+  check("avance de 1 000 000 dont 300 000 en stock : ressources 1 000 000 = emplois 1 000 000, pas de financement compté deux fois", pos3.resources === 1_000_000 && pos3.uses === 1_000_000 && pos3.gap === 0 && pos3.repayableLeft === 1_000_000, pos3);
+  const fAv = pos3.lines.find(l => l.nature === "advance")!;
+  const till3 = String((await ActivityDeskModel.findById(site3.deskId).lean<{ treasuryAccountId: Types.ObjectId }>())!.treasuryAccountId);
+  const r3Before = await deskMonthResult(tenantId, site3.deskId, month);
+  await repayFunding(auth, fAv._id, { amount: 100_000, fromAccountId: till3 });
+  const pos3b = await openingPosition(tenantId, site3.deskId, site3.stockValue);
+  const r3After = await deskMonthResult(tenantId, site3.deskId, month);
+  check("remboursement de 100 000 : avance restante 900 000, aucune charge au résultat", pos3b.repayableLeft === 900_000 && r3After.pnl.result === r3Before.pnl.result, { pos3b, a: r3After.pnl.result, b: r3Before.pnl.result });
+  check("remboursement au-delà du dû : refusé", await refuses(() => repayFunding(auth, fAv._id, { amount: 700_000, fromAccountId: till3 }), /reste/));
+
+  console.log("\n▶ Fonds de caisse et remise en banque");
+  const cs3 = await openSession(auth, { deskId: site3.deskId, openingFloat: 600_000 });
+  await allocateFunds(auth, site3.deskId, { amount: 20_000, nature: "to_classify" });
+  const rep3 = await periodReport(tenantId, site3.deskId, day, day, cs3.openingFloat);
+  check("dotation pendant une caisse ouverte : dans les espèces attendues, pas dans les recettes", rep3.expectedCash === 620_000 && rep3.receipts === 0 && rep3.sales.revenueTTC === 0, rep3);
+  const bank = await TreasuryAccountModel.create({ tenantId, label: "Banque test", type: "bank", currency: "XOF", openingBalance: 0, ledgerCode: "521199" });
+  await depositCash(auth, site3.deskId, { amount: 150_000, toAccountId: String(bank._id) });
+  const rep3b = await periodReport(tenantId, site3.deskId, day, day, cs3.openingFloat);
+  const r3c = await deskMonthResult(tenantId, site3.deskId, month);
+  check("remise en banque : espèces attendues −150 000, ni recette ni dépense, aucun chiffre d'affaires", rep3b.expectedCash === 470_000 && rep3b.expenses === 0 && rep3b.receipts === 0 && r3c.pnl.revenueHT === 0 && (await accountBalance(tenantId, String(bank._id)))!.balance === 150_000, rep3b);
+  check("archivage avec caisse ouverte : refusé", await refuses(() => archiveForRestart(auth, [site3.deskId], true), /fermez d'abord/));
 
   console.log(`\n${pass} réussis, ${fail} en échec`);
   await mongoose.disconnect();

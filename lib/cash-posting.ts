@@ -80,7 +80,7 @@ export async function postCashFlow(input: CashFlowInput, session?: ClientSession
 
 /** Annulation d'un flux : écriture extournée et mouvement contraire (jamais d'effacement). */
 export async function reverseCashFlow(
-  opts: { tenantId: string; userId: string; entryId?: unknown; movementId?: unknown; reason: string },
+  opts: { tenantId: string; userId: string; entryId?: unknown; movementId?: unknown; reason: string; source?: "manual" | "transfer" },
   session?: ClientSession,
 ) {
   if (opts.entryId) await reverseEntry({ tenantId: opts.tenantId, userId: opts.userId, entryId: opts.entryId, reason: opts.reason }, session);
@@ -90,7 +90,7 @@ export async function reverseCashFlow(
     if (m) {
       await TreasuryMovementModel.create([{
         tenantId: opts.tenantId, accountId: m.accountId, date: new Date(), amount: -m.amount,
-        label: `Annulation — ${m.label}`.slice(0, 200), reference: m.reference, source: "manual",
+        label: `Annulation — ${m.label}`.slice(0, 200), reference: m.reference, source: opts.source ?? "manual",
         linkedDocType: m.linkedDocType, linkedDocId: m.linkedDocId, createdBy: opts.userId,
       }], { session });
     }

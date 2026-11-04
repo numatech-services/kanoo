@@ -33,7 +33,7 @@ interface Report {
 interface Progress { rate: number; expected: number; behind: boolean; perDayNeeded: number | null }
 interface Session { _id: string; openDay: string; closeDay?: string; openingFloat: number; label?: string; status: string; summary?: Report; report?: Report; openedBy?: { firstName?: string; lastName?: string };
   targets?: { revenue?: number; margin?: number }; progress?: { elapsedDays: number; revenue: Progress | null; margin: Progress | null } | null }
-interface Data { showCosts: boolean; current: Session | null; previous: Report | null; history: Session[] }
+interface Data { showCosts: boolean; current: Session | null; previous: Report | null; history: Session[]; suggestedFloat?: number }
 
 /**
  * Caisse de la semaine : ouverture avec le fonds de caisse, bilan en direct
@@ -111,7 +111,7 @@ export function SessionTab({ deskId, deskName, onChange }: { deskId: string; des
         )}
       </section>
 
-      {openDlg && <OpenDialog deskId={deskId} suggested={data.history[0]?.summary?.countedCash} onClose={() => setOpenDlg(false)} onDone={() => { setOpenDlg(false); reload(); onChange(); }} />}
+      {openDlg && <OpenDialog deskId={deskId} suggested={data.history[0]?.summary?.countedCash ?? data.suggestedFloat} onClose={() => setOpenDlg(false)} onDone={() => { setOpenDlg(false); reload(); onChange(); }} />}
       {closeDlg && cur && r && <CloseDialog session={cur} report={r} onClose={() => setCloseDlg(false)} onDone={() => { setCloseDlg(false); reload(); onChange(); }} />}
     </div>
   );
@@ -239,7 +239,7 @@ function OpenDialog({ deskId, suggested, onClose, onDone }: { deskId: string; su
   return (
     <Modal open onClose={onClose} title="Ouvrir la caisse" size="sm">
       <div className="space-y-4">
-        <FormField label="Fonds de caisse (espèces au départ)" hint={suggested !== undefined ? "Proposé : les espèces comptées à la dernière fermeture." : undefined}>
+        <FormField label="Fonds de caisse (espèces au départ)" hint={suggested !== undefined ? "Proposé : les espèces de la dernière fermeture, ou l'argent alloué au site à la première ouverture." : undefined}>
           <input type="number" min={0} className={inputCls} value={float} onChange={e => setFloat(e.target.value)} />
         </FormField>
         <FormField label="Nom (facultatif)"><input className={inputCls} maxLength={80} placeholder="Semaine 44" value={label} onChange={e => setLabel(e.target.value)} /></FormField>

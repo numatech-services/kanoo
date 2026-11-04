@@ -94,12 +94,14 @@ export async function periodReport(tenantId: string, deskId: unknown, fromDay: s
   ]);
   const s = sales[0] ?? { n: 0, ttc: 0, ht: 0, cost: 0, margin: 0 };
   const sum = (pred: (e: (typeof entries)[number]) => boolean) => entries.filter(pred).reduce((t, e) => t + e.total, 0);
-  const receipts = sum(e => e._id.d === "in");
-  const expenses = sum(e => e._id.d === "out");
+  // Dotations du site et remises en banque : de l'argent qui change de place, ni recette ni dépense.
+  const internal = (e: (typeof entries)[number]) => e._id.c === "funding" || e._id.c === "cash_transfer";
+  const receipts = sum(e => e._id.d === "in" && !internal(e));
+  const expenses = sum(e => e._id.d === "out" && !internal(e));
   const methods = [...new Set(entries.map(e => e._id.m))].map(m => ({
     method: m, receipts: sum(e => e._id.m === m && e._id.d === "in"), expenses: sum(e => e._id.m === m && e._id.d === "out"),
   }));
-  const cats = [...new Set(entries.filter(e => e._id.d === "out").map(e => e._id.c ?? "other"))].map(c => ({
+  const cats = [...new Set(entries.filter(e => e._id.d === "out" && !internal(e)).map(e => e._id.c ?? "other"))].map(c => ({
     category: c, label: EXPENSE_CATEGORIES[c] ?? c, amount: sum(e => e._id.d === "out" && (e._id.c ?? "other") === c),
   })).sort((a, b) => b.amount - a.amount);
   const cash = methods.find(m => m.method === "cash");
@@ -118,7 +120,8 @@ export async function periodReport(tenantId: string, deskId: unknown, fromDay: s
     creditSettled: sum(e => e._id.d === "in" && e._id.k),
     shrinkage: { total: losses.total, byReason: losses.byReason },
     netMargin: Math.round(s.margin) - losses.total,
-    otherReceipts: sum(e => e._id.d === "in" && !e._id.t && !e._id.k && e._id.c !== "easypay_topup"),
+    otherReceipts: sum(e => e._id.d === "in" && !e._id.t && !e._id.k && e._id.c !== "easypay_topup" && !internal(e)),
+    internalIn: sum(e => e._id.d === "in" && internal(e)), internalOut: sum(e => e._id.d === "out" && internal(e)),
     byMethod: methods, expensesByCategory: cats,
     openingFloat, expectedCash: openingFloat + (cash?.receipts ?? 0) - (cash?.expenses ?? 0),
     byDay: byDay.map(d => ({ day: d._id, revenueTTC: d.ttc, margin: Math.round(d.margin), tickets: d.n })),
