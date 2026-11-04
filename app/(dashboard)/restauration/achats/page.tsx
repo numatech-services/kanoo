@@ -10,6 +10,7 @@ import { apiJson, apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { useOpKey } from "@/lib/use-op-key";
 import { Modal } from "@/components/ui/Modal";
+import { promptDialog } from "@/components/ui/Dialogs";
 import { RestoNav } from "@/components/restauration/RestoNav";
 import { StandingSetup } from "@/components/restauration/StandingDeliveries";
 import { GroupedOrders } from "@/components/restauration/GroupedOrders";
@@ -20,9 +21,9 @@ const DATE = (d: string) => new Date(d).toLocaleDateString("fr-FR");
 interface Data {
   prices: Array<{ itemId: string; name: string; unit: string; last: { unitCost: number; date: string; supplier: string | null }; avg: number; min: number; max: number; purchases: number; changePct: number | null; best: string | null; savings: number;
     suppliers: Array<{ name: string; avg: number; last: number; lastDate: string; purchases: number }> }>;
-  receptions: Array<{ _id: string; item: string; unit: string; supplier: string | null; quantity: number; unitCost: number; amount: number; date: string; reference: string | null }>;
+  receptions: Array<{ unvalued?: boolean; _id: string; item: string; unit: string; supplier: string | null; quantity: number; unitCost: number; amount: number; date: string; reference: string | null }>;
   orders: Array<{ _id: string; number: string; supplier: string | null; totalTTC: number; status: string; date: string }>;
-  payables: { total: number; overdue: number; suppliers: Array<{ supplier: string; total: number; credits: number; paid: number; rest: number; overdue: number; invoices: Invoice[] }> };
+  payables: { total: number; overdue: number; estimatedOrders: number; suppliers: Array<{ supplier: string; total: number; credits: number; paid: number; rest: number; overdue: number; invoices: Invoice[] }> };
 }
 interface Invoice { _id: string; number: string; ref: string | null; date: string; dueDate: string | null; total: number; credits: number; paid: number; rest: number; late: boolean }
 
@@ -39,6 +40,14 @@ export default function AchatsPage() {
   useEffect(() => { apiJson("/api/comptoir/desks").then(d => { const l = (d.data ?? []) as Array<{ _id: string; name: string }>; setDesks(l); if (l[0]) setDeskId(x => x || l[0]._id); }).catch(() => {}); }, []);
   const { data, loading, error, reload } = useApi<Data | null>(deskId ? `/api/restauration/achats?deskId=${deskId}` : null, d => (d?.data as Data) ?? null, null, { quiet: true });
   const totalPicked = (data?.receptions ?? []).filter(r => picked.includes(r._id)).reduce((t, r) => t + r.amount, 0);
+
+  async function valueOne(id: string, item: string) {
+    const v = await promptDialog({ title: `Prix unitaire de ${item}`, message: "La dette fournisseur sera créée et le coût moyen corrigé.", label: "Prix (FCFA)", type: "number", required: true });
+    if (!v) return;
+    const r = await apiSend<{ error?: string }>("POST", "/api/restauration/achats", { deskId, action: "value", ids: [id], unitCost: Number(v) });
+    if (!r.ok) return showToast(r.data.error || "Refusé", "error");
+    showToast("Réception valorisée", "success"); reload();
+  }
 
   async function reconcile() {
     const r = await apiSend<{ error?: string; data?: { matched: number } }>("POST", "/api/restauration/achats", { deskId, ids: picked, invoiceRef: invoice });
@@ -57,6 +66,7 @@ export default function AchatsPage() {
         <FormField label="Restaurant"><select className={selectCls} value={deskId} onChange={e => { setPicked([]); setDeskId(e.target.value); }}>{desks.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}</select></FormField>
       </div>
       <RestoNav />
+      <GroupedOrders />
       {error && <p className="text-sm text-neg">{error}</p>}
       {loading && !data ? <div className="h-48 surface-card animate-pulse" /> : !data ? null : <>
         <Payables deskId={deskId} data={data.payables} onDone={reload} />
@@ -89,6 +99,7 @@ export default function AchatsPage() {
               <tbody>{data.receptions.map(r => (
                 <tr key={r._id} className="border-t border-line">
                   <td><input type="checkbox" checked={picked.includes(r._id)} onChange={e => setPicked(x => e.target.checked ? [...x, r._id] : x.filter(y => y !== r._id))} aria-label="Choisir" /></td>
+                  {r.unvalued && <td><button onClick={() => valueOne(r._id, r.item)} className={buttonClass("secondary", "sm")}>Valoriser</button></td>}
                   <td className="text-ink2">{DATE(r.date)}</td><td>{r.item}</td><td>{r.supplier ?? "—"}</td>
                   <td className="text-right font-mono">{r.quantity.toLocaleString("fr-FR")} {r.unit}</td>
                   <td className="text-right font-mono">{r.unitCost ? MONEY(r.amount) : <span className="text-warn text-xs">à valoriser</span>}</td>
@@ -110,7 +121,6 @@ export default function AchatsPage() {
           )}
         </section>
       </>}
-      <GroupedOrders />
       {deskId && <StandingSetup key={deskId} deskId={deskId} />}
     </div>
   );
@@ -129,6 +139,7 @@ function Payables({ deskId, data, onDone }: { deskId: string; data: Data["payabl
         <h2 className="font-semibold text-ink inline-flex items-center gap-2"><HandCoins size={16} /> Ce que vous devez aux fournisseurs</h2>
         <p className="text-sm text-ink2">Total : <b className="font-mono">{MONEY(data.total)}</b>{data.overdue > 0 && <> · <span className="text-neg">en retard : {MONEY(data.overdue)}</span></>}</p>
       </div>
+      {data.estimatedOrders > 0 && <p className="text-sm text-warn">Plus {MONEY(data.estimatedOrders)} estimés : commandes reçues dont la facture n&apos;est pas enregistrée.</p>}
       {!data.suppliers.length ? <p className="text-sm text-ink3">Rien à payer : chaque réception à crédit apparaît ici dès qu&apos;elle est enregistrée.</p> : data.suppliers.map(s => (
         <div key={s.supplier} className="rounded-lg border border-line p-3 space-y-2">
           <div className="flex items-center justify-between gap-2 flex-wrap text-sm">

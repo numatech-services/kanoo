@@ -132,6 +132,8 @@ describe("Organisation — données masquées et périmètres", () => {
     expect(deskScope(auth(["svc_spot"], { svc_spot: "employe" }, { siteIds: ["a", "b"] }))).toEqual(["a", "b"]);
     expect(deskScope(auth(["svc_spot"], { svc_spot: "stagiaire" }))).toEqual([]);
     expect(deskScope(auth(["svc_spot"], { svc_spot: "chef" }))).toBeNull();
+    // Le niveau donne les droits, les sites attribués le périmètre : un chef affecté reste sur ses sites.
+    expect(deskScope(auth(["svc_spot"], { svc_spot: "chef" }, { siteIds: ["a"] }))).toEqual(["a"]);
     expect(deskScope(auth(["svc_compta"]))).toBeNull();
     expect(deskScope(auth(["svc_spot", "pme_admin"], { svc_spot: "employe" }, { siteIds: ["a"] }))).toBeNull();
   });

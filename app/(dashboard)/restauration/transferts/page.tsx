@@ -8,7 +8,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { showToast } from "@/components/ui/Toast";
 import { apiJson, apiSend } from "@/lib/api-client";
 import { useOpKey } from "@/lib/use-op-key";
-import { promptDialog } from "@/components/ui/Dialogs";
+import { confirmDialog } from "@/components/ui/Dialogs";
 import { useApi } from "@/lib/use-api";
 import { SignaturePad } from "@/components/shared/SignaturePad";
 import { BarcodeScanner, beep } from "@/components/shared/BarcodeScanner";
@@ -36,18 +36,16 @@ export default function TransfertsPage() {
   const [desks, setDesks] = useState<Array<{ _id: string; name: string }>>([]);
   const [sending, setSending] = useState(false);
   const [receiving, setReceiving] = useState<Transfer | null>(null);
+  const [resolving, setResolving] = useState<Transfer | null>(null);
   useEffect(() => { apiJson("/api/comptoir/desks").then(d => setDesks((d.data ?? []) as Array<{ _id: string; name: string }>)).catch(() => {}); }, []);
   const { data, loading, error, reload } = useApi<Transfer[]>("/api/restauration/transferts", d => (d?.data as Transfer[]) ?? [], [], { quiet: true });
   const mine = new Set(desks.map(d => d._id));
 
-  async function resolve(id: string) {
-    const answer = await promptDialog({ title: "Trancher l'écart", message: "Tapez RETOUR si la marchandise est revenue chez l'expéditeur, PERTE si elle est perdue (elle compte alors au résultat de l'expéditeur).", label: "RETOUR ou PERTE", required: true });
-    const decision = answer?.trim().toUpperCase() === "RETOUR" ? "return" : answer?.trim().toUpperCase() === "PERTE" ? "loss" : null;
-    if (!answer) return;
-    if (!decision) return showToast("Répondez RETOUR ou PERTE.", "error");
+  async function resolve(id: string, decision: "return" | "loss") {
+    if (!(await confirmDialog(decision === "return" ? "La marchandise manquante revient chez l'expéditeur ?" : "La marchandise manquante est perdue ? Elle compte au résultat de l'expéditeur."))) return;
     const r = await apiSend<{ error?: string }>("POST", "/api/restauration/transferts", { action: "resolve", id, decision });
     if (!r.ok) return showToast(r.data.error || "Refusé", "error");
-    showToast("Écart tranché", "success"); reload();
+    showToast("Écart tranché", "success"); setResolving(null); reload();
   }
 
   async function print(id: string) {
@@ -79,6 +77,12 @@ export default function TransfertsPage() {
       </div>
       <RestoNav />
       {error && <p className="text-sm text-neg">{error}</p>}
+      {data.filter(t => (t.status === "sent" || t.status === "transit") && mine.has(t.toDeskId)).map(t => (
+        <section key={`r${t._id}`} className="surface-card p-4 flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-sm"><b>À recevoir</b> de {t.fromName} : {t.lines.map(l => `${l.name} ${l.quantity} ${l.unit}`).join(", ")}</p>
+          <button onClick={() => setReceiving(t)} className={buttonClass("primary", "sm")}><PenLine size={13} /> Signer la réception</button>
+        </section>
+      ))}
       {loading && !data.length ? <div className="h-40 surface-card animate-pulse" /> : !data.length ? (
         <EmptyState icon={<Truck size={20} />} title="Aucun transfert" hint="Un restaurant en manque peut être dépanné par un autre, sans passer par un achat." />
       ) : (
@@ -94,7 +98,7 @@ export default function TransfertsPage() {
                 <td>{t.status === "gap" ? <Pill tone="neg">écart à trancher</Pill> : t.status === "received" ? <Pill tone="pos">reçu{t.gapNote ? " avec écart" : ""}</Pill> : <Pill tone="warn">en transit</Pill>}</td>
                 <td className="text-right whitespace-nowrap">
                   {(t.status === "sent" || t.status === "transit") && mine.has(t.toDeskId) && <button onClick={() => setReceiving(t)} className={buttonClass("secondary", "sm")}><PenLine size={13} /> Signer la réception</button>}
-                  {t.status === "gap" && t.value !== undefined && <button onClick={() => resolve(t._id)} className={buttonClass("secondary", "sm")}>Trancher l&apos;écart</button>}
+                  {t.status === "gap" && t.value !== undefined && <button onClick={() => setResolving(t)} className={buttonClass("secondary", "sm")}>Trancher l&apos;écart</button>}
                   <button onClick={() => print(t._id)} className={buttonClass("ghost", "sm")} title="Imprimer le bon"><Printer size={13} /></button>
                 </td>
               </tr>
@@ -103,13 +107,16 @@ export default function TransfertsPage() {
         </div>
       )}
       {sending && <SendDialog desks={desks} onClose={() => setSending(false)} onDone={() => { setSending(false); reload(); }} />}
+      {resolving && <Modal open onClose={() => setResolving(null)} title={`Écart du bon ${resolving.number}`} description={resolving.gapNote} size="sm" footer={<><button onClick={() => resolve(resolving._id, "return")} className={buttonClass("secondary", "md")}>Revenue chez l&apos;expéditeur</button><button onClick={() => resolve(resolving._id, "loss")} className={buttonClass("primary", "md")}>Perdue</button></>}>
+        <ul className="text-sm list-disc pl-5">{resolving.lines.filter(l => (l.receivedQty ?? l.quantity) < l.quantity).map(l => <li key={l.fromItemId}>{l.name} : manque {Math.round((l.quantity - (l.receivedQty ?? 0)) * 1000) / 1000} {l.unit}</li>)}</ul>
+      </Modal>}
       {receiving && <ReceiveTransferDialog t={receiving} onClose={() => setReceiving(null)} onDone={() => { setReceiving(null); reload(); }} />}
     </div>
   );
 }
 
 function SendDialog({ desks, onClose, onDone }: { desks: Array<{ _id: string; name: string }>; onClose: () => void; onDone: () => void }) {
-  const [fromId, setFromId] = useState(desks[0]?._id ?? "");
+  const [fromId, setFromId] = useState(() => { const q = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("from"); return q && desks.some(d => d._id === q) ? q : desks[0]?._id ?? ""; });
   const [toId, setToId] = useState("");
   const [all, setAll] = useState<Array<{ _id: string; name: string }>>(desks);
   const [rows, setRows] = useState<StockRow[]>([]);
@@ -118,7 +125,7 @@ function SendDialog({ desks, onClose, onDone }: { desks: Array<{ _id: string; na
   const [busy, setBusy] = useState(false);
   // Destinataires : tous les restaurants de l'organisation (la liste « mes comptoirs » peut être limitée).
   useEffect(() => { apiJson("/api/restauration/transferts?destinations=1").then(d => { const l = (d.data ?? []) as Array<{ _id: string; name: string }>; if (l.length) setAll(l); }).catch(() => {}); }, []);
-  useEffect(() => { if (fromId) apiJson(`/api/comptoir/reserve?deskId=${fromId}`).then(d => setRows(((d.data as ReserveData)?.rows ?? []).filter(r => !r.preparation && r.reserve > 0))).catch(() => setRows([])); }, [fromId]);
+  useEffect(() => { if (fromId) apiJson(`/api/comptoir/reserve?deskId=${fromId}`).then(d => setRows(((d.data as ReserveData)?.rows ?? []).filter(r => r.batch ? r.desk > 0 : !r.preparation && r.reserve > 0))).catch(() => setRows([])); }, [fromId]);
   const chosen = rows.filter(r => r.itemId in qty);
   const op = useOpKey();
   async function send() {
@@ -148,14 +155,14 @@ function SendDialog({ desks, onClose, onDone }: { desks: Array<{ _id: string; na
         }} />
         <select className={selectCls} value="" onChange={e => e.target.value && setQty(q => ({ ...q, [e.target.value]: { packs: "", units: "" } }))}>
           <option value="">Ajouter un article de la réserve…</option>
-          {rows.filter(r => !(r.itemId in qty)).map(r => <option key={r.itemId} value={r.itemId}>{r.name} — {r.reserve} {r.unit}</option>)}
+          {rows.filter(r => !(r.itemId in qty)).map(r => <option key={r.itemId} value={r.itemId}>{r.name} — {r.batch ? `${r.desk} portion(s)` : `${r.reserve} ${r.unit}`}</option>)}
         </select>
         {chosen.length > 0 && (
           <table className="table-dense w-full">
             <thead><tr><th>Article</th><th className="text-right">En réserve</th><th>Paquets</th><th>ou unités</th></tr></thead>
             <tbody>{chosen.map(r => (
               <tr key={r.itemId} className="border-t border-line">
-                <td>{r.name}</td><td className="text-right font-mono">{r.reserve} {r.unit}</td>
+                <td>{r.name}</td><td className="text-right font-mono">{r.batch ? r.desk : r.reserve} {r.unit}</td>
                 <td>{r.pack?.size ? <input className={`${inputCls} w-20`} inputMode="decimal" value={qty[r.itemId].packs} onChange={e => setQty(q => ({ ...q, [r.itemId]: { ...q[r.itemId], packs: e.target.value } }))} /> : "—"}</td>
                 <td><input className={`${inputCls} w-24`} inputMode="decimal" disabled={num(qty[r.itemId].packs) > 0} value={qty[r.itemId].units} onChange={e => setQty(q => ({ ...q, [r.itemId]: { ...q[r.itemId], units: e.target.value } }))} /></td>
               </tr>

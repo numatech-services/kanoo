@@ -11,7 +11,7 @@ import { RestoNav } from "@/components/restauration/RestoNav";
 
 const MONEY = (n?: number | null) => (n === undefined || n === null ? "—" : `${Math.round(n).toLocaleString("fr-FR")} FCFA`);
 const dayOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const TABS = [["journal", "Journal"], ["evolution", "Évolution"], ["controls", "À contrôler"], ["balance", "Équilibre"], ["margins", "Marges"], ["stock", "Stocks"]] as const;
+const TABS = [["journal", "Journal d'activité"], ["evolution", "Évolution"], ["controls", "À contrôler"], ["balance", "Équilibre"], ["margins", "Marges"], ["stock", "Stocks"]] as const;
 type Tab = (typeof TABS)[number][0];
 const PERIODS = [["today", "Jour"], ["week", "Semaine"], ["month", "Mois"], ["quarter", "Trimestre"], ["year", "Année"], ["custom", "Dates libres"]] as const;
 
@@ -30,13 +30,13 @@ const csv = (name: string, rows: Array<Array<string | number | null>>) => {
 };
 const delta = (a: number, b: number) => (b ? `${a >= b ? "+" : ""}${Math.round(((a - b) / b) * 1000) / 10} %` : "—");
 
-interface JRow { date: string; site: string; kind: string; label: string; category: string; method: string; party: string | null; piece: string | null; receipt: number; expense: number; status: string | null }
-interface Journal { rows: JRow[]; totals: { receipts: number; expenses: number }; categories: string[]; methods: string[] }
+interface JRow { date: string; site: string; kind: string; label: string; category: string; method: string; party: string | null; piece: string | null; sale: number; receipt: number; expense: number; status: string | null }
+interface Journal { rows: JRow[]; truncated: boolean; totals: { sales: number; receipts: number; expenses: number }; categories: string[]; methods: string[] }
 interface Evo { days: number; prevFrom: string; prevTo: string; sites: Array<{ deskId: string; name: string; current: M; previous: M }>; total: { current: M; previous: M } }
 interface M { revenue: number; tickets: number; expenses: number }
 interface Ctl { items: Array<{ key: string; label: string; count: number; amount?: number; detail?: string }>; total: number }
-interface Bal { name: string; since: string; cumulativeResult: number; cumulativeRevenue: number; levels: { margin: number; afterDirect: number; afterCommon: number; status: string } | null; breakEvenRevenue: number | null; monthRevenue: number; cash: number | null; dueIn7Days: number; repayableLeft: number }
-interface Margins { rows: Array<{ itemId: string; name: string; category: string; sold: number; netHT: number; standardCost: number | null; expectedMargin: number | null; losses: number; gaps: number; actualMargin: number | null; estimated: boolean }>; families: Array<{ category: string; netHT: number; expected: number; realCost: number }>; site: { expected: number; actual: number; revenueHT: number; losses: number; gap: number }; method: string }
+interface Bal { payrollHidden: boolean; warnings: string[]; name: string; since: string; cumulativeResult: number; cumulativeRevenue: number; levels: { margin: number; afterDirect: number; afterCommon: number; status: string } | null; breakEvenRevenue: number | null; monthRevenue: number; cash: number | null; dueIn7Days: number; repayableLeft: number }
+interface Margins { missingCost: number; rows: Array<{ itemId: string; name: string; category: string; sold: number; netHT: number; standardCost: number | null; expectedMargin: number | null; losses: number; gaps: number; actualMargin: number | null; estimated: boolean }>; families: Array<{ category: string; netHT: number; expected: number; realCost: number }>; site: { expected: number; actual: number; revenueHT: number; losses: number; gap: number }; method: string }
 interface Stock { sites: Array<{ _id: string; name: string }>; rows: Array<{ productId: string; label: string; unit: string; sites: Record<string, number>; transit: number; total: number; value: number }>; totalValue: number }
 
 /**
@@ -82,10 +82,10 @@ export default function ComptablePage() {
 }
 
 function JournalTab({ q, name }: { q: string; name: string }) {
-  const [category, setCategory] = useState(""), [method, setMethod] = useState("");
+  const [category, setCategory] = useState(""), [method, setMethod] = useState(""), [search, setSearch] = useState("");
   const { data, error } = useApi<Journal | null>(`/api/restauration/comptable?view=journal&${q}`, d => (d?.data as Journal) ?? null, null, { quiet: true });
-  const rows = useMemo(() => (data?.rows ?? []).filter(r => (!category || r.category === category) && (!method || r.method === method)), [data, category, method]);
-  const receipts = rows.reduce((t, r) => t + r.receipt, 0), expenses = rows.reduce((t, r) => t + r.expense, 0);
+  const rows = useMemo(() => (data?.rows ?? []).filter(r => (!category || r.category === category) && (!method || r.method === method) && (!search.trim() || `${r.party ?? ""} ${r.status ?? ""} ${r.label}`.toLowerCase().includes(search.trim().toLowerCase()))), [data, category, method, search]);
+  const receipts = rows.reduce((t, r) => t + r.receipt, 0), expenses = rows.reduce((t, r) => t + r.expense, 0), sold = rows.reduce((t, r) => t + r.sale, 0);
   if (error) return <p className="text-sm text-neg">{error}</p>;
   if (!data) return <div className="h-40 surface-card animate-pulse" />;
   return (
@@ -94,28 +94,31 @@ function JournalTab({ q, name }: { q: string; name: string }) {
         <div className="flex gap-2 flex-wrap">
           <select className={`${selectCls} w-auto`} value={category} aria-label="Catégorie" onChange={e => setCategory(e.target.value)}><option value="">Toutes catégories</option>{data.categories.map(c => <option key={c}>{c}</option>)}</select>
           <select className={`${selectCls} w-auto`} value={method} aria-label="Moyen de paiement" onChange={e => setMethod(e.target.value)}><option value="">Tous moyens</option>{data.methods.map(c => <option key={c}>{c}</option>)}</select>
+          <input className={`${inputCls} w-44`} value={search} onChange={e => setSearch(e.target.value)} placeholder="Tiers, statut…" aria-label="Filtrer par tiers ou statut" />
         </div>
-        <button onClick={() => csv(name, [["Date", "Site", "Libellé", "Catégorie", "Moyen", "Tiers", "Pièce", "Recette", "Dépense", "Statut"], ...rows.map(r => [r.date.slice(0, 10), r.site, r.label, r.category, r.method, r.party, r.piece, r.receipt, r.expense, r.status])])} className={buttonClass("secondary", "sm")}><Download size={14} /> Exporter</button>
+        <button onClick={() => csv(name, [["Date", "Site", "Libellé", "Catégorie", "Moyen", "Tiers", "Pièce", "Vendu", "Encaissé", "Décaissé", "Statut"], ...rows.map(r => [r.date.slice(0, 10), r.site, r.label, r.category, r.method, r.party, r.piece, r.sale, r.receipt, r.expense, r.status])])} className={buttonClass("secondary", "sm")}><Download size={14} /> Exporter</button>
       </div>
-      <p className="text-sm text-ink2">Recettes <b className="font-mono">{MONEY(receipts)}</b> · dépenses <b className="font-mono">{MONEY(expenses)}</b> · solde <b className="font-mono">{MONEY(receipts - expenses)}</b>. Les dotations et remises en banque sont listées sans compter.</p>
+      <p className="text-sm text-ink2">Vendu <b className="font-mono">{MONEY(sold)}</b> · encaissé <b className="font-mono">{MONEY(receipts)}</b> · décaissé <b className="font-mono">{MONEY(expenses)}</b>. Dotations, remises et recharges de cartes sont listées sans compter. La paie et les charges payées hors du site n&apos;y figurent pas.</p>
+      {data.truncated && <p className="text-sm text-warn">Période trop longue : la liste et ses totaux sont incomplets. Réduisez les dates.</p>}
       <div className="overflow-x-auto"><table className="table-dense w-full min-w-[760px]">
-        <thead><tr><th>Date</th><th>Site</th><th>Opération</th><th>Catégorie</th><th>Moyen</th><th className="text-right">Recette</th><th className="text-right">Dépense</th></tr></thead>
+        <thead><tr><th>Date</th><th>Site</th><th>Opération</th><th>Catégorie</th><th>Moyen</th><th className="text-right">Vendu</th><th className="text-right">Encaissé</th><th className="text-right">Décaissé</th></tr></thead>
         <tbody>{rows.slice(0, 500).map((r, i) => (
           <tr key={i} className="border-t border-line">
             <td className="whitespace-nowrap">{new Date(r.date).toLocaleDateString("fr-FR")}</td><td>{r.site}</td>
             <td>{r.label}{r.party ? ` — ${r.party}` : ""}{r.status ? <span className="block text-[11px] text-ink3">{r.status}</span> : null}</td>
             <td>{r.kind === "internal" ? <Pill tone="mute">{r.category}</Pill> : r.category}</td><td>{r.method}</td>
-            <td className="text-right font-mono">{r.receipt ? MONEY(r.receipt) : ""}</td><td className="text-right font-mono">{r.expense ? MONEY(r.expense) : ""}</td>
+            <td className="text-right font-mono">{r.sale ? MONEY(r.sale) : ""}</td><td className="text-right font-mono">{r.receipt ? MONEY(r.receipt) : ""}</td><td className="text-right font-mono">{r.expense ? MONEY(r.expense) : ""}</td>
           </tr>
         ))}</tbody>
       </table></div>
-      {rows.length > 500 && <p className="text-[12px] text-ink3">500 premières lignes affichées : l&apos;export les contient toutes.</p>}
+      {rows.length > 500 && <p className="text-[12px] text-ink3">500 premières lignes affichées ; l&apos;export contient les {rows.length} lignes.</p>}
     </section>
   );
 }
 
 function EvolutionTab({ q }: { q: string }) {
-  const { data } = useApi<Evo | null>(`/api/restauration/comptable?view=evolution&${q}`, d => (d?.data as Evo) ?? null, null, { quiet: true });
+  const { data, error } = useApi<Evo | null>(`/api/restauration/comptable?view=evolution&${q}`, d => (d?.data as Evo) ?? null, null, { quiet: true });
+  if (error) return <p className="text-sm text-neg">{error}</p>;
   if (!data) return <div className="h-40 surface-card animate-pulse" />;
   const line = (name: string, c: M, p: M, key?: string) => (
     <tr key={key ?? name} className="border-t border-line"><td>{name}</td><td className="text-right font-mono">{MONEY(c.revenue)}</td><td className="text-right font-mono">{MONEY(p.revenue)}</td><td className="text-right">{delta(c.revenue, p.revenue)}</td><td className="text-right font-mono">{c.tickets}</td><td className="text-right font-mono">{MONEY(c.expenses)}</td><td className="text-right font-mono">{MONEY(p.expenses)}</td><td className="text-right">{delta(c.expenses, p.expenses)}</td></tr>
@@ -124,7 +127,7 @@ function EvolutionTab({ q }: { q: string }) {
     <section className="surface-card p-4 space-y-2">
       <p className="text-sm text-ink2">{data.days} jour(s) comparés aux {data.days} jour(s) précédents (du {new Date(`${data.prevFrom}T12:00:00`).toLocaleDateString("fr-FR")} au {new Date(`${data.prevTo}T12:00:00`).toLocaleDateString("fr-FR")}).</p>
       <div className="overflow-x-auto"><table className="table-dense w-full min-w-[720px]">
-        <thead><tr><th>Site</th><th className="text-right">CA</th><th className="text-right">Avant</th><th className="text-right">Écart</th><th className="text-right">Tickets</th><th className="text-right">Dépenses</th><th className="text-right">Avant</th><th className="text-right">Écart</th></tr></thead>
+        <thead><tr><th>Site</th><th className="text-right">CA</th><th className="text-right">Avant</th><th className="text-right">Écart</th><th className="text-right">Tickets</th><th className="text-right">Sorties de caisse</th><th className="text-right">Avant</th><th className="text-right">Écart</th></tr></thead>
         <tbody>{data.sites.map(s => line(s.name, s.current, s.previous, s.deskId))}{data.sites.length > 1 && line("Total", data.total.current, data.total.previous)}</tbody>
       </table></div>
     </section>
@@ -132,7 +135,8 @@ function EvolutionTab({ q }: { q: string }) {
 }
 
 function ControlsTab({ q }: { q: string }) {
-  const { data } = useApi<Ctl | null>(`/api/restauration/comptable?view=controls&${q}`, d => (d?.data as Ctl) ?? null, null, { quiet: true });
+  const { data, error } = useApi<Ctl | null>(`/api/restauration/comptable?view=controls&${q}`, d => (d?.data as Ctl) ?? null, null, { quiet: true });
+  if (error) return <p className="text-sm text-neg">{error}</p>;
   if (!data) return <div className="h-40 surface-card animate-pulse" />;
   return (
     <section className="surface-card p-4 space-y-2">
@@ -148,21 +152,25 @@ function ControlsTab({ q }: { q: string }) {
 }
 
 function BalanceTab({ q }: { q: string }) {
-  const { data } = useApi<Bal[]>(`/api/restauration/comptable?view=balance&${q}`, d => (d?.data as Bal[]) ?? [], [], { quiet: true });
+  const { data, error, loading } = useApi<Bal[]>(`/api/restauration/comptable?view=balance&${q}`, d => (d?.data as Bal[]) ?? [], [], { quiet: true });
+  if (error) return <p className="text-sm text-neg">{error}</p>;
+  if (loading && !data.length) return <div className="h-40 surface-card animate-pulse" />;
   return (
     <div className="grid gap-3 lg:grid-cols-2">{data.map(b => (
       <section key={b.name} className="surface-card p-4 space-y-2 text-sm">
         <p className="font-semibold text-ink">{b.name} <span className="text-ink3 font-normal">depuis {b.since}</span></p>
-        <p className="flex justify-between"><span>Résultat cumulé depuis le lancement</span><b className={`font-mono ${b.cumulativeResult < 0 ? "text-neg" : ""}`}>{MONEY(b.cumulativeResult)}</b></p>
+        <p className="flex justify-between"><span>Résultat de gestion cumulé{b.payrollHidden ? " (avant personnel)" : ""}{b.warnings.length ? " (incomplet)" : ""}</span><b className={`font-mono ${b.cumulativeResult < 0 ? "text-neg" : ""}`}>{MONEY(b.cumulativeResult)}</b></p>
         <p className="flex justify-between"><span>CA du mois / CA d&apos;équilibre</span><b className="font-mono">{MONEY(b.monthRevenue)} / {MONEY(b.breakEvenRevenue)}</b></p>
         {b.levels && <>
           <p className="flex justify-between"><span>Marge du mois</span><b className="font-mono">{MONEY(b.levels.margin)}</b></p>
           <p className="flex justify-between"><span>Après charges du site</span><b className="font-mono">{MONEY(b.levels.afterDirect)}</b></p>
           <p className="flex justify-between"><span>Après charges centrales ({b.levels.status === "validated" ? "validé" : "estimé"})</span><b className="font-mono">{MONEY(b.levels.afterCommon)}</b></p>
         </>}
-        <p className="flex justify-between border-t border-line pt-1"><span>Trésorerie (caisse du site)</span><b className="font-mono">{MONEY(b.cash)}</b></p>
+        <p className="flex justify-between border-t border-line pt-1"><span>Caisse du site</span><b className="font-mono">{MONEY(b.cash)}</b></p>
         <p className="flex justify-between"><span>À payer sous 7 jours</span><b className="font-mono">{MONEY(b.dueIn7Days)}</b></p>
         <p className="flex justify-between"><span>Avance restant à rembourser</span><b className="font-mono">{MONEY(b.repayableLeft)}</b></p>
+        {b.warnings.map(w => <p key={w} className="text-[12px] text-warn">{w}</p>)}
+        <p className="text-[12px] text-ink3">Résultat de gestion : ni comptable ni fiscal. La caisse ne compte ni la banque ni le mobile money de l&apos;entreprise.</p>
       </section>
     ))}</div>
   );
@@ -175,7 +183,7 @@ function MarginsTab({ deskId }: { deskId: string }) {
     <section className="surface-card p-4 space-y-3">
       <FormField label="Mois"><input type="month" className={`${inputCls} w-44`} value={month} onChange={e => e.target.value && setMonth(e.target.value)} /></FormField>
       {!data ? <div className="h-32 animate-pulse" /> : <>
-        <p className="text-sm text-ink2">Marge attendue <b className="font-mono">{MONEY(data.site.expected)}</b> · marge constatée du site <b className="font-mono">{MONEY(data.site.actual)}</b> (pertes {MONEY(data.site.losses)}, écarts {MONEY(data.site.gap)}).</p>
+        <p className="text-sm text-ink2">Marge attendue <b className="font-mono">{MONEY(data.site.expected)}</b> · marge constatée du site <b className="font-mono">{MONEY(data.site.actual)}</b> (pertes {MONEY(data.site.losses)}, écarts {MONEY(data.site.gap)}).{data.missingCost ? ` ${data.missingCost} article(s) sans coût ne sont pas dans la marge attendue.` : ""}</p>
         <div className="overflow-x-auto"><table className="table-dense w-full min-w-[760px]">
           <thead><tr><th>Article</th><th>Famille</th><th className="text-right">Vendu</th><th className="text-right">Ventes nettes</th><th className="text-right">Coût standard</th><th className="text-right">Marge attendue</th><th className="text-right">Pertes</th><th className="text-right">Écarts</th><th className="text-right">Marge constatée</th></tr></thead>
           <tbody>{data.rows.map(r => (

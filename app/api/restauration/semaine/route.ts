@@ -7,6 +7,8 @@ import { isId, ownDesk, canSeeDeskCosts } from "@/lib/comptoir";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { weekStatus, closeWeek, reopenWeek, setGapThreshold } from "@/lib/restaurant-week";
+import { depositCash } from "@/lib/restaurant-funding";
+import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +17,9 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   await connectDB();
   const deskId = new URL(req.url).searchParams.get("deskId");
   if (!isId(deskId) || !(await ownDesk(auth, deskId))) return notFound("Site introuvable");
-  return ok(await weekStatus(auth.tenantId, deskId));
+  // Comptes qui peuvent recevoir une remise : seulement leurs noms, pour qui gère la caisse.
+  const accounts = canSeeDeskCosts(auth) ? await TreasuryAccountModel.find({ tenantId: auth.tenantId, isActive: { $ne: false }, type: { $in: ["bank", "mobile_money"] } }).select("label").sort({ label: 1 }).lean() : [];
+  return ok({ ...(await weekStatus(auth.tenantId, deskId)), canManage: hasFinanceAccess(auth), accounts });
 });
 
 /** POST { deskId, action: "close", day?, note? } (chef, direction, comptabilité) · { action: "reopen", weekEnd, reason } · { action: "threshold", value } (direction, comptabilité). */
@@ -29,6 +33,11 @@ export const POST = withAuth("comptoir", "update", async (req: NextRequest, auth
       const r = await closeWeek(auth, body.deskId, typeof body.day === "string" && body.day ? body.day : undefined, typeof body.note === "string" ? body.note : undefined);
       await logAudit(auth, "UPDATE", "comptoir", { resourceId: body.deskId, metadata: { weekClosed: r.weekEnd, ...r.summary } });
       return ok(r);
+    }
+    if (body.action === "deposit") {
+      const r = await depositCash(auth, body.deskId, { amount: Number(body.amount), toAccountId: String(body.toAccountId ?? "") });
+      await logAudit(auth, "CREATE", "comptoir", { resourceId: body.deskId, metadata: { cashDeposit: body.amount } });
+      return ok({ deposited: true, entryId: String(r.entryId) });
     }
     // Rouvrir une période et régler le seuil de contrôle : pas celui qui compte et valide.
     if (!hasFinanceAccess(auth)) return forbidden("La réouverture et le seuil reviennent à la direction et à la comptabilité.");

@@ -258,7 +258,11 @@ export async function openSite(auth: TokenPayload, i: OpeningInput, canManageUse
   try { stock = await openingStock(auth, deskId, items, date.getTime() > Date.now() ? new Date() : date); }
   catch (e) { if (!(e instanceof BusinessRuleError)) throw e; stockError = e.message; }
   // Qui a payé ce stock : une ressource de la situation de départ, sans argent de plus.
-  if (stock?.stockValue && i.stockFundedBy && Object.hasOwn(OPENING_KINDS, i.stockFundedBy)) await addOpeningLine(auth, deskId, { kind: i.stockFundedBy, amount: stock.stockValue, label: "Stock de départ", date: date.getTime() > Date.now() ? new Date() : date });
+  if (stock?.stockValue && i.stockFundedBy && Object.hasOwn(OPENING_KINDS, i.stockFundedBy)) {
+    // Le site existe déjà : un échec ici se signale, il ne doit pas faire croire que l'ouverture a raté.
+    try { await addOpeningLine(auth, deskId, { kind: i.stockFundedBy, amount: stock.stockValue, label: "Stock de départ", date: date.getTime() > Date.now() ? new Date() : date }); }
+    catch { stockError = "L'origine du stock n'a pas été enregistrée : ajoutez la ligne dans la situation de départ."; }
+  }
   const copied = i.copyFromDeskId ? await copyRecipes(auth, i.copyFromDeskId, deskId) : null;
   return { deskId, name, items: stock?.items ?? 0, stockValue: stock?.stockValue ?? 0, funded: amount, copied, stockError, deskLines: stock?.desk ?? 0, reserveLines: stock?.reserve ?? 0 };
 }

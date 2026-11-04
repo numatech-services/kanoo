@@ -9,22 +9,26 @@ Ce document répond au point 2 du plan d'amélioration : cartographie, anomalies
 
 ## 0. Suivi au 4 novembre 2026
 
+« Livré » veut dire présent dans le code et testé ; les règles R1 à R10 restent à valider.
+
 | N° | État | Ce qui a été fait |
 |---|---|---|
-| A1 | Corrigé | Réception à crédit = facture validée (601 / 401). Paiement, retour et avoir ; solde par fournisseur dans Restauration → Achats. |
-| A2 | Corrigé | Argent de départ écrit en comptabilité avec son origine ; situation de départ ; remboursement d'avance. |
-| A3 | Corrigé pour les nouveaux sites | Tout article d'un site ouvert par l'assistant est relié au catalogue commun. Les anciens sites gardent les deux mécanismes. |
-| A4 | Corrigé pour les nouveaux sites | Achat de marchandises en dépense refusé : la réception est obligatoire. |
-| A5 | Corrigé | Transit, réception ligne par ligne, écart tranché en retour ou en perte. L'état « préparé » n'existe pas : l'envoi vaut expédition. |
-| A6 | Vérifié et corrigé | Virements internes hors recettes et dépenses. Remise en banque depuis la caisse ajoutée. |
-| A7 | Corrigé | Clôture de semaine, réouverture motivée, seuil de validation par site. |
-| A8 | Corrigé sur les écrans Restauration | Clé d'opération sur les saisies de stock, d'argent, de transfert et de paiement. |
-| A9 | Corrigé | Trois niveaux de résultat, estimé ou validé. |
+| A1 | Livré, avec réserve | Réception à crédit = facture validée (601 / 401), paiement, retour borné à la réception, solde par fournisseur. Réception sans prix : dette à la valorisation. Commande reçue sans facture : dette estimée affichée, pas écrite. Le choix 401 ou 408 est à confirmer. |
+| A2 | Livré, avec réserve | Argent écrit avec son origine, qualification, remboursement, validation de la situation. Soldes banque et mobile money non repris dans l'assistant. |
+| A3 | Livré pour les nouveaux sites | Article relié au catalogue commun. Les anciens sites gardent les deux mécanismes. |
+| A4 | Livré pour les nouveaux sites | Achat de marchandises en dépense refusé : la réception est obligatoire. |
+| A5 | Livré, avec réserve | Transit, réception par ligne, écart tranché. L'état « préparé » n'existe pas : l'envoi vaut expédition. |
+| A6 | Livré | Virements hors recettes et dépenses, reflétés sur la caisse du site. |
+| A7 | Livré, avec réserve | Clôture de semaine, réouverture par la finance, seuil, écarts justifiés. La clôture arrête toute la journée, sans heure de coupure. |
+| A8 | Livré sur les écrans Restauration | Clé d'opération sur les saisies. La clé ne survit pas à la fermeture de la fenêtre. |
+| A9 | Livré | Trois niveaux de résultat, estimé ou validé. |
 | A10 | Ouvert | Avertissement React en mode développement seulement. |
 
-**Rectification de cette version.** La cartographie disait « CMUP par article et par site » (règle R1) : le coût moyen est en réalité **commun à tous les sites**, car il est porté par la fiche du catalogue. R1 est à valider sous cette forme.
+**Rectification de cette version.** La cartographie disait « CMUP par article et par site » (règle R1) : le coût moyen est en réalité **commun à tous les sites**, car il est porté par la fiche du catalogue. La règle R3 (« CMUP du site expéditeur ») n'existe donc pas telle quelle. R1 est à valider sous cette forme, ou à changer : un coût par site est un chantier à part.
 
-**Reste à faire, faute de décision ou de temps :** dépôt-vente et contrat fournisseur (R-comptable), photo du justificatif sur la dépense rapide, coût standard daté et emballage séparé, export PDF (le journal sort en CSV), date de saisie distincte de la date effective sur les mouvements de stock.
+**Non livré** : dépôt-vente et contrat fournisseur, photo du justificatif, coût standard daté et emballage séparé, export Excel et PDF (le journal sort en CSV), date de saisie distincte de la date effective, annulation d'un lot de production, liste de marché, rôle « responsable achats », écritures d'ouverture automatiques, TVA déductible à la réception, précompte, certification des tickets.
+
+La procédure de reprise à jour est dans `docs/restauration-guides.md`, section 6.
 
 ## 1. Cartographie courte du fonctionnement actuel
 
@@ -103,25 +107,6 @@ Ce document répond au point 2 du plan d'amélioration : cartographie, anomalies
 | R8 | Montant de départ : fonds de caisse ; la comptable qualifie l'origine (apport, avance remboursable, compte courant). | Écritures d'ouverture |
 | R9 | Stock restant des anciens sites soldé par ajustement « Clôture avant nouveau départ », puis ressaisi en stock d'ouverture. | Écriture de clôture à valider |
 | R10 | Avantage en nature des repas du personnel, base horaire de 173,33 h, repères d'hygiène. | Confirmation (déjà signalés) |
-
-## 6. Nouveau départ : procédure proposée
-
-1. **Sauvegarde complète** de la base de production (`npm run backup:predeploy`). Vérifier que le fichier de sauvegarde existe et se relit (`npm run restore` sur une base de test).
-2. Restauration → **Ouverture des sites**, réservé à la direction et à la comptabilité :
-   - cocher les sites actuels ;
-   - choisir « solder le stock restant » ;
-   - taper ARCHIVER.
-   Rien n'est supprimé, et l'archivage libère le nom des sites.
-3. Pour chaque site, **Ouvrir un site** :
-   - nom, date ;
-   - montant de départ en caisse ;
-   - taux de TVA ;
-   - marge visée ;
-   - charges prévues par rubrique ;
-   - agents et comptes d'accès ;
-   - stock de départ compté (cartons + unités, coût, prix de vente, rythme).
-4. La comptable passe les écritures d'ouverture et de clôture (R8, R9).
-5. Site pilote pendant une semaine complète (réceptions, ventes, pertes, inventaire du samedi), puis généralisation.
 
 ## 7. Plan de réalisation proposé (après approbation)
 

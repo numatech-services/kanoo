@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { SupplierModel } from "@/models/Supplier";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
@@ -24,7 +25,9 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   if (!isId(deskId) || !(await ownDesk(auth, deskId))) return notFound("Comptoir introuvable");
   const costs = canSeeDeskCosts(auth);
   const [stock, moves] = await Promise.all([restaurantStock(auth.tenantId, deskId, costs), reserveMoves(auth.tenantId, deskId, 60)]);
-  return ok({ ...stock, moves: costs ? moves : moves.map(m => ({ ...m, unitCost: undefined })) });
+  // Noms des fournisseurs : qui reçoit doit pouvoir les choisir, même sans accès à leur fiche.
+  const suppliers = await SupplierModel.find({ tenantId: auth.tenantId }).select("name").sort({ name: 1 }).limit(500).lean();
+  return ok({ ...stock, showCosts: costs, suppliers, moves: costs ? moves : moves.map(m => ({ ...m, unitCost: undefined })) });
 });
 
 /**
@@ -54,6 +57,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
         supplierId: typeof body.supplierId === "string" ? body.supplierId : undefined,
         reference: typeof body.reference === "string" ? body.reference.slice(0, 60) : undefined,
         paidFromCash: costs && body.paidFromCash === true, method: typeof body.method === "string" ? body.method : undefined,
+        dueDays: Number(body.dueDays) >= 0 && Number(body.dueDays) <= 365 ? Math.round(Number(body.dueDays)) : undefined,
         date: typeof body.date === "string" ? body.date : undefined,
       }, control);
       const accepted = res.accepted;

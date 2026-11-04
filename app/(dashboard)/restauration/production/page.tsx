@@ -171,17 +171,17 @@ function DayView({ plan, menu, service, deskId, reload }: { plan: Plan; menu: Pl
 function BatchPanel({ deskId, day }: { deskId: string; day: string }) {
   const op = useOpKey();
   const [dishes, setDishes] = useState<Array<{ _id: string; name: string; quantity?: number }>>([]);
-  const [itemId, setItemId] = useState(""), [portions, setPortions] = useState("");
+  const [itemId, setItemId] = useState(""), [portions, setPortions] = useState(""), [limit, setLimit] = useState(() => dayOf(new Date()));
   const [busy, setBusy] = useState(false);
   const load = useCallback(() => { apiJson(`/api/comptoir/items?deskId=${deskId}`).then(d => setDishes(((d.data ?? []) as Array<{ _id: string; name: string; quantity?: number; productionMode?: string }>).filter(i => i.productionMode === "batch"))).catch(() => {}); }, [deskId]);
   useEffect(() => { load(); }, [load]);
   if (!dishes.length) return null;
   async function produce() {
     setBusy(true);
-    const r = await apiSend<{ error?: string; data?: { number: string; portions: number; unitCost?: number } }>("POST", "/api/restauration/production", { deskId, day, action: "batch", itemId, portions: Number(portions.replace(",", ".")) }, op.headers());
+    const r = await apiSend<{ error?: string; data?: { number: string; portions: number; unitCost?: number; unknownCost?: boolean } }>("POST", "/api/restauration/production", { deskId, day, action: "batch", itemId, portions: Number(portions.replace(",", ".")), expiryDate: limit }, op.headers());
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Production refusée", "error");
-    op.done(); showToast(`${r.data.data?.portions} portion(s) produites (${r.data.data?.number})`, "success"); setPortions(""); load();
+    op.done(); showToast(`${r.data.data?.portions} portion(s) produites (${r.data.data?.number})${r.data.data?.unknownCost ? " : un ingrédient n'a pas de coût, le coût du lot est incomplet" : ""}`, r.data.data?.unknownCost ? "info" : "success"); setPortions(""); load();
   }
   return (
     <section className="surface-card p-4 space-y-2">
@@ -189,6 +189,7 @@ function BatchPanel({ deskId, day }: { deskId: string; day: string }) {
       <div className="flex gap-2 items-end flex-wrap">
         <FormField label="Plat"><select className={selectCls} value={itemId} onChange={e => setItemId(e.target.value)}><option value="">Choisir…</option>{dishes.map(d => <option key={d._id} value={d._id}>{d.name} ({d.quantity ?? 0} en stock)</option>)}</select></FormField>
         <FormField label="Portions"><input className={`${inputCls} w-24`} inputMode="numeric" value={portions} onChange={e => setPortions(e.target.value)} /></FormField>
+        <FormField label="À consommer avant" hint="Sans froid maîtrisé : le jour même."><input type="date" className={inputCls} value={limit} onChange={e => setLimit(e.target.value)} /></FormField>
         <button disabled={busy || !itemId || !(Number(portions) > 0)} onClick={produce} className={buttonClass("primary", "md")}>Produire</button>
       </div>
     </section>

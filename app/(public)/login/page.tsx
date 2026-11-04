@@ -46,7 +46,8 @@ export default function LoginPage() {
   // module, plutôt que sur un tableau de bord dont ils ne peuvent rien lire.
   const LANDING: Record<string, string> = {
     superadmin: "/saas/dashboard",
-    pme_activity_manager: "/comptoir",
+    pme_activity_manager: "/restauration/magasin",
+    svc_spot: "/restauration/magasin",
     pme_isic_operator: "/isic",
     pme_isic_finance: "/isic",
   };

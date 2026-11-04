@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Rocket, Archive, Plus, Trash2, Store, Banknote, Boxes, Scale, Landmark, Check, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
@@ -17,7 +17,7 @@ import { CHARGE_CATEGORIES } from "@/lib/restaurant";
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const API = "/api/restauration/ouverture";
-interface Site { deskId: string; name: string; openingDate: string | null; items: number; openInventories: number; stockLines: number; stockValue: number; negatives: number; hasCash: boolean; cashBalance: number | null; funded: number; staff: number; planned: number; sessionOpen: boolean; pendingTransfers: number; todo: string[] }
+interface Site { deskId: string; name: string; openingDate: string | null; items: number; openInventories: number; stockLines: number; stockValue: number; negatives: number; deskStockLines: number; noPrice: number; hasCash: boolean; cashBalance: number | null; funded: number; staff: number; planned: number; sessionOpen: boolean; pendingTransfers: number; openDebts: number; advancesLeft: number; easypayKeys: number; validated: boolean; vatRate: number; todo: string[] }
 interface Account { _id: string; label: string; type: string; balance: number }
 interface Data {
   sites: Site[]; archived: Array<{ _id: string; name: string }>; accounts: Account[];
@@ -82,7 +82,9 @@ function SiteCard({ s, open }: { s: Site; open: (k: NonNullable<Panel>["kind"]) 
         {row(s.stockLines > 0, s.stockLines ? `Stock : ${s.stockLines} article(s), ${MONEY(s.stockValue)} au coût` : "Stock de départ à saisir")}
         {row(s.staff > 0, s.staff ? `${s.staff} agent(s)` : "Agents à affecter")}
         {row(s.planned > 0, s.planned ? `${s.planned} charge(s) prévue(s)` : "Charges prévues à saisir")}
+        {row(s.validated, s.validated ? "Situation validée par la comptable" : `À valider par la comptable (TVA ${Math.round(s.vatRate * 1000) / 10} %)`)}
       </ul>
+      {s.todo.length > 0 && <p className="text-[12px] text-ink2">Reste à faire : {s.todo.join(", ")}.</p>}
       {s.negatives > 0 && <Pill tone="warn">{s.negatives} stock(s) négatif(s)</Pill>}
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => open("money")} className={buttonClass("secondary", "sm")}><Banknote size={14} /> Argent</button>
@@ -90,8 +92,8 @@ function SiteCard({ s, open }: { s: Site; open: (k: NonNullable<Panel>["kind"]) 
         <button onClick={() => open("position")} className={buttonClass("secondary", "sm")}><Scale size={14} /> Situation de départ</button>
         {s.sessionOpen && <button onClick={() => open("deposit")} className={buttonClass("ghost", "sm")}><Landmark size={14} /> Remise en banque</button>}
         <Link href="/restauration/equipe" className={buttonClass("ghost", "sm")}>Équipe</Link>
-        <Link href="/restauration/pilotage" className={buttonClass("ghost", "sm")}>Charges</Link>
-        <Link href={`/comptoir?desk=${s.deskId}`} className={buttonClass("ghost", "sm")}>Caisse</Link>
+        <Link href={`/comptoir?desk=${s.deskId}&tab=resultat`} className={buttonClass("ghost", "sm")}>Charges</Link>
+        <Link href={`/comptoir?desk=${s.deskId}&tab=semaine`} className={buttonClass("ghost", "sm")}>Caisse</Link>
       </div>
     </section>
   );
@@ -104,29 +106,47 @@ function MoneyFields({ data, amount, nature, from, label, set }: { data: Data; a
     <div className="grid gap-3 sm:grid-cols-2">
       <FormField label="Montant alloué (FCFA)"><input className={inputCls} inputMode="numeric" value={amount} onChange={e => set({ amount: e.target.value })} placeholder="200000" /></FormField>
       <FormField label="D'où vient cet argent ?" hint="Jamais une recette : ni chiffre d'affaires, ni résultat."><select className={selectCls} value={nature} onChange={e => set({ nature: e.target.value })}>{data.natures.map(n => <option key={n.key} value={n.key}>{n.label}</option>)}</select></FormField>
-      {nature === "transfer" && <FormField label="Compte qui verse"><select className={selectCls} value={from} onChange={e => set({ from: e.target.value })}><option value="">Choisir…</option>{money.map(a => <option key={a._id} value={a._id}>{a.label} ({MONEY(a.balance)})</option>)}</select></FormField>}
+      {nature === "transfer" && (money.length
+        ? <FormField label="Compte qui verse"><select className={selectCls} value={from} onChange={e => set({ from: e.target.value })}><option value="">Choisir…</option>{money.map(a => <option key={a._id} value={a._id}>{a.label} ({MONEY(a.balance)})</option>)}</select></FormField>
+        : <p className="text-sm text-warn sm:col-span-2">Aucun compte de l&apos;entreprise n&apos;a de solde à virer. Choisissez une autre origine, par exemple une avance.</p>)}
       <FormField label="Précision (facultatif)"><input className={inputCls} value={label} onChange={e => set({ label: e.target.value })} placeholder="Avance du gérant, fonds de caisse…" /></FormField>
     </div>
   );
 }
 
 const STEPS = ["Le site", "L'argent", "Le stock", "L'équipe", "Les charges", "Vérifier"];
+const DRAFT = "kanoo-ouverture-brouillon";
+const readDraft = () => { try { return JSON.parse(localStorage.getItem(DRAFT) ?? "null") as { f?: Record<string, string>; lines?: StockLine[] } | null; } catch { return null; } };
+const startNature = (d: Data) => (d.accounts.some(a => a.balance > 0) ? "transfer" : "advance");
 
 function Wizard({ data, sources, onClose, onDone }: { data: Data; sources: Array<{ _id: string; name: string }>; onClose: () => void; onDone: () => void }) {
   const op = useOpKey();
   const [step, setStep] = useState(0);
-  const [f, setF] = useState({ name: "", date: today(), vat: "0", target: "20", share: "", cashLabel: "", copyFrom: "" });
-  const [m, setM] = useState({ amount: "", nature: "transfer", from: "", label: "" });
-  const [lines, setLines] = useState<StockLine[]>([emptyLine()]);
+  // Le comptage se fait sur place, réseau ou pas : la saisie survit à une fermeture de page.
+  const [f, setF] = useState(() => ({ name: "", date: today(), vat: "", target: "20", share: "", cashLabel: "", copyFrom: "", ...(readDraft()?.f ?? {}) }));
+  const [m, setM] = useState({ amount: "", nature: startNature(data), from: "", label: "" });
+  const [lines, setLines] = useState<StockLine[]>(() => readDraft()?.lines?.length ? readDraft()!.lines! : [emptyLine()]);
+  const [paidBy, setPaidBy] = useState("taken_over");
+  useEffect(() => { try { localStorage.setItem(DRAFT, JSON.stringify({ f, lines })); } catch { /* navigation privée */ } }, [f, lines]);
+  const dirty = !!f.name.trim() || lines.some(l => l.name.trim());
+  async function askClose() {
+    if (!dirty || await confirmDialog({ title: "Fermer l'assistant ?", message: "Votre saisie est gardée sur cet appareil : vous la retrouverez en rouvrant l'assistant." })) onClose();
+  }
   const [staff, setStaff] = useState<Array<{ employeeId: string; share: string }>>([]);
   const [users, setUsers] = useState<string[]>([]);
   const [charges, setCharges] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ deskId: string; name: string; stockValue: number; funded: number; stockError: string | null; copied: { recipes: number } | null } | null>(null);
+  const [done, setDone] = useState<{ deskId: string; name: string; stockValue: number; funded: number; stockError: string | null; copied: { recipes: number } | null; deskLines: number; reserveLines: number } | null>(null);
   const stockTotal = lines.reduce((t, l) => t + lineValue(l).value, 0), chargeTotal = Object.values(charges).reduce((t, v) => t + (num(v) || 0), 0);
   const amount = num(m.amount) || 0;
   function next() {
     if (step === 0 && !f.name.trim()) return showToast("Donnez un nom au site.", "error");
+    if (step === 0 && f.vat === "") return showToast("Choisissez le taux de TVA.", "error");
+    if (step === 0 && data.sites.some(x => x.name.toLowerCase() === f.name.trim().toLowerCase())) return showToast("Un site porte déjà ce nom.", "error");
+    if (step === 2) {
+      const bad = lines.find(l => l.name.trim() && lineValue(l).units > 0 && !(lineValue(l).unitCost > 0));
+      if (bad) return showToast(`${bad.name} : indiquez le coût.`, "error");
+    }
     if (step === 1 && amount > 0 && m.nature === "transfer" && !m.from) return showToast("Choisissez le compte qui verse l'argent.", "error");
     setStep(s => s + 1);
   }
@@ -138,11 +158,12 @@ function Wizard({ data, sources, onClose, onDone }: { data: Data; sources: Array
       ...(amount > 0 ? { funding: { amount, nature: m.nature, fromAccountId: m.from || undefined, label: m.label || undefined } } : {}),
       plannedCosts: Object.entries(charges).map(([category, v]) => ({ category, amount: num(v) || 0 })).filter(c => c.amount > 0),
       staff: staff.filter(s => s.employeeId && num(s.share) > 0).map(s => ({ employeeId: s.employeeId, share: num(s.share) / 100 })),
-      userIds: users, items: linesToItems(lines), ...(f.copyFrom ? { copyFromDeskId: f.copyFrom } : {}),
+      userIds: users, items: linesToItems(lines), ...(stockTotal > 0 ? { stockFundedBy: paidBy } : {}), ...(f.copyFrom ? { copyFromDeskId: f.copyFrom } : {}),
     } }, op.headers());
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Ouverture refusée", "error");
     op.done(); setDone(r.data.data); onDone();
+    try { localStorage.removeItem(DRAFT); } catch { /* navigation privée */ }
   }
   if (done) return (
     <Modal open onClose={onClose} title={`${done.name} est ouvert`} size="md">
@@ -150,8 +171,9 @@ function Wizard({ data, sources, onClose, onDone }: { data: Data; sources: Array
         <p className="text-sm text-ink2 inline-flex items-center gap-2"><Store size={16} /> Argent alloué : {MONEY(done.funded)} · stock de départ : {MONEY(done.stockValue)}{done.copied ? ` · ${done.copied.recipes} fiche(s) technique(s) reprise(s)` : ""}.</p>
         {done.stockError && <p className="text-sm text-neg">Le stock n&apos;a pas pu être enregistré : {done.stockError} Ajoutez-le avec le bouton Stock du site.</p>}
         {done.funded > 0 && <p className="text-sm text-ink2">À l&apos;ouverture de la caisse, ce montant est proposé comme fonds de caisse : rien à ressaisir.</p>}
+        {done.reserveLines > 0 && <p className="text-sm text-warn">{done.reserveLines} article(s) en réserve, {done.deskLines} au comptoir : seul le comptoir se vend. Montez le stock depuis l&apos;écran du magasin avant la première vente.</p>}
         <div className="flex gap-2 flex-wrap">
-          <Link href={`/comptoir?desk=${done.deskId}`} className={buttonClass("primary", "md")}>Ouvrir la caisse</Link>
+          <Link href={`/comptoir?desk=${done.deskId}&tab=semaine`} className={buttonClass("primary", "md")}>Ouvrir la caisse</Link>
           <Link href="/restauration/magasin" className={buttonClass("secondary", "md")}>Écran du magasin</Link>
           <button onClick={onClose} className={buttonClass("ghost", "md")}>Fermer</button>
         </div>
@@ -159,7 +181,7 @@ function Wizard({ data, sources, onClose, onDone }: { data: Data; sources: Array
     </Modal>
   );
   return (
-    <Modal open onClose={onClose} title="Ouvrir un site" description={`Étape ${step + 1} sur ${STEPS.length} : ${STEPS[step]}`} size="lg" footer={
+    <Modal open onClose={askClose} title="Ouvrir un site" description={`Étape ${step + 1} sur ${STEPS.length} : ${STEPS[step]}`} size="lg" footer={
       <div className="flex justify-between gap-2 w-full">
         <button disabled={step === 0 || busy} onClick={() => setStep(s => s - 1)} className={buttonClass("ghost", "md")}><ChevronLeft size={15} /> Retour</button>
         {step < STEPS.length - 1 ? <button onClick={next} className={buttonClass("primary", "md")}>Continuer <ChevronRight size={15} /></button> : <button disabled={busy} onClick={submit} className={buttonClass("primary", "md")}><Rocket size={15} /> Ouvrir le site</button>}
@@ -171,7 +193,7 @@ function Wizard({ data, sources, onClose, onDone }: { data: Data; sources: Array
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Nom du site" required><input autoFocus className={inputCls} value={f.name} onChange={e => setF({ ...f, name: e.target.value })} placeholder="The Spot — campus" /></FormField>
             <FormField label="Date d'ouverture"><input type="date" className={inputCls} value={f.date} onChange={e => setF({ ...f, date: e.target.value })} /></FormField>
-            <FormField label="TVA sur les ventes (%)" hint="0 tant que la comptable n'a pas fixé le taux."><input className={inputCls} inputMode="decimal" value={f.vat} onChange={e => setF({ ...f, vat: e.target.value })} /></FormField>
+            <FormField label="TVA sur les ventes" required hint="À confirmer avec la comptable : le taux dépend du régime fiscal de l'entreprise."><select className={selectCls} value={f.vat} onChange={e => setF({ ...f, vat: e.target.value })}><option value="">Choisir…</option><option value="10">10 % (restauration, régime réel)</option><option value="0">0 % (non assujetti)</option><option value="19">19 %</option></select></FormField>
             <FormField label="Marge nette visée (%)"><input className={inputCls} inputMode="decimal" value={f.target} onChange={e => setF({ ...f, target: e.target.value })} /></FormField>
             {sources.length > 0 && <FormField label="Reprendre les fiches techniques de" hint="Plats, recettes et prix, sans stock."><select className={selectCls} value={f.copyFrom} onChange={e => setF({ ...f, copyFrom: e.target.value })}><option value="">Aucun site</option>{sources.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}</select></FormField>}
           </div>
@@ -183,6 +205,7 @@ function Wizard({ data, sources, onClose, onDone }: { data: Data; sources: Array
         {step === 2 && <div className="space-y-2">
           <p className="text-sm text-ink2">Comptez ce qui est réellement là le jour de l&apos;ouverture. Ce n&apos;est ni un achat, ni une dette : le résultat n&apos;en est pas touché.</p>
           <OpeningStockEditor lines={lines} setLines={setLines} sources={sources} />
+          {stockTotal > 0 && <FormField label="Qui a payé ce stock ?" hint="Pour que la situation de départ tombe juste. Aucun argent ne bouge ici."><select className={selectCls} value={paidBy} onChange={e => setPaidBy(e.target.value)}><option value="taken_over">L&apos;entreprise (stock repris ou déjà payé)</option><option value="owner_paid">Le dirigeant (à lui rembourser)</option><option value="debt">Pas encore payé (dette fournisseur)</option></select></FormField>}
         </div>}
         {step === 3 && <div className="space-y-3">
           {staff.map((s, i) => (
@@ -223,7 +246,7 @@ function Wizard({ data, sources, onClose, onDone }: { data: Data; sources: Array
 
 function MoneyDialog({ data, site, onClose, onDone }: { data: Data; site: Site; onClose: () => void; onDone: () => void }) {
   const op = useOpKey();
-  const [m, setM] = useState({ amount: "", nature: "transfer", from: "", label: "" });
+  const [m, setM] = useState({ amount: "", nature: startNature(data), from: "", label: "" });
   const [busy, setBusy] = useState(false);
   async function send() {
     setBusy(true);
@@ -246,6 +269,7 @@ function StockDialog({ site, sources, onClose, onDone }: { site: Site; sources: 
   async function send() {
     const items = linesToItems(lines);
     if (!items.length) return showToast("Ajoutez au moins un article.", "error");
+    if (site.stockValue > 0 && !(await confirmDialog({ title: "Ajouter à ce stock ?", message: `Ce site a déjà ${MONEY(site.stockValue)} de stock. Ces lignes s'y ajoutent : ne ressaisissez pas ce qui est déjà entré. Pour corriger une quantité, passez par un inventaire.` }))) return;
     setBusy(true);
     const r = await apiSend<{ error?: string; data?: { stockValue: number } }>("POST", API, { action: "stock", deskId: site.deskId, items }, op.headers());
     setBusy(false);
@@ -277,7 +301,7 @@ function DepositDialog({ data, site, onClose, onDone }: { data: Data; site: Site
   );
 }
 
-interface Position { lines: Array<{ _id: string; kind: string; nature: string | null; amount: number; date: string; label: string; repayable: boolean; repaid: number; left: number; toQualify: boolean }>; money: number; owner: number; debts: number; receivables: number; equipment: number; stockValue: number; resources: number; uses: number; gap: number; repayableLeft: number }
+interface Position { lines: Array<{ _id: string; kind: string; nature: string | null; amount: number; date: string; label: string; repayable: boolean; repaid: number; left: number; toQualify: boolean; cancellable: boolean }>; cancelled: Array<{ _id: string; amount: number; label: string; reason: string }>; money: number; owner: number; debts: number; takenOver: number; receivables: number; equipment: number; stockValue: number; resources: number; uses: number; gap: number; repayableLeft: number; validatedAt: string | null }
 
 /** Ressources et emplois du site : d'où vient l'argent, où il est allé. La comptable y qualifie et y rembourse. */
 function PositionDialog({ data, site, onClose, onDone }: { data: Data; site: Site; onClose: () => void; onDone: () => void }) {
@@ -292,12 +316,12 @@ function PositionDialog({ data, site, onClose, onDone }: { data: Data; site: Sit
     op.done(); showToast(msg, "success"); after();
   }
   async function cancel(id: string, label: string) {
-    const reason = await promptDialog({ title: `Annuler « ${label} » ?`, message: "L'écriture est extournée, la ligne reste visible.", label: "Motif", required: true });
+    const reason = await promptDialog({ title: `Annuler « ${label} » ?`, message: "L'écriture est extournée. La ligne reste visible, barrée.", label: "Motif", required: true });
     if (reason) post({ action: "cancel", id, reason }, "Ligne annulée");
   }
-  async function qualify(id: string) {
-    const code = await promptDialog({ title: "Compte de financement", message: "Exemples : 101000 capital, 462000 compte courant d'associé, 162000 emprunt.", label: "Compte", required: true });
-    if (code) post({ action: "qualify", id, accountCode: code.trim() }, "Financement qualifié");
+  async function qualify(id: string, kind: string) {
+    const code = await promptDialog({ title: "Compte de financement", message: "Le compte traduit un acte (décision, convention) : il ne le remplace pas. Exemples : 462000 compte courant d'associé, 162000 emprunt, 401100 fournisseur.", label: "Compte", required: true, defaultValue: kind === "owner_paid" ? "462000" : kind === "debt" ? "401100" : "" });
+    if (code) post({ action: "qualify", id, accountCode: code.trim() }, "Ligne qualifiée");
   }
   return (
     <Modal open onClose={onClose} title={`Situation de départ — ${site.name}`} size="lg">
@@ -308,6 +332,7 @@ function PositionDialog({ data, site, onClose, onDone }: { data: Data; site: Sit
             <p className="flex justify-between"><span>Argent reçu en caisse</span><b className="font-mono">{MONEY(p.money)}</b></p>
             <p className="flex justify-between"><span>Payé par le dirigeant</span><b className="font-mono">{MONEY(p.owner)}</b></p>
             <p className="flex justify-between"><span>Dettes de départ</span><b className="font-mono">{MONEY(p.debts)}</b></p>
+            <p className="flex justify-between"><span>Stock repris ou déjà payé</span><b className="font-mono">{MONEY(p.takenOver)}</b></p>
             <p className="flex justify-between border-t border-line pt-1"><span>Total</span><b className="font-mono">{MONEY(p.resources)}</b></p>
           </div>
           <div className="rounded-lg border border-line p-3 text-sm space-y-1">
@@ -318,18 +343,22 @@ function PositionDialog({ data, site, onClose, onDone }: { data: Data; site: Sit
             <p className="flex justify-between border-t border-line pt-1"><span>Total</span><b className="font-mono">{MONEY(p.uses)}</b></p>
           </div>
         </div>
-        {p.gap !== 0 && <p className="text-sm text-neg">Écart de {MONEY(Math.abs(p.gap))} : {p.gap < 0 ? "des biens de départ n'ont pas d'origine déclarée (qui a payé ce stock ?)." : "de l'argent déclaré n'a pas d'emploi connu."}</p>}
+        {p.gap !== 0 && <p className="text-sm text-neg">Écart de {MONEY(Math.abs(p.gap))} : {p.gap < 0 ? "des biens de départ n'ont pas d'origine déclarée : ajoutez une ligne « stock repris », « payé par le dirigeant » ou « dette »." : "de l'argent déclaré n'a pas d'emploi connu."}</p>}
         {p.repayableLeft > 0 && <p className="text-sm text-ink2">Reste à rembourser : <b className="font-mono">{MONEY(p.repayableLeft)}</b>. Ce n&apos;est ni une charge ni le seuil de rentabilité.</p>}
         <ul className="divide-y divide-line">{p.lines.map(l => (
           <li key={l._id} className="py-2 flex items-center justify-between gap-2 flex-wrap text-sm">
             <span>{l.label} <span className="text-ink3">· {new Date(l.date).toLocaleDateString("fr-FR")}</span> {l.toQualify ? <Pill tone="warn">à qualifier</Pill> : null}</span>
             <span className="flex items-center gap-2"><b className="font-mono">{MONEY(l.amount)}</b>
-              {l.toQualify && <button onClick={() => qualify(l._id)} className={buttonClass("ghost", "sm")}>Qualifier</button>}
-              {l.left > 0 && <button onClick={() => setRepay({ id: l._id, left: l.left, amount: String(l.left), from: "" })} className={buttonClass("ghost", "sm")}>Rembourser</button>}
-              {l.repaid === 0 && <button onClick={() => cancel(l._id, l.label)} className={buttonClass("ghost", "sm")} aria-label={`Annuler ${l.label}`}><Trash2 size={14} /></button>}
+              {l.toQualify && <button onClick={() => qualify(l._id, l.kind)} className={buttonClass("ghost", "sm")}>Qualifier</button>}
+              {l.left > 0 && !l.toQualify && <button onClick={() => setRepay({ id: l._id, left: l.left, amount: String(l.left), from: "" })} className={buttonClass("ghost", "sm")}>Rembourser</button>}
+              {l.cancellable && <button onClick={() => cancel(l._id, l.label)} className={buttonClass("ghost", "sm")} aria-label={`Annuler ${l.label}`}><Trash2 size={14} /></button>}
             </span>
           </li>
         ))}</ul>
+        {p.cancelled.length > 0 && <ul className="text-[12px] text-ink3">{p.cancelled.map(c => <li key={c._id}><s>{c.label} · {MONEY(c.amount)}</s> — annulé : {c.reason}</li>)}</ul>}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          {p.validatedAt ? <Pill tone="pos">validée le {new Date(p.validatedAt).toLocaleDateString("fr-FR")}</Pill> : <button onClick={() => post({ action: "validate", deskId: site.deskId }, "Situation validée")} className={buttonClass("primary", "sm")}>Valider la situation (comptable)</button>}
+        </div>
         {repay && <div className="rounded-lg border border-line p-3 space-y-2">
           <p className="text-sm font-semibold">Rembourser (reste dû : {MONEY(repay.left)})</p>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -346,7 +375,7 @@ function PositionDialog({ data, site, onClose, onDone }: { data: Data; site: Sit
             <input className={inputCls} value={line.label} onChange={e => setLine({ ...line, label: e.target.value })} placeholder="Précision" aria-label="Précision" />
           </div>
           <button onClick={() => { post({ action: "line", deskId: site.deskId, kind: line.kind, amount: num(line.amount), label: line.label || undefined }, "Ligne ajoutée"); setLine({ kind: line.kind, amount: "", label: "" }); }} className={buttonClass("secondary", "sm")}><Plus size={14} /> Ajouter</button>
-          <p className="text-[12px] text-ink3">Ces lignes ne font aucun mouvement d&apos;argent : la comptable les passe dans les écritures d&apos;ouverture.</p>
+          <p className="text-[12px] text-ink3">Ces lignes ne font aucun mouvement d&apos;argent. Une dette ou un paiement du dirigeant ne se rembourse qu&apos;après sa qualification par la comptable.</p>
         </div>
       </div>}
     </Modal>
@@ -373,12 +402,12 @@ function ArchivePanel({ data, onDone }: { data: Data; onDone: () => void }) {
     <section className="surface-card p-4 space-y-3">
       <button onClick={() => setOpen(o => !o)} aria-expanded={open} className="w-full flex items-center justify-between gap-2 font-semibold text-ink"><span className="inline-flex items-center gap-2"><Archive size={16} /> Repartir de zéro : archiver des sites</span><ChevronDown size={16} className={open ? "rotate-180" : ""} /></button>
       {open && <>
-        <p className="text-[12px] text-ink3">Rien n&apos;est supprimé : ventes, caisses, écritures et mouvements restent consultables, les mois passés ne changent pas. Le nom du site est libéré. Faites d&apos;abord une sauvegarde complète et fermez les caisses.</p>
+        <p className="text-[12px] text-ink3">Rien n&apos;est supprimé : ventes, caisses, écritures et mouvements restent consultables dans l&apos;espace comptable. Le nom du site est libéré. Avant d&apos;archiver : sauvegarde complète, inventaire physique, caisses fermées, accord de la comptable. Les dettes et les avances restent dues et visibles.</p>
         {!data.sites.length ? <p className="text-sm text-ink3">Aucun site actif.</p> : <ul className="divide-y divide-line">{data.sites.map(s => (
           <li key={s.deskId} className="py-2 flex items-center gap-3 flex-wrap text-sm">
             <label className="inline-flex items-center gap-2 flex-1 min-w-48"><input type="checkbox" checked={picked.includes(s.deskId)} onChange={e => setPicked(p => e.target.checked ? [...p, s.deskId] : p.filter(x => x !== s.deskId))} /> {s.name}</label>
             <span className="text-ink2">{s.items} article(s) · stock {MONEY(s.stockValue)} · caisse {MONEY(s.cashBalance)}</span>
-            {s.sessionOpen && <Pill tone="warn">caisse ouverte</Pill>}{s.pendingTransfers > 0 && <Pill tone="warn">transfert en attente</Pill>}{s.negatives > 0 && <Pill tone="warn">{s.negatives} négatif(s)</Pill>}
+            {s.sessionOpen && <Pill tone="warn">caisse ouverte</Pill>}{s.pendingTransfers > 0 && <Pill tone="warn">transfert en attente</Pill>}{s.easypayKeys > 0 && <Pill tone="warn">clé EasyPay active</Pill>}{s.negatives > 0 && <Pill tone="warn">{s.negatives} négatif(s)</Pill>}{s.openDebts > 0 && <Pill tone="info">dettes {MONEY(s.openDebts)}</Pill>}{s.advancesLeft > 0 && <Pill tone="info">avances {MONEY(s.advancesLeft)}</Pill>}
           </li>
         ))}</ul>}
         {picked.length > 0 && <div className="space-y-2 border-t border-line pt-3">

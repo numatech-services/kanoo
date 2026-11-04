@@ -7,7 +7,7 @@ import { Pill } from "@/components/ui/Primitives";
 import { buttonClass } from "@/components/ui/button-class";
 import { showToast } from "@/components/ui/Toast";
 import { confirmDialog } from "@/components/ui/Dialogs";
-import { apiSend } from "@/lib/api-client";
+import { apiJson, apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { BarcodeScanner, beep } from "@/components/shared/BarcodeScanner";
 import { matchCode } from "@/lib/barcodes";
@@ -16,6 +16,8 @@ const MONEY = (n?: number | null) => (n === undefined || n === null ? "—" : `$
 const QTY = (n?: number | null) => (n === undefined || n === null ? "—" : n.toLocaleString("fr-FR", { maximumFractionDigits: 3 }));
 
 interface InvLine { itemId: string; name: string; unit: string; barcode?: string; packBarcode?: string; altBarcodes?: string[]; packSize?: number; parts?: Array<{ device: string; qty: number }>; counted?: number; expected?: number; gap?: number; unitCost?: number; gapValue?: number }
+interface Gap { itemId: string; name: string; unit: string; expected: number; counted: number; gap: number; value: number }
+const GAP_REASONS = ["Erreur de comptage (recompté)", "Casse ou perte non déclarée", "Erreur de réception", "Erreur de caisse", "Consommation non saisie", "Inexpliqué"];
 interface Inv { _id: string; number: string; level: "desk" | "reserve"; status: "open" | "validated" | "cancelled"; category?: string; createdAt: string; validatedAt?: string; gapValue?: number; lines?: InvLine[] }
 const LEVEL = { desk: "Comptoir", reserve: "Réserve" } as const;
 const num = (v: string) => { const t = v.replace(/\s/g, "").replace(",", "."); return t === "" ? NaN : Number(t); };
@@ -126,6 +128,9 @@ function CountScreen({ id, costs, onClose, onValidated }: { id: string; costs: b
   const [unknown, setUnknown] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
+  const [review, setReview] = useState<Gap[] | null>(null);
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const reviewed = useRef(false);
   const [refocus, setRefocus] = useState(0);
   const closedRef = useRef(false);
   const qtyRef = useRef<HTMLInputElement>(null);
@@ -214,8 +219,13 @@ function CountScreen({ id, costs, onClose, onValidated }: { id: string; costs: b
     try {
       if (!(await flush()) && Object.keys(readQueue(id)).length) return;
       const missing = lines.length - done;
-      if (!(await confirmDialog({ title: "Valider l'inventaire ?", message: `${done} article(s) compté(s)${missing ? `, ${missing} non compté(s) (leur stock ne change pas)` : ""}. Vérifiez qu'aucun autre appareil n'a de comptage en attente. Les écarts avec le stock théorique relevé au moment du comptage seront passés en stock et chiffrés au coût.` }))) return;
-      const r = await apiSend<{ data: Inv; error?: string }>("POST", "/api/comptoir/inventory", { id, action: "validate" });
+      if (!reviewed.current && !(await confirmDialog({ title: "Valider l'inventaire ?", message: `${done} article(s) compté(s)${missing ? `, ${missing} non compté(s) (leur stock ne change pas)` : ""}. Vérifiez qu'aucun autre appareil n'a de comptage en attente. Les écarts avec le stock théorique relevé au moment du comptage seront passés en stock et chiffrés au coût.` }))) return;
+      // Les écarts se voient ici, après le comptage à l'aveugle : chacun reçoit sa justification.
+      const rv = await apiJson(`/api/comptoir/inventory?id=${id}&review=1`).catch(() => null);
+      const gaps = (rv?.data?.gaps ?? []) as Gap[];
+      if (gaps.length && !reviewed.current) { setReview(gaps); return; }
+      const r = await apiSend<{ data: Inv; error?: string }>("POST", "/api/comptoir/inventory", { id, action: "validate", reasons });
+      reviewed.current = false;
       if (!r.ok) return showToast(r.data.error || "Validation impossible", "error");
       closedRef.current = true; writeQueue(id, {});
       showToast(`Inventaire validé${costs && r.data.data.gapValue !== undefined ? ` — écart ${MONEY(r.data.data.gapValue)}` : ""}`, "success");
@@ -234,6 +244,16 @@ function CountScreen({ id, costs, onClose, onValidated }: { id: string; costs: b
   const cur = lines.find(l => l.itemId === current);
   const queued = Object.keys(pending).length;
 
+  if (review) return (
+    <Modal open onClose={() => setReview(null)} title="Écarts à justifier" description="Si un écart vous surprend, fermez et recomptez cet article." size="lg" footer={<button disabled={review.some(g => !reasons[g.itemId])} onClick={() => { reviewed.current = true; setReview(null); validate(); }} className={buttonClass("primary", "md")}>Valider l&apos;inventaire</button>}>
+      <ul className="divide-y divide-line">{review.map(g => (
+        <li key={g.itemId} className="py-2 space-y-1">
+          <p className="text-sm flex justify-between gap-2"><span>{g.name} : compté {g.counted}, attendu {g.expected} {g.unit}</span><b className={`font-mono ${g.value < 0 ? "text-neg" : ""}`}>{MONEY(g.value)}</b></p>
+          <select className={selectCls} value={reasons[g.itemId] ?? ""} aria-label={`Justification de ${g.name}`} onChange={e => setReasons(r => ({ ...r, [g.itemId]: e.target.value }))}><option value="">Justification…</option>{GAP_REASONS.map(x => <option key={x}>{x}</option>)}</select>
+        </li>
+      ))}</ul>
+    </Modal>
+  );
   return (
     <Modal open onClose={async () => { if (!readOnly) await flush(); onClose(); }} size="xl" title={inv ? `${inv.number} — ${LEVEL[inv.level]}` : "Inventaire"}
       description={readOnly ? (inv?.status === "validated" ? `Validé le ${new Date(inv.validatedAt!).toLocaleDateString("fr-FR")}` : "Annulé") : `${done} / ${lines.length} article(s) compté(s), tous appareils`}

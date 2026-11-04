@@ -10,7 +10,7 @@ export const MONEY = (n?: number | null) => (n === undefined || n === null ? "�
 export const num = (v: string) => { const t = v.replace(/\s/g, "").replace(",", "."); return t === "" ? NaN : Number(t); };
 
 export interface StockLine { productId?: string; name: string; unit: string; category: string; level: "reserve" | "desk"; packSize: string; packs: string; quantity: string; cost: string; costPer: "unit" | "pack"; salePrice: string; rhythm: string; expiry: string }
-export const emptyLine = (): StockLine => ({ name: "", unit: "unité", category: "", level: "reserve", packSize: "", packs: "", quantity: "", cost: "", costPer: "unit", salePrice: "", rhythm: "", expiry: "" });
+export const emptyLine = (): StockLine => ({ name: "", unit: "unité", category: "", level: "desk", packSize: "", packs: "", quantity: "", cost: "", costPer: "unit", salePrice: "", rhythm: "", expiry: "" });
 
 /** Quantité en unités, coût unitaire et valeur d'une ligne, tels que le serveur les calculera. */
 export function lineValue(l: StockLine) {
@@ -23,10 +23,10 @@ export function lineValue(l: StockLine) {
 /** Lignes prêtes à envoyer : le carton reste un conditionnement, le stock est tenu à l'unité. */
 export function linesToItems(lines: StockLine[]) {
   return lines.filter(l => l.name.trim()).map(l => {
-    const v = lineValue(l), size = num(l.packSize) > 0 ? Math.round(num(l.packSize)) : undefined;
+    const v = lineValue(l), size = num(l.packSize) > 0 ? num(l.packSize) : undefined;
     return {
       ...(l.productId ? { productId: l.productId } : {}), name: l.name.trim(), unit: l.unit || "unité", ...(l.category ? { category: l.category } : {}), level: l.level,
-      unitCost: Math.round(v.unitCost * 100) / 100, quantity: num(l.quantity) > 0 ? num(l.quantity) : 0, packs: num(l.packs) > 0 ? num(l.packs) : 0,
+      unitCost: Math.round(v.unitCost * 10000) / 10000, quantity: num(l.quantity) > 0 ? num(l.quantity) : 0, packs: num(l.packs) > 0 ? num(l.packs) : 0,
       ...(size ? { pack: { label: "carton", size } } : {}), ...(num(l.salePrice) > 0 ? { salePrice: num(l.salePrice) } : {}), ...(l.rhythm ? { rhythm: l.rhythm } : {}), ...(l.expiry ? { expiryDate: l.expiry } : {}),
     };
   });
@@ -48,6 +48,7 @@ interface Template { productId?: string; name: string; unit: string; category: s
 export function OpeningStockEditor({ lines, setLines, sources }: { lines: StockLine[]; setLines: (fn: (l: StockLine[]) => StockLine[]) => void; sources: Array<{ _id: string; name: string }> }) {
   const [hits, setHits] = useState<Hit[]>([]);
   const [paste, setPaste] = useState<string | null>(null);
+  const [more, setMore] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const set = (i: number, p: Partial<StockLine>) => setLines(ls => ls.map((l, j) => j === i ? { ...l, ...p } : l));
   const total = lines.reduce((t, l) => t + lineValue(l).value, 0);
@@ -85,25 +86,29 @@ export function OpeningStockEditor({ lines, setLines, sources }: { lines: StockL
         <div key={i} className="rounded-lg border border-line p-3 space-y-2">
           <div className="grid gap-2 grid-cols-2 lg:grid-cols-6">
             <label className="col-span-2 text-[12px] text-ink2">Article<input list="catalog-hits" className={inputCls} value={l.name} onChange={e => typeName(i, e.target.value)} placeholder="Jus IRA" /></label>
-            <label className="text-[12px] text-ink2">Unité de stock<input className={inputCls} value={l.unit} onChange={e => set(i, { unit: e.target.value })} /></label>
-            <label className="text-[12px] text-ink2">Où<select className={selectCls} value={l.level} onChange={e => set(i, { level: e.target.value as StockLine["level"] })}><option value="reserve">Réserve</option><option value="desk">Comptoir</option></select></label>
-            <label className="text-[12px] text-ink2">Carton de (unités)<input className={inputCls} inputMode="numeric" value={l.packSize} onChange={e => set(i, { packSize: e.target.value })} placeholder="24" /></label>
-            <label className="text-[12px] text-ink2">Cartons comptés<input className={inputCls} inputMode="decimal" value={l.packs} disabled={!packed} onChange={e => set(i, { packs: e.target.value })} /></label>
+            <label className="text-[12px] text-ink2">Carton de (unités)<input className={inputCls} inputMode="decimal" value={l.packSize} onChange={e => set(i, { packSize: e.target.value })} placeholder="vide si à l'unité" /></label>
+            {packed && <label className="text-[12px] text-ink2">Cartons comptés<input className={inputCls} inputMode="decimal" value={l.packs} onChange={e => set(i, { packs: e.target.value })} /></label>}
             <label className="text-[12px] text-ink2">{packed ? "+ unités" : "Quantité"}<input className={inputCls} inputMode="decimal" value={l.quantity} onChange={e => set(i, { quantity: e.target.value })} /></label>
             <label className="text-[12px] text-ink2">Coût (FCFA)<input className={inputCls} inputMode="decimal" value={l.cost} onChange={e => set(i, { cost: e.target.value })} /></label>
             {packed && <label className="text-[12px] text-ink2">Coût par<select className={selectCls} value={l.costPer} onChange={e => set(i, { costPer: e.target.value as StockLine["costPer"] })}><option value="unit">unité</option><option value="pack">carton</option></select></label>}
             <label className="text-[12px] text-ink2">Prix de vente<input className={inputCls} inputMode="numeric" value={l.salePrice} onChange={e => set(i, { salePrice: e.target.value })} /></label>
-            <label className="text-[12px] text-ink2">Famille<input className={inputCls} value={l.category} onChange={e => set(i, { category: e.target.value })} placeholder="Boissons" /></label>
-            <label className="text-[12px] text-ink2">Compté<select className={selectCls} value={l.rhythm} onChange={e => set(i, { rhythm: e.target.value })}><option value="">Chaque semaine</option><option value="fortnight">Toutes les 2 semaines</option><option value="month">Chaque mois</option></select></label>
-            <label className="text-[12px] text-ink2">Péremption<input type="date" className={inputCls} value={l.expiry} onChange={e => set(i, { expiry: e.target.value })} /></label>
           </div>
+          {more === i ? (
+            <div className="grid gap-2 grid-cols-2 lg:grid-cols-5">
+              <label className="text-[12px] text-ink2">Où<select className={selectCls} value={l.level} onChange={e => set(i, { level: e.target.value as StockLine["level"] })}><option value="desk">Comptoir (prêt à vendre)</option><option value="reserve">Réserve</option></select></label>
+              <label className="text-[12px] text-ink2">Unité de stock<input className={inputCls} value={l.unit} onChange={e => set(i, { unit: e.target.value })} /></label>
+              <label className="text-[12px] text-ink2">Famille<input className={inputCls} value={l.category} onChange={e => set(i, { category: e.target.value })} placeholder="Boissons" /></label>
+              <label className="text-[12px] text-ink2">Compté<select className={selectCls} value={l.rhythm} onChange={e => set(i, { rhythm: e.target.value })}><option value="">Chaque semaine</option><option value="fortnight">Toutes les 2 semaines</option><option value="month">Chaque mois</option></select></label>
+              <label className="text-[12px] text-ink2">Péremption<input type="date" className={inputCls} value={l.expiry} onChange={e => set(i, { expiry: e.target.value })} /></label>
+            </div>
+          ) : <button type="button" onClick={() => setMore(i)} className="text-[12px] text-ink3 underline">{l.level === "reserve" ? "En réserve · " : "Au comptoir · "}{l.unit} · plus de détails</button>}
           <div className="flex items-center justify-between gap-2 text-sm">
-            <span className="text-ink2">{v.units ? <>{v.units.toLocaleString("fr-FR")} {l.unit} · <b className="font-mono">{MONEY(v.value)}</b></> : "Aucune quantité : l'article sera créé sans stock."}</span>
+            <span className="text-ink2">{v.units ? <>{v.units.toLocaleString("fr-FR")} {l.unit} · <b className="font-mono">{MONEY(v.value)}</b></> : "Aucune quantité : l'article sera créé sans stock."}{l.name.trim() && !(num(l.salePrice) > 0) ? <span className="text-warn"> · sans prix de vente, il n'apparaîtra pas à la caisse</span> : null}</span>
             <button type="button" onClick={() => setLines(ls => ls.filter((_, j) => j !== i))} className={buttonClass("ghost", "sm")} aria-label={`Retirer ${l.name || "la ligne"}`}><Trash2 size={14} /></button>
           </div>
         </div>
       ); })}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap sticky bottom-0 bg-surface py-2">
         <button type="button" onClick={() => setLines(ls => [...ls, emptyLine()])} className={buttonClass("secondary", "sm")}><Plus size={14} /> Article</button>
         <span className="text-sm text-ink2">Stock de départ : <b className="font-mono">{MONEY(total)}</b> au coût</span>
       </div>

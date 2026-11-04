@@ -21,7 +21,16 @@
 
 **Prévision** : événements par site (vacances, fêtes) appliqués à la prévision et au réassort ; commande groupée par fournisseur, arrondie au carton, avec transferts proposés avant achat.
 
-**Correction** : le comptage d'ouverture ne compte plus comme écart dans la consommation par article.
+**Corrections après le comité d'audit** :
+- rouvrir un site sous le nom d'un site archivé fonctionne, secteur compris ;
+- un agent refusé ou une ligne de stock impossible ne laisse plus de site à moitié ouvert : le stock de départ est tout ou rien ;
+- la caisse suit tous les mouvements (remboursement, virement, annulation, règlement) : plus de faux écart à l'arrêté ;
+- le fonds compté à l'ouverture inclut ce qui a bougé plus tôt dans la journée ;
+- un chef affecté à des sites reste sur ces sites ; la réouverture et le seuil reviennent à la finance ;
+- le paiement du dirigeant n'est remboursable qu'une fois écrit par la comptable ; une ligne qualifiée ne s'annule plus d'un clic ;
+- les lignes de caisse issues d'une pièce ne se suppriment plus ; retours bornés à la réception ; valorisation d'une réception sans prix ;
+- portions d'un lot transférables d'une cuisine vers un point de vente ; date limite du jour par défaut ; recomptage sans faux écart ; écarts justifiés ;
+- le comptage d'ouverture ne compte plus comme écart dans la consommation par article ; la production compte dans le réassort.
 
 **Documentation** : `docs/restauration-guides.md` (guides, matrice des droits, dictionnaire, reprise).
 

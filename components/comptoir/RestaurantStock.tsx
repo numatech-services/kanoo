@@ -24,7 +24,8 @@ export interface StockRow {
   threshold?: number; reserveThreshold?: number; lowDesk: boolean; lowReserve: boolean;
   nextExpiry: string | null; expiringQty: number; expiredQty: number; suggestion: number;
 }
-export interface ReserveData { reserveId: string; rows: StockRow[]; totals: { desk: number | null; reserve: number | null }; moves: Array<{ _id: string; name: string; unit: string; type: string; quantity: number; quantityAfter: number; unitCost?: number; reason: string; createdAt: string }> }
+export interface ReserveData {
+  showCosts?: boolean; reserveId: string; rows: StockRow[]; totals: { desk: number | null; reserve: number | null }; moves: Array<{ _id: string; name: string; unit: string; type: string; quantity: number; quantityAfter: number; unitCost?: number; reason: string; createdAt: string }> }
 
 /** « 3 cartons + 4 » : une quantité en unités lue en paquets quand l'article en a. */
 export function inPacks(qty: number, r: Pick<StockRow, "pack" | "unit">) {
@@ -128,7 +129,8 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
   const [supplier, setSupplier] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [suppliers, setSuppliers] = useState<Array<{ _id: string; name: string }>>([]);
-  useEffect(() => { apiJson("/api/suppliers?limit=500").then(d => setSuppliers(Array.isArray(d.data) ? d.data : d.data?.items ?? [])).catch(() => {}); }, []);
+  useEffect(() => { apiJson(`/api/comptoir/reserve?deskId=${deskId}`).then(d => setSuppliers((d.data?.suppliers ?? []) as Array<{ _id: string; name: string }>)).catch(() => {}); }, [deskId]);
+  const [dueDays, setDueDays] = useState("30");
   const [reference, setReference] = useState("");
   const [paid, setPaid] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -158,7 +160,7 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
     if (!payload.length) return showToast("Saisissez au moins une quantité.", "error");
     setBusy(true);
     const r = await apiSend<{ data: { total: number; unvalued: number; alerts: Array<{ name: string; pct: number; dishes: string[] }> }; error?: string }>("POST", "/api/comptoir/reserve", { deskId, action: "receive", lines: payload, supplier, ...(supplierId ? { supplierId } : {}), reference, paidFromCash: paid,
-      control: { chain: ctl.chain, temperature: ctl.temperature.trim() === "" ? null : num(ctl.temperature), packagingOk: ctl.packagingOk, datesOk: ctl.datesOk } }, op.headers());
+      dueDays: paid ? undefined : num(dueDays), control: { chain: ctl.chain, temperature: ctl.temperature.trim() === "" ? null : num(ctl.temperature), packagingOk: ctl.packagingOk, datesOk: ctl.datesOk } }, op.headers());
     setBusy(false);
     if (!r.ok) return showToast(r.data.error || "Réception refusée", "error");
     op.done();
@@ -224,7 +226,10 @@ export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }:
           </div>
           <p className="text-[11px] text-ink3">Noté au registre d&apos;hygiène (Restauration → Hygiène). Une ligne refusée n&apos;entre pas en stock. Repères usuels, à adapter au plan HACCP de l&apos;établissement.</p>
         </fieldset>
-        {costs && <label className="inline-flex items-center gap-2 text-sm text-ink2"><input type="checkbox" checked={paid} onChange={e => setPaid(e.target.checked)} /> Payé en espèces depuis la caisse du comptoir (sortie de caisse et écriture d&apos;achat passées avec la réception)</label>}
+                {costs && <div className="flex gap-3 items-end flex-wrap">
+          <FormField label="Règlement"><select className={selectCls} value={paid ? "cash" : "credit"} onChange={e => setPaid(e.target.value === "cash")}><option value="credit">À crédit : dette fournisseur</option><option value="cash">Payé maintenant, depuis la caisse</option></select></FormField>
+          {!paid && <FormField label="À payer sous (jours)"><input className={`${inputCls} w-24`} inputMode="numeric" value={dueDays} onChange={e => setDueDays(e.target.value)} /></FormField>}
+        </div>}
         <p className="text-xs text-ink3">Prix d&apos;achat payé (TTC, sans TVA récupérée). Le lot et la date de péremption sont gardés : les sorties prennent le lot le plus proche de sa péremption, un lot périmé reste en réserve. Un article non relié au catalogue l&apos;est automatiquement, au taux de TVA du comptoir.</p>
       </div>
     </Modal>

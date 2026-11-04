@@ -143,6 +143,13 @@ export async function stockOut(auth: TokenPayload, desk: DeskLite, item: ItemDoc
         await ActivityStockMoveModel.create([{ tenantId, deskId: desk._id, itemId: item._id, type: "supply", quantity: take, quantityAfter: t.in.after, reason: `Depuis la réserve (ticket ${number})`, stockMovementId: t.in.movement._id, date, createdBy: auth.userId }], { session });
       }
     }
+    if (!lenient && desk.reserveWarehouseId) {
+      const [here, there] = await Promise.all([
+        ProductStockModel.findOne({ tenantId, warehouseId: wh, productId: item.productId }).select("qty").session(session ?? null).lean<{ qty: number } | null>(),
+        ProductStockModel.findOne({ tenantId, warehouseId: desk.reserveWarehouseId, productId: item.productId }).select("qty").session(session ?? null).lean<{ qty: number } | null>(),
+      ]);
+      if ((here?.qty ?? 0) < qty && (there?.qty ?? 0) > 0) throw new BusinessRuleError(`${item.name} : ${here?.qty ?? 0} au comptoir, ${there!.qty} en réserve. Montez-le au comptoir (Magasin) pour le vendre.`);
+    }
     const r = await applyMovement({
       tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: "exit", quantity: qty,
       reason: label, linkedDocType: "comptoir", linkedDocId: desk._id, linkedDocNumber: number,

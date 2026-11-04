@@ -1,6 +1,5 @@
 import { Types, type ClientSession } from "mongoose";
 import { withTransaction } from "@/lib/db";
-import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { AccountingEntryModel } from "@/models/AccountingEntry";

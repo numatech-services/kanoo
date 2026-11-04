@@ -8,6 +8,7 @@ import { buttonClass } from "@/components/ui/button-class";
 import { showToast } from "@/components/ui/Toast";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
+import { useOpKey } from "@/lib/use-op-key";
 import { LOSS_REASONS } from "@/lib/spot";
 
 const MONEY = (n: number | undefined) => (n === undefined ? "—" : `${Math.round(n).toLocaleString("fr-FR")} FCFA`);
@@ -125,15 +126,17 @@ export function CycleCountPanel({ deskId, onChange }: { deskId: string; onChange
 
 /** Perte, casse, offert, consommation du personnel : sortie de stock motivée et chiffrée. */
 export function LossDialog({ deskId, item, onClose, onDone }: { deskId: string; item: { _id: string; name: string; unit: string; quantity: number }; onClose: () => void; onDone: () => void }) {
+  const op = useOpKey();
   const [f, setF] = useState({ quantity: "", reason: "broken", note: "", employeeId: "" });
   const [busy, setBusy] = useState(false);
   // Repas du personnel : rattaché au collaborateur (avantage en nature sur son bulletin).
   const { data: team } = useApi<Array<{ employeeId: string; name: string }>>(f.reason === "staff" ? `/api/restauration/planning?deskId=${deskId}` : null, d => ((d?.data as { team?: Array<{ employeeId: string; name: string }> })?.team ?? []), [], { quiet: true });
   async function save() {
     setBusy(true);
-    const res = await apiSend("POST", "/api/comptoir/losses", { deskId, itemId: item._id, quantity: Number(f.quantity), reason: f.reason, note: f.note || undefined, employeeId: f.reason === "staff" && f.employeeId ? f.employeeId : undefined });
+    const res = await apiSend("POST", "/api/comptoir/losses", { deskId, itemId: item._id, quantity: Number(f.quantity), reason: f.reason, note: f.note || undefined, employeeId: f.reason === "staff" && f.employeeId ? f.employeeId : undefined }, op.headers());
     setBusy(false);
     if (!res.ok) { showToast(res.data?.error || "Déclaration refusée.", "error"); return; }
+    op.done();
     const v = res.data.data.lossValue;
     showToast(`Perte enregistrée${v !== undefined ? ` (${MONEY(v)} au coût)` : ""}.`, "success"); onDone();
   }

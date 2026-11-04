@@ -16,7 +16,10 @@ const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, is
 const page = await ctx.newPage();
 const errors = [];
 page.on("pageerror", e => errors.push(`JS : ${e.message}`));
-page.on("response", r => { if (r.status() >= 500) errors.push(`${r.status()} ${r.url()}`); });
+page.on("response", async r => {
+  if (r.status() >= 500) errors.push(`${r.status()} ${r.url()}`);
+  if (r.status() >= 400 && r.url().includes("/api/restauration/")) console.log(`  ! ${r.status()} ${await r.text().catch(() => "")}`.slice(0, 300));
+});
 let pass = 0, fail = 0;
 const check = (label, ok, info) => { if (ok) { pass++; console.log(`  ✓ ${label}`); } else { fail++; console.log(`  ✗ ${label}`, info ?? ""); } };
 const shot = async name => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true }); };
@@ -35,6 +38,7 @@ await page.goto(`${BASE}/restauration/ouverture`, { waitUntil: "networkidle", ti
 await page.addStyleTag({ content: "nextjs-portal { display: none !important; pointer-events: none !important; }" });
 await button("Ouvrir un site").first().click();
 await page.getByLabel("Nom du site").fill(name);
+await page.getByLabel("TVA sur les ventes").selectOption("0");
 await shot("1-site");
 await button("Continuer").click();
 await page.getByLabel("Montant alloué").fill("150000");
@@ -74,6 +78,7 @@ await page.getByLabel("Article", { exact: true }).fill("Eau parcours");
 await page.getByLabel("Quantité").fill("10");
 await page.getByLabel("Coût (FCFA)").fill("100");
 await button("Enregistrer le stock").click();
+await button("Confirmer").last().click().catch(() => {});
 await page.getByRole("dialog").waitFor({ state: "detached", timeout: 30000 });
 await card.getByText(/11\s?600/).waitFor({ timeout: 30000 }).catch(() => {});
 check("stock ajouté sur un site ouvert : 11 600 au coût", /11\s?600/.test(await card.textContent()), await card.textContent());
@@ -90,7 +95,7 @@ await card.getByRole("button", { name: "Situation de départ" }).click();
 await page.getByText("Où il est allé").waitFor({ timeout: 30000 });
 await shot("7-situation");
 const pos = await page.getByRole("dialog").textContent();
-check("situation de départ : origine à qualifier signalée, écart expliqué", /à qualifier/.test(pos) && /Écart de/.test(pos), pos);
+check("situation de départ : l'origine à qualifier est signalée, le stock a son origine", /à qualifier/.test(pos) && /Stock repris/.test(pos), pos);
 
 check("aucune erreur JavaScript ni erreur 500", errors.length === 0, errors);
 console.log(`\n${pass} réussis, ${fail} en échec`);
