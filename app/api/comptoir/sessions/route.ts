@@ -44,14 +44,14 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
     CashSessionModel.find({ ...tenantFilter(auth), deskId: new Types.ObjectId(deskId), status: "closed" }).sort({ openDay: -1 }).limit(26)
       .populate("openedBy closedBy", "firstName lastName").lean<Array<Record<string, unknown> & { summary?: Report }>>(),
   ]);
-  const live = current ? await periodReport(auth.tenantId, deskId, current.openDay, localDay(new Date()), current.openingFloat) : null;
+  const live = current ? await periodReport(auth.tenantId, deskId, current.openDay, localDay(new Date()), current.openingFloat, (current as { floatAdjust?: number }).floatAdjust ?? 0) : null;
   const targets = (current as { targets?: { revenue?: number; margin?: number } } | null)?.targets;
   const progress = current && live ? sessionProgress(costs ? targets : { revenue: targets?.revenue }, live.sales.revenueTTC, live.sales.margin, current.openDay) : null;
   return ok({
     showCosts: costs,
     current: current ? { ...current, ...(costs ? {} : { targets: targets?.revenue ? { revenue: targets.revenue } : undefined }), report: strip(live, costs), progress } : null,
-    // Première ouverture : l'argent alloué au site est proposé comme fonds de caisse, il n'est pas ressaisi.
-    suggestedFloat: !current && !history.length ? await firstFloat(auth.tenantId, deskId) : undefined,
+    // L'argent de la caisse selon les comptes : proposé à chaque ouverture, il n'est pas ressaisi.
+    suggestedFloat: !current ? await firstFloat(auth.tenantId, deskId) : undefined,
     previous: history[0] ? strip(history[0].summary, costs) : null,
     history: history.map(h => ({ ...h, summary: strip(h.summary, costs) })),
   });

@@ -111,7 +111,7 @@ export function SessionTab({ deskId, deskName, onChange }: { deskId: string; des
         )}
       </section>
 
-      {openDlg && <OpenDialog deskId={deskId} suggested={data.history[0]?.summary?.countedCash ?? data.suggestedFloat} onClose={() => setOpenDlg(false)} onDone={() => { setOpenDlg(false); reload(); onChange(); }} />}
+      {openDlg && <OpenDialog deskId={deskId} suggested={data.suggestedFloat ?? data.history[0]?.summary?.countedCash} onClose={() => setOpenDlg(false)} onDone={() => { setOpenDlg(false); reload(); onChange(); }} />}
       {closeDlg && cur && r && <CloseDialog session={cur} report={r} onClose={() => setCloseDlg(false)} onDone={() => { setCloseDlg(false); reload(); onChange(); }} />}
     </div>
   );
@@ -239,7 +239,7 @@ function OpenDialog({ deskId, suggested, onClose, onDone }: { deskId: string; su
   return (
     <Modal open onClose={onClose} title="Ouvrir la caisse" size="sm">
       <div className="space-y-4">
-        <FormField label="Fonds de caisse (espèces au départ)" hint={suggested !== undefined ? "Proposé : les espèces de la dernière fermeture, ou l'argent alloué au site à la première ouverture." : undefined}>
+        <FormField label="Fonds de caisse (espèces au départ)" hint={suggested !== undefined ? "Proposé : l'argent de la caisse selon les comptes. Comptez le tiroir : un écart se verra à la fermeture." : undefined}>
           <input type="number" min={0} className={inputCls} value={float} onChange={e => setFloat(e.target.value)} />
         </FormField>
         <FormField label="Nom (facultatif)"><input className={inputCls} maxLength={80} placeholder="Semaine 44" value={label} onChange={e => setLabel(e.target.value)} /></FormField>

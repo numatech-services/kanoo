@@ -47,11 +47,11 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   if (!["in", "out"].includes(body.direction)) return badRequest("Sens invalide");
   if (!(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
   const amount = Number(body.amount);
-  if (!(amount > 0)) return badRequest("Montant invalide");
+  if (!(amount > 0) || amount > 1e11) return badRequest("Montant invalide");
   const date = body.date ? new Date(body.date) : new Date();
-  if (isNaN(date.getTime())) return badRequest("Date invalide");
+  if (isNaN(date.getTime()) || date.getTime() > Date.now() + 3_600_000) return badRequest("Date invalide : une écriture de caisse ne se date pas dans le futur.");
   // Site ouvert par l'assistant : une marchandise passe par une réception, sinon le stock et le coût des ventes sont faux.
-  const goods = body.direction === "out" && (!body.category || !(body.category in EXPENSE_CATEGORIES) || body.category === "supply" || body.category === "ingredients");
+  const goods = body.direction === "out" && (!body.category || !Object.hasOwn(EXPENSE_CATEGORIES, body.category) || body.category === "supply" || body.category === "ingredients");
   if (goods && await ActivityDeskModel.exists({ _id: body.deskId, ...tenantFilter(auth), strictStock: true })) return badRequest("Un achat de marchandises se saisit par une réception (payée en caisse), pas en dépense. Pour une autre dépense, choisissez sa nature.");
   // Écriture de caisse + comptabilisation (si le comptoir est relié à une caisse)
   // dans la même transaction : jamais l'une sans l'autre.
@@ -66,7 +66,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       method: METHODS.includes(body.method) ? body.method : "cash",
       // Sortie sans nature : un achat (compte d'achats du comptoir). Entrée : une vente, sauf « hors vente »
       // (remboursement, apport, correction), passée en compte d'attente sans TVA pour le comptable.
-      ...(body.direction === "out" ? { category: body.category && body.category in EXPENSE_CATEGORIES ? body.category : "supply" } : body.category === "non_sale" ? { category: "non_sale" } : {}),
+      ...(body.direction === "out" ? { category: body.category && Object.hasOwn(EXPENSE_CATEGORIES, body.category) ? body.category : "supply" } : body.category === "non_sale" ? { category: "non_sale" } : {}),
       date,
       createdBy: auth.userId,
     }], { session });

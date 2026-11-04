@@ -33,9 +33,13 @@ export const DELETE = withAuth("comptoir", "delete", async (_req: NextRequest, a
     if (!cur) return null;
     // L'encaissement d'un ticket s'annule par le ticket (stock, TVA, timbre).
     if (cur.saleId) throw new BusinessRuleError("Cet encaissement appartient à un ticket : annulez le ticket.");
+    // Ces lignes reflètent une pièce (financement, virement, règlement, réception) : on les corrige par elle, jamais ici.
+    if (["funding", "cash_transfer", "supplier_payment", "purchase"].includes(cur.category ?? "")) throw new BusinessRuleError("Cette ligne vient d'un financement, d'un virement, d'un règlement ou d'une réception : corrigez-la depuis sa pièce.");
     await assertDayOpen(auth.tenantId, cur.deskId, new Date(cur.date), session);
     const e = await ActivityCashEntryModel.findOneAndDelete({ _id: cur._id }, { session });
     if (!e) return null;
+    // La ligne disparaît de la caisse : l'écriture est extournée et le journal d'audit en garde le contenu.
+    await logAudit(auth, "DELETE", "comptoir", { resourceId: String(e._id), metadata: { cashEntryRemoved: { label: e.label, amount: e.amount, direction: e.direction, category: e.category, date: e.date, method: e.method } } });
     const reason = `écriture de caisse supprimée : ${e.label}`.slice(0, 200);
     await reverseCashFlow({ tenantId: auth.tenantId, userId: auth.userId, entryId: e.entryId, movementId: e.movementId, reason }, session);
 

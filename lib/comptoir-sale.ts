@@ -6,6 +6,7 @@ import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { ComptoirSaleModel, type ISaleLine } from "@/models/ComptoirSale";
 import { DeskMonthCloseModel } from "@/models/DeskMonthClose";
 import { DeskWeekCloseModel } from "@/models/DeskWeekClose";
+import { CashSessionModel } from "@/models/CashSession";
 import { ProductStockModel } from "@/models/ProductStock";
 import { StockLotModel } from "@/models/StockLot";
 import { CashClosingModel } from "@/models/CashClosing";
@@ -43,6 +44,7 @@ export function localDay(d: Date): string {
 
 /** Journée déjà arrêtée pour ce comptoir : plus rien ne s'y écrit. */
 export async function assertDayOpen(tenantId: string, deskId: unknown, date: Date, session?: ClientSession) {
+  if (await ActivityDeskModel.exists({ _id: deskId, tenantId, archived: true }).session(session ?? null)) throw new BusinessRuleError("Ce site est archivé : plus rien ne s'y écrit.");
   const closed = await CashClosingModel.exists({ tenantId, deskId, day: { $gte: localDay(date) } }).session(session ?? null);
   if (closed) throw new BusinessRuleError(`La caisse est arrêtée au ${date.toLocaleDateString("fr-FR")} (ou après) : cette journée ne se modifie plus.`);
   await assertMonthOpen(tenantId, deskId, date, session);
@@ -177,7 +179,7 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
   const lenientIngredients = !!desk.lenientStock;
   const external = input.external?.source === "easypay" ? input.external : undefined;
   let date = input.date ? new Date(input.date) : new Date();
-  if (isNaN(date.getTime())) throw new BusinessRuleError("Date invalide.");
+  if (isNaN(date.getTime()) || (!external && date.getTime() > Date.now() + 3_600_000)) throw new BusinessRuleError("Date invalide : un ticket ne se date pas dans le futur.");
   let occurredAt: Date | undefined;
   if (external) {
     // Vente servie un jour déjà arrêté (caisse restée hors connexion) : passée au premier jour ouvert.
@@ -262,6 +264,8 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
     } else {
       const before = item.quantity || 0;
       const o = await stockOut(auth, desk, item, qty, number, date, session, !!external);
+      // Vente reçue de la caisse avant la déclaration du lot : la portion manquante sera déduite de la production.
+      if (external && item.productionMode === "batch" && qty > before) await ActivityItemModel.updateOne({ _id: item._id }, { $inc: { portionDebt: Math.round((qty - before) * 1000) / 1000 } }, { session });
       unitCost = o.unitCost; stockMovementId = o.stockMovementId; moveId = o.moveId; after = o.after;
       if (external && !item.productId && qty > before) warnings.push(`${item.name} : vendu ${qty} pour ${before} en stock dans Kanoo (stock ramené à 0).`);
     }
@@ -452,7 +456,9 @@ const CASH_SURPLUS = { accountCode: "758100", accountLabel: "Excédents de caiss
 
 /** Totaux d'une journée de comptoir, par moyen de paiement, et ventes du jour. */
 export async function dayFigures(tenantId: string, deskId: unknown, day: string, session?: ClientSession) {
-  return periodFigures(tenantId, deskId, day, day, session);
+  const f = await periodFigures(tenantId, deskId, day, day, session);
+  const opened = await CashSessionModel.findOne({ tenantId, deskId, status: "open", openDay: day }).select("floatAdjust").session(session ?? null).lean<{ floatAdjust?: number } | null>();
+  return { ...f, cashNet: f.cashNet + (opened?.floatAdjust ?? 0) };
 }
 
 /** Mêmes totaux sur une période de jours (caisse de la semaine). */
@@ -501,8 +507,10 @@ export async function closeDay(auth: TokenPayload, input: { deskId: string; day:
   // Période (caisse de la semaine) : du premier jour non arrêté à ce jour.
   const fromDay = input.fromDay && /^\d{4}-\d{2}-\d{2}$/.test(input.fromDay) && input.fromDay < input.day ? input.fromDay : input.day;
   const f = await periodFigures(tenantId, desk._id, fromDay, input.day, session);
+  // Espèces bougées avant l'ouverture de la caisse, le premier jour : déjà dans le fonds compté.
+  const opened = await CashSessionModel.findOne({ tenantId, deskId: desk._id, status: "open", openDay: fromDay }).select("floatAdjust").session(session ?? null).lean<{ floatAdjust?: number } | null>();
   // Le fonds de caisse du matin est compté avec les espèces du soir.
-  const theoreticalCash = Math.max(0, Math.round(Number(input.openingFloat) || 0)) + f.cashNet;
+  const theoreticalCash = Math.max(0, Math.round(Number(input.openingFloat) || 0)) + (opened?.floatAdjust ?? 0) + f.cashNet;
   const gap = counted - theoreticalCash;
   const [closing] = await CashClosingModel.create([{
     tenantId, deskId: desk._id, day: input.day, ...(fromDay !== input.day ? { fromDay } : {}), ...(input.sessionId ? { sessionId: input.sessionId } : {}),

@@ -49,7 +49,9 @@ export async function forecastDay(tenantId: string, deskId: string, day: string)
   // Événements du site (vacances, fête, promotion) : la base reste visible, l'ajustement est nommé.
   const adj = await forecastFactor(tenantId, deskId, day);
   if (plan.configured) {
-    return { basis: "schedule" as const, tickets: null as number | null, adjustment: adj, items: new Map(plan.planned.map(p => [p.itemId, Math.ceil(p.planned * adj.factor)])) };
+    // Réservations fermes : un événement ne les réduit pas.
+    const firm = await preorderedFor(tenantId, deskId, day);
+    return { basis: "schedule" as const, tickets: null as number | null, adjustment: adj, items: new Map(plan.planned.map(p => [p.itemId, Math.ceil(Math.max(p.planned * adj.factor, firm.get(p.itemId) ?? 0))])) };
   }
   const history = await Promise.all([1, 2, 3, 4].map(w => soldOn(tenantId, deskId, addDays(day, -7 * w))));
   const avg = new Map<string, number>();
@@ -173,6 +175,8 @@ export async function produceBatch(auth: TokenPayload, deskId: string, itemId: s
   if (!(qty > 0) || qty > 100_000) throw new BusinessRuleError("Nombre de portions invalide.");
   if (opts.expiryDate && isNaN(new Date(opts.expiryDate).getTime())) throw new BusinessRuleError("Date limite invalide.");
   const d = new Date(), p = (n: number) => String(n).padStart(2, "0");
+  // Sans froid maîtrisé, rien ne se garde d'un jour à l'autre : un lot vaut pour le jour même, sauf date choisie.
+  const expiryDate = opts.expiryDate || `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
   const number = `PROD-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
   const out = await withTransaction(async session => {
     await assertDayOpen(auth.tenantId, deskId, d, session);
@@ -193,15 +197,19 @@ export async function produceBatch(auth: TokenPayload, deskId: string, itemId: s
       if (!o.unitCost) unknownCost = true;
     }
     const unitCost = Math.round((total / qty) * 100) / 100;
+    // Portions vendues par la caisse reliée avant la déclaration du lot : déjà sorties, elles n'entrent pas une seconde fois.
+    const debt = Math.min(qty, item.portionDebt ?? 0), entered = Math.round((qty - debt) * 1000) / 1000;
+    if (debt > 0) await ActivityItemModel.updateOne({ _id: item._id }, { $inc: { portionDebt: -debt } }, { session });
     const productId = await ensureLinked(auth, deskId, item._id, session);
+    if (!(entered > 0)) return { number, portions: qty, unitCost, total: Math.round(total), unknownCost, regularized: debt };
     const wh = await deskWarehouse(auth.tenantId, deskId, session);
     const r = await applyMovement({
-      tenantId: auth.tenantId, userId: auth.userId, productId, warehouseId: wh, type: "entry", quantity: qty, ...(unitCost > 0 ? { unitCost } : {}),
-      ...(opts.expiryDate ? { lots: [{ lotNumber: number, qty, expiryDate: opts.expiryDate }] } : { autoLot: number }),
+      tenantId: auth.tenantId, userId: auth.userId, productId, warehouseId: wh, type: "entry", quantity: entered, ...(unitCost > 0 ? { unitCost } : {}),
+      lots: [{ lotNumber: number, qty: entered, expiryDate }],
       reason: `Production ${item.name} (${number})`, linkedDocType: "comptoir", linkedDocId: desk._id, linkedDocNumber: number,
     }, session);
-    await ActivityStockMoveModel.create([{ tenantId: auth.tenantId, deskId, itemId: item._id, type: "in", quantity: qty, quantityAfter: r.after, unitCost, reason: `Lot ${number}`, stockMovementId: r.movement._id, date: d, createdBy: auth.userId }], { session });
-    return { number, portions: qty, unitCost, total: Math.round(total), unknownCost };
+    await ActivityStockMoveModel.create([{ tenantId: auth.tenantId, deskId, itemId: item._id, type: "in", quantity: entered, quantityAfter: r.after, unitCost, reason: `Lot ${number}`, stockMovementId: r.movement._id, date: d, createdBy: auth.userId }], { session });
+    return { number, portions: qty, unitCost, total: Math.round(total), unknownCost, regularized: debt };
   });
   await syncLinkedItems(auth.tenantId, deskId);
   return out;

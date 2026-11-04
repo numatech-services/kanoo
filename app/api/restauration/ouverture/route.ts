@@ -6,7 +6,7 @@ import { authCan, hasFinanceAccess } from "@/lib/role-resources";
 import { allDesks, isId } from "@/lib/comptoir";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
-import { sitesOverview, archiveForRestart, openSite, openingStock, siteTemplates, copyRecipes, type OpeningInput } from "@/lib/restaurant-opening";
+import { sitesOverview, archiveForRestart, openSite, openingStock, siteTemplates, copyRecipes, validateOpening, type OpeningInput } from "@/lib/restaurant-opening";
 import { allocateFunds, addOpeningLine, cancelFunding, qualifyFunding, repayFunding, depositCash, openingPosition, FUNDING_NATURES, OPENING_KINDS } from "@/lib/restaurant-funding";
 import { accountBalance } from "@/lib/treasury";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
@@ -79,8 +79,9 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
         const ids = Array.isArray(body.deskIds) ? body.deskIds.filter(isId) : [];
         if (!ids.length) return badRequest("Aucun site choisi.");
         if (body.cashTo && !(isId(body.cashTo) && (await TreasuryAccountModel.exists({ _id: body.cashTo, tenantId: auth.tenantId })))) return badRequest("Compte de destination introuvable.");
+        const before = await sitesOverview(auth.tenantId);
         const r = await archiveForRestart(auth, ids, body.solderStock === true, body.cashTo || undefined);
-        await logAudit(auth, "UPDATE", "comptoir", { metadata: { restartArchive: ids, solderStock: body.solderStock === true, cashTo: body.cashTo } });
+        await logAudit(auth, "UPDATE", "comptoir", { metadata: { restartArchive: ids, solderStock: body.solderStock === true, cashTo: body.cashTo, stockAtArchive: before.filter(b => ids.includes(b.deskId)).map(b => ({ site: b.name, value: b.stockValue, lines: b.stockLines, cash: b.cashBalance })) } });
         return ok(r);
       }
       case "open": {
@@ -90,7 +91,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       }
       case "stock": {
         if (!(await site())) return notFound("Site introuvable");
-        const r = await openingStock(auth, body.deskId, Array.isArray(body.items) ? body.items : []);
+        const r = await openingStock(auth, body.deskId, body.items);
         await logAudit(auth, "CREATE", "comptoir", { resourceId: body.deskId, metadata: { openingStock: r.items, value: r.stockValue } });
         return created(r);
       }
@@ -111,6 +112,12 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
         const f = await addOpeningLine(auth, body.deskId, { kind: body.kind, amount: Number(body.amount), label: text(body.label), repayable: body.repayable !== false, date: dayOf(body.date) });
         await logAudit(auth, "CREATE", "comptoir", { resourceId: body.deskId, metadata: { openingLine: f.kind, amount: f.amount } });
         return created({ _id: String(f._id) });
+      }
+      case "validate": {
+        if (!(await site())) return notFound("Site introuvable");
+        await validateOpening(auth, body.deskId);
+        await logAudit(auth, "APPROVE", "comptoir", { resourceId: body.deskId, metadata: { openingValidated: true } });
+        return ok({ validated: true });
       }
       case "cancel": {
         if (!(await ownLine(auth, body.id))) return notFound("Ligne introuvable");

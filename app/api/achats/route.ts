@@ -68,12 +68,14 @@ export const POST = withAuth("purchases", "create", async (req: NextRequest, aut
     const date = body.date ? new Date(body.date) : new Date();
     if (isNaN(date.getTime())) throw new PurchaseError("Date invalide.");
     const built = await buildPurchaseLines(auth.tenantId, body.lines, body);
+    let sourceDesk: unknown;
     let commandeId: unknown;
     if (body.commandeId) {
-      const cmd = await CommandeModel.findOne({ _id: body.commandeId, ...tenantFilter(auth) }).select("_id purchaseId supplierId").lean<{ _id: unknown; purchaseId?: unknown; supplierId: unknown } | null>();
+      const cmd = await CommandeModel.findOne({ _id: body.commandeId, ...tenantFilter(auth) }).select("_id purchaseId supplierId sourceDeskId").lean<{ _id: unknown; purchaseId?: unknown; sourceDeskId?: unknown; supplierId: unknown } | null>();
       if (!cmd) throw new PurchaseError("Bon de commande introuvable.");
       if (cmd.purchaseId) throw new PurchaseError("Ce bon de commande a déjà sa facture fournisseur.");
       commandeId = cmd._id;
+      sourceDesk = cmd.sourceDeskId;
     }
 
     const purchase = await withTransaction(async session => {
@@ -83,7 +85,7 @@ export const POST = withAuth("purchases", "create", async (req: NextRequest, aut
         supplierId: supplier?._id, payee: supplier ? supplier.name : String(body.payee).trim().slice(0, 160),
         supplierRef: body.supplierRef ? String(body.supplierRef).slice(0, 80) : undefined,
         date, dueDate: body.dueDate ? new Date(body.dueDate) : kind === "cash" ? date : undefined,
-        commandeId, ...built, notes: body.notes ? String(body.notes).slice(0, 2000) : undefined,
+        commandeId, ...(sourceDesk ? { deskId: sourceDesk } : {}), ...built, notes: body.notes ? String(body.notes).slice(0, 2000) : undefined,
         status: "draft", createdBy: auth.userId,
       }], { session });
       if (commandeId) await CommandeModel.updateOne({ _id: commandeId }, { $set: { purchaseId: p._id } }, { session });

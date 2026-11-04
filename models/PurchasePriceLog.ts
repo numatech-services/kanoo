@@ -22,6 +22,10 @@ export interface IPurchasePriceLog {
   paidFromCash: boolean;
   /** Dette créée par cette réception (facture validée au 401). */
   purchaseId?: Types.ObjectId;
+  /** Quantité déjà retournée au fournisseur. */
+  returned?: number;
+  /** Livraison permanente : une seule réception par livraison et par jour. */
+  standingKey?: string;
   /** Facture du fournisseur rapprochée (numéro), qui et quand. */
   invoiceRef?: string;
   invoicedAt?: Date;
@@ -45,6 +49,8 @@ const PurchasePriceLogSchema = new Schema<IPurchasePriceLog>({
   commandeId: { type: Schema.Types.ObjectId, ref: "Commande" },
   paidFromCash: { type: Boolean, default: false },
   purchaseId: { type: Schema.Types.ObjectId, ref: "Purchase" },
+  returned: { type: Number, default: 0, min: 0 },
+  standingKey: { type: String, maxlength: 60 },
   invoiceRef: { type: String, maxlength: 60 },
   invoicedAt: Date,
   invoicedBy: { type: Schema.Types.ObjectId, ref: "User" },
@@ -53,5 +59,6 @@ const PurchasePriceLogSchema = new Schema<IPurchasePriceLog>({
 
 PurchasePriceLogSchema.index({ tenantId: 1, deskId: 1, itemId: 1, date: -1 });
 PurchasePriceLogSchema.index({ tenantId: 1, deskId: 1, source: 1, paidFromCash: 1, invoiceRef: 1 });
+PurchasePriceLogSchema.index({ tenantId: 1, deskId: 1, standingKey: 1 }, { unique: true, partialFilterExpression: { standingKey: { $exists: true } } });
 
 export const PurchasePriceLogModel = models.PurchasePriceLog || model<IPurchasePriceLog>("PurchasePriceLog", PurchasePriceLogSchema);

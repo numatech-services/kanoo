@@ -11,7 +11,7 @@ export interface IDeskTransfer {
   number: string;
   fromDeskId: Types.ObjectId; fromName: string;
   toDeskId: Types.ObjectId; toName: string;
-  lines: Array<{ fromItemId: Types.ObjectId; toItemId: Types.ObjectId; productId: Types.ObjectId; name: string; unit: string; quantity: number; unitCost: number; receivedQty?: number; lots: Array<{ lotNumber: string; qty: number; expiryDate?: Date }> }>;
+  lines: Array<{ fromItemId: Types.ObjectId; toItemId: Types.ObjectId; productId: Types.ObjectId; name: string; unit: string; quantity: number; unitCost: number; receivedQty?: number; toDesk?: boolean; lots: Array<{ lotNumber: string; qty: number; expiryDate?: Date }> }>;
   value: number;
   /** sent : ancien bon (stock déjà à destination). transit : en route. gap : reçu avec écart à trancher. */
   status: "sent" | "transit" | "received" | "gap";
@@ -29,7 +29,7 @@ const DeskTransferSchema = new Schema<IDeskTransfer>({
   number: { type: String, required: true },
   fromDeskId: { type: Schema.Types.ObjectId, ref: "ActivityDesk", required: true }, fromName: String,
   toDeskId: { type: Schema.Types.ObjectId, ref: "ActivityDesk", required: true }, toName: String,
-  lines: [{ _id: false, fromItemId: Schema.Types.ObjectId, toItemId: Schema.Types.ObjectId, productId: Schema.Types.ObjectId, name: String, unit: String, quantity: Number, receivedQty: Number, unitCost: Number,
+  lines: [{ _id: false, fromItemId: Schema.Types.ObjectId, toItemId: Schema.Types.ObjectId, productId: Schema.Types.ObjectId, name: String, unit: String, quantity: Number, receivedQty: Number, toDesk: Boolean, unitCost: Number,
     lots: [{ _id: false, lotNumber: String, qty: Number, expiryDate: Date }] }],
   value: { type: Number, default: 0 },
   status: { type: String, enum: ["sent", "transit", "received", "gap"], default: "transit" },

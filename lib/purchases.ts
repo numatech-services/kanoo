@@ -10,6 +10,8 @@ import type { TokenPayload } from "@/lib/auth";
 import { BusinessRuleError } from "@/lib/errors";
 
 import { CommandeModel } from "@/models/Commande";
+import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
+import { PurchasePriceLogModel } from "@/models/PurchasePriceLog";
 import { registerLedgerAccount } from "@/lib/treasury";
 import { EXCHANGE_GAIN, EXCHANGE_LOSS, MAX_EXCHANGE_RATE } from "@/lib/payments";
 /** Refus métier : rendu en 400 avec son message, même levé au fond d'une transaction. */
@@ -202,6 +204,12 @@ export async function cancelPayment(auth: TokenPayload, p: PurchaseDoc, paymentI
     tenantId: auth.tenantId, accountId: pay.treasuryAccountId, date: new Date(), amount: pay.amount,
     label: `Annulation règlement ${p.number}`, source: "expense", linkedDocType: "purchase", linkedDocId: p._id, createdBy: auth.userId,
   }], { session });
+  // Règlement fait depuis la caisse d'un site : l'argent y revient, les espèces attendues suivent.
+  const till = await ActivityCashEntryModel.findOne({ tenantId: auth.tenantId, movementId: pay.movementId }).select("deskId label").session(session ?? null).lean<{ deskId: unknown; label: string } | null>();
+  if (till) {
+    await ActivityCashEntryModel.create([{ tenantId: auth.tenantId, deskId: till.deskId, direction: "in", amount: pay.amount, label: `Annulation : ${till.label}`.slice(0, 200), method: "cash", category: "funding", date: new Date(), createdBy: auth.userId }], { session });
+    await PurchasePriceLogModel.updateMany({ tenantId: auth.tenantId, purchaseId: p._id, paidFromCash: true }, { $set: { paidFromCash: false } }, { session });
+  }
   pay.cancelledAt = new Date();
   p.paidAmount -= pay.amount + (pay.exchangeDifference || 0);
   p.status = p.paidAmount > 0 ? "partial" : "validated";
@@ -213,6 +221,8 @@ export async function cancelPayment(auth: TokenPayload, p: PurchaseDoc, paymentI
 export async function cancelPurchase(auth: TokenPayload, p: PurchaseDoc, reason: string, session?: ClientSession) {
   if (p.status === "cancelled") throw new PurchaseError("Achat déjà annulé.");
   if (p.paidAmount > 0) throw new PurchaseError("Annulez d'abord les règlements de cet achat.");
+  // La marchandise de cette dette est en stock : l'annuler laisserait un stock sans achat.
+  if (await PurchasePriceLogModel.exists({ tenantId: auth.tenantId, purchaseId: p._id }).session(session ?? null)) throw new PurchaseError("Cette dette vient d'une réception en stock : enregistrez un retour fournisseur plutôt que d'annuler la facture.");
   if (p.entryId) await reverseEntry({ tenantId: auth.tenantId, userId: auth.userId, entryId: p.entryId, reason: reason || "achat annulé" }, session);
   p.status = "cancelled";
   p.cancelledAt = new Date();

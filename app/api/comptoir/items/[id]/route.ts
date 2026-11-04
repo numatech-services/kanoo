@@ -59,6 +59,7 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
       { $set: { "lines.$[l].barcode": next.barcode || null, "lines.$[l].packBarcode": next.packBarcode || null, "lines.$[l].altBarcodes": next.altBarcodes } }, { arrayFilters: [{ "l.itemId": new Types.ObjectId(params.id) }] });
   }
   if ("productionMode" in clean) {
+    if (!canSeeDeskCosts(auth)) return forbidden("Le mode de production revient au chef du comptoir ou à la finance.");
     const cur = await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }).select("recipe quantity productId").lean<{ recipe?: unknown[]; quantity?: number; productId?: unknown } | null>();
     if (!cur) return notFound("Article introuvable");
     const mode = clean.productionMode === "batch" ? "batch" : "order";

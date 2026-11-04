@@ -16,7 +16,7 @@ export interface IDeskWeekClose {
   note?: string;
   closedBy: Types.ObjectId;
   closedAt: Date;
-  history: Array<{ closedBy: Types.ObjectId; closedAt: Date; reopenedBy: Types.ObjectId; reopenedAt: Date; reason: string }>;
+  history: Array<{ closedBy: Types.ObjectId; closedAt: Date; summary?: IDeskWeekClose["summary"]; reopenedBy: Types.ObjectId; reopenedAt: Date; reason: string }>;
 }
 
 const DeskWeekCloseSchema = new Schema<IDeskWeekClose>({
@@ -28,7 +28,7 @@ const DeskWeekCloseSchema = new Schema<IDeskWeekClose>({
   note: { type: String, maxlength: 400 },
   closedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   closedAt: { type: Date, required: true },
-  history: [{ _id: false, closedBy: Schema.Types.ObjectId, closedAt: Date, reopenedBy: Schema.Types.ObjectId, reopenedAt: Date, reason: String }],
+  history: [{ _id: false, closedBy: Schema.Types.ObjectId, closedAt: Date, summary: { stockValue: Number, gapValue: Number, inventories: Number }, reopenedBy: Schema.Types.ObjectId, reopenedAt: Date, reason: String }],
 }, { timestamps: true });
 
 DeskWeekCloseSchema.index({ tenantId: 1, deskId: 1, weekEnd: 1 }, { unique: true });

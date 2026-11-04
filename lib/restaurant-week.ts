@@ -1,4 +1,6 @@
 import { ActivityDeskModel } from "@/models/ActivityDesk";
+import { CashSessionModel } from "@/models/CashSession";
+import { CommandeModel } from "@/models/Commande";
 import { DeskInventoryModel } from "@/models/DeskInventory";
 import { DeskTransferModel } from "@/models/DeskTransfer";
 import { DeskWeekCloseModel, type IDeskWeekClose } from "@/models/DeskWeekClose";
@@ -11,27 +13,32 @@ import type { TokenPayload } from "@/lib/auth";
 const isDay = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
 /**
- * Où en est la semaine d'un site : ce qui bloque sa clôture (transferts à
- * recevoir, inventaire ouvert, pas d'inventaire depuis la dernière clôture) et
- * ce qui mérite un regard (réceptions sans prix).
+ * Où en est la semaine d'un site : ce qui bloque sa clôture (caisse ouverte,
+ * transferts à recevoir, inventaire ouvert, pas d'inventaire de fin de semaine
+ * depuis la dernière clôture, réceptions sans prix) et ce qui mérite un regard.
  */
 export async function weekStatus(tenantId: string, deskId: string, day = localDay(new Date())) {
   const last = await DeskWeekCloseModel.findOne({ tenantId, deskId, status: "closed" }).sort({ weekEnd: -1 }).select("weekEnd closedAt summary").lean<Pick<IDeskWeekClose, "weekEnd" | "closedAt" | "summary"> | null>();
   const since = last ? new Date(last.closedAt) : new Date(0);
-  const [toReceive, gaps, open, counted, unvalued] = await Promise.all([
+  const [toReceive, gaps, open, counted, unvalued, session, orders, desk] = await Promise.all([
     DeskTransferModel.countDocuments({ tenantId, toDeskId: deskId, status: { $in: ["sent", "transit"] } }),
     DeskTransferModel.countDocuments({ tenantId, status: "gap", $or: [{ fromDeskId: deskId }, { toDeskId: deskId }] }),
     DeskInventoryModel.countDocuments({ tenantId, deskId, status: "open" }),
-    DeskInventoryModel.countDocuments({ tenantId, deskId, status: "validated", opening: { $ne: true }, validatedAt: { $gt: since } }),
+    DeskInventoryModel.countDocuments({ tenantId, deskId, status: "validated", weekly: true, validatedAt: { $gt: since } }),
     PurchasePriceLogModel.countDocuments({ tenantId, deskId, unitCost: 0, date: { $gt: since } }),
+    CashSessionModel.exists({ tenantId, deskId, status: "open" }),
+    CommandeModel.countDocuments({ tenantId, sourceDeskId: deskId, status: "partially_received" }),
+    ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("gapApprovalThreshold").lean<{ gapApprovalThreshold?: number } | null>(),
   ]);
   const blockers = [
+    ...(session ? ["la caisse est ouverte : fermez-la d'abord, la clôture arrête toute la journée"] : []),
     ...(toReceive ? [`${toReceive} transfert(s) à recevoir`] : []),
     ...(gaps ? [`${gaps} écart(s) de transfert à trancher`] : []),
     ...(open ? ["un inventaire est ouvert : validez-le ou annulez-le"] : []),
-    ...(!counted ? ["aucun inventaire validé depuis la dernière clôture"] : []),
+    ...(!counted ? ["aucun inventaire de fin de semaine validé depuis la dernière clôture"] : []),
+    ...(unvalued ? [`${unvalued} réception(s) sans prix à valoriser`] : []),
   ];
-  return { last: last ? { weekEnd: last.weekEnd, closedAt: last.closedAt, summary: last.summary } : null, day, blockers, warnings: unvalued ? [`${unvalued} réception(s) sans prix : la valeur du stock est sous-estimée`] : [], canClose: !blockers.length && (!last || last.weekEnd < day) };
+  return { last: last ? { weekEnd: last.weekEnd, closedAt: last.closedAt, summary: last.summary } : null, day, blockers, warnings: orders ? [`${orders} commande(s) reçue(s) en partie : vérifiez les livraisons attendues`] : [], canClose: !blockers.length && (!last || last.weekEnd < day), threshold: desk?.gapApprovalThreshold ?? null };
 }
 
 /** Clôture de la semaine jusqu'au jour donné, une fois l'inventaire validé. Le stock restant reste tel quel. */
@@ -57,7 +64,7 @@ export async function reopenWeek(auth: TokenPayload, deskId: string, weekEnd: st
   const c = await DeskWeekCloseModel.findOne({ tenantId: auth.tenantId, deskId, weekEnd, status: "closed" }).lean<IDeskWeekClose | null>();
   if (!c) throw new BusinessRuleError("Cette semaine n'est pas close.");
   if (await DeskWeekCloseModel.exists({ tenantId: auth.tenantId, deskId, status: "closed", weekEnd: { $gt: weekEnd } })) throw new BusinessRuleError("Une semaine suivante est close : rouvrez d'abord la plus récente.");
-  await DeskWeekCloseModel.updateOne({ _id: c._id }, { $set: { status: "reopened" }, $push: { history: { closedBy: c.closedBy, closedAt: c.closedAt, reopenedBy: auth.userId, reopenedAt: new Date(), reason: why } } });
+  await DeskWeekCloseModel.updateOne({ _id: c._id }, { $set: { status: "reopened" }, $push: { history: { closedBy: c.closedBy, closedAt: c.closedAt, summary: c.summary, reopenedBy: auth.userId, reopenedAt: new Date(), reason: why } } });
 }
 
 /** Seuil de validation renforcée d'un site. */

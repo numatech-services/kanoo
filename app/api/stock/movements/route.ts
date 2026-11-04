@@ -1,4 +1,7 @@
 import { csvCell } from "@/lib/csv";
+import { WarehouseModel } from "@/models/Warehouse";
+import { BusinessRuleError } from "@/lib/errors";
+import { assertMonthOpen } from "@/lib/comptoir-sale";
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { connectDB, withTransaction } from "@/lib/db";
@@ -80,6 +83,11 @@ export const POST = withAuth("products", "update", async (req: NextRequest, auth
   if (err) return badRequest(err);
   if (!Types.ObjectId.isValid(String(body.productId))) return badRequest("Produit invalide.");
   try {
+    // Entrepôt d'un site : ses périodes closes s'appliquent aussi ici.
+    if (body.warehouseId && Types.ObjectId.isValid(String(body.warehouseId))) {
+      const wh = await WarehouseModel.findOne({ _id: body.warehouseId, tenantId: auth.tenantId }).select("deskId").lean<{ deskId?: unknown } | null>();
+      if (wh?.deskId) await assertMonthOpen(auth.tenantId, wh.deskId, new Date());
+    }
     const r = await withTransaction(session => applyMovement({
       tenantId: auth.tenantId, userId: auth.userId, productId: body.productId,
       type: body.type, quantity: Math.abs(Number(body.quantity)), unitCost: body.unitCost, reason: body.reason,
@@ -89,7 +97,7 @@ export const POST = withAuth("products", "update", async (req: NextRequest, auth
     await logAudit(auth, "UPDATE", "stock", { resourceId: String(body.productId), after: { type: body.type, delta: r.delta, stockQty: r.after } });
     return created({ movementId: r.movement._id, newQty: r.after, previousQty: r.before, avgCost: r.avgCost });
   } catch (e) {
-    if (e instanceof StockError) return badRequest(e.message);
+    if (e instanceof StockError || e instanceof BusinessRuleError) return badRequest(e.message);
     throw e;
   }
 });

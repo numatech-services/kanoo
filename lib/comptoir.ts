@@ -21,8 +21,11 @@ export const isId = (v: unknown): v is string =>
 export function deskScope(auth: TokenPayload): string[] | null {
   const roles = effectiveRoles(auth.role, auth.roles);
   const levels = auth.roleLevels ?? {};
+  // Le niveau donne les droits, les sites attribués donnent le périmètre : un chef affecté à des sites reste sur ces sites.
+  const bounded = !!auth.siteIds?.length;
   for (const r of roles) {
-    if (r === "svc_spot") { if (levels.svc_spot === "chef") return null; continue; }
+    if (r === "svc_spot") { if (levels.svc_spot === "chef" && !bounded) return null; continue; }
+    if (r === "pme_activity_manager" && bounded) continue;
     if (canPerformAction(r as UserRole, "comptoir", "read", auth.allowedResources, levels[r])) return null;
   }
   return auth.siteIds ?? [];

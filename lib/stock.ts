@@ -172,7 +172,7 @@ async function takeLots(tenantId: string, product: ProductLean, warehouseId: Typ
       if (expired !== "allow" && isExpired(a.expiryDate)) { skipped += a.qty; continue; }
       const take = Math.min(a.qty, rest);
       plan.push({ lotNumber: a.lotNumber, expiryDate: a.expiryDate, qty: take, unitCost: a.unitCost });
-      rest -= take;
+      rest = Math.round((rest - take) * 1000) / 1000;
     }
     if (rest > 0 && !partial) throw new StockError(`« ${product.label} » : lots insuffisants dans cet entrepôt (${qty - rest} disponible(s)${skipped ? `, sans compter ${skipped} périmé(s) à sortir en perte` : ""}).`);
   }
@@ -267,12 +267,12 @@ async function moveCore(input: CoreInput, session?: ClientSession) {
     if (tracked) {
       if (!given.length) throw new StockError(`« ${product.label} » est suivi par ${serial ? "numéro de série" : "lot"} : indiquez ${serial ? "les numéros" : "le(s) lot(s)"}.`);
       const sum = given.reduce((s, l) => s + l.qty, 0);
-      if (sum !== q) throw new StockError(`Les lots totalisent ${sum}, le mouvement porte sur ${q}.`);
+      if (Math.abs(sum - q) > 0.0005) throw new StockError(`Les lots totalisent ${sum}, le mouvement porte sur ${q}.`);
       lotsIn = given;
     }
   } else {
     delta = -q;
-    if (before + delta < 0) {
+    if (Math.round((before + delta) * 1000) / 1000 < 0) {
       if (!input.allowPartial) throw new StockError(`Stock insuffisant pour « ${product.label} » dans ${wh.name} : ${before} disponible(s), ${q} demandé(s).`);
       delta = -Math.max(0, before);
     }

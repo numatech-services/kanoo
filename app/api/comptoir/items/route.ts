@@ -58,6 +58,9 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   if (pack === "invalid") return badRequest("Conditionnement invalide (nombre d'unités par paquet, prix du paquet).");
   const barcode = typeof body.barcode === "string" ? body.barcode.replace(/\s+/g, "").slice(0, 60) : "";
   if (barcode && await ActivityItemModel.exists({ ...tenantFilter(auth), deskId: body.deskId, archived: { $ne: true }, $or: [{ barcode }, { packBarcode: barcode }, { altBarcodes: barcode }] })) return badRequest("Ce code-barres est déjà celui d'un autre article du comptoir.");
+  // Site ouvert par l'assistant : le stock n'entre que par une réception ou le stock de départ.
+  const strict = !!(await ActivityDeskModel.exists({ _id: body.deskId, ...tenantFilter(auth), strictStock: true }));
+  if (strict) body.quantity = 0;
   // Même nom, à l'accent ou à la casse près : un doublon coupe le suivi en deux. `force` le permet après avertissement.
   const wanted = sameName(String(body.name || product?.label || ""));
   if (wanted && !body.force) {
@@ -84,7 +87,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     createdBy: auth.userId,
   });
   // Site ouvert par l'assistant : pas d'article hors catalogue, un seul mécanisme de stock.
-  if (!product && !item.recipe?.length && await ActivityDeskModel.exists({ _id: body.deskId, ...tenantFilter(auth), strictStock: true })) await withTransaction(s => ensureLinked(auth, body.deskId, item._id, s));
+  if (!product && !item.recipe?.length && strict) await withTransaction(s => ensureLinked(auth, body.deskId, item._id, s));
   await logAudit(auth, "CREATE", "comptoir", { resourceId: item._id.toString(), metadata: { item: item.name } });
   return created(item);
 });

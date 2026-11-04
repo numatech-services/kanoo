@@ -6,7 +6,7 @@ import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { PurchasePriceLogModel } from "@/models/PurchasePriceLog";
 import { SupplierModel } from "@/models/Supplier";
 import { BusinessRuleError } from "@/lib/errors";
-import { postDeskCash } from "@/lib/comptoir";
+import { accountForMethod, postDeskCash } from "@/lib/comptoir";
 import { assertDayOpen } from "@/lib/comptoir-sale";
 import { receiveInReserve, moveBetweenLevels } from "@/lib/restaurant-stock";
 import { paySupplier } from "@/lib/restaurant-payables";
@@ -90,7 +90,12 @@ export async function confirmStanding(auth: TokenPayload, deskId: string, id: st
   const qty = quantity === undefined ? s.quantities[weekday(day)] ?? 0 : Number(quantity);
   if (!(qty > 0)) throw new BusinessRuleError("Quantité reçue invalide (rien d'attendu ce jour-là : saisissez la quantité).");
   const at = day === new Date().toISOString().slice(0, 10) ? undefined : `${day}T08:00:00`;
-  await receiveInReserve(auth, deskId, [{ itemId: String(s.itemId), quantity: qty, unitCost: s.unitCost }], { ...(s.supplierId ? { supplierId: String(s.supplierId) } : { supplier: s.supplierName }), reference: ref, ...(at ? { date: at } : {}) });
+  try {
+    await receiveInReserve(auth, deskId, [{ itemId: String(s.itemId), quantity: qty, unitCost: s.unitCost }], { ...(s.supplierId ? { supplierId: String(s.supplierId) } : { supplier: s.supplierName }), reference: ref, standingKey: ref, dueDays: 1, ...(at ? { date: at } : {}) });
+  } catch (e) {
+    if ((e as { code?: number })?.code === 11000) throw new BusinessRuleError("Livraison du jour déjà reçue.");
+    throw e;
+  }
   if (s.toDesk) await moveBetweenLevels(auth, deskId, [{ itemId: String(s.itemId), quantity: qty }], "supply");
   return { reference: ref, quantity: qty };
 }
@@ -113,7 +118,14 @@ export async function payStanding(auth: TokenPayload, deskId: string, id: string
     if (!log) throw new BusinessRuleError((await PurchasePriceLogModel.exists({ tenantId: auth.tenantId, deskId, reference: ref })) ? "Livraison du jour déjà payée." : "Confirmez d'abord la livraison du jour.");
     const goods = Math.round(log.quantity * log.unitCost), who = s.supplierName ? ` — ${s.supplierName}` : "";
     // La réception a créé la dette : le paiement la solde, ce n'est pas un second achat.
-    if (log.purchaseId) await paySupplier(auth, deskId, String(log.purchaseId), { date }, session);
+    const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId: auth.tenantId }).select("treasuryAccountId").session(session ?? null).lean<{ treasuryAccountId?: unknown } | null>();
+    const account = desk?.treasuryAccountId ? await accountForMethod(auth.tenantId, desk.treasuryAccountId, method, session) : undefined;
+    if (log.purchaseId) await paySupplier(auth, deskId, String(log.purchaseId), { date, ...(account ? { treasuryAccountId: String(account) } : {}) }, session);
+    else if (goods > 0) {
+      // Reçue avant la dette à la réception : le paiement reste un achat payé en caisse.
+      const [cash] = await ActivityCashEntryModel.create([{ tenantId: auth.tenantId, deskId, direction: "out", amount: goods, label: `Livraison du jour${who} (${ref})`.slice(0, 200), method: method === "orange_money" ? "orange_money" : "cash", category: "purchase", date, createdBy: auth.userId }], { session });
+      await postDeskCash(auth, deskId, cash, session);
+    }
     const fee = s.dailyFee ?? 0;
     if (fee > 0) {
       const [cash] = await ActivityCashEntryModel.create([{ tenantId: auth.tenantId, deskId, direction: "out", amount: fee, label: `Frais de livraison${who} (${ref})`.slice(0, 200), method: method === "orange_money" ? "orange_money" : "cash", category: "transport", date, createdBy: auth.userId }], { session });

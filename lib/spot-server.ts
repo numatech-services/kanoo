@@ -33,7 +33,7 @@ export async function recordLoss(auth: TokenPayload, input: { deskId: string; it
   const qty = Number(input.quantity);
   if (!(qty > 0)) throw new BusinessRuleError("Quantité invalide.");
   const date = input.date ? new Date(input.date) : new Date();
-  if (isNaN(date.getTime())) throw new BusinessRuleError("Date invalide.");
+  if (isNaN(date.getTime()) || date.getTime() > Date.now() + 3_600_000) throw new BusinessRuleError("Date invalide : une perte se déclare le jour où elle est constatée.");
   await assertDayOpen(tenantId, input.deskId, date, session);
   // Repas du personnel rattaché à un collaborateur de l'organisation (avantage en nature).
   if (input.reason === "staff" && input.employeeId && !input.lenient && !(/^[a-f0-9]{24}$/i.test(input.employeeId) && await EmployeeModel.exists({ _id: input.employeeId, tenantId }).session(session ?? null)))
@@ -50,18 +50,20 @@ export async function recordLoss(auth: TokenPayload, input: { deskId: string; it
     return { move, lossValue };
   }
   const reason = `${LOSS_REASONS[input.reason]}${input.note ? ` — ${String(input.note).slice(0, 120)}` : ""}`;
-  let unitCost = item.unitCost || 0, stockMovementId: unknown, after: number;
+  let unitCost = item.unitCost || 0, stockMovementId: unknown, after: number, out = qty;
   if (item.productId) {
     const wh = await deskWarehouse(tenantId, input.deskId, session);
     const r = await applyMovement({ tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: "loss", quantity: qty, reason, linkedDocType: "comptoir", linkedDocId: item.deskId, ...(input.lenient ? { allowPartial: true } : {}) }, session);
     unitCost = Number(r.movement.unitCost) || unitCost; stockMovementId = r.movement._id; after = r.after;
+    // Sortie plafonnée au stock du comptoir : seule la quantité réellement sortie vaut perte, le reste ressortira à l'inventaire.
+    out = Math.abs(Number(r.delta ?? qty));
   } else {
     // Perte déclarée à la caisse reliée (déjà constatée) : le stock tombe à 0 au pire.
     if (!input.lenient && qty > (item.quantity || 0)) throw new BusinessRuleError(`Stock insuffisant pour ${item.name} (${item.quantity} ${item.unit}).`);
     after = Math.max(0, Math.round(((item.quantity || 0) - qty) * 1000) / 1000);
   }
-  const lossValue = Math.round(qty * unitCost);
-  const [move] = await ActivityStockMoveModel.create([{ tenantId, deskId: item.deskId, itemId: item._id, type: "out", quantity: qty, quantityAfter: after, unitCost, reason, stockMovementId, lossReason: input.reason, lossValue, ...(input.reason === "staff" && input.employeeId && /^[a-f0-9]{24}$/i.test(input.employeeId) ? { employeeId: input.employeeId } : {}), date, createdBy: auth.userId }], { session });
+  const lossValue = Math.round(out * unitCost);
+  const [move] = await ActivityStockMoveModel.create([{ tenantId, deskId: item.deskId, itemId: item._id, type: "out", quantity: out, quantityAfter: after, unitCost, reason, stockMovementId, lossReason: input.reason, lossValue, ...(input.reason === "staff" && input.employeeId && /^[a-f0-9]{24}$/i.test(input.employeeId) ? { employeeId: input.employeeId } : {}), date, createdBy: auth.userId }], { session });
   item.quantity = Math.max(0, after);
   await item.save({ session });
   return { move, lossValue };
@@ -92,9 +94,11 @@ export async function consumption(tenantId: string, deskId: unknown, days: numbe
     ComptoirSaleModel.aggregate<{ _id: Types.ObjectId; q: number; v: number }>([{ $match: match }, { $unwind: "$lines" }, { $match: { "lines.ingredients.0": { $exists: false } } }, { $group: { _id: "$lines.itemId", q: { $sum: "$lines.quantity" }, v: { $sum: "$lines.totalTTC" } } }]),
     ComptoirSaleModel.aggregate<{ _id: Types.ObjectId; q: number }>([{ $match: match }, { $unwind: "$lines" }, { $unwind: "$lines.ingredients" }, { $group: { _id: "$lines.ingredients.itemId", q: { $sum: "$lines.ingredients.quantity" } } }]),
   ]);
+  // Ingrédients sortis pour une production par lot : c'est leur consommation réelle, la vente ne les touche pas.
+  const produced = await ActivityStockMoveModel.aggregate<{ _id: Types.ObjectId; q: number }>([{ $match: { tenantId: match.tenantId, deskId: match.deskId, type: "out", reason: /^Production /, date: { $gte: since } } }, { $group: { _id: "$itemId", q: { $sum: "$quantity" } } }]);
   const out = new Map<string, { quantity: number; value: number }>();
   for (const r of direct) out.set(String(r._id), { quantity: r.q, value: r.v });
-  for (const r of ingredients) { const c = out.get(String(r._id)) ?? { quantity: 0, value: 0 }; c.quantity += r.q; out.set(String(r._id), c); }
+  for (const r of [...ingredients, ...produced]) { const c = out.get(String(r._id)) ?? { quantity: 0, value: 0 }; c.quantity += r.q; out.set(String(r._id), c); }
   return out;
 }
 
@@ -123,7 +127,8 @@ export async function reorderPlan(tenantId: string, deskId: string) {
   // sans cours) plutôt que de la moyenne des 28 derniers jours.
   const planned = await scheduledDemand(tenantId, deskId, localDay(new Date(Date.now() + DAY)), lead + cover);
   // Vacances, fêtes, promotions du site : la demande de la période à couvrir suit ses événements.
-  const demand = await averageFactor(tenantId, deskId, localDay(new Date(Date.now() + DAY)), lead + cover);
+  const firstDay = localDay(new Date(Date.now() + DAY)), factors = new Map<number, number>();
+  for (const n of new Set(items.map(i => lead + (i.rhythm && i.rhythm in RHYTHMS ? RHYTHMS[i.rhythm as keyof typeof RHYTHMS].days : cover)))) factors.set(n, await averageFactor(tenantId, deskId, firstDay, n));
   const products = await ProductModel.find({ tenantId, _id: { $in: items.map(i => i.productId).filter(Boolean) } }).select("preferredSupplierId purchaseCost").populate("preferredSupplierId", "name").lean<Array<{ _id: Types.ObjectId; purchaseCost?: number; preferredSupplierId?: { _id: Types.ObjectId; name: string } }>>();
   const prod = new Map(products.map(p => [String(p._id), p]));
   const lines = items.filter(i => !i.recipe?.length).map(i => {
@@ -132,13 +137,15 @@ export async function reorderPlan(tenantId: string, deskId: string) {
     // Rythme de l'article : le réassort couvre sa période (semaine, deux semaines, mois).
     const cov = i.rhythm && i.rhythm in RHYTHMS ? RHYTHMS[i.rhythm as keyof typeof RHYTHMS].days : cover;
     const threshold = i.threshold != null || i.reserveThreshold != null ? (i.threshold ?? 0) + (i.reserveThreshold ?? 0) : undefined;
+    // L'emploi du temps du campus porte déjà ses vacances : l'événement n'est appliqué que sur la moyenne des ventes.
+    const demand = factors.get(lead + cov) ?? 1;
     const s = planned
-      ? reorderSuggestion({ stock, soldInWindow: (planned.get(String(i._id)) ?? 0) * demand, windowDays: lead + cover, leadDays: lead, coverDays: cov, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 })
+      ? reorderSuggestion({ stock, soldInWindow: planned.get(String(i._id)) ?? 0, windowDays: lead + cover, leadDays: lead, coverDays: cov, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 })
       : reorderSuggestion({ stock, soldInWindow: (used.get(String(i._id))?.quantity ?? 0) * demand, windowDays: WINDOW, leadDays: lead, coverDays: cov, packSize: i.pack?.size, threshold, onOrder: i.productId ? onOrder.get(String(i.productId)) : 0 });
     const p = i.productId ? prod.get(String(i.productId)) : undefined;
     const unitCost = p?.purchaseCost || i.unitCost || 0;
     return {
-      itemId: String(i._id), name: i.name, unit: i.unit, stock, reserve: inReserve, ...s, packLabel: i.pack?.label,
+      itemId: String(i._id), name: i.name, unit: i.unit, stock, reserve: inReserve, ...s, packLabel: i.pack?.label, packSize: i.pack?.size ?? null,
       estimatedCost: Math.round(s.quantity * unitCost), linked: !!i.productId, productId: i.productId ? String(i.productId) : null,
       supplier: p?.preferredSupplierId ? { _id: String(p.preferredSupplierId._id), name: p.preferredSupplierId.name } : null,
     };

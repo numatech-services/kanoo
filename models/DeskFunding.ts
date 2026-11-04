@@ -5,6 +5,7 @@ import { Schema, model, models, Types } from "mongoose";
  *  - money : argent remis à la caisse du site (écriture et mouvement de
  *    trésorerie faits) : virement d'un compte de l'entreprise, avance à
  *    rembourser, apport, ou origine à classer ;
+ *  - taken_over : stock repris d'un ancien site ou déjà payé par l'entreprise ;
  *  - owner_paid : payé directement par le dirigeant pour le site (stock,
  *    équipement) : aucun mouvement de caisse ;
  *  - debt / receivable : dette fournisseur ou créance de départ ;
@@ -17,7 +18,7 @@ export interface IDeskFunding {
   _id: Types.ObjectId;
   tenantId: Types.ObjectId;
   deskId: Types.ObjectId;
-  kind: "money" | "owner_paid" | "debt" | "receivable" | "equipment";
+  kind: "money" | "taken_over" | "owner_paid" | "debt" | "receivable" | "equipment";
   nature?: "transfer" | "advance" | "contribution" | "to_classify";
   amount: number;
   date: Date;
@@ -34,6 +35,9 @@ export interface IDeskFunding {
   cashEntryId?: Types.ObjectId;
   validatedBy?: Types.ObjectId;
   validatedAt?: Date;
+  /** Écriture passée par la comptable : la ligne ne s'annule plus d'un clic. */
+  qualifiedAt?: Date;
+  qualificationEntryId?: Types.ObjectId;
   cancelledAt?: Date;
   cancelledBy?: Types.ObjectId;
   cancelReason?: string;
@@ -44,7 +48,7 @@ export interface IDeskFunding {
 const DeskFundingSchema = new Schema<IDeskFunding>({
   tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
   deskId: { type: Schema.Types.ObjectId, ref: "ActivityDesk", required: true },
-  kind: { type: String, enum: ["money", "owner_paid", "debt", "receivable", "equipment"], required: true },
+  kind: { type: String, enum: ["money", "taken_over", "owner_paid", "debt", "receivable", "equipment"], required: true },
   nature: { type: String, enum: ["transfer", "advance", "contribution", "to_classify"] },
   amount: { type: Number, required: true, min: 1 },
   date: { type: Date, required: true },
@@ -59,6 +63,8 @@ const DeskFundingSchema = new Schema<IDeskFunding>({
   cashEntryId: { type: Schema.Types.ObjectId, ref: "ActivityCashEntry" },
   validatedBy: { type: Schema.Types.ObjectId, ref: "User" },
   validatedAt: Date,
+  qualifiedAt: Date,
+  qualificationEntryId: { type: Schema.Types.ObjectId, ref: "AccountingEntry" },
   cancelledAt: Date,
   cancelledBy: { type: Schema.Types.ObjectId, ref: "User" },
   cancelReason: { type: String, maxlength: 300 },

@@ -59,7 +59,7 @@ export async function toInvoice(tenantId: string, deskId: string) {
       .lean<Array<{ _id: Id; number: string; totalTTC?: number; status: string; orderDate: Date; supplierId?: { name?: string } }>>(),
   ]);
   return {
-    receptions: receptions.map(r => ({ _id: String(r._id), item: r.itemId?.name ?? "—", unit: r.itemId?.unit ?? "", supplier: r.supplierName ?? null, quantity: r.quantity, unitCost: r.unitCost, amount: Math.round(r.unitCost * r.quantity), date: r.date, reference: r.reference ?? null })),
+    receptions: receptions.map(r => ({ _id: String(r._id), item: r.itemId?.name ?? "—", unit: r.itemId?.unit ?? "", supplier: r.supplierName ?? null, quantity: r.quantity, unitCost: r.unitCost, unvalued: !r.unitCost, amount: Math.round(r.unitCost * r.quantity), date: r.date, reference: r.reference ?? null })),
     orders: orders.map(o => ({ _id: String(o._id), number: o.number, supplier: o.supplierId?.name ?? null, totalTTC: o.totalTTC ?? 0, status: o.status, date: o.orderDate })),
   };
 }

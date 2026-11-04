@@ -3,6 +3,8 @@ import { Types } from "mongoose";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
+import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
+import { DeskFundingModel } from "@/models/DeskFunding";
 import { reverseEntry } from "@/lib/accounting-reversal";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
@@ -35,6 +37,10 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
     const peer = await TreasuryMovementModel.findOne({ _id: m.transferPeerId, ...tenantFilter(auth) }).lean<Move | null>();
     if (peer) legs.push(peer);
   }
+  // Mouvement relié à une caisse de site ou à un financement : son annulation passe par sa pièce, sinon la caisse et la comptabilité divergent.
+  const ids = legs.map(l => l._id);
+  if (await DeskFundingModel.exists({ tenantId: auth.tenantId, movementIds: { $in: ids } })) return badRequest("Ce mouvement vient de la situation de départ d'un site : annulez-le depuis Ouverture des sites.");
+  if (await ActivityCashEntryModel.exists({ tenantId: auth.tenantId, movementId: { $in: ids } })) return badRequest("Ce mouvement touche la caisse d'un site : saisissez un mouvement contraire pour garder les espèces attendues justes.");
   if (legs.some(l => l.statementLineId)) return badRequest("Mouvement rapproché d'un relevé : défaites d'abord le rapprochement.");
 
   await withTransaction(async session => {

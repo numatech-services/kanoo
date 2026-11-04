@@ -57,6 +57,8 @@ export interface IActivityItem {
    * vente retire les portions. Jamais les deux : un seul déstockage.
    */
   productionMode?: "order" | "batch";
+  /** Portions vendues par la caisse reliée avant la déclaration du lot : à déduire de la prochaine production. */
+  portionDebt?: number;
   /** Grammage servi par portion (g), allergènes, procédé : pour la cuisine et la fiche imprimée. */
   servingWeight?: number;
   allergens?: string[];
@@ -92,6 +94,7 @@ const ActivityItemSchema = new Schema<IActivityItem>({
   recipe: [{ _id: false, itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true }, quantity: { type: Number, required: true, min: 0 }, yield: { type: Number, min: 0.05, max: 1 } }],
   portions: { type: Number, min: 1, max: 10_000 },
   productionMode: { type: String, enum: ["order", "batch"], default: "order" },
+  portionDebt: { type: Number, default: 0, min: 0 },
   servingWeight: { type: Number, min: 0 },
   allergens: [{ type: String, maxlength: 40 }],
   procedure: { type: String, maxlength: 4000 },

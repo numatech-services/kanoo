@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, forbidden, notFound } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
-import { hasFinanceAccess } from "@/lib/role-resources";
+import { authCan, hasFinanceAccess } from "@/lib/role-resources";
 import { canSeeDeskCosts, deskScope, isId, ownDesk } from "@/lib/comptoir";
 import { journal, evolution, controls, siteBalance, marginTable } from "@/lib/restaurant-accounting";
 import { consolidatedStock } from "@/lib/restaurant-opening";
@@ -23,8 +23,10 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   if (view === "margins" ? !canSeeDeskCosts(auth) : !hasFinanceAccess(auth)) return forbidden("Espace réservé à la direction et à la comptabilité.");
   if (one && (!isId(one) || !(await ownDesk(auth, one)))) return notFound("Site introuvable");
   const scope = deskScope(auth);
-  const desks = await ActivityDeskModel.find({ tenantId: auth.tenantId, archived: { $ne: true }, ...(scope ? { _id: { $in: scope } } : {}) }).select("name").sort({ name: 1 }).lean<Array<{ _id: unknown; name: string }>>();
+  // Sites archivés compris : leurs ventes passées et leurs dettes ne quittent pas la vue de la comptable.
+  const desks = await ActivityDeskModel.find({ tenantId: auth.tenantId, ...(scope ? { _id: { $in: scope } } : {}) }).select("name archived").sort({ archived: 1, name: 1 }).lean<Array<{ _id: unknown; name: string; archived?: boolean }>>();
   const ids = one ? [one] : desks.map(d => String(d._id));
+  const active = one ? [one] : desks.filter(d => !d.archived).map(d => String(d._id));
   const from = url.searchParams.get("from"), to = url.searchParams.get("to");
   switch (view) {
     case "journal":
@@ -34,7 +36,12 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
       if (!isDay(from) || !isDay(to) || to < from) return badRequest("Période invalide.");
       return ok(await evolution(auth.tenantId, ids, from, to));
     case "controls": return ok(await controls(auth.tenantId, ids));
-    case "balance": return ok((await Promise.all(ids.map(id => siteBalance(auth.tenantId, id)))).filter(Boolean));
+    case "balance": {
+      // Un site après l'autre : ce calcul ne doit pas occuper les connexions dont les ventes ont besoin.
+      const out = [];
+      for (const id of active) out.push(await siteBalance(auth.tenantId, id, authCan(auth, "payslips", "read")));
+      return ok(out.filter(Boolean));
+    }
     case "stock": return ok(await consolidatedStock(auth.tenantId));
     case "margins": {
       const month = url.searchParams.get("month") ?? "";

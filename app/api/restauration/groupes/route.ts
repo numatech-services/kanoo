@@ -19,7 +19,7 @@ export const GET = withAuth("comptoir", "read", async (_req: NextRequest, auth: 
   if (!canSeeDeskCosts(auth)) return forbidden(NO);
   const scope = deskScope(auth);
   const desks = await ActivityDeskModel.find({ tenantId: auth.tenantId, archived: { $ne: true }, ...(scope ? { _id: { $in: scope } } : {}) }).select("name").sort({ name: 1 }).lean<Array<{ _id: unknown; name: string }>>();
-  const [plan, events] = await Promise.all([groupedPlan(auth.tenantId, desks.map(d => String(d._id))), listForecastEvents(auth.tenantId, localDay(new Date()))]);
+  const [plan, events] = await Promise.all([groupedPlan(auth.tenantId, desks.map(d => String(d._id))), listForecastEvents(auth.tenantId, localDay(new Date()), scope)]);
   return ok({ ...plan, desks, events });
 });
 
@@ -42,13 +42,19 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     }
     if (body.action === "event") {
       const deskIds = Array.isArray(body.deskIds) ? body.deskIds.filter(isId) : [];
+      if (!deskIds.length && deskScope(auth)) return forbidden("Choisissez un de vos sites.");
       for (const id of deskIds) if (!(await ownDesk(auth, id))) return forbidden("Site non autorisé.");
       const e = await saveForecastEvent(auth, { deskIds, from: body.from, to: body.to, label: body.label, factor: Number(body.factor), note: typeof body.note === "string" ? body.note : undefined });
       return created({ _id: String(e._id) });
     }
     if (body.action === "deleteEvent") {
       if (!isId(body.id)) return badRequest("Événement invalide.");
+      const scoped = deskScope(auth);
+      const e = await DeskForecastEventModel.findOne({ _id: body.id, tenantId: auth.tenantId }).lean<{ deskIds: unknown[]; label: string } | null>();
+      if (!e) return badRequest("Événement introuvable.");
+      if (scoped && !(e.deskIds.length && e.deskIds.every(d => scoped.includes(String(d))))) return forbidden("Cet événement concerne d'autres sites.");
       await DeskForecastEventModel.deleteOne({ _id: body.id, tenantId: auth.tenantId });
+      await logAudit(auth, "DELETE", "comptoir", { resourceId: body.id, metadata: { forecastEvent: e.label } });
       return ok({ deleted: true });
     }
     return badRequest("Action inconnue.");

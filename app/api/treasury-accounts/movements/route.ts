@@ -6,6 +6,8 @@ import { TokenPayload } from "@/lib/auth";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { accountBalance, treasuryLedger } from "@/lib/treasury";
+import { transferFunds, mirrorTill } from "@/lib/restaurant-funding";
+import { BusinessRuleError } from "@/lib/errors";
 import { unknownAccounts } from "@/lib/ledger";
 import { pickImputation, checkImputations } from "@/lib/imputation";
 import { logAudit } from "@/lib/audit";
@@ -63,22 +65,10 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
     const bal = await accountBalance(auth.tenantId, String(body.fromAccountId));
     if (bal && bal.balance < amount && !body.allowOverdraft) return badRequest(`Solde insuffisant sur le compte débité (${bal.balance.toLocaleString("fr-FR")} FCFA).`);
     const label = String(body.label || "Virement interne").slice(0, 200);
-    const result = await withTransaction(async session => {
-      const [entry] = await AccountingEntryModel.create([{
-        tenantId: auth.tenantId, journalCode: "OD", entryDate: date, reference: reference ?? `VIR-${date.toISOString().slice(0, 10)}`, label,
-        lines: [
-          { accountCode: "585000", accountLabel: "Virements de fonds", debit: amount, credit: 0 },
-          { accountCode: src.accountCode, accountLabel: src.accountLabel, debit: 0, credit: amount },
-          { accountCode: dst.accountCode, accountLabel: dst.accountLabel, debit: amount, credit: 0 },
-          { accountCode: "585000", accountLabel: "Virements de fonds", debit: 0, credit: amount },
-        ],
-        linkedDocType: "treasury", createdBy: auth.userId,
-      }], { session });
-      const [out] = await TreasuryMovementModel.create([{ tenantId: auth.tenantId, accountId: body.fromAccountId, date, amount: -amount, label, reference, source: "transfer", linkedDocType: "transfer", entryId: entry._id, createdBy: auth.userId }], { session });
-      const [inn] = await TreasuryMovementModel.create([{ tenantId: auth.tenantId, accountId: body.toAccountId, date, amount, label, reference, source: "transfer", linkedDocType: "transfer", entryId: entry._id, transferPeerId: out._id, createdBy: auth.userId }], { session });
-      await TreasuryMovementModel.updateOne({ _id: out._id }, { $set: { transferPeerId: inn._id } }, { session });
-      return { out, inn };
-    });
+    let result;
+    try {
+      result = await withTransaction(session => transferFunds(auth, { fromAccountId: body.fromAccountId, toAccountId: body.toAccountId, amount, date, label, reference, allowOverdraft: !!body.allowOverdraft }, session));
+    } catch (e) { if (e instanceof BusinessRuleError) return badRequest(e.message); throw e; }
     await logAudit(auth, "CREATE", "treasuryAccounts", { metadata: { transfer: amount, from: body.fromAccountId, to: body.toAccountId } });
     return created(result);
   }
@@ -112,6 +102,8 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
         linkedDocType: "treasury", createdBy: auth.userId,
       }], { session });
       const [m] = await TreasuryMovementModel.create([{ tenantId: auth.tenantId, accountId: body.accountId, date, amount: direction === "in" ? amount : -amount, label, reference, source: "manual", linkedDocType: "manual", entryId: entry._id, createdBy: auth.userId }], { session });
+      // Caisse d'un site : les espèces attendues suivent.
+      await mirrorTill(auth, body.accountId, { direction, amount, date, label, entryId: entry._id, movementId: m._id }, session);
       return m;
     });
     await logAudit(auth, "CREATE", "treasuryAccounts", { metadata: { manual: direction, amount, counter } });

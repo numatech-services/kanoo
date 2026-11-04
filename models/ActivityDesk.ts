@@ -49,6 +49,9 @@ export interface IActivityDesk {
   strictStock?: boolean;
   /** Écart d'inventaire (valeur absolue, FCFA) au-delà duquel la validation revient au chef ou à la finance. */
   gapApprovalThreshold?: number;
+  /** Situation de départ validée par la comptable. */
+  openingValidatedAt?: Date;
+  openingValidatedBy?: Types.ObjectId;
   /** Marge nette visée, tous frais compris (personnel, eau, électricité…) : 0,20 = 20 % du CA HT. */
   targetNetMargin?: number;
   /** Caisse de trésorerie qui reçoit les ventes ; sans elle, la caisse reste hors comptabilité. */
@@ -91,6 +94,8 @@ const ActivityDeskSchema = new Schema<IActivityDesk>({
   openingDate: Date,
   strictStock: { type: Boolean, default: false },
   gapApprovalThreshold: { type: Number, min: 0 },
+  openingValidatedAt: Date,
+  openingValidatedBy: { type: Schema.Types.ObjectId, ref: "User" },
   targetNetMargin: { type: Number, default: 0.2, min: 0, max: 0.9 },
   treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount" },
   revenueAccount: { type: String, default: "701100", match: /^7\d{2,7}$/ },

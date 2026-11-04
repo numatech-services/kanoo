@@ -7,7 +7,7 @@ import { DeskTransferModel } from "@/models/DeskTransfer";
 import { WarehouseModel } from "@/models/Warehouse";
 import { BusinessRuleError } from "@/lib/errors";
 import { applyMovement, transferStock } from "@/lib/stock";
-import { syncLinkedItems } from "@/lib/comptoir-stock";
+import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
 import { assertMonthOpen } from "@/lib/comptoir-sale";
 import { deskReserve, ensureLinked } from "@/lib/restaurant-stock";
 import type { TokenPayload } from "@/lib/auth";
@@ -51,10 +51,8 @@ async function targetItem(auth: TokenPayload, toDeskId: Id, src: { name: string;
  * fois dans le total de l'entreprise.
  */
 export async function transitWarehouse(tenantId: string, session?: ClientSession): Promise<Id> {
-  const hit = await WarehouseModel.findOne({ tenantId, code: "TRANSIT" }).select("_id").session(session ?? null).lean<{ _id: Id } | null>();
-  if (hit) return hit._id;
-  const [w] = await WarehouseModel.create([{ tenantId, code: "TRANSIT", name: "Marchandises en transit", kind: "other" }], { session });
-  return w._id as Id;
+  const w = await WarehouseModel.findOneAndUpdate({ tenantId, code: "TRANSIT" }, { $setOnInsert: { tenantId, code: "TRANSIT", name: "Marchandises en transit", kind: "other" } }, { upsert: true, new: true, session }).select("_id").lean<{ _id: Id }>();
+  return w!._id;
 }
 
 /** Lots d'une ligne pour une quantité donnée, dans l'ordre d'envoi. */
@@ -91,20 +89,23 @@ export async function sendTransfer(auth: TokenPayload, fromDeskId: string, toDes
     await assertMonthOpen(auth.tenantId, toDeskId, d, session);
     const [fromRes, transit] = await Promise.all([deskReserve(auth.tenantId, fromDeskId, session), transitWarehouse(auth.tenantId, session)]);
     await deskReserve(auth.tenantId, toDeskId, session);
-    const out: Array<{ fromItemId: Id; toItemId: Id; productId: Id; name: string; unit: string; quantity: number; unitCost: number; lots: Array<{ lotNumber: string; qty: number; expiryDate?: Date }> }> = [];
+    const out: Array<{ fromItemId: Id; toItemId: Id; productId: Id; name: string; unit: string; quantity: number; toDesk?: boolean; unitCost: number; lots: Array<{ lotNumber: string; qty: number; expiryDate?: Date }> }> = [];
     for (const l of lines) {
       const it = await ActivityItemModel.findOne({ _id: l.itemId, tenantId: auth.tenantId, deskId: fromDeskId }).session(session ?? null)
-        .lean<{ _id: Id; name: string; unit: string; category?: string; pack?: { size?: number }; threshold?: number; reserveThreshold?: number; salePrice?: number; unitCost?: number; recipe?: unknown[] } | null>();
+        .lean<{ _id: Id; name: string; unit: string; category?: string; pack?: { size?: number }; threshold?: number; reserveThreshold?: number; salePrice?: number; unitCost?: number; recipe?: unknown[]; productionMode?: string } | null>();
       if (!it) throw new BusinessRuleError("Article introuvable.");
-      if (it.recipe?.length) throw new BusinessRuleError(`${it.name} : une préparation ne se transfère pas ; transférez ses ingrédients.`);
+      // Portions d'un lot : elles partent du comptoir de la cuisine, et arrivent au comptoir du site qui les vend.
+      const portions = !!it.recipe?.length && it.productionMode === "batch";
+      if (it.recipe?.length && !portions) throw new BusinessRuleError(`${it.name} : une préparation à la commande ne se transfère pas ; transférez ses ingrédients.`);
+      if (out.some(o => String(o.fromItemId) === String(it._id))) throw new BusinessRuleError(`${it.name} figure deux fois sur le bon : regroupez les lignes.`);
       const qty = Number(l.packs) > 0 ? Number(l.packs) * (it.pack?.size ?? NaN) : Number(l.quantity);
       if (!(qty > 0)) throw new BusinessRuleError(`${it.name} : quantité invalide.`);
       const productId = await ensureLinked(auth, fromDeskId, it._id, session);
       const toItemId = await targetItem(auth, to._id, it, productId, session);
-      const r = await transferStock({ tenantId: auth.tenantId, userId: auth.userId, productId, fromWarehouseId: fromRes, toWarehouseId: transit, quantity: qty,
+      const r = await transferStock({ tenantId: auth.tenantId, userId: auth.userId, productId, fromWarehouseId: portions ? await deskWarehouse(auth.tenantId, fromDeskId, session) : fromRes, toWarehouseId: transit, quantity: qty,
         reason: `Transfert ${from.name} → ${to.name} (${number})`, linkedDocType: "transfer", linkedDocNumber: number }, session);
       const mv = r.out.movement as { unitCost?: number };
-      out.push({ fromItemId: it._id, toItemId, productId, name: it.name, unit: it.unit, quantity: qty, unitCost: Number(mv.unitCost) || 0,
+      out.push({ fromItemId: it._id, toItemId, productId, name: it.name, unit: it.unit, quantity: qty, ...(portions ? { toDesk: true } : {}), unitCost: Number(mv.unitCost) || 0,
         lots: ((r.out.lots ?? []) as Array<{ lotNumber: string; qty: number; expiryDate?: Date }>).map(x => ({ lotNumber: x.lotNumber, qty: Math.abs(x.qty), ...(x.expiryDate ? { expiryDate: x.expiryDate } : {}) })) });
     }
     const [t] = await DeskTransferModel.create([{
@@ -118,7 +119,7 @@ export async function sendTransfer(auth: TokenPayload, fromDeskId: string, toDes
   return { _id: String(doc._id), number };
 }
 
-interface TransferLine { fromItemId: Id; toItemId: Id; productId: Id; name: string; unit: string; quantity: number; receivedQty?: number; unitCost: number; lots: Array<{ lotNumber: string; qty: number; expiryDate?: Date }> }
+interface TransferLine { fromItemId: Id; toItemId: Id; productId: Id; name: string; unit: string; quantity: number; receivedQty?: number; toDesk?: boolean; unitCost: number; lots: Array<{ lotNumber: string; qty: number; expiryDate?: Date }> }
 
 /**
  * Le destinataire signe la réception, avec les quantités réellement reçues
@@ -150,7 +151,7 @@ export async function receiveTransfer(auth: TokenPayload, id: string, toDeskScop
       if (!(q >= 0) || q > l.quantity) throw new BusinessRuleError(`${l.name} : quantité reçue invalide (envoyé : ${l.quantity}). Un surplus se traite par l'inventaire.`);
       l.receivedQty = q;
       if (q < l.quantity) gap = true;
-      if (q > 0) await transferStock({ tenantId: auth.tenantId, userId: auth.userId, productId: l.productId, fromWarehouseId: transit, toWarehouseId: toRes, quantity: q, ...(l.lots?.length ? { lots: takeLots(l.lots, q) } : {}),
+      if (q > 0) await transferStock({ tenantId: auth.tenantId, userId: auth.userId, productId: l.productId, fromWarehouseId: transit, toWarehouseId: l.toDesk ? await deskWarehouse(auth.tenantId, t.toDeskId, session) : toRes, quantity: q, ...(l.lots?.length ? { lots: takeLots(l.lots, q) } : {}),
         reason: `Réception du transfert ${t.number} — ${t.fromName} → ${t.toName}`, linkedDocType: "transfer", linkedDocNumber: t.number }, session);
     }
     if (gap && !gapNote?.trim()) throw new BusinessRuleError("Il manque de la marchandise : dites ce qui s'est passé.");
@@ -179,7 +180,7 @@ export async function resolveTransferGap(auth: TokenPayload, id: string, decisio
       const lots = l.lots?.length ? takeLots([...l.lots].reverse(), miss) : undefined;
       total += Math.round(miss * l.unitCost);
       if (decision === "return") {
-        await transferStock({ tenantId: auth.tenantId, userId: auth.userId, productId: l.productId, fromWarehouseId: transit, toWarehouseId: fromRes, quantity: miss, ...(lots ? { lots } : {}), reason: `Retour de l'écart du transfert ${t.number}`, linkedDocType: "transfer", linkedDocNumber: t.number }, session);
+        await transferStock({ tenantId: auth.tenantId, userId: auth.userId, productId: l.productId, fromWarehouseId: transit, toWarehouseId: l.toDesk ? await deskWarehouse(auth.tenantId, t.fromDeskId, session) : fromRes, quantity: miss, ...(lots ? { lots } : {}), reason: `Retour de l'écart du transfert ${t.number}`, linkedDocType: "transfer", linkedDocNumber: t.number }, session);
       } else {
         const reason = `Écart du transfert ${t.number}${note ? ` — ${note.slice(0, 120)}` : ""}`;
         const r = await applyMovement({ tenantId: auth.tenantId, userId: auth.userId, productId: l.productId, warehouseId: transit, type: "loss", quantity: miss, ...(lots ? { lots } : {}), reason, linkedDocType: "transfer", linkedDocNumber: t.number }, session);
@@ -197,11 +198,11 @@ export async function resolveTransferGap(auth: TokenPayload, id: string, decisio
 export async function listTransfers(tenantId: string, deskIds: string[] | null, costs: boolean) {
   const q = deskIds ? { $or: [{ fromDeskId: { $in: deskIds } }, { toDeskId: { $in: deskIds } }] } : {};
   const list = await DeskTransferModel.find({ tenantId, ...q }).select("-senderSignature -receiverSignature").sort({ sentAt: -1 }).limit(200).lean<Array<Record<string, unknown> & { lines: Array<Record<string, unknown>> }>>();
-  return list.map(t => costs ? t : { ...t, value: undefined, lines: t.lines.map(l => ({ ...l, unitCost: undefined })) });
+  return list.map(t => costs ? t : { ...t, value: undefined, gapResolution: undefined, lines: t.lines.map(l => ({ ...l, unitCost: undefined })) });
 }
 
 export async function getTransfer(tenantId: string, id: string, costs: boolean) {
   const t = await DeskTransferModel.findOne({ _id: id, tenantId }).lean<(Record<string, unknown> & { fromDeskId: Id; toDeskId: Id; lines: Array<Record<string, unknown>> }) | null>();
   if (!t) return null;
-  return costs ? t : { ...t, value: undefined, lines: t.lines.map(l => ({ ...l, unitCost: undefined })) };
+  return costs ? t : { ...t, value: undefined, gapResolution: undefined, lines: t.lines.map(l => ({ ...l, unitCost: undefined })) };
 }

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, forbidden } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
+import { hasFinanceAccess } from "@/lib/role-resources";
 import { isId, ownDesk, canSeeDeskCosts } from "@/lib/comptoir";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
@@ -17,7 +18,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   return ok(await weekStatus(auth.tenantId, deskId));
 });
 
-/** POST { deskId, action: "close", note? } · { action: "reopen", weekEnd, reason } · { action: "threshold", value } — chef, direction, comptabilité. */
+/** POST { deskId, action: "close", day?, note? } (chef, direction, comptabilité) · { action: "reopen", weekEnd, reason } · { action: "threshold", value } (direction, comptabilité). */
 export const POST = withAuth("comptoir", "update", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
   const body = await req.json().catch(() => ({}));
@@ -25,17 +26,21 @@ export const POST = withAuth("comptoir", "update", async (req: NextRequest, auth
   if (!canSeeDeskCosts(auth)) return forbidden("La clôture de semaine revient au chef du site, à la direction et à la comptabilité.");
   try {
     if (body.action === "close") {
-      const r = await closeWeek(auth, body.deskId, undefined, typeof body.note === "string" ? body.note : undefined);
+      const r = await closeWeek(auth, body.deskId, typeof body.day === "string" && body.day ? body.day : undefined, typeof body.note === "string" ? body.note : undefined);
       await logAudit(auth, "UPDATE", "comptoir", { resourceId: body.deskId, metadata: { weekClosed: r.weekEnd, ...r.summary } });
       return ok(r);
     }
+    // Rouvrir une période et régler le seuil de contrôle : pas celui qui compte et valide.
+    if (!hasFinanceAccess(auth)) return forbidden("La réouverture et le seuil reviennent à la direction et à la comptabilité.");
     if (body.action === "reopen") {
       await reopenWeek(auth, body.deskId, String(body.weekEnd ?? ""), body.reason);
       await logAudit(auth, "UPDATE", "comptoir", { resourceId: body.deskId, metadata: { weekReopened: body.weekEnd, reason: body.reason } });
       return ok({ reopened: true });
     }
     if (body.action === "threshold") {
-      await setGapThreshold(auth, body.deskId, body.value === null || body.value === "" ? null : Number(body.value));
+      const value = body.value === null || body.value === "" ? null : Number(body.value);
+      await setGapThreshold(auth, body.deskId, value);
+      await logAudit(auth, "UPDATE", "comptoir", { resourceId: body.deskId, metadata: { gapThreshold: value } });
       return ok({ saved: true });
     }
     return badRequest("Action inconnue (close, reopen, threshold).");

@@ -7,7 +7,8 @@ import { isId, ownDesk, canSeeDeskCosts } from "@/lib/comptoir";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { DeskInventoryModel } from "@/models/DeskInventory";
-import { openInventory, saveCounts, validateInventory, cancelInventory } from "@/lib/restaurant-inventory";
+import { openInventory, saveCounts, validateInventory, cancelInventory, inventoryReview } from "@/lib/restaurant-inventory";
+import { ComptoirSaleModel } from "@/models/ComptoirSale";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
   if (isId(id)) {
     const inv = await DeskInventoryModel.findOne({ _id: id, tenantId: auth.tenantId }).lean<{ deskId: unknown; status: string; lines: Array<Line & { expectedAtCount?: number }> } | null>();
     if (!inv || !(await ownDesk(auth, String(inv.deskId)))) return notFound("Inventaire introuvable");
+    if (url.searchParams.get("review") === "1") return costs ? ok(await inventoryReview(auth.tenantId, id)) : forbidden("Les écarts sont réservés au chef du comptoir et à la finance.");
     // Comptage à l'aveugle : le stock théorique ne s'affiche pas tant que l'inventaire est ouvert.
     const blind = inv.status === "open" ? { ...inv, lines: inv.lines.map(({ expectedAtCount: _e, ...l }) => l) } : inv;
     return ok(mask(blind, costs));
@@ -46,7 +48,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       if (body.action === "validate") {
         // Les écarts touchent la valeur du stock et la marge : validation par le chef du comptoir ou la finance.
         if (!canSeeDeskCosts(auth)) return forbidden("La validation d'un inventaire revient au chef du comptoir ou à la comptabilité.");
-        const r = await validateInventory(auth, body.id, hasFinanceAccess(auth));
+        const r = await validateInventory(auth, body.id, hasFinanceAccess(auth), body.reasons && typeof body.reasons === "object" ? body.reasons : undefined);
         await logAudit(auth, "APPROVE", "comptoir", { resourceId: String(body.id), metadata: { inventory: inv.number, gapValue: r.gapValue } });
         return ok(r);
       }
@@ -59,8 +61,8 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     }
     if (!isId(body.deskId) || !(await ownDesk(auth, body.deskId))) return notFound("Comptoir introuvable");
     const level = body.level === "reserve" ? "reserve" : "desk";
-    // Stock initial : ses écarts constituent le stock (hors résultat) ; réservé au chef ou à la finance.
-    const opening = body.opening === true && canSeeDeskCosts(auth);
+    // Stock initial : ses écarts constituent le stock et sortent du résultat. Réservé à la finance, ou au chef sur un site qui n'a encore rien vendu.
+    const opening = body.opening === true && canSeeDeskCosts(auth) && (hasFinanceAccess(auth) || !(await ComptoirSaleModel.exists({ tenantId: auth.tenantId, deskId: body.deskId })));
     const inv = await openInventory(auth, body.deskId, level, typeof body.category === "string" && body.category.trim() ? body.category.trim().slice(0, 60) : undefined, opening);
     return created(inv.toObject());
   } catch (e) {

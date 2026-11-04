@@ -80,7 +80,8 @@ export async function saveCounts(auth: TokenPayload, id: string, device: string,
       line.parts = parts;
       line.counted = Math.round(parts.reduce((t, x) => t + x.qty, 0) * 1000) / 1000;
       line.countedAt = new Date(); line.countedBy = new Types.ObjectId(auth.userId);
-      if (line.expectedAtCount == null) line.expectedAtCount = await theoretical(auth.tenantId, String(inv.deskId), inv.level, line.itemId);
+      // Théorique relevé à l'heure du comptage. Un recomptage le relève à nouveau : les ventes faites entre-temps ne deviennent pas un faux écart.
+      if (line.expectedAtCount == null || parts.length === 1) line.expectedAtCount = await theoretical(auth.tenantId, String(inv.deskId), inv.level, line.itemId);
       saved++;
     }
     inv.markModified("lines");
@@ -118,11 +119,16 @@ async function checkGapThreshold(auth: TokenPayload, deskId: string, lines: Line
  * bougent pas. Possible après l'arrêté de caisse du jour (on compte comptoir
  * fermé) ; refusée dans un mois de gestion clos.
  */
-export async function validateInventory(auth: TokenPayload, id: string, canApprove = true) {
-  const pre = await DeskInventoryModel.findOne({ _id: id, tenantId: auth.tenantId }).select("deskId level lines.itemId lines.counted lines.name lines.expectedAtCount").lean<{ deskId: Id; level: Level; lines: Line[] } | null>();
+export async function validateInventory(auth: TokenPayload, id: string, canApprove = true, reasons?: Record<string, string>) {
+  const pre = await DeskInventoryModel.findOne({ _id: id, tenantId: auth.tenantId }).select("deskId level opening lines.itemId lines.counted lines.name lines.expectedAtCount").lean<{ deskId: Id; level: Level; opening?: boolean; lines: Line[] } | null>();
   if (!pre) throw new BusinessRuleError("Inventaire introuvable.");
   const deskId = String(pre.deskId);
   if (!canApprove) await checkGapThreshold(auth, deskId, pre.lines);
+  // Site ouvert par l'assistant : chaque écart a sa justification.
+  if (!pre.opening && await ActivityDeskModel.exists({ _id: deskId, tenantId: auth.tenantId, strictStock: true })) {
+    const bare = pre.lines.filter(l => l.counted != null && l.expectedAtCount != null && Math.abs(l.counted - l.expectedAtCount) > 0.0005 && !String(reasons?.[String(l.itemId)] ?? "").trim());
+    if (bare.length) throw new BusinessRuleError(`Justifiez chaque écart : ${bare.slice(0, 3).map(l => l.name).join(", ")}${bare.length > 3 ? "…" : ""}.`);
+  }
   if (pre.level === "reserve") for (const l of pre.lines.filter(x => x.counted != null)) await withTransaction(s => ensureLinked(auth, deskId, l.itemId, s));
   const out = await withTransaction(async session => {
     await assertMonthOpen(auth.tenantId, deskId, new Date(), session);
@@ -153,6 +159,8 @@ export async function validateInventory(auth: TokenPayload, id: string, canAppro
       // Même arrondi que la valeur de perte (au franc, symétrique) : le rapport des pertes et l'écart concordent.
       const gapValue = gap < 0 ? -Math.round(-gap * unitCost) : Math.round(gap * unitCost);
       l.expected = expected; l.gap = gap; l.unitCost = unitCost; l.gapValue = gapValue;
+      const why = String(reasons?.[String(l.itemId)] ?? "").trim().slice(0, 200);
+      if (why && gap !== 0) (l as Line & { gapReason?: string }).gapReason = why;
       if (inv.level === "desk") {
         if (gap !== 0) await ActivityStockMoveModel.create([{ tenantId: auth.tenantId, deskId, itemId: item._id, type: "adjust", quantity: Math.abs(gap), quantityAfter: item.productId ? await theoretical(auth.tenantId, deskId, "desk", item._id, session) : item.quantity, unitCost, reason, stockMovementId,
           ...(gap < 0 ? { lossReason: "inventory", lossValue: Math.round(-gap * unitCost) } : {}), date: new Date(), createdBy: auth.userId }], { session });
@@ -184,4 +192,17 @@ export async function cancelInventory(auth: TokenPayload, id: string, canManage:
   // Annuler fait perdre les comptages de tous les appareils : le chef (ou la finance), ou celui qui a ouvert l'inventaire.
   const r = await DeskInventoryModel.updateOne({ _id: id, tenantId: auth.tenantId, status: "open", ...(canManage ? {} : { startedBy: auth.userId }) }, { $set: { status: "cancelled" } });
   if (r.modifiedCount !== 1) throw new BusinessRuleError(canManage ? "Inventaire déjà validé ou annulé." : "Annulation impossible : seuls le chef du comptoir et la personne qui l'a ouvert peuvent annuler un inventaire, ou celui-ci est déjà clos.");
+}
+
+/** Écarts d'un inventaire avant validation, pour les justifier : réservé à qui voit les coûts, le comptage reste à l'aveugle pour les autres. */
+export async function inventoryReview(tenantId: string, id: string) {
+  const inv = await DeskInventoryModel.findOne({ _id: id, tenantId }).select("lines").lean<{ lines: Array<Line & { unit?: string }> } | null>();
+  if (!inv) return null;
+  const items = await ActivityItemModel.find({ _id: { $in: inv.lines.map(l => l.itemId) }, tenantId }).select("unitCost").lean<Array<{ _id: Id; unitCost?: number }>>();
+  const cost = new Map(items.map(i => [String(i._id), i.unitCost ?? 0]));
+  const gaps = inv.lines.filter(l => l.counted != null && l.expectedAtCount != null && Math.abs(l.counted - l.expectedAtCount) > 0.0005).map(l => {
+    const gap = Math.round((l.counted! - l.expectedAtCount!) * 1000) / 1000;
+    return { itemId: String(l.itemId), name: l.name, unit: l.unit ?? "", expected: l.expectedAtCount!, counted: l.counted!, gap, value: Math.round(gap * (cost.get(String(l.itemId)) ?? 0)) };
+  }).sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+  return { gaps, total: gaps.reduce((t, g) => t + g.value, 0) };
 }

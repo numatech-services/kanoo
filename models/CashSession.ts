@@ -22,6 +22,8 @@ const CashSessionSchema = new Schema({
   closingId: { type: Schema.Types.ObjectId, ref: "CashClosing" },
   /** Chiffres figés à la fermeture (les tickets annulés ensuite n'y touchent plus). */
   summary: { type: Schema.Types.Mixed },
+  /** Espèces déjà bougées ce jour-là avant l'ouverture, avec le signe contraire : le fonds compté les inclut déjà. */
+  floatAdjust: { type: Number, default: 0 },
 }, { timestamps: true });
 
 // Une seule caisse ouverte par comptoir.

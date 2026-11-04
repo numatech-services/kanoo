@@ -68,7 +68,7 @@ export async function productSales(tenantId: string, deskId: unknown, fromDay: s
  * dépenses (par moyen, par nature), solde, espèces attendues, marge,
  * palmarès, ventes par jour.
  */
-export async function periodReport(tenantId: string, deskId: unknown, fromDay: string, toDay: string, openingFloat = 0) {
+export async function periodReport(tenantId: string, deskId: unknown, fromDay: string, toDay: string, openingFloat = 0, floatAdjust = 0) {
   const tid = new Types.ObjectId(tenantId), did = new Types.ObjectId(String(deskId));
   const range = { $gte: new Date(`${fromDay}T00:00:00.000`), $lte: new Date(`${toDay}T23:59:59.999`) };
   const [entries, sales, byDay, products, credit, losses] = await Promise.all([
@@ -123,7 +123,7 @@ export async function periodReport(tenantId: string, deskId: unknown, fromDay: s
     otherReceipts: sum(e => e._id.d === "in" && !e._id.t && !e._id.k && e._id.c !== "easypay_topup" && !internal(e)),
     internalIn: sum(e => e._id.d === "in" && internal(e)), internalOut: sum(e => e._id.d === "out" && internal(e)),
     byMethod: methods, expensesByCategory: cats,
-    openingFloat, expectedCash: openingFloat + (cash?.receipts ?? 0) - (cash?.expenses ?? 0),
+    openingFloat, expectedCash: openingFloat + floatAdjust + (cash?.receipts ?? 0) - (cash?.expenses ?? 0),
     byDay: byDay.map(d => ({ day: d._id, revenueTTC: d.ttc, margin: Math.round(d.margin), tickets: d.n })),
     topByRevenue: products.slice(0, 10),
     topByQuantity: [...products].sort((a, b) => b.quantity - a.quantity).slice(0, 10),
@@ -139,12 +139,19 @@ export async function openSession(auth: TokenPayload, input: { deskId: string; o
   const float = Math.round(Number(input.openingFloat));
   if (!(float >= 0)) throw new BusinessRuleError("Fonds de caisse invalide.");
   if (await CashSessionModel.exists({ tenantId: auth.tenantId, deskId: input.deskId, status: "open" })) throw new BusinessRuleError("Une caisse est déjà ouverte pour ce comptoir : fermez-la d'abord.");
+  if (await ActivityDeskModel.exists({ _id: input.deskId, tenantId: auth.tenantId, archived: true })) throw new BusinessRuleError("Ce site est archivé : sa caisse ne s'ouvre plus.");
   if (await CashClosingModel.exists({ tenantId: auth.tenantId, deskId: input.deskId, day: { $gte: day } })) throw new BusinessRuleError("Cette journée est déjà arrêtée : ouvrez la caisse à partir du jour suivant.");
   try {
     // Objectifs : ceux saisis à l'ouverture, sinon ceux du comptoir.
     const desk = await ActivityDeskModel.findOne({ _id: input.deskId, tenantId: auth.tenantId }).select("weeklyRevenueTarget weeklyMarginTarget").lean<{ weeklyRevenueTarget?: number; weeklyMarginTarget?: number } | null>();
     const revenue = Number(input.targets?.revenue ?? desk?.weeklyRevenueTarget ?? 0), margin = Number(input.targets?.margin ?? desk?.weeklyMarginTarget ?? 0);
-    return await CashSessionModel.create({ tenantId: auth.tenantId, deskId: input.deskId, openDay: day, openingFloat: float, label: input.label?.slice(0, 80), openedBy: auth.userId,
+    // Le fonds est ce qu'il y a dans le tiroir à l'ouverture : ce qui a déjà bougé ce jour-là y est inclus et ne se compte pas une seconde fois.
+    const earlier = await ActivityCashEntryModel.aggregate<{ _id: string; v: number }>([
+      { $match: { tenantId: new Types.ObjectId(auth.tenantId), deskId: new Types.ObjectId(input.deskId), method: "cash", date: { $gte: new Date(`${day}T00:00:00.000`), $lte: new Date() } } },
+      { $group: { _id: "$direction", v: { $sum: "$amount" } } },
+    ]);
+    const floatAdjust = (earlier.find(e => e._id === "out")?.v ?? 0) - (earlier.find(e => e._id === "in")?.v ?? 0);
+    return await CashSessionModel.create({ tenantId: auth.tenantId, deskId: input.deskId, openDay: day, openingFloat: float, floatAdjust, label: input.label?.slice(0, 80), openedBy: auth.userId,
       ...(revenue > 0 || margin > 0 ? { targets: { ...(revenue > 0 ? { revenue: Math.round(revenue) } : {}), ...(margin > 0 ? { margin: Math.round(margin) } : {}) } } : {}) });
   } catch (e) {
     if ((e as { code?: number }).code === 11000) throw new BusinessRuleError("Une caisse est déjà ouverte pour ce comptoir.");
@@ -174,7 +181,7 @@ export async function closeSession(auth: TokenPayload, sessionId: string, input:
     }, session);
     closingId = closing._id;
   }
-  const report = await periodReport(auth.tenantId, cs.deskId, cs.openDay, day, cs.openingFloat);
+  const report = await periodReport(auth.tenantId, cs.deskId, cs.openDay, day, cs.openingFloat, cs.floatAdjust ?? 0);
   const closings = await CashClosingModel.find({ tenantId: auth.tenantId, deskId: cs.deskId, day: { $gte: cs.openDay, $lte: day } }).select("gap countedCash").session(session ?? null).lean<Array<{ gap: number; countedCash: number }>>();
   const claim = await CashSessionModel.updateOne({ _id: cs._id, status: "open" }, { $set: {
     status: "closed", closeDay: day, closedBy: auth.userId, closingId,

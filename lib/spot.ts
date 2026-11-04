@@ -90,6 +90,8 @@ export function reorderSuggestion(i: ReorderInput) {
     dailyAverage: Math.round(daily * 100) / 100,
     daysLeft: daily > 0 ? Math.floor(Math.max(0, i.stock) / daily) : null,
     quantity: packs * size,
+    /** Besoin avant arrondi au carton : une commande groupée n'arrondit qu'une fois. */
+    rawQuantity: need > 0 ? Math.round(need * 1000) / 1000 : 0,
     packs: size > 1 ? packs : null,
     onOrder,
     // Rupture avant (ou le jour de) la livraison, ou stock (commandes comprises) au seuil.

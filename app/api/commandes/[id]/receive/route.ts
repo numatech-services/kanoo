@@ -4,6 +4,8 @@ import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-help
 import { TokenPayload } from "@/lib/auth";
 import { CommandeModel } from "@/models/Commande";
 import { applyMovement, StockError, type LotInput } from "@/lib/stock";
+import { BusinessRuleError } from "@/lib/errors";
+import { assertMonthOpen } from "@/lib/comptoir-sale";
 import { deskReserve } from "@/lib/restaurant-stock";
 import { priceAlertsAfterCost } from "@/lib/restaurant-overview";
 import { notifyRoles } from "@/lib/notify";
@@ -53,6 +55,8 @@ export const POST = withAuth("commandes", "update", async (req: NextRequest, aut
   // Commande passée depuis un comptoir (réassort) : elle entre dans la réserve du restaurant, sauf entrepôt choisi.
   const sourceDesk = (cmd as { sourceDeskId?: unknown }).sourceDeskId;
   const targetWarehouse = body.warehouseId || (sourceDesk ? await deskReserve(auth.tenantId, sourceDesk) : undefined);
+  // Semaine ou mois clos du site : une réception n'y entre plus.
+  if (sourceDesk) { try { await assertMonthOpen(auth.tenantId, sourceDesk, new Date()); } catch (e) { if (e instanceof BusinessRuleError) return badRequest(e.message); throw e; } }
   try {
     await withTransaction(async session => {
       for (const [k, w] of wanted.entries()) {

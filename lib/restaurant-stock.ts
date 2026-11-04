@@ -176,8 +176,9 @@ const ref = (prefix: string, deskId: unknown) => {
  * coûts), elle reste « à valoriser » et apparaît comme telle au résultat.
  * Renvoie les hausses de coût et les préparations qu'elles touchent.
  */
-export async function receiveInReserve(auth: TokenPayload, deskId: string, lines: ReceiveLine[], meta: { supplier?: string; supplierId?: string; reference?: string; paidFromCash?: boolean; method?: string; date?: string }) {
+export async function receiveInReserve(auth: TokenPayload, deskId: string, lines: ReceiveLine[], meta: { supplier?: string; supplierId?: string; reference?: string; paidFromCash?: boolean; method?: string; date?: string; dueDays?: number; standingKey?: string }) {
   if (!lines.length) throw new BusinessRuleError("Aucun article reçu.");
+  if (await ActivityDeskModel.exists({ _id: deskId, tenantId: auth.tenantId, archived: true })) throw new BusinessRuleError("Ce site est archivé : plus rien ne s'y écrit.");
   const date = meta.date ? new Date(meta.date) : new Date();
   if (isNaN(date.getTime()) || date.getTime() > Date.now() + 3_600_000) throw new BusinessRuleError("Date de réception invalide.");
   const method = METHODS.includes(String(meta.method)) ? String(meta.method) : "cash";
@@ -202,8 +203,10 @@ export async function receiveInReserve(auth: TokenPayload, deskId: string, lines
       if (!it) throw new BusinessRuleError("Article du comptoir introuvable.");
       if (it.recipe?.length) throw new BusinessRuleError(`${it.name} est une préparation : recevez ses ingrédients.`);
       const size = it.pack?.size ?? 0;
-      const qty = Number(l.packs) > 0 ? (size ? Number(l.packs) * size : NaN) : Number(l.quantity);
+      // Cartons et unités s'additionnent : « 2 cartons + 5 ».
+      const qty = (Number(l.packs) > 0 ? (size ? Number(l.packs) * size : NaN) : 0) + (Number(l.quantity) > 0 ? Number(l.quantity) : 0);
       if (!(qty > 0) || qty > 1e7) throw new BusinessRuleError(`${it.name} : quantité invalide${Number(l.packs) > 0 && !size ? " (pas de conditionnement : saisissez des unités)" : ""}.`);
+      if (Number(l.unitCost) < 0 || Number(l.packCost) < 0 || Number(l.unitCost) > 1e9 || Number(l.packCost) > 1e10) throw new BusinessRuleError(`${it.name} : prix invalide.`);
       const unitCost = Number(l.packCost) > 0 && size ? Number(l.packCost) / size : Number(l.unitCost) > 0 ? Number(l.unitCost) : undefined;
       const expiry = text(l.expiryDate, 10);
       if (expiry && isNaN(new Date(expiry).getTime())) throw new BusinessRuleError(`${it.name} : date de péremption invalide.`);
@@ -221,7 +224,7 @@ export async function receiveInReserve(auth: TokenPayload, deskId: string, lines
         linkedDocType: "comptoir", linkedDocId: it.deskId, ...(reference ? { linkedDocNumber: reference } : {}),
       }, session);
       const [log] = await PurchasePriceLogModel.create([{ tenantId: auth.tenantId, deskId, itemId: it._id, ...(ref0 ? { supplierId: ref0._id } : {}), ...(supplier ? { supplierName: supplier } : {}),
-        unitCost: unitCost ?? 0, quantity: qty, date, source: "reception", ...(reference ? { reference } : {}), paidFromCash: !!meta.paidFromCash, createdBy: auth.userId }], { session });
+        unitCost: unitCost ?? 0, quantity: qty, date, source: "reception", ...(reference ? { reference } : {}), ...(meta.standingKey ? { standingKey: meta.standingKey } : {}), paidFromCash: !!meta.paidFromCash, createdBy: auth.userId }], { session });
       if (unitCost === undefined) { unvalued++; continue; }
       sum += qty * unitCost;
       valued.push({ description: it.name, quantity: qty, unitCost }); logIds.push(log._id);
@@ -239,7 +242,7 @@ export async function receiveInReserve(auth: TokenPayload, deskId: string, lines
       await postDeskCash(auth, deskId, cash, session);
     } else if (!meta.paidFromCash) {
       // Reçue et pas payée : la dette existe dès maintenant (401), même si la facture n'est pas encore là.
-      const purchaseId = await receptionDebt(auth, deskId, { supplierId: ref0?._id, supplier, reference, date, lines: valued }, session);
+      const purchaseId = await receptionDebt(auth, deskId, { supplierId: ref0?._id, supplier, reference, date, dueDays: meta.dueDays, lines: valued }, session);
       if (purchaseId) await PurchasePriceLogModel.updateMany({ _id: { $in: logIds } }, { $set: { purchaseId } }, { session });
     }
     return Math.round(sum);
