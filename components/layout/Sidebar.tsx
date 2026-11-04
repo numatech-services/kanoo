@@ -7,7 +7,7 @@ import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { moduleEnabled } from "@/lib/modules";
-import { LayoutDashboard, Rocket, Gauge, Smartphone, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent, UtensilsCrossed, Tags, ChefHat, CookingPot, ShoppingBasket } from "lucide-react";
+import { LayoutDashboard, Calculator, Rocket, Gauge, Smartphone, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent, UtensilsCrossed, Tags, ChefHat, CookingPot, ShoppingBasket } from "lucide-react";
 
 import { apiJson, apiSend } from "@/lib/api-client";
 import { getPendingCount, purgeOfflineData } from "@/lib/offline/sync-queue";
@@ -127,6 +127,7 @@ const PME_NAV: NavGroup[] = [
     { label: "Transferts entre restaurants", href: "/restauration/transferts", icon: <Truck size={18} /> },
     { label: "Magasin (mobile)", href: "/restauration/magasin", icon: <Smartphone size={18} /> },
     { label: "Ouverture des sites", href: "/restauration/ouverture", icon: <Rocket size={18} /> },
+    { label: "Espace comptable", href: "/restauration/comptable", icon: <Calculator size={18} /> },
   ]},
   { section: "Modules", tone: "abonnements", items: [
     { label: "Cartes ISIC", href: "/isic", icon: <CreditCard size={18} /> },
