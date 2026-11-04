@@ -1,10 +1,12 @@
+import { archiveForRestart } from "@/lib/restaurant-opening";
+import { hasFinanceAccess } from "@/lib/role-resources";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, notFound, badRequest, conflict, forbidden, tenantFilter, sanitizeBody } from "@/lib/api-helpers";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityModel } from "@/models/Activity";
 import { TreasuryAccountModel } from "@/models/TreasuryAccount";
-import { isId, allDesks, canSeeDeskCosts } from "@/lib/comptoir";
+import { isId, allDesks, canSeeDeskCosts, ownDesk } from "@/lib/comptoir";
 import { validateStaff } from "@/lib/restaurant-team";
 import { BusinessRuleError } from "@/lib/errors";
 import { authCan } from "@/lib/role-resources";
@@ -21,8 +23,16 @@ export const dynamic = "force-dynamic";
 export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   if (!isId(params.id)) return notFound("Comptoir introuvable");
-  if (!allDesks(auth)) return forbidden("Seuls le chef The Spot, la comptabilité et le gérant paramètrent un comptoir.");
+  // Un chef limité à ses sites règle les siens ; la TVA, la caisse, les comptes et l'archivage restent à la direction et à la comptabilité.
+  if (!allDesks(auth) && !(canSeeDeskCosts(auth) && await ownDesk(auth, params.id))) return forbidden("Seuls le chef du site, la comptabilité et le gérant paramètrent un comptoir.");
   const clean = sanitizeBody(await req.json().catch(() => ({})));
+  if (!hasFinanceAccess(auth) && ["archived", "vatRate", "treasuryAccountId", "revenueAccount", "expenseAccount", "activityId"].some(k => k in clean)) return forbidden("La TVA, la caisse, les comptes et l'archivage reviennent à la direction et à la comptabilité.");
+  // Archiver passe par les mêmes contrôles qu'un nouveau départ : caisse fermée, transferts soldés, clé EasyPay révoquée, nom libéré.
+  if (clean.archived === true) {
+    try { await archiveForRestart(auth, [params.id], false); }
+    catch (e) { if (e instanceof BusinessRuleError) return badRequest(e.message); throw e; }
+    delete clean.archived;
+  }
   const $set: Record<string, unknown> = {};
   const $unset: Record<string, 1> = {};
 

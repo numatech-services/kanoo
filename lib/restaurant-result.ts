@@ -3,6 +3,7 @@ import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
+import { PurchasePriceLogModel } from "@/models/PurchasePriceLog";
 import { ComptoirSaleModel } from "@/models/ComptoirSale";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { PayslipModel } from "@/models/Payslip";
@@ -223,11 +224,13 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
   const reserveInv = invs.filter(i => i.level === "reserve" && !i.opening);
   const openingGap = invs.filter(i => i.opening).reduce((t, i) => t + (i.gapValue ?? 0), 0);
   const reserveGap = reserveInv.reduce((t, i) => t + (i.gapValue ?? 0), 0);
-  const cashPurchases = cash[0]?.v ?? 0;
+  // Prix connu après coup d'une marchandise déjà vendue : ce coût n'a pas pu passer par les tickets.
+  const late = await PurchasePriceLogModel.aggregate<{ v: number }>([{ $match: { tenantId: oid(tenantId), deskId: oid(deskId), valuedAt: { $gte: b.from, $lte: b.to } } }, { $group: { _id: null, v: { $sum: "$costAdjustment" } } }]);
+  const cashPurchases = (cash[0]?.v ?? 0) + (late[0]?.v ?? 0);
   // Ventes hors ticket : entrées de caisse « vente » sans ticket, ni règlement d'ardoise, ni recette EasyPay
   // (une recharge de carte appartient à Numatech), ni entrée hors vente. Elles comptent au CA ET à la marge :
   // le coût de la marchandise sortie avec elles est repris, sinon il ressort par l'inventaire.
-  const offTicket = await ActivityCashEntryModel.find({ tenantId, deskId, direction: "in", saleId: { $exists: false }, customerId: { $exists: false }, category: { $nin: ["non_sale", "easypay_topup", "funding", "cash_transfer"] }, date: { $gte: b.from, $lte: b.to } })
+  const offTicket = await ActivityCashEntryModel.find({ tenantId, deskId, direction: "in", saleId: { $exists: false }, customerId: { $exists: false }, category: { $nin: ["non_sale", "easypay_topup", "funding", "cash_transfer", "supplier_payment"] }, date: { $gte: b.from, $lte: b.to } })
     .select("amount linkedMoveId").lean<Array<{ amount: number; linkedMoveId?: Id }>>();
   const offTicketHT = Math.round(offTicket.reduce((t, e) => t + e.amount, 0) / (1 + (desk.vatRate ?? 0)));
   const linked = offTicket.map(e => e.linkedMoveId).filter(Boolean) as Id[];
@@ -244,7 +247,8 @@ export async function deskMonthResult(tenantId: string, deskId: string, month: s
   if (!desk.activityId) warnings.push("Comptoir sans secteur analytique : les charges comptables (eau, électricité, loyer…) ne sont pas reprises.");
   const unvaluedReceptions = entries.find(e => e._id === false)?.n ?? 0;
   if (unvaluedReceptions) warnings.push(`${unvaluedReceptions} entrée(s) en stock du mois sans prix d'achat : à valoriser (le coût des ventes est sous-estimé).`);
-  if (cashPurchases) warnings.push("Des achats de marchandises ont été payés en caisse sans réception en réserve : ils sont comptés comme consommés dans le mois.");
+  if (cash[0]?.v) warnings.push("Des achats de marchandises ont été payés en caisse sans réception en réserve : ils sont comptés comme consommés dans le mois.");
+  if (late[0]?.v) warnings.push(`${Math.round(late[0].v).toLocaleString("fr-FR")} FCFA de marchandises valorisées après leur vente : comptés en coût ce mois-ci.`);
 
   // Consommation par article (pertes par article déjà calculées ; manquants de réserve par article).
   const reserveGaps = new Map<string, number>();

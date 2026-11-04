@@ -37,6 +37,7 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
     const peer = await TreasuryMovementModel.findOne({ _id: m.transferPeerId, ...tenantFilter(auth) }).lean<Move | null>();
     if (peer) legs.push(peer);
   }
+  if (m.linkedDocType === "cash_closing") return badRequest("Ce mouvement vient d'un arrêté de caisse : il ne s'annule pas ici.");
   // Mouvement relié à une caisse de site ou à un financement : son annulation passe par sa pièce, sinon la caisse et la comptabilité divergent.
   const ids = legs.map(l => l._id);
   if (await DeskFundingModel.exists({ tenantId: auth.tenantId, movementIds: { $in: ids } })) return badRequest("Ce mouvement vient de la situation de départ d'un site : annulez-le depuis Ouverture des sites.");

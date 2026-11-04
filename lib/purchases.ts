@@ -11,6 +11,8 @@ import { BusinessRuleError } from "@/lib/errors";
 
 import { CommandeModel } from "@/models/Commande";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
+import { assertDayOpen } from "@/lib/comptoir-sale";
 import { PurchasePriceLogModel } from "@/models/PurchasePriceLog";
 import { registerLedgerAccount } from "@/lib/treasury";
 import { EXCHANGE_GAIN, EXCHANGE_LOSS, MAX_EXCHANGE_RATE } from "@/lib/payments";
@@ -163,6 +165,9 @@ export async function payPurchase(
   }
   const date = input.date ? new Date(String(input.date)) : new Date();
   if (isNaN(date.getTime())) throw new PurchaseError("Date de règlement invalide.");
+  // Compte qui est la caisse d'un site : ses journées et ses semaines closes s'appliquent aussi ici.
+  const site = await ActivityDeskModel.findOne({ tenantId: auth.tenantId, treasuryAccountId: accountId, archived: { $ne: true } }).select("_id").session(session ?? null).lean<{ _id: unknown } | null>();
+  if (site) await assertDayOpen(auth.tenantId, site._id, date, session);
   // Un règlement se constate : jamais à une date à venir (trésorerie et
   // rapprochement faussés d'ici là). Les paiements prévus passent par l'échéancier.
   const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
@@ -200,14 +205,15 @@ export async function cancelPayment(auth: TokenPayload, p: PurchaseDoc, paymentI
   if (!pay) throw new PurchaseError("Règlement introuvable.");
   if (pay.cancelledAt) throw new PurchaseError("Règlement déjà annulé.");
   if (pay.entryId) await reverseEntry({ tenantId: auth.tenantId, userId: auth.userId, entryId: pay.entryId, reason: "règlement annulé" }, session);
-  await TreasuryMovementModel.create([{
+  const [back] = await TreasuryMovementModel.create([{
     tenantId: auth.tenantId, accountId: pay.treasuryAccountId, date: new Date(), amount: pay.amount,
     label: `Annulation règlement ${p.number}`, source: "expense", linkedDocType: "purchase", linkedDocId: p._id, createdBy: auth.userId,
   }], { session });
-  // Règlement fait depuis la caisse d'un site : l'argent y revient, les espèces attendues suivent.
+  // Règlement fait depuis la caisse d'un site : l'argent y revient, les espèces attendues suivent, et la journée doit être ouverte.
   const till = await ActivityCashEntryModel.findOne({ tenantId: auth.tenantId, movementId: pay.movementId }).select("deskId label").session(session ?? null).lean<{ deskId: unknown; label: string } | null>();
   if (till) {
-    await ActivityCashEntryModel.create([{ tenantId: auth.tenantId, deskId: till.deskId, direction: "in", amount: pay.amount, label: `Annulation : ${till.label}`.slice(0, 200), method: "cash", category: "funding", date: new Date(), createdBy: auth.userId }], { session });
+    await assertDayOpen(auth.tenantId, till.deskId, new Date(), session);
+    await ActivityCashEntryModel.create([{ tenantId: auth.tenantId, deskId: till.deskId, direction: "in", amount: pay.amount, label: `Annulation : ${till.label}`.slice(0, 200), method: "cash", category: "supplier_payment", date: new Date(), movementId: back._id, createdBy: auth.userId }], { session });
     await PurchasePriceLogModel.updateMany({ tenantId: auth.tenantId, purchaseId: p._id, paidFromCash: true }, { $set: { paidFromCash: false } }, { session });
   }
   pay.cancelledAt = new Date();

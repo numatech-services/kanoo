@@ -43,8 +43,12 @@ export function localDay(d: Date): string {
 }
 
 /** Journée déjà arrêtée pour ce comptoir : plus rien ne s'y écrit. */
-export async function assertDayOpen(tenantId: string, deskId: unknown, date: Date, session?: ClientSession) {
+/** Site archivé : plus de vente, de caisse ni de stock. Le règlement de ses dettes et de ses ardoises reste possible. */
+export async function assertDeskActive(tenantId: string, deskId: unknown, session?: ClientSession) {
   if (await ActivityDeskModel.exists({ _id: deskId, tenantId, archived: true }).session(session ?? null)) throw new BusinessRuleError("Ce site est archivé : plus rien ne s'y écrit.");
+}
+
+export async function assertDayOpen(tenantId: string, deskId: unknown, date: Date, session?: ClientSession) {
   const closed = await CashClosingModel.exists({ tenantId, deskId, day: { $gte: localDay(date) } }).session(session ?? null);
   if (closed) throw new BusinessRuleError(`La caisse est arrêtée au ${date.toLocaleDateString("fr-FR")} (ou après) : cette journée ne se modifie plus.`);
   await assertMonthOpen(tenantId, deskId, date, session);
@@ -57,6 +61,22 @@ export async function assertMonthOpen(tenantId: string, deskId: unknown, date: D
   if (closed) throw new BusinessRuleError(`Le mois ${closed.month} est clos en gestion${closed.month === month ? "" : ` (et donc ${month})`} : la comptabilité doit le rouvrir pour y écrire.`);
   const week = await DeskWeekCloseModel.findOne({ tenantId, deskId, status: "closed", weekEnd: { $gte: localDay(date) } }).select("weekEnd").session(session ?? null).lean<{ weekEnd: string } | null>();
   if (week) throw new BusinessRuleError(`La semaine est close jusqu'au ${week.weekEnd} : le chef du site ou la comptabilité doit la rouvrir pour y écrire.`);
+}
+
+/**
+ * Mouvements de la caisse d'un site passés depuis un autre module (salaire,
+ * note de frais, règlement client, facture réglée depuis les Achats) : ils n'ont
+ * pas d'entrée de caisse, mais l'argent a bien bougé. Les espèces attendues en
+ * tiennent compte, sinon l'arrêté y verrait un faux écart.
+ */
+const MIRRORED_DOCS = ["desk_cash", "desk_funding", "transfer", "manual", "comptoir_sale", "cash_closing", "easypay_remittance"];
+export async function otherTillMoves(tenantId: string, deskId: unknown, from: Date, to: Date, session?: ClientSession) {
+  const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("treasuryAccountId").session(session ?? null).lean<{ treasuryAccountId?: Types.ObjectId } | null>();
+  if (!desk?.treasuryAccountId) return 0;
+  const moves = await TreasuryMovementModel.find({ tenantId, accountId: desk.treasuryAccountId, date: { $gte: from, $lte: to }, linkedDocType: { $nin: MIRRORED_DOCS } }).select("amount").session(session ?? null).lean<Array<{ _id: Types.ObjectId; amount: number }>>();
+  if (!moves.length) return 0;
+  const seen = new Set((await ActivityCashEntryModel.find({ tenantId, deskId, movementId: { $in: moves.map(m => m._id) } }).select("movementId").session(session ?? null).lean<Array<{ movementId: Types.ObjectId }>>()).map(e => String(e.movementId)));
+  return moves.filter(m => !seen.has(String(m._id))).reduce((t, m) => t + m.amount, 0);
 }
 
 /**
@@ -193,7 +213,13 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
     const booked = await firstOpenDate(tenantId, desk._id, date, session);
     if (booked !== date) { occurredAt = date; date = booked; }
   }
+  await assertDeskActive(tenantId, desk._id, session);
   await assertDayOpen(tenantId, desk._id, date, session);
+  if (!external) {
+    // Un ticket antidaté avant l'ouverture de la caisse échapperait aux espèces attendues.
+    const open = await CashSessionModel.findOne({ tenantId, deskId: desk._id, status: "open" }).select("openDay").session(session ?? null).lean<{ openDay: string } | null>();
+    if (open && localDay(date) < open.openDay) throw new BusinessRuleError(`La caisse est ouverte depuis le ${open.openDay} : un ticket ne se date pas d'avant.`);
+  }
   if (!Array.isArray(input.lines) || input.lines.length === 0) throw new BusinessRuleError("Le ticket est vide.");
   if (input.lines.length > 100) throw new BusinessRuleError("Ticket trop long (100 lignes au plus).");
 
@@ -488,8 +514,9 @@ export async function periodFigures(tenantId: string, deskId: unknown, fromDay: 
     expenses: rows.find(r => r._id.m === m && r._id.d === "out")?.total ?? 0,
   }));
   const cash = byMethod.find(b => b.method === "cash");
+  const other = await otherTillMoves(tenantId, deskId, from, to, session);
   return {
-    byMethod, cashNet: (cash?.receipts ?? 0) - (cash?.expenses ?? 0),
+    byMethod, cashNet: (cash?.receipts ?? 0) - (cash?.expenses ?? 0) + other,
     salesCount: sales[0]?.n ?? 0, salesTTC: sales[0]?.ttc ?? 0, marginHT: Math.round(sales[0]?.margin ?? 0),
   };
 }
@@ -504,7 +531,8 @@ export async function closeDay(auth: TokenPayload, input: { deskId: string; day:
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.day || "")) throw new BusinessRuleError("Journée invalide.");
   if (input.day > localDay(new Date())) throw new BusinessRuleError("Une journée future ne s'arrête pas.");
   const counted = Math.round(Number(input.countedCash));
-  if (!(counted >= 0)) throw new BusinessRuleError("Montant compté invalide.");
+  if (!(counted >= 0) || counted > 1e11) throw new BusinessRuleError("Montant compté invalide.");
+  await assertMonthOpen(tenantId, input.deskId, new Date(`${input.day}T12:00:00`), session);
   const desk = await ActivityDeskModel.findOne({ _id: input.deskId, tenantId }).session(session ?? null)
     .lean<{ _id: Types.ObjectId; name: string; activityId?: unknown; treasuryAccountId?: unknown } | null>();
   if (!desk) throw new BusinessRuleError("Comptoir introuvable.");
@@ -515,9 +543,10 @@ export async function closeDay(auth: TokenPayload, input: { deskId: string; day:
   const fromDay = input.fromDay && /^\d{4}-\d{2}-\d{2}$/.test(input.fromDay) && input.fromDay < input.day ? input.fromDay : input.day;
   const f = await periodFigures(tenantId, desk._id, fromDay, input.day, session);
   // Espèces bougées avant l'ouverture de la caisse, le premier jour : déjà dans le fonds compté.
-  const opened = await CashSessionModel.findOne({ tenantId, deskId: desk._id, status: "open", openDay: fromDay }).select("floatAdjust").session(session ?? null).lean<{ floatAdjust?: number } | null>();
-  // Le fonds de caisse du matin est compté avec les espèces du soir.
-  const theoreticalCash = Math.max(0, Math.round(Number(input.openingFloat) || 0)) + (opened?.floatAdjust ?? 0) + f.cashNet;
+  const opened = await CashSessionModel.findOne({ tenantId, deskId: desk._id, status: "open", openDay: fromDay }).select("floatAdjust openingFloat").session(session ?? null).lean<{ floatAdjust?: number; openingFloat: number } | null>();
+  // Le fonds de caisse du matin est compté avec les espèces du soir. Caisse ouverte ce jour-là : c'est son fonds, pas un champ à ressaisir.
+  const float = opened ? opened.openingFloat : Math.max(0, Math.round(Number(input.openingFloat) || 0));
+  const theoreticalCash = float + (opened?.floatAdjust ?? 0) + f.cashNet;
   const gap = counted - theoreticalCash;
   const [closing] = await CashClosingModel.create([{
     tenantId, deskId: desk._id, day: input.day, ...(fromDay !== input.day ? { fromDay } : {}), ...(input.sessionId ? { sessionId: input.sessionId } : {}),

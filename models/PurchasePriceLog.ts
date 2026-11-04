@@ -24,6 +24,9 @@ export interface IPurchasePriceLog {
   purchaseId?: Types.ObjectId;
   /** Quantité déjà retournée au fournisseur. */
   returned?: number;
+  /** Valorisation tardive : date, et part du prix portant sur des unités déjà vendues (comptée en coût du mois). */
+  valuedAt?: Date;
+  costAdjustment?: number;
   /** Livraison permanente : une seule réception par livraison et par jour. */
   standingKey?: string;
   /** Facture du fournisseur rapprochée (numéro), qui et quand. */
@@ -50,6 +53,8 @@ const PurchasePriceLogSchema = new Schema<IPurchasePriceLog>({
   paidFromCash: { type: Boolean, default: false },
   purchaseId: { type: Schema.Types.ObjectId, ref: "Purchase" },
   returned: { type: Number, default: 0, min: 0 },
+  valuedAt: Date,
+  costAdjustment: Number,
   standingKey: { type: String, maxlength: 60 },
   invoiceRef: { type: String, maxlength: 60 },
   invoicedAt: Date,

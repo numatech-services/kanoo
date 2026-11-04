@@ -8,7 +8,10 @@ import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { Types } from "mongoose";
 import { parseFlow, parsePeriod, periodMatch, flowTotals } from "@/lib/flow-filter";
-import { assertDayOpen } from "@/lib/comptoir-sale";
+import { assertDayOpen, assertDeskActive } from "@/lib/comptoir-sale";
+import { CashSessionModel } from "@/models/CashSession";
+import { BusinessRuleError } from "@/lib/errors";
+import { localDay } from "@/lib/format";
 import { EXPENSE_CATEGORIES } from "@/lib/comptoir-session";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +59,11 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   // Écriture de caisse + comptabilisation (si le comptoir est relié à une caisse)
   // dans la même transaction : jamais l'une sans l'autre.
   const entry = await withTransaction(async session => {
+    await assertDeskActive(auth.tenantId, body.deskId, session);
     await assertDayOpen(auth.tenantId, body.deskId, date, session);
+    // Une ligne antérieure à l'ouverture de la caisse fausserait les espèces attendues.
+    const open = await CashSessionModel.findOne({ tenantId: auth.tenantId, deskId: body.deskId, status: "open" }).select("openDay").session(session ?? null).lean<{ openDay: string } | null>();
+    if (open && localDay(date) < open.openDay) throw new BusinessRuleError(`La caisse est ouverte depuis le ${open.openDay} : une écriture ne se date pas d'avant.`);
     const [e] = await ActivityCashEntryModel.create([{
       tenantId: auth.tenantId,
       deskId: body.deskId,

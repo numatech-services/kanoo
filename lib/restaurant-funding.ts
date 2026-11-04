@@ -1,6 +1,7 @@
 import { Types, type ClientSession } from "mongoose";
 import { withTransaction } from "@/lib/db";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
+import { CashSessionModel } from "@/models/CashSession";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { DeskFundingModel, type IDeskFunding } from "@/models/DeskFunding";
@@ -38,7 +39,7 @@ const cleanAmount = (v: unknown, label = "Montant") => {
   if (!Number.isFinite(n) || n <= 0 || n > MAX_AMOUNT) throw new BusinessRuleError(`${label} invalide.`);
   return n;
 };
-const noFuture = (d: Date) => { if (isNaN(d.getTime()) || d.getTime() > Date.now() + 86_400_000) throw new BusinessRuleError("Date invalide : une opération se saisit le jour où elle a lieu."); return d; };
+const noFuture = (d: Date) => { const end = new Date(); end.setHours(23, 59, 59, 999); if (isNaN(d.getTime()) || d > end) throw new BusinessRuleError("Date invalide : une opération se saisit le jour où elle a lieu."); return d; };
 
 /** Toute écriture sur un compte verrouille ce compte : deux sorties simultanées ne voient pas le même solde. */
 export const lockAccount = (tenantId: string, accountId: unknown, session?: ClientSession) =>
@@ -50,16 +51,19 @@ export const lockAccount = (tenantId: string, accountId: unknown, session?: Clie
  * attendues égales au solde du compte, et le jour clos reste clos. Sans site
  * relié au compte, rien à faire.
  */
-export async function mirrorTill(auth: TokenPayload, accountId: unknown, m: { direction: "in" | "out"; amount: number; date: Date; label: string; category?: string; entryId?: unknown; movementId?: unknown }, session?: ClientSession) {
-  const desk = await ActivityDeskModel.findOne({ tenantId: auth.tenantId, treasuryAccountId: accountId, archived: { $ne: true } }).select("_id").session(session ?? null).lean<{ _id: Id } | null>();
+export async function mirrorTill(auth: TokenPayload, accountId: unknown, m: { direction: "in" | "out"; amount: number; date: Date; label: string; category?: string; entryId?: unknown; movementId?: unknown; deskId?: unknown }, session?: ClientSession) {
+  const desk = await ActivityDeskModel.findOne({ tenantId: auth.tenantId, treasuryAccountId: accountId, archived: { $ne: true }, ...(m.deskId ? { _id: m.deskId } : {}) }).select("_id").session(session ?? null).lean<{ _id: Id } | null>();
   if (!desk) return null;
   await assertDayOpen(auth.tenantId, desk._id, m.date, session);
+  // Antidaté avant l'ouverture de la caisse, le mouvement échapperait aux espèces attendues.
+  const open = await CashSessionModel.findOne({ tenantId: auth.tenantId, deskId: desk._id, status: "open" }).select("openDay").session(session ?? null).lean<{ openDay: string } | null>();
+  if (open && localDay(m.date) < open.openDay) throw new BusinessRuleError(`La caisse est ouverte depuis le ${open.openDay} : ce mouvement ne se date pas d'avant.`);
   const [cash] = await ActivityCashEntryModel.create([{ tenantId: auth.tenantId, deskId: desk._id, direction: m.direction, amount: m.amount, label: m.label.slice(0, 200), method: "cash", category: m.category ?? (m.direction === "in" ? "funding" : "cash_transfer"), date: m.date, entryId: m.entryId, movementId: m.movementId, createdBy: auth.userId }], { session });
   return cash;
 }
 
 /** Virement interne entre deux comptes de trésorerie (585) : ni recette ni dépense. */
-export async function transferFunds(auth: TokenPayload, input: { fromAccountId: unknown; toAccountId: unknown; amount: number; date: Date; label: string; reference?: string; allowOverdraft?: boolean }, session?: ClientSession) {
+export async function transferFunds(auth: TokenPayload, input: { fromAccountId: unknown; toAccountId: unknown; amount: number; date: Date; label: string; reference?: string; allowOverdraft?: boolean; fromDeskId?: unknown; toDeskId?: unknown; closingTill?: boolean }, session?: ClientSession) {
   await lockAccount(auth.tenantId, input.fromAccountId, session);
   const [src, dst] = await Promise.all([treasuryLedger(auth.tenantId, input.fromAccountId, session), treasuryLedger(auth.tenantId, input.toAccountId, session)]);
   if (!src || !dst) throw new BusinessRuleError("Compte de trésorerie introuvable.");
@@ -81,8 +85,9 @@ export async function transferFunds(auth: TokenPayload, input: { fromAccountId: 
   const [out] = await TreasuryMovementModel.create([{ ...base, accountId: input.fromAccountId, amount: -amount }], { session });
   const [inn] = await TreasuryMovementModel.create([{ ...base, accountId: input.toAccountId, amount, transferPeerId: out._id }], { session });
   await TreasuryMovementModel.updateOne({ _id: out._id }, { $set: { transferPeerId: inn._id } }, { session });
-  await mirrorTill(auth, input.fromAccountId, { direction: "out", amount, date, label, entryId: entry._id, movementId: out._id }, session);
-  await mirrorTill(auth, input.toAccountId, { direction: "in", amount, date, label, entryId: entry._id, movementId: inn._id }, session);
+  // Caisse vidée avant archivage : sa journée est déjà arrêtée, plus rien à attendre d'elle.
+  if (!input.closingTill) await mirrorTill(auth, input.fromAccountId, { direction: "out", amount, date, label, entryId: entry._id, movementId: out._id, deskId: input.fromDeskId }, session);
+  await mirrorTill(auth, input.toAccountId, { direction: "in", amount, date, label, entryId: entry._id, movementId: inn._id, deskId: input.toDeskId }, session);
   return { entryId: entry._id as Id, movementIds: [out._id as Id, inn._id as Id] };
 }
 
@@ -106,13 +111,14 @@ export async function allocateFunds(auth: TokenPayload, deskId: string, input: {
     let posted: { entryId: unknown; movementIds: unknown[] };
     if (input.nature === "transfer") {
       if (!input.fromAccountId || !Types.ObjectId.isValid(input.fromAccountId)) throw new BusinessRuleError("Choisissez le compte qui verse l'argent.");
-      posted = await transferFunds(auth, { fromAccountId: input.fromAccountId, toAccountId: desk.treasuryAccountId, amount, date, label, reference: `DOT-${localDay(date)}` }, s);
+      posted = await transferFunds(auth, { fromAccountId: input.fromAccountId, toAccountId: desk.treasuryAccountId, toDeskId: deskId, amount, date, label, reference: `DOT-${localDay(date)}` }, s);
     } else {
       await registerLedgerAccount(auth.tenantId, nature.account!.accountCode, nature.account!.accountLabel, s);
       const p = await postCashFlow({ tenantId: auth.tenantId, userId: auth.userId, treasuryAccountId: desk.treasuryAccountId, direction: "in", amount, date, label, reference: `DOT-${localDay(date)}`, account: nature.account!, linkedDocType: "desk_funding", linkedDocId: desk._id }, s);
       posted = { entryId: p.entryId, movementIds: [p.movementId] };
-      await mirrorTill(auth, desk.treasuryAccountId, { direction: "in", amount, date, label, entryId: p.entryId, movementId: p.movementId }, s);
+      await mirrorTill(auth, desk.treasuryAccountId, { direction: "in", amount, date, label, entryId: p.entryId, movementId: p.movementId, deskId }, s);
     }
+    await ActivityDeskModel.updateOne({ _id: deskId, tenantId: auth.tenantId }, { $unset: { openingValidatedAt: 1, openingValidatedBy: 1 } }, { session: s });
     const [f] = await DeskFundingModel.create([{
       tenantId: auth.tenantId, deskId, kind: "money", nature: input.nature, amount, date, label, repayable: nature.repayable,
       ...(input.nature === "transfer" ? { fromAccountId: input.fromAccountId } : { accountCode: nature.account!.accountCode }),
@@ -130,6 +136,7 @@ export async function addOpeningLine(auth: TokenPayload, deskId: string, input: 
   if (!Object.hasOwn(OPENING_KINDS, input.kind)) throw new BusinessRuleError("Nature de la ligne invalide.");
   const amount = cleanAmount(input.amount);
   if (!(await ActivityDeskModel.exists({ _id: deskId, tenantId: auth.tenantId, archived: { $ne: true } }))) throw new BusinessRuleError("Site introuvable.");
+  await ActivityDeskModel.updateOne({ _id: deskId, tenantId: auth.tenantId }, { $unset: { openingValidatedAt: 1, openingValidatedBy: 1 } });
   return DeskFundingModel.create({ tenantId: auth.tenantId, deskId, kind: input.kind, amount, date: input.date ?? new Date(), label: (input.label?.trim() || OPENING_KINDS[input.kind]).slice(0, 200), repayable: input.kind === "owner_paid" ? input.repayable !== false : input.kind === "debt", createdBy: auth.userId });
 }
 
@@ -147,6 +154,7 @@ export async function cancelFunding(auth: TokenPayload, id: string, reason: stri
     const f = await DeskFundingModel.findOneAndUpdate({ _id: id, tenantId: auth.tenantId, cancelledAt: { $exists: false }, repaid: 0 }, { $set: { cancelledAt: new Date(), cancelledBy: auth.userId, cancelReason: why } }, { session, new: true }).lean<IDeskFunding | null>();
     if (!f) throw new BusinessRuleError("Ligne introuvable, déjà annulée ou déjà remboursée en partie.");
     if (f.qualifiedAt) throw new BusinessRuleError("Cette ligne a été qualifiée par la comptable : c'est à elle de la corriger par écriture.");
+    await ActivityDeskModel.updateOne({ _id: f.deskId, tenantId: auth.tenantId }, { $unset: { openingValidatedAt: 1, openingValidatedBy: 1 } }, { session });
     if (f.kind !== "money") return;
     await assertMonthOpen(auth.tenantId, f.deskId, new Date(), session);
     const moves = await TreasuryMovementModel.find({ _id: { $in: f.movementIds }, tenantId: auth.tenantId }).select("accountId amount").session(session ?? null).lean<Array<{ _id: Id; accountId: Id; amount: number }>>();
@@ -235,7 +243,7 @@ export async function depositCash(auth: TokenPayload, deskId: string, input: { a
     const to = await TreasuryAccountModel.findOne({ _id: input.toAccountId, tenantId: auth.tenantId }).select("label").session(session ?? null).lean<{ label: string } | null>();
     if (!to) throw new BusinessRuleError("Compte introuvable.");
     const label = (input.label?.trim() || `Remise vers ${to.label} — ${desk.name}`).slice(0, 200);
-    return transferFunds(auth, { fromAccountId: desk.treasuryAccountId, toAccountId: input.toAccountId, amount, date, label, reference: `REM-${localDay(date)}` }, session);
+    return transferFunds(auth, { fromAccountId: desk.treasuryAccountId, fromDeskId: deskId, toAccountId: input.toAccountId, amount, date, label, reference: `REM-${localDay(date)}` }, session);
   });
 }
 
@@ -257,6 +265,7 @@ export async function openingPosition(tenantId: string, deskId: string, stockVal
     cancelled: all.map(l => ({ _id: String(l._id), amount: l.amount, label: l.label, reason: l.cancelReason ?? "" })),
     money, owner, debts, takenOver, receivables, equipment, stockValue: Math.round(stockValue), resources, uses, gap: Math.abs(resources - uses) <= 5 ? 0 : resources - uses,
     validatedAt: desk?.openingValidatedAt ?? null,
-    repayableLeft: lines.filter(l => l.repayable).reduce((t, l) => t + l.amount - (l.repaid ?? 0), 0),
+    repayableLeft: lines.filter(l => l.repayable && l.kind !== "debt").reduce((t, l) => t + l.amount - (l.repaid ?? 0), 0),
+    debtsLeft: lines.filter(l => l.kind === "debt").reduce((t, l) => t + l.amount - (l.repaid ?? 0), 0),
   };
 }

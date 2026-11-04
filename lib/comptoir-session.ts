@@ -7,7 +7,7 @@ import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { targetProgress } from "@/lib/spot";
 import { lossesReport } from "@/lib/spot-server";
 import { BusinessRuleError } from "@/lib/errors";
-import { closeDay, localDay } from "@/lib/comptoir-sale";
+import { closeDay, localDay, assertMonthOpen, otherTillMoves } from "@/lib/comptoir-sale";
 import type { TokenPayload } from "@/lib/auth";
 
 export { EXPENSE_CATEGORIES } from "@/lib/expense-categories";
@@ -96,8 +96,11 @@ export async function periodReport(tenantId: string, deskId: unknown, fromDay: s
   const sum = (pred: (e: (typeof entries)[number]) => boolean) => entries.filter(pred).reduce((t, e) => t + e.total, 0);
   // Dotations du site et remises en banque : de l'argent qui change de place, ni recette ni dépense.
   const internal = (e: (typeof entries)[number]) => e._id.c === "funding" || e._id.c === "cash_transfer";
-  const receipts = sum(e => e._id.d === "in" && !internal(e));
-  const expenses = sum(e => e._id.d === "out" && !internal(e));
+  // Un règlement annulé revient en caisse : il retire une dépense, ce n'est pas une recette.
+  const undone = sum(e => e._id.d === "in" && e._id.c === "supplier_payment");
+  const receipts = sum(e => e._id.d === "in" && !internal(e)) - undone;
+  const expenses = sum(e => e._id.d === "out" && !internal(e)) - undone;
+  const otherMoves = await otherTillMoves(tenantId, deskId, range.$gte, range.$lte);
   const methods = [...new Set(entries.map(e => e._id.m))].map(m => ({
     method: m, receipts: sum(e => e._id.m === m && e._id.d === "in"), expenses: sum(e => e._id.m === m && e._id.d === "out"),
   }));
@@ -120,10 +123,11 @@ export async function periodReport(tenantId: string, deskId: unknown, fromDay: s
     creditSettled: sum(e => e._id.d === "in" && e._id.k),
     shrinkage: { total: losses.total, byReason: losses.byReason },
     netMargin: Math.round(s.margin) - losses.total,
-    otherReceipts: sum(e => e._id.d === "in" && !e._id.t && !e._id.k && e._id.c !== "easypay_topup" && !internal(e)),
+    otherReceipts: sum(e => e._id.d === "in" && !e._id.t && !e._id.k && e._id.c !== "easypay_topup" && !internal(e)) - undone,
+    otherMoves,
     internalIn: sum(e => e._id.d === "in" && internal(e)), internalOut: sum(e => e._id.d === "out" && internal(e)),
     byMethod: methods, expensesByCategory: cats,
-    openingFloat, expectedCash: openingFloat + floatAdjust + (cash?.receipts ?? 0) - (cash?.expenses ?? 0),
+    openingFloat, expectedCash: openingFloat + floatAdjust + (cash?.receipts ?? 0) - (cash?.expenses ?? 0) + otherMoves,
     byDay: byDay.map(d => ({ day: d._id, revenueTTC: d.ttc, margin: Math.round(d.margin), tickets: d.n })),
     topByRevenue: products.slice(0, 10),
     topByQuantity: [...products].sort((a, b) => b.quantity - a.quantity).slice(0, 10),
@@ -140,6 +144,7 @@ export async function openSession(auth: TokenPayload, input: { deskId: string; o
   if (!(float >= 0)) throw new BusinessRuleError("Fonds de caisse invalide.");
   if (await CashSessionModel.exists({ tenantId: auth.tenantId, deskId: input.deskId, status: "open" })) throw new BusinessRuleError("Une caisse est déjà ouverte pour ce comptoir : fermez-la d'abord.");
   if (await ActivityDeskModel.exists({ _id: input.deskId, tenantId: auth.tenantId, archived: true })) throw new BusinessRuleError("Ce site est archivé : sa caisse ne s'ouvre plus.");
+  await assertMonthOpen(auth.tenantId, input.deskId, new Date(`${day}T12:00:00`));
   if (await CashClosingModel.exists({ tenantId: auth.tenantId, deskId: input.deskId, day: { $gte: day } })) throw new BusinessRuleError("Cette journée est déjà arrêtée : ouvrez la caisse à partir du jour suivant.");
   try {
     // Objectifs : ceux saisis à l'ouverture, sinon ceux du comptoir.
@@ -147,10 +152,10 @@ export async function openSession(auth: TokenPayload, input: { deskId: string; o
     const revenue = Number(input.targets?.revenue ?? desk?.weeklyRevenueTarget ?? 0), margin = Number(input.targets?.margin ?? desk?.weeklyMarginTarget ?? 0);
     // Le fonds est ce qu'il y a dans le tiroir à l'ouverture : ce qui a déjà bougé ce jour-là y est inclus et ne se compte pas une seconde fois.
     const earlier = await ActivityCashEntryModel.aggregate<{ _id: string; v: number }>([
-      { $match: { tenantId: new Types.ObjectId(auth.tenantId), deskId: new Types.ObjectId(input.deskId), method: "cash", date: { $gte: new Date(`${day}T00:00:00.000`), $lte: new Date() } } },
+      { $match: { tenantId: new Types.ObjectId(auth.tenantId), deskId: new Types.ObjectId(input.deskId), method: "cash", date: { $gte: new Date(`${day}T00:00:00.000`) } } },
       { $group: { _id: "$direction", v: { $sum: "$amount" } } },
     ]);
-    const floatAdjust = (earlier.find(e => e._id === "out")?.v ?? 0) - (earlier.find(e => e._id === "in")?.v ?? 0);
+    const floatAdjust = (earlier.find(e => e._id === "out")?.v ?? 0) - (earlier.find(e => e._id === "in")?.v ?? 0) - await otherTillMoves(auth.tenantId, input.deskId, new Date(`${day}T00:00:00.000`), new Date(Date.now() + 86_400_000));
     return await CashSessionModel.create({ tenantId: auth.tenantId, deskId: input.deskId, openDay: day, openingFloat: float, floatAdjust, label: input.label?.slice(0, 80), openedBy: auth.userId,
       ...(revenue > 0 || margin > 0 ? { targets: { ...(revenue > 0 ? { revenue: Math.round(revenue) } : {}), ...(margin > 0 ? { margin: Math.round(margin) } : {}) } } : {}) });
   } catch (e) {

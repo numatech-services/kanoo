@@ -91,7 +91,7 @@ export async function reverseCashFlow(
       await TreasuryMovementModel.create([{
         tenantId: opts.tenantId, accountId: m.accountId, date: new Date(), amount: -m.amount,
         label: `Annulation — ${m.label}`.slice(0, 200), reference: m.reference, source: opts.source ?? "manual",
-        linkedDocType: m.linkedDocType, linkedDocId: m.linkedDocId, createdBy: opts.userId,
+        linkedDocType: m.linkedDocType, linkedDocId: m.linkedDocId, reversalOf: opts.movementId, createdBy: opts.userId,
       }], { session });
     }
   }

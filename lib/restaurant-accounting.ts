@@ -57,13 +57,15 @@ export async function journal(tenantId: string, deskIds: string[], from: string,
     ...sales.map(s => ({ date: `${s._id.day}T12:00:00`, deskId: String(s._id.d), site: site(s._id.d), kind: "sale" as const, label: `Ventes du jour (${s.n} ticket${s.n > 1 ? "s" : ""})`, category: "Ventes", method: s._id.m, party: null, piece: null, sale: s.v, receipt: NOT_CASHED.includes(s._id.m) ? 0 : s.v, expense: 0, status: NOT_CASHED.includes(s._id.m) ? "vendu, non encaissé en caisse" : null })),
     ...cash.map(c => {
       const internal = CASH_INTERNAL.includes(c.category ?? "");
-      return { date: c.date.toISOString(), deskId: String(c.deskId), site: site(c.deskId), kind: internal ? "internal" as const : c.direction === "in" ? "in" as const : "out" as const, label: c.label, category: CATEGORY_LABELS[c.category ?? ""] ?? (c.direction === "in" ? "Encaissement" : "Autres dépenses"), method: c.method, party: null, piece: `CPT-${String(c._id).slice(-6).toUpperCase()}`, sale: 0, receipt: c.direction === "in" && !internal ? c.amount : 0, expense: c.direction === "out" && !internal ? c.amount : 0, status: null };
+      // Règlement annulé : il retire la dépense, ce n'est pas une recette.
+      const undone = c.direction === "in" && c.category === "supplier_payment";
+      return { date: c.date.toISOString(), deskId: String(c.deskId), site: site(c.deskId), kind: internal ? "internal" as const : c.direction === "in" ? "in" as const : "out" as const, label: c.label, category: CATEGORY_LABELS[c.category ?? ""] ?? (c.direction === "in" ? "Encaissement" : "Autres dépenses"), method: c.method, party: null, piece: `CPT-${String(c._id).slice(-6).toUpperCase()}`, sale: 0, receipt: c.direction === "in" && !internal && !undone ? c.amount : 0, expense: undone ? -c.amount : c.direction === "out" && !internal ? c.amount : 0, status: null };
     }),
     // Règlement payé par un autre compte que la caisse du site : il ne passe pas par les entrées de caisse.
     ...paid.filter(p => !inTill.has(String(p.pay.movementId))).map(p => ({ date: new Date(p.pay.date).toISOString(), deskId: String(p.deskId), site: site(p.deskId), kind: "out" as const, label: `Règlement ${p.number}`, category: "Règlements fournisseurs", method: "compte", party: p.payee ?? null, piece: p.number, sale: 0, receipt: 0, expense: p.pay.amount, status: null })),
     ...invoices.map(p => ({ date: p.date.toISOString(), deskId: String(p.deskId), site: site(p.deskId), kind: "invoice" as const, label: `Facture ${p.number}${p.supplierRef ? ` (${p.supplierRef})` : ""}`, category: "Dette fournisseur", method: "—", party: p.payee ?? null, piece: p.number, sale: 0, receipt: 0, expense: 0, status: p.status === "paid" ? "soldée" : p.status === "partial" ? `reste ${(p.totalTTC - (p.paidAmount ?? 0)).toLocaleString("fr-FR")}` : `à payer ${p.totalTTC.toLocaleString("fr-FR")}` })),
   ].filter(r => (!f.category || r.category === f.category) && (!f.method || r.method === f.method)).sort((a, b) => b.date.localeCompare(a.date));
-  return { rows, truncated: cash.length >= MAX_ROWS || invoices.length >= MAX_ROWS, totals: { sales: rows.reduce((t, r) => t + r.sale, 0), receipts: rows.reduce((t, r) => t + r.receipt, 0), expenses: rows.reduce((t, r) => t + r.expense, 0) }, categories: [...new Set(rows.map(r => r.category))].sort(), methods: [...new Set(rows.map(r => r.method))].sort() };
+  return { rows, truncated: cash.length >= MAX_ROWS || invoices.length >= MAX_ROWS || paid.length >= MAX_ROWS, totals: { sales: rows.reduce((t, r) => t + r.sale, 0), receipts: rows.reduce((t, r) => t + r.receipt, 0), expenses: rows.reduce((t, r) => t + r.expense, 0) }, categories: [...new Set(rows.map(r => r.category))].sort(), methods: [...new Set(rows.map(r => r.method))].sort() };
 }
 
 const addDays = (day: string, n: number) => { const d = new Date(`${day}T12:00:00`); d.setDate(d.getDate() + n); return localDay(d); };
@@ -161,7 +163,7 @@ export async function siteBalance(tenantId: string, deskId: string, canPayroll: 
   const [bal, due, funding] = await Promise.all([
     desk.treasuryAccountId ? accountBalance(tenantId, String(desk.treasuryAccountId)) : Promise.resolve(null),
     PurchaseModel.find({ tenantId, deskId, status: { $in: ["validated", "partial"] }, dueDate: { $lte: new Date(now.getTime() + 7 * 86_400_000) } }).select("totalTTC paidAmount").lean<Array<{ totalTTC: number; paidAmount?: number }>>(),
-    DeskFundingModel.find({ tenantId, deskId, repayable: true, cancelledAt: { $exists: false } }).select("amount repaid").lean<Array<{ amount: number; repaid?: number }>>(),
+    DeskFundingModel.find({ tenantId, deskId, repayable: true, kind: { $ne: "debt" }, cancelledAt: { $exists: false } }).select("amount repaid").lean<Array<{ amount: number; repaid?: number }>>(),
   ]);
   return {
     name: desk.name, since: months[0], cumulativeResult, cumulativeRevenue, payrollHidden: hidden, warnings: [...warnings].slice(0, 6),

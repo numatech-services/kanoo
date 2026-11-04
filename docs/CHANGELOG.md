@@ -11,7 +11,7 @@
 - situation de départ : ressources et emplois, qualification, remboursement d'avance, annulation tracée ;
 - archivage refusé si une caisse est ouverte ou un transfert en route ; solde des caisses viré au choix.
 
-**Achats** : réception à crédit = dette fournisseur (401) ; paiement depuis la caisse ou un compte ; retours et avoirs ; solde par fournisseur. Le pain du soir solde cette dette au lieu de passer un second achat.
+**Achats** : réception à crédit = dette fournisseur (401) ; paiement depuis la caisse ou un compte ; retours et avoirs ; solde par fournisseur. Le paiement du soir de la livraison de pain solde cette dette au lieu de passer un second achat.
 
 **Stocks** : transferts en transit, reçus ligne par ligne, écart tranché en retour ou en perte ; stock consolidé ; clôture de semaine ; seuil de validation renforcée des écarts ; production par lot, exclusive de la préparation à la commande.
 
@@ -26,11 +26,15 @@
 - un agent refusé ou une ligne de stock impossible ne laisse plus de site à moitié ouvert : le stock de départ est tout ou rien ;
 - la caisse suit tous les mouvements (remboursement, virement, annulation, règlement) : plus de faux écart à l'arrêté ;
 - le fonds compté à l'ouverture inclut ce qui a bougé plus tôt dans la journée ;
-- un chef affecté à des sites reste sur ces sites ; la réouverture et le seuil reviennent à la finance ;
-- le paiement du dirigeant n'est remboursable qu'une fois écrit par la comptable ; une ligne qualifiée ne s'annule plus d'un clic ;
+- un chef affecté à des sites reste sur ces sites ; la réouverture et le seuil reviennent à la direction et à la comptabilité ;
+- le paiement du dirigeant n'est remboursable qu'une fois passé en écriture par la comptable ; une ligne qualifiée ne s'annule plus d'un clic ;
 - les lignes de caisse issues d'une pièce ne se suppriment plus ; retours bornés à la réception ; valorisation d'une réception sans prix ;
 - portions d'un lot transférables d'une cuisine vers un point de vente ; date limite du jour par défaut ; recomptage sans faux écart ; écarts justifiés ;
 - le comptage d'ouverture ne compte plus comme écart dans la consommation par article ; la production compte dans le réassort.
+- l'arrêté tient compte des mouvements faits sur la caisse depuis les autres modules (facture, salaire, note de frais, règlement client) ;
+- entrée et correction de stock directes refusées sur un nouveau site : réception ou inventaire ; un inventaire complet vaut inventaire de fin de semaine ;
+- valorisation tardive : le coût des unités déjà vendues passe en coût du mois, le coût moyen reste juste ;
+- archivage possible après fermeture de caisse le même jour ; bouton « Archiver » soumis aux mêmes contrôles ; un chef limité règle ses propres sites, sans la TVA ni les comptes.
 
 **Documentation** : `docs/restauration-guides.md` (guides, matrice des droits, dictionnaire, reprise).
 

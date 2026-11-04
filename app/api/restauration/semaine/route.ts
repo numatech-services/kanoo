@@ -35,6 +35,7 @@ export const POST = withAuth("comptoir", "update", async (req: NextRequest, auth
       return ok(r);
     }
     if (body.action === "deposit") {
+      if (!hasFinanceAccess(auth) && !(isId(body.toAccountId) && await TreasuryAccountModel.exists({ _id: body.toAccountId, tenantId: auth.tenantId, type: { $in: ["bank", "mobile_money"] } }))) return badRequest("Une remise va vers la banque ou le mobile money.");
       const r = await depositCash(auth, body.deskId, { amount: Number(body.amount), toAccountId: String(body.toAccountId ?? "") });
       await logAudit(auth, "CREATE", "comptoir", { resourceId: body.deskId, metadata: { cashDeposit: body.amount } });
       return ok({ deposited: true, entryId: String(r.entryId) });

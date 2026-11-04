@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { DeskInventoryModel } from "@/models/DeskInventory";
 import { openInventory, saveCounts, validateInventory, cancelInventory, inventoryReview } from "@/lib/restaurant-inventory";
 import { ComptoirSaleModel } from "@/models/ComptoirSale";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,10 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     const level = body.level === "reserve" ? "reserve" : "desk";
     // Stock initial : ses écarts constituent le stock et sortent du résultat. Réservé à la finance, ou au chef sur un site qui n'a encore rien vendu.
     const opening = body.opening === true && canSeeDeskCosts(auth) && (hasFinanceAccess(auth) || !(await ComptoirSaleModel.exists({ tenantId: auth.tenantId, deskId: body.deskId })));
-    const inv = await openInventory(auth, body.deskId, level, typeof body.category === "string" && body.category.trim() ? body.category.trim().slice(0, 60) : undefined, opening);
+    const category = typeof body.category === "string" && body.category.trim() ? body.category.trim().slice(0, 60) : undefined;
+    // Site ouvert par l'assistant : un inventaire complet est l'inventaire de fin de semaine, celui qui permet de clôturer.
+    const weekly = !opening && !category && (body.weekly === true || !!(await ActivityDeskModel.exists({ _id: body.deskId, tenantId: auth.tenantId, strictStock: true })));
+    const inv = await openInventory(auth, body.deskId, level, category, opening, weekly);
     return created(inv.toObject());
   } catch (e) {
     if (e instanceof BusinessRuleError) return badRequest(e.message);

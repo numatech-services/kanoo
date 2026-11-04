@@ -1,3 +1,4 @@
+import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound, forbidden, tenantFilter, requireFields } from "@/lib/api-helpers";
@@ -13,7 +14,7 @@ import { logAudit } from "@/lib/audit";
 import { applyMovement } from "@/lib/stock";
 import { deskWarehouse } from "@/lib/comptoir-stock";
 import { notifyRoles } from "@/lib/notify";
-import { assertDayOpen } from "@/lib/comptoir-sale";
+import { assertDayOpen, assertDeskActive } from "@/lib/comptoir-sale";
 import { packEntry } from "@/lib/comptoir-economics";
 import { TokenPayload } from "@/lib/auth";
 
@@ -50,6 +51,9 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   if (!["in", "out", "adjust"].includes(type)) return badRequest("Type de mouvement invalide");
   // Un ajustement change la valeur du stock et la marge : il revient au chef (ou à la finance) et compte comme écart d'inventaire.
   if (type === "adjust" && !canSeeDeskCosts(auth)) return forbidden("L'ajustement du stock revient au chef du comptoir, à la gérance ou à la comptabilité (ou passez par un inventaire).");
+  // Site ouvert par l'assistant : une entrée passe par une réception (dette, fournisseur), une correction par un inventaire (écart justifié).
+  if ((type === "in" || type === "adjust") && await ActivityDeskModel.exists({ _id: body.deskId, tenantId: auth.tenantId, strictStock: true })) return badRequest(type === "in" ? "Une entrée de stock passe par une réception." : "Une correction de stock passe par un inventaire, avec son écart justifié.");
+  if (body.date && (isNaN(new Date(body.date).getTime()) || new Date(body.date).getTime() > Date.now() + 3_600_000)) return badRequest("Date invalide : un mouvement ne se date pas dans le futur.");
   // Une sortie sans encaissement disparaîtrait du résultat : vente → ticket ; casse, péremption, offert → perte.
   if (type === "out" && !(Number(body.cashAmount) > 0)) return badRequest("Sortie sans encaissement : passez par un ticket (vente) ou déclarez une perte (casse, péremption, offert, repas du personnel).");
   // Entrée par paquets : « 3 paquets de 24 à 5 100 » → 72 unités à 212,50.
@@ -69,6 +73,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   const cashMethod = CASH_METHODS.includes(body.cashMethod) ? body.cashMethod : "cash";
 
   const result = await withTransaction(async (session) => {
+    await assertDeskActive(auth.tenantId, body.deskId, session);
     await assertDayOpen(auth.tenantId, body.deskId, body.date ? new Date(body.date) : new Date(), session);
     const item = await ActivityItemModel.findOne({ _id: body.itemId, ...tenantFilter(auth), deskId: body.deskId }).session(session ?? null);
     if (!item) return { error: "Article introuvable" as const };

@@ -53,9 +53,10 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
   await connectDB();
   const body = await req.json().catch(() => ({}));
   const amount = Math.round(Number(body.amount));
-  if (!(amount > 0)) return badRequest("Montant invalide.");
+  if (!(amount > 0) || amount > 1e11) return badRequest("Montant invalide.");
   const date = body.date ? new Date(body.date) : new Date();
-  if (isNaN(date.getTime())) return badRequest("Date invalide.");
+  const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
+  if (isNaN(date.getTime()) || date > endOfDay) return badRequest("Date invalide : un mouvement se saisit le jour où il a lieu.");
   const reference = body.reference ? String(body.reference).slice(0, 80) : undefined;
 
   if (body.kind === "transfer") {
@@ -103,7 +104,7 @@ export const POST = withAuth("treasuryAccounts", "update", async (req: NextReque
       }], { session });
       const [m] = await TreasuryMovementModel.create([{ tenantId: auth.tenantId, accountId: body.accountId, date, amount: direction === "in" ? amount : -amount, label, reference, source: "manual", linkedDocType: "manual", entryId: entry._id, createdBy: auth.userId }], { session });
       // Caisse d'un site : les espèces attendues suivent.
-      await mirrorTill(auth, body.accountId, { direction, amount, date, label, entryId: entry._id, movementId: m._id }, session);
+      await mirrorTill(auth, body.accountId, { direction, amount, date, label, entryId: entry._id, movementId: m._id, category: direction === "out" && /^6/.test(counter) ? "other" : direction === "in" && /^7/.test(counter) ? "non_sale" : undefined }, session);
       return m;
     });
     await logAudit(auth, "CREATE", "treasuryAccounts", { metadata: { manual: direction, amount, counter } });

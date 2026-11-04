@@ -196,6 +196,8 @@ export async function recordCounts(auth: TokenPayload, deskId: string, counts: A
     if (!opts.recount && await ItemCountModel.exists({ tenantId, deskId, itemId: item._id, day }).session(session ?? null)) throw new BusinessRuleError(`${item.name} : déjà compté aujourd'hui.`);
     const expected = item.quantity || 0;
     const gap = Math.round((counted - expected) * 1000) / 1000;
+    // Site ouvert par l'assistant : un écart se justifie dans un inventaire. La caisse reliée, elle, constate et ne se refuse pas.
+    if (gap !== 0 && !opts.recount && await ActivityDeskModel.exists({ _id: deskId, tenantId, strictStock: true }).session(session ?? null)) throw new BusinessRuleError(`${item.name} : écart de ${gap}. Recomptez, ou passez par un inventaire pour le justifier.`);
     let unitCost = item.unitCost || 0, stockMovementId: unknown;
     if (gap !== 0) {
       if (item.productId) {

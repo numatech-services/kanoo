@@ -146,7 +146,7 @@ export async function receiveTransfer(auth: TokenPayload, id: string, toDeskScop
     const [transit, toRes] = await Promise.all([transitWarehouse(auth.tenantId, session), deskReserve(auth.tenantId, t.toDeskId, session)]);
     let gap = false;
     for (const l of t.lines) {
-      const said = received?.find(x => String(x.fromItemId) === String(l.fromItemId));
+      const said = received?.find(x => x && String(x.fromItemId) === String(l.fromItemId));
       const q = said === undefined ? l.quantity : Number(said.quantity);
       if (!(q >= 0) || q > l.quantity) throw new BusinessRuleError(`${l.name} : quantité reçue invalide (envoyé : ${l.quantity}). Un surplus se traite par l'inventaire.`);
       l.receivedQty = q;

@@ -9,7 +9,7 @@ import { useApi } from "@/lib/use-api";
 import { useOpKey } from "@/lib/use-op-key";
 
 const MONEY = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} FCFA`;
-interface Line { key: string; name: string; unit: string; packSize: number | null; total: number; sites: Array<{ deskId: string; name: string; itemId: string; quantity: number }>; transfers: Array<{ from: string; to: string; quantity: number }> }
+interface Line { key: string; name: string; unit: string; packSize: number | null; total: number; centralTotal: number | null; sites: Array<{ deskId: string; name: string; itemId: string; quantity: number }>; transfers: Array<{ from: string; to: string; quantity: number }> }
 interface Data { desks: Array<{ _id: string; name: string }>; suppliers: Array<{ supplier: string; supplierId: string | null; value: number; lines: Line[] }>; value: number; events: Array<{ _id: string; label: string; from: string; to: string; factor: number; deskIds: string[] }> }
 
 /**
@@ -53,7 +53,7 @@ export function GroupedOrders() {
           <p className="font-semibold text-sm">{s.supplier} <span className="text-ink3 font-normal">· {MONEY(s.value)}</span></p>
           {s.lines.map(l => (
             <div key={l.key} className="text-sm space-y-1">
-              <p>{l.name} : <b className="font-mono">{l.total} {l.unit}</b>{l.packSize ? <span className="text-ink3"> ({Math.ceil(l.total / l.packSize)} carton(s) de {l.packSize})</span> : null}</p>
+              <p>{l.name} : <b className="font-mono">{l.total} {l.unit}</b>{l.packSize ? <span className="text-ink3"> ({Math.ceil(l.total / l.packSize)} carton(s) de {l.packSize})</span> : null}{l.centralTotal !== null ? <span className="text-ink3"> · livré à un seul site puis transféré : {l.centralTotal} suffiraient</span> : null}</p>
               <div className="flex gap-3 flex-wrap">{l.sites.map(x => <label key={x.itemId} className="inline-flex items-center gap-1.5 text-[12px] text-ink2">{x.name}<input className={`${inputCls} w-20`} inputMode="decimal" value={over[x.itemId] ?? String(x.quantity)} onChange={e => setOver(o => ({ ...o, [x.itemId]: e.target.value }))} aria-label={`Quantité pour ${x.name}`} /></label>)}</div>
               {l.transfers.map((t, i) => <p key={i} className="text-[12px] text-ink2 inline-flex items-center gap-1"><ArrowLeftRight size={12} /> Avant d&apos;acheter : {t.from} peut céder {t.quantity} {l.unit} à {t.to}.</p>)}
             </div>

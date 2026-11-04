@@ -13,6 +13,8 @@ import { BusinessRuleError } from "@/lib/errors";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { payPurchase, validatePurchase, SUPPLIER_ACCOUNT } from "@/lib/purchases";
 import { assertMonthOpen } from "@/lib/comptoir-sale";
+import { postDeskCash } from "@/lib/comptoir";
+import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { lockAccount, mirrorTill } from "@/lib/restaurant-funding";
 import { applyMovement } from "@/lib/stock";
 import { syncLinkedItems } from "@/lib/comptoir-stock";
@@ -63,8 +65,9 @@ async function openPurchase(auth: TokenPayload, deskId: string, id: string, sess
 export async function paySupplier(auth: TokenPayload, deskId: string, purchaseId: string, input: { amount?: number; treasuryAccountId?: string; date?: Date }, session?: ClientSession) {
   const run = async (s?: ClientSession) => {
     const date = input.date ?? new Date();
-    const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId: auth.tenantId }).select("treasuryAccountId").session(s ?? null).lean<{ treasuryAccountId?: Id } | null>();
+    const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId: auth.tenantId }).select("treasuryAccountId archived").session(s ?? null).lean<{ treasuryAccountId?: Id; archived?: boolean } | null>();
     if (!desk) throw new BusinessRuleError("Site introuvable.");
+    if (desk.archived && (!input.treasuryAccountId || String(input.treasuryAccountId) === String(desk.treasuryAccountId))) throw new BusinessRuleError("Ce site est archivé : choisissez un compte de l'entreprise pour payer.");
     const account = input.treasuryAccountId ?? desk.treasuryAccountId;
     if (!account) throw new BusinessRuleError("Ce site n'a pas de caisse : choisissez le compte qui paie.");
     await lockAccount(auth.tenantId, account, s);
@@ -75,7 +78,7 @@ export async function paySupplier(auth: TokenPayload, deskId: string, purchaseId
     const till = await ActivityDeskModel.exists({ tenantId: auth.tenantId, treasuryAccountId: account }).session(s ?? null);
     const r = await payPurchase(auth, doc, { amount: input.amount, date, treasuryAccountId: account, allowOverdraft: !!till }, s);
     const paid = doc.payments.find(x => String(x._id) === String(r.paymentId));
-    await mirrorTill(auth, account, { direction: "out", amount: r.amount, date, label: `Règlement fournisseur — ${doc.payee ?? ""} (${doc.number})`, category: "supplier_payment", entryId: paid?.entryId, movementId: paid?.movementId }, s);
+    await mirrorTill(auth, account, { direction: "out", amount: r.amount, date, label: `Règlement fournisseur — ${doc.payee ?? ""} (${doc.number})`, category: "supplier_payment", entryId: paid?.entryId, movementId: paid?.movementId, deskId: String(account) === String(desk.treasuryAccountId) ? deskId : undefined }, s);
     return { amount: r.amount, rest: doc.totalTTC - doc.paidAmount };
   };
   return session ? run(session) : withTransaction(run);
@@ -143,29 +146,41 @@ export async function returnToSupplier(auth: TokenPayload, deskId: string, purch
 export async function valueReception(auth: TokenPayload, deskId: string, ids: string[], unitCost: number) {
   const cost = Number(unitCost);
   if (!(cost > 0) || !Number.isFinite(cost) || cost > 1e9) throw new BusinessRuleError("Prix unitaire invalide.");
-  return withTransaction(async session => {
-    await assertMonthOpen(auth.tenantId, deskId, new Date(), session);
+  const out = await withTransaction(async session => {
+    const now = new Date();
+    await assertMonthOpen(auth.tenantId, deskId, now, session);
     const logs = await PurchasePriceLogModel.find({ _id: { $in: ids }, tenantId: auth.tenantId, deskId, unitCost: 0 }).populate("itemId", "name productId").session(session ?? null).lean<Array<{ _id: Id; quantity: number; date: Date; reference?: string; supplierId?: Id; supplierName?: string; paidFromCash: boolean; itemId?: { name: string; productId?: Id } }>>();
     if (!logs.length) throw new BusinessRuleError("Aucune réception à valoriser.");
-    let total = 0;
+    let total = 0, sold = 0;
     for (const l of logs) {
       const pid = l.itemId?.productId;
+      let adjustment = 0;
       if (pid) {
         const prod = await ProductModel.findOne({ _id: pid, tenantId: auth.tenantId }).select("purchaseCost").session(session ?? null).lean<{ purchaseCost?: number } | null>();
         const rows = await ProductStockModel.find({ tenantId: auth.tenantId, productId: pid }).select("qty").session(session ?? null).lean<Array<{ qty: number }>>();
         const stock = rows.reduce((t, r) => t + Math.max(0, r.qty), 0), c = prod?.purchaseCost ?? 0;
-        // L'entrée est passée au coût moyen du moment : seul l'écart avec le vrai prix se répartit sur le stock restant.
-        if (stock > 0) await ProductModel.updateOne({ _id: pid, tenantId: auth.tenantId }, { $set: { purchaseCost: Math.round((c + (l.quantity * (cost - c)) / stock) * 100) / 100 } }, { session });
+        // Seules les unités encore là corrigent le coût moyen ; celles déjà vendues au mauvais coût comptent en coût du mois.
+        const left = Math.min(l.quantity, stock);
+        if (left > 0) await ProductModel.updateOne({ _id: pid, tenantId: auth.tenantId }, { $set: { purchaseCost: Math.round((c + (left * (cost - c)) / stock) * 100) / 100 } }, { session });
+        adjustment = Math.round((l.quantity - left) * (cost - c));
       }
-      await PurchasePriceLogModel.updateOne({ _id: l._id }, { $set: { unitCost: cost } }, { session });
-      total += Math.round(l.quantity * cost);
-      if (!l.paidFromCash) {
+      sold += adjustment;
+      await PurchasePriceLogModel.updateOne({ _id: l._id }, { $set: { unitCost: cost, valuedAt: now, ...(adjustment ? { costAdjustment: adjustment } : {}) } }, { session });
+      const amount = Math.round(l.quantity * cost);
+      total += amount;
+      if (l.paidFromCash) {
+        // Payée en caisse sans prix : la sortie n'a jamais été écrite, elle l'est maintenant.
+        const [cash] = await ActivityCashEntryModel.create([{ tenantId: auth.tenantId, deskId, direction: "out", amount, label: `Achat en réserve — ${l.supplierName ?? l.itemId?.name ?? ""}`.slice(0, 200), method: "cash", category: "purchase", date: now, createdBy: auth.userId }], { session });
+        await postDeskCash(auth, deskId, cash, session);
+      } else {
         const purchaseId = await receptionDebt(auth, deskId, { supplierId: l.supplierId, supplier: l.supplierName ?? "", reference: l.reference, date: l.date, lines: [{ description: l.itemId?.name ?? "Article", quantity: l.quantity, unitCost: cost }] }, session);
         if (purchaseId) await PurchasePriceLogModel.updateOne({ _id: l._id }, { $set: { purchaseId } }, { session });
       }
     }
-    return { total, count: logs.length };
+    return { total, count: logs.length, sold };
   });
+  await syncLinkedItems(auth.tenantId, deskId);
+  return out;
 }
 
 /**

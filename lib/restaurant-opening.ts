@@ -5,6 +5,7 @@ import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { ApiKeyModel } from "@/models/ApiKey";
+import { DeskCustomerModel } from "@/models/DeskCustomer";
 import { PurchaseModel } from "@/models/Purchase";
 import { CashSessionModel } from "@/models/CashSession";
 import { DeskFundingModel } from "@/models/DeskFunding";
@@ -50,7 +51,7 @@ async function stockOf(tenantId: string, d: DeskRow) {
 export async function sitesOverview(tenantId: string) {
   const desks = await ActivityDeskModel.find({ tenantId, archived: { $ne: true } }).select("name warehouseId reserveWarehouseId treasuryAccountId staff plannedCosts openingDate openingValidatedAt vatRate").sort({ name: 1 }).lean<DeskRow[]>();
   return Promise.all(desks.map(async d => {
-    const [stock, items, noPrice, openInventories, session, funding, pending, balance, deskRows, debts, advances, keys] = await Promise.all([
+    const [stock, items, noPrice, openInventories, session, funding, pending, balance, deskRows, debts, advances, keys, tabs] = await Promise.all([
       stockOf(tenantId, d),
       ActivityItemModel.countDocuments({ tenantId, deskId: d._id, archived: { $ne: true } }),
       ActivityItemModel.countDocuments({ tenantId, deskId: d._id, archived: { $ne: true }, $or: [{ salePrice: { $exists: false } }, { salePrice: null }, { salePrice: 0 }] }),
@@ -61,14 +62,15 @@ export async function sitesOverview(tenantId: string) {
       d.treasuryAccountId ? accountBalance(tenantId, String(d.treasuryAccountId)) : Promise.resolve(null),
       d.warehouseId ? ProductStockModel.countDocuments({ tenantId, warehouseId: d.warehouseId, qty: { $gt: 0 } }) : Promise.resolve(0),
       PurchaseModel.find({ tenantId, deskId: d._id, status: { $in: ["validated", "partial"] } }).select("totalTTC paidAmount").lean<Array<{ totalTTC: number; paidAmount?: number }>>(),
-      DeskFundingModel.find({ tenantId, deskId: d._id, repayable: true, cancelledAt: { $exists: false } }).select("amount repaid").lean<Array<{ amount: number; repaid?: number }>>(),
+      DeskFundingModel.find({ tenantId, deskId: d._id, repayable: true, kind: { $ne: "debt" }, cancelledAt: { $exists: false } }).select("amount repaid").lean<Array<{ amount: number; repaid?: number }>>(),
       ApiKeyModel.countDocuments({ tenantId, deskId: d._id, isActive: true }),
+      DeskCustomerModel.find({ tenantId, deskId: d._id, balance: { $gt: 0 } }).select("balance").lean<Array<{ balance: number }>>(),
     ]);
     const funded = funding.reduce((t, f) => t + f.amount, 0);
     return {
       deskId: String(d._id), name: d.name, openingDate: d.openingDate ?? null, items, openInventories, stockLines: stock.lines, stockValue: stock.value, negatives: stock.negatives, deskStockLines: deskRows, noPrice,
       hasCash: !!d.treasuryAccountId, cashBalance: balance?.balance ?? null, funded, staff: (d.staff ?? []).length, planned: (d.plannedCosts ?? []).length,
-      sessionOpen: !!session, pendingTransfers: pending, openDebts: debts.reduce((t, p) => t + p.totalTTC - (p.paidAmount ?? 0), 0), advancesLeft: advances.reduce((t, f) => t + f.amount - (f.repaid ?? 0), 0), easypayKeys: keys,
+      sessionOpen: !!session, pendingTransfers: pending, openDebts: debts.reduce((t, p) => t + p.totalTTC - (p.paidAmount ?? 0), 0), advancesLeft: advances.reduce((t, f) => t + f.amount - (f.repaid ?? 0), 0), easypayKeys: keys, credits: tabs.reduce((t, c) => t + c.balance, 0),
       validated: !!d.openingValidatedAt, vatRate: d.vatRate ?? 0,
       todo: [...(!d.treasuryAccountId ? ["caisse"] : !funded && !(balance?.balance) ? ["montant de départ"] : []), ...(!stock.lines ? ["stock de départ"] : stock.lines && !deskRows ? ["monter du stock au comptoir"] : []), ...(items && noPrice ? [`${noPrice} prix de vente`] : []), ...(!(d.staff ?? []).length ? ["agents"] : []), ...(!(d.plannedCosts ?? []).length ? ["charges prévues"] : [])],
     };
@@ -89,12 +91,17 @@ export async function sitesOverview(tenantId: string) {
 export async function archiveForRestart(auth: TokenPayload, deskIds: string[], solderStock: boolean, cashTo?: string) {
   const day = localDay(new Date());
   const out: Array<{ name: string; soldLines: number; cashMoved: number }> = [];
+  // Tous les sites sont contrôlés d'abord : un refus ne laisse pas la moitié de la liste archivée.
+  const desks: DeskRow[] = [];
   for (const id of deskIds) {
     const d = await ActivityDeskModel.findOne({ _id: id, tenantId: auth.tenantId, archived: { $ne: true } }).select("name warehouseId reserveWarehouseId treasuryAccountId activityId").lean<DeskRow | null>();
     if (!d) throw new BusinessRuleError("Site introuvable ou déjà archivé.");
     if (await CashSessionModel.exists({ tenantId: auth.tenantId, deskId: d._id, status: "open" })) throw new BusinessRuleError(`${d.name} : fermez d'abord sa caisse.`);
     if (await DeskTransferModel.exists({ tenantId: auth.tenantId, status: { $in: ["sent", "transit", "gap"] }, $or: [{ fromDeskId: d._id }, { toDeskId: d._id }] })) throw new BusinessRuleError(`${d.name} : un transfert attend d'être reçu ou tranché.`);
     if (await ApiKeyModel.exists({ tenantId: auth.tenantId, deskId: d._id, isActive: true })) throw new BusinessRuleError(`${d.name} : révoquez d'abord sa clé EasyPay, sinon la caisse continuera de lui envoyer des ventes.`);
+    desks.push(d);
+  }
+  for (const d of desks) {
     let sold = 0, moved = 0;
     await withTransaction(async session => {
       if (solderStock) {
@@ -112,7 +119,7 @@ export async function archiveForRestart(auth: TokenPayload, deskIds: string[], s
       if (cashTo && d.treasuryAccountId && String(d.treasuryAccountId) !== cashTo) {
         const bal = await accountBalance(auth.tenantId, String(d.treasuryAccountId), session);
         if (bal && bal.balance > 0) {
-          await transferFunds(auth, { fromAccountId: d.treasuryAccountId, toAccountId: cashTo, amount: bal.balance, date: new Date(), label: `Solde de caisse — clôture de ${d.name}`.slice(0, 200), reference: `CLOTURE-${day}` }, session);
+          await transferFunds(auth, { fromAccountId: d.treasuryAccountId, toAccountId: cashTo, amount: bal.balance, date: new Date(), label: `Solde de caisse — clôture de ${d.name}`.slice(0, 200), reference: `CLOTURE-${day}`, closingTill: true }, session);
           moved = bal.balance;
         }
       }
@@ -318,7 +325,7 @@ export async function openingStock(auth: TokenPayload, deskId: string, raw: unkn
       }, session);
       if (it.level === "desk") await ActivityStockMoveModel.create([{ tenantId: auth.tenantId, deskId, itemId, type: "in", quantity: qty, quantityAfter: r.after, unitCost: cost, reason: `Stock d'ouverture du ${day}`, stockMovementId: r.movement._id, date, createdBy: auth.userId }], { session });
       byLevel[it.level === "desk" ? "desk" : "reserve"].push({ itemId, name, unit, counted: qty, unitCost: cost });
-      value += qty * cost;
+      value += Math.round(qty * cost);
     }
     // Inventaires d'ouverture (déjà validés) : la liste comptée, hors résultat.
     for (const level of ["desk", "reserve"] as const) {
@@ -333,6 +340,7 @@ export async function openingStock(auth: TokenPayload, deskId: string, raw: unkn
     }
     // Comptages du comptoir, comme un inventaire d'ouverture validé : le résultat les retranche (stock initial, pas un gain).
     if (byLevel.desk.length) await ItemCountModel.create(byLevel.desk.map(l => ({ tenantId: auth.tenantId, deskId, itemId: l.itemId, day, expected: 0, counted: l.counted, gap: l.counted, gapValue: Math.round(l.counted * l.unitCost), countedBy: auth.userId, opening: true })), { session, ordered: true });
+    if (byLevel.desk.length || byLevel.reserve.length) await ActivityDeskModel.updateOne({ _id: deskId, tenantId: auth.tenantId }, { $unset: { openingValidatedAt: 1, openingValidatedBy: 1 } }, { session });
     return { items: items.length, stockValue: Math.round(value), desk: byLevel.desk.length, reserve: byLevel.reserve.length };
   });
   await syncLinkedItems(auth.tenantId, deskId);

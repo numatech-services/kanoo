@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
 import { isId, ownDesk, canSeeDeskCosts } from "@/lib/comptoir";
 import { CashSessionModel } from "@/models/CashSession";
+import { CashClosingModel } from "@/models/CashClosing";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { accountBalance } from "@/lib/treasury";
 import { periodReport, openSession, sessionProgress } from "@/lib/comptoir-session";
@@ -13,6 +14,12 @@ import { TokenPayload } from "@/lib/auth";
 import "@/models/User";
 
 export const dynamic = "force-dynamic";
+
+/** Écarts déjà constatés aux arrêtés de cette caisse : ils ont corrigé le solde, les espèces attendues les reprennent. */
+async function pastGaps(tenantId: string, deskId: string, openDay: string) {
+  const list = await CashClosingModel.find({ tenantId, deskId, day: { $gte: openDay } }).select("gap").lean<Array<{ gap: number }>>();
+  return list.reduce((t, c) => t + c.gap, 0);
+}
 
 async function firstFloat(tenantId: string, deskId: string) {
   const d = await ActivityDeskModel.findOne({ _id: deskId, tenantId }).select("treasuryAccountId").lean<{ treasuryAccountId?: unknown } | null>();
@@ -44,7 +51,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
     CashSessionModel.find({ ...tenantFilter(auth), deskId: new Types.ObjectId(deskId), status: "closed" }).sort({ openDay: -1 }).limit(26)
       .populate("openedBy closedBy", "firstName lastName").lean<Array<Record<string, unknown> & { summary?: Report }>>(),
   ]);
-  const live = current ? await periodReport(auth.tenantId, deskId, current.openDay, localDay(new Date()), current.openingFloat, (current as { floatAdjust?: number }).floatAdjust ?? 0) : null;
+  const live = current ? await periodReport(auth.tenantId, deskId, current.openDay, localDay(new Date()), current.openingFloat, ((current as { floatAdjust?: number }).floatAdjust ?? 0) + await pastGaps(auth.tenantId, deskId, current.openDay)) : null;
   const targets = (current as { targets?: { revenue?: number; margin?: number } } | null)?.targets;
   const progress = current && live ? sessionProgress(costs ? targets : { revenue: targets?.revenue }, live.sales.revenueTTC, live.sales.margin, current.openDay) : null;
   return ok({

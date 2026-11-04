@@ -17,7 +17,7 @@ import { CHARGE_CATEGORIES } from "@/lib/restaurant";
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const API = "/api/restauration/ouverture";
-interface Site { deskId: string; name: string; openingDate: string | null; items: number; openInventories: number; stockLines: number; stockValue: number; negatives: number; deskStockLines: number; noPrice: number; hasCash: boolean; cashBalance: number | null; funded: number; staff: number; planned: number; sessionOpen: boolean; pendingTransfers: number; openDebts: number; advancesLeft: number; easypayKeys: number; validated: boolean; vatRate: number; todo: string[] }
+interface Site { deskId: string; name: string; openingDate: string | null; items: number; openInventories: number; stockLines: number; stockValue: number; negatives: number; deskStockLines: number; noPrice: number; hasCash: boolean; cashBalance: number | null; funded: number; staff: number; planned: number; sessionOpen: boolean; pendingTransfers: number; openDebts: number; advancesLeft: number; easypayKeys: number; credits: number; validated: boolean; vatRate: number; todo: string[] }
 interface Account { _id: string; label: string; type: string; balance: number }
 interface Data {
   sites: Site[]; archived: Array<{ _id: string; name: string }>; accounts: Account[];
@@ -407,7 +407,7 @@ function ArchivePanel({ data, onDone }: { data: Data; onDone: () => void }) {
           <li key={s.deskId} className="py-2 flex items-center gap-3 flex-wrap text-sm">
             <label className="inline-flex items-center gap-2 flex-1 min-w-48"><input type="checkbox" checked={picked.includes(s.deskId)} onChange={e => setPicked(p => e.target.checked ? [...p, s.deskId] : p.filter(x => x !== s.deskId))} /> {s.name}</label>
             <span className="text-ink2">{s.items} article(s) · stock {MONEY(s.stockValue)} · caisse {MONEY(s.cashBalance)}</span>
-            {s.sessionOpen && <Pill tone="warn">caisse ouverte</Pill>}{s.pendingTransfers > 0 && <Pill tone="warn">transfert en attente</Pill>}{s.easypayKeys > 0 && <Pill tone="warn">clé EasyPay active</Pill>}{s.negatives > 0 && <Pill tone="warn">{s.negatives} négatif(s)</Pill>}{s.openDebts > 0 && <Pill tone="info">dettes {MONEY(s.openDebts)}</Pill>}{s.advancesLeft > 0 && <Pill tone="info">avances {MONEY(s.advancesLeft)}</Pill>}
+            {s.sessionOpen && <Pill tone="warn">caisse ouverte</Pill>}{s.pendingTransfers > 0 && <Pill tone="warn">transfert en attente</Pill>}{s.easypayKeys > 0 && <Pill tone="warn">clé EasyPay active</Pill>}{s.negatives > 0 && <Pill tone="warn">{s.negatives} négatif(s)</Pill>}{s.openDebts > 0 && <Pill tone="info">dettes {MONEY(s.openDebts)}</Pill>}{s.advancesLeft > 0 && <Pill tone="info">avances {MONEY(s.advancesLeft)}</Pill>}{s.credits > 0 && <Pill tone="info">ardoises {MONEY(s.credits)}</Pill>}
           </li>
         ))}</ul>}
         {picked.length > 0 && <div className="space-y-2 border-t border-line pt-3">

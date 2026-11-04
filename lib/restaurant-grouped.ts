@@ -17,9 +17,9 @@ export async function groupedPlan(tenantId: string, deskIds: string[]) {
   const desks = await ActivityDeskModel.find({ tenantId, _id: { $in: deskIds }, archived: { $ne: true } }).select("name").sort({ name: 1 }).lean<Array<{ _id: Id; name: string }>>();
   const plans = await Promise.all(desks.map(async d => ({ d, plan: await reorderPlan(tenantId, String(d._id)) })));
   const key = (l: { productId: string | null; name: string }) => l.productId ?? `n:${l.name.toLowerCase()}`;
-  const rows = new Map<string, { key: string; name: string; unit: string; packSize: number | null; supplier: { _id: string; name: string } | null; unitValue: number; sites: Array<{ deskId: string; name: string; itemId: string; quantity: number }>; total: number; rawTotal: number; transfers: Array<{ from: string; to: string; quantity: number }> }>();
+  const rows = new Map<string, { key: string; name: string; unit: string; packSize: number | null; supplier: { _id: string; name: string } | null; unitValue: number; sites: Array<{ deskId: string; name: string; itemId: string; quantity: number }>; total: number; rawTotal: number; centralTotal: number | null; transfers: Array<{ from: string; to: string; quantity: number }> }>();
   for (const { d, plan } of plans) for (const l of plan.toOrder) {
-    const r = rows.get(key(l)) ?? { key: key(l), name: l.name, unit: l.unit, packSize: (l as { packSize?: number }).packSize ?? null, supplier: l.supplier, unitValue: l.quantity ? l.estimatedCost / l.quantity : 0, sites: [], total: 0, rawTotal: 0, transfers: [] };
+    const r = rows.get(key(l)) ?? { key: key(l), name: l.name, unit: l.unit, packSize: (l as { packSize?: number }).packSize ?? null, supplier: l.supplier, unitValue: l.quantity ? l.estimatedCost / l.quantity : 0, sites: [], total: 0, rawTotal: 0, centralTotal: null, transfers: [] };
     r.sites.push({ deskId: String(d._id), name: d.name, itemId: l.itemId, quantity: l.quantity });
     r.total += l.quantity; r.rawTotal += (l as { rawQuantity?: number }).rawQuantity ?? l.quantity;
     rows.set(key(l), r);
@@ -34,8 +34,10 @@ export async function groupedPlan(tenantId: string, deskIds: string[]) {
       const give = Math.min(need.quantity, Math.floor(other.reserve / 2));
       if (give > 0) r.transfers.push({ from: d.name, to: need.name, quantity: give });
     }
-    // Les quantités par site restent modifiables ; l'arrondi au carton porte sur le total, sans doubler les cartons entamés.
-    r.total = r.packSize ? Math.ceil(r.rawTotal / r.packSize) * r.packSize : r.total;
+    // Les bons partent par site, donc en cartons entiers par site : le total est ce qui sera commandé.
+    // Une livraison centrale, puis des transferts, demanderait moins de cartons : on le dit.
+    const central = r.packSize ? Math.ceil(r.rawTotal / r.packSize) * r.packSize : r.total;
+    r.centralTotal = central < r.total ? central : null;
   }
   const bySupplier = new Map<string, { supplier: string; supplierId: string | null; lines: Array<(typeof rows extends Map<string, infer V> ? V : never)>; value: number }>();
   for (const r of rows.values()) {

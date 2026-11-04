@@ -1,3 +1,4 @@
+import { assertDayOpen, assertDeskActive } from "@/lib/comptoir-sale";
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, created, badRequest, notFound, forbidden, tenantFilter, requireFields } from "@/lib/api-helpers";
@@ -38,6 +39,8 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   }
   const reference = `${back ? "RET" : "APP"}-${todayLocal()}-${String(desk._id).slice(-4).toUpperCase()}`;
   await withTransaction(async session => {
+    await assertDeskActive(auth.tenantId, desk._id, session);
+    await assertDayOpen(auth.tenantId, desk._id, new Date(), session);
     const whId = await deskWarehouse(auth.tenantId, desk._id, session);
     for (const l of lines) {
       const it = items.find(i => String(i._id) === String(l.itemId))!;
