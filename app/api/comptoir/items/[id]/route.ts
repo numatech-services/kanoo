@@ -58,6 +58,14 @@ export const PATCH = withAuth("comptoir", "update", async (req: NextRequest, aut
     await DeskInventoryModel.updateMany({ ...tenantFilter(auth), status: "open", deskId: cur.deskId, "lines.itemId": params.id },
       { $set: { "lines.$[l].barcode": next.barcode || null, "lines.$[l].packBarcode": next.packBarcode || null, "lines.$[l].altBarcodes": next.altBarcodes } }, { arrayFilters: [{ "l.itemId": new Types.ObjectId(params.id) }] });
   }
+  if ("productionMode" in clean) {
+    const cur = await ActivityItemModel.findOne({ _id: params.id, ...tenantFilter(auth), ...deskFilter(auth) }).select("recipe quantity productId").lean<{ recipe?: unknown[]; quantity?: number; productId?: unknown } | null>();
+    if (!cur) return notFound("Article introuvable");
+    const mode = clean.productionMode === "batch" ? "batch" : "order";
+    if (mode === "batch" && !cur.recipe?.length) return badRequest("Une production par lot a besoin d'une fiche technique.");
+    if (mode === "order" && (cur.quantity ?? 0) > 0) return badRequest("Il reste des portions produites : vendez-les ou déclarez-les en perte avant de passer à la commande (sinon les ingrédients sortiraient deux fois).");
+    update.productionMode = mode;
+  }
   if ("rhythm" in clean) update.rhythm = ["week", "fortnight", "month"].includes(String(clean.rhythm)) ? String(clean.rhythm) : undefined;
   if ("archived" in clean) {
     update.archived = Boolean(clean.archived);

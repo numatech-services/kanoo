@@ -12,6 +12,8 @@ const ItemCountSchema = new Schema({
   /** Écart valorisé au coût (négatif : manquant). */
   gapValue: { type: Number, required: true },
   countedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  /** Comptage du stock de départ : il constitue le stock, ce n'est ni un écart ni une consommation. */
+  opening: { type: Boolean },
 }, { timestamps: true });
 
 ItemCountSchema.index({ tenantId: 1, deskId: 1, itemId: 1, day: -1 });

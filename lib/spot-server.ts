@@ -40,7 +40,7 @@ export async function recordLoss(auth: TokenPayload, input: { deskId: string; it
   const item = await ActivityItemModel.findOne({ _id: input.itemId, tenantId, deskId: input.deskId }).session(session ?? null);
   if (!item) throw new BusinessRuleError("Article introuvable.");
   // Plat ou boisson préparé perdu (invendu, raté, retour) : ses ingrédients sortent du stock au coût de la recette.
-  if (item.recipe?.length) {
+  if (item.recipe?.length && item.productionMode !== "batch") {
     let lossValue = 0, move: LossResult["move"] = null;
     for (const ing of portionRecipe(item.recipe, item.portions)) {
       const r = await recordLoss(auth, { ...input, itemId: String(ing.itemId), quantity: Math.round(ing.quantity * qty * 10000) / 10000, note: `${item.name} × ${qty}${input.note ? ` — ${input.note}` : ""}`, lenient: true }, session);

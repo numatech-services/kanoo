@@ -114,12 +114,14 @@ async function consumptionOf(tenantId: string, deskId: string, from: Date, to: D
   const [direct, ings, counts, items] = await Promise.all([
     ComptoirSaleModel.aggregate<{ _id: Id; q: number }>([{ $match: match }, { $unwind: "$lines" }, { $match: { $or: [{ "lines.ingredients": { $exists: false } }, { "lines.ingredients": { $size: 0 } }] } }, { $group: { _id: "$lines.itemId", q: { $sum: "$lines.quantity" } } }]),
     ComptoirSaleModel.aggregate<{ _id: Id; q: number }>([{ $match: match }, { $unwind: "$lines" }, { $unwind: "$lines.ingredients" }, { $group: { _id: "$lines.ingredients.itemId", q: { $sum: "$lines.ingredients.quantity" } } }]),
-    ItemCountModel.aggregate<{ _id: Id; g: number }>([{ $match: { tenantId: oid(tenantId), deskId: oid(deskId), day: { $gte: fromDay, $lte: toDay } } }, { $group: { _id: "$itemId", g: { $sum: "$gap" } } }]),
+    ItemCountModel.aggregate<{ _id: Id; g: number }>([{ $match: { tenantId: oid(tenantId), deskId: oid(deskId), opening: { $ne: true }, day: { $gte: fromDay, $lte: toDay } } }, { $group: { _id: "$itemId", g: { $sum: "$gap" } } }]),
     ActivityItemModel.find({ tenantId, deskId }).select("name unit unitCost recipe").lean<Array<{ _id: Id; name: string; unit: string; unitCost?: number; recipe?: unknown[] }>>(),
   ]);
+  // Ingrédients sortis pour une production par lot : leur consommation est théorique, comme à la vente.
+  const produced = await ActivityStockMoveModel.aggregate<{ _id: Id; q: number }>([{ $match: { tenantId: oid(tenantId), deskId: oid(deskId), type: "out", reason: /^Production /, date: { $gte: from, $lte: to } } }, { $group: { _id: "$itemId", q: { $sum: "$quantity" } } }]);
   const add = (m: Map<string, number>, k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v);
   const sold = new Map<string, number>(), lost = new Map<string, number>(), gap = new Map<string, number>(reserveGaps);
-  for (const d of [...direct, ...ings]) add(sold, String(d._id), d.q);
+  for (const d of [...direct, ...ings, ...produced]) add(sold, String(d._id), d.q);
   for (const l of losses) add(lost, l.itemId, l.quantity);
   for (const c of counts) add(gap, String(c._id), c.g);
   return items.filter(i => !i.recipe?.length && (sold.has(String(i._id)) || lost.has(String(i._id)) || gap.has(String(i._id)))).map(i => {

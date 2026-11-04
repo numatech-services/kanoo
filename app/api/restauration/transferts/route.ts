@@ -1,13 +1,13 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, notFound } from "@/lib/api-helpers";
+import { withAuth, ok, created, badRequest, notFound, forbidden } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { isId, ownDesk, deskScope, canSeeDeskCosts } from "@/lib/comptoir";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { notifyRoles } from "@/lib/notify";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
-import { sendTransfer, receiveTransfer, listTransfers, getTransfer } from "@/lib/restaurant-transfer";
+import { sendTransfer, receiveTransfer, listTransfers, getTransfer, resolveTransferGap } from "@/lib/restaurant-transfer";
 
 export const dynamic = "force-dynamic";
 
@@ -49,11 +49,20 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     }
     if (body.action === "receive") {
       if (!isId(body.id)) return badRequest("Bon invalide.");
-      await receiveTransfer(auth, body.id, async deskId => !!(await ownDesk(auth, deskId)), { name: body.signerName, signature: body.signature }, typeof body.gapNote === "string" ? body.gapNote : undefined);
+      await receiveTransfer(auth, body.id, async deskId => !!(await ownDesk(auth, deskId)), { name: body.signerName, signature: body.signature }, typeof body.gapNote === "string" ? body.gapNote : undefined, Array.isArray(body.received) ? body.received : undefined);
       await logAudit(auth, "UPDATE", "comptoir", { resourceId: body.id, metadata: { transferReceived: body.id, gap: !!body.gapNote } });
       return ok({ received: true });
     }
-    return badRequest("Action inconnue (send, receive).");
+    if (body.action === "resolve") {
+      if (!isId(body.id)) return badRequest("Bon invalide.");
+      if (!canSeeDeskCosts(auth)) return forbidden("L'écart d'un transfert est tranché par le chef ou la finance.");
+      const t = await getTransfer(auth.tenantId, body.id, true);
+      if (!t || (!(await ownDesk(auth, String(t.fromDeskId))) && !(await ownDesk(auth, String(t.toDeskId))))) return notFound("Bon introuvable");
+      const value = await resolveTransferGap(auth, body.id, body.decision, typeof body.note === "string" ? body.note : undefined);
+      await logAudit(auth, "UPDATE", "comptoir", { resourceId: body.id, metadata: { transferGap: body.decision, value } });
+      return ok({ resolved: true, value });
+    }
+    return badRequest("Action inconnue (send, receive, resolve).");
   } catch (e) {
     if (e instanceof BusinessRuleError) return badRequest(e.message);
     throw e;

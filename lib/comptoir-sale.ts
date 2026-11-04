@@ -5,6 +5,7 @@ import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
 import { ComptoirSaleModel, type ISaleLine } from "@/models/ComptoirSale";
 import { DeskMonthCloseModel } from "@/models/DeskMonthClose";
+import { DeskWeekCloseModel } from "@/models/DeskWeekClose";
 import { ProductStockModel } from "@/models/ProductStock";
 import { StockLotModel } from "@/models/StockLot";
 import { CashClosingModel } from "@/models/CashClosing";
@@ -52,6 +53,8 @@ export async function assertMonthOpen(tenantId: string, deskId: unknown, date: D
   const month = localDay(date).slice(0, 7);
   const closed = await DeskMonthCloseModel.findOne({ tenantId, deskId, status: "closed", month: { $gte: month } }).select("month").session(session ?? null).lean<{ month: string } | null>();
   if (closed) throw new BusinessRuleError(`Le mois ${closed.month} est clos en gestion${closed.month === month ? "" : ` (et donc ${month})`} : la comptabilité doit le rouvrir pour y écrire.`);
+  const week = await DeskWeekCloseModel.findOne({ tenantId, deskId, status: "closed", weekEnd: { $gte: localDay(date) } }).select("weekEnd").session(session ?? null).lean<{ weekEnd: string } | null>();
+  if (week) throw new BusinessRuleError(`La semaine est close jusqu'au ${week.weekEnd} : le chef du site ou la comptabilité doit la rouvrir pour y écrire.`);
 }
 
 /**
@@ -64,9 +67,11 @@ export async function firstOpenDate(tenantId: string, deskId: unknown, at: Date,
   const last = await CashClosingModel.findOne({ tenantId, deskId, day: { $gte: localDay(at) } }).sort({ day: -1 }).select("day").session(session ?? null).lean<{ day: string } | null>();
   // Mois de gestion clos : l'opération passe au premier jour du mois suivant.
   const month = await DeskMonthCloseModel.findOne({ tenantId, deskId, status: "closed", month: { $gte: localDay(at).slice(0, 7) } }).sort({ month: -1 }).select("month").session(session ?? null).lean<{ month: string } | null>();
-  if (!last && !month) return at;
+  const week = await DeskWeekCloseModel.findOne({ tenantId, deskId, status: "closed", weekEnd: { $gte: localDay(at) } }).sort({ weekEnd: -1 }).select("weekEnd").session(session ?? null).lean<{ weekEnd: string } | null>();
+  if (!last && !month && !week) return at;
   let next = at;
   if (last) { next = new Date(`${last.day}T08:00:00`); next.setDate(next.getDate() + 1); }
+  if (week) { const after = new Date(`${week.weekEnd}T08:00:00`); after.setDate(after.getDate() + 1); if (after > next) next = after; }
   if (month) { const [y, m] = month.month.split("-").map(Number); const first = new Date(y, m, 1, 8); if (first > next) next = first; }
   return next > new Date() ? next : new Date();
 }
@@ -109,7 +114,7 @@ type ItemDoc = InstanceType<typeof ActivityItemModel>;
  * sortie pour un article du catalogue, le coût de l'article pour un article
  * propre. Trace dans le stock matière du comptoir.
  */
-async function stockOut(auth: TokenPayload, desk: DeskLite, item: ItemDoc, qty: number, number: string, date: Date, session?: ClientSession, lenient = false) {
+export async function stockOut(auth: TokenPayload, desk: DeskLite, item: ItemDoc, qty: number, number: string, date: Date, session?: ClientSession, lenient = false, label = `Ticket ${number}`) {
   const tenantId = auth.tenantId;
   let unitCost = item.unitCost || 0, stockMovementId: unknown, after: number;
   if (item.productId) {
@@ -138,7 +143,7 @@ async function stockOut(auth: TokenPayload, desk: DeskLite, item: ItemDoc, qty: 
     }
     const r = await applyMovement({
       tenantId, userId: auth.userId, productId: item.productId, warehouseId: wh, type: "exit", quantity: qty,
-      reason: `Ticket ${number}`, linkedDocType: "comptoir", linkedDocId: desk._id, linkedDocNumber: number,
+      reason: label, linkedDocType: "comptoir", linkedDocId: desk._id, linkedDocNumber: number,
       ...(lenient ? { allowPartial: true, skipExpired: true } : {}),
     }, session);
     unitCost = Number(r.movement.unitCost) || 0;
@@ -150,7 +155,7 @@ async function stockOut(auth: TokenPayload, desk: DeskLite, item: ItemDoc, qty: 
   }
   const [move] = await ActivityStockMoveModel.create([{
     tenantId, deskId: desk._id, itemId: item._id, type: "out", quantity: qty, quantityAfter: after,
-    unitCost, reason: `Ticket ${number}`, stockMovementId, date, createdBy: auth.userId,
+    unitCost, reason: label, stockMovementId, date, createdBy: auth.userId,
   }], { session });
   item.quantity = Math.max(0, after);
   await item.save({ session });
@@ -221,7 +226,8 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
     let unitCost: number, stockMovementId: Types.ObjectId | undefined, moveId: Types.ObjectId | undefined, after: number | null = null;
     const ingredients: NonNullable<ISaleLine["ingredients"]> = [];
     // Fiche technique : quantités brutes par portion vendue (rendement et nombre de portions).
-    const parts = raw.components?.length ? raw.components : portionRecipe(item.recipe, item.portions);
+    // Préparation produite par lot : les ingrédients sont sortis à la production, la vente retire la portion.
+    const parts = raw.components?.length ? raw.components : item.productionMode === "batch" ? [] : portionRecipe(item.recipe, item.portions);
     let missingCost: string[] = [];
     if (parts?.length) {
       let total = 0;
@@ -231,7 +237,7 @@ export async function createSale(auth: TokenPayload, input: SaleInput, session?:
         const q = Math.round(Number(r.quantity) * qty * 1000) / 1000;
         if (!(q > 0)) continue;
         // Un composant qui a lui-même une recette sort ses ingrédients (plat d'une formule).
-        if (ing.recipe?.length) {
+        if (ing.recipe?.length && ing.productionMode !== "batch") {
           for (const g of portionRecipe(ing.recipe, ing.portions)) {
             const sub = await ActivityItemModel.findOne({ _id: g.itemId, tenantId, deskId: desk._id }).session(session ?? null);
             if (!sub) throw new BusinessRuleError(`Ingrédient introuvable dans la recette de ${ing.name}.`);

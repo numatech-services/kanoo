@@ -1,6 +1,7 @@
 import { Types, type ClientSession } from "mongoose";
 import { withTransaction } from "@/lib/db";
 import { DeskInventoryModel } from "@/models/DeskInventory";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityItemModel } from "@/models/ActivityItem";
 import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { ItemCountModel } from "@/models/ItemCount";
@@ -95,6 +96,21 @@ export async function saveCounts(auth: TokenPayload, id: string, device: string,
 }
 
 /**
+ * Validation renforcée : au-delà du seuil du site, l'écart (somme des écarts en
+ * valeur absolue) revient à la direction ou à la comptabilité, pas au chef du
+ * site. Le message donne les articles à recompter d'abord.
+ */
+async function checkGapThreshold(auth: TokenPayload, deskId: string, lines: Line[]) {
+  const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId: auth.tenantId }).select("gapApprovalThreshold").lean<{ gapApprovalThreshold?: number } | null>();
+  const limit = desk?.gapApprovalThreshold;
+  if (limit === undefined || limit === null) return;
+  const items = await ActivityItemModel.find({ _id: { $in: lines.map(l => l.itemId) }, tenantId: auth.tenantId }).select("unitCost").lean<Array<{ _id: Id; unitCost?: number }>>();
+  const cost = new Map(items.map(i => [String(i._id), i.unitCost ?? 0]));
+  const gaps = lines.filter(l => l.counted != null && l.expectedAtCount != null).map(l => ({ name: l.name, value: Math.abs((l.counted! - l.expectedAtCount!) * (cost.get(String(l.itemId)) ?? 0)) })).filter(g => g.value > 0).sort((a, b) => b.value - a.value);
+  if (gaps.reduce((t, g) => t + g.value, 0) > limit) throw new BusinessRuleError(`Écart important : recomptez ${gaps.slice(0, 3).map(g => g.name).join(", ")}. S'il se confirme, la validation revient à la direction ou à la comptabilité.`);
+}
+
+/**
  * Validation, d'un seul tenant (transaction) : l'inventaire est revendiqué,
  * chaque écart = compté − théorique relevé au comptage est passé en stock
  * en différence (perte ou reprise ; un excédent d'article suivi par lot entre
@@ -102,15 +118,16 @@ export async function saveCounts(auth: TokenPayload, id: string, device: string,
  * bougent pas. Possible après l'arrêté de caisse du jour (on compte comptoir
  * fermé) ; refusée dans un mois de gestion clos.
  */
-export async function validateInventory(auth: TokenPayload, id: string) {
-  const pre = await DeskInventoryModel.findOne({ _id: id, tenantId: auth.tenantId }).select("deskId level lines.itemId lines.counted").lean<{ deskId: Id; level: Level; lines: Line[] } | null>();
+export async function validateInventory(auth: TokenPayload, id: string, canApprove = true) {
+  const pre = await DeskInventoryModel.findOne({ _id: id, tenantId: auth.tenantId }).select("deskId level lines.itemId lines.counted lines.name lines.expectedAtCount").lean<{ deskId: Id; level: Level; lines: Line[] } | null>();
   if (!pre) throw new BusinessRuleError("Inventaire introuvable.");
   const deskId = String(pre.deskId);
+  if (!canApprove) await checkGapThreshold(auth, deskId, pre.lines);
   if (pre.level === "reserve") for (const l of pre.lines.filter(x => x.counted != null)) await withTransaction(s => ensureLinked(auth, deskId, l.itemId, s));
   const out = await withTransaction(async session => {
     await assertMonthOpen(auth.tenantId, deskId, new Date(), session);
     const inv = await DeskInventoryModel.findOneAndUpdate({ _id: id, tenantId: auth.tenantId, status: "open" },
-      { $set: { status: "validated", validatedBy: auth.userId, validatedAt: new Date() } }, { new: true, session }).lean<{ _id: Id; number: string; level: Level; lines: Line[] } | null>();
+      { $set: { status: "validated", validatedBy: auth.userId, validatedAt: new Date() } }, { new: true, session }).lean<{ _id: Id; number: string; level: Level; opening?: boolean; lines: Line[] } | null>();
     if (!inv) throw new BusinessRuleError("Inventaire déjà validé ou annulé.");
     const counted = inv.lines.filter(l => l.counted != null);
     if (!counted.length) throw new BusinessRuleError("Aucun article compté.");
@@ -140,7 +157,7 @@ export async function validateInventory(auth: TokenPayload, id: string) {
         if (gap !== 0) await ActivityStockMoveModel.create([{ tenantId: auth.tenantId, deskId, itemId: item._id, type: "adjust", quantity: Math.abs(gap), quantityAfter: item.productId ? await theoretical(auth.tenantId, deskId, "desk", item._id, session) : item.quantity, unitCost, reason, stockMovementId,
           ...(gap < 0 ? { lossReason: "inventory", lossValue: Math.round(-gap * unitCost) } : {}), date: new Date(), createdBy: auth.userId }], { session });
         // Historique des comptages (inventaire tournant, résultat du mois).
-        await ItemCountModel.create([{ tenantId: auth.tenantId, deskId, itemId: item._id, day, expected, counted: l.counted, gap, gapValue, countedBy: auth.userId }], { session });
+        await ItemCountModel.create([{ tenantId: auth.tenantId, deskId, itemId: item._id, day, expected, counted: l.counted, gap, gapValue, countedBy: auth.userId, ...(inv.opening ? { opening: true } : {}) }], { session });
       }
     }
     const gapValue = counted.reduce((t, l) => t + (l.gapValue ?? 0), 0);

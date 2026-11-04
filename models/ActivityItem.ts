@@ -51,6 +51,12 @@ export interface IActivityItem {
    * découpe). Une portion vendue consomme quantité ÷ rendement ÷ portions.
    */
   portions?: number;
+  /**
+   * order : la vente consomme les ingrédients (préparé à la commande) ;
+   * batch : la production consomme les ingrédients et crée des portions, la
+   * vente retire les portions. Jamais les deux : un seul déstockage.
+   */
+  productionMode?: "order" | "batch";
   /** Grammage servi par portion (g), allergènes, procédé : pour la cuisine et la fiche imprimée. */
   servingWeight?: number;
   allergens?: string[];
@@ -85,6 +91,7 @@ const ActivityItemSchema = new Schema<IActivityItem>({
   category: { type: String, trim: true, maxlength: 60 },
   recipe: [{ _id: false, itemId: { type: Schema.Types.ObjectId, ref: "ActivityItem", required: true }, quantity: { type: Number, required: true, min: 0 }, yield: { type: Number, min: 0.05, max: 1 } }],
   portions: { type: Number, min: 1, max: 10_000 },
+  productionMode: { type: String, enum: ["order", "batch"], default: "order" },
   servingWeight: { type: Number, min: 0 },
   allergens: [{ type: String, maxlength: 40 }],
   procedure: { type: String, maxlength: 4000 },

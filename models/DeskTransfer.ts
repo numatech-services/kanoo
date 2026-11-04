@@ -11,9 +11,12 @@ export interface IDeskTransfer {
   number: string;
   fromDeskId: Types.ObjectId; fromName: string;
   toDeskId: Types.ObjectId; toName: string;
-  lines: Array<{ fromItemId: Types.ObjectId; toItemId: Types.ObjectId; productId: Types.ObjectId; name: string; unit: string; quantity: number; unitCost: number; lots: Array<{ lotNumber: string; qty: number; expiryDate?: Date }> }>;
+  lines: Array<{ fromItemId: Types.ObjectId; toItemId: Types.ObjectId; productId: Types.ObjectId; name: string; unit: string; quantity: number; unitCost: number; receivedQty?: number; lots: Array<{ lotNumber: string; qty: number; expiryDate?: Date }> }>;
   value: number;
-  status: "sent" | "received";
+  /** sent : ancien bon (stock déjà à destination). transit : en route. gap : reçu avec écart à trancher. */
+  status: "sent" | "transit" | "received" | "gap";
+  /** Écart tranché : marchandise revenue à l'expéditeur, ou perte. */
+  gapResolution?: { decision: "return" | "loss"; note?: string; by: Types.ObjectId; at: Date; value: number };
   sentBy: Types.ObjectId; senderName: string; senderSignature: string; sentAt: Date;
   receivedBy?: Types.ObjectId; receiverName?: string; receiverSignature?: string; receivedAt?: Date; gapNote?: string;
   note?: string;
@@ -26,10 +29,11 @@ const DeskTransferSchema = new Schema<IDeskTransfer>({
   number: { type: String, required: true },
   fromDeskId: { type: Schema.Types.ObjectId, ref: "ActivityDesk", required: true }, fromName: String,
   toDeskId: { type: Schema.Types.ObjectId, ref: "ActivityDesk", required: true }, toName: String,
-  lines: [{ _id: false, fromItemId: Schema.Types.ObjectId, toItemId: Schema.Types.ObjectId, productId: Schema.Types.ObjectId, name: String, unit: String, quantity: Number, unitCost: Number,
+  lines: [{ _id: false, fromItemId: Schema.Types.ObjectId, toItemId: Schema.Types.ObjectId, productId: Schema.Types.ObjectId, name: String, unit: String, quantity: Number, receivedQty: Number, unitCost: Number,
     lots: [{ _id: false, lotNumber: String, qty: Number, expiryDate: Date }] }],
   value: { type: Number, default: 0 },
-  status: { type: String, enum: ["sent", "received"], default: "sent" },
+  status: { type: String, enum: ["sent", "transit", "received", "gap"], default: "transit" },
+  gapResolution: { decision: { type: String, enum: ["return", "loss"] }, note: String, by: { type: Schema.Types.ObjectId, ref: "User" }, at: Date, value: Number },
   sentBy: { type: Schema.Types.ObjectId, ref: "User", required: true }, senderName: { type: String, required: true, maxlength: 120 }, senderSignature: { ...SIG, required: true }, sentAt: { type: Date, required: true },
   receivedBy: { type: Schema.Types.ObjectId, ref: "User" }, receiverName: { type: String, maxlength: 120 }, receiverSignature: SIG, receivedAt: Date, gapNote: { type: String, maxlength: 400 },
   note: { type: String, maxlength: 300 },

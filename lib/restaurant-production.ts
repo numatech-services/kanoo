@@ -6,7 +6,12 @@ import { DeskMenuModel } from "@/models/DeskMenu";
 import { BusinessRuleError } from "@/lib/errors";
 import { productionPlan, preorderedFor } from "@/lib/campus-server";
 import { recordLoss } from "@/lib/spot-server";
-import { restaurantStock, moveBetweenLevels } from "@/lib/restaurant-stock";
+import { restaurantStock, moveBetweenLevels, ensureLinked } from "@/lib/restaurant-stock";
+import { stockOut, assertDayOpen } from "@/lib/comptoir-sale";
+import { applyMovement } from "@/lib/stock";
+import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
+import { ActivityStockMoveModel } from "@/models/ActivityStockMove";
 import { deskPricing } from "@/lib/restaurant-overview";
 import { portionRecipe } from "@/lib/restaurant";
 import type { TokenPayload } from "@/lib/auth";
@@ -151,4 +156,49 @@ export async function closeService(auth: TokenPayload, deskId: string, day: stri
     if (claimed.modifiedCount !== 1) throw new BusinessRuleError("Service déjà clos.");
   });
   return { lines: out.length, leftoverValue: out.reduce((t, l) => t + l.leftoverValue, 0) };
+}
+
+/**
+ * Production par lot : les ingrédients sortent du stock (une seule fois) et les
+ * portions entrent au comptoir à leur coût réel. La vente retire ensuite les
+ * portions, sans toucher aux ingrédients ; un invendu se déclare en perte de
+ * portions. Ne vaut que pour une préparation réglée « par lot ».
+ */
+export async function produceBatch(auth: TokenPayload, deskId: string, itemId: string, portions: number, opts: { expiryDate?: string } = {}) {
+  const qty = Math.round(Number(portions) * 1000) / 1000;
+  if (!(qty > 0) || qty > 100_000) throw new BusinessRuleError("Nombre de portions invalide.");
+  if (opts.expiryDate && isNaN(new Date(opts.expiryDate).getTime())) throw new BusinessRuleError("Date limite invalide.");
+  const d = new Date(), p = (n: number) => String(n).padStart(2, "0");
+  const number = `PROD-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  const out = await withTransaction(async session => {
+    await assertDayOpen(auth.tenantId, deskId, d, session);
+    const desk = await ActivityDeskModel.findOne({ _id: deskId, tenantId: auth.tenantId }).select("name reserveWarehouseId lenientStock").session(session ?? null).lean<{ _id: Id; name: string; reserveWarehouseId?: Id; lenientStock?: boolean } | null>();
+    if (!desk) throw new BusinessRuleError("Site introuvable.");
+    const item = await ActivityItemModel.findOne({ _id: itemId, tenantId: auth.tenantId, deskId, archived: { $ne: true } }).session(session ?? null);
+    if (!item?.recipe?.length) throw new BusinessRuleError("Cette production n'a pas de fiche technique.");
+    if (item.productionMode !== "batch") throw new BusinessRuleError(`${item.name} est préparé à la commande : ses ingrédients sortent à la vente. Réglez sa fiche sur « par lot » pour le produire à l'avance.`);
+    let total = 0, unknownCost = false;
+    for (const g of portionRecipe(item.recipe, item.portions)) {
+      const ing = await ActivityItemModel.findOne({ _id: g.itemId, tenantId: auth.tenantId, deskId }).session(session ?? null);
+      if (!ing) throw new BusinessRuleError(`Ingrédient introuvable dans la recette de ${item.name}.`);
+      if (ing.recipe?.length && ing.productionMode !== "batch") throw new BusinessRuleError(`${ing.name} est lui-même une préparation à la commande : produisez-le par lot d'abord.`);
+      const q = r3(g.quantity * qty);
+      if (!(q > 0)) continue;
+      const o = await stockOut(auth, desk, ing, q, number, d, session, !!desk.lenientStock, `Production ${item.name} (${number})`);
+      total += o.unitCost * q;
+      if (!o.unitCost) unknownCost = true;
+    }
+    const unitCost = Math.round((total / qty) * 100) / 100;
+    const productId = await ensureLinked(auth, deskId, item._id, session);
+    const wh = await deskWarehouse(auth.tenantId, deskId, session);
+    const r = await applyMovement({
+      tenantId: auth.tenantId, userId: auth.userId, productId, warehouseId: wh, type: "entry", quantity: qty, ...(unitCost > 0 ? { unitCost } : {}),
+      ...(opts.expiryDate ? { lots: [{ lotNumber: number, qty, expiryDate: opts.expiryDate }] } : { autoLot: number }),
+      reason: `Production ${item.name} (${number})`, linkedDocType: "comptoir", linkedDocId: desk._id, linkedDocNumber: number,
+    }, session);
+    await ActivityStockMoveModel.create([{ tenantId: auth.tenantId, deskId, itemId: item._id, type: "in", quantity: qty, quantityAfter: r.after, unitCost, reason: `Lot ${number}`, stockMovementId: r.movement._id, date: d, createdBy: auth.userId }], { session });
+    return { number, portions: qty, unitCost, total: Math.round(total), unknownCost };
+  });
+  await syncLinkedItems(auth.tenantId, deskId);
+  return out;
 }

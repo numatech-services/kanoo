@@ -341,3 +341,6 @@ export function countDue(rhythm: string | null | undefined, day: string): boolea
   if (rhythm === "month") return +day.slice(8, 10) <= 7;
   return true;
 }
+
+/** Nom ramené à sa forme de comparaison : sans accents, casse ni espaces en trop. */
+export const sameName = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();

@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server";
-import { connectDB } from "@/lib/db";
-import { withAuth, ok, created, badRequest, notFound, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { connectDB, withTransaction } from "@/lib/db";
+import { withAuth, ok, created, badRequest, notFound, conflict, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { isId, ownDesk, parsePack } from "@/lib/comptoir";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { ActivityItemModel } from "@/models/ActivityItem";
+import { ensureLinked } from "@/lib/restaurant-stock";
+import { sameName } from "@/lib/restaurant";
 import { logAudit } from "@/lib/audit";
 import { ProductModel } from "@/models/Product";
 import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
@@ -55,6 +58,13 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   if (pack === "invalid") return badRequest("Conditionnement invalide (nombre d'unités par paquet, prix du paquet).");
   const barcode = typeof body.barcode === "string" ? body.barcode.replace(/\s+/g, "").slice(0, 60) : "";
   if (barcode && await ActivityItemModel.exists({ ...tenantFilter(auth), deskId: body.deskId, archived: { $ne: true }, $or: [{ barcode }, { packBarcode: barcode }, { altBarcodes: barcode }] })) return badRequest("Ce code-barres est déjà celui d'un autre article du comptoir.");
+  // Même nom, à l'accent ou à la casse près : un doublon coupe le suivi en deux. `force` le permet après avertissement.
+  const wanted = sameName(String(body.name || product?.label || ""));
+  if (wanted && !body.force) {
+    const others = await ActivityItemModel.find({ ...tenantFilter(auth), deskId: body.deskId, archived: { $ne: true } }).select("name").lean<Array<{ name: string }>>();
+    const twin = others.find(o => sameName(o.name) === wanted);
+    if (twin) return conflict(`« ${twin.name} » existe déjà sur ce site : modifiez-le plutôt que d'en créer un second.`);
+  }
   const item = await ActivityItemModel.create({
     tenantId: auth.tenantId,
     deskId: body.deskId,
@@ -73,6 +83,8 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
     ...(typeof body.barcode === "string" && body.barcode.trim() ? { barcode: body.barcode.replace(/\s+/g, "").slice(0, 60) } : product?.barcode ? { barcode: product.barcode } : {}),
     createdBy: auth.userId,
   });
+  // Site ouvert par l'assistant : pas d'article hors catalogue, un seul mécanisme de stock.
+  if (!product && !item.recipe?.length && await ActivityDeskModel.exists({ _id: body.deskId, ...tenantFilter(auth), strictStock: true })) await withTransaction(s => ensureLinked(auth, body.deskId, item._id, s));
   await logAudit(auth, "CREATE", "comptoir", { resourceId: item._id.toString(), metadata: { item: item.name } });
   return created(item);
 });

@@ -142,7 +142,7 @@ export async function weeklyReport(tenantId: string, deskId: string, today: Date
   const [sales, losses, gaps] = await Promise.all([
     ComptoirSaleModel.aggregate<{ tickets: number; ht: number; cost: number }>([{ $match: match }, { $group: { _id: null, tickets: { $sum: 1 }, ht: { $sum: "$totalHT" }, cost: { $sum: { $sum: "$lines.costTotal" } } } }]),
     ActivityStockMoveModel.aggregate<{ v: number }>([{ $match: { tenantId: oid(tenantId), deskId: oid(deskId), lossReason: { $exists: true, $nin: ["inventory"] }, date: { $gte: from, $lt: to } } }, { $group: { _id: null, v: { $sum: "$lossValue" } } }]),
-    ItemCountModel.aggregate<{ v: number }>([{ $match: { tenantId: oid(tenantId), deskId: oid(deskId), day: { $gte: dayKey(from), $lte: dayKey(last) } } }, { $group: { _id: null, v: { $sum: "$gapValue" } } }]),
+    ItemCountModel.aggregate<{ v: number }>([{ $match: { tenantId: oid(tenantId), deskId: oid(deskId), opening: { $ne: true }, day: { $gte: dayKey(from), $lte: dayKey(last) } } }, { $group: { _id: null, v: { $sum: "$gapValue" } } }]),
   ]);
   const ht = Math.round(sales[0]?.ht ?? 0), cost = Math.round(sales[0]?.cost ?? 0);
   const firstWeek = today.getDate() <= 7;

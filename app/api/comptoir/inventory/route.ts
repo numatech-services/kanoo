@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { hasFinanceAccess } from "@/lib/role-resources";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound, forbidden } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
@@ -45,7 +46,7 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       if (body.action === "validate") {
         // Les écarts touchent la valeur du stock et la marge : validation par le chef du comptoir ou la finance.
         if (!canSeeDeskCosts(auth)) return forbidden("La validation d'un inventaire revient au chef du comptoir ou à la comptabilité.");
-        const r = await validateInventory(auth, body.id);
+        const r = await validateInventory(auth, body.id, hasFinanceAccess(auth));
         await logAudit(auth, "APPROVE", "comptoir", { resourceId: String(body.id), metadata: { inventory: inv.number, gapValue: r.gapValue } });
         return ok(r);
       }

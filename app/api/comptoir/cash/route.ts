@@ -3,6 +3,7 @@ import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { isId, ownDesk, postDeskCash } from "@/lib/comptoir";
 import { ActivityCashEntryModel } from "@/models/ActivityCashEntry";
+import { ActivityDeskModel } from "@/models/ActivityDesk";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { Types } from "mongoose";
@@ -49,6 +50,9 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   if (!(amount > 0)) return badRequest("Montant invalide");
   const date = body.date ? new Date(body.date) : new Date();
   if (isNaN(date.getTime())) return badRequest("Date invalide");
+  // Site ouvert par l'assistant : une marchandise passe par une réception, sinon le stock et le coût des ventes sont faux.
+  const goods = body.direction === "out" && (!body.category || !(body.category in EXPENSE_CATEGORIES) || body.category === "supply" || body.category === "ingredients");
+  if (goods && await ActivityDeskModel.exists({ _id: body.deskId, ...tenantFilter(auth), strictStock: true })) return badRequest("Un achat de marchandises se saisit par une réception (payée en caisse), pas en dépense. Pour une autre dépense, choisissez sa nature.");
   // Écriture de caisse + comptabilisation (si le comptoir est relié à une caisse)
   // dans la même transaction : jamais l'une sans l'autre.
   const entry = await withTransaction(async session => {

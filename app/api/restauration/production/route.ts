@@ -6,7 +6,7 @@ import { isId, ownDesk, canSeeDeskCosts } from "@/lib/comptoir";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { localDay } from "@/lib/format";
-import { dayPlan, saveMenu, issueForDay, closeService, SERVICES, type ServiceKey } from "@/lib/restaurant-production";
+import { dayPlan, saveMenu, issueForDay, closeService, SERVICES, type ServiceKey, produceBatch } from "@/lib/restaurant-production";
 
 export const dynamic = "force-dynamic";
 const isDay = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -29,7 +29,8 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
  * POST { deskId, day, action, … }
  *  - menu : { service, lines: [{ itemId, quantity }], note? } — menu d'un service ;
  *  - issue : bon de sortie de la réserve pour le plan du jour ;
- *  - close : { service, lines: [{ itemId, produced, leftover }] } — fin de service, restes en perte.
+ *  - close : { service, lines: [{ itemId, produced, leftover }] } — fin de service, restes en perte ;
+ *  - batch : { itemId, portions, expiryDate? } — production par lot : ingrédients sortis, portions entrées.
  */
 export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth: TokenPayload) => {
   await connectDB();
@@ -39,6 +40,12 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
   const service = (Object.keys(SERVICES).includes(body.service) ? body.service : "midi") as ServiceKey;
   const lines = Array.isArray(body.lines) ? body.lines.filter((l: { itemId?: unknown }) => isId(l?.itemId)).slice(0, 200) : [];
   try {
+    if (body.action === "batch") {
+      if (!isId(body.itemId)) return badRequest("Préparation invalide.");
+      const r = await produceBatch(auth, body.deskId, body.itemId, Number(body.portions), { expiryDate: typeof body.expiryDate === "string" && body.expiryDate ? body.expiryDate : undefined });
+      await logAudit(auth, "CREATE", "comptoir", { resourceId: body.deskId, metadata: { batch: r.number, portions: r.portions } });
+      return ok(canSeeDeskCosts(auth) ? r : { number: r.number, portions: r.portions });
+    }
     if (body.action === "menu") {
       await saveMenu(auth, body.deskId, body.day, service, lines, typeof body.note === "string" ? body.note : undefined);
       return ok({ saved: true });

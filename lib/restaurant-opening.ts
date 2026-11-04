@@ -14,6 +14,7 @@ import { ProductStockModel } from "@/models/ProductStock";
 import { StockLotModel } from "@/models/StockLot";
 import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 import { UserModel } from "@/models/User";
+import { WarehouseModel } from "@/models/Warehouse";
 import { BusinessRuleError } from "@/lib/errors";
 import { applyMovement } from "@/lib/stock";
 import { deskWarehouse, syncLinkedItems } from "@/lib/comptoir-stock";
@@ -292,7 +293,7 @@ export async function openingStock(auth: TokenPayload, deskId: string, items: Op
     });
   }
   // Comptages du comptoir, comme un inventaire d'ouverture validé : le résultat les retranche (stock initial, pas un gain).
-  if (byLevel.desk.length) await ItemCountModel.insertMany(byLevel.desk.map(l => ({ tenantId: auth.tenantId, deskId, itemId: l.itemId, day, expected: 0, counted: l.counted, gap: l.counted, gapValue: Math.round(l.counted * l.unitCost), countedBy: auth.userId })));
+  if (byLevel.desk.length) await ItemCountModel.insertMany(byLevel.desk.map(l => ({ tenantId: auth.tenantId, deskId, itemId: l.itemId, day, expected: 0, counted: l.counted, gap: l.counted, gapValue: Math.round(l.counted * l.unitCost), countedBy: auth.userId, opening: true })));
   await syncLinkedItems(auth.tenantId, deskId);
   return { items: items.length, stockValue: Math.round(value), desk: byLevel.desk.length, reserve: byLevel.reserve.length };
 }
@@ -338,4 +339,28 @@ export async function copyRecipes(auth: TokenPayload, fromDeskId: string, toDesk
     recipes++;
   }
   return { recipes, ingredients };
+}
+
+/**
+ * Stock de l'entreprise, article par article : chaque site actif, la
+ * marchandise en transit (une seule fois), le total et sa valeur au coût.
+ */
+export async function consolidatedStock(tenantId: string) {
+  const desks = await ActivityDeskModel.find({ tenantId, archived: { $ne: true } }).select("name warehouseId reserveWarehouseId").sort({ name: 1 }).lean<DeskRow[]>();
+  const transit = await WarehouseModel.findOne({ tenantId, code: "TRANSIT" }).select("_id").lean<{ _id: Id } | null>();
+  const whs = new Map<string, string>();
+  for (const d of desks) for (const w of [d.warehouseId, d.reserveWarehouseId]) if (w) whs.set(String(w), String(d._id));
+  const stock = await ProductStockModel.find({ tenantId, warehouseId: { $in: [...whs.keys(), ...(transit ? [String(transit._id)] : [])] }, qty: { $ne: 0 } }).select("productId warehouseId qty").lean<Array<{ productId: Id; warehouseId: Id; qty: number }>>();
+  const products = new Map((await ProductModel.find({ tenantId, _id: { $in: stock.map(s => s.productId) } }).select("label unit purchaseCost").lean<Array<{ _id: Id; label: string; unit?: string; purchaseCost?: number }>>()).map(p => [String(p._id), p]));
+  const byProduct = new Map<string, { productId: string; label: string; unit: string; sites: Record<string, number>; transit: number; total: number; value: number }>();
+  for (const s of stock) {
+    const p = products.get(String(s.productId));
+    const row = byProduct.get(String(s.productId)) ?? { productId: String(s.productId), label: p?.label ?? "—", unit: p?.unit ?? "", sites: {}, transit: 0, total: 0, value: 0 };
+    const site = whs.get(String(s.warehouseId));
+    if (site) row.sites[site] = (row.sites[site] ?? 0) + s.qty; else row.transit += s.qty;
+    row.total += s.qty; row.value = Math.round(row.total * (p?.purchaseCost ?? 0));
+    byProduct.set(String(s.productId), row);
+  }
+  const rows = [...byProduct.values()].sort((a, b) => a.label.localeCompare(b.label));
+  return { sites: desks.map(d => ({ _id: String(d._id), name: d.name })), rows, totalValue: rows.reduce((t, r) => t + r.value, 0) };
 }

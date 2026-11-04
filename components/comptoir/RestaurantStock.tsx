@@ -17,7 +17,7 @@ const QTY = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 3 
 const num = (v: string) => { const t = v.replace(/\s/g, "").replace(",", "."); return t === "" ? NaN : Number(t); };
 
 export interface StockRow {
-  itemId: string; name: string; unit: string; category?: string; barcode?: string; packBarcode?: string; altBarcodes?: string[]; rhythm?: string; linked: boolean; preparation: boolean;
+  itemId: string; name: string; unit: string; category?: string; barcode?: string; packBarcode?: string; altBarcodes?: string[]; rhythm?: string; linked: boolean; preparation: boolean; batch?: boolean; kind?: string;
   pack: { label?: string; size?: number } | null;
   desk: number; reserve: number; total: number; unitCost: number | null; value: number | null;
   threshold?: number; reserveThreshold?: number; lowDesk: boolean; lowReserve: boolean;
@@ -121,7 +121,7 @@ const emptyLine = (r: StockRow): Line => ({ itemId: r.itemId, packs: "", quantit
 
 /** Réception en réserve : on scanne ou choisit les articles, quantités en paquets ou en unités, prix d'achat, lot et péremption. */
 export function ReceiveDialog({ deskId, rows, initial, costs, onClose, onDone }: { deskId: string; rows: StockRow[]; initial?: StockRow[]; costs: boolean; onClose: () => void; onDone: () => void }) {
-  const stock = rows.filter(r => !r.preparation);
+  const stock = rows.filter(r => !r.preparation && !r.batch);
   const [lines, setLines] = useState<Line[]>(() => (initial ?? []).map(emptyLine));
   const [supplier, setSupplier] = useState("");
   const [supplierId, setSupplierId] = useState("");

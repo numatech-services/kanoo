@@ -74,10 +74,12 @@ export async function ensureLinked(auth: TokenPayload, deskId: unknown, itemId: 
   const it = await ActivityItemModel.findOne({ _id: itemId, tenantId: auth.tenantId, deskId }).session(session ?? null).lean<ItemDoc | null>();
   if (!it) throw new BusinessRuleError("Article du comptoir introuvable.");
   if (it.productId) return it.productId;
-  const desk = await ActivityDeskModel.findOne({ _id: it.deskId, tenantId: auth.tenantId }).select("vatRate").session(session ?? null).lean<{ vatRate?: number } | null>();
+  const desk = await ActivityDeskModel.findOne({ _id: it.deskId, tenantId: auth.tenantId }).select("vatRate strictStock").session(session ?? null).lean<{ vatRate?: number; strictStock?: boolean } | null>();
   const vat = desk?.vatRate ?? 0;
   const code = `RST-${String(it._id).toUpperCase()}`;
   let product = await ProductModel.findOne({ tenantId: auth.tenantId, code }).select("_id").session(session ?? null).lean<{ _id: Id } | null>();
+  // Site ouvert par l'assistant : l'article de même nom garde la fiche du catalogue commun, pour consolider stocks et achats.
+  if (!product && desk?.strictStock) product = await ProductModel.findOne({ tenantId: auth.tenantId, label: new RegExp(`^${it.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }).sort({ createdAt: 1 }).select("_id").session(session ?? null).lean<{ _id: Id } | null>();
   if (!product) {
     const [p] = await ProductModel.create([{
       tenantId: auth.tenantId, code, label: it.name, unit: it.unit || "unité",
@@ -104,7 +106,7 @@ export async function ensureLinked(auth: TokenPayload, deskId: unknown, itemId: 
 }
 
 export interface StockRow {
-  itemId: string; name: string; unit: string; category?: string; barcode?: string; packBarcode?: string; altBarcodes?: string[]; rhythm?: string; linked: boolean; preparation: boolean;
+  itemId: string; name: string; unit: string; category?: string; barcode?: string; packBarcode?: string; altBarcodes?: string[]; rhythm?: string; linked: boolean; preparation: boolean; batch: boolean; kind: "resale" | "raw" | "both" | "preparation";
   pack: { label?: string; size?: number } | null;
   desk: number; reserve: number; total: number; unitCost: number | null; value: number | null;
   threshold?: number; reserveThreshold?: number; lowDesk: boolean; lowReserve: boolean;
@@ -116,8 +118,9 @@ export async function restaurantStock(tenantId: string, deskId: string, costs: b
   await syncLinkedItems(tenantId, deskId);
   const [reserveId, deskWh] = await Promise.all([deskReserve(tenantId, deskId), deskWarehouse(tenantId, deskId)]);
   const items = await ActivityItemModel.find({ tenantId, deskId, archived: { $ne: true } }).sort({ category: 1, name: 1 })
-    .lean<Array<ItemDoc & { threshold?: number; reserveThreshold?: number; pack?: { label?: string; size?: number }; recipe?: unknown[] }>>();
+    .lean<Array<ItemDoc & { threshold?: number; reserveThreshold?: number; pack?: { label?: string; size?: number }; recipe?: unknown[]; productionMode?: string }>>();
   const pids = items.map(i => i.productId).filter(Boolean) as Id[];
+  const usedInRecipes = new Set(items.flatMap(i => ((i.recipe ?? []) as Array<{ itemId: unknown }>).map(r => String(r.itemId))));
   const [res, lots] = await Promise.all([
     ProductStockModel.find({ tenantId, warehouseId: reserveId, productId: { $in: pids } }).select("productId qty").lean<Array<{ productId: Id; qty: number }>>(),
     StockLotModel.find({ tenantId, warehouseId: { $in: [reserveId, deskWh] }, productId: { $in: pids }, qty: { $gt: 0 }, expiryDate: { $ne: null } })
@@ -135,7 +138,8 @@ export async function restaurantStock(tenantId: string, deskId: string, costs: b
     const own = lots.filter(l => String(l.productId) === pid);
     const unitCost = costs ? i.unitCost || 0 : null;
     return {
-      itemId: String(i._id), name: i.name, unit: i.unit, category: i.category, barcode: i.barcode, packBarcode: i.packBarcode, altBarcodes: i.altBarcodes, rhythm: i.rhythm, linked: !!pid, preparation: !!i.recipe?.length,
+      itemId: String(i._id), name: i.name, unit: i.unit, category: i.category, barcode: i.barcode, packBarcode: i.packBarcode, altBarcodes: i.altBarcodes, rhythm: i.rhythm, linked: !!pid, preparation: !!i.recipe?.length && i.productionMode !== "batch", batch: !!i.recipe?.length && i.productionMode === "batch",
+      kind: i.recipe?.length ? "preparation" : usedInRecipes.has(String(i._id)) ? (i.salePrice ? "both" : "raw") : i.salePrice ? "resale" : "raw",
       pack: i.pack?.size ? { label: i.pack.label, size: i.pack.size } : null,
       desk, reserve, total: desk + reserve, unitCost, value: unitCost === null ? null : Math.round((desk + reserve) * unitCost),
       threshold: i.threshold, reserveThreshold: i.reserveThreshold,
