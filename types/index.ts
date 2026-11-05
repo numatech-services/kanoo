@@ -310,6 +310,7 @@ export interface DocMentions { object?: string; reference?: string; period?: str
 export interface InvoiceCorrection { correctedAt?: Date; correctionCount?: number; correctionReason?: string }
 
 export interface IInvoice extends DocMentions, InvoiceCorrection {
+  claimReceivedAt?: Date;
   installments?: Array<{ dueDate: Date; amount: number; label?: string }>;
   _id: Types.ObjectId;
   tenantId: Types.ObjectId;
@@ -402,6 +403,7 @@ export interface IDevis extends DocMentions {
 }
 
 export interface IPayment {
+  penaltyAmount?: number;
   withholdingAmount?: number;
   exchangeDifference?: number;
   _id: Types.ObjectId;

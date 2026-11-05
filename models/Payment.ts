@@ -3,6 +3,8 @@ import { IPayment } from "@/types";
 const PaymentSchema = new Schema<IPayment>({ tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true }, invoiceId: { type: Schema.Types.ObjectId, ref: "Invoice", required: true }, amount: { type: Number, required: true, min: 0 }, method: { type: String, enum: ["cash","bank_transfer","cheque","mobile_money","other"], required: true }, reference: String, date: { type: Date, required: true }, notes: String,
   /** Retenue à la source subie : le client a versé le net et retenu cette somme pour l'État (créance 4492, imputable sur l'IS/BIC). */
   withholdingAmount: { type: Number, default: 0, min: 0 },
+  /** Pénalité de marché retenue par le client sur sa facture : aucune sortie d'argent, la charge solde la créance. */
+  penaltyAmount: { type: Number, default: 0, min: 0 },
   /** Écart de change réalisé (règlement en devise) : > 0 perte (676), < 0 gain (776). La facture est soldée de amount + retenue + écart. */
   exchangeDifference: { type: Number, default: 0 },
   /**

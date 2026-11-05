@@ -1,5 +1,30 @@
 # Kanoo — Changelog
 
+## Marchés — conditions du contrat et frais d'exécution (novembre 2026)
+
+**Conditions du marché** (fiche du marché → Renseigner) : montant TTC, délai de paiement, date de départ de l'ordre de service, délai d'exécution, livraison effective, pénalité (1/2000e par jour, plafond facultatif), redevance et seuil, taux des intérêts moratoires.
+
+- **Redevance de régulation et FSSP** : calculée d'office sur un marché public, 1,05 % à partir de 5 000 000 FCFA (repris de l'article 7 du marché type). Taux et seuil modifiables par marché ; 0 la retire.
+- **Pénalités de retard** : comptées de la date limite à la livraison, ou à aujourd'hui tant qu'elle n'a pas eu lieu.
+- La redevance et les pénalités calculées entrent en engagé dans la marge à terminaison. La dépense saisie s'en déduit, sans double compte : si le montant réel est plus bas, ajustez le taux du marché.
+- **Pénalité retenue par le client** : saisie sur la facture concernée, sans sortie d'argent. La charge solde la créance et s'annule comme un encaissement.
+- Alertes sur la fiche : HT, TTC et TVA qui ne concordent pas, et ce qui reste à régler à l'État avant tout paiement du client. Sans TTC saisi, la référence se déduit du HT et de la TVA.
+- **Délai de paiement** : la facture du marché reprend le délai du contrat (30 jours à défaut). La date de réception de la déclaration de créance fixe l'échéance définitive.
+- **Intérêts moratoires** : estimés par facture à partir de la déclaration datée, règlements tardifs compris, sur 365 jours. Estimation non vérifiée : le taux est à renseigner et la formule à confirmer avec l'article 178 du Code des marchés publics. Ils restent hors marge ; leur encaissement n'est pas encore pris en charge.
+
+Non couvert : l'encaissement des intérêts moratoires (aucun compte de produit prévu) et les taux variables par période.
+
+**Frais du marché** : une ligne par type de dépense, saisie en une fois (payée, à payer ou prévue). Le projet d'exécution se crée à la première dépense.
+
+- Types fournis : redevance, frais bancaires, marchandises, matières, livraison, sous-traitance, missions, pénalités, autres. Chaque organisation ajoute les siens, avec leur compte de charge.
+- Les comptes proposés (dont 648000 pour la redevance) sont à valider par le comptable.
+- Les droits d'enregistrement restent dans leur panneau : un type sur le compte 646 est refusé.
+- Nouvelle catégorie « Frais bancaires » (631) dans les dépenses du marché.
+
+**Droits** : le comptable lit et modifie désormais les marchés (il n'y avait pas accès). Les conditions financières sont réservées au gérant et à la comptabilité. Une retenue de pénalité ne se rembourse pas sur un avoir.
+
+Déploiement : lancer `npm run indexes` (nouveau modèle `MarketCostType`).
+
 ## Restauration — lancement des sites et corrections de l'audit (novembre 2026)
 
 **Lancer un site** (Restauration → Ouverture des sites) :

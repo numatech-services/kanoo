@@ -22,6 +22,8 @@ const LineSchema = new Schema({
   projectId: { type: Schema.Types.ObjectId, ref: "Project" },
   activityId: { type: Schema.Types.ObjectId, ref: "Activity" },
   costCenter: { type: String, maxlength: 20 },
+  /** Type de dépense du marché (redevance, frais bancaires, livraison…). */
+  costTypeId: { type: Schema.Types.ObjectId, ref: "MarketCostType" },
 }, { _id: false });
 
 const PaymentSchema = new Schema({

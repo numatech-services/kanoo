@@ -53,7 +53,7 @@ export const POST = withAuth("payments", "delete", async (req: NextRequest, auth
     if (invoice) {
       const withheld = payment.withholdingAmount || 0;
       const fx = payment.exchangeDifference || 0;
-      invoice.paidAmount = Math.max(0, (invoice.paidAmount || 0) - payment.amount - withheld - fx);
+      invoice.paidAmount = Math.max(0, (invoice.paidAmount || 0) - payment.amount - withheld - fx - (payment.penaltyAmount || 0));
       if (withheld) invoice.retenueSource = Math.max(0, (invoice.retenueSource || 0) - withheld);
       // Une facture annulée par avoir ou passée en perte garde son statut.
       invoice.status = statusAfterPaymentRemoved(invoice);

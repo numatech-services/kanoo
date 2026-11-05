@@ -10,6 +10,8 @@ import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill } from "@/components/ui/Primitives";
 import { RetentionPanel } from "@/components/contracts/RetentionPanel";
 import { RegistrationPanel } from "@/components/contracts/RegistrationPanel";
+import { MarketTermsPanel, type TermsSettings } from "@/components/contracts/MarketTermsPanel";
+import { MarketCostsPanel } from "@/components/contracts/MarketCostsPanel";
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
 import { ImputedFlows } from "@/components/shared/ImputedFlows";
 import { useMe, meCanDo } from "@/lib/useMe";
@@ -29,7 +31,7 @@ async function send(url: string, method: string, body?: unknown) {
 const pct = (n?: number | null) => (n === null || n === undefined ? "—" : `${n.toLocaleString("fr-FR")} %`);
 
 interface Milestone { _id: string; label: string; amount: number; kind?: "deposit" | "standard"; dueDate?: string; status: string; invoiceId?: string }
-interface Contract {
+interface Contract extends TermsSettings {
   _id: string; title: string; reference: string; status: string; type: string; amount: number; isRecurring?: boolean;
   clientId?: { name?: string } | null; projectId?: { _id: string; code: string; name: string } | null; devisId?: { _id: string; number: string } | null;
   milestones?: Milestone[];
@@ -49,6 +51,7 @@ export default function ContractDetailPage() {
   const [invoiceFor, setInvoiceFor] = useState<null | { mode: "deposit" | "standard" }>(null);
   const [milestoneOpen, setMilestoneOpen] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
+  const [claimFor, setClaimFor] = useState<null | { invoiceId: string; number: string; date: string }>(null);
 
   // Lectures silencieuses : l'écran dit lui-même « introuvable ».
   const contractRes = useApi<Contract | null>(id ? `/api/contracts/${id}` : null, c => (c?.success === false ? null : c?.data ?? null), null, { quiet: true });
@@ -116,6 +119,10 @@ export default function ContractDetailPage() {
 
       {finance && isMarket && <MarketPanel f={finance} hasProject={!!contract.projectId} />}
 
+      {finance && isMarket && <MarketTermsPanel contractId={id} settings={contract} f={finance} canEdit={canEdit} onChange={load} />}
+
+      {finance && isMarket && <MarketCostsPanel contractId={id} f={finance} projectId={contract.projectId?._id} canAdd={canBuy} canManage={canEdit} onChange={load} />}
+
       {isMarket && (
         <section className="surface-card overflow-hidden">
           <div className="px-5 py-4 border-b border-line flex items-center justify-between gap-2">
@@ -154,7 +161,7 @@ export default function ContractDetailPage() {
           <h2 className="font-semibold text-ink px-5 py-4 border-b border-line">Factures du marché</h2>
           <div className="overflow-x-auto">
           <table className="table-dense w-full">
-            <thead><tr className="text-left text-ink2"><th>N°</th><th>Nature</th><th>Date</th><th className="text-right">HT</th><th className="text-right">TTC</th><th className="text-right">Encaissé</th><th>Statut</th></tr></thead>
+            <thead><tr className="text-left text-ink2"><th>N°</th><th>Nature</th><th>Date</th><th className="text-right">HT</th><th className="text-right">TTC</th><th className="text-right">Encaissé</th><th>Statut</th><th>Déclaration de créance</th><th>Échéance</th><th className="text-right">Intérêts</th></tr></thead>
             <tbody>
               {finance.invoices.map(i => (
                 <tr key={i._id} className="border-t border-line">
@@ -165,6 +172,14 @@ export default function ContractDetailPage() {
                   <td className="text-right font-mono whitespace-nowrap">{formatMoney(i.totalTTC)}</td>
                   <td className="text-right font-mono whitespace-nowrap">{i.documentType === "credit_note" ? "—" : formatMoney(i.paidAmount)}</td>
                   <td><StatusBadge status={i.status} /></td>
+                  <td className="text-xs whitespace-nowrap">
+                    {i.documentType === "credit_note" || i.status === "draft" || i.status === "cancelled" ? "—" : <>
+                      {i.claimReceivedAt ? `Reçue le ${new Date(i.claimReceivedAt).toLocaleDateString("fr-FR")}` : "Non datée"}
+                      {canInvoice && <button disabled={busy} onClick={() => setClaimFor({ invoiceId: i._id, number: i.number, date: i.claimReceivedAt ? new Date(i.claimReceivedAt).toISOString().slice(0, 10) : "" })} className="ml-1 text-section font-semibold hover:underline">{i.claimReceivedAt ? "Modifier" : "Dater"}</button>}
+                    </>}
+                  </td>
+                  <td className="text-xs text-ink2 whitespace-nowrap">{i.dueDate ? new Date(i.dueDate).toLocaleDateString("fr-FR") : "—"}{i.dueDate && !i.claimReceivedAt && i.documentType === "invoice" && <span className="block text-[11px] text-ink3">provisoire</span>}{i.daysLate > 0 && <span className="block text-neg">{i.daysLate} j de retard</span>}</td>
+                  <td className="text-right font-mono whitespace-nowrap">{i.lateInterest ? formatMoney(i.lateInterest) : "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -195,6 +210,10 @@ export default function ContractDetailPage() {
       {invoiceFor && finance && (
         <InvoiceDialog contractId={id} mode={invoiceFor.mode} f={finance} onClose={() => setInvoiceFor(null)}
           onDone={text => { setInvoiceFor(null); setMsg({ ok: true, text }); load(); }} />
+      )}
+      {claimFor && (
+        <ClaimDialog {...claimFor} paymentDays={finance?.terms.paymentDays ?? 30} onClose={() => setClaimFor(null)}
+          onSave={value => { const { invoiceId } = claimFor; setClaimFor(null); run(() => send(`/api/contracts/${id}/invoice`, "PATCH", { invoiceId, claimReceivedAt: value }), "Échéance de la facture mise à jour."); }} />
       )}
       {signOpen && (
         <SignDialog onClose={() => setSignOpen(false)}
@@ -254,7 +273,7 @@ function MarketPanel({ f, hasProject }: { f: MarketFinance; hasProject: boolean 
         </section>
         <section className="surface-card p-5 lg:col-span-2">
           <h2 className="font-semibold text-ink mb-1">Dépenses du marché</h2>
-          {!hasProject && <p className="text-sm text-warn mb-2">Créez le projet d&apos;exécution : les dépenses s&apos;imputent à ce projet (achats, commandes, notes de frais, charges). Seuls les droits d&apos;enregistrement sont comptés sans lui.</p>}
+          {!hasProject && <p className="text-sm text-warn mb-2">Les dépenses s&apos;imputent au projet d&apos;exécution : il est créé à la première dépense ajoutée ci-dessous. Avant lui, seuls les montants calculés (droits d&apos;enregistrement, redevance, pénalités) sont comptés.</p>}
           {(
             <>
               <p className="text-[11px] text-ink3 mb-2">Classées selon le compte de charge. Engagé : bons de commande et achats pas encore comptabilisés. Réalisé : comptabilisé.</p>
@@ -337,6 +356,23 @@ function InvoiceDialog({ contractId, mode, f, onClose, onDone }: { contractId: s
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
           <button onClick={submit} disabled={saving || !(amount > 0)} className={buttonClass("primary", "md")}>{saving ? "Création…" : "Créer la facture"}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** Réception de la déclaration de créance : c'est elle qui fait courir le délai de paiement du marché. */
+function ClaimDialog({ number, date, paymentDays, onClose, onSave }: { number: string; date: string; paymentDays: number; onClose: () => void; onSave: (value: string | null) => void }) {
+  const [value, setValue] = useState(date || todayLocal());
+  return (
+    <Modal open onClose={onClose} title={`Déclaration de créance — ${number}`} size="sm">
+      <div className="space-y-4">
+        <FormField label="Reçue par le client le" required hint={`L'échéance devient cette date + ${paymentDays} jours.`}><input type="date" className={inputCls} value={value} max={todayLocal()} onChange={e => setValue(e.target.value)} /></FormField>
+        <div className="flex justify-end gap-2">
+          {date && <button onClick={() => onSave(null)} className={buttonClass("secondary", "md")}>Retirer la date</button>}
+          <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+          <button onClick={() => onSave(value)} disabled={!value} className={buttonClass("primary", "md")}>Enregistrer</button>
         </div>
       </div>
     </Modal>

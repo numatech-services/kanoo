@@ -78,6 +78,7 @@ const PME_ACCOUNTANT: ResourcePermissions = {
   clients: ["read"],
   suppliers: ["read"],
   subscriptions: ["read"],
+  contracts: ["read", "update"],
   invoices: ["read", "update"],
   payments: ["create", "read", "update"],
   treasuryAccounts: ["create", "read", "update", "delete"],

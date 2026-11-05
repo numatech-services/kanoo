@@ -17,7 +17,36 @@ const EDITABLE = [
   "retentionRate", "receptionProvisoireDate", "receptionDefinitiveDate", "guaranteeMonths",
   // Enregistrement (le constat et le paiement passent par leur route).
   "buyerType", "instrument", "approvalDate", "isSubcontract", "parentContractId", "pages", "fundingSource", "tvaRate",
+  // Conditions financières du marché.
+  "amountTTC", "paymentDays", "serviceOrderDate", "executionDelay", "executionUnit", "deliveredAt",
+  "penaltyDivisor", "penaltyCapRate", "regulationRate", "regulationThreshold", "lateInterestRate",
 ] as const;
+
+/** Conditions qui se vident : `null` efface la valeur (le calcul reprend le défaut). */
+export const MARKET_TERMS = ["amountTTC", "paymentDays", "serviceOrderDate", "executionDelay", "executionUnit", "deliveredAt", "penaltyDivisor", "penaltyCapRate", "regulationRate", "regulationThreshold", "lateInterestRate"];
+
+const CLEARABLE = ["amountTTC", "paymentDays", "serviceOrderDate", "executionDelay", "deliveredAt", "penaltyDivisor", "penaltyCapRate", "regulationRate", "regulationThreshold", "lateInterestRate"] as const;
+
+const TERM_LIMITS: Array<[(typeof CLEARABLE)[number], number, number, string]> = [
+  ["amountTTC", 0, Number.MAX_SAFE_INTEGER, "Montant TTC invalide."],
+  ["paymentDays", 0, 365, "Délai de paiement : entre 0 et 365 jours."],
+  ["executionDelay", 0, 3650, "Délai d'exécution invalide."],
+  ["penaltyDivisor", 1, Number.MAX_SAFE_INTEGER, "Pénalité : indiquez le diviseur (2000 pour 1/2000e par jour)."],
+  ["penaltyCapRate", 0, 1, "Plafond des pénalités invalide."],
+  ["regulationRate", 0, 0.5, "Taux de redevance invalide."],
+  ["regulationThreshold", 0, Number.MAX_SAFE_INTEGER, "Seuil de redevance invalide."],
+  ["lateInterestRate", 0, 1, "Taux d'intérêts moratoires invalide."],
+];
+
+/** Sépare ce qui s'écrit de ce qui s'efface : `$set` ignore une valeur vide. */
+export function contractUpdate(data: Record<string, unknown>) {
+  const $set: Record<string, unknown> = {}, $unset: Record<string, 1> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if ((v === null || v === undefined) && (CLEARABLE as readonly string[]).includes(k)) $unset[k] = 1;
+    else $set[k] = v;
+  }
+  return { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) };
+}
 
 /** Champs autorisés du corps, et refus si une partie liée n'appartient pas à l'organisation. */
 export async function contractFields(tenantId: string, body: Record<string, unknown>): Promise<{ data: Record<string, unknown>; error?: string }> {
@@ -33,7 +62,7 @@ export async function contractFields(tenantId: string, body: Record<string, unkn
     if (v === undefined || v === null) continue;
     if (!Types.ObjectId.isValid(String(v)) || !(await model.exists({ _id: v, tenantId }))) return { data, error: msg };
   }
-  if ("amount" in data && !(Number(data.amount) >= 0)) return { data, error: "Montant invalide." };
+  if ("amount" in data && (data.amount === null || !(Number(data.amount) >= 0))) return { data, error: "Montant invalide." };
   if ("retentionRate" in data) {
     const r = Number(data.retentionRate ?? 0);
     if (!(r >= 0 && r <= MAX_RETENTION_RATE)) return { data, error: "Retenue de garantie : entre 0 et 10 %." };
@@ -45,6 +74,21 @@ export async function contractFields(tenantId: string, body: Record<string, unkn
     if (!Types.ObjectId.isValid(String(data.parentContractId)) || !(await ContractModel.exists({ _id: data.parentContractId, tenantId }))) return { data, error: "Marché principal introuvable." };
   }
   if ("guaranteeMonths" in data && !(Number(data.guaranteeMonths) >= 0 && Number(data.guaranteeMonths) <= 60)) return { data, error: "Délai de garantie : entre 0 et 60 mois." };
+  for (const [field, min, max, msg] of TERM_LIMITS) {
+    const v = data[field];
+    if (v === undefined || v === null) continue;
+    const n = typeof v === "number" || typeof v === "string" ? Number(v) : NaN;
+    if (!(n >= min && n <= max)) return { data, error: msg };
+    if (["paymentDays", "executionDelay"].includes(field) && !Number.isInteger(n)) return { data, error: "Un délai se compte en nombre entier." };
+    data[field] = n;
+  }
+  for (const field of ["serviceOrderDate", "deliveredAt"] as const) {
+    const v = data[field];
+    if (v === undefined || v === null) continue;
+    if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(v) || isNaN(new Date(v).getTime())) return { data, error: "Date invalide." };
+    if (field === "deliveredAt" && new Date(v).getTime() > Date.now() + 86_400_000) return { data, error: "La livraison ne peut pas être dans le futur." };
+  }
+  if ("executionUnit" in data && data.executionUnit !== undefined && !["days", "months"].includes(String(data.executionUnit))) return { data, error: "Unité du délai : jours ou mois." };
   return { data };
 }
 

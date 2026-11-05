@@ -38,6 +38,27 @@ const ContractSchema = new Schema({
     default: "virement",
   },
 
+  // Conditions financières du marché (voir lib/market-terms).
+  /** Montant contractuel TTC : base de la redevance et des pénalités quand il est renseigné. */
+  amountTTC: { type: Number, min: 0 },
+  /** Délai de paiement en jours calendaires ; il court de la réception de la déclaration de créance. */
+  paymentDays: { type: Number, min: 0, max: 365 },
+  /** Date de départ indiquée dans l'ordre de service. */
+  serviceOrderDate: Date,
+  executionDelay: { type: Number, min: 0, max: 3650 },
+  executionUnit: { type: String, enum: ["days", "months"], default: "days" },
+  /** Livraison effective : arrête le décompte des pénalités. */
+  deliveredAt: Date,
+  /** Pénalité journalière : 1 / diviseur du montant du marché (2000 pour 1/2000e). */
+  penaltyDivisor: { type: Number, min: 1 },
+  /** Plafond des pénalités, en fraction du marché (facultatif). */
+  penaltyCapRate: { type: Number, min: 0, max: 1 },
+  /** Redevance de régulation et FSSP : fraction du marché ; absent = taux d'office d'un marché public. */
+  regulationRate: { type: Number, min: 0, max: 0.5 },
+  regulationThreshold: { type: Number, min: 0 },
+  /** Taux annuel des intérêts moratoires (fraction) ; absent = pas de calcul. */
+  lateInterestRate: { type: Number, min: 0, max: 1 },
+
   // Récurrence
   isRecurring: { type: Boolean, default: false },
   billingFrequency: {

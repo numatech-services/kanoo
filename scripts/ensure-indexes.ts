@@ -36,6 +36,8 @@ async function main() {
   // Import après connexion : les modèles s'enregistrent à l'import.
   const models = await Promise.all([
     import("../models/DunningLog").then(m => m.DunningLogModel),
+    // Types de dépense des marchés : un nom et un type d'office par organisation.
+    import("../models/MarketCostType").then(m => m.MarketCostTypeModel),
     // Comptoirs (The Spot) : tickets idempotents, caisse ouverte unique,
     // relevés mobile money sans doublon, passages des tâches planifiées.
     import("../models/ComptoirSale").then(m => m.ComptoirSaleModel),

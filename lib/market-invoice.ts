@@ -8,6 +8,7 @@ import { TVA_TAUX_STANDARD } from "@/lib/niger-fiscal";
 import { BusinessRuleError } from "@/lib/errors";
 import { retentionFor, RETENTION_ACCOUNT } from "@/lib/retention";
 import { registerLedgerAccount } from "@/lib/treasury";
+import { paymentDaysOf } from "@/lib/market-terms";
 import type { TokenPayload } from "@/lib/auth";
 
 export class MarketError extends BusinessRuleError {}
@@ -16,7 +17,7 @@ type Milestone = { _id: Types.ObjectId; label: string; amount: number; dueDate?:
 export type MarketContract = {
   _id: Types.ObjectId; reference: string; title: string; type: string; status: string; amount: number;
   clientId?: unknown; projectId?: unknown; devisId?: unknown; invoiceIds: unknown[]; milestones: Milestone[];
-  lastBilledDate?: Date; retentionRate?: number; tvaRate?: number;
+  lastBilledDate?: Date; retentionRate?: number; tvaRate?: number; paymentDays?: number;
   save: (o?: { session?: ClientSession }) => Promise<unknown>;
   markModified: (p: string) => void;
 };
@@ -143,7 +144,8 @@ export async function invoiceMarket(auth: TokenPayload, contract: MarketContract
   const issueDate = input.issueDate ? new Date(String(input.issueDate)) : new Date();
   if (isNaN(issueDate.getTime())) throw new MarketError("Date d'émission invalide.");
   const dueDate = new Date(issueDate);
-  dueDate.setDate(dueDate.getDate() + (Number(input.dueDays) > 0 ? Number(input.dueDays) : 30));
+  // Délai du marché ; la date définitive suit la réception de la déclaration de créance.
+  dueDate.setDate(dueDate.getDate() + (Number(input.dueDays) > 0 ? Number(input.dueDays) : paymentDaysOf(contract)));
 
   // Brouillon : numéro définitif attribué à l'émission.
   const number = provisionalNumber();

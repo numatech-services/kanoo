@@ -125,6 +125,8 @@ const InvoiceSchema = new Schema<IInvoice>(
         return this.documentType !== "credit_note";
       },
     },
+    /** Réception de la déclaration de créance par le client public : fait courir le délai de paiement du marché. */
+    claimReceivedAt: Date,
     paidAmount: { type: Number, default: 0 },
 
     /**

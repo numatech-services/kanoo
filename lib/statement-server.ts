@@ -11,7 +11,7 @@ interface InvoiceRow {
 }
 interface PaymentRow {
   _id: unknown; date: Date; amount: number; reference?: string; method?: string;
-  withholdingAmount?: number; exchangeDifference?: number;
+  withholdingAmount?: number; exchangeDifference?: number; penaltyAmount?: number;
 }
 
 /**
@@ -35,7 +35,7 @@ export async function clientStatementData(tenantId: unknown, clientId: string, t
   // `clientId` absent du modèle, il ne ressortait JAMAIS — le relevé montrait
   // chaque client débiteur de tout ce qui lui avait été facturé.
   const payments = await PaymentModel.find({ tenantId, invoiceId: { $in: invoices.map(i => i._id) }, status: { $nin: ["pending", "cancelled"] } })
-    .select("date amount reference method withholdingAmount exchangeDifference")
+    .select("date amount reference method withholdingAmount exchangeDifference penaltyAmount")
     .sort({ date: 1 }).limit(3_000).lean<PaymentRow[]>();
 
   // Brouillon supprimé (annulé sans avoir) : n'a jamais existé pour le client.
@@ -52,13 +52,13 @@ export async function clientStatementData(tenantId: unknown, clientId: string, t
       dueDate: i.dueDate,
     })),
     ...payments.map<StatementSource>(p => {
-      const withheld = Math.round(p.withholdingAmount || 0), fx = Math.round(p.exchangeDifference || 0);
-      const extras = [withheld ? `retenue à la source ${withheld.toLocaleString("fr-FR")}` : "", fx ? `écart de change ${fx.toLocaleString("fr-FR")}` : ""].filter(Boolean);
+      const withheld = Math.round(p.withholdingAmount || 0), fx = Math.round(p.exchangeDifference || 0), penalty = Math.round(p.penaltyAmount || 0);
+      const extras = [withheld ? `retenue à la source ${withheld.toLocaleString("fr-FR")}` : "", fx ? `écart de change ${fx.toLocaleString("fr-FR")}` : "", penalty ? `pénalité retenue ${penalty.toLocaleString("fr-FR")}` : ""].filter(Boolean);
       return {
         _id: p._id, kind: "payment", date: p.date,
         reference: p.reference || "Règlement",
         label: [p.method, ...extras].filter(Boolean).join(" · "),
-        amount: -Math.abs(p.amount + withheld + fx),
+        amount: -Math.abs(p.amount + withheld + fx + penalty),
       };
     }),
     // Avoir remboursé : l'argent rendu fait remonter le solde du client.

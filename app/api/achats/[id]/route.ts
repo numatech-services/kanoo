@@ -59,7 +59,12 @@ export const PATCH = withAuth("purchases", "update", async (req: NextRequest, au
       p.supplierId = s?._id ?? undefined;
       p.payee = s ? s.name : String(body.payee).trim().slice(0, 160);
     }
-    if ("lines" in body) p.set(await buildPurchaseLines(auth.tenantId, body.lines, body));
+    if ("lines" in body) {
+      const built = await buildPurchaseLines(auth.tenantId, body.lines, body);
+      // Le type de dépense du marché survit à la modification d'un brouillon.
+      const old = p.lines as Array<{ accountCode: string; costTypeId?: unknown }>;
+      p.set({ ...built, lines: built.lines.map((l, i) => (old[i]?.costTypeId && old[i].accountCode === l.accountCode ? { ...l, costTypeId: old[i].costTypeId } : l)) });
+    }
     if (body.date) p.date = new Date(body.date);
     if ("dueDate" in body) p.dueDate = body.dueDate ? new Date(body.dueDate) : undefined;
     if ("supplierRef" in body) p.supplierRef = String(body.supplierRef ?? "").slice(0, 80);

@@ -17,6 +17,8 @@ import { BusinessRuleError } from "@/lib/errors";
  * réel sur la facture d'origine (réglé − déjà rendu − dû après avoirs).
  */
 
+import { PaymentModel } from "@/models/Payment";
+
 type CreditNote = {
   _id: unknown; number: string; documentType?: string; status: string; clientId: unknown; totalTTC: number;
   originalInvoiceId?: unknown; refundedAmount?: number;
@@ -28,7 +30,9 @@ export async function refundableFor(tenantId: string, cn: CreditNote, session?: 
     .select("totalTTC paidAmount creditedAmount refundedAmount")
     .lean<{ totalTTC: number; paidAmount?: number; creditedAmount?: number; refundedAmount?: number } | null>();
   if (!orig) return 0;
-  const overpaid = (orig.paidAmount ?? 0) - (orig.refundedAmount ?? 0) - (orig.totalTTC - (orig.creditedAmount ?? 0));
+  // Une pénalité retenue compte dans le payé sans avoir été encaissée : elle ne se rembourse pas.
+  const penalties = await PaymentModel.find({ tenantId, invoiceId: cn.originalInvoiceId, status: "effective", penaltyAmount: { $gt: 0 } }).select("penaltyAmount").session(session ?? null).lean<Array<{ penaltyAmount: number }>>();
+  const overpaid = (orig.paidAmount ?? 0) - penalties.reduce((t, p) => t + p.penaltyAmount, 0) - (orig.refundedAmount ?? 0) - (orig.totalTTC - (orig.creditedAmount ?? 0));
   return Math.max(0, Math.round(Math.min(cn.totalTTC - (cn.refundedAmount ?? 0), overpaid)));
 }
 
