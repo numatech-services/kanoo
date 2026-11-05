@@ -49,6 +49,10 @@ describe("pénalités de retard", () => {
     const p = penaltyEstimate({ ...base, penaltyCapRate: 0.05 }, d("2028-12-10"));
     expect(p).toMatchObject({ estimate: 1_076_069, capped: true });
   });
+  it("marché public : plafond de 10 % sans clause contraire", () => {
+    expect(penaltyEstimate(base, d("2028-12-10"), "public_establishment")).toMatchObject({ estimate: 2_152_139, capped: true });
+    expect(penaltyEstimate(base, d("2028-12-10"), "private")?.capped).toBe(false);
+  });
   it("sans ordre de service, pas de calcul", () => {
     expect(penaltyEstimate(LOT1)).toBeNull();
   });

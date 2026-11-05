@@ -60,7 +60,7 @@ export function MarketTermsPanel({ contractId, settings, f, canEdit, onChange }:
             </>
           ) : <Line label="Pénalités de retard" value="—" hint="Renseignez la date de départ de l'ordre de service et le délai d'exécution" />}
           <Line label="Intérêts moratoires estimés" value={interest.rate === null ? "Taux à renseigner" : formatMoney(interest.total)}
-            hint={interest.rate === null ? "Taux à vérifier dans le Code des marchés publics" : `Non vérifié : ${showRate(interest.rate)} par an sur 365 jours, à confirmer avec le texte · hors marge`} />
+            hint={interest.rate === null ? "Art. 178 : taux fixé par le ministre des Finances, au moins le taux d'escompte BCEAO + 1 point" : `Estimation : ${showRate(interest.rate)} par an sur 365 jours, dès le lendemain de l'échéance (art. 178) · hors marge`} />
         </div>
       </div>
       {t.alerts.map(a => <p key={a} className="mt-2 p-2 rounded-lg bg-warn-50 text-warn text-xs">{a}</p>)}
@@ -99,7 +99,7 @@ function TermsDialog({ contractId, settings: s, onClose, onDone }: { contractId:
         {error && <p className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
         <div className="grid sm:grid-cols-2 gap-3">
           <FormField label="Montant du marché TTC (FCFA)" hint={`Montant HT : ${formatMoney(s.amount)}`}><input type="number" min={0} className={inputCls} value={v.amountTTC} onChange={u("amountTTC")} /></FormField>
-          <FormField label="Délai de paiement (jours)" hint="Vide : 30 jours"><input type="number" min={0} max={365} className={inputCls} value={v.paymentDays} onChange={u("paymentDays")} placeholder="60" /></FormField>
+          <FormField label="Délai de paiement (jours)" hint="Vide : 30 jours. Marché public : 60 jours au plus (art. 177)"><input type="number" min={0} max={365} className={inputCls} value={v.paymentDays} onChange={u("paymentDays")} placeholder="60" /></FormField>
           <FormField label="Date de départ de l'ordre de service"><input type="date" className={inputCls} value={v.serviceOrderDate} onChange={u("serviceOrderDate")} /></FormField>
           <div className="grid grid-cols-2 gap-2">
             <FormField label="Délai d'exécution"><input type="number" min={0} className={inputCls} value={v.executionDelay} onChange={u("executionDelay")} placeholder="1" /></FormField>
@@ -108,11 +108,11 @@ function TermsDialog({ contractId, settings: s, onClose, onDone }: { contractId:
           <FormField label="Livraison effective le" hint="Arrête le décompte des pénalités"><input type="date" className={inputCls} value={v.deliveredAt} onChange={u("deliveredAt")} /></FormField>
           <div className="grid grid-cols-2 gap-2">
             <FormField label="Pénalité par jour : 1 /" hint="2000 pour 1/2000e"><input type="number" min={1} className={inputCls} value={v.penaltyDivisor} onChange={u("penaltyDivisor")} placeholder="2000" /></FormField>
-            <FormField label="Plafond (%)" hint="Si le contrat en fixe un"><input inputMode="decimal" className={inputCls} value={v.penaltyCapRate} onChange={u("penaltyCapRate")} /></FormField>
+            <FormField label="Plafond (%)" hint="Vide : 10 % sur un marché public (art. 158)"><input inputMode="decimal" className={inputCls} value={v.penaltyCapRate} onChange={u("penaltyCapRate")} /></FormField>
           </div>
           <FormField label="Redevance et FSSP (%)" hint="Vide : 1,05 % sur un marché public. 0 : aucune."><input inputMode="decimal" className={inputCls} value={v.regulationRate} onChange={u("regulationRate")} placeholder="1,05" /></FormField>
           <FormField label="Seuil de la redevance (FCFA)" hint="Vide : 5 000 000"><input type="number" min={0} className={inputCls} value={v.regulationThreshold} onChange={u("regulationThreshold")} /></FormField>
-          <FormField label="Intérêts moratoires (% par an)" hint="À reprendre du texte applicable. Vide : pas de calcul."><input inputMode="decimal" className={inputCls} value={v.lateInterestRate} onChange={u("lateInterestRate")} /></FormField>
+          <FormField label="Intérêts moratoires (% par an)" hint="Art. 178 : taux du ministre des Finances, au moins le taux d'escompte BCEAO + 1 point. Vide : pas de calcul."><input inputMode="decimal" className={inputCls} value={v.lateInterestRate} onChange={u("lateInterestRate")} /></FormField>
         </div>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>

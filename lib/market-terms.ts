@@ -15,6 +15,8 @@ export const REGULATION_RATE = 0.0105;
 export const REGULATION_THRESHOLD = 5_000_000;
 /** Base de calcul des intérêts moratoires (jours par an) : hypothèse, le texte n'étant pas vérifié. */
 export const INTEREST_DAY_BASIS = 365;
+/** Plafond des pénalités d'un marché public : 10 % du montant (Code des marchés publics, art. 158). */
+export const PUBLIC_PENALTY_CAP = 0.1;
 
 export interface MarketTerms {
   amount?: number; amountTTC?: number; tvaRate?: number;
@@ -88,7 +90,7 @@ export function deliveryDeadline(c: MarketTerms): Date | null {
  * de la date limite à la livraison (ou à aujourd'hui tant qu'elle n'a pas eu
  * lieu), dans la limite du plafond s'il en existe un.
  */
-export function penaltyEstimate(c: MarketTerms, asOf: Date = new Date()) {
+export function penaltyEstimate(c: MarketTerms, asOf: Date = new Date(), buyerType?: string) {
   const deadline = deliveryDeadline(c);
   if (!deadline) return null;
   const delivered = c.deliveredAt ?? c.receptionProvisoireDate;
@@ -98,7 +100,8 @@ export function penaltyEstimate(c: MarketTerms, asOf: Date = new Date()) {
   const base = marketBase(c);
   const perDay = divisor ? Math.round(base.amount / divisor) : 0;
   const raw = divisor ? Math.round(base.amount * daysLate / divisor) : 0;
-  const cap = c.penaltyCapRate && c.penaltyCapRate > 0 ? Math.round(base.amount * c.penaltyCapRate) : null;
+  const capRate = c.penaltyCapRate && c.penaltyCapRate > 0 ? c.penaltyCapRate : BUYER_TYPES[buyerType as BuyerType]?.public ? PUBLIC_PENALTY_CAP : 0;
+  const cap = capRate > 0 ? Math.round(base.amount * capRate) : null;
   return { deadline, delivered: !!delivered, daysLate, perDay, estimate: cap !== null ? Math.min(raw, cap) : raw, capped: cap !== null && raw > cap, baseKind: base.kind };
 }
 

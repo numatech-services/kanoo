@@ -193,7 +193,7 @@ export async function marketFinance(tenantId: string, contract: ContractLike): P
   const recordedOf = (key: string) => { const t = typeOf(key), v = t ? typed.get(String(t._id)) : undefined; return (v?.committed ?? 0) + (v?.actual ?? 0); };
   const isMarket = contract.type === "client";
   const reg = regulationEstimate(contract, buyerType);
-  const pen = isMarket ? penaltyEstimate(contract) : null;
+  const pen = isMarket ? penaltyEstimate(contract, new Date(), buyerType) : null;
   const pending = new Map<string, number>();
   const expect = (key: string, estimate: number) => {
     const rest = Math.max(0, estimate - recordedOf(key)), t = typeOf(key);
@@ -240,8 +240,9 @@ export async function marketFinance(tenantId: string, contract: ContractLike): P
   const registrationLeft = registration ? Math.max(0, (registration.assessed || registration.estimate) - registration.paid) : 0;
   const regulationLeft = reg.applicable ? Math.max(0, reg.estimate - regulationPaid) : 0;
   const alerts: string[] = [];
+  if (pen?.capped) alerts.push("Pénalités plafonnées : l'acheteur public peut résilier le marché à ce niveau (art. 158 du Code des marchés publics).");
   if (amountsMismatch(contract)) alerts.push("Le montant HT, le montant TTC et la TVA du marché ne concordent pas : vérifiez-les, la marge en dépend.");
-  if (registrationLeft + regulationLeft > 0 && reg.applicable) alerts.push(`Reste à régler à l'État avant tout paiement du client, si le marché le prévoit : ${(registrationLeft + regulationLeft).toLocaleString("fr-FR")} FCFA (enregistrement ${registrationLeft.toLocaleString("fr-FR")}, redevance ${regulationLeft.toLocaleString("fr-FR")}).`);
+  if (registrationLeft + regulationLeft > 0 && reg.applicable) alerts.push(`Reste à régler à l'État avant tout paiement du client (art. 166 du Code des marchés publics) : ${(registrationLeft + regulationLeft).toLocaleString("fr-FR")} FCFA (enregistrement ${registrationLeft.toLocaleString("fr-FR")}, redevance ${regulationLeft.toLocaleString("fr-FR")}).`);
 
   return {
     quote: quote ? { _id: String(quote._id), number: quote.number, status: quote.status, totalHT: quote.totalHT, totalTTC: quote.totalTTC } : null,
