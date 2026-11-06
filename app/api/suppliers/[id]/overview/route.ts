@@ -1,3 +1,4 @@
+import { marketsOnly } from "@/lib/contract-input";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, notFound, tenantFilter } from "@/lib/api-helpers";
@@ -74,7 +75,7 @@ export const GET = withAuth("suppliers", "read", async (_req: NextRequest, auth:
     gated(access.commandes, () => sum(CommandeModel, { ...tf, supplierId, status: { $ne: "cancelled" } }, "$totalTTC"), 0),
     gated(access.commitments, () => sum(CommitmentOrderModel, { ...tf, supplierId }, "$amount"), 0),
     gated(access.commandes, () => section(CommandeModel, bySupplier, { orderDate: -1 }, "number totalTTC status orderDate"), EMPTY),
-    gated(access.contracts, () => section(ContractModel, bySupplier, { createdAt: -1 }, "reference title status amount endDate"), EMPTY),
+    gated(access.contracts && !marketsOnly(auth), () => section(ContractModel, bySupplier, { createdAt: -1 }, "reference title status amount endDate"), EMPTY),
     gated(access.receipts, () => section(GoodsReceiptModel, bySupplier, { receiptDate: -1 }, "number receiptDate commandeId"), EMPTY),
     gated(access.commitments, () => section(CommitmentOrderModel, bySupplier, { date: -1 }, "number label amount date status"), EMPTY),
     gated(access.recurring, () => section(RecurringExpenseModel, bySupplier, { nextDueDate: 1 }, "reference label amount frequency nextDueDate isActive"), EMPTY),

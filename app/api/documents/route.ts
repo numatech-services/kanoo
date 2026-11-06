@@ -1,3 +1,5 @@
+import { contractScope, marketsOnly } from "@/lib/contract-input";
+import { ContractModel } from "@/models/Contract";
 import { NextRequest } from "next/server";
 import { withAuth, getPagination, paginatedResponse, tenantFilter, ok } from "@/lib/api-helpers";
 import { AttachmentModel } from "@/models/Attachment";
@@ -31,8 +33,11 @@ export const GET = withAuth("documents", "read", async (req: NextRequest, auth: 
   const url = new URL(req.url);
 
   const visible: Array<Record<string, unknown>> = [];
-  const plain = PLAIN_HOSTS.filter(h => authCan(auth, h, "read"));
+  const restricted = marketsOnly(auth);
+  const plain = PLAIN_HOSTS.filter(h => authCan(auth, h, "read") && !(restricted && h === "contracts"));
   if (plain.length) visible.push({ host: { $in: plain } });
+  // La comptabilité ne voit les pièces que des marchés clients.
+  if (restricted) visible.push({ host: "contracts", hostId: { $in: await ContractModel.find(contractScope(auth)).distinct("_id") } });
   if (authCan(auth, "expenses", "update")) visible.push({ host: "expenses" });
   if ((await scopeEmployees(auth)) === null && authCan(auth, "leaves", "read")) visible.push({ host: "leaves" });
   if (authCan(auth, "projects", "read")) {

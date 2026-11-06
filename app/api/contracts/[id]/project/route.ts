@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { contractScope } from "@/lib/contract-input";
+import { contractScope, marketsOnly } from "@/lib/contract-input";
 import { Types } from "mongoose";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, conflict, forbidden, tenantFilter } from "@/lib/api-helpers";
@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
  * projet d'exécution. Les dépenses imputées à ce projet deviennent celles du marché.
  */
 export const POST = withAuth("contracts", "update", async (req: NextRequest, auth: TokenPayload, params) => {
+  if (marketsOnly(auth)) return forbidden("Le rattachement du marché à un projet revient à la direction.");
   await connectDB();
   const body = await req.json().catch(() => ({}));
   const contract = await ContractModel.findOne({ _id: params.id, ...contractScope(auth) });

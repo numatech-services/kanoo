@@ -228,6 +228,10 @@ const dayAgo = n => new Date(Date.now() - n * 86400000).toISOString().slice(0, 1
   check("comptable : modification du contrat de travail refusée", (await cpt.req("PATCH", `/api/contracts/${job}`, { paymentDays: 60 })).status === 404);
   check("comptable : objet du marché non modifiable", (await cpt.req("PATCH", `/api/contracts/${l2}`, { title: "Autre", paymentDays: 60 })).status === 403);
   check("comptable : signature refusée", (await cpt.req("POST", `/api/contracts/${l2}/sign`, { signerName: "X", signedDate: today })).status === 403);
+  check("comptable : droits et retenue d'un contrat de travail refusés", (await cpt.req("POST", `/api/contracts/${job}/registration`, { action: "assess" })).status === 404 && (await cpt.req("POST", `/api/contracts/${job}/retention`, {})).status === 404);
+  const exp = await cpt.req("GET", "/api/data/contracts/export");
+  check("comptable : export sans contrat de travail", exp.status !== 200 || !J(exp.data).includes("Contrat de travail"), String(exp.status));
+  check("comptable : rattachement à un projet refusé", (await cpt.req("POST", `/api/contracts/${l2}/project`, { replace: true })).status === 403);
   check("gérant : contrat de travail toujours visible", (await g.req("GET", `/api/contracts/${job}`)).status === 200);
 
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);

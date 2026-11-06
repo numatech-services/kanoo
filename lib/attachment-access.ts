@@ -1,6 +1,8 @@
 import { Types } from "mongoose";
 import type { TokenPayload } from "@/lib/auth";
 import { authCan } from "@/lib/role-resources";
+import { contractScope, marketsOnly } from "@/lib/contract-input";
+import { ContractModel } from "@/models/Contract";
 import { ExpenseReportModel } from "@/models/ExpenseReport";
 import { LeaveModel } from "@/models/Leave";
 import { expenseAuthority, teamMembers } from "@/lib/expense-scope";
@@ -19,6 +21,10 @@ import { projectScope } from "@/lib/project-scope";
  * ne pouvait pas joindre les siens).
  */
 export async function attachmentAccess(auth: TokenPayload, host: string, hostId: unknown, mode: "read" | "write"): Promise<boolean> {
+  // Pièces d'un contrat : la comptabilité n'accède qu'à celles des marchés clients.
+  if (host === "contracts" && marketsOnly(auth)) {
+    if (!Types.ObjectId.isValid(String(hostId)) || !(await ContractModel.exists({ _id: hostId, ...contractScope(auth) }))) return false;
+  }
   if (host === "expenses") {
     if (!Types.ObjectId.isValid(String(hostId))) return false;
     const r = await ExpenseReportModel.findOne({ _id: hostId, tenantId: auth.tenantId }).select("createdBy status").lean<{ createdBy: unknown; status: string } | null>();

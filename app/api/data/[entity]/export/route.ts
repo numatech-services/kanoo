@@ -1,3 +1,4 @@
+import { contractScope } from "@/lib/contract-input";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, notFound, forbidden, tenantFilter } from "@/lib/api-helpers";
@@ -26,7 +27,7 @@ export const GET = withAuth("agenda", "read", async (_req: NextRequest, auth: To
   if (isInternFor(auth, entity.resource)) return forbidden(INTERN_EXPORT_MESSAGE);
 
   await connectDB();
-  let q = entity.model.find(tenantFilter(auth));
+  let q = entity.model.find(entity.resource === "contracts" ? contractScope(auth) : tenantFilter(auth));
   if (entity.populate) for (const [path, select] of entity.populate) q = q.populate(path, select);
   if (entity.sort) q = q.sort(entity.sort);
   const docs = await q.limit(50000).lean();

@@ -3,7 +3,7 @@ import { ClientModel } from "@/models/Client";
 import { SupplierModel } from "@/models/Supplier";
 import { EmployeeModel } from "@/models/Employee";
 import { MAX_RETENTION_RATE } from "@/lib/retention";
-import { authCan, hasFinanceAccess } from "@/lib/role-resources";
+import { authCan } from "@/lib/role-resources";
 import type { TokenPayload } from "@/lib/auth";
 
 /**
@@ -30,7 +30,7 @@ const EDITABLE = [
  * clients : elle n'a pas accès aux salariés, donc ni aux contrats de travail
  * ni à ceux des fournisseurs et des prestataires individuels.
  */
-export const marketsOnly = (auth: TokenPayload) => hasFinanceAccess(auth) && !authCan(auth, "contracts", "create");
+export const marketsOnly = (auth: Pick<TokenPayload, "role" | "roles" | "allowedResources" | "roleLevels">) => [auth.role, ...(auth.roles ?? [])].includes("pme_accountant") && !authCan(auth as TokenPayload, "contracts", "create");
 
 /** Portée d'une lecture ou d'une écriture de contrat. */
 export const contractScope = (auth: TokenPayload) => ({ tenantId: new Types.ObjectId(auth.tenantId), ...(marketsOnly(auth) ? { type: "client" } : {}) });

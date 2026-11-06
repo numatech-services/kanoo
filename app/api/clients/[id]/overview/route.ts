@@ -1,3 +1,4 @@
+import { contractScope } from "@/lib/contract-input";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, notFound, tenantFilter } from "@/lib/api-helpers";
@@ -92,7 +93,7 @@ export const GET = withAuth("clients", "read", async (_req: NextRequest, auth: T
     ),
     gated(seeInvoices, () => section(InvoiceModel, { ...byClient, documentType: { $ne: "credit_note" } }, { issueDate: -1 }, "number totalTTC paidAmount status issueDate"), EMPTY),
     gated(can("devis"), () => section(DevisModel, byClient, { issueDate: -1 }, "number totalTTC status issueDate"), EMPTY),
-    gated(can("contracts"), () => section(ContractModel, byClient, { createdAt: -1 }, "reference title status amount endDate"), EMPTY),
+    gated(can("contracts"), () => section(ContractModel, { ...byClient, ...contractScope(auth) }, { createdAt: -1 }, "reference title status amount endDate"), EMPTY),
     gated(can("commandes"), () => section(FrameworkOrderModel, byClient, { createdAt: -1 }, "reference title status totalQuantity deliveredQuantity invoicedQuantity unitPrice"), EMPTY),
     gated(can("livraisons"), () => section(DeliveryNoteModel, byClient, { deliveryDate: -1 }, "number status deliveryDate"), EMPTY),
     gated(can("projects"), () => section(ProjectModel, byClient, { createdAt: -1 }, "label status dueDate amount"), EMPTY),

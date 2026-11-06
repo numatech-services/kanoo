@@ -35,6 +35,7 @@ export const POST = withAuth("contracts", "update", async (req: NextRequest, aut
   if (!hasFinanceAccess(auth)) return forbidden("Réservé au gérant et à la comptabilité.");
   await connectDB();
   if (!Types.ObjectId.isValid(params.id)) return notFound();
+  if (!(await ContractModel.exists({ _id: params.id, ...contractScope(auth) }))) return notFound("Marché introuvable");
   const body = await req.json().catch(() => ({}));
   const actor = { tenantId: auth.tenantId, userId: auth.userId };
   try {

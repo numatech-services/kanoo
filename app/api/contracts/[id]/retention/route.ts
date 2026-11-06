@@ -27,6 +27,7 @@ export const GET = withAuth("contracts", "read", async (_req: NextRequest, auth:
 export const POST = withAuth("contracts", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   if (!authCan(auth, "payments", "create")) return forbidden("Enregistrer un encaissement est réservé à la comptabilité et au gérant.");
   await connectDB();
+  if (!(await ContractModel.exists({ _id: params.id, ...contractScope(auth) }))) return notFound("Marché introuvable");
   const body = await req.json().catch(() => ({}));
   try {
     const r = await withTransaction(session => releaseRetention({ tenantId: auth.tenantId, userId: auth.userId }, params.id, body, session));
@@ -40,6 +41,8 @@ export const POST = withAuth("contracts", "update", async (req: NextRequest, aut
 
 /** DELETE ?releaseId=&reason= — annule un reversement saisi par erreur. */
 export const DELETE = withAuth("contracts", "update", async (req: NextRequest, auth: TokenPayload, params) => {
+  await connectDB();
+  if (!(await ContractModel.exists({ _id: params.id, ...contractScope(auth) }))) return notFound("Marché introuvable");
   if (!authCan(auth, "payments", "delete")) return forbidden("Annuler un encaissement est réservé à la comptabilité et au gérant.");
   await connectDB();
   const url = new URL(req.url);
