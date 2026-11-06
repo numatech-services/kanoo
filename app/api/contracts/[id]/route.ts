@@ -4,7 +4,7 @@ import { withAuth, ok, badRequest, forbidden, notFound, noContent, tenantFilter 
 import { ContractModel } from "@/models/Contract";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
-import { contractFields, contractUpdate, MARKET_TERMS } from "@/lib/contract-input";
+import { contractScope, marketsOnly, FINANCE_FIELDS, contractFields, contractUpdate, MARKET_TERMS } from "@/lib/contract-input";
 import { authCan, hasFinanceAccess } from "@/lib/role-resources";
 import { InvoiceModel } from "@/models/Invoice";
 import { dueFrom, paymentDaysOf } from "@/lib/market-terms";
@@ -19,7 +19,7 @@ export const GET = withAuth("contracts", "read", async (_req: NextRequest, auth:
   const id = params.id;
   if (!id) return notFound();
 
-  const contract = await ContractModel.findOne({ _id: id, ...tenantFilter(auth) })
+  const contract = await ContractModel.findOne({ _id: id, ...contractScope(auth) })
     .populate("clientId", "name code nif address phone email")
     .populate("supplierId", "name code")
     .populate("employeeId", "firstName lastName code position")
@@ -43,10 +43,11 @@ export const PATCH = withAuth("contracts", "update", async (req: NextRequest, au
   // Liste blanche : ni l'organisation, ni la référence, ni les factures liées ne se réécrivent.
   const { data, error } = await contractFields(auth.tenantId, body);
   if (error) return badRequest(error);
+  if (marketsOnly(auth) && Object.keys(data).some(k => !FINANCE_FIELDS.has(k))) return forbidden("La comptabilité modifie les conditions financières du marché, pas son objet ni son statut.");
   // Ces conditions déplacent des échéances et changent la marge : gérant et comptabilité.
   if (MARKET_TERMS.some(k => k in data) && !hasFinanceAccess(auth)) return forbidden("Conditions financières du marché : réservées au gérant et à la comptabilité.");
   const contract = await ContractModel.findOneAndUpdate(
-    { _id: id, ...tenantFilter(auth) },
+    { _id: id, ...contractScope(auth) },
     contractUpdate(data),
     { new: true, runValidators: true },
   ).populate("clientId", "name code");
@@ -74,7 +75,7 @@ export const DELETE = withAuth("contracts", "delete", async (_req: NextRequest, 
   if (!id) return notFound();
 
   const contract = await ContractModel.findOneAndUpdate(
-    { _id: id, ...tenantFilter(auth) }, 
+    { _id: id, ...contractScope(auth) }, 
     { status: "cancelled" }, 
     { new: true }
   );

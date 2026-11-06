@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { contractScope } from "@/lib/contract-input";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, forbidden, ok, tenantFilter, notFound } from "@/lib/api-helpers";
 import { ContractModel } from "@/models/Contract";
@@ -12,7 +13,7 @@ export const POST = withAuth("contracts", "update", async (req: NextRequest, aut
   // Les factures sont émises par la comptabilité.
   if (!authCan(auth, "invoices", "create")) return forbidden("Facturation réservée à la comptabilité et au gérant.");
   await connectDB();
-  if (!(await ContractModel.exists({ _id: params.id, ...tenantFilter(auth) }))) return notFound("Contrat introuvable");
+  if (!(await ContractModel.exists({ _id: params.id, ...contractScope(auth) }))) return notFound("Contrat introuvable");
   const body = await req.json().catch(() => ({}));
   const { invoice, contract } = await withTransaction(session =>
     billContractPeriod(auth, params.id, { tvaRate: body.tvaRate === undefined ? undefined : Number(body.tvaRate) }, session));

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { contractScope } from "@/lib/contract-input";
 import { Types } from "mongoose";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, created, ok, badRequest, notFound, forbidden, tenantFilter } from "@/lib/api-helpers";
@@ -20,10 +21,10 @@ export const POST = withAuth("contracts", "update", async (req: NextRequest, aut
   if (!authCan(auth, "invoices", "create")) return forbidden("Facturation réservée à la comptabilité et au gérant.");
   await connectDB();
   const body = await req.json().catch(() => ({}));
-  const exists = await ContractModel.exists({ _id: params.id, ...tenantFilter(auth) });
+  const exists = await ContractModel.exists({ _id: params.id, ...contractScope(auth) });
   if (!exists) return notFound("Marché introuvable");
   const invoice = await withTransaction(async session => {
-    const contract = await ContractModel.findOne({ _id: params.id, ...tenantFilter(auth) }).session(session ?? null);
+    const contract = await ContractModel.findOne({ _id: params.id, ...contractScope(auth) }).session(session ?? null);
     return invoiceMarket(auth, contract as unknown as MarketContract, body, session);
   });
   await logAudit(auth, "CREATE", "invoices", { resourceId: String(invoice._id), metadata: { contract: params.id, kind: invoice.kind, totalTTC: invoice.totalTTC } });
@@ -39,7 +40,7 @@ export const PATCH = withAuth("contracts", "update", async (req: NextRequest, au
   if (!authCan(auth, "invoices", "update")) return forbidden("Réservé à la comptabilité et au gérant.");
   await connectDB();
   const body = await req.json().catch(() => ({}));
-  const contract = await ContractModel.findOne({ _id: params.id, ...tenantFilter(auth) }).select("paymentDays invoiceIds").lean<{ _id: unknown; paymentDays?: number; invoiceIds?: unknown[] } | null>();
+  const contract = await ContractModel.findOne({ _id: params.id, ...contractScope(auth) }).select("paymentDays invoiceIds").lean<{ _id: unknown; paymentDays?: number; invoiceIds?: unknown[] } | null>();
   if (!contract) return notFound("Marché introuvable");
   if (!Types.ObjectId.isValid(String(body.invoiceId))) return badRequest("Facture invalide.");
   const inv = await InvoiceModel.findOne({ ...tenantFilter(auth), documentType: "invoice", $and: [{ _id: body.invoiceId }, { $or: [{ contractId: contract._id }, { _id: { $in: contract.invoiceIds ?? [] } }] }] })

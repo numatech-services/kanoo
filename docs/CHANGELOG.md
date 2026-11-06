@@ -12,7 +12,7 @@
 - **Délai de paiement** : la facture du marché reprend le délai du contrat (30 jours à défaut). La date de réception de la déclaration de créance fixe l'échéance définitive.
 - **Intérêts moratoires** (estimation) : calculés par facture à partir de la déclaration datée, règlements tardifs compris. Art. 178 du Code des marchés publics (décret 2022-743) : dus de plein droit dès le lendemain de l'échéance, à un taux fixé par le ministre des Finances, au moins le taux d'escompte BCEAO + 1 point. Le taux est à renseigner ; la base de 365 jours est une hypothèse, le texte n'en fixe pas. Ils sont à réclamer et restent hors marge.
 
-Non couvert : l'encaissement des intérêts moratoires (aucun compte de produit prévu) et les taux variables par période.
+Intérêts encaissés : Trésorerie → mouvement d'entrée, contrepartie 771000 (compte à valider par le comptable), imputé au projet du marché. Ils ne sont pas retranchés du montant estimé. Non couvert : les taux variables par période.
 
 **Frais du marché** : une ligne par type de dépense, saisie en une fois (payée, à payer ou prévue). Le projet d'exécution se crée à la première dépense.
 
@@ -21,7 +21,7 @@ Non couvert : l'encaissement des intérêts moratoires (aucun compte de produit 
 - Les droits d'enregistrement restent dans leur panneau : un type sur le compte 646 est refusé.
 - Nouvelle catégorie « Frais bancaires » (631) dans les dépenses du marché.
 
-**Droits** : le comptable lit et modifie désormais les marchés (il n'y avait pas accès). Les conditions financières sont réservées au gérant et à la comptabilité. Une retenue de pénalité ne se rembourse pas sur un avoir.
+**Droits** : le comptable accède aux seuls marchés clients. Il modifie leurs conditions financières, jamais leur objet, leur statut ou leur signature ; contrats de travail et fournisseurs lui restent fermés. Les conditions financières sont réservées au gérant et à la comptabilité. Une retenue de pénalité ne se rembourse pas sur un avoir.
 
 Déploiement : lancer `npm run indexes` (nouveau modèle `MarketCostType`).
 

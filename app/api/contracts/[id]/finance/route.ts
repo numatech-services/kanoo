@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { contractScope } from "@/lib/contract-input";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import { withAuth, ok, notFound, forbidden, tenantFilter } from "@/lib/api-helpers";
@@ -14,7 +15,7 @@ export const GET = withAuth("contracts", "read", async (_req: NextRequest, auth:
   if (!hasFinanceAccess(auth)) return forbidden("Situation financière réservée au gérant et à la comptabilité.");
   await connectDB();
   if (!Types.ObjectId.isValid(params.id)) return notFound();
-  const contract = await ContractModel.findOne({ _id: params.id, ...tenantFilter(auth) }).select("amount projectId devisId invoiceIds retentionRate retentionReleases receptionProvisoireDate receptionDefinitiveDate guaranteeMonths type buyerType clientId instrument isSubcontract pages approvalDate signedDate registration tvaRate amountTTC paymentDays serviceOrderDate executionDelay executionUnit deliveredAt penaltyDivisor penaltyCapRate regulationRate regulationThreshold lateInterestRate").lean<Parameters<typeof marketFinance>[1] | null>();
+  const contract = await ContractModel.findOne({ _id: params.id, ...contractScope(auth) }).select("amount projectId devisId invoiceIds retentionRate retentionReleases receptionProvisoireDate receptionDefinitiveDate guaranteeMonths type buyerType clientId instrument isSubcontract pages approvalDate signedDate registration tvaRate amountTTC paymentDays serviceOrderDate executionDelay executionUnit deliveredAt penaltyDivisor penaltyCapRate regulationRate regulationThreshold lateInterestRate").lean<Parameters<typeof marketFinance>[1] | null>();
   if (!contract) return notFound("Marché introuvable");
   return ok(await marketFinance(auth.tenantId, contract));
 });

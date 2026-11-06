@@ -222,6 +222,14 @@ const dayAgo = n => new Date(Date.now() - n * 86400000).toISOString().slice(0, 1
   check("comptable : situation du marché et types accessibles", (await cpt.req("GET", `/api/contracts/${l2}/finance`)).status === 200 && (await cpt.req("GET", "/api/contracts/cost-types")).status === 200);
   check("comptable : conditions modifiables", (await cpt.req("PATCH", `/api/contracts/${l2}`, { paymentDays: 60 })).status === 200);
 
+  const job = id(await g.req("POST", "/api/contracts", { title: "Contrat de travail", type: "employment", amount: 100000 }));
+  check("comptable : contrat de travail invisible", (await cpt.req("GET", `/api/contracts/${job}`)).status === 404 && !(D(await cpt.req("GET", "/api/contracts?limit=100")).items ?? []).some(c => c._id === job));
+  check("comptable : filtre de type sans effet sur sa portée", (D(await cpt.req("GET", "/api/contracts?type=employment")).items ?? []).every(c => c.type === "client"));
+  check("comptable : modification du contrat de travail refusée", (await cpt.req("PATCH", `/api/contracts/${job}`, { paymentDays: 60 })).status === 404);
+  check("comptable : objet du marché non modifiable", (await cpt.req("PATCH", `/api/contracts/${l2}`, { title: "Autre", paymentDays: 60 })).status === 403);
+  check("comptable : signature refusée", (await cpt.req("POST", `/api/contracts/${l2}/sign`, { signerName: "X", signedDate: today })).status === 403);
+  check("gérant : contrat de travail toujours visible", (await g.req("GET", `/api/contracts/${job}`)).status === 200);
+
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

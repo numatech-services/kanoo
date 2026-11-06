@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { contractScope } from "@/lib/contract-input";
 import { Types } from "mongoose";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, conflict, forbidden, tenantFilter } from "@/lib/api-helpers";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 export const POST = withAuth("contracts", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const body = await req.json().catch(() => ({}));
-  const contract = await ContractModel.findOne({ _id: params.id, ...tenantFilter(auth) });
+  const contract = await ContractModel.findOne({ _id: params.id, ...contractScope(auth) });
   if (!contract) return notFound("Marché introuvable");
   if (contract.projectId && !body.replace) return conflict("Ce marché a déjà un projet d'exécution.");
   let projectId: unknown;

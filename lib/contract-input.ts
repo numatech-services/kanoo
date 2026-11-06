@@ -3,6 +3,8 @@ import { ClientModel } from "@/models/Client";
 import { SupplierModel } from "@/models/Supplier";
 import { EmployeeModel } from "@/models/Employee";
 import { MAX_RETENTION_RATE } from "@/lib/retention";
+import { authCan, hasFinanceAccess } from "@/lib/role-resources";
+import type { TokenPayload } from "@/lib/auth";
 
 /**
  * Champs d'un contrat modifiables par l'utilisateur. Le reste (organisation,
@@ -23,6 +25,23 @@ const EDITABLE = [
 ] as const;
 
 /** Conditions qui se vident : `null` efface la valeur (le calcul reprend le défaut). */
+/**
+ * La comptabilité sans droit de créer des contrats ne voit que les marchés
+ * clients : elle n'a pas accès aux salariés, donc ni aux contrats de travail
+ * ni à ceux des fournisseurs et des prestataires individuels.
+ */
+export const marketsOnly = (auth: TokenPayload) => hasFinanceAccess(auth) && !authCan(auth, "contracts", "create");
+
+/** Portée d'une lecture ou d'une écriture de contrat. */
+export const contractScope = (auth: TokenPayload) => ({ tenantId: new Types.ObjectId(auth.tenantId), ...(marketsOnly(auth) ? { type: "client" } : {}) });
+
+/** Ce que la comptabilité modifie sur un marché : ses conditions, pas son objet, ses parties ni son statut. */
+export const FINANCE_FIELDS = new Set<string>([
+  "amountTTC", "paymentDays", "serviceOrderDate", "executionDelay", "executionUnit", "deliveredAt", "penaltyDivisor", "penaltyCapRate", "regulationRate", "regulationThreshold", "lateInterestRate",
+  "retentionRate", "receptionProvisoireDate", "receptionDefinitiveDate", "guaranteeMonths",
+  "buyerType", "instrument", "approvalDate", "isSubcontract", "parentContractId", "pages", "fundingSource", "tvaRate",
+]);
+
 export const MARKET_TERMS = ["amountTTC", "paymentDays", "serviceOrderDate", "executionDelay", "executionUnit", "deliveredAt", "penaltyDivisor", "penaltyCapRate", "regulationRate", "regulationThreshold", "lateInterestRate"];
 
 const CLEARABLE = ["amountTTC", "paymentDays", "serviceOrderDate", "executionDelay", "deliveredAt", "penaltyDivisor", "penaltyCapRate", "regulationRate", "regulationThreshold", "lateInterestRate"] as const;

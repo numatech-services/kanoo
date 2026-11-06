@@ -96,7 +96,7 @@ export default function ContractDetailPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={contract.status} />
-          {contract.status === "draft" && canEdit && (
+          {contract.status === "draft" && meCanDo(me, "contracts", "create") && (
             <button onClick={() => setSignOpen(true)} disabled={busy}
               className={buttonClass("primary", "md")}><PenLine size={15} /> Signer</button>
           )}

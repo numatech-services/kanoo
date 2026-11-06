@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/db";
 import { withAuth, created, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { ContractModel } from "@/models/Contract";
-import { parseMilestone } from "@/lib/contract-input";
+import { contractScope, parseMilestone } from "@/lib/contract-input";
 import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 /** POST — ajoute une échéance (acompte ou situation) à l'échéancier du marché. */
 export const POST = withAuth("contracts", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
-  const contract = await ContractModel.findOne({ _id: params.id, ...tenantFilter(auth) });
+  const contract = await ContractModel.findOne({ _id: params.id, ...contractScope(auth) });
   if (!contract) return notFound("Marché introuvable");
   const r = parseMilestone(await req.json().catch(() => ({})), contract.amount);
   if (r.error) return badRequest(r.error);

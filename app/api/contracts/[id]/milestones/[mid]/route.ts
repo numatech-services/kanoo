@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/db";
 import { withAuth, ok, noContent, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { ContractModel } from "@/models/Contract";
-import { parseMilestone } from "@/lib/contract-input";
+import { contractScope, parseMilestone } from "@/lib/contract-input";
 import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 type M = { _id: unknown; label: string; amount: number; kind?: string; dueDate?: Date; status: string };
 
 async function load(auth: TokenPayload, params: Record<string, string>) {
-  const contract = await ContractModel.findOne({ _id: params.id, ...tenantFilter(auth) });
+  const contract = await ContractModel.findOne({ _id: params.id, ...contractScope(auth) });
   const m = contract ? (contract.milestones as M[]).find(x => String(x._id) === params.mid) : undefined;
   return { contract, m };
 }

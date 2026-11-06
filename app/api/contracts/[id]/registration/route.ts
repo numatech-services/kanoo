@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { contractScope } from "@/lib/contract-input";
 import { Types } from "mongoose";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, forbidden, tenantFilter } from "@/lib/api-helpers";
@@ -17,7 +18,7 @@ export const GET = withAuth("contracts", "read", async (_req: NextRequest, auth:
   if (!hasFinanceAccess(auth)) return forbidden("Réservé au gérant et à la comptabilité.");
   await connectDB();
   if (!Types.ObjectId.isValid(params.id)) return notFound();
-  const c = await ContractModel.findOne({ _id: params.id, ...tenantFilter(auth) })
+  const c = await ContractModel.findOne({ _id: params.id, ...contractScope(auth) })
     .select("type amount buyerType clientId instrument isSubcontract pages approvalDate signedDate receptionDefinitiveDate registration reference").lean<{ amount: number; registration?: unknown } & Record<string, unknown> | null>();
   if (!c) return notFound("Marché introuvable");
   return ok({ estimate: await registrationEstimate(auth.tenantId, c as Parameters<typeof registrationEstimate>[1]), registration: c.registration ?? null, buyerTypes: BUYER_TYPES, instruments: INSTRUMENTS });

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { contractScope } from "@/lib/contract-input";
 import { connectDB } from "@/lib/db";
 import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
 import { ContractModel } from "@/models/Contract";
@@ -15,10 +16,10 @@ export const GET = withAuth("contracts", "read", async (req: NextRequest, auth: 
   const isRecurring = url.searchParams.get("isRecurring");
   const type = url.searchParams.get("type");
 
-  const filter: Record<string, unknown> = { ...tenantFilter(auth) };
+  const filter: Record<string, unknown> = { ...contractScope(auth) };
   if (status) filter.status = status;
   if (clientId) filter.clientId = clientId;
-  if (type) filter.type = type;
+  if (type && !filter.type) filter.type = type;
   if (isRecurring !== null) filter.isRecurring = isRecurring === "true";
 
   const [items, total] = await Promise.all([

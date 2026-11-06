@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { contractScope } from "@/lib/contract-input";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, forbidden, ok, badRequest, notFound, conflict, tenantFilter } from "@/lib/api-helpers";
 import { ContractModel } from "@/models/Contract";
@@ -22,7 +23,7 @@ export const POST = withAuth("contracts", "update", async (req: NextRequest, aut
   if (!invoiceId) return badRequest("invoiceId requis");
 
   const [contract, invoice] = await Promise.all([
-    ContractModel.findOne({ _id: params.id, ...tenantFilter(auth) }),
+    ContractModel.findOne({ _id: params.id, ...contractScope(auth) }),
     InvoiceModel.findOne({ _id: invoiceId, ...tenantFilter(auth) }),
   ]);
   if (!contract) return notFound("Contrat introuvable");

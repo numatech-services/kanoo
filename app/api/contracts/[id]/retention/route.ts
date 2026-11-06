@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { contractScope } from "@/lib/contract-input";
 import { Types } from "mongoose";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, created, badRequest, notFound, forbidden, tenantFilter } from "@/lib/api-helpers";
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
 export const GET = withAuth("contracts", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   if (!Types.ObjectId.isValid(params.id)) return notFound();
-  const contract = await ContractModel.findOne({ _id: params.id, ...tenantFilter(auth) })
+  const contract = await ContractModel.findOne({ _id: params.id, ...contractScope(auth) })
     .select("retentionRate retentionReleases receptionProvisoireDate receptionDefinitiveDate guaranteeMonths").lean<{ _id: unknown; retentionRate?: number; retentionReleases?: Array<{ amount: number }> } | null>();
   if (!contract) return notFound("Marché introuvable");
   const state = await contractRetention(auth.tenantId, contract);

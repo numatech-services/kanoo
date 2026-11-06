@@ -1,11 +1,13 @@
 import { NextRequest } from "next/server";
+import { contractScope, marketsOnly } from "@/lib/contract-input";
 import { connectDB } from "@/lib/db";
-import { withAuth, ok, notFound, badRequest, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, notFound, badRequest, forbidden } from "@/lib/api-helpers";
 import { ContractModel } from "@/models/Contract";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 
 export const POST = withAuth("contracts", "update", async (req: NextRequest, auth: TokenPayload, params) => {
+  if (marketsOnly(auth)) return forbidden("La signature d\'un contrat revient à la direction.");
   await connectDB();
   const { signatureDataUrl, signerName, signerRole, signedDate } = await req.json().catch(() => ({}));
   if (!signerName || !String(signerName).trim()) return badRequest("Nom du signataire requis");
@@ -15,7 +17,7 @@ export const POST = withAuth("contracts", "update", async (req: NextRequest, aut
   const date = signedDate ? new Date(String(signedDate)) : new Date();
   if (isNaN(date.getTime()) || date.getTime() > Date.now() + 86_400_000) return badRequest("Date de signature invalide.");
 
-  const contract = await ContractModel.findOne({ _id: params.id, ...tenantFilter(auth) });
+  const contract = await ContractModel.findOne({ _id: params.id, ...contractScope(auth) });
   if (!contract) return notFound();
   if (contract.status !== "draft") return badRequest("Seul un contrat en brouillon se signe.");
 
