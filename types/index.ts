@@ -310,6 +310,8 @@ export interface DocMentions { object?: string; reference?: string; period?: str
 export interface InvoiceCorrection { correctedAt?: Date; correctionCount?: number; correctionReason?: string }
 
 export interface IInvoice extends DocMentions, InvoiceCorrection {
+  /** Référence de la pièce chez le système qui a créé ce brouillon par l'API. */
+  externalRef?: string;
   claimReceivedAt?: Date;
   installments?: Array<{ dueDate: Date; amount: number; label?: string }>;
   _id: Types.ObjectId;
