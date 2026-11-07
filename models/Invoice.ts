@@ -87,6 +87,8 @@ const InvoiceSchema = new Schema<IInvoice>(
     depositUsedHT: { type: Number, default: 0, min: 0 },
     lines: { type: [InvoiceLineSchema], required: true },
     /** Mentions du document : objet, référence (convention, bon de commande du client), période, « à l'attention de ». */
+    /** Identifiant de la pièce dans le système qui a créé ce brouillon par l'API (ex. « ISIC-LOT-12 »). Rejouer un envoi ne crée rien. */
+    externalRef: { type: String, maxlength: 120 },
     object: { type: String, maxlength: 600 }, reference: { type: String, maxlength: 120 }, period: { type: String, maxlength: 120 }, attention: { type: String, maxlength: 160 },
     /** Correction contrôlée d'une facture émise (lib/invoice-correction) : le PDF porte « rectifiée le … ». */
     correctedAt: Date, correctionCount: { type: Number, default: 0 }, correctionReason: { type: String, maxlength: 500 },
@@ -185,5 +187,8 @@ InvoiceSchema.index(
   { tenantId: 1, "secef.code": 1 },
   { unique: true, partialFilterExpression: { "secef.code": { $type: "string" } } }
 );
+
+// Partiel : seules les factures venues de l'API portent cette référence.
+InvoiceSchema.index({ tenantId: 1, externalRef: 1 }, { unique: true, partialFilterExpression: { externalRef: { $type: "string" } } });
 
 export const InvoiceModel = models.Invoice || model<IInvoice>("Invoice", InvoiceSchema);

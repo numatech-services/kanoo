@@ -10,12 +10,14 @@ import { TokenPayload } from "@/lib/auth";
  * (une clé lit des données de toute l'organisation), protégé contre le CSRF
  * par withAuth. Les clés d'un comptoir (EasyPay) se créent depuis le comptoir.
  */
-const GENERAL_SCOPES = ["invoices:read", "clients:read"];
+const GENERAL_SCOPES = ["invoices:read", "clients:read", "invoices:write"];
+// Par défaut, une clé ne fait que lire : l'écriture se demande explicitement.
+const DEFAULT_SCOPES = ["invoices:read", "clients:read"];
 
 // POST /api/v1/auth — Générer une clé API
 export const POST = withAuth("companies", "update", async (req: NextRequest, auth: TokenPayload) => {
   const body = await req.json().catch(() => ({}));
-  const scopes: string[] = Array.isArray(body.scopes) && body.scopes.length ? body.scopes.map(String) : GENERAL_SCOPES;
+  const scopes: string[] = Array.isArray(body.scopes) && body.scopes.length ? body.scopes.map(String) : DEFAULT_SCOPES;
   const unknown = scopes.filter(s => !GENERAL_SCOPES.includes(s));
   if (unknown.length) return badRequest(`Scope non autorisé : ${unknown.join(", ")}. Possibles : ${GENERAL_SCOPES.join(", ")}.`);
   const days = Math.min(365, Math.max(1, Number(body.days) || 365));
