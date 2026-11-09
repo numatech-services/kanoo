@@ -14,6 +14,7 @@ Tout part de **Restauration → Magasin**, pensé pour le téléphone. Un compte
 | **Vendre** | Ouvre le comptoir du site. La caisse s'ouvre dans l'onglet Semaine ; le fonds proposé est le solde de la caisse. |
 | **Transférer** | Envoie à un autre site. La marchandise est en transit jusqu'à sa réception, ligne par ligne. Les portions d'un lot partent du comptoir de la cuisine et arrivent au comptoir du site. |
 | **Perte** | Casse, péremption, invendus, avec un motif. Distincte d'une vente et d'un écart d'inventaire. |
+| **Repris** (livraisons du jour) | Le soir, avant de payer le fournisseur : invendus qu'il reprend (le pain, par exemple). Ils sortent du stock, comptoir d'abord, et ne se paient pas. La dette baisse au prix convenu par un avoir. Les invendus qu'il ne reprend pas se déclarent en perte. |
 | **Dépense** | Sortie de caisse par nature (gaz, eau, transport…). Une marchandise ne se saisit pas ici : utilisez Recevoir. |
 | **Remise d'espèces** | Vers la banque ou le mobile money : ni recette ni dépense. |
 | **Ma semaine** | Besoins de tous les sites par fournisseur, arrondis au carton, transferts à envisager avant d'acheter. |

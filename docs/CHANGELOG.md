@@ -1,5 +1,13 @@
 # Kanoo — Changelog
 
+## Restauration — invendus repris par le fournisseur (novembre 2026)
+
+Livraisons du jour (Magasin) : un champ « Repris » s'ajoute avant le paiement du soir.
+- Le boulanger reprend une partie des invendus : la quantité sort du stock, comptoir d'abord puis réserve, et n'est pas payée.
+- La dette baisse au prix convenu par un avoir : 401 au débit, compte d'achat au crédit. Le paiement du soir porte sur le net.
+- On ne rend pas plus que reçu, et la reprise est refusée une fois la livraison payée. Les invendus non repris restent à déclarer en perte.
+- Qui peut le faire : le responsable du comptoir, comme pour le paiement du soir.
+
 ## Marchés — conditions du contrat et frais d'exécution (novembre 2026)
 
 **Conditions du marché** (fiche du marché → Renseigner) : montant TTC, délai de paiement, date de départ de l'ordre de service, délai d'exécution, livraison effective, pénalité (1/2000e par jour, plafond facultatif), redevance et seuil, taux des intérêts moratoires.

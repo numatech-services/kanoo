@@ -44,7 +44,7 @@ import { groupedPlan, saveForecastEvent } from "../../lib/restaurant-grouped";
 import { forecastFactor } from "../../lib/restaurant-forecast";
 import { produceBatch } from "../../lib/restaurant-production";
 import { DeskWeekCloseModel } from "../../models/DeskWeekClose";
-import { saveStanding, standingDay, confirmStanding, payStanding, startGasBottle } from "../../lib/restaurant-standing";
+import { saveStanding, standingDay, confirmStanding, payStanding, takeBackStanding, startGasBottle } from "../../lib/restaurant-standing";
 import { consolidatedStock, sitesOverview, archiveForRestart, openSite, openingStock, siteTemplates, copyRecipes } from "../../lib/restaurant-opening";
 import { allocateFunds, addOpeningLine, cancelFunding, qualifyFunding, repayFunding, depositCash, openingPosition } from "../../lib/restaurant-funding";
 import { accountBalance } from "../../lib/treasury";
@@ -366,10 +366,18 @@ async function main() {
   await confirmStanding(auth, deskId, bread._id, day, 75);
   check("réception du matin (75 corrigées) : montées au comptoir, aucune sortie de caisse", (await row(pain._id)).desk === 75 && (await ActivityCashEntryModel.countDocuments({ tenantId, deskId, direction: "out" })) === cashBefore);
   check("seconde réception du même jour : refusée", await refuses(() => confirmStanding(auth, deskId, bread._id, day), /déjà reçue/));
+  check("reprise de plus que reçu : refusée", await refuses(() => takeBackStanding(auth, deskId, bread._id, day, 80), /plus que reçu/));
+  check("reprise nulle : refusée", await refuses(() => takeBackStanding(auth, deskId, bread._id, day, 0), /invalide/));
+  const tb = await takeBackStanding(auth, deskId, bread._id, day, 10);
+  const sd1 = (await standingDay(tenantId, deskId, day, true))[0];
+  check("invendus repris (10) : sortis du comptoir, 1 000 de dette en moins, montant du jour 6 500 + 500", tb.amount === 1_000 && (await row(pain._id)).desk === 65 && sd1.takenBack === 10 && sd1.amount === 7_000, { tb, sd1, desk: (await row(pain._id)).desk });
+  const avoir = await AccountingEntryModel.findOne({ tenantId, label: /Invendus repris/ }).lean<{ lines: Array<{ accountCode: string; debit: number; credit: number }> } | null>();
+  check("avoir comptable : 401 au débit, achat au crédit, 1 000", !!avoir && avoir.lines.some(l => l.accountCode === "401100" && l.debit === 1_000) && avoir.lines.some(l => /^60/.test(l.accountCode) && l.credit === 1_000), avoir);
   const paid = await payStanding(auth, deskId, bread._id, day);
   const outs = await ActivityCashEntryModel.find({ tenantId, deskId, direction: "out", label: new RegExp(`${paid.reference}|Règlement fournisseur — Boulangerie`) }).lean<Array<{ amount: number; category: string; entryId?: unknown }>>();
-  check("paiement du soir : 7 500 de pain (achat) + 500 de livraison (transport), passés en comptabilité", paid.total === 8_000 && outs.length === 2 && outs.some(o => o.category === "supplier_payment" && o.amount === 7_500) && outs.some(o => o.category === "transport" && o.amount === 500) && outs.every(o => o.entryId), outs);
+  check("paiement du soir : 6 500 de pain gardé (achat) + 500 de livraison (transport), passés en comptabilité", paid.total === 7_000 && outs.length === 2 && outs.some(o => o.category === "supplier_payment" && o.amount === 6_500) && outs.some(o => o.category === "transport" && o.amount === 500) && outs.every(o => o.entryId), outs);
   check("second paiement du même jour : refusé", await refuses(() => payStanding(auth, deskId, bread._id, day), /déjà payée/));
+  check("reprise après le paiement : refusée", await refuses(() => takeBackStanding(auth, deskId, bread._id, day, 1), /déjà payée/));
   const resAfter = await deskMonthResult(tenantId, deskId, month);
   // Le secteur de ce restaurant est partagé (clé 70 % fixée plus haut) : il porte 70 % des frais de livraison.
   const dTransport = (resAfter.pnl.charges.find(c => c.category === "transport")?.actual ?? 0) - (resBefore.pnl.charges.find(c => c.category === "transport")?.actual ?? 0);

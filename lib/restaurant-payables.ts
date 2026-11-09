@@ -118,6 +118,21 @@ export async function returnToSupplier(auth: TokenPayload, deskId: string, purch
       amount += Math.round(q * log.unitCost);
     }
     if (!(amount > 0)) throw new BusinessRuleError("Avoir nul : vérifiez le prix de la réception.");
+    return creditPurchase(auth, p, amount, reason, input.reference, date, session);
+  });
+  await syncLinkedItems(auth.tenantId, deskId);
+  return out;
+}
+
+type FoundPurchase = Awaited<ReturnType<typeof openPurchase>>;
+
+/**
+ * Avoir du fournisseur sur une facture encore due : 401 au débit, compte
+ * d'achat au crédit (même secteur). La dette baisse sans sortie d'argent.
+ */
+export async function creditPurchase(auth: TokenPayload, p: FoundPurchase, amount: number, reason: string, reference: string | undefined, date: Date, session?: ClientSession) {
+    // Garde commune à tous les avoirs : une facture annulée ou soldée ne se crédite pas.
+    if (!["validated", "partial"].includes(p.status)) throw new BusinessRuleError(p.status === "paid" ? "Cette facture est soldée : un retour se règle alors par un remboursement, voyez la comptable." : "Cette facture ne peut pas recevoir d'avoir.");
     const credited = (p.credits ?? []).reduce((t: number, x: { amount: number }) => t + x.amount, 0);
     const rest = p.totalTTC - (p.paidAmount ?? 0);
     if (amount > rest) throw new BusinessRuleError(`L'avoir (${amount.toLocaleString("fr-FR")} FCFA) dépasse la dette restante de cette facture (${rest.toLocaleString("fr-FR")} FCFA) : voyez la comptable.`);
@@ -128,15 +143,14 @@ export async function returnToSupplier(auth: TokenPayload, deskId: string, purch
       lines: [{ ...SUPPLIER_ACCOUNT, debit: amount, credit: 0, ...third }, { accountCode: goods.accountCode, accountLabel: goods.accountLabel || "Achats de marchandises", debit: 0, credit: amount, ...(goods.activityId ? { activityId: goods.activityId } : {}) }],
       linkedDocType: "supplier_invoice", linkedDocId: p._id, createdBy: auth.userId,
     }], { session });
-    p.credits = [...(p.credits ?? []), { date, amount, reason, reference: input.reference?.slice(0, 80), entryId: entry._id, by: auth.userId }];
+    p.credits = [...(p.credits ?? []), { date, amount, reason, reference: reference?.slice(0, 80), entryId: entry._id, by: auth.userId }];
     p.paidAmount = (p.paidAmount ?? 0) + amount;
     p.status = p.paidAmount >= p.totalTTC ? "paid" : "partial";
     await p.save({ session });
     return { amount, credited: credited + amount, rest: rest - amount };
-  });
-  await syncLinkedItems(auth.tenantId, deskId);
-  return out;
 }
+
+export { openPurchase };
 
 /**
  * Valorisation d'une réception reçue sans prix : le coût moyen est corrigé sur

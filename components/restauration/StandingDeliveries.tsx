@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Croissant, Check, Banknote, Flame, Plus, Trash2, Save } from "lucide-react";
+import { Croissant, Check, Banknote, Flame, Plus, Trash2, Save, Undo2 } from "lucide-react";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill } from "@/components/ui/Primitives";
 import { buttonClass } from "@/components/ui/button-class";
@@ -14,7 +14,7 @@ const MONEY = (n?: number | null) => (n === undefined || n === null ? "—" : `$
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const DAYS = ["Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."];
 
-interface Row { _id: string; name: string; unit: string; supplier: string | null; expected: number; received: number | null; paid: boolean; toDesk: boolean; amount?: number | null }
+interface Row { _id: string; name: string; unit: string; supplier: string | null; expected: number; received: number | null; takenBack?: number; paid: boolean; toDesk: boolean; amount?: number | null }
 
 /**
  * Livraisons du jour (pain du matin…) : on confirme à l'arrivée (quantité
@@ -25,6 +25,7 @@ export function TodayDeliveries({ deskId, onChange, big = false }: { deskId: str
   const day = today();
   const { data, reload } = useApi<Row[]>(deskId ? `/api/restauration/livraisons?deskId=${deskId}&day=${day}` : null, d => (d?.data as Row[]) ?? [], [], { quiet: true });
   const [qty, setQty] = useState<Record<string, string>>({});
+  const [back, setBack] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const op = useOpKey();
   async function post(body: Record<string, unknown>, done: string) {
@@ -55,7 +56,13 @@ export function TodayDeliveries({ deskId, onChange, big = false }: { deskId: str
             </div>
           ) : (
             <div className="flex gap-2 items-center flex-wrap">
-              <span className="text-sm text-ink2">Reçu : {r.received} {r.unit}{r.amount !== undefined ? ` · ${MONEY(r.amount)}` : ""}</span>
+              <span className="text-sm text-ink2">Reçu : {r.received} {r.unit}{r.takenBack ? ` · rendus au fournisseur : ${r.takenBack}` : ""}{r.amount !== undefined ? ` · ${MONEY(r.amount)}` : ""}</span>
+              {!r.paid && (
+                <span className="flex gap-2 items-center">
+                  <input className={`${inputCls} w-24 ${h}`} inputMode="decimal" placeholder="0" value={back[r._id] ?? ""} onChange={e => setBack(b => ({ ...b, [r._id]: e.target.value }))} aria-label={`Invendus de ${r.name} repris par le fournisseur`} />
+                  <button disabled={busy || !(Number((back[r._id] ?? "").replace(",", ".")) > 0)} onClick={async () => { const n = Number(back[r._id].replace(",", ".")); if (await confirmDialog(`${r.supplier ?? "Le fournisseur"} reprend ${n} ${r.unit} de ${r.name} invendus ? Ils sortent du stock et ne seront pas payés.`)) { setBack(b => ({ ...b, [r._id]: "" })); post({ action: "takeback", id: r._id, quantity: n }, "Invendus repris notés"); } }} className={`${buttonClass("secondary", "sm")} ${h}`}><Undo2 size={14} /> Repris</button>
+                </span>
+              )}
               {!r.paid && <button disabled={busy} onClick={async () => { if (await confirmDialog(`Payer ${r.supplier ?? "le fournisseur"}${r.amount ? ` : ${MONEY(r.amount)}` : ""} depuis la caisse du comptoir ?`)) post({ action: "pay", id: r._id }, "Paiement enregistré en caisse"); }} className={`${buttonClass("secondary", "sm")} ${h}`}><Banknote size={14} /> Payer depuis la caisse</button>}
             </div>
           )}

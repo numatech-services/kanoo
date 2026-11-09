@@ -7,7 +7,7 @@ import { isId, ownDesk, canSeeDeskCosts } from "@/lib/comptoir";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { localDay } from "@/lib/format";
-import { standingDay, saveStanding, confirmStanding, payStanding, startGasBottle } from "@/lib/restaurant-standing";
+import { standingDay, saveStanding, confirmStanding, payStanding, startGasBottle, takeBackStanding } from "@/lib/restaurant-standing";
 import { ActivityDeskModel } from "@/models/ActivityDesk";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +35,7 @@ export const GET = withAuth("comptoir", "read", async (req: NextRequest, auth: T
  * POST { deskId, action, … }
  *  - setup : { deliveries: [...] } — livraisons permanentes (chef, gérance, comptabilité) ;
  *  - confirm : { id, day, quantity? } — livraison du jour reçue (le matin) ;
+ *  - takeback : { id, day, quantity } — invendus repris par le fournisseur (le soir, avant le paiement) ;
  *  - pay : { id, day, method? } — payée depuis la caisse (le soir) ;
  *  - gas : — bouteille de gaz mise en service.
  */
@@ -56,6 +57,12 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       await logAudit(auth, "CREATE", "comptoir", { resourceId: body.deskId, metadata: { standingReceived: r.reference, quantity: r.quantity } });
       return ok(r);
     }
+    if (body.action === "takeback") {
+      if (!canSeeDeskCosts(auth) && !authCan(auth, "comptoir", "update")) return forbidden("La reprise des invendus revient au responsable du comptoir.");
+      const r = await takeBackStanding(auth, body.deskId, body.id, body.day, Number(body.quantity));
+      await logAudit(auth, "UPDATE", "comptoir", { resourceId: body.deskId, metadata: { standingTakenBack: r.reference, quantity: r.quantity, amount: r.amount } });
+      return ok(canSeeDeskCosts(auth) ? r : { reference: r.reference, quantity: r.quantity });
+    }
     if (body.action === "pay") {
       // Sortie de caisse : qui encaisse au comptoir (droit de modifier le comptoir) ou qui voit les coûts.
       if (!canSeeDeskCosts(auth) && !authCan(auth, "comptoir", "update")) return forbidden("Le paiement depuis la caisse revient au responsable du comptoir.");
@@ -63,6 +70,6 @@ export const POST = withAuth("comptoir", "create", async (req: NextRequest, auth
       await logAudit(auth, "CREATE", "comptoir", { resourceId: body.deskId, metadata: { standingPaid: r.reference, total: r.total } });
       return ok(r);
     }
-    return badRequest("Action inconnue (setup, confirm, pay, gas).");
+    return badRequest("Action inconnue (setup, confirm, takeback, pay, gas).");
   } catch (e) { if (e instanceof BusinessRuleError) return badRequest(e.message); throw e; }
 });
