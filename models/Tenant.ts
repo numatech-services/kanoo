@@ -169,6 +169,9 @@ TenantSchema.add({
   costCenters: [{ _id: false, code: { type: String, maxlength: 20, match: /^[A-Z0-9_-]{1,20}$/ }, label: { type: String, maxlength: 80 }, active: { type: Boolean, default: true } }],
 
   /** Comptabilité verrouillée jusqu'à cette date incluse (clôture de période / d'exercice). */
+  /** Reprise de la comptabilité : moment de l'effacement et date à partir de laquelle la comptable repart. */
+  accountingRestartAt: Date,
+  accountingRestartDate: Date,
   accountingLockedUntil: Date,
   /** Exercices clôturés (à-nouveaux générés). */
   closedFiscalYears: { type: [Number], default: [] },

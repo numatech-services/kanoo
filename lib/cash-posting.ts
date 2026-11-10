@@ -1,4 +1,5 @@
 import type { ClientSession } from "mongoose";
+import { refuseIfRestarted } from "@/lib/accounting-restart";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { treasuryLedger } from "@/lib/treasury";
@@ -87,6 +88,7 @@ export async function reverseCashFlow(
   if (opts.movementId) {
     const m = await TreasuryMovementModel.findOne({ _id: opts.movementId, tenantId: opts.tenantId }).session(session ?? null)
       .lean<{ accountId: unknown; amount: number; label: string; reference?: string; linkedDocType?: string; linkedDocId?: unknown } | null>();
+    if (!m) await refuseIfRestarted(opts.tenantId, session);
     if (m) {
       await TreasuryMovementModel.create([{
         tenantId: opts.tenantId, accountId: m.accountId, date: new Date(), amount: -m.amount,

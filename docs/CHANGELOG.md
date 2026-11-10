@@ -8,6 +8,17 @@ Livraisons du jour (Magasin) : un champ « Repris » s'ajoute avant le paiement 
 - On ne rend pas plus que reçu, et la reprise est refusée une fois la livraison payée. Les invendus non repris restent à déclarer en perte.
 - Qui peut le faire : le responsable du comptoir, comme pour le paiement du soir.
 
+## Reprise de la comptabilité (novembre 2026)
+
+**Repartir de zéro** (Comptabilité → Reprise des soldes, gérant seulement) :
+- export complet de l'organisation d'abord : un fichier JSON par collection, sans mots de passe ni jetons. À garder dix ans ;
+- puis effacement, avec un export de moins de 24 heures, la confirmation REPRENDRE et aucune caisse ouverte. Sont effacés : écritures, mouvements et relevés de trésorerie, sessions, arrêtés, entrées de caisse, relevés mobile money, situations de départ des sites, analytique. Les comptes de trésorerie restent, remis à zéro ;
+- factures, achats, règlements, clients, fournisseurs, stock et paie restent ;
+- la période qui précède la date de reprise est verrouillée. La comptable y saisit les soldes d'ouverture (même écran) ;
+- une pièce antérieure dont l'écriture a été effacée (règlement, facture, achat…) ne s'annule plus en silence : Kanoo demande une écriture de régularisation.
+
+**Trésorerie** : sans caisse ni banque choisie, l'opération le dit clairement. Les frais bancaires proposés passent du 627000 (publicité) au 631000. Le 616000 (transports de plis) rejoint le plan des nouvelles organisations.
+
 ## Marchés — conditions du contrat et frais d'exécution (novembre 2026)
 
 **Conditions du marché** (fiche du marché → Renseigner) : montant TTC, délai de paiement, date de départ de l'ordre de service, délai d'exécution, livraison effective, pénalité (1/2000e par jour, plafond facultatif), redevance et seuil, taux des intérêts moratoires.

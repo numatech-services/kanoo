@@ -72,6 +72,7 @@ export const SYSCOHADA_ACCOUNTS: DefaultAccount[] = [
   { code: "611000", label: "Transports sur achats" },
   { code: "612000", label: "Transports sur ventes" },
   { code: "614000", label: "Transports du personnel" },
+  { code: "616000", label: "Transports de plis" },
   { code: "618000", label: "Autres frais de transport (déplacements, taxis)" },
   { code: "621000", label: "Sous-traitance générale" },
   { code: "622100", label: "Locations de bâtiments (loyers)" },

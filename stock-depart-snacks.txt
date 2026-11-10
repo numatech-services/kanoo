@@ -1,0 +1,17 @@
+Article	Unité	Carton de	Cartons	Unités	Coût unitaire	Prix de vente
+BRAWO	paquet	24			158	250
+Mars	pièce	24			312,5	400
+Biskiato	paquet	24			158,33	250
+Today	paquet	24			87,5	200
+Salty	paquet	24			158,33	250
+Bisco Time	paquet	24			45,83	100
+Muffin RAMA	pièce	24			97,92	150
+Dark	paquet	24			158,33	250
+ANI	paquet	24			158,33	250
+MAXON	pièce	100			150	250
+Super Mint	paquet	54			46,3	100
+Dr Milk	pièce	210			10	25
+Bonbons Coffee	pièce				8	20
+Today Gaufre	paquet	24			88	150
+Eau	bouteille	12			125	250
+Jus IRA	bouteille	24			354,17	500

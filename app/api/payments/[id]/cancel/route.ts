@@ -1,4 +1,5 @@
 import { adjustProvision } from "@/lib/doubtful-server";
+import { refuseIfRestarted } from "@/lib/accounting-restart";
 import { NextRequest } from "next/server";
 import { connectDB, withTransaction } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
@@ -38,6 +39,8 @@ export const POST = withAuth("payments", "delete", async (req: NextRequest, auth
     // Timbre : extourné pour une erreur de saisie ; gardé si le reçu a été
     // remis au client (`keepStamp`), car il reste alors dû sur la quittance.
     const entries = await AccountingEntryModel.find({ tenantId: auth.tenantId, linkedDocType: "payment", linkedDocId: payment._id, reversedBy: { $exists: false }, reverses: { $exists: false } }).session(session ?? null);
+    // Règlement effectif sans écriture : effacée par la reprise de la comptabilité, l'annulation est refusée.
+    if (!entries.length && payment.status !== "pending") await refuseIfRestarted(auth.tenantId, session, payment.createdAt);
     const isStamp = (e: { journalCode?: string; lines: Array<{ accountCode: string }> }) => e.journalCode === "OD" && e.lines.some(l => l.accountCode === STAMP_CHARGE.accountCode);
     for (const entry of entries) {
       if (keepStamp && isStamp(entry)) continue;

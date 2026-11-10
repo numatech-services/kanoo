@@ -1,4 +1,7 @@
 import type { ClientSession } from "mongoose";
+import { InvoiceModel } from "@/models/Invoice";
+import { isProvisionalNumber } from "@/lib/numbering";
+import { refuseIfRestarted } from "@/lib/accounting-restart";
 import { ProductModel } from "@/models/Product";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { reverseEntry } from "@/lib/accounting-reversal";
@@ -97,5 +100,10 @@ export function findSaleEntry(tenantId: string, invoiceId: unknown, session?: Cl
  */
 export async function reverseSaleEntry(opts: { tenantId: string; userId: string; invoiceId: unknown; reason: string; atEntryDate?: boolean }, session?: ClientSession) {
   const entry = await findSaleEntry(opts.tenantId, opts.invoiceId, session);
+  if (!entry) {
+    // Facture émise avant la reprise : son écriture de vente a été effacée.
+    const inv = await InvoiceModel.findOne({ _id: opts.invoiceId, tenantId: opts.tenantId }).select("number createdAt").session(session ?? null).lean<{ number?: string; createdAt?: Date } | null>();
+    if (inv && !isProvisionalNumber(inv.number)) await refuseIfRestarted(opts.tenantId, session, inv.createdAt);
+  }
   if (entry) await reverseEntry({ tenantId: opts.tenantId, userId: opts.userId, entryId: entry._id, reason: opts.reason, ...(opts.atEntryDate ? { date: entry.entryDate } : {}) }, session);
 }

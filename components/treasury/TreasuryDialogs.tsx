@@ -106,15 +106,17 @@ export function TransferDialog({ accounts, onClose, onDone }: { accounts: Treasu
 }
 
 const COUNTER_PRESETS = [
-  ["627000", "Frais bancaires (sortie)"], ["631000", "Frais bancaires — services"], ["758000", "Produits divers (entrée)"],
+  ["631000", "Frais bancaires (sortie)"], ["616000", "Transports de plis, colis (sortie)"], ["758000", "Produits divers (entrée)"],
   ["771000", "Intérêts reçus (entrée)"], ["101000", "Apport en capital (entrée)"], ["162000", "Emprunt reçu (entrée)"], ["471000", "Débiteurs / créditeurs divers"],
 ];
 
 export function ManualMovementDialog({ accounts, onClose, onDone }: { accounts: TreasuryAccountLite[]; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ accountId: accounts.length === 1 ? accounts[0]._id : "", direction: "out", amount: 0, date: today(), label: "", counterAccount: "627000", reference: "" });
+  const [f, setF] = useState({ accountId: accounts.length === 1 ? accounts[0]._id : "", direction: "out", amount: 0, date: today(), label: "", counterAccount: "631000", reference: "" });
   const [imp, setImp] = useState<ImputationValue>({});
   const [error, setError] = useState("");
   async function submit() {
+    // Message clair avant l'envoi : sans compte choisi, le serveur répondait « Compte de trésorerie introuvable ».
+    if (!f.accountId) { setError(accounts.length ? "Choisissez la caisse ou la banque concernée." : "Aucune caisse ni banque active : créez-la d'abord dans Trésorerie (Nouveau compte)."); return; }
     try { await send("/api/treasury-accounts/movements", "POST", { kind: "manual", ...f, ...imp }); onDone(); }
     catch (e) { setError(e instanceof Error ? e.message : "Opération refusée"); }
   }

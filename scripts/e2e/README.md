@@ -9,6 +9,7 @@ Chaque script joue un parcours complet contre une instance compilée et affiche
 - `e2e-flux.mjs` : filtre commun recettes / dépenses / période, contrats.
 - `e2e-marche.mjs` : devis → marché → acomptes → dépenses par catégorie → marge, avoir.
 - `e2e-marche-frais.mjs` : conditions d'un marché public (redevance, pénalités, délai, déclaration de créance, intérêts) et types de dépenses.
+- `e2e-reprise.mjs` : reprise de la comptabilité (export complet, effacement, verrouillage, annulations antérieures refusées).
 - `e2e-portail.mjs` : portail client (lien, documents, devis acceptés, paiement en ligne, révocation).
 - `e2e-compta.mjs` : moteur comptable — banque protégée, TVA et fournisseur des charges
   récurrentes, origine des immobilisations, retenues sur le compte fournisseur commun.

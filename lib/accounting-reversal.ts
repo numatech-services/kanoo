@@ -1,4 +1,5 @@
 import type { ClientSession } from "mongoose";
+import { refuseIfRestarted } from "@/lib/accounting-restart";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { BusinessRuleError } from "@/lib/errors";
 
@@ -15,7 +16,11 @@ export async function reverseEntry(
   session?: ClientSession,
 ) {
   const entry = await AccountingEntryModel.findOne({ _id: opts.entryId, tenantId: opts.tenantId }).session(session ?? null);
-  if (!entry) return null;
+  if (!entry) {
+    // Écriture effacée par la reprise de la comptabilité : refus explicite, pas d'annulation muette.
+    if (opts.entryId) await refuseIfRestarted(opts.tenantId, session);
+    return null;
+  }
   if (entry.reversedBy) throw new BusinessRuleError(`L'écriture ${entry.reference} est déjà extournée.`);
   if (entry.reverses) throw new BusinessRuleError("Une extourne ne s'extourne pas : ressaisissez l'écriture d'origine.");
 

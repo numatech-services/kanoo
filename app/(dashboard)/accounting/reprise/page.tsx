@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { RestartPanel } from "@/components/accounting/RestartPanel";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, CheckCircle2 } from "lucide-react";
 import { inputCls, selectCls } from "@/components/ui/FormField";
@@ -86,6 +87,8 @@ export default function ReprisePage() {
         <h1 className="page-title mt-1">Reprise des soldes d&apos;ouverture</h1>
         <p className="text-sm text-ink2">Reportez le bilan de clôture de votre ancien logiciel ou de votre expert-comptable : banques et caisses compte par compte, puis les autres soldes. L&apos;actif doit égaler le passif.</p>
       </div>
+
+      <RestartPanel onDone={() => window.location.reload()} />
 
       {!loaded ? <div className="surface-card h-40 animate-pulse" /> : existing ? (
         <section className="surface-card p-5 space-y-3">

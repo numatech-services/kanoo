@@ -14,6 +14,8 @@ export interface ITenant {
   hrPolicy?: { leaveMaxBalanceDays?: number; extraHolidays?: Array<{ date: string; label: string }>; removedHolidays?: string[] };
   costCenters?: Array<{ code: string; label: string; active?: boolean }>;
   accountingLockedUntil?: Date;
+  accountingRestartAt?: Date;
+  accountingRestartDate?: Date;
   closedFiscalYears?: number[];
   type: TenantType;
   name: string;
