@@ -16,6 +16,8 @@ export interface ITenant {
   accountingLockedUntil?: Date;
   accountingRestartAt?: Date;
   accountingRestartDate?: Date;
+  accountingRestartCutoff?: Date;
+  restartInProgressAt?: Date;
   closedFiscalYears?: number[];
   type: TenantType;
   name: string;

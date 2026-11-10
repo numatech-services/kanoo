@@ -51,7 +51,7 @@ export function correctionBlock(inv: CorrectableInvoice, f: CorrectionFacts, new
   if (inv.kind === "deposit" && (inv.depositUsedHT ?? 0) > 0) return "Acompte déjà déduit d'une facture de solde : corrigez par un avoir.";
   if (f.deliveries > 0) return "Des bons de livraison sont établis sur cette facture : supprimez-les d'abord, ou émettez un avoir.";
   const day = localDay(inv.issueDate), lock = f.lockedUntil ? localDay(f.lockedUntil) : null;
-  if (lock && day <= lock) return `Période comptable verrouillée jusqu'au ${new Date(f.lockedUntil!).toLocaleDateString("fr-FR")} : corrigez par un avoir.`;
+  if (lock && day <= lock) return `Période comptable verrouillée jusqu'au ${new Date(f.lockedUntil!).toLocaleDateString("fr-FR", { timeZone: "UTC" })} : corrigez par un avoir.`;
   if (f.vatDeclared) return "La TVA du mois de cette facture (ou de sa nouvelle date) est déjà déclarée : corrigez par un avoir.";
   if (newIssueDate) {
     const nd = localDay(newIssueDate);

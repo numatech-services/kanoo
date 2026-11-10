@@ -26,7 +26,7 @@ export const PATCH = withAuth("devis", "update", async (req: NextRequest, auth: 
   // modifient pas ici : défaire `contractId` réautorisait la transformation en
   // facture, donc une double facturation du marché.
   if (d.contractId) return badRequest("Devis transformé en marché : il ne se modifie plus.");
-  const update = sanitizeBody(body, ["number", "status", "totalHT", "totalTVA", "totalTTC", "convertedToInvoiceId", "contractId", "projectId", "acceptedOnline", "createdBy"]);
+  const update = sanitizeBody(body, ["number", "status", "totalHT", "totalTVA", "totalTTC", "convertedToInvoiceId", "contractId", "projectId", "acceptedOnline", "createdBy", "revisions", "rejectedAt", "rejectionReason"]);
   if (update.clientId !== undefined && String(update.clientId) !== String(d.clientId)
     && !(await ClientModel.exists({ _id: update.clientId, ...tenantFilter(auth) }))) return badRequest("Client introuvable.");
   if (Array.isArray(update.lines)) {

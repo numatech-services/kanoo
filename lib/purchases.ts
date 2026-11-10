@@ -1,4 +1,5 @@
 import { Types, type ClientSession } from "mongoose";
+import { refuseIfRestarted } from "@/lib/accounting-restart";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { SupplierModel } from "@/models/Supplier";
@@ -204,6 +205,8 @@ export async function cancelPayment(auth: TokenPayload, p: PurchaseDoc, paymentI
   const pay = p.payments.find(x => String(x._id) === paymentId);
   if (!pay) throw new PurchaseError("Règlement introuvable.");
   if (pay.cancelledAt) throw new PurchaseError("Règlement déjà annulé.");
+  // Règlement sans écriture : effacée par la reprise, pas d'annulation qui créerait un mouvement contraire.
+  if (!pay.entryId) await refuseIfRestarted(auth.tenantId, session, pay._id.getTimestamp());
   if (pay.entryId) await reverseEntry({ tenantId: auth.tenantId, userId: auth.userId, entryId: pay.entryId, reason: "règlement annulé" }, session);
   const [back] = await TreasuryMovementModel.create([{
     tenantId: auth.tenantId, accountId: pay.treasuryAccountId, date: new Date(), amount: pay.amount,
@@ -226,6 +229,8 @@ export async function cancelPayment(auth: TokenPayload, p: PurchaseDoc, paymentI
 /** Annulation d'un achat validé (sans règlement actif) : extourne de l'écriture d'achat. */
 export async function cancelPurchase(auth: TokenPayload, p: PurchaseDoc, reason: string, session?: ClientSession) {
   if (p.status === "cancelled") throw new PurchaseError("Achat déjà annulé.");
+  // Achat antérieur à la reprise : le dire d'abord, plutôt que renvoyer vers des règlements qui ne s'annulent plus.
+  if (p.entryId && !(await AccountingEntryModel.exists({ _id: p.entryId, tenantId: auth.tenantId }).session(session ?? null))) await refuseIfRestarted(auth.tenantId, session, p.validatedAt);
   if (p.paidAmount > 0) throw new PurchaseError("Annulez d'abord les règlements de cet achat.");
   // La marchandise de cette dette est en stock : l'annuler laisserait un stock sans achat.
   if (await PurchasePriceLogModel.exists({ tenantId: auth.tenantId, purchaseId: p._id }).session(session ?? null)) throw new PurchaseError("Cette dette vient d'une réception en stock : enregistrez un retour fournisseur plutôt que d'annuler la facture.");

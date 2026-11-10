@@ -50,14 +50,17 @@ export const RESTART_REFUSAL = "Pièce antérieure à la reprise de la comptabil
 
 /** Une pièce dont l'écriture a disparu avec la reprise ne s'annule pas en silence. */
 export async function refuseIfRestarted(tenantId: string, session?: ClientSession, createdBefore?: Date) {
-  const t = await TenantModel.findById(tenantId).select("accountingRestartAt").session(session ?? null).lean<{ accountingRestartAt?: Date } | null>();
-  if (!t?.accountingRestartAt) return;
-  if (createdBefore && createdBefore > t.accountingRestartAt) return;
+  const t = await TenantModel.findById(tenantId).select("accountingRestartAt accountingRestartCutoff restartInProgressAt").session(session ?? null)
+    .lean<{ accountingRestartAt?: Date; accountingRestartCutoff?: Date; restartInProgressAt?: Date } | null>();
+  if (!t?.accountingRestartAt && !t?.restartInProgressAt) return;
+  // Seules les pièces couvertes par l'export ont perdu leur écriture.
+  const cutoff = t.accountingRestartCutoff ?? t.accountingRestartAt;
+  if (createdBefore && cutoff && createdBefore > cutoff) return;
   throw new BusinessRuleError(RESTART_REFUSAL);
 }
 
 /** Champs jamais exportés : mots de passe, empreintes, jetons, secrets. */
-const SECRET = /pass(word)?|hash|secret|token|otp|apikey|privatekey|accesscode|Enc$/i;
+const SECRET = /pass(word)?|hash|secret|token|otp|apikey|privatekey|accesscode|keyhint|Enc$/i;
 function scrub(doc: unknown): unknown {
   if (Array.isArray(doc)) return doc.map(scrub);
   if (doc && typeof doc === "object" && !(doc instanceof Date) && !(doc instanceof Types.ObjectId) && !Buffer.isBuffer(doc)) {
@@ -76,6 +79,8 @@ export async function exportTenantData(auth: TokenPayload) {
   const tid = new Types.ObjectId(auth.tenantId);
   const zip = new JSZip();
   const counts: Record<string, number> = {};
+  // Heure de coupure prise AVANT la première lecture : tout ce qui est créé ou modifié ensuite est hors de l'archive, et donc gardé.
+  const exportedAt = new Date();
   const collections = (await db.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name).filter(n => !n.startsWith("system.")).sort();
   for (const name of collections) {
     // Organisation stockée en identifiant ou en texte selon les modèles.
@@ -87,7 +92,6 @@ export async function exportTenantData(auth: TokenPayload) {
     counts[name] = parts.length;
     zip.file(`${name}.json`, `[\n${parts.join(",\n")}\n]`);
   }
-  const exportedAt = new Date();
   zip.file("LISEZMOI.txt", [
     "Export complet Kanoo",
     `Organisation : ${auth.tenantId}`,
@@ -111,7 +115,7 @@ export async function restartPreview(tenantId: string) {
   const [openSessions, lastExport, tenant, accounts] = await Promise.all([
     CashSessionModel.countDocuments({ tenantId: tid, status: "open" }),
     AccountingRestartModel.findOne({ tenantId: tid, restartedAt: { $exists: false } }).sort({ exportedAt: -1 }).select("exportedAt exportHash").lean<{ _id: unknown; exportedAt: Date; exportHash?: string } | null>(),
-    TenantModel.findById(tid).select("accountingRestartAt accountingRestartDate").lean<{ accountingRestartAt?: Date; accountingRestartDate?: Date } | null>(),
+    TenantModel.findById(tid).select("accountingRestartAt accountingRestartDate restartInProgressAt").lean<{ accountingRestartAt?: Date; accountingRestartDate?: Date; restartInProgressAt?: Date } | null>(),
     TreasuryAccountModel.countDocuments({ tenantId: tid }),
   ]);
   const validExport = lastExport && Date.now() - new Date(lastExport.exportedAt).getTime() < EXPORT_VALIDITY_MS ? lastExport : null;
@@ -119,7 +123,9 @@ export async function restartPreview(tenantId: string) {
   const changedSince = validExport ? await changedAfter(tid, new Date(validExport.exportedAt)) : 0;
   return {
     counts, treasuryAccounts: accounts, openSessions, changedSince, restartDate: restartDay(),
-    export: validExport ? { exportId: String(validExport._id), exportedAt: validExport.exportedAt, exportHash: validExport.exportHash } : null,
+    // L'empreinte n'est jamais renvoyée : seul le fichier reçu permet de la calculer.
+    export: validExport ? { exportId: String(validExport._id), exportedAt: validExport.exportedAt } : null,
+    interrupted: !!tenant?.restartInProgressAt,
     lastRestart: tenant?.accountingRestartAt ? { at: tenant.accountingRestartAt, date: tenant.accountingRestartDate } : null,
   };
 }
@@ -149,28 +155,41 @@ export async function restartAccounting(auth: TokenPayload, input: { exportId?: 
   if (await CashSessionModel.exists({ tenantId: tid, status: "open" })) throw new BusinessRuleError("Une caisse est ouverte : fermez toutes les caisses des sites avant la reprise.");
   if ((await changedAfter(tid, exportedAt)) > 0) throw new BusinessRuleError("Des opérations ont été saisies depuis l'export : téléchargez un nouvel export.");
 
-  // Un seul effacement à la fois ; une opération interrompue depuis plus de dix minutes peut être reprise.
-  const started = await AccountingRestartModel.findOneAndUpdate(
+  // L'export ne sert qu'une fois : il est réservé avant tout effacement.
+  const claimed = await AccountingRestartModel.findOneAndUpdate(
     { _id: record._id, restartedAt: { $exists: false }, $or: [{ startedAt: { $exists: false } }, { startedAt: { $lt: new Date(Date.now() - 600_000) } }] },
     { $set: { startedAt: new Date(), startedBy: auth.userId } }, { new: true },
   );
-  if (!started) throw new BusinessRuleError("Une reprise est déjà en cours.");
-
-  // Date de reprise : aujourd'hui. Avec une date passée, les règlements faits
-  // depuis resteraient sans écriture alors que la trésorerie repart de zéro.
+  if (!claimed) throw new BusinessRuleError("Cet export est déjà utilisé par une reprise.");
+  // Une seule reprise à la fois pour l'organisation ; une reprise interrompue depuis dix minutes se relance.
   const restartDate = restartDay();
   const at = new Date();
-  const tenant = await TenantModel.findById(tid).select("accountingLockedUntil").lean<{ accountingLockedUntil?: Date } | null>();
   const lock = new Date(restartDate.getTime() - 1);
-  const keepLock = tenant?.accountingLockedUntil && new Date(tenant.accountingLockedUntil) > lock;
-  // Marque d'abord la reprise : une annulation lancée pendant l'effacement est déjà refusée.
-  await TenantModel.updateOne({ _id: tid }, { $set: { accountingRestartAt: at, accountingRestartDate: restartDate, ...(keepLock ? {} : { accountingLockedUntil: lock }) } });
-  // Seulement ce que l'export contient : rien de créé après lui.
-  const exported = { tenantId: tid, $or: [{ createdAt: { $lte: exportedAt } }, { createdAt: { $exists: false } }] };
+  const tenant = await TenantModel.findOneAndUpdate(
+    { _id: tid, $or: [{ restartInProgressAt: { $exists: false } }, { restartInProgressAt: { $lt: new Date(Date.now() - 600_000) } }] },
+    { $set: { restartInProgressAt: at, accountingRestartCutoff: exportedAt } }, { new: false },
+  ).select("accountingLockedUntil").lean<{ accountingLockedUntil?: Date } | null>();
+  if (!tenant) throw new BusinessRuleError("Une reprise est déjà en cours.");
+  // Verrou de période posé d'abord : plus rien ne s'écrit avant la date de reprise. Le verrou le plus tardif est gardé.
+  if (!(tenant.accountingLockedUntil && new Date(tenant.accountingLockedUntil) > lock)) await TenantModel.updateOne({ _id: tid }, { $set: { accountingLockedUntil: lock } });
+  // Seulement ce que l'archive contient : ni créé ni modifié après la coupure.
+  const exported = { tenantId: tid, $and: [
+    { $or: [{ createdAt: { $lte: exportedAt } }, { createdAt: { $exists: false } }] },
+    { $or: [{ updatedAt: { $lte: exportedAt } }, { updatedAt: { $exists: false } }] },
+  ] };
   const deleted: Record<string, number> = {};
-  for (const s of RESTART_SCOPE) deleted[s.key] = (await (s.model as mongoose.Model<unknown>).deleteMany(exported)).deletedCount ?? 0;
+  let kept = 0;
+  for (const s of RESTART_SCOPE) {
+    const m = s.model as mongoose.Model<unknown>;
+    deleted[s.key] = (await m.deleteMany(exported)).deletedCount ?? 0;
+    kept += await m.countDocuments({ tenantId: tid });
+  }
+  // Date de reprise : aujourd'hui. Avec une date passée, les règlements faits
+  // depuis resteraient sans écriture alors que la trésorerie repart de zéro.
   const reset = await TreasuryAccountModel.updateMany({ tenantId: tid }, { $set: { openingBalance: 0, openingDate: restartDate, balance: 0 } });
   deleted.treasuryAccountsReset = reset.modifiedCount;
-  await AccountingRestartModel.updateOne({ _id: record._id }, { $set: { restartedAt: at, restartedBy: auth.userId, restartDate, deleted } });
-  return { restartDate, deleted, exportHash: record.exportHash };
+  // Fin : la reprise est acquise, le verrou d'opération levé.
+  await TenantModel.updateOne({ _id: tid }, { $set: { accountingRestartAt: at, accountingRestartDate: restartDate }, $unset: { restartInProgressAt: 1 } });
+  await AccountingRestartModel.updateOne({ _id: record._id }, { $set: { restartedAt: new Date(), restartedBy: auth.userId, restartDate, deleted, kept } });
+  return { restartDate, deleted, kept, exportHash: record.exportHash };
 }

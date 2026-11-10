@@ -71,6 +71,7 @@ const id = r => D(r)?._id;
   let p = D(await g.req("GET", "/api/accounting/restart"));
   check("aperçu : écritures et mouvements comptés", p.counts?.find(c => c.key === "entries")?.count > 0 && p.counts.find(c => c.key === "movements")?.count > 0, J(p.counts));
   check("comptable : reprise refusée", (await cpt.req("GET", "/api/accounting/restart")).status === 403 && (await cpt.req("POST", "/api/accounting/restart", {})).status === 403);
+  check("aperçu : jamais d'empreinte d'archive", !J(p).includes("exportHash"));
   check("sans export : refusé", (await g.req("POST", "/api/accounting/restart", { confirm: "REPRENDRE", restartDate: today })).status === 400);
 
   console.log("\n▶ Export complet");

@@ -20,6 +20,8 @@ const AccountingRestartSchema = new Schema({
   /** Date de reprise : la comptable saisit ses soldes d'ouverture à cette date. */
   restartDate: Date,
   deleted: { type: Schema.Types.Mixed },
+  /** Documents gardés car créés ou modifiés après la coupure de l'export. */
+  kept: Number,
 }, { timestamps: true });
 
 export const AccountingRestartModel = models.AccountingRestart || model("AccountingRestart", AccountingRestartSchema);

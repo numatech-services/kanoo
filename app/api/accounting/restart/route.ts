@@ -25,7 +25,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="kanoo-export-${new Date().toISOString().slice(0, 10)}.zip"`,
-      "X-Export-Id": exportId, "X-Export-Hash": exportHash, "Cache-Control": "no-store",
+      "X-Export-Id": exportId, "Cache-Control": "no-store",
     },
   });
 });

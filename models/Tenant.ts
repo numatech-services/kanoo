@@ -172,6 +172,10 @@ TenantSchema.add({
   /** Reprise de la comptabilité : moment de l'effacement et date à partir de laquelle la comptable repart. */
   accountingRestartAt: Date,
   accountingRestartDate: Date,
+  /** Heure de coupure de l'export : les pièces créées avant elle ont perdu leur écriture. */
+  accountingRestartCutoff: Date,
+  /** Reprise en cours : refuse une seconde reprise et les annulations antérieures. */
+  restartInProgressAt: Date,
   accountingLockedUntil: Date,
   /** Exercices clôturés (à-nouveaux générés). */
   closedFiscalYears: { type: [Number], default: [] },

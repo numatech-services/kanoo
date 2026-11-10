@@ -104,7 +104,7 @@ AccountingEntrySchema.pre("save", async function () {
   const t = await Tenant.findById(this.tenantId).select("accountingLockedUntil").lean<{ accountingLockedUntil?: Date } | null>();
   if (t?.accountingLockedUntil && new Date(this.entryDate) <= new Date(t.accountingLockedUntil)) {
     throw new BusinessRuleError(
-      `Période comptable clôturée jusqu'au ${new Date(t.accountingLockedUntil).toLocaleDateString("fr-FR")} : datez l'opération dans la période ouverte.`
+      `Période comptable clôturée jusqu'au ${new Date(t.accountingLockedUntil).toLocaleDateString("fr-FR", { timeZone: "UTC" })} : datez l'opération dans la période ouverte.`
     );
   }
 });

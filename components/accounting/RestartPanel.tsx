@@ -11,7 +11,7 @@ interface Preview {
   counts: Array<{ key: string; label: string; count: number }>;
   treasuryAccounts: number; openSessions: number;
   export: { exportId: string; exportedAt: string; exportHash?: string } | null;
-  changedSince: number; restartDate: string;
+  changedSince: number; restartDate: string; interrupted?: boolean;
   lastRestart: { at: string; date: string } | null;
 }
 
@@ -27,6 +27,7 @@ export function RestartPanel({ onDone }: { onDone: () => void }) {
   // Empreinte du fichier réellement reçu : sans elle, l'effacement reste fermé.
   const [received, setReceived] = useState<{ exportId: string; hash: string } | null>(null);
   const [confirm, setConfirm] = useState("");
+  const [saved, setSaved] = useState(false);
   const load = useCallback(() => apiJson("/api/accounting/restart").then(d => { if (d?.success === false) setDenied(true); else setP(d?.data ?? null); }).catch(() => setDenied(true)), []);
   useEffect(() => { load(); }, [load]);
   if (denied || !p) return null;
@@ -42,7 +43,8 @@ export function RestartPanel({ onDone }: { onDone: () => void }) {
       setReceived({ exportId: res.headers.get("X-Export-Id") ?? "", hash });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob); a.download = `kanoo-export-${todayLocal()}.zip`; a.click();
-      URL.revokeObjectURL(a.href);
+      // URL libérée plus tard : le navigateur doit avoir fini d'écrire le fichier.
+      setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
       showToast("Export téléchargé : gardez-le en lieu sûr, et pendant dix ans.", "success");
       await load();
     } catch (e) { showToast(e instanceof Error ? e.message : "Export impossible", "error"); }
@@ -72,6 +74,8 @@ export function RestartPanel({ onDone }: { onDone: () => void }) {
         <p className="text-sm font-semibold text-ink">1. Export complet</p>
         <button onClick={download} disabled={busy} className={buttonClass("secondary", "md")}><Download size={15} /> Télécharger toutes les données</button>
         {received && p.export && <p className="text-xs text-pos">Export reçu le {new Date(p.export.exportedAt).toLocaleString("fr-FR")}, valable deux heures.</p>}
+        {received && <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-section" checked={saved} onChange={e => setSaved(e.target.checked)} /> J&apos;ai enregistré l&apos;archive en lieu sûr (disque, clé ou drive).</label>}
+        {p.interrupted && <p className="text-xs text-neg">Une reprise a été interrompue : téléchargez un nouvel export et relancez l&apos;effacement.</p>}
         {received && p.changedSince > 0 && <p className="text-xs text-neg">{p.changedSince} opération(s) saisie(s) depuis l&apos;export : téléchargez-le de nouveau.</p>}
       </div>
       <div className="space-y-2">
@@ -81,7 +85,7 @@ export function RestartPanel({ onDone }: { onDone: () => void }) {
           <p className="text-sm text-ink2 self-end">Date de reprise : <b>{formatDate(p.restartDate)}</b> (aujourd&apos;hui). La comptable y saisit les soldes d&apos;ouverture.</p>
           <FormField label="Tapez REPRENDRE pour confirmer"><input className={inputCls} value={confirm} onChange={e => setConfirm(e.target.value)} /></FormField>
         </div>
-        <button onClick={restart} disabled={busy || !received || p.changedSince > 0 || confirm !== "REPRENDRE" || p.openSessions > 0 || total + p.treasuryAccounts === 0}
+        <button onClick={restart} disabled={busy || !received || !saved || p.changedSince > 0 || confirm !== "REPRENDRE" || p.openSessions > 0 || total + p.treasuryAccounts === 0}
           className={buttonClass("danger", "md")}>Effacer et repartir de zéro</button>
       </div>
     </section>
