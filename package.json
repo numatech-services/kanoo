@@ -16,6 +16,7 @@
     "verify": "npm run typecheck && npm run lint && npm run test && npm run build",
     "backup": "tsx scripts/backup.ts",
     "restore": "tsx scripts/restore-backup.ts",
+    "reprise-compta": "tsx scripts/reprise-comptabilite.ts",
     "backup:predeploy": "tsx scripts/backup.ts --pre-deploy",
     "seed:test": "tsx scripts/seed-test.ts",
     "check:env": "tsx scripts/check-env.ts",

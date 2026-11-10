@@ -1,0 +1,96 @@
+/**
+ * Reprise de la comptabilité d'UNE organisation, depuis un poste de travail :
+ * export complet (zip enregistré sur ce poste), puis, sur confirmation tapée,
+ * effacement de la comptabilité, de la trésorerie et des caisses.
+ *
+ * Même logique que l'écran (lib/accounting-restart) : coupure, paquets,
+ * vérification des comptes, verrou de période, pièces antérieures protégées.
+ *
+ * Usage :
+ *   MONGODB_URI=… npx tsx scripts/reprise-comptabilite.ts --org <identifiant>            (export seul, rien n'est effacé)
+ *   MONGODB_URI=… npx tsx scripts/reprise-comptabilite.ts --org <identifiant> --effacer  (export puis effacement)
+ * L'identifiant est le « slug » de l'organisation (sans argument, la liste s'affiche).
+ */
+import { createHash } from "crypto";
+import { mkdirSync, writeFileSync } from "fs";
+import { createInterface } from "readline";
+import mongoose from "mongoose";
+import JSZip from "jszip";
+import { config } from "dotenv";
+
+config({ path: ".env.local" });
+config({ path: ".env" });
+
+async function main() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) { console.error("MONGODB_URI absent."); process.exit(1); }
+  const args = process.argv.slice(2);
+  const slug = args[args.indexOf("--org") + 1];
+  const erase = args.includes("--effacer");
+  await mongoose.connect(uri);
+  const host = mongoose.connection.host, dbName = mongoose.connection.name;
+  const { startExport, exportChunk, completeExport, restartAccounting, restartPreview } = await import("../lib/accounting-restart");
+  const { TenantModel } = await import("../models/Tenant");
+  const { UserModel } = await import("../models/User");
+
+  if (!args.includes("--org") || !slug) {
+    const list = await TenantModel.find({}).select("slug name").lean<Array<{ slug: string; name: string }>>();
+    console.log(`Base ${dbName} sur ${host}. Organisations :`);
+    for (const t of list) console.log(`  --org ${t.slug}   (${t.name})`);
+    return;
+  }
+  const tenant = await TenantModel.findOne({ slug }).select("_id name").lean<{ _id: unknown; name: string } | null>();
+  if (!tenant) { console.error(`Organisation « ${slug} » introuvable.`); process.exit(1); }
+  const admin = await UserModel.findOne({ tenantId: tenant._id, role: { $in: ["pme_admin", "superadmin"] }, isActive: true }).select("_id").lean<{ _id: unknown } | null>();
+  if (!admin) { console.error("Aucun gérant actif dans cette organisation."); process.exit(1); }
+  const auth = { tenantId: String(tenant._id), userId: String(admin._id), role: "pme_admin" } as unknown as Parameters<typeof startExport>[0];
+
+  console.log(`\nBase ${dbName} sur ${host}\nOrganisation : ${tenant.name} (${slug})\n`);
+  const p = await restartPreview(auth.tenantId);
+  for (const c of p.counts) console.log(`  ${c.label.padEnd(36)} ${c.count}`);
+  console.log(`  ${"Comptes de trésorerie remis à zéro".padEnd(36)} ${p.treasuryAccounts}\n  ${"Caisses ouvertes".padEnd(36)} ${p.openSessions}\n`);
+
+  // 1. Export complet, par paquets, enregistré sur ce poste.
+  const start = await startExport(auth);
+  const zip = new JSZip(), counts: Record<string, number> = {};
+  for (const c of start.collections) {
+    const parts: string[] = [];
+    let after: string | null = null;
+    do {
+      const ch = await exportChunk(auth, { exportId: start.exportId, collection: c.name, after });
+      parts.push(...ch.docs); after = ch.after;
+    } while (after);
+    counts[c.name] = parts.length;
+    zip.file(`${c.name}.json`, `[\n${parts.join(",\n")}\n]`);
+    process.stdout.write(`\r  Export : ${c.name.padEnd(30)} ${parts.length}        `);
+  }
+  zip.file("LISEZMOI.txt", [`Export complet Kanoo — ${tenant.name}`, `Coupure : ${start.exportedAt.toISOString()}`, "EJSON canonique, secrets retirés ; justificatifs inventoriés dans attachments.json.", "À conserver dix ans.", "", ...Object.entries(counts).map(([k, v]) => `${k} : ${v}`)].join("\n"));
+  const buf = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+  const hash = createHash("sha256").update(buf).digest("hex");
+  mkdirSync("exports-reprise", { recursive: true });
+  const file = `exports-reprise/kanoo-${slug}-${start.exportedAt.toISOString().slice(0, 19).replace(/:/g, "-")}.zip`;
+  writeFileSync(file, buf);
+  await completeExport(auth, { exportId: start.exportId, counts, hash });
+  console.log(`\n\n  Archive enregistrée : ${file} (${(buf.length / 1048576).toFixed(1)} Mo, ${Object.values(counts).reduce((t, v) => t + v, 0)} documents)\n  Empreinte SHA-256 : ${hash}\n  Copiez-la à un second endroit et gardez-la dix ans.\n`);
+  if (!erase) { console.log("Export seul : rien n'a été effacé. Relancez avec --effacer pour la reprise."); return; }
+
+  // 2. Effacement, sur double confirmation.
+  if (p.openSessions > 0) { console.error("Des caisses sont ouvertes : fermez-les, puis relancez."); process.exit(1); }
+  // Lecture ligne à ligne : fonctionne au clavier comme avec une entrée redirigée.
+  const rl = createInterface({ input: process.stdin });
+  const lines = rl[Symbol.asyncIterator]();
+  const ask = async (q: string) => { process.stdout.write(q); const r = await lines.next(); return r.done ? "" : String(r.value); };
+  const a = await ask(`Pour effacer la comptabilité, la trésorerie et les caisses de « ${tenant.name} », tapez l'identifiant ${slug} : `);
+  const b = await ask("Puis tapez REPRENDRE : ");
+  rl.close();
+  if (a.trim() !== slug || b.trim() !== "REPRENDRE") { console.log("Confirmation incorrecte : rien n'a été effacé."); return; }
+  const r = await restartAccounting(auth, { exportId: start.exportId, exportHash: hash, confirm: "REPRENDRE" });
+  console.log(`\nReprise faite au ${r.restartDate.toISOString().slice(0, 10)}. Effacé :`);
+  for (const [k, v] of Object.entries(r.deleted)) console.log(`  ${k.padEnd(24)} ${v}`);
+  if (r.kept) console.log(`  ${r.kept} document(s) gardé(s) : créés ou modifiés après l'export.`);
+  console.log("\nLa comptable saisit maintenant les soldes d'ouverture : Comptabilité → Reprise des soldes.");
+}
+
+// Fin explicite : des minuteries de l'application (cache, limites) garderaient le processus ouvert.
+main().catch(e => { console.error(e instanceof Error ? e.message : e); process.exitCode = 1; })
+  .finally(async () => { await mongoose.disconnect(); process.exit(); });

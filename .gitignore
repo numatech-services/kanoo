@@ -37,3 +37,6 @@ coverage/
 /public/uploads/
 audit/
 /audit/
+
+# Archives de reprise de la comptabilité (données réelles)
+exports-reprise/
