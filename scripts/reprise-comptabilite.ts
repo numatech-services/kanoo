@@ -42,6 +42,19 @@ function askHidden(question: string): Promise<string> {
   });
 }
 
+/** Réseau instable (coupure, DNS) : la même lecture est retentée, sans rien perdre ni doubler. */
+async function retry<T>(fn: () => Promise<T>, tries = 8): Promise<T> {
+  for (let i = 1; ; i++) {
+    try { return await fn(); }
+    catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (i >= tries || !/ENOTFOUND|ETIMEDOUT|ECONNRESET|EAI_AGAIN|timed out|Server selection|network|closed|pool/i.test(msg)) throw e;
+      process.stdout.write(`\n  Réseau interrompu (${msg.slice(0, 60)}) : nouvel essai ${i}/${tries - 1} dans ${i * 5} s…`);
+      await new Promise(r => setTimeout(r, i * 5000));
+    }
+  }
+}
+
 async function main() {
   // Adresse de la base : variable MONGODB_URI, sinon demandée (collez-la, elle s'affiche en étoiles).
   const uri = process.env.MONGODB_URI || await askHidden("Adresse de la base de production (mongodb+srv://…) : ");
@@ -49,7 +62,7 @@ async function main() {
   const args = process.argv.slice(2);
   const slug = args[args.indexOf("--org") + 1];
   const erase = args.includes("--effacer");
-  try { await mongoose.connect(uri, { serverSelectionTimeoutMS: 15000 }); }
+  try { await mongoose.connect(uri, { serverSelectionTimeoutMS: 30000, socketTimeoutMS: 120000, retryReads: true, retryWrites: true }); }
   catch (e) {
     console.error(`Connexion à la base impossible : ${e instanceof Error ? e.message : e}`);
     console.error("Vérifiez l'adresse (mot de passe compris) et, dans MongoDB Atlas → Network Access, autorisez l'adresse IP de ce Mac.");
@@ -87,13 +100,13 @@ async function main() {
   console.log(`  ${"Comptes de trésorerie remis à zéro".padEnd(36)} ${p.treasuryAccounts}\n  ${"Caisses ouvertes".padEnd(36)} ${p.openSessions}\n`);
 
   // 1. Export complet, par paquets, enregistré sur ce poste.
-  const start = await startExport(auth);
+  const start = await retry(() => startExport(auth));
   const zip = new JSZip(), counts: Record<string, number> = {};
   for (const c of start.collections) {
     const parts: string[] = [];
     let after: string | null = null;
     do {
-      const ch = await exportChunk(auth, { exportId: start.exportId, collection: c.name, after });
+      const ch = await retry(() => exportChunk(auth, { exportId: start.exportId, collection: c.name, after }));
       parts.push(...ch.docs); after = ch.after;
     } while (after);
     counts[c.name] = parts.length;
@@ -106,7 +119,7 @@ async function main() {
   mkdirSync("exports-reprise", { recursive: true });
   const file = `exports-reprise/kanoo-${slug}-${start.exportedAt.toISOString().slice(0, 19).replace(/:/g, "-")}.zip`;
   writeFileSync(file, buf);
-  await completeExport(auth, { exportId: start.exportId, counts, hash });
+  await retry(() => completeExport(auth, { exportId: start.exportId, counts, hash }));
   console.log(`\n\n  Archive enregistrée : ${file} (${(buf.length / 1048576).toFixed(1)} Mo, ${Object.values(counts).reduce((t, v) => t + v, 0)} documents)\n  Empreinte SHA-256 : ${hash}\n  Copiez-la à un second endroit et gardez-la dix ans.\n`);
   if (!erase) { console.log("Export seul : rien n'a été effacé. Relancez avec --effacer pour la reprise."); return; }
 
