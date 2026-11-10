@@ -89,7 +89,8 @@ export async function startExport(auth: TokenPayload) {
   const names = (await db.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name).filter(n => !n.startsWith("system.")).sort();
   const counts: Record<string, number> = {};
   for (const name of names) {
-    const n = await db.collection(name).countDocuments(exportFilter(name, tid, exportedAt));
+    const idx = name === "tenants" ? undefined : (await db.collection(name).indexes()).find(i => Object.keys(i.key)[0] === "tenantId");
+    const n = await db.collection(name).countDocuments(exportFilter(name, tid, exportedAt), idx ? { hint: idx.key } : {});
     if (n) counts[name] = n;
   }
   const record = await AccountingRestartModel.create({ tenantId: tid, exportedAt, exportedBy: auth.userId, exportCounts: counts });
@@ -113,7 +114,13 @@ export async function exportChunk(auth: TokenPayload, input: { exportId?: unknow
   const tid = new Types.ObjectId(auth.tenantId);
   const filter: Record<string, unknown> = exportFilter(name, tid, new Date(record.exportedAt));
   if (input.after) filter._id = { $gt: BSON.EJSON.parse(String(input.after)) };
-  const docs = await db.collection(name).find(filter).sort({ _id: 1 }).limit(CHUNK).toArray();
+  // Index de l'organisation imposé : sans lui, le tri par identifiant parcourait
+  // toute la collection (toutes organisations confondues), d'où un export très lent.
+  const coll = db.collection(name);
+  const indexed = name !== "tenants" && (await coll.indexes()).some(i => Object.keys(i.key)[0] === "tenantId");
+  const query = coll.find(filter).sort({ _id: 1 }).limit(CHUNK);
+  if (indexed) query.hint((await coll.indexes()).find(i => Object.keys(i.key)[0] === "tenantId")!.key);
+  const docs = await query.toArray();
   return {
     docs: docs.map(d => BSON.EJSON.stringify(scrub(d) as BSON.Document, { relaxed: false })),
     after: docs.length === CHUNK ? BSON.EJSON.stringify({ v: docs[docs.length - 1]._id }, { relaxed: false }).replace(/^\{"v":(.*)\}$/, "$1") : null,
