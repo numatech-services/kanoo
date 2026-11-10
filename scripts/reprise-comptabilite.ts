@@ -61,9 +61,18 @@ async function main() {
   const { UserModel } = await import("../models/User");
 
   if (!args.includes("--org") || !slug) {
-    const list = await TenantModel.find({}).select("slug name").lean<Array<{ slug: string; name: string }>>();
-    console.log(`Base ${dbName} sur ${host}. Organisations :`);
-    for (const t of list) console.log(`  --org ${t.slug}   (${t.name})`);
+    const list = await TenantModel.find({}).select("slug name createdAt").lean<Array<{ _id: unknown; slug: string; name: string; createdAt?: Date }>>();
+    const db = mongoose.connection.db!;
+    console.log(`Base ${dbName} sur ${host}. Organisations (écritures, caisses et banques, factures, utilisateurs, dernière écriture) :`);
+    for (const t of list) {
+      const f = { tenantId: t._id };
+      const [entries, accounts, invoices, users, last] = await Promise.all([
+        db.collection("accountingentries").countDocuments(f), db.collection("treasuryaccounts").countDocuments(f),
+        db.collection("invoices").countDocuments(f), db.collection("users").countDocuments(f),
+        db.collection("accountingentries").find(f).sort({ entryDate: -1 }).limit(1).project({ entryDate: 1 }).next(),
+      ]);
+      console.log(`  --org ${t.slug.padEnd(40)} ${String(entries).padStart(6)} écr. ${String(accounts).padStart(3)} cpt ${String(invoices).padStart(5)} fact. ${String(users).padStart(3)} util.  ${last?.entryDate ? new Date(last.entryDate).toISOString().slice(0, 10) : "—"}   (${t.name})`);
+    }
     return;
   }
   const tenant = await TenantModel.findOne({ slug }).select("_id name").lean<{ _id: unknown; name: string } | null>();
