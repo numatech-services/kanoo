@@ -186,7 +186,12 @@ async function changedAfter(tid: Types.ObjectId, at: Date) {
  * aucune caisse ouverte, date de reprise passée ou du jour. La période qui
  * précède la date de reprise est ensuite verrouillée : rien ne s'y écrit plus.
  */
-export async function restartAccounting(auth: TokenPayload, input: { exportId?: unknown; confirm?: unknown; exportHash?: unknown }) {
+/**
+ * `opts.restartDate` (script de reprise seulement) : reprise à une date passée,
+ * quand la comptable ressaisit toutes les opérations depuis cette date. Le
+ * verrou est alors posé à la veille, à la place de tout verrou plus tardif.
+ */
+export async function restartAccounting(auth: TokenPayload, input: { exportId?: unknown; confirm?: unknown; exportHash?: unknown }, opts: { restartDate?: Date } = {}) {
   if (input.confirm !== RESTART_CONFIRM) throw new BusinessRuleError(`Confirmation manquante : tapez ${RESTART_CONFIRM}.`);
   const tid = new Types.ObjectId(auth.tenantId);
   if (!Types.ObjectId.isValid(String(input.exportId))) throw new BusinessRuleError("Téléchargez d'abord l'export complet.");
@@ -207,7 +212,8 @@ export async function restartAccounting(auth: TokenPayload, input: { exportId?: 
   );
   if (!claimed) throw new BusinessRuleError("Cet export est déjà utilisé par une reprise.");
   // Une seule reprise à la fois pour l'organisation ; une reprise interrompue depuis dix minutes se relance.
-  const restartDate = restartDay();
+  const restartDate = opts.restartDate ?? restartDay();
+  if (isNaN(restartDate.getTime()) || restartDate.getTime() > restartDay().getTime()) throw new BusinessRuleError("Date de reprise invalide ou future.");
   const at = new Date();
   const lock = new Date(restartDate.getTime() - 1);
   const tenant = await TenantModel.findOneAndUpdate(
@@ -216,7 +222,7 @@ export async function restartAccounting(auth: TokenPayload, input: { exportId?: 
   ).select("accountingLockedUntil").lean<{ accountingLockedUntil?: Date } | null>();
   if (!tenant) throw new BusinessRuleError("Une reprise est déjà en cours.");
   // Verrou de période posé d'abord : plus rien ne s'écrit avant la date de reprise. Le verrou le plus tardif est gardé.
-  if (!(tenant.accountingLockedUntil && new Date(tenant.accountingLockedUntil) > lock)) await TenantModel.updateOne({ _id: tid }, { $set: { accountingLockedUntil: lock } });
+  if (opts.restartDate || !(tenant.accountingLockedUntil && new Date(tenant.accountingLockedUntil) > lock)) await TenantModel.updateOne({ _id: tid }, { $set: { accountingLockedUntil: lock } });
   // Seulement ce que l'archive contient : ni créé ni modifié après la coupure.
   const exported = { tenantId: tid, $and: [
     { $or: [{ createdAt: { $lte: exportedAt } }, { createdAt: { $exists: false } }] },

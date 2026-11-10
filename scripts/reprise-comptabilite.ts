@@ -10,6 +10,7 @@
  *   npm run reprise-compta                               (demande l'adresse de la base, liste les organisations)
  *   MONGODB_URI=… npx tsx scripts/reprise-comptabilite.ts --org <identifiant>            (export seul, rien n'est effacé)
  *   MONGODB_URI=… npx tsx scripts/reprise-comptabilite.ts --org <identifiant> --effacer  (export puis effacement)
+ *   … --effacer --date 2026-01-01   (reprise au 1er janvier : tout est ressaisi depuis cette date)
  * L'identifiant est le « slug » de l'organisation (sans argument, la liste s'affiche).
  */
 import { createHash } from "crypto";
@@ -62,6 +63,10 @@ async function main() {
   const args = process.argv.slice(2);
   const slug = args[args.indexOf("--org") + 1];
   const erase = args.includes("--effacer");
+  // --date AAAA-MM-JJ : reprise à une date passée (la comptable ressaisit tout depuis cette date).
+  const dateArg = args.includes("--date") ? args[args.indexOf("--date") + 1] : undefined;
+  if (dateArg !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(dateArg)) { console.error("Date attendue : --date AAAA-MM-JJ (par exemple 2026-01-01)."); process.exit(1); }
+  const restartDate = dateArg ? new Date(`${dateArg}T00:00:00.000Z`) : undefined;
   try { await mongoose.connect(uri, { serverSelectionTimeoutMS: 30000, socketTimeoutMS: 120000, retryReads: true, retryWrites: true }); }
   catch (e) {
     console.error(`Connexion à la base impossible : ${e instanceof Error ? e.message : e}`);
@@ -130,10 +135,11 @@ async function main() {
   const lines = rl[Symbol.asyncIterator]();
   const ask = async (q: string) => { process.stdout.write(q); const r = await lines.next(); return r.done ? "" : String(r.value); };
   const a = await ask(`Pour effacer la comptabilité, la trésorerie et les caisses de « ${tenant.name} », tapez l'identifiant ${slug} : `);
+  if (restartDate) console.log(`\nDate de reprise : ${dateArg}. Plus aucune écriture ne sera possible avant cette date ; tout ce qui suit est à ressaisir.`);
   const b = await ask("Puis tapez REPRENDRE : ");
   rl.close();
   if (a.trim() !== slug || b.trim() !== "REPRENDRE") { console.log("Confirmation incorrecte : rien n'a été effacé."); return; }
-  const r = await restartAccounting(auth, { exportId: start.exportId, exportHash: hash, confirm: "REPRENDRE" });
+  const r = await retry(() => restartAccounting(auth, { exportId: start.exportId, exportHash: hash, confirm: "REPRENDRE" }, { restartDate }));
   console.log(`\nReprise faite au ${r.restartDate.toISOString().slice(0, 10)}. Effacé :`);
   for (const [k, v] of Object.entries(r.deleted)) console.log(`  ${k.padEnd(24)} ${v}`);
   if (r.kept) console.log(`  ${r.kept} document(s) gardé(s) : créés ou modifiés après l'export.`);
