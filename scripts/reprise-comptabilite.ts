@@ -7,6 +7,7 @@
  * vérification des comptes, verrou de période, pièces antérieures protégées.
  *
  * Usage :
+ *   npm run reprise-compta                               (demande l'adresse de la base, liste les organisations)
  *   MONGODB_URI=… npx tsx scripts/reprise-comptabilite.ts --org <identifiant>            (export seul, rien n'est effacé)
  *   MONGODB_URI=… npx tsx scripts/reprise-comptabilite.ts --org <identifiant> --effacer  (export puis effacement)
  * L'identifiant est le « slug » de l'organisation (sans argument, la liste s'affiche).
@@ -21,13 +22,39 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 config({ path: ".env" });
 
+/** Saisie masquée (étoiles) : l'adresse de la base contient un mot de passe. */
+function askHidden(question: string): Promise<string> {
+  return new Promise(resolve => {
+    process.stdout.write(question);
+    const stdin = process.stdin;
+    if (!stdin.isTTY) { let buf = ""; stdin.on("data", d => { buf += d; }); stdin.on("end", () => resolve(buf.trim())); return; }
+    stdin.setRawMode(true); stdin.resume(); stdin.setEncoding("utf8");
+    let value = "";
+    const onData = (ch: string) => {
+      for (const c of ch) {
+        if (c === "\r" || c === "\n") { stdin.setRawMode(false); stdin.pause(); stdin.off("data", onData); process.stdout.write("\n"); resolve(value.trim()); return; }
+        if (c === "\u0003") { process.stdout.write("\n"); process.exit(1); }
+        if (c === "\u007f") { if (value) { value = value.slice(0, -1); process.stdout.write("\b \b"); } continue; }
+        value += c; process.stdout.write("*");
+      }
+    };
+    stdin.on("data", onData);
+  });
+}
+
 async function main() {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) { console.error("MONGODB_URI absent."); process.exit(1); }
+  // Adresse de la base : variable MONGODB_URI, sinon demandée (collez-la, elle s'affiche en étoiles).
+  const uri = process.env.MONGODB_URI || await askHidden("Adresse de la base de production (mongodb+srv://…) : ");
+  if (!/^mongodb(\+srv)?:\/\//.test(uri)) { console.error("Adresse invalide : elle commence par mongodb+srv:// ou mongodb://"); process.exit(1); }
   const args = process.argv.slice(2);
   const slug = args[args.indexOf("--org") + 1];
   const erase = args.includes("--effacer");
-  await mongoose.connect(uri);
+  try { await mongoose.connect(uri, { serverSelectionTimeoutMS: 15000 }); }
+  catch (e) {
+    console.error(`Connexion à la base impossible : ${e instanceof Error ? e.message : e}`);
+    console.error("Vérifiez l'adresse (mot de passe compris) et, dans MongoDB Atlas → Network Access, autorisez l'adresse IP de ce Mac.");
+    process.exit(1);
+  }
   const host = mongoose.connection.host, dbName = mongoose.connection.name;
   const { startExport, exportChunk, completeExport, restartAccounting, restartPreview } = await import("../lib/accounting-restart");
   const { TenantModel } = await import("../models/Tenant");
