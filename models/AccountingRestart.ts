@@ -12,6 +12,8 @@ const AccountingRestartSchema = new Schema({
   exportCounts: { type: Schema.Types.Mixed },
   /** Empreinte SHA-256 de l'archive remise. */
   exportHash: String,
+  /** Archive entièrement reçue par le navigateur (paquets comptés). */
+  completedAt: Date,
   /** Effacement en cours : empêche deux reprises simultanées. */
   startedAt: Date,
   startedBy: { type: Schema.Types.ObjectId, ref: "User" },

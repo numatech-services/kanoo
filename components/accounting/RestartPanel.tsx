@@ -28,31 +28,63 @@ export function RestartPanel({ onDone }: { onDone: () => void }) {
   const [received, setReceived] = useState<{ exportId: string; hash: string } | null>(null);
   const [confirm, setConfirm] = useState("");
   const [saved, setSaved] = useState(false);
+  // Avancement de l'export : collection en cours et documents reçus.
+  const [progress, setProgress] = useState("");
   const load = useCallback(() => apiJson("/api/accounting/restart").then(d => { if (d?.success === false) setDenied(true); else setP(d?.data ?? null); }).catch(() => setDenied(true)), []);
   useEffect(() => { load(); }, [load]);
   if (denied || !p) return null;
 
+  async function post(body: Record<string, unknown>) {
+    const res = await apiSend("POST", "/api/accounting/restart", body);
+    if (!res.ok) throw new Error(res.data?.error || "Export interrompu : recommencez.");
+    return res.data.data;
+  }
   async function download() {
-    setBusy(true);
+    setBusy(true); setReceived(null); setSaved(false);
     try {
-      const res = await fetch("/api/accounting/restart?export=1", { credentials: "include" });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || "Export impossible");
-      const blob = await res.blob();
+      // Morceaux de mille documents : aucune requête ne porte toute l'organisation.
+      const start = await post({ action: "export-start" }) as { exportId: string; exportedAt: string; collections: Array<{ name: string; count: number }> };
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      const counts: Record<string, number> = {};
+      const total = start.collections.reduce((t, c) => t + c.count, 0);
+      let done = 0;
+      for (const c of start.collections) {
+        const parts: string[] = [];
+        let after: string | null = null;
+        do {
+          const chunk = await post({ action: "export-chunk", exportId: start.exportId, collection: c.name, after }) as { docs: string[]; after: string | null };
+          parts.push(...chunk.docs); after = chunk.after; done += chunk.docs.length;
+          setProgress(`${c.name} — ${done.toLocaleString("fr-FR")} / ${total.toLocaleString("fr-FR")} documents`);
+        } while (after);
+        counts[c.name] = parts.length;
+        zip.file(`${c.name}.json`, `[\n${parts.join(",\n")}\n]`);
+      }
+      zip.file("LISEZMOI.txt", [
+        "Export complet Kanoo", `Coupure : ${start.exportedAt}`,
+        "Un fichier par collection, au format EJSON canonique ; mots de passe, empreintes et jetons retirés.",
+        "Les justificatifs (fichiers) ne sont pas dans l'archive : leur inventaire est dans attachments.json, ils restent sur le stockage.",
+        "À conserver dix ans.", "", ...Object.entries(counts).map(([k, v]) => `${k} : ${v}`),
+      ].join("\n"));
+      setProgress("Compression de l'archive…");
+      const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
       const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
       const hash = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join("");
-      setReceived({ exportId: res.headers.get("X-Export-Id") ?? "", hash });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob); a.download = `kanoo-export-${todayLocal()}.zip`; a.click();
       // URL libérée plus tard : le navigateur doit avoir fini d'écrire le fichier.
       setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
-      showToast("Export téléchargé : gardez-le en lieu sûr, et pendant dix ans.", "success");
+      await post({ action: "export-complete", exportId: start.exportId, counts, hash });
+      setReceived({ exportId: start.exportId, hash });
+      setProgress("");
+      showToast(`Export téléchargé (${total.toLocaleString("fr-FR")} documents) : gardez-le en lieu sûr, et pendant dix ans.`, "success");
       await load();
-    } catch (e) { showToast(e instanceof Error ? e.message : "Export impossible", "error"); }
+    } catch (e) { setProgress(""); showToast(e instanceof Error ? e.message : "Export impossible", "error"); }
     finally { setBusy(false); }
   }
   async function restart() {
     setBusy(true);
-    const res = await apiSend("POST", "/api/accounting/restart", { exportId: received?.exportId, exportHash: received?.hash, confirm });
+    const res = await apiSend("POST", "/api/accounting/restart", { action: "restart", exportId: received?.exportId, exportHash: received?.hash, confirm });
     setBusy(false);
     if (!res.ok) { showToast(res.data?.error || "Reprise refusée.", "error"); return; }
     showToast("Comptabilité, trésorerie et caisses remises à zéro. Saisissez les soldes d'ouverture.", "success");
@@ -73,6 +105,7 @@ export function RestartPanel({ onDone }: { onDone: () => void }) {
       <div className="space-y-2">
         <p className="text-sm font-semibold text-ink">1. Export complet</p>
         <button onClick={download} disabled={busy} className={buttonClass("secondary", "md")}><Download size={15} /> Télécharger toutes les données</button>
+        {progress && <p className="text-xs text-ink2">{progress}</p>}
         {received && p.export && <p className="text-xs text-pos">Export reçu le {new Date(p.export.exportedAt).toLocaleString("fr-FR")}, valable deux heures.</p>}
         {received && <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-section" checked={saved} onChange={e => setSaved(e.target.checked)} /> J&apos;ai enregistré l&apos;archive en lieu sûr (disque, clé ou drive).</label>}
         {p.interrupted && <p className="text-xs text-neg">Une reprise a été interrompue : téléchargez un nouvel export et relancez l&apos;effacement.</p>}

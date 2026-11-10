@@ -11,7 +11,7 @@ Livraisons du jour (Magasin) : un champ « Repris » s'ajoute avant le paiement 
 ## Reprise de la comptabilité (novembre 2026)
 
 **Repartir de zéro** (Comptabilité → Reprise des soldes, gérant seulement) :
-- export complet de l'organisation d'abord : un fichier EJSON par collection, sans mots de passe ni jetons ; les justificatifs restent sur le stockage, inventoriés. À garder dix ans ;
+- export complet de l'organisation d'abord, par paquets de mille documents assemblés dans le navigateur (l'hébergement ne coupe plus l'export) ; un fichier EJSON par collection, sans mots de passe ni jetons ; les justificatifs restent sur le stockage, inventoriés. À garder dix ans ;
 - puis effacement, seulement si le navigateur a bien reçu l'archive (empreinte vérifiée), dans les deux heures, sans saisie depuis l'export, sans caisse ouverte et avec la confirmation REPRENDRE. La date de reprise est le jour même. Sont effacés : écritures, mouvements et relevés de trésorerie, sessions, arrêtés, entrées de caisse, relevés mobile money, situations de départ des sites, analytique. Les comptes de trésorerie restent, remis à zéro ;
 - factures, achats, règlements, clients, fournisseurs, stock et paie restent ;
 - la période qui précède la date de reprise est verrouillée. La comptable y saisit les soldes d'ouverture (même écran) ;

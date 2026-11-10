@@ -1,7 +1,5 @@
-import { createHash } from "crypto";
 import mongoose, { Types, type ClientSession } from "mongoose";
 import { BSON } from "mongodb";
-import JSZip from "jszip";
 import { BusinessRuleError } from "@/lib/errors";
 import { TenantModel } from "@/models/Tenant";
 import { AccountingRestartModel } from "@/models/AccountingRestart";
@@ -69,43 +67,70 @@ function scrub(doc: unknown): unknown {
   return doc;
 }
 
+const CHUNK = 1000;
+/** Lignes d'une collection couvertes par l'export : celles de l'organisation, existantes à la coupure. */
+const exportFilter = (name: string, tid: Types.ObjectId, cutoff: Date) => name === "tenants"
+  ? { _id: tid }
+  // Organisation stockée en identifiant ou en texte selon les modèles.
+  : { tenantId: { $in: [tid, String(tid)] }, $or: [{ createdAt: { $lte: cutoff } }, { createdAt: { $exists: false } }] };
+
 /**
- * Export complet d'une organisation : chaque collection qui porte ses données,
- * un fichier JSON par collection, plus un inventaire. Les secrets sont retirés.
+ * Export complet, en morceaux : l'export démarre (heure de coupure et
+ * inventaire des collections), le navigateur lit chaque collection par paquets
+ * de mille, assemble l'archive, puis déclare ce qu'il a reçu. Aucune requête
+ * ne porte toute l'organisation : l'hébergement ne coupe plus l'export.
  */
-export async function exportTenantData(auth: TokenPayload) {
+export async function startExport(auth: TokenPayload) {
   const db = mongoose.connection.db;
   if (!db) throw new BusinessRuleError("Base indisponible.");
   const tid = new Types.ObjectId(auth.tenantId);
-  const zip = new JSZip();
-  const counts: Record<string, number> = {};
-  // Heure de coupure prise AVANT la première lecture : tout ce qui est créé ou modifié ensuite est hors de l'archive, et donc gardé.
+  // Heure de coupure prise AVANT toute lecture : ce qui est créé ensuite est hors de l'archive, et donc gardé.
   const exportedAt = new Date();
-  const collections = (await db.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name).filter(n => !n.startsWith("system.")).sort();
-  for (const name of collections) {
-    // Organisation stockée en identifiant ou en texte selon les modèles.
-    const filter = name === "tenants" ? { _id: tid } : { tenantId: { $in: [tid, String(tid)] } };
-    // Lecture par curseur et EJSON canonique : types (identifiants, dates) préservés.
-    const parts: string[] = [];
-    for await (const doc of db.collection(name).find(filter)) parts.push(BSON.EJSON.stringify(scrub(doc) as BSON.Document, { relaxed: false }));
-    if (!parts.length) continue;
-    counts[name] = parts.length;
-    zip.file(`${name}.json`, `[\n${parts.join(",\n")}\n]`);
+  const names = (await db.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name).filter(n => !n.startsWith("system.")).sort();
+  const counts: Record<string, number> = {};
+  for (const name of names) {
+    const n = await db.collection(name).countDocuments(exportFilter(name, tid, exportedAt));
+    if (n) counts[name] = n;
   }
-  zip.file("LISEZMOI.txt", [
-    "Export complet Kanoo",
-    `Organisation : ${auth.tenantId}`,
-    `Date : ${exportedAt.toISOString()}`,
-    "Un fichier JSON par collection, au format EJSON canonique ; mots de passe, empreintes et jetons retirés.",
-    "Les justificatifs (fichiers) ne sont pas dans l'archive : leur inventaire est dans attachments.json, ils restent sur le stockage.",
-    "À conserver : les pièces et écritures comptables se gardent dix ans.",
-    "",
-    ...Object.entries(counts).map(([k, v]) => `${k} : ${v}`),
-  ].join("\n"));
-  const buffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
-  const exportHash = createHash("sha256").update(buffer).digest("hex");
-  const record = await AccountingRestartModel.create({ tenantId: tid, exportedAt, exportedBy: auth.userId, exportCounts: counts, exportHash });
-  return { buffer, exportId: String(record._id), exportHash, counts };
+  const record = await AccountingRestartModel.create({ tenantId: tid, exportedAt, exportedBy: auth.userId, exportCounts: counts });
+  return { exportId: String(record._id), exportedAt, collections: Object.entries(counts).map(([name, count]) => ({ name, count })) };
+}
+
+async function openExport(auth: TokenPayload, exportId: unknown) {
+  if (!Types.ObjectId.isValid(String(exportId))) throw new BusinessRuleError("Export introuvable.");
+  const record = await AccountingRestartModel.findOne({ _id: exportId, tenantId: auth.tenantId, restartedAt: { $exists: false } });
+  if (!record) throw new BusinessRuleError("Export introuvable ou déjà utilisé : recommencez l'export.");
+  if (Date.now() - new Date(record.exportedAt).getTime() > EXPORT_VALIDITY_MS) throw new BusinessRuleError("Export de plus de deux heures : recommencez-le.");
+  return record;
+}
+
+/** Un paquet d'une collection, en EJSON canonique (types préservés), secrets retirés. */
+export async function exportChunk(auth: TokenPayload, input: { exportId?: unknown; collection?: unknown; after?: unknown }) {
+  const record = await openExport(auth, input.exportId);
+  const name = String(input.collection ?? "");
+  if (!record.exportCounts || !(name in record.exportCounts)) throw new BusinessRuleError("Collection hors de l'export.");
+  const db = mongoose.connection.db!;
+  const tid = new Types.ObjectId(auth.tenantId);
+  const filter: Record<string, unknown> = exportFilter(name, tid, new Date(record.exportedAt));
+  if (input.after) filter._id = { $gt: BSON.EJSON.parse(String(input.after)) };
+  const docs = await db.collection(name).find(filter).sort({ _id: 1 }).limit(CHUNK).toArray();
+  return {
+    docs: docs.map(d => BSON.EJSON.stringify(scrub(d) as BSON.Document, { relaxed: false })),
+    after: docs.length === CHUNK ? BSON.EJSON.stringify({ v: docs[docs.length - 1]._id }, { relaxed: false }).replace(/^\{"v":(.*)\}$/, "$1") : null,
+  };
+}
+
+/** Fin de l'export : le navigateur déclare ce qu'il a reçu et l'empreinte de l'archive qu'il a enregistrée. */
+export async function completeExport(auth: TokenPayload, input: { exportId?: unknown; counts?: unknown; hash?: unknown }) {
+  const record = await openExport(auth, input.exportId);
+  const got = (input.counts && typeof input.counts === "object" ? input.counts : {}) as Record<string, unknown>;
+  const expected = (record.exportCounts ?? {}) as Record<string, number>;
+  const missing = Object.entries(expected).filter(([k, v]) => Number(got[k]) !== v).map(([k]) => k);
+  if (missing.length) throw new BusinessRuleError(`Archive incomplète (${missing.slice(0, 5).join(", ")}) : recommencez l'export.`);
+  if (typeof input.hash !== "string" || !/^[0-9a-f]{64}$/.test(input.hash)) throw new BusinessRuleError("Empreinte de l'archive invalide.");
+  record.exportHash = input.hash; record.completedAt = new Date();
+  await record.save();
+  return { exportId: String(record._id), collections: Object.keys(expected).length, documents: Object.values(expected).reduce((t, v) => t + v, 0) };
 }
 
 /** Ce que la reprise effacerait, et ce qui l'empêche. */
@@ -114,7 +139,7 @@ export async function restartPreview(tenantId: string) {
   const counts = await Promise.all(RESTART_SCOPE.map(async s => ({ key: s.key, label: s.label, count: await (s.model as mongoose.Model<unknown>).countDocuments({ tenantId: tid }) })));
   const [openSessions, lastExport, tenant, accounts] = await Promise.all([
     CashSessionModel.countDocuments({ tenantId: tid, status: "open" }),
-    AccountingRestartModel.findOne({ tenantId: tid, restartedAt: { $exists: false } }).sort({ exportedAt: -1 }).select("exportedAt exportHash").lean<{ _id: unknown; exportedAt: Date; exportHash?: string } | null>(),
+    AccountingRestartModel.findOne({ tenantId: tid, restartedAt: { $exists: false }, completedAt: { $exists: true } }).sort({ exportedAt: -1 }).select("exportedAt exportHash").lean<{ _id: unknown; exportedAt: Date; exportHash?: string } | null>(),
     TenantModel.findById(tid).select("accountingRestartAt accountingRestartDate restartInProgressAt").lean<{ accountingRestartAt?: Date; accountingRestartDate?: Date; restartInProgressAt?: Date } | null>(),
     TreasuryAccountModel.countDocuments({ tenantId: tid }),
   ]);
@@ -151,6 +176,7 @@ export async function restartAccounting(auth: TokenPayload, input: { exportId?: 
   const exportedAt = new Date(record.exportedAt);
   if (Date.now() - exportedAt.getTime() > EXPORT_VALIDITY_MS) throw new BusinessRuleError("Export de plus de deux heures : téléchargez-en un nouveau.");
   // Le navigateur prouve qu'il a bien reçu l'archive : empreinte du fichier enregistré.
+  if (!record.completedAt) throw new BusinessRuleError("Export inachevé : recommencez-le.");
   if (!record.exportHash || input.exportHash !== record.exportHash) throw new BusinessRuleError("L'archive reçue ne correspond pas à l'export : téléchargez-la de nouveau.");
   if (await CashSessionModel.exists({ tenantId: tid, status: "open" })) throw new BusinessRuleError("Une caisse est ouverte : fermez toutes les caisses des sites avant la reprise.");
   if ((await changedAfter(tid, exportedAt)) > 0) throw new BusinessRuleError("Des opérations ont été saisies depuis l'export : téléchargez un nouvel export.");
