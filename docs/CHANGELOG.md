@@ -8,6 +8,17 @@ Livraisons du jour (Magasin) : un champ « Repris » s'ajoute avant le paiement 
 - On ne rend pas plus que reçu, et la reprise est refusée une fois la livraison payée. Les invendus non repris restent à déclarer en perte.
 - Qui peut le faire : le responsable du comptoir, comme pour le paiement du soir.
 
+## Emprunts et crédits, facturation ISIC (novembre 2026)
+
+**Emprunts et crédits** (Finance → Emprunts et crédits) :
+- fiche de l'emprunt : prêteur, compte bancaire, capital, taux, durée, périodicité, échéances constantes / amortissement constant / in fine, différé, frais de dossier, assurance par échéance, garanties données, destination des fonds ;
+- tableau d'amortissement calculé (taux périodique proportionnel), chaque échéance non payée s'ajustant au tableau remis par la banque (le capital total reste égal à l'emprunt) ;
+- déblocage : banque au débit (capital moins frais), 631 au débit (frais), 162 au crédit ; échéance payée : 162 (capital), 671 (intérêts), 625 (assurance) au débit, banque au crédit, avec le mouvement de trésorerie ; paiement annulable (extourne) ;
+- emprunt antérieur à la reprise : suivi sans écriture avant la date de prise en compte, capital restant à reprendre dans les soldes d'ouverture (162) ;
+- capital restant dû, prochaine échéance, retards, coût total du crédit ; échéances dans la prévision de trésorerie.
+
+**Facturation ISIC** : `POST /api/v1/invoices` reçoit les brouillons de facture des lots ISIC (clé d'API avec le droit `invoices:write`, voir docs/API-BROUILLONS.md).
+
 ## Reprise de la comptabilité (novembre 2026)
 
 **Repartir de zéro** (Comptabilité → Reprise des soldes, gérant seulement) :

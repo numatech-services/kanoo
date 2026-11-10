@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { LoanModel } from "@/models/Loan";
 import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 import { InvoiceModel } from "@/models/Invoice";
 import { PurchaseModel } from "@/models/Purchase";
@@ -87,6 +88,12 @@ export async function computeForecast(tenantId: string, weeks: number, at: Date 
       if (already || paidOrGenerated.has(key)) continue;
       flows.push({ label: `Salaires ${end.getMonth() + 1}/${end.getFullYear()} (estimation)`, amount: monthlyPayroll, kind: "out", source: "Salaires", date: end });
     }
+  }
+  // Emprunts : échéances non payées (capital, intérêts, assurance).
+  const loans = await LoanModel.find({ tenantId, status: "active" }).select("label lender installments").lean<Array<{ label: string; lender: string; installments: Array<{ n: number; dueDate: Date; principal: number; interest: number; insurance: number; status: string }> }>>();
+  for (const l of loans) for (const i of l.installments) {
+    if (i.status !== "due") continue;
+    flows.push({ label: `Échéance ${i.n} — ${l.label} (${l.lender})`, amount: i.principal + i.interest + i.insurance, kind: "out", source: "Emprunts", date: new Date(i.dueDate) < now ? now : new Date(i.dueDate) });
   }
   for (const r of reports) flows.push({ label: `Note de frais ${r.reference}`, amount: r.totalTTC, kind: "out", source: "Notes de frais", date: now, ref: r.reference });
 

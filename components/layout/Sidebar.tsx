@@ -7,7 +7,7 @@ import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { moduleEnabled } from "@/lib/modules";
-import { LayoutDashboard, Calculator, Rocket, Gauge, Smartphone, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent, UtensilsCrossed, Tags, ChefHat, CookingPot, ShoppingBasket } from "lucide-react";
+import { HandCoins, LayoutDashboard, Calculator, Rocket, Gauge, Smartphone, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent, UtensilsCrossed, Tags, ChefHat, CookingPot, ShoppingBasket } from "lucide-react";
 
 import { apiJson, apiSend } from "@/lib/api-client";
 import { getPendingCount, purgeOfflineData } from "@/lib/offline/sync-queue";
@@ -90,6 +90,7 @@ const PME_NAV: NavGroup[] = [
   { section: "Finance", tone: "finance", items: [
     { label: "Trésorerie", href: "/treasury", icon: <Landmark size={18} /> },
     { label: "Prévision de trésorerie", href: "/treasury/prevision", icon: <TrendingUp size={18} /> },
+    { label: "Emprunts et crédits", href: "/emprunts", icon: <HandCoins size={18} /> },
     { label: "Comptabilité", href: "/accounting", icon: <BookOpen size={18} /> },
     { label: "États comptables", href: "/accounting/etats", icon: <FileSpreadsheet size={18} /> },
     { label: "Plan comptable", href: "/accounting/plan", icon: <Hash size={18} /> },

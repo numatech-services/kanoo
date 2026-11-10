@@ -47,7 +47,7 @@ const AccountingEntrySchema = new Schema<IAccountingEntry>(
       enum: ["invoice", "payment", "supplier_invoice", "supplier_payment", "payslip", "expense", "credit_note",
         "recurringExpense", "delivery", "stock", "inventory", "fixed_asset", "treasury", "reversal", "closing", "manual", "withholding",
         // Encaissements au comptant des modules (lib/cash-posting).
-        "desk_cash", "desk_funding", "attendee", "membership", "donation",
+        "desk_cash", "desk_funding", "attendee", "membership", "donation", "loan",
         // Retenue de garantie reversée (marché) ; caution bancaire (commission, dépôt, mainlevée, appel).
         "retention", "guarantee",
         // Affectation du résultat d'un exercice clôturé (décision d'assemblée).
