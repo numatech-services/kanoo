@@ -1,4 +1,5 @@
 import type { ClientSession } from "mongoose";
+import { TreasuryMovementModel } from "@/models/TreasuryMovement";
 import { refuseIfRestarted } from "@/lib/accounting-restart";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { BusinessRuleError } from "@/lib/errors";
@@ -40,5 +41,18 @@ export async function reverseEntry(
   }], { session });
   entry.reversedBy = mirror._id;
   await entry.save({ session });
+  // Saisie manuelle sur banque ou caisse : son mouvement de trésorerie est contre-passé avec elle.
+  if (entry.linkedDocType === "manual") {
+    const moves = await TreasuryMovementModel.find({ tenantId: opts.tenantId, entryId: entry._id, linkedDocId: entry._id, cancelledAt: { $exists: false } }).session(session ?? null)
+      .lean<Array<{ _id: unknown; accountId: unknown; amount: number; label: string; reference?: string }>>();
+    for (const m of moves) {
+      await TreasuryMovementModel.create([{
+        tenantId: opts.tenantId, accountId: m.accountId, date: opts.date ?? new Date(), amount: -m.amount,
+        label: `Extourne — ${m.label}`.slice(0, 200), reference: m.reference, source: "manual",
+        linkedDocType: "manual", linkedDocId: mirror._id, entryId: mirror._id, reversalOf: m._id, createdBy: opts.userId,
+      }], { session });
+      await TreasuryMovementModel.updateOne({ _id: m._id }, { $set: { cancelledAt: new Date(), cancelledBy: opts.userId } }, { session });
+    }
+  }
   return mirror;
 }

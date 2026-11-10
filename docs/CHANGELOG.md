@@ -17,6 +17,8 @@ Livraisons du jour (Magasin) : un champ « Repris » s'ajoute avant le paiement 
 - la période qui précède la date de reprise est verrouillée. La comptable y saisit les soldes d'ouverture (même écran) ;
 - une pièce antérieure dont l'écriture a été effacée (règlement, facture, achat…) ne s'annule plus en silence : Kanoo demande une écriture de régularisation.
 
+**Saisie manuelle** : la comptable peut passer toute écriture, banque et caisse comprises (52…, 57…). Chaque ligne de banque ou de caisse crée le mouvement du compte de trésorerie correspondant (même solde, rapprochement intact) ; l'extourne de l'écriture contre-passe le mouvement. Un compte générique partagé par plusieurs caisses est refusé avec la liste des comptes à utiliser.
+
 **Devis et proformas** : un devis refusé garde sa date et son motif ; un montant corrigé après envoi garde l'ancien montant et le motif. Le tableau de bord les montre à part des factures : en attente, proformas, acceptés à facturer, refusés sur douze mois.
 
 **Trésorerie** : sans caisse ni banque choisie, l'opération le dit clairement. Les frais bancaires proposés passent du 627000 (publicité) au 631000. Le 616000 (transports de plis) rejoint le plan des nouvelles organisations.

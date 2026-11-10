@@ -237,6 +237,20 @@ const balancedE = e => e.lines.reduce((t, l) => t + l.debit, 0) === e.lines.redu
   check("brief : retard client signalé avec son montant", br.items?.some(i => i.kind === "overdue_receivables" && i.amount > 0), J(br.items?.map(i => i.kind)));
   check("brief : trois actions par défaut", (D(await g.req("GET", "/api/brief")).items ?? []).length <= 3);
 
+  console.log("\n▶ Saisie manuelle libre sur la caisse");
+  const cashAcc = D(await g.req("POST", "/api/treasury-accounts", { label: "Caisse saisie libre", type: "cash", openingBalance: 100000, openingDate: "2025-01-01" }));
+  const accs = D(await g.req("GET", "/api/treasury-accounts")).items ?? [];
+  const ca = accs.find(a => a._id === (cashAcc._id ?? cashAcc));
+  const code = ca?.ledgerCode || "571000";
+  await g.req("POST", "/api/ledger-accounts", { code: "616000", label: "Transports de plis" });
+  const man = await g.req("POST", "/api/accounting-entries", { journalCode: "CA", entryDate: new Date().toISOString().slice(0, 10), reference: "NYSGE-TEST", label: "Envoi colis", lines: [{ accountCode: "616000", accountLabel: "Transports de plis", debit: 3500, credit: 0 }, { accountCode: code, accountLabel: "Caisse", debit: 0, credit: 3500 }] });
+  const cashBal = async () => (D(await g.req("GET", "/api/treasury-accounts")).items ?? []).find(a => a._id === ca?._id)?.balance;
+  check("écriture manuelle sur la caisse acceptée", man.status === 201, `${man.status} ${J(man.data).slice(0, 200)}`);
+  check("solde de la caisse suit l'écriture (100 000 − 3 500)", (await cashBal()) === 96500, String(await cashBal()));
+  const rev = await g.req("POST", `/api/accounting-entries/${D(man)._id}/reverse`, { reason: "Erreur" });
+  check("extourne : la caisse revient à 100 000", rev.status < 300 && (await cashBal()) === 100000, `${rev.status} ${await cashBal()}`);
+  check("compte de caisse générique sans caisse rattachée : refus clair", (await g.req("POST", "/api/accounting-entries", { journalCode: "BQ", entryDate: new Date().toISOString().slice(0, 10), reference: "X", label: "X", lines: [{ accountCode: "616000", debit: 10, credit: 0 }, { accountCode: "521999", credit: 10, debit: 0 }] })).status === 400);
+
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

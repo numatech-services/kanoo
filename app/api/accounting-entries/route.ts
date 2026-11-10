@@ -1,4 +1,8 @@
 import { NextRequest } from "next/server";
+import { TreasuryAccountModel } from "@/models/TreasuryAccount";
+import { TreasuryMovementModel } from "@/models/TreasuryMovement";
+import { ledgerFor } from "@/lib/treasury";
+import { withTransaction } from "@/lib/db";
 import { Types } from "mongoose";
 import { unknownAccounts } from "@/lib/ledger";
 import { pickImputation, checkImputations } from "@/lib/imputation";
@@ -72,19 +76,13 @@ export const POST = withAuth("accountingEntries", "create", async (req: NextRequ
   if (isNaN(entryDate.getTime())) return badRequest("Date invalide.");
   if (!Array.isArray(body.lines) || body.lines.length < 2) return badRequest("Une écriture doit contenir au moins 2 lignes");
 
-  const lines = [];
+  const lines: Array<{ accountCode: string; accountLabel: string; debit: number; credit: number } & ReturnType<typeof pickImputation>> = [];
   for (const [i, l] of (body.lines as Array<Record<string, unknown>>).entries()) {
     const debit = Math.round(Number(l.debit) || 0), credit = Math.round(Number(l.credit) || 0);
     const code = String(l.accountCode ?? "").trim();
     if (debit < 0 || credit < 0) return badRequest(`Ligne ${i + 1} : montant négatif.`);
     if ((debit > 0) === (credit > 0)) return badRequest(`Ligne ${i + 1} : un montant au débit OU au crédit.`);
     if (!/^[1-9]\d{2,7}$/.test(code)) return badRequest(`Ligne ${i + 1} : numéro de compte invalide.`);
-    // Banque et caisse ne bougent qu'avec un mouvement de trésorerie : une
-    // écriture manuelle y créait un écart entre comptabilité et solde du compte
-    // que le rapprochement bancaire ne pouvait plus expliquer.
-    if (/^5[27]/.test(code)) {
-      return badRequest(`Ligne ${i + 1} : les comptes de banque et de caisse (52…, 57…) se mouvementent depuis Trésorerie (mouvement, virement), pour rester rapprochables. Pour une régularisation, passez par un compte d'attente (471…).`);
-    }
     lines.push({ accountCode: code, accountLabel: String(l.accountLabel ?? "").trim().slice(0, 160) || code, debit, credit, ...pickImputation(l) });
   }
   const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
@@ -97,10 +95,42 @@ export const POST = withAuth("accountingEntries", "create", async (req: NextRequ
   const impErr = await checkImputations(auth.tenantId, lines);
   if (impErr) return badRequest(impErr);
 
-  const entry = await AccountingEntryModel.create({
-    tenantId: auth.tenantId, journalCode: body.journalCode, entryDate,
-    reference: String(body.reference).slice(0, 80), label: String(body.label).slice(0, 300),
-    lines, linkedDocType: "manual", createdBy: auth.userId, isLettered: false,
+  // Banque et caisse (52…, 57…) : la saisie est libre, et chaque ligne crée le
+  // mouvement du compte de trésorerie correspondant. Comptabilité et solde du
+  // compte restent égaux, le rapprochement bancaire continue de fonctionner.
+  const cashLines = lines.filter(l => /^5[27]/.test(l.accountCode));
+  const targets = new Map<string, unknown>();
+  if (cashLines.length) {
+    const accounts = await TreasuryAccountModel.find({ ...tenantFilter(auth), isActive: { $ne: false } }).select("label type ledgerCode").lean<Array<{ _id: unknown; label: string; type: string; ledgerCode?: string }>>();
+    const byCode = new Map<string, Array<{ _id: unknown; label: string }>>();
+    for (const a of accounts) {
+      const code = a.ledgerCode || ledgerFor(a.type).accountCode;
+      byCode.set(code, [...(byCode.get(code) ?? []), a]);
+    }
+    for (const l of cashLines) {
+      const found = byCode.get(l.accountCode) ?? [];
+      if (found.length === 1) { targets.set(l.accountCode, found[0]._id); continue; }
+      const list = accounts.map(a => `${a.label} (${a.ledgerCode || ledgerFor(a.type).accountCode})`).join(", ");
+      return badRequest(found.length
+        ? `Compte ${l.accountCode} partagé par plusieurs comptes de trésorerie : utilisez le compte propre à la caisse ou à la banque. Comptes : ${list}.`
+        : `Compte ${l.accountCode} : aucune caisse ni banque rattachée. Créez-la dans Trésorerie ou utilisez l'un de ces comptes : ${list || "aucun"}.`);
+    }
+  }
+
+  const entry = await withTransaction(async session => {
+    const [e] = await AccountingEntryModel.create([{
+      tenantId: auth.tenantId, journalCode: body.journalCode, entryDate,
+      reference: String(body.reference).slice(0, 80), label: String(body.label).slice(0, 300),
+      lines, linkedDocType: "manual", createdBy: auth.userId, isLettered: false,
+    }], { session });
+    for (const l of cashLines) {
+      await TreasuryMovementModel.create([{
+        tenantId: auth.tenantId, accountId: targets.get(l.accountCode), date: entryDate, amount: l.debit - l.credit,
+        label: String(body.label).slice(0, 200), reference: String(body.reference).slice(0, 80), source: "manual",
+        linkedDocType: "manual", linkedDocId: e._id, entryId: e._id, createdBy: auth.userId,
+      }], { session });
+    }
+    return e;
   });
 
   await logAudit(auth, "CREATE", "accountingEntries", {
