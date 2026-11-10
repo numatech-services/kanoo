@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { DevisModel } from "@/models/Devis";
 import { connectDB } from "@/lib/db";
 import type { TokenPayload } from "@/lib/auth";
 import { InvoiceModel } from "@/models/Invoice";
@@ -42,6 +43,8 @@ export interface HomeData {
   invoices: { items: HomeInvoice[]; counts: { all: number; overdue: number; draft: number; sent: number; paid: number } } | null;
   upcoming: HomeInvoice[] | null;
   reminders: { enabled: boolean; steps: Array<{ label: string; offsetDays: number; tone: string }>; next: Array<{ date: string; offsetDays: number; client: string; invoice: string; step: string }> } | null;
+  /** Devis et proformas : jamais additionnés aux factures. */
+  quotes: { pending: { value: number; count: number }; proformas: { value: number; count: number }; accepted: { value: number; count: number }; rejected: { value: number; count: number } } | null;
   objective: { target: number | null; invoiced: number; lastYear: number; canEdit: boolean } | null;
   brief: BriefItem[];
 }
@@ -64,7 +67,7 @@ export async function loadDashboard(auth: TokenPayload, can: Can): Promise<HomeD
   ]);
   const data: HomeData = {
     greeting: { salut: salutation(now.getHours()), firstName: user?.firstName || "", tenantName: tenant?.name || "", month: now.toLocaleDateString("fr-FR", { month: "long" }) },
-    hero: null, kpis: {}, treasury: null, receivables: null, invoices: null, upcoming: null, reminders: null, objective: null, brief: [],
+    hero: null, kpis: {}, treasury: null, receivables: null, invoices: null, upcoming: null, reminders: null, quotes: null, objective: null, brief: [],
   };
   const open = { tenantId: tid, documentType: { $ne: "credit_note" }, status: { $in: ["sent", "partial", "overdue"] } };
 
@@ -208,5 +211,20 @@ export async function loadDashboard(auth: TokenPayload, can: Can): Promise<HomeD
   // Blocs indépendants (chacun remplit ses propres champs) : en parallèle
   // plutôt que l'un après l'autre, le temps d'affichage est celui du plus lent.
   await Promise.all([invoicesBlock(), paymentsBlock(), treasuryBlock(), remindersBlock(), briefBlock()]);
+  // Devis et proformas, à part des factures : en attente de réponse, acceptés pas encore facturés, refusés sur 12 mois.
+  if (can("devis")) {
+    const year = new Date(); year.setFullYear(year.getFullYear() - 1);
+    const rows = await DevisModel.aggregate<{ _id: { s: string; k: string }; t: number; n: number }>([
+      { $match: { tenantId: new Types.ObjectId(auth.tenantId), convertedToInvoiceId: { $exists: false }, contractId: { $exists: false }, $or: [{ status: { $in: ["draft", "sent", "accepted"] } }, { status: "rejected", updatedAt: { $gte: year } }] } },
+      { $group: { _id: { s: "$status", k: { $ifNull: ["$docKind", "devis"] } }, t: { $sum: "$totalTTC" }, n: { $sum: 1 } } },
+    ]);
+    const pick = (f: (r: { _id: { s: string; k: string } }) => boolean) => rows.filter(f).reduce((a, r) => ({ value: a.value + r.t, count: a.count + r.n }), { value: 0, count: 0 });
+    data.quotes = {
+      pending: pick(r => ["draft", "sent"].includes(r._id.s) && r._id.k !== "proforma"),
+      proformas: pick(r => ["draft", "sent"].includes(r._id.s) && r._id.k === "proforma"),
+      accepted: pick(r => r._id.s === "accepted"),
+      rejected: pick(r => r._id.s === "rejected"),
+    };
+  }
   return data;
 }

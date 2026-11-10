@@ -12,6 +12,9 @@ const AccountingRestartSchema = new Schema({
   exportCounts: { type: Schema.Types.Mixed },
   /** Empreinte SHA-256 de l'archive remise. */
   exportHash: String,
+  /** Effacement en cours : empêche deux reprises simultanées. */
+  startedAt: Date,
+  startedBy: { type: Schema.Types.ObjectId, ref: "User" },
   restartedAt: Date,
   restartedBy: { type: Schema.Types.ObjectId, ref: "User" },
   /** Date de reprise : la comptable saisit ses soldes d'ouverture à cette date. */

@@ -11,6 +11,7 @@ interface Preview {
   counts: Array<{ key: string; label: string; count: number }>;
   treasuryAccounts: number; openSessions: number;
   export: { exportId: string; exportedAt: string; exportHash?: string } | null;
+  changedSince: number; restartDate: string;
   lastRestart: { at: string; date: string } | null;
 }
 
@@ -23,7 +24,8 @@ export function RestartPanel({ onDone }: { onDone: () => void }) {
   const [p, setP] = useState<Preview | null>(null);
   const [denied, setDenied] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [date, setDate] = useState(todayLocal());
+  // Empreinte du fichier réellement reçu : sans elle, l'effacement reste fermé.
+  const [received, setReceived] = useState<{ exportId: string; hash: string } | null>(null);
   const [confirm, setConfirm] = useState("");
   const load = useCallback(() => apiJson("/api/accounting/restart").then(d => { if (d?.success === false) setDenied(true); else setP(d?.data ?? null); }).catch(() => setDenied(true)), []);
   useEffect(() => { load(); }, [load]);
@@ -35,17 +37,20 @@ export function RestartPanel({ onDone }: { onDone: () => void }) {
       const res = await fetch("/api/accounting/restart?export=1", { credentials: "include" });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || "Export impossible");
       const blob = await res.blob();
+      const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+      const hash = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join("");
+      setReceived({ exportId: res.headers.get("X-Export-Id") ?? "", hash });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob); a.download = `kanoo-export-${todayLocal()}.zip`; a.click();
       URL.revokeObjectURL(a.href);
-      showToast("Export téléchargé : gardez-le en lieu sûr (dix ans).", "success");
+      showToast("Export téléchargé : gardez-le en lieu sûr, et pendant dix ans.", "success");
       await load();
     } catch (e) { showToast(e instanceof Error ? e.message : "Export impossible", "error"); }
     finally { setBusy(false); }
   }
   async function restart() {
     setBusy(true);
-    const res = await apiSend("POST", "/api/accounting/restart", { exportId: p!.export?.exportId, restartDate: date, confirm });
+    const res = await apiSend("POST", "/api/accounting/restart", { exportId: received?.exportId, exportHash: received?.hash, confirm });
     setBusy(false);
     if (!res.ok) { showToast(res.data?.error || "Reprise refusée.", "error"); return; }
     showToast("Comptabilité, trésorerie et caisses remises à zéro. Saisissez les soldes d'ouverture.", "success");
@@ -66,16 +71,17 @@ export function RestartPanel({ onDone }: { onDone: () => void }) {
       <div className="space-y-2">
         <p className="text-sm font-semibold text-ink">1. Export complet</p>
         <button onClick={download} disabled={busy} className={buttonClass("secondary", "md")}><Download size={15} /> Télécharger toutes les données</button>
-        {p.export && <p className="text-xs text-pos">Export fait le {new Date(p.export.exportedAt).toLocaleString("fr-FR")} (valable 24 heures).</p>}
+        {received && p.export && <p className="text-xs text-pos">Export reçu le {new Date(p.export.exportedAt).toLocaleString("fr-FR")}, valable deux heures.</p>}
+        {received && p.changedSince > 0 && <p className="text-xs text-neg">{p.changedSince} opération(s) saisie(s) depuis l&apos;export : téléchargez-le de nouveau.</p>}
       </div>
       <div className="space-y-2">
         <p className="text-sm font-semibold text-ink">2. Effacement</p>
         {p.openSessions > 0 && <p className="text-xs text-neg">{p.openSessions} caisse(s) ouverte(s) : fermez-les d&apos;abord.</p>}
         <div className="grid sm:grid-cols-2 gap-3">
-          <FormField label="Date de reprise" hint="Date des soldes d'ouverture ; au plus tard aujourd'hui."><input type="date" className={inputCls} value={date} max={todayLocal()} onChange={e => setDate(e.target.value)} /></FormField>
+          <p className="text-sm text-ink2 self-end">Date de reprise : <b>{formatDate(p.restartDate)}</b> (aujourd&apos;hui). La comptable y saisit les soldes d&apos;ouverture.</p>
           <FormField label="Tapez REPRENDRE pour confirmer"><input className={inputCls} value={confirm} onChange={e => setConfirm(e.target.value)} /></FormField>
         </div>
-        <button onClick={restart} disabled={busy || !p.export || confirm !== "REPRENDRE" || p.openSessions > 0 || total + p.treasuryAccounts === 0}
+        <button onClick={restart} disabled={busy || !received || p.changedSince > 0 || confirm !== "REPRENDRE" || p.openSessions > 0 || total + p.treasuryAccounts === 0}
           className={buttonClass("danger", "md")}>Effacer et repartir de zéro</button>
       </div>
     </section>

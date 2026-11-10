@@ -10,7 +10,7 @@ import { ClaudeQuoteAssistant } from "@/components/docs/ClaudeQuoteAssistant";
 import { useMe, meCanDo } from "@/lib/useMe";
 import { ToMarketDialog } from "@/components/devis/ToMarketDialog";
 
-import { confirmDialog } from "@/components/ui/Dialogs";
+import { confirmDialog, promptDialog } from "@/components/ui/Dialogs";
 import { showToast } from "@/components/ui/Toast";
 import { buttonClass } from "@/components/ui/button-class";
 import {apiJson, apiSend } from "@/lib/api-client";
@@ -27,6 +27,9 @@ interface DevisDetail {
   _id: string;
   number: string;
   status: string;
+  revisions?: Array<{ at: string; previousTTC: number; newTTC: number; reason?: string }>;
+  rejectedAt?: string;
+  rejectionReason?: string;
   docKind?: "devis" | "proforma";
   contractId?: string;
   convertedToInvoiceId?: string;
@@ -69,6 +72,12 @@ export default function DevisDetailPage() {
   }, [id, attempt]);
 
   async function handleSave(body: Record<string, unknown>) {
+    // Devis déjà envoyé : la correction du montant garde son motif.
+    if (item && item.status !== "draft" && Array.isArray(body.lines)) {
+      const reason = await promptDialog({ title: "Motif de la correction", message: "Le montant initial restera visible sur le devis.", label: "Motif (facultatif)", confirmLabel: "Enregistrer" });
+      if (reason === null) return;
+      body = { ...body, revisionReason: reason };
+    }
     const res = await apiSend("PATCH", `/api/devis/${id}`, body);
     if (!res.ok) throw new Error(res.data?.error || "Enregistrement impossible");
     // Le client reste peuplé à l'affichage : relecture complète.
@@ -91,6 +100,10 @@ export default function DevisDetailPage() {
           <button onClick={() => router.back()} className="text-xs text-ink2 hover:underline italic">← Retour</button>
           <h1 className="page-title mt-1">{isProforma ? "Proforma" : "Devis"} {item.number}</h1>
           <StatusBadge status={item.status} />
+          {item.status === "rejected" && item.rejectedAt && <p className="text-xs text-neg mt-1">Refusé le {new Date(item.rejectedAt).toLocaleDateString("fr-FR")}{item.rejectionReason ? ` : ${item.rejectionReason}` : ""}</p>}
+          {(item.revisions ?? []).map((r, i) => (
+            <p key={i} className="text-xs text-ink2 mt-1">Montant corrigé le {new Date(r.at).toLocaleDateString("fr-FR")} : {r.previousTTC.toLocaleString("fr-FR")} → {r.newTTC.toLocaleString("fr-FR")} FCFA TTC{r.reason ? ` (${r.reason})` : ""}</p>
+          ))}
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {item.contractId
@@ -117,7 +130,10 @@ export default function DevisDetailPage() {
           </a>
           {canEditDevis && !item.convertedToInvoiceId && (
             <select value={item.status} onChange={async e => {
-              const res = await apiSend("PATCH", `/api/devis/${id}`, { status: e.target.value });
+              const status = e.target.value;
+              let reason: string | null = "";
+              if (status === "rejected") { reason = await promptDialog({ title: "Devis refusé", label: "Motif du refus (facultatif)", confirmLabel: "Marquer refusé" }); if (reason === null) return; }
+              const res = await apiSend("PATCH", `/api/devis/${id}`, { status, reason });
               const d = res.data;
               if (res.ok) setItem(d.data); else showToast(d.error || "Changement impossible", "error");
             }} className="h-11 px-3 rounded-2xl border border-line2 text-sm font-semibold" aria-label="Statut du devis">

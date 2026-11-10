@@ -1,4 +1,5 @@
 import { Types, type ClientSession } from "mongoose";
+import { refuseIfRestarted } from "@/lib/accounting-restart";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { BusinessRuleError } from "@/lib/errors";
 import { ProjectModel } from "@/models/Project";
@@ -78,7 +79,11 @@ export async function reimputeEntry(
   tenantId: string, entryId: unknown, byIndex: Map<number, Imputation>, session?: ClientSession,
 ) {
   const entry = await AccountingEntryModel.findOne({ _id: entryId, tenantId }).session(session ?? null);
-  if (!entry) return null;
+  if (!entry) {
+    // Écriture effacée par la reprise : la réimputation ne doit pas réussir en silence.
+    if (entryId) await refuseIfRestarted(tenantId, session);
+    return null;
+  }
   if (entry.reversedBy || entry.reverses) throw new BusinessRuleError("Écriture extournée : elle ne se réimpute plus.");
   const lines = entry.lines as Array<{ projectId?: unknown; activityId?: unknown; costCenter?: string; set: (k: string, v: unknown) => void }>;
   for (const [i, imp] of byIndex) {

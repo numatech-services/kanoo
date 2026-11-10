@@ -1,6 +1,7 @@
 // Scénario de bout en bout : reprise de la comptabilité (export complet, effacement, verrouillage, refus des annulations antérieures).
 import { readFileSync } from "fs";
 import { createRequire } from "module";
+import { createHash } from "crypto";
 import { withDb } from "./db.mjs";
 
 const BASE = "http://localhost:3099";
@@ -74,24 +75,34 @@ const id = r => D(r)?._id;
 
   console.log("\n▶ Export complet");
   const res = await fetch(`${BASE}/api/accounting/restart?export=1`, { headers: { cookie: g.cookie?.() ?? "" } });
-  let zipOk = false, secrets = true, exportId = res.headers.get("x-export-id");
+  let zipOk = false, secrets = true, exportId = res.headers.get("x-export-id"), exportHash = "";
   if (res.ok) {
-    const zip = await JSZip.loadAsync(Buffer.from(await res.arrayBuffer()));
+    const buf = Buffer.from(await res.arrayBuffer());
+    exportHash = createHash("sha256").update(buf).digest("hex");
+    const zip = await JSZip.loadAsync(buf);
     const users = JSON.parse(await zip.file("users.json")?.async("string") ?? "[]");
     zipOk = !!zip.file("accountingentries.json") && !!zip.file("invoices.json") && users.length > 0;
     secrets = /passwordHash|refreshToken/.test(await zip.file("users.json")?.async("string") ?? "");
     const others = JSON.parse(await zip.file("accountingentries.json").async("string"));
     check("export limité à l'organisation", !others.some(e => e.reference === "TEMOIN-AUTRE-ORG"));
+    check("export : types préservés (EJSON)", !!others[0]?._id?.$oid && !!others[0]?.entryDate?.$date, J(others[0]?._id));
   }
   check("export : archive avec écritures, factures, utilisateurs", res.status === 200 && zipOk && !!exportId, String(res.status));
   check("export : mots de passe et jetons retirés", !secrets);
 
   console.log("\n▶ Effacement");
-  check("confirmation absente : refusé", (await g.req("POST", "/api/accounting/restart", { exportId, restartDate: today, confirm: "oui" })).status === 400);
-  check("date future : refusée", (await g.req("POST", "/api/accounting/restart", { exportId, restartDate: "2099-01-01", confirm: "REPRENDRE" })).status === 400);
-  const r = await g.req("POST", "/api/accounting/restart", { exportId, restartDate: today, confirm: "REPRENDRE" });
+  check("confirmation absente : refusé", (await g.req("POST", "/api/accounting/restart", { exportId, exportHash, confirm: "oui" })).status === 400);
+  check("archive non reçue (empreinte fausse) : refusé", (await g.req("POST", "/api/accounting/restart", { exportId, exportHash: "0".repeat(64), confirm: "REPRENDRE" })).status === 400);
+  await g.req("POST", "/api/achats", { kind: "cash", payee: "Après export", date: today, lines: [{ description: "Course", accountCode: "618000", amountHT: 1000 }], payment: { treasuryAccountId: bank } });
+  check("saisie après l'export : effacement refusé", (await g.req("POST", "/api/accounting/restart", { exportId, exportHash, confirm: "REPRENDRE" })).status === 400);
+  const res2 = await fetch(`${BASE}/api/accounting/restart?export=1`, { headers: { cookie: g.cookie?.() ?? "" } });
+  const buf2 = Buffer.from(await res2.arrayBuffer());
+  exportId = res2.headers.get("x-export-id"); exportHash = createHash("sha256").update(buf2).digest("hex");
+  const [ra, rb] = await Promise.all([g.req("POST", "/api/accounting/restart", { exportId, exportHash, confirm: "REPRENDRE" }), g.req("POST", "/api/accounting/restart", { exportId, exportHash, confirm: "REPRENDRE" })]);
+  const r = ra.status === 200 ? ra : rb;
+  check("deux effacements simultanés : un seul passe", [ra.status, rb.status].sort().join() === "200,400", `${ra.status} ${rb.status}`);
   check("reprise effectuée", r.status === 200 && D(r).deleted?.entries > 0, J(r.data).slice(0, 200));
-  check("export déjà utilisé : refusé", (await g.req("POST", "/api/accounting/restart", { exportId, restartDate: today, confirm: "REPRENDRE" })).status === 400);
+  check("export déjà utilisé : refusé", (await g.req("POST", "/api/accounting/restart", { exportId, exportHash, confirm: "REPRENDRE" })).status === 400);
   p = D(await g.req("GET", "/api/accounting/restart"));
   check("plus rien à effacer", p.counts.every(c => c.count === 0), J(p.counts));
   const accounts = D(await g.req("GET", "/api/treasury-accounts")).items ?? [];

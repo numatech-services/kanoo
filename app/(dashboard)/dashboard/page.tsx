@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { QuotesPanel } from "@/components/home/QuotesPanel";
 import { DashboardHero } from "@/components/pme/DashboardHero";
 import { DailyBrief } from "@/components/pme/DailyBrief";
 import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
@@ -62,6 +63,7 @@ export default async function DashboardPage() {
       </div>
       <aside className="flex flex-col gap-[22px] min-w-0" aria-label="Pilotage">
         {d.objective && <ObjectiveGauge o={d.objective} month={d.greeting.month} />}
+        {d.quotes && <QuotesPanel q={d.quotes} />}
         <QuickActions can={{ invoice: access.can("invoices", "create"), quote: access.can("devis", "create"), payment: access.can("payments", "create"), client: access.can("clients", "create") }} />
         <AssistantPanel suggestions={suggestions} />
         <RememberPanel items={d.brief} />

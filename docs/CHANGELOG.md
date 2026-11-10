@@ -11,11 +11,13 @@ Livraisons du jour (Magasin) : un champ « Repris » s'ajoute avant le paiement 
 ## Reprise de la comptabilité (novembre 2026)
 
 **Repartir de zéro** (Comptabilité → Reprise des soldes, gérant seulement) :
-- export complet de l'organisation d'abord : un fichier JSON par collection, sans mots de passe ni jetons. À garder dix ans ;
-- puis effacement, avec un export de moins de 24 heures, la confirmation REPRENDRE et aucune caisse ouverte. Sont effacés : écritures, mouvements et relevés de trésorerie, sessions, arrêtés, entrées de caisse, relevés mobile money, situations de départ des sites, analytique. Les comptes de trésorerie restent, remis à zéro ;
+- export complet de l'organisation d'abord : un fichier EJSON par collection, sans mots de passe ni jetons ; les justificatifs restent sur le stockage, inventoriés. À garder dix ans ;
+- puis effacement, seulement si le navigateur a bien reçu l'archive (empreinte vérifiée), dans les deux heures, sans saisie depuis l'export, sans caisse ouverte et avec la confirmation REPRENDRE. La date de reprise est le jour même. Sont effacés : écritures, mouvements et relevés de trésorerie, sessions, arrêtés, entrées de caisse, relevés mobile money, situations de départ des sites, analytique. Les comptes de trésorerie restent, remis à zéro ;
 - factures, achats, règlements, clients, fournisseurs, stock et paie restent ;
 - la période qui précède la date de reprise est verrouillée. La comptable y saisit les soldes d'ouverture (même écran) ;
 - une pièce antérieure dont l'écriture a été effacée (règlement, facture, achat…) ne s'annule plus en silence : Kanoo demande une écriture de régularisation.
+
+**Devis et proformas** : un devis refusé garde sa date et son motif ; un montant corrigé après envoi garde l'ancien montant et le motif. Le tableau de bord les montre à part des factures : en attente, proformas, acceptés à facturer, refusés sur douze mois.
 
 **Trésorerie** : sans caisse ni banque choisie, l'opération le dit clairement. Les frais bancaires proposés passent du 627000 (publicité) au 631000. Le 616000 (transports de plis) rejoint le plan des nouvelles organisations.
 

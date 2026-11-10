@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { refuseIfRestarted } from "@/lib/accounting-restart";
 import { BusinessRuleError } from "@/lib/errors";
 import { withTransaction } from "@/lib/db";
 import { withAuth, ok, badRequest, notFound, forbidden, conflict, tenantFilter } from "@/lib/api-helpers";
@@ -172,6 +173,8 @@ export const PATCH = withAuth("expenses", "read", async (req: NextRequest, auth:
         const entries = await AccountingEntryModel.find({
           tenantId: auth.tenantId, linkedDocType: "expense", linkedDocId: report._id, journalCode: "OD", reversedBy: null, reverses: null,
         }).select("_id").session(session ?? null).lean<Array<{ _id: unknown }>>();
+        // Note validée avant la reprise : son écriture a été effacée, la renvoyer en brouillon la compterait deux fois.
+        if (!entries.length) await refuseIfRestarted(auth.tenantId, session, report.approvedAt ?? report.updatedAt);
         for (const e of entries) await reverseEntry({ tenantId: auth.tenantId, userId: auth.userId, entryId: e._id, reason: `note renvoyée en brouillon : ${reason}`.slice(0, 200) }, session);
       });
       await logAudit(auth, "UPDATE", "expenses", {

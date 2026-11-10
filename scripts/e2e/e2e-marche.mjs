@@ -130,6 +130,17 @@ const id = r => D(r)?._id;
   const r = await other.req("GET", `/api/contracts/${mc}/finance`);
   check("autre organisation : situation du marché inaccessible", [403, 404].includes(r.status), String(r.status));
 
+  console.log("\n▶ Devis refusé ou corrigé");
+  const dv2 = D(await g.req("POST", "/api/devis", { clientId: cli, issueDate: today, validUntil: today, lines: [{ description: "Option", quantity: 1, unitPrice: 200000, tvaRate: 0.19 }] }));
+  await g.req("PATCH", `/api/devis/${dv2._id}`, { status: "sent" });
+  const fix = await g.req("PATCH", `/api/devis/${dv2._id}`, { lines: [{ description: "Option", quantity: 1, unitPrice: 150000, tvaRate: 0.19 }], revisionReason: "Remise négociée" });
+  const rv = D(fix).revisions ?? [];
+  check("montant corrigé après envoi : ancien montant et motif gardés", fix.status === 200 && rv.length === 1 && rv[0].previousTTC === 238000 && rv[0].newTTC === 178500 && rv[0].reason === "Remise négociée", J(rv));
+  const rej = await g.req("PATCH", `/api/devis/${dv2._id}`, { status: "rejected", reason: "Budget insuffisant" });
+  check("devis refusé : date et motif", rej.status === 200 && D(rej).rejectionReason === "Budget insuffisant" && !!D(rej).rejectedAt, J(D(rej)).slice(0, 160));
+  const back = await g.req("PATCH", `/api/devis/${dv2._id}`, { status: "sent" });
+  check("devis repris : le refus s'efface", !D(back).rejectionReason && !D(back).rejectedAt);
+
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

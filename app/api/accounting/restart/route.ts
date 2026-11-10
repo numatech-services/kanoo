@@ -30,7 +30,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   });
 });
 
-/** POST { exportId, restartDate, confirm: "REPRENDRE" } — efface comptabilité, trésorerie et caisses. */
+/** POST { exportId, exportHash, confirm: "REPRENDRE" } — efface comptabilité, trésorerie et caisses. */
 export const POST = withAuth("accountingEntries", "delete", async (req: NextRequest, auth: TokenPayload) => {
   if (!allowed(auth)) return forbidden(NO);
   await connectDB();

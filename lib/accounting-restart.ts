@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import mongoose, { Types, type ClientSession } from "mongoose";
+import { BSON } from "mongodb";
 import JSZip from "jszip";
 import { BusinessRuleError } from "@/lib/errors";
 import { TenantModel } from "@/models/Tenant";
@@ -38,7 +39,13 @@ export const RESTART_SCOPE = [
 ] as const;
 
 export const RESTART_CONFIRM = "REPRENDRE";
-const EXPORT_VALIDITY_MS = 24 * 3600 * 1000;
+/** Un export trop ancien ne couvre plus ce qui a été saisi depuis. */
+const EXPORT_VALIDITY_MS = 2 * 3600 * 1000;
+/** Jour en cours à Niamey (UTC+1), à minuit : c'est la date de reprise. */
+export function restartDay(now = new Date()) {
+  const d = new Date(now.getTime() + 3600_000);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
 export const RESTART_REFUSAL = "Pièce antérieure à la reprise de la comptabilité : son écriture n'existe plus. Corrigez par une écriture de régularisation datée après la reprise.";
 
 /** Une pièce dont l'écriture a disparu avec la reprise ne s'annule pas en silence. */
@@ -50,7 +57,7 @@ export async function refuseIfRestarted(tenantId: string, session?: ClientSessio
 }
 
 /** Champs jamais exportés : mots de passe, empreintes, jetons, secrets. */
-const SECRET = /pass(word)?|hash|secret|token|otp|apikey|privatekey/i;
+const SECRET = /pass(word)?|hash|secret|token|otp|apikey|privatekey|accesscode|Enc$/i;
 function scrub(doc: unknown): unknown {
   if (Array.isArray(doc)) return doc.map(scrub);
   if (doc && typeof doc === "object" && !(doc instanceof Date) && !(doc instanceof Types.ObjectId) && !Buffer.isBuffer(doc)) {
@@ -71,18 +78,22 @@ export async function exportTenantData(auth: TokenPayload) {
   const counts: Record<string, number> = {};
   const collections = (await db.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name).filter(n => !n.startsWith("system.")).sort();
   for (const name of collections) {
-    const filter = name === "tenants" ? { _id: tid } : { tenantId: tid };
-    const docs = await db.collection(name).find(filter).toArray();
-    if (!docs.length) continue;
-    counts[name] = docs.length;
-    zip.file(`${name}.json`, JSON.stringify(docs.map(scrub), null, 1));
+    // Organisation stockée en identifiant ou en texte selon les modèles.
+    const filter = name === "tenants" ? { _id: tid } : { tenantId: { $in: [tid, String(tid)] } };
+    // Lecture par curseur et EJSON canonique : types (identifiants, dates) préservés.
+    const parts: string[] = [];
+    for await (const doc of db.collection(name).find(filter)) parts.push(BSON.EJSON.stringify(scrub(doc) as BSON.Document, { relaxed: false }));
+    if (!parts.length) continue;
+    counts[name] = parts.length;
+    zip.file(`${name}.json`, `[\n${parts.join(",\n")}\n]`);
   }
   const exportedAt = new Date();
   zip.file("LISEZMOI.txt", [
     "Export complet Kanoo",
     `Organisation : ${auth.tenantId}`,
     `Date : ${exportedAt.toISOString()}`,
-    "Un fichier JSON par collection ; mots de passe, empreintes et jetons retirés.",
+    "Un fichier JSON par collection, au format EJSON canonique ; mots de passe, empreintes et jetons retirés.",
+    "Les justificatifs (fichiers) ne sont pas dans l'archive : leur inventaire est dans attachments.json, ils restent sur le stockage.",
     "À conserver : les pièces et écritures comptables se gardent dix ans.",
     "",
     ...Object.entries(counts).map(([k, v]) => `${k} : ${v}`),
@@ -104,11 +115,20 @@ export async function restartPreview(tenantId: string) {
     TreasuryAccountModel.countDocuments({ tenantId: tid }),
   ]);
   const validExport = lastExport && Date.now() - new Date(lastExport.exportedAt).getTime() < EXPORT_VALIDITY_MS ? lastExport : null;
+  // Saisies depuis l'export : il ne les contient pas, il faut le refaire.
+  const changedSince = validExport ? await changedAfter(tid, new Date(validExport.exportedAt)) : 0;
   return {
-    counts, treasuryAccounts: accounts, openSessions,
+    counts, treasuryAccounts: accounts, openSessions, changedSince, restartDate: restartDay(),
     export: validExport ? { exportId: String(validExport._id), exportedAt: validExport.exportedAt, exportHash: validExport.exportHash } : null,
     lastRestart: tenant?.accountingRestartAt ? { at: tenant.accountingRestartAt, date: tenant.accountingRestartDate } : null,
   };
+}
+
+/** Documents du périmètre créés ou modifiés après l'export. */
+async function changedAfter(tid: Types.ObjectId, at: Date) {
+  const n = await Promise.all([...RESTART_SCOPE.map(s => s.model as mongoose.Model<unknown>), TreasuryAccountModel as mongoose.Model<unknown>]
+    .map(m => m.countDocuments({ tenantId: tid, $or: [{ createdAt: { $gt: at } }, { updatedAt: { $gt: at } }] })));
+  return n.reduce((t, x) => t + x, 0);
 }
 
 /**
@@ -116,26 +136,41 @@ export async function restartPreview(tenantId: string) {
  * aucune caisse ouverte, date de reprise passée ou du jour. La période qui
  * précède la date de reprise est ensuite verrouillée : rien ne s'y écrit plus.
  */
-export async function restartAccounting(auth: TokenPayload, input: { exportId?: unknown; confirm?: unknown; restartDate?: unknown }) {
+export async function restartAccounting(auth: TokenPayload, input: { exportId?: unknown; confirm?: unknown; exportHash?: unknown }) {
   if (input.confirm !== RESTART_CONFIRM) throw new BusinessRuleError(`Confirmation manquante : tapez ${RESTART_CONFIRM}.`);
   const tid = new Types.ObjectId(auth.tenantId);
   if (!Types.ObjectId.isValid(String(input.exportId))) throw new BusinessRuleError("Téléchargez d'abord l'export complet.");
   const record = await AccountingRestartModel.findOne({ _id: input.exportId, tenantId: tid, restartedAt: { $exists: false } });
   if (!record) throw new BusinessRuleError("Export introuvable ou déjà utilisé : téléchargez un nouvel export.");
-  if (Date.now() - new Date(record.exportedAt).getTime() > EXPORT_VALIDITY_MS) throw new BusinessRuleError("Export de plus de 24 heures : téléchargez-en un nouveau.");
-  if (typeof input.restartDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(input.restartDate)) throw new BusinessRuleError("Date de reprise invalide.");
-  const restartDate = new Date(`${input.restartDate}T00:00:00.000Z`);
-  if (isNaN(restartDate.getTime()) || restartDate.getTime() > Date.now()) throw new BusinessRuleError("La date de reprise ne peut pas être dans le futur : les opérations du jour seraient refusées.");
+  const exportedAt = new Date(record.exportedAt);
+  if (Date.now() - exportedAt.getTime() > EXPORT_VALIDITY_MS) throw new BusinessRuleError("Export de plus de deux heures : téléchargez-en un nouveau.");
+  // Le navigateur prouve qu'il a bien reçu l'archive : empreinte du fichier enregistré.
+  if (!record.exportHash || input.exportHash !== record.exportHash) throw new BusinessRuleError("L'archive reçue ne correspond pas à l'export : téléchargez-la de nouveau.");
   if (await CashSessionModel.exists({ tenantId: tid, status: "open" })) throw new BusinessRuleError("Une caisse est ouverte : fermez toutes les caisses des sites avant la reprise.");
+  if ((await changedAfter(tid, exportedAt)) > 0) throw new BusinessRuleError("Des opérations ont été saisies depuis l'export : téléchargez un nouvel export.");
 
-  // Marque d'abord la reprise : une annulation lancée pendant l'effacement est déjà refusée.
+  // Un seul effacement à la fois ; une opération interrompue depuis plus de dix minutes peut être reprise.
+  const started = await AccountingRestartModel.findOneAndUpdate(
+    { _id: record._id, restartedAt: { $exists: false }, $or: [{ startedAt: { $exists: false } }, { startedAt: { $lt: new Date(Date.now() - 600_000) } }] },
+    { $set: { startedAt: new Date(), startedBy: auth.userId } }, { new: true },
+  );
+  if (!started) throw new BusinessRuleError("Une reprise est déjà en cours.");
+
+  // Date de reprise : aujourd'hui. Avec une date passée, les règlements faits
+  // depuis resteraient sans écriture alors que la trésorerie repart de zéro.
+  const restartDate = restartDay();
   const at = new Date();
-  await TenantModel.updateOne({ _id: tid }, { $set: { accountingRestartAt: at, accountingRestartDate: restartDate, accountingLockedUntil: new Date(restartDate.getTime() - 1) } });
+  const tenant = await TenantModel.findById(tid).select("accountingLockedUntil").lean<{ accountingLockedUntil?: Date } | null>();
+  const lock = new Date(restartDate.getTime() - 1);
+  const keepLock = tenant?.accountingLockedUntil && new Date(tenant.accountingLockedUntil) > lock;
+  // Marque d'abord la reprise : une annulation lancée pendant l'effacement est déjà refusée.
+  await TenantModel.updateOne({ _id: tid }, { $set: { accountingRestartAt: at, accountingRestartDate: restartDate, ...(keepLock ? {} : { accountingLockedUntil: lock }) } });
+  // Seulement ce que l'export contient : rien de créé après lui.
+  const exported = { tenantId: tid, $or: [{ createdAt: { $lte: exportedAt } }, { createdAt: { $exists: false } }] };
   const deleted: Record<string, number> = {};
-  for (const s of RESTART_SCOPE) deleted[s.key] = (await (s.model as mongoose.Model<unknown>).deleteMany({ tenantId: tid })).deletedCount ?? 0;
+  for (const s of RESTART_SCOPE) deleted[s.key] = (await (s.model as mongoose.Model<unknown>).deleteMany(exported)).deletedCount ?? 0;
   const reset = await TreasuryAccountModel.updateMany({ tenantId: tid }, { $set: { openingBalance: 0, openingDate: restartDate, balance: 0 } });
   deleted.treasuryAccountsReset = reset.modifiedCount;
-  record.restartedAt = at; record.restartedBy = auth.userId; record.restartDate = restartDate; record.deleted = deleted;
-  await record.save();
+  await AccountingRestartModel.updateOne({ _id: record._id }, { $set: { restartedAt: at, restartedBy: auth.userId, restartDate, deleted } });
   return { restartDate, deleted, exportHash: record.exportHash };
 }

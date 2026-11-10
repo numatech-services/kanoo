@@ -49,6 +49,13 @@ export const PATCH = withAuth("devis", "update", async (req: NextRequest, auth: 
   if (body.status !== undefined) {
     if (!["draft", "sent", "accepted", "rejected", "expired"].includes(String(body.status))) return badRequest("Statut invalide.");
     update.status = body.status;
+    // Refus : date et motif gardés ; un devis repris efface le refus.
+    if (body.status === "rejected" && d.status !== "rejected") { update.rejectedAt = new Date(); update.rejectionReason = String(body.reason ?? "").trim().slice(0, 300) || undefined; }
+    if (body.status !== "rejected" && d.status === "rejected") { update.rejectedAt = undefined; update.rejectionReason = undefined; }
+  }
+  // Montant corrigé après envoi : l'ancien total reste visible, avec le motif.
+  if (d.status !== "draft" && typeof update.totalTTC === "number" && Math.round(update.totalTTC as number) !== Math.round(d.totalTTC)) {
+    d.revisions = [...(d.revisions ?? []), { at: new Date(), by: auth.userId, previousHT: d.totalHT, previousTTC: d.totalTTC, newHT: update.totalHT, newTTC: update.totalTTC, reason: String(body.revisionReason ?? "").trim().slice(0, 300) || undefined }];
   }
   const before = { totalTTC: d.totalTTC, lines: d.lines?.length, status: d.status };
   d.set(update);
