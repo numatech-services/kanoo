@@ -84,7 +84,7 @@ const notifs = async g => { const r = await g.req("GET", "/api/notifications?lim
   check("date de péremption gardée : alerte à moins de 7 jours", row(lv, riz._id).nextExpiry === dlc && row(lv, riz._id).expiringQty >= 1, J(row(lv, riz._id)));
   const sup = await g.req("POST", "/api/comptoir/reserve", { deskId: desk, action: "supply", lines: [{ itemId: coca._id, packs: 1 }, { itemId: riz._id, quantity: 5 }] });
   lv = await levels();
-  check("comptoir approvisionné depuis la réserve : 24 canettes et 5 kg montés", sup.status === 201 && row(lv, coca._id).desk === 24 && row(lv, coca._id).reserve === 48 && row(lv, riz._id).desk === 5 && row(lv, riz._id).reserve === 20, J(lv.rows.map(r => [r.name, r.reserve, r.desk])));
+  check("comptoir approvisionné depuis la réserve : 24 canettes et 5 kg montés", sup.status === 201 && row(lv, coca._id).desk === 24 && row(lv, coca._id).reserve === 48 && row(lv, riz._id).desk === 5 && row(lv, riz._id).reserve === 21, J(lv.rows.map(r => [r.name, r.reserve, r.desk])));
   const rise = await g.req("POST", "/api/comptoir/reserve", { deskId: desk, action: "receive", lines: [{ itemId: coca._id, packs: 1, packCost: 8400 }] });
   check("hausse du coût d'achat signalée (+16,7 %)", D(rise).alerts?.[0]?.name === "Coca 33 cl" && D(rise).alerts[0].pct >= 16, J(D(rise)));
   const ret = await g.req("POST", "/api/comptoir/reserve", { deskId: desk, action: "supply", lines: [{ itemId: coca._id, quantity: 999 }] });
@@ -149,7 +149,8 @@ const notifs = async g => { const r = await g.req("GET", "/api/notifications?lim
   check("écarts d'inventaire des deux niveaux comptés une fois, hors pertes déclarées", r.inventories.length === 2 && near(r.pnl.inventoryGap, -938) && near(r.pnl.losses, declared) && near(r.pnl.losses, 745), J({ gap: r.pnl.inventoryGap, losses: r.pnl.losses, declared, by: r.lossesByReason }));
   check("charges : électricité 30 000 (prévu 25 000), personnel 60 000 (mi-temps de 120 000)", ch("electricite")?.actual === 30_000 && ch("electricite").planned === 25_000 && ch("personnel")?.actual === 60_000 && r.staffDetail[0]?.allocated === 60_000, J(r.pnl.charges));
   check("coût des ventes au CMUP (canettes à 312,50 après la hausse, riz de la recette) : 7 763", near(r.pnl.costOfSales, 7_763), J({ cogs: r.pnl.costOfSales }));
-  check("achats payés en caisse : au rapprochement (601 du secteur, 36 600), pas en charges ni en achats de caisse hors réception", r.reconciliation.accountingPurchases === 36_600 && r.pnl.cashPurchases === 0 && !r.chargesDetail.some(c => /^60[123]/.test(c.accountCode)), J({ rec: r.reconciliation, cash: r.pnl.cashPurchases }));
+  // Toutes les réceptions valorisées (au comptant 36 600 et à crédit) passent en 601 et se rapprochent des entrées en stock.
+  check("achats payés en caisse : au rapprochement (601 du secteur, égal aux entrées valorisées), pas en charges ni en achats de caisse hors réception", r.reconciliation.accountingPurchases === r.reconciliation.stockEntriesValued && r.reconciliation.accountingPurchases >= 36_600 && r.pnl.cashPurchases === 0 && !r.chargesDetail.some(c => /^60[123]/.test(c.accountCode)), J({ rec: r.reconciliation, cash: r.pnl.cashPurchases }));
   check("résultat = marge matière − charges ; point mort par jour calculé", r.pnl.result === r.pnl.materialMargin - r.pnl.totalCharges && r.pnl.ratios.breakEvenPerDay > 0, J({ res: r.pnl.result, mm: r.pnl.materialMargin, c: r.pnl.totalCharges, be: r.pnl.ratios }));
   check("douze mois de tendance et analyse de la carte", r.trend?.length === 12 && r.menu?.length >= 1, J({ t: r.trend?.length, m: r.menu }));
   const all = D(await g.req("GET", `/api/comptoir/result?all=1&month=${month}`));

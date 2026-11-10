@@ -67,7 +67,8 @@ export default function QuickSalePage() {
     for (const p of pending) {
       const res = await sendSale(p.body);
       // Réseau absent, ou réponse d'un ancien service worker (« mis en file ») : on garde.
-      if (res.status === 0 || res.data?.offline) { left.push(p); continue; }
+      // 409 : le même ticket est en cours d'enregistrement par un autre envoi ; il reste en file et sera confirmé au prochain passage.
+      if (res.status === 0 || res.status === 409 || res.data?.offline) { left.push(p); continue; }
       if (!res.ok) showToast(`Ticket en attente refusé : ${res.data?.error ?? "erreur"}`, "error");
     }
     store.set(qKey, left); setQueue(left);

@@ -100,7 +100,7 @@ const db = fn => withDb(ROOT, fn);
   const [a, b] = await Promise.all([g.req("POST", "/api/comptoir/sales", body, h), g.req("POST", "/api/comptoir/sales", body, h)]);
   const again = await g.req("POST", "/api/comptoir/sales", body, h);
   const count = await db(d => d.collection("comptoirsales").countDocuments({ clientRef: ref }));
-  check("le même ticket envoyé trois fois (dont deux en même temps) : un seul ticket, trois réponses positives", count === 1 && [a, b, again].every(r => r.status >= 200 && r.status < 300), `${count} ${a.status} ${b.status} ${again.status}`);
+  check("le même ticket envoyé trois fois (dont deux en même temps) : un seul ticket ; l'envoi simultané répond 201 ou 409 « en cours », le renvoi 201", count === 1 && [a, b].every(r => [200, 201, 409].includes(r.status)) && [a, b].some(r => r.status < 300) && again.status < 300, `${count} ${a.status} ${b.status} ${again.status}`);
 
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);

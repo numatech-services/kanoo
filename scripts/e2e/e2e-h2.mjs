@@ -78,7 +78,8 @@ const entries = (filter) => withDb(ROOT, db => db.collection("accountingentries"
   check("estimation : 500 000 + 25 000, échéance à un mois", est.estimate?.duty === 500_000 && est.estimate?.stamp === 25_000 && est.estimate?.buyerType === "state" && !!est.estimate?.dueDate, J(est.estimate));
   const fin0 = D(await g.req("GET", `/api/contracts/${mc}/finance`));
   const reg0 = fin0.costs?.categories?.find(c => c.key === "registration");
-  check("avant constat : droits comptés en dépense engagée du marché", reg0?.committed === 525_000 && fin0.registration?.estimate === 525_000, J({ reg0, r: fin0.registration }));
+  // La catégorie porte aussi la redevance de régulation calculée (marché public) : elle se retranche.
+  check("avant constat : droits comptés en dépense engagée du marché", reg0?.committed - (fin0.terms?.regulation?.estimate ?? 0) === 525_000 && fin0.registration?.estimate === 525_000, J({ reg0, r: fin0.registration }));
   const as1 = await g.req("POST", `/api/contracts/${mc}/registration`, { action: "assess" });
   const as2 = await g.req("POST", `/api/contracts/${mc}/registration`, { action: "assess" });
   const enr = (await entries({ reference: /^ENR-/, linkedDocType: "registration" }))[0];
@@ -88,7 +89,7 @@ const entries = (filter) => withDb(ROOT, db => db.collection("accountingentries"
     && enr.lines.some(l => l.accountCode === "447300" && l.credit === 525_000), J({ s: [as1.status, as2.status], l: enr?.lines }));
   const fin1 = D(await g.req("GET", `/api/contracts/${mc}/finance`));
   const reg1 = fin1.costs?.categories?.find(c => c.key === "registration");
-  check("après constat : dépense réalisée du marché (plus engagée)", reg1?.actual === 525_000 && !reg1?.committed, J(reg1));
+  check("après constat : dépense réalisée du marché (plus engagée)", reg1?.actual === 525_000 && (reg1?.committed ?? 0) === (fin0.terms?.regulation?.estimate ?? 0), J(reg1));
   const pay = await g.req("POST", `/api/contracts/${mc}/registration`, { action: "pay", treasuryAccountId: bank, date: today, number: "ENR-2026-0457" });
   const payE = (await entries({ linkedDocType: "registration", lines: { $elemMatch: { accountCode: "447300", debit: 525_000 } } }))[0];
   const ctP = await withDb(ROOT, db => db.collection("contracts").findOne({ _id: new ObjectId(String(mc)) }));
