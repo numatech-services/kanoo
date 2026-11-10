@@ -67,7 +67,16 @@ function scrub(doc: unknown): unknown {
   return doc;
 }
 
-const CHUNK = 1000;
+const CHUNK = 300;
+/** Index « organisation » de chaque collection, lu une fois : chaque aller-retour vers la base compte. */
+const indexCache = new Map<string, Record<string, unknown> | null>();
+async function tenantIndex(coll: { collectionName: string; indexes: () => Promise<Array<{ key: Record<string, unknown> }>> }) {
+  if (!indexCache.has(coll.collectionName)) {
+    const found = (await coll.indexes().catch(() => [])).find(i => Object.keys(i.key)[0] === "tenantId");
+    indexCache.set(coll.collectionName, found?.key ?? null);
+  }
+  return indexCache.get(coll.collectionName) ?? undefined;
+}
 /** Lignes d'une collection couvertes par l'export : celles de l'organisation, existantes à la coupure. */
 const exportFilter = (name: string, tid: Types.ObjectId, cutoff: Date) => name === "tenants"
   ? { _id: tid }
@@ -89,8 +98,8 @@ export async function startExport(auth: TokenPayload) {
   const names = (await db.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name).filter(n => !n.startsWith("system.")).sort();
   const counts: Record<string, number> = {};
   for (const name of names) {
-    const idx = name === "tenants" ? undefined : (await db.collection(name).indexes()).find(i => Object.keys(i.key)[0] === "tenantId");
-    const n = await db.collection(name).countDocuments(exportFilter(name, tid, exportedAt), idx ? { hint: idx.key } : {});
+    const idx = name === "tenants" ? undefined : await tenantIndex(db.collection(name));
+    const n = await db.collection(name).countDocuments(exportFilter(name, tid, exportedAt), idx ? { hint: idx } : {});
     if (n) counts[name] = n;
   }
   const record = await AccountingRestartModel.create({ tenantId: tid, exportedAt, exportedBy: auth.userId, exportCounts: counts });
@@ -113,17 +122,20 @@ export async function exportChunk(auth: TokenPayload, input: { exportId?: unknow
   const db = mongoose.connection.db!;
   const tid = new Types.ObjectId(auth.tenantId);
   const filter: Record<string, unknown> = exportFilter(name, tid, new Date(record.exportedAt));
-  if (input.after) filter._id = { $gt: BSON.EJSON.parse(String(input.after)) };
-  // Index de l'organisation imposé : sans lui, le tri par identifiant parcourait
-  // toute la collection (toutes organisations confondues), d'où un export très lent.
+  // Pagination par identifiants, sans tri côté base : trier des documents
+  // volumineux (photos) dépassait la mémoire de tri du serveur. On lit d'abord
+  // les identifiants de l'organisation (petits), puis le paquet demandé.
   const coll = db.collection(name);
-  const indexed = name !== "tenants" && (await coll.indexes()).some(i => Object.keys(i.key)[0] === "tenantId");
-  const query = coll.find(filter).sort({ _id: 1 }).limit(CHUNK);
-  if (indexed) query.hint((await coll.indexes()).find(i => Object.keys(i.key)[0] === "tenantId")!.key);
-  const docs = await query.toArray();
+  const idx = name === "tenants" ? undefined : await tenantIndex(coll);
+  const ids = (await coll.find(filter, { projection: { _id: 1 }, ...(idx ? { hint: idx } : {}) }).toArray()).map(d => d._id);
+  ids.sort((a, b) => String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0);
+  const from = input.after ? ids.findIndex(x => String(x) === String(BSON.EJSON.parse(String(input.after)))) + 1 : 0;
+  const page = ids.slice(from, from + CHUNK);
+  const docs = page.length ? await coll.find({ _id: { $in: page } }).toArray() : [];
+  docs.sort((a, b) => String(a._id) < String(b._id) ? -1 : 1);
   return {
     docs: docs.map(d => BSON.EJSON.stringify(scrub(d) as BSON.Document, { relaxed: false })),
-    after: docs.length === CHUNK ? BSON.EJSON.stringify({ v: docs[docs.length - 1]._id }, { relaxed: false }).replace(/^\{"v":(.*)\}$/, "$1") : null,
+    after: from + CHUNK < ids.length ? BSON.EJSON.stringify({ v: docs[docs.length - 1]._id }, { relaxed: false }).replace(/^\{"v":(.*)\}$/, "$1") : null,
   };
 }
 
