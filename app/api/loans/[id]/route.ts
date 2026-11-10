@@ -6,7 +6,7 @@ import { TokenPayload } from "@/lib/auth";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { LoanModel } from "@/models/Loan";
-import { adjustInstallment, cancelInstallment, deleteLoan, disburseLoan, loanState, payInstallment } from "@/lib/loans-server";
+import { adjustInstallments, cancelInstallment, deleteLoan, disburseLoan, loanState, LoanNotFound, payInstallment, repayFree, undisburseLoan } from "@/lib/loans-server";
 import { scheduleTotals } from "@/lib/loan-schedule";
 
 export const dynamic = "force-dynamic";
@@ -20,22 +20,29 @@ export const GET = withAuth("accountingEntries", "read", async (_req: NextReques
   return ok({ ...loan, state: loanState(loan), totals: scheduleTotals(loan.installments) });
 });
 
-/** POST { action: disburse | pay | cancel | adjust, … } */
+/** POST { action: disburse | undisburse | pay | repay | cancel | adjust, … } */
 export const POST = withAuth("accountingEntries", "create", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   if (!Types.ObjectId.isValid(params.id)) return notFound();
   const body = await req.json().catch(() => ({}));
   const actor = { tenantId: auth.tenantId, userId: auth.userId };
+  if (!(await LoanModel.exists({ _id: params.id, ...tenantFilter(auth) }))) return notFound("Emprunt introuvable");
   try {
-    let loan;
+    let loan, meta: Record<string, unknown> = {};
     if (body.action === "disburse") loan = await withTransaction(s => disburseLoan(actor, params.id, body, s));
-    else if (body.action === "pay") loan = await withTransaction(s => payInstallment(actor, params.id, body, s));
+    else if (body.action === "undisburse") loan = await withTransaction(s => undisburseLoan(actor, params.id, body, s));
+    else if (body.action === "pay") { const r = await withTransaction(s => payInstallment(actor, params.id, body, s)); loan = r.loan; meta = r.paid; }
+    else if (body.action === "repay") { const r = await withTransaction(s => repayFree(actor, params.id, body, s)); loan = r.loan; meta = r.paid; }
     else if (body.action === "cancel") loan = await withTransaction(s => cancelInstallment(actor, params.id, body, s));
-    else if (body.action === "adjust") loan = await adjustInstallment(actor, params.id, body);
-    else return badRequest("Action inconnue (disburse, pay, cancel, adjust).");
-    await logAudit(auth, "UPDATE", "accountingEntries", { resourceId: params.id, metadata: { loan: body.action, installmentId: body.installmentId } });
+    else if (body.action === "adjust") { const r = await adjustInstallments(actor, params.id, body); loan = r.loan; await logAudit(auth, "UPDATE", "accountingEntries", { resourceId: params.id, before: { installments: r.before }, after: { installments: (r.loan.installments as Array<{ n: number; principal: number; interest: number; insurance: number; dueDate: Date }>).map(x => ({ n: x.n, principal: x.principal, interest: x.interest, insurance: x.insurance, dueDate: x.dueDate })) }, metadata: { loan: "adjust" } }); return ok(loan); }
+    else return badRequest("Action inconnue (disburse, undisburse, pay, repay, cancel, adjust).");
+    await logAudit(auth, "UPDATE", "accountingEntries", { resourceId: params.id, metadata: { loan: body.action, installmentId: body.installmentId, ...meta } });
     return ok(loan);
-  } catch (e) { if (e instanceof BusinessRuleError) return badRequest(e.message); throw e; }
+  } catch (e) {
+    if (e instanceof LoanNotFound) return notFound(e.message);
+    if (e instanceof BusinessRuleError) return badRequest(e.message);
+    throw e;
+  }
 });
 
 export const DELETE = withAuth("accountingEntries", "delete", async (_req: NextRequest, auth: TokenPayload, params) => {

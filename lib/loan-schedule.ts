@@ -16,7 +16,16 @@ export const METHODS = {
   annuity: "Échéances constantes",
   constant: "Amortissement constant du capital",
   bullet: "Remboursement in fine",
+  free: "Remboursements libres (sans échéancier)",
 } as const;
+export const LENDER_TYPES = {
+  bank: { label: "Banque ou établissement de crédit", accountCode: "162000", accountLabel: "Emprunts auprès des établissements de crédit" },
+  associate: { label: "Associé (compte courant)", accountCode: "462000", accountLabel: "Associés, comptes courants" },
+  individual: { label: "Particulier (famille, ami…)", accountCode: "168000", accountLabel: "Autres emprunts et dettes" },
+  company: { label: "Entreprise ou organisme", accountCode: "168000", accountLabel: "Autres emprunts et dettes" },
+  other: { label: "Autre prêteur", accountCode: "168000", accountLabel: "Autres emprunts et dettes" },
+} as const;
+export type LenderType = keyof typeof LENDER_TYPES;
 export type Method = keyof typeof METHODS;
 
 export interface ScheduleInput {

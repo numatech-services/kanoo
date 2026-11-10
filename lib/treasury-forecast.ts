@@ -90,7 +90,9 @@ export async function computeForecast(tenantId: string, weeks: number, at: Date 
     }
   }
   // Emprunts : échéances non payées (capital, intérêts, assurance).
-  const loans = await LoanModel.find({ tenantId, status: "active" }).select("label lender installments").lean<Array<{ label: string; lender: string; installments: Array<{ n: number; dueDate: Date; principal: number; interest: number; insurance: number; status: string }> }>>();
+  const loans = await LoanModel.find({ tenantId, status: { $in: ["active", "draft"] } }).select("label lender status principal fees startDate installments").lean<Array<{ label: string; lender: string; status: string; principal: number; fees: number; startDate: Date; installments: Array<{ n: number; dueDate: Date; principal: number; interest: number; insurance: number; status: string }> }>>();
+  // Emprunt pas encore débloqué : les fonds attendus entrent à la date prévue.
+  for (const l of loans) if (l.status === "draft") flows.push({ label: `Déblocage attendu — ${l.label} (${l.lender})`, amount: l.principal - (l.fees || 0), kind: "in", source: "Emprunts", date: new Date(l.startDate) < now ? now : new Date(l.startDate) });
   for (const l of loans) for (const i of l.installments) {
     if (i.status !== "due") continue;
     flows.push({ label: `Échéance ${i.n} — ${l.label} (${l.lender})`, amount: i.principal + i.interest + i.insurance, kind: "out", source: "Emprunts", date: new Date(i.dueDate) < now ? now : new Date(i.dueDate) });

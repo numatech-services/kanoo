@@ -16,8 +16,14 @@ Livraisons du jour (Magasin) : un champ « Repris » s'ajoute avant le paiement 
 - déblocage : banque au débit (capital moins frais), 631 au débit (frais), 162 au crédit ; échéance payée : 162 (capital), 671 (intérêts), 625 (assurance) au débit, banque au crédit, avec le mouvement de trésorerie ; paiement annulable (extourne) ;
 - emprunt antérieur à la reprise : suivi sans écriture avant la date de prise en compte, capital restant à reprendre dans les soldes d'ouverture (162) ;
 - capital restant dû, prochaine échéance, retards, coût total du crédit ; échéances dans la prévision de trésorerie.
+- prêteurs hors circuit bancaire : associé (compte courant 462), particulier, entreprise ou autre (168), compte modifiable par le comptable ; fonds reçus en banque ou en caisse ; avec ou sans intérêts ;
+- prêt sans échéancier : remboursements libres au fil de l'eau (capital, intérêts éventuels), reste dû à jour ;
+- annulation d'un déblocage erroné (sans remboursement enregistré) ; ajustement au tableau de la banque, la dernière échéance absorbant l'écart de capital ;
+- emprunt antérieur à la reprise : date de prise en compte imposée (date de reprise), capital restant comparé au solde d'ouverture saisi (alerte en cas d'écart) ;
+- contrôles : dates réelles, paiement ni avant le déblocage ni dans le futur, différé borné, frais inférieurs au capital.
+- Non couvert à ce stade : intérêts courus non échus à la clôture (1661 / 671), à passer par écriture d'inventaire ; période brisée (première échéance au prorata des jours).
 
-**Facturation ISIC** : `POST /api/v1/invoices` reçoit les brouillons de facture des lots ISIC (clé d'API avec le droit `invoices:write`, voir docs/API-BROUILLONS.md).
+**Facturation ISIC** : `POST /api/v1/invoices` reçoit les brouillons de facture des lots ISIC (clé d'API avec le droit `invoices:write`, voir docs/API-BROUILLONS.md). Même référence avec un contenu différent : 409 ; date dans une période close : refusée ; auteur de la clé sans droit de facturer : 403.
 
 ## Reprise de la comptabilité (novembre 2026)
 

@@ -1,5 +1,6 @@
 // Scénario de bout en bout : emprunts (tableau, déblocage, échéances, annulation, reprise, prévision).
 import { readFileSync } from "fs";
+import { withDb } from "./db.mjs";
 
 const BASE = "http://localhost:3099";
 const ROOT = process.argv[2];
@@ -87,18 +88,48 @@ const dayAgo = n => new Date(Date.now() - n * 86400000).toISOString().slice(0, 1
   check("paiement annulé : banque rétablie, échéance redevenue due", can.status === 200 && (await bal()) === 10900000 && L.installments[0].status === "due", `${await bal()}`);
 
   console.log("\n▶ Ajustement au tableau de la banque");
-  check("ajustement qui fausse le capital : refusé", (await g.req("POST", `/api/loans/${loanId}`, { action: "adjust", installmentId: i2._id, principal: 1 })).status === 400);
-  const adj = await g.req("POST", `/api/loans/${loanId}`, { action: "adjust", installmentId: i2._id, interest: 93000 });
-  check("intérêts ajustés", adj.status === 200 && D(adj).installments[1].interest === 93000 && D(adj).installments[1].adjusted, J(D(adj).installments?.[1]));
+  check("ajustement impossible à compenser (capital au-delà de l'emprunt) : refusé", (await g.req("POST", `/api/loans/${loanId}`, { action: "adjust", installmentId: i2._id, principal: 99999999 })).status === 400);
+  const adj = await g.req("POST", `/api/loans/${loanId}`, { action: "adjust", installmentId: i2._id, interest: 93000, principal: 800000 });
+  const ai = D(adj).installments ?? [];
+  check("ajustement du capital : la dernière échéance absorbe l'écart", adj.status === 200 && ai[1].interest === 93000 && ai[1].principal === 800000 && ai.reduce((t, x) => t + x.principal, 0) === 10000000 && ai[11].adjusted, J(ai[1]));
+  check("date d'échéance hors ordre refusée", (await g.req("POST", `/api/loans/${loanId}`, { action: "adjust", installmentId: i3._id, dueDate: "2020-01-01" })).status === 400);
+  check("paiement daté avant le déblocage refusé", (await g.req("POST", `/api/loans/${loanId}`, { action: "pay", installmentId: i1._id, date: "2020-01-01" })).status === 400);
+  check("emprunt d'une autre organisation : 404", (await other.req("POST", `/api/loans/${loanId}`, { action: "pay", installmentId: i1._id })).status === 404);
   check("suppression d'un emprunt comptabilisé : refusée", (await g.req("DELETE", `/api/loans/${loanId}`)).status === 400);
 
+  console.log("\n▶ Contrôles de saisie");
+  for (const [k, v] of [["principal", 1e300], ["annualRatePct", null], ["startDate", "2026-02-31"], ["deferralPeriods", 50], ["fees", 20000000]]) {
+    check(`création avec ${k}=${J(v)} refusée`, (await g.req("POST", "/api/loans", { label: "X", lender: "Y", treasuryAccountId: bank, principal: 10000000, annualRatePct: 5, durationMonths: 12, startDate: "2026-01-15", [k]: v })).status === 400);
+  }
+  const d31 = D(await g.req("POST", "/api/loans", { label: "Fin de mois", lender: "Y", treasuryAccountId: bank, principal: 100000, annualRatePct: 5, durationMonths: 12, startDate: "2026-01-31" }));
+  check("première échéance par défaut : 28/02 après un 31/01", String(d31.firstDueDate).startsWith("2026-02-28"), String(d31.firstDueDate));
+
+  console.log("\n▶ Annulation du déblocage");
+  const un = await g.req("POST", `/api/loans/${loanId}`, { action: "undisburse", reason: "Erreur de frais" });
+  check("déblocage annulé : banque rétablie, emprunt à débloquer", un.status === 200 && D(un).status === "draft" && (await bal()) === 1000000, `${un.status} ${await bal()}`);
+
+  console.log("\n▶ Prêt hors banque, sans intérêt, remboursement libre");
+  const caisse = id(await g.req("POST", "/api/treasury-accounts", { label: "Caisse prêt", type: "cash", openingBalance: 0, openingDate: "2025-01-01" }));
+  const fr = D(await g.req("POST", "/api/loans", { label: "Avance de l'associé", lender: "M. Associé", lenderType: "associate", treasuryAccountId: caisse, principal: 500000, annualRatePct: 0, method: "free", startDate: dayAgo(5) }));
+  check("prêt d'associé : compte 462, sans échéancier", fr.capitalAccountCode === "462000" && fr.installments?.length === 0 && fr.status === "draft", J(fr).slice(0, 160));
+  await g.req("POST", `/api/loans/${fr._id}`, { action: "disburse", date: dayAgo(5) });
+  const r1 = await g.req("POST", `/api/loans/${fr._id}`, { action: "repay", principal: 200000, date: dayAgo(1), treasuryAccountId: caisse });
+  const fs = D(await g.req("GET", `/api/loans/${fr._id}`));
+  check("remboursement libre : reste dû 300 000", r1.status === 200 && fs.state.remaining === 300000, J(fs.state));
+  check("rembourser plus que le reste : refusé", (await g.req("POST", `/api/loans/${fr._id}`, { action: "repay", principal: 400000 })).status === 400);
+  const fe = (await entry("EMPRUNT")).find(e => e.lines.some(l => l.accountCode === "462000" && l.debit === 200000));
+  check("écriture : 462 au débit, caisse au crédit", !!fe, J(fe?.lines));
+
   console.log("\n▶ Emprunt antérieur à la reprise");
-  const old = D(await g.req("POST", "/api/loans", { label: "Ancien prêt", lender: "BOA", treasuryAccountId: bank, principal: 1200000, annualRatePct: 0, durationMonths: 12, frequency: "monthly", method: "constant", startDate: "2025-06-01", firstDueDate: "2025-07-01", postedFrom: "2026-01-01" }));
+  check("antérieur sans reprise ni clôture : refusé", (await g.req("POST", "/api/loans", { label: "Avant", lender: "BOA", treasuryAccountId: bank, principal: 1200000, annualRatePct: 0, durationMonths: 12, method: "constant", startDate: "2025-06-01", prior: true })).status === 400);
+  await withDb(ROOT, db => db.collection("tenants").updateOne({ slug: "test-pme" }, { $set: { accountingRestartDate: new Date("2026-01-01T00:00:00Z") } }));
+  const old = D(await g.req("POST", "/api/loans", { label: "Ancien prêt", lender: "BOA", treasuryAccountId: bank, principal: 1200000, annualRatePct: 0, durationMonths: 12, frequency: "monthly", method: "constant", startDate: "2025-06-01", firstDueDate: "2025-07-01", prior: true }));
   const prior = (old.installments ?? []).filter(i => i.status === "prior").length;
   const oldState = D(await g.req("GET", `/api/loans/${old._id}`)).state;
   check("échéances avant le 01/01/2026 : hors Kanoo ; emprunt en cours sans déblocage", old.status === "active" && prior === 6 && oldState.remaining === 600000, `${old.status} ${prior} ${oldState?.remaining}`);
   const list = D(await g.req("GET", "/api/loans"));
-  check("liste : capital restant total", list.totals?.remaining === 10000000 + 600000, J(list.totals));
+  check("liste : capital restant total (emprunt annulé à 0, associé 300 000, ancien 600 000)", list.totals?.remaining === 300000 + 600000, J(list.totals));
+  check("contrôle de la reprise : 600 000 au compte 162, solde d'ouverture pas encore saisi", list.openingCheck?.some(c => c.accountCode === "162000" && c.loans === 600000 && c.opening === null), J(list.openingCheck));
 
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);

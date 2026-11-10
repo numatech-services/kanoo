@@ -27,6 +27,13 @@ const LoanSchema = new Schema({
   tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
   label: { type: String, required: true, trim: true, maxlength: 160 },
   lender: { type: String, required: true, trim: true, maxlength: 160 },
+  /** Prêteur : banque, associé, particulier, entreprise, autre (prêts hors circuit bancaire compris). */
+  lenderType: { type: String, enum: ["bank", "associate", "individual", "company", "other"], default: "bank" },
+  /** Compte de la dette (162 banque, 462 associé, 168 autres), proposé selon le prêteur, modifiable par le comptable. */
+  capitalAccountCode: { type: String, default: "162000" },
+  capitalAccountLabel: { type: String },
+  /** Capital restant dû à la date de prise en compte (emprunt antérieur à la reprise). */
+  openingRemaining: { type: Number, min: 0 },
   reference: { type: String, trim: true, maxlength: 80 },
   /** Compte de trésorerie crédité au déblocage et débité des échéances. */
   treasuryAccountId: { type: Schema.Types.ObjectId, ref: "TreasuryAccount", required: true },
@@ -34,10 +41,12 @@ const LoanSchema = new Schema({
   annualRate: { type: Number, required: true, min: 0, max: 1 },
   durationMonths: { type: Number, required: true, min: 1, max: 600 },
   frequency: { type: String, enum: ["monthly", "quarterly", "semiannual", "annual"], default: "monthly" },
-  method: { type: String, enum: ["annuity", "constant", "bullet"], default: "annuity" },
+  /** free : sans échéancier, remboursements libres au fil de l'eau. */
+  method: { type: String, enum: ["annuity", "constant", "bullet", "free"], default: "annuity" },
   deferralPeriods: { type: Number, default: 0, min: 0 },
   startDate: { type: Date, required: true },
-  firstDueDate: { type: Date, required: true },
+  /** Première échéance (échéancier) ou date de remboursement prévue (prêt libre). */
+  firstDueDate: Date,
   fees: { type: Number, default: 0, min: 0 },
   insurancePerPeriod: { type: Number, default: 0, min: 0 },
   /** Objet du financement (équipement, marché, trésorerie) : imputé au projet s'il y en a un. */

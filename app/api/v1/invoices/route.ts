@@ -8,6 +8,8 @@ import { provisionalNumber } from "@/lib/numbering";
 import { parseDraft } from "@/lib/api-v1-draft";
 import { easypayActor } from "@/lib/easypay-server";
 import { logAudit } from "@/lib/audit";
+import { authCan } from "@/lib/role-resources";
+import { TenantModel } from "@/models/Tenant";
 
 const CHAMPS = "number status totalHT totalTVA totalTTC paidAmount creditedAmount writtenOffAmount issueDate dueDate clientId reference externalRef";
 
@@ -74,7 +76,18 @@ export async function POST(req: NextRequest) {
   await connectDB();
   const existante = () => InvoiceModel.findOne({ tenantId, externalRef: draft.externalRef }).select(CHAMPS).populate("clientId", "code").lean<Record<string, unknown>>();
   const deja = await existante();
-  if (deja) return NextResponse.json({ success: true, data: vue(deja), existing: true });
+  // Même référence, contenu différent : le signaler au lieu de rendre l'ancien brouillon en silence.
+  if (deja) {
+    const prev = deja as { totalHT?: number; clientId?: { code?: string } };
+    if (prev.totalHT !== computeInvoiceLines(draft.lines).totalHT || (prev.clientId?.code && prev.clientId.code !== draft.clientCode)) {
+      return NextResponse.json({ error: `externalRef ${draft.externalRef} déjà utilisée pour un brouillon au contenu différent.`, data: vue(deja) }, { status: 409 });
+    }
+    return NextResponse.json({ success: true, data: vue(deja), existing: true });
+  }
+  const t = await TenantModel.findById(tenantId).select("accountingLockedUntil").lean<{ accountingLockedUntil?: Date } | null>();
+  if (t?.accountingLockedUntil && draft.issueDate <= new Date(t.accountingLockedUntil)) {
+    return NextResponse.json({ error: `issueDate dans une période comptable close (jusqu'au ${new Date(t.accountingLockedUntil).toISOString().slice(0, 10)}).` }, { status: 400 });
+  }
 
   const client = await ClientModel.findOne({ tenantId, code: draft.clientCode }).select("_id").lean<{ _id: unknown }>();
   if (!client) return NextResponse.json({ error: `Client inconnu : ${draft.clientCode}` }, { status: 404 });
@@ -82,6 +95,8 @@ export async function POST(req: NextRequest) {
   // Avant toute écriture : une clé dont l'auteur a quitté l'organisation ne crée plus rien.
   const actor = await easypayActor({ tenantId, userId }).catch(() => null);
   if (!actor) return NextResponse.json({ error: "L'auteur de cette clé n'est plus actif." }, { status: 403 });
+  // L'auteur doit lui-même pouvoir créer des factures : un compte rétrogradé n'en crée plus par l'API.
+  if (!authCan(actor, "invoices", "create")) return NextResponse.json({ error: "L'auteur de cette clé n'a plus le droit de créer des factures." }, { status: 403 });
 
   const { lines, totalHT, totalTVA, totalDTS, totalTTC } = computeInvoiceLines(draft.lines);
   try {
