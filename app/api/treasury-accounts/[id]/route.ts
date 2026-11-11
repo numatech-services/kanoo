@@ -29,6 +29,12 @@ export const PATCH = withAuth("treasuryAccounts", "update", async (req: NextRequ
   const hasMoves = !!(await TreasuryMovementModel.exists({ tenantId: auth.tenantId, accountId: acc._id }));
   if ("label" in body) { const l = String(body.label ?? "").trim(); if (!l) return badRequest("Libellé obligatoire."); acc.label = l.slice(0, 120); }
   for (const k of ["bankName", "accountNumber"]) if (k in body) acc.set(k, String(body[k] ?? "").slice(0, 80));
+  // Ligne de cautions accordée par la banque (plafond des cautions en cours).
+  if ("guaranteeLimit" in body) {
+    const v = body.guaranteeLimit === null || body.guaranteeLimit === "" ? undefined : Number(body.guaranteeLimit);
+    if (v !== undefined && !(v >= 0 && v <= 1e13)) return badRequest("Plafond de cautions invalide.");
+    acc.set("guaranteeLimit", v);
+  }
   if ("isActive" in body) acc.isActive = !!body.isActive;
   if ("currency" in body) { if (!isCurrency(body.currency)) return badRequest("Devise inconnue."); acc.set("currency", body.currency); }
   if ("exchangeRate" in body) acc.set("exchangeRate", Number(body.exchangeRate) > 0 ? Number(body.exchangeRate) : undefined);

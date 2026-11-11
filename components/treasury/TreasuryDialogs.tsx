@@ -9,7 +9,7 @@ import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
 import { csrfToken as getCsrfToken, apiJson } from "@/lib/api-client";
 import { todayLocal } from "@/lib/format";
-export interface TreasuryAccountLite { _id: string; label: string; type: string; balance: number; openingBalance: number; movementCount: number; isActive: boolean; bankName?: string; accountNumber?: string }
+export interface TreasuryAccountLite { _id: string; label: string; type: string; balance: number; openingBalance: number; movementCount: number; isActive: boolean; bankName?: string; guaranteeLimit?: number; accountNumber?: string }
 
 async function send(url: string, method: string, body?: unknown) {
   const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json", "x-csrf-token": await getCsrfToken() }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -21,12 +21,12 @@ const today = () => todayLocal();
 const fmt = (n: number) => n.toLocaleString("fr-FR");
 
 export function EditAccountDialog({ account, onClose, onDone }: { account: TreasuryAccountLite; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ label: account.label, bankName: account.bankName ?? "", accountNumber: account.accountNumber ?? "", openingBalance: account.openingBalance, type: account.type });
+  const [f, setF] = useState({ label: account.label, bankName: account.bankName ?? "", accountNumber: account.accountNumber ?? "", openingBalance: account.openingBalance, type: account.type, guaranteeLimit: (account as { guaranteeLimit?: number }).guaranteeLimit ?? "" as number | "" });
   const [error, setError] = useState("");
   const locked = account.movementCount > 0;
   async function save() {
     try {
-      await send(`/api/treasury-accounts/${account._id}`, "PATCH", locked ? { label: f.label, bankName: f.bankName, accountNumber: f.accountNumber } : f);
+      await send(`/api/treasury-accounts/${account._id}`, "PATCH", locked ? { label: f.label, bankName: f.bankName, accountNumber: f.accountNumber, guaranteeLimit: f.guaranteeLimit === "" ? null : f.guaranteeLimit } : { ...f, guaranteeLimit: f.guaranteeLimit === "" ? null : f.guaranteeLimit });
       onDone();
     } catch (e) { setError(e instanceof Error ? e.message : "Modification impossible"); }
   }
@@ -47,6 +47,7 @@ export function EditAccountDialog({ account, onClose, onDone }: { account: Treas
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Banque / opérateur"><input className={inputCls} value={f.bankName} onChange={e => setF(p => ({ ...p, bankName: e.target.value }))} /></FormField>
           <FormField label="N° de compte"><input className={inputCls} value={f.accountNumber} onChange={e => setF(p => ({ ...p, accountNumber: e.target.value }))} /></FormField>
+          {f.type === "bank" && <FormField label="Ligne de cautions accordée (FCFA)" hint="Plafond des cautions en cours ; vide si aucun"><input type="number" min={0} className={inputCls} value={f.guaranteeLimit} onChange={e => setF(p => ({ ...p, guaranteeLimit: e.target.value === "" ? "" : Number(e.target.value) }))} /></FormField>}
         </div>
         {!locked && (
           <div className="grid grid-cols-2 gap-3">

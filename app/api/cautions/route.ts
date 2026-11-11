@@ -6,7 +6,8 @@ import { TokenPayload } from "@/lib/auth";
 import { hasFinanceAccess } from "@/lib/role-resources";
 import { BankGuaranteeModel } from "@/models/BankGuarantee";
 import { createGuarantee } from "@/lib/guarantees-server";
-import { commitments, guaranteeAlert } from "@/lib/guarantees";
+import { commitments, guaranteeAlert, guaranteeCost, nextCommission } from "@/lib/guarantees";
+import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 import { BusinessRuleError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 
@@ -24,11 +25,15 @@ export const GET = withAuth("appels", "read", async (req: NextRequest, auth: Tok
     if (v && Types.ObjectId.isValid(v)) filter[f] = v;
   }
   const items = await BankGuaranteeModel.find(filter).sort({ status: 1, expiryDate: 1, createdAt: -1 }).limit(500)
-    .populate("appelId", "title reference").populate("contractId", "reference title").populate("treasuryAccountId", "label").lean<Array<Record<string, unknown> & { status: string; expiryDate?: Date }>>();
-  const all = await BankGuaranteeModel.find({ ...tenantFilter(auth), status: "active" }).select("type amount status collateral").lean<Parameters<typeof commitments>[0]>();
+    .populate("appelId", "title reference").populate("contractId", "reference title").populate("treasuryAccountId", "label").populate("loanId", "label lender").lean<Array<Record<string, unknown> & { status: string; expiryDate?: Date }>>();
+  const all = await BankGuaranteeModel.find({ ...tenantFilter(auth), status: "active" }).select("type amount status collateral direction treasuryAccountId").lean<Parameters<typeof commitments>[0]>();
   return ok({
-    items: items.map(g => ({ ...g, alert: guaranteeAlert(g) })),
+    items: items.map(g => ({ ...g, alert: guaranteeAlert(g), cost: guaranteeCost(g as Parameters<typeof guaranteeCost>[0]), nextCommission: nextCommission(g as unknown as Parameters<typeof nextCommission>[0])[0] ?? null })),
     commitments: commitments(all),
+    // Lignes de cautions : engagements en cours par banque, face au plafond accordé.
+    banks: (await TreasuryAccountModel.find({ ...tenantFilter(auth), type: "bank" }).select("label guaranteeLimit").lean<Array<{ _id: unknown; label: string; guaranteeLimit?: number }>>())
+      .map(b => ({ _id: String(b._id), label: b.label, limit: b.guaranteeLimit ?? null, used: (all as Array<{ amount: number; direction?: string; treasuryAccountId?: unknown }>).filter(g => g.direction !== "received" && String(g.treasuryAccountId ?? "") === String(b._id)).reduce((t, g) => t + g.amount, 0) }))
+      .filter(b => b.limit !== null || b.used > 0),
   });
 });
 

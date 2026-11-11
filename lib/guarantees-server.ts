@@ -8,6 +8,8 @@ import { treasuryLedger, registerLedgerAccount } from "@/lib/treasury";
 import { reverseEntry } from "@/lib/accounting-reversal";
 import { GUARANTEE_TYPES, GUARANTEE_FEE_ACCOUNT, GUARANTEE_DEPOSIT_ACCOUNT, GUARANTEE_CALL_ACCOUNT } from "@/lib/guarantees";
 import { BusinessRuleError } from "@/lib/errors";
+import { LoanModel } from "@/models/Loan";
+import { CHARGE_KINDS, FEE_PERIODS, nextCommission } from "@/lib/guarantees";
 
 type Actor = { tenantId: string; userId: string };
 type Line = { accountCode: string; accountLabel: string; debit: number; credit: number };
@@ -42,6 +44,7 @@ export interface GuaranteeInput {
   type?: unknown; reference?: unknown; treasuryAccountId?: unknown; bankName?: unknown; beneficiary?: unknown;
   amount?: unknown; issueDate?: unknown; expiryDate?: unknown; appelId?: unknown; contractId?: unknown;
   fee?: unknown; collateral?: unknown; notes?: unknown;
+  direction?: unknown; loanId?: unknown; guaranteeForm?: unknown; feeRatePct?: unknown; feePeriod?: unknown;
 }
 
 /**
@@ -58,7 +61,19 @@ export async function createGuarantee(actor: Actor, input: GuaranteeInput, opts:
   const issueDate = input.issueDate ? dateOf(input.issueDate, "Date d'émission") : new Date();
   const expiryDate = input.expiryDate ? dateOf(input.expiryDate, "Date d'échéance") : undefined;
   if (expiryDate && expiryDate < issueDate) throw new BusinessRuleError("L'échéance précède l'émission.");
-  const fee = money(input.fee), collateral = money(input.collateral);
+  const direction = input.direction === "received" ? "received" : "issued";
+  const fee = direction === "received" ? 0 : money(input.fee), collateral = direction === "received" ? 0 : money(input.collateral);
+  const feePeriod = String(input.feePeriod ?? "once");
+  if (!(feePeriod in FEE_PERIODS)) throw new BusinessRuleError("Rythme de commission invalide.");
+  const feeRate = input.feeRatePct === undefined || input.feeRatePct === "" || input.feeRatePct === null ? undefined : Number(String(input.feeRatePct).replace(",", ".")) / 100;
+  if (feeRate !== undefined && !(feeRate >= 0 && feeRate <= 0.5)) throw new BusinessRuleError("Taux de commission invalide (en % par an).");
+  if (feePeriod !== "once" && !feeRate) throw new BusinessRuleError("Commission périodique : indiquez son taux annuel.");
+  let loanId: Types.ObjectId | undefined;
+  if (input.loanId) {
+    if (!Types.ObjectId.isValid(String(input.loanId)) || !(await LoanModel.exists({ _id: input.loanId, tenantId: tid }).session(session ?? null))) throw new BusinessRuleError("Emprunt introuvable.");
+    loanId = new Types.ObjectId(String(input.loanId));
+  }
+  if (type === "garantie_emprunt" && direction === "received") throw new BusinessRuleError("Une garantie d'emprunt est donnée par l'organisation, pas reçue.");
   if (fee < 0 || collateral < 0) throw new BusinessRuleError("Montants négatifs refusés.");
   if (collateral > amount) throw new BusinessRuleError("Le dépôt bloqué dépasse le montant garanti.");
   if ((fee || collateral) && !opts.canPost) throw new BusinessRuleError("Commission et dépôt passent en comptabilité : réservé au gérant et à la comptabilité.");
@@ -89,6 +104,7 @@ export async function createGuarantee(actor: Actor, input: GuaranteeInput, opts:
     tenantId: tid, type, amount, issueDate, expiryDate, beneficiary: beneficiary.slice(0, 200), appelId, contractId, treasuryAccountId,
     reference: String(input.reference ?? "").trim().slice(0, 100) || undefined, bankName: String(input.bankName ?? "").trim().slice(0, 120) || undefined,
     fee, collateral, notes: String(input.notes ?? "").slice(0, 2000) || undefined, createdBy: actor.userId,
+    direction, loanId, guaranteeForm: String(input.guaranteeForm ?? "").trim().slice(0, 120) || undefined, feeRate, feePeriod: direction === "received" ? "once" : feePeriod,
   }], { session });
   const what = `${GUARANTEE_TYPES[type]} — ${g.beneficiary}`;
   if (fee) {
@@ -147,10 +163,46 @@ export async function callGuarantee(actor: Actor, id: string, input: { amount?: 
   return g;
 }
 
+/**
+ * Frais passés après l'émission : commission périodique (montant calculé par
+ * défaut), frais de prorogation ou de dossier. Charge 631 imputée au marché,
+ * débitée de la banque émettrice.
+ */
+export async function chargeGuarantee(actor: Actor, id: string, input: { kind?: unknown; amount?: unknown; date?: unknown; label?: unknown }, session?: ClientSession) {
+  const g = await loadActive(actor, id, session);
+  if (g.direction === "received") throw new BusinessRuleError("Caution reçue : ses frais sont à la charge du fournisseur.");
+  if (!g.treasuryAccountId) throw new BusinessRuleError("Indiquez d'abord la banque émettrice de la caution.");
+  const kind = String(input.kind ?? "commission") as keyof typeof CHARGE_KINDS;
+  if (!(kind in CHARGE_KINDS)) throw new BusinessRuleError("Nature des frais invalide.");
+  const due = kind === "commission" ? nextCommission(g)[0] : undefined;
+  const amount = input.amount === undefined || input.amount === "" || input.amount === null ? (due?.amount ?? 0) : money(input.amount);
+  if (!(amount > 0) || amount > 1e12) throw new BusinessRuleError("Montant des frais invalide.");
+  const date = input.date ? dateOf(input.date, "Date") : (due && due.date < new Date() ? due.date : new Date());
+  let marketProjectId: unknown;
+  if (g.contractId) marketProjectId = (await ContractModel.findOne({ _id: g.contractId, tenantId: actor.tenantId }).select("projectId").session(session ?? null).lean<{ projectId?: unknown } | null>())?.projectId;
+  const label = `${CHARGE_KINDS[kind]}${due && kind === "commission" ? ` (période ${due.period})` : ""} — ${GUARANTEE_TYPES[g.type as GuaranteeType]} — ${g.beneficiary}`.slice(0, 280);
+  const entryId = await post(actor, g, { date, label, lines: [{ ...GUARANTEE_FEE_ACCOUNT, debit: amount, credit: 0, ...(marketProjectId ? { projectId: marketProjectId } : {}) }, BANK(0, amount)], cash: -amount }, session);
+  g.charges = [...(g.charges ?? []), { date, amount, kind, label: String(input.label ?? "").slice(0, 200) || undefined, entryId }];
+  await g.save({ session });
+  return g;
+}
+
+/** Prorogation : nouvelle échéance, et frais de prorogation s'il y en a. */
+export async function extendGuarantee(actor: Actor, id: string, input: { expiryDate?: unknown; fee?: unknown; date?: unknown }, session?: ClientSession) {
+  const g = await loadActive(actor, id, session);
+  const expiry = dateOf(input.expiryDate, "Nouvelle échéance");
+  if (g.expiryDate && expiry <= g.expiryDate) throw new BusinessRuleError("La nouvelle échéance doit suivre l'actuelle.");
+  g.expiryDate = expiry;
+  await g.save({ session });
+  const fee = money(input.fee ?? 0);
+  if (fee > 0) return chargeGuarantee(actor, id, { kind: "prorogation", amount: fee, date: input.date }, session);
+  return g;
+}
+
 /** Saisie erronée : commission et dépôt extournés, mouvements contre-passés, caution supprimée. */
 export async function deleteGuarantee(actor: Actor, id: string, session?: ClientSession) {
   const g = await loadActive(actor, id, session);
-  for (const entryId of [g.feeEntryId, g.collateralEntryId].filter(Boolean)) {
+  for (const entryId of [g.feeEntryId, g.collateralEntryId, ...(g.charges ?? []).map((c: { entryId?: unknown }) => c.entryId)].filter(Boolean)) {
     await reverseEntry({ tenantId: actor.tenantId, userId: actor.userId, entryId, reason: "caution supprimée (saisie erronée)" }, session);
   }
   const moves = await TreasuryMovementModel.find({ tenantId: actor.tenantId, linkedDocType: "guarantee", linkedDocId: g._id }).session(session ?? null);

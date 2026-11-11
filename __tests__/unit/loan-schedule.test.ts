@@ -33,3 +33,24 @@ describe("tableau d'amortissement", () => {
     expect(addMonths(d("2026-01-31"), 1).toISOString().slice(0, 10)).toBe("2026-02-28");
   });
 });
+
+import { nextCommission, guaranteeCost } from "@/lib/guarantees";
+describe("commissions de caution", () => {
+  const g = { amount: 10_000_000, issueDate: "2026-01-15", expiryDate: "2026-12-31", status: "active", feeRate: 0.02, feePeriod: "quarterly" };
+  it("trimestrielle à 2 % l'an : 50 000 par trimestre, à partir du 15/04", () => {
+    const c = nextCommission(g, 5);
+    expect(c.map(x => x.amount)).toEqual([50_000, 50_000, 50_000]);
+    expect(c[0].date.toISOString().slice(0, 10)).toBe("2026-04-15");
+    expect(c).toHaveLength(3);
+  });
+  it("après une commission passée, la suivante est celle de juillet", () => {
+    expect(nextCommission({ ...g, charges: [{ kind: "commission", date: "2026-04-15" }] })[0].date.toISOString().slice(0, 10)).toBe("2026-07-15");
+  });
+  it("ni commission pour une caution reçue, ni pour une commission unique", () => {
+    expect(nextCommission({ ...g, direction: "received" })).toEqual([]);
+    expect(nextCommission({ ...g, feePeriod: "once" })).toEqual([]);
+  });
+  it("coût = commission d'émission + frais", () => {
+    expect(guaranteeCost({ fee: 30_000, charges: [{ amount: 50_000 }, { amount: 25_000 }] })).toBe(105_000);
+  });
+});

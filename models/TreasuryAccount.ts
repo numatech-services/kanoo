@@ -20,5 +20,7 @@ const TreasuryAccountSchema = new Schema({ tenantId: { type: Schema.Types.Object
    * Absent sur les comptes créés avant octobre 2026 tant qu'ils ne sont pas
    * reclassés (voir lib/treasury, assignLedgerCode).
    */
-  ledgerCode: { type: String, match: /^5[27]\d{4}$/ } }, { timestamps: true });
+  ledgerCode: { type: String, match: /^5[27]\d{4}$/ },
+  /** Ligne de cautions accordée par la banque : plafond des cautions en cours. */
+  guaranteeLimit: { type: Number, min: 0 } }, { timestamps: true });
 export const TreasuryAccountModel = models.TreasuryAccount || model("TreasuryAccount", TreasuryAccountSchema);

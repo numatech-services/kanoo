@@ -23,6 +23,14 @@ Livraisons du jour (Magasin) : un champ « Repris » s'ajoute avant le paiement 
 - contrôles : dates réelles, paiement ni avant le déblocage ni dans le futur, différé borné, frais inférieurs au capital.
 - Non couvert à ce stade : intérêts courus non échus à la clôture (1661 / 671), à passer par écriture d'inventaire ; période brisée (première échéance au prorata des jours).
 
+**Cautions et garanties** (Contrats → Cautions) :
+- sens : cautions données (banque émettrice, frais) et cautions reçues des fournisseurs ou sous-traitants (suivi seul, aucun frais) ;
+- garanties d'emprunt (hypothèque, nantissement, aval…) liées à l'emprunt couvert ;
+- commission périodique (taux annuel, rythme trimestriel / semestriel / annuel) : prochaine commission calculée, passée d'un clic (631 imputé au marché, banque), et inscrite dans la prévision de trésorerie ;
+- prorogation avec ses frais, frais de dossier ou autres frais ; coût total de chaque caution ;
+- ligne de cautions par banque (plafond saisi dans Trésorerie → Modifier) : engagements en cours face au plafond, dépassement signalé ;
+- suppression d'une saisie erronée : commissions et frais extournés.
+
 **Facturation ISIC** : `POST /api/v1/invoices` reçoit les brouillons de facture des lots ISIC (clé d'API avec le droit `invoices:write`, voir docs/API-BROUILLONS.md). Même référence avec un contenu différent : 409 ; date dans une période close : refusée ; auteur de la clé sans droit de facturer : 403.
 
 ## Reprise de la comptabilité (novembre 2026)

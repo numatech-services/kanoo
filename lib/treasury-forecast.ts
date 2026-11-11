@@ -1,4 +1,6 @@
 import { Types } from "mongoose";
+import { BankGuaranteeModel } from "@/models/BankGuarantee";
+import { nextCommission } from "@/lib/guarantees";
 import { LoanModel } from "@/models/Loan";
 import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 import { InvoiceModel } from "@/models/Invoice";
@@ -89,6 +91,10 @@ export async function computeForecast(tenantId: string, weeks: number, at: Date 
       flows.push({ label: `Salaires ${end.getMonth() + 1}/${end.getFullYear()} (estimation)`, amount: monthlyPayroll, kind: "out", source: "Salaires", date: end });
     }
   }
+  // Cautions : commissions périodiques à venir, débitées par la banque.
+  const guarantees = await BankGuaranteeModel.find({ tenantId, status: "active", feePeriod: { $in: ["quarterly", "semiannual", "annual"] }, direction: { $ne: "received" } })
+    .select("type beneficiary amount issueDate expiryDate status direction feeRate feePeriod charges").lean<Array<Parameters<typeof nextCommission>[0] & { beneficiary: string }>>();
+  for (const g of guarantees) for (const c of nextCommission(g, 8)) flows.push({ label: `Commission de caution — ${g.beneficiary}`, amount: c.amount, kind: "out", source: "Cautions", date: c.date < now ? now : c.date });
   // Emprunts : échéances non payées (capital, intérêts, assurance).
   const loans = await LoanModel.find({ tenantId, status: { $in: ["active", "draft"] } }).select("label lender status principal fees startDate installments").lean<Array<{ label: string; lender: string; status: string; principal: number; fees: number; startDate: Date; installments: Array<{ n: number; dueDate: Date; principal: number; interest: number; insurance: number; status: string }> }>>();
   // Emprunt pas encore débloqué : les fonds attendus entrent à la date prévue.
