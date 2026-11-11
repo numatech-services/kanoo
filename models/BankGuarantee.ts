@@ -11,7 +11,7 @@ import { Schema, model, models, Types } from "mongoose";
 export type GuaranteeType = "soumission" | "bonne_execution" | "avance_demarrage" | "retenue_garantie" | "garantie_emprunt" | "autre";
 export type GuaranteeDirection = "issued" | "received";
 export type FeePeriod = "once" | "quarterly" | "semiannual" | "annual";
-export type GuaranteeStatus = "active" | "released" | "called";
+export type GuaranteeStatus = "active" | "released" | "called" | "cancelled";
 
 export interface IBankGuarantee {
   _id: Types.ObjectId;
@@ -67,7 +67,7 @@ const BankGuaranteeSchema = new Schema<IBankGuarantee>({
   amount: { type: Number, required: true, min: 1 },
   issueDate: { type: Date, required: true },
   expiryDate: Date,
-  status: { type: String, enum: ["active", "released", "called"], default: "active", index: true },
+  status: { type: String, enum: ["active", "released", "called", "cancelled"], default: "active", index: true },
   appelId: { type: Schema.Types.ObjectId, ref: "AppelCandidature" },
   contractId: { type: Schema.Types.ObjectId, ref: "Contract" },
   fee: { type: Number, default: 0, min: 0 },

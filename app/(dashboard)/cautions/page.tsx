@@ -18,7 +18,7 @@ import { CHARGE_KINDS, FEE_PERIODS, GUARANTEE_TYPES } from "@/lib/guarantees";
 type GType = keyof typeof GUARANTEE_TYPES;
 interface Guarantee {
   _id: string; type: GType; reference?: string; bankName?: string; beneficiary: string; amount: number; issueDate: string; expiryDate?: string;
-  status: "active" | "released" | "called"; fee: number; collateral: number; calledAmount?: number; releasedAt?: string; calledAt?: string;
+  status: "active" | "released" | "called" | "cancelled"; fee: number; collateral: number; calledAmount?: number; releasedAt?: string; calledAt?: string;
   appelId?: { _id: string; title: string; reference?: string } | null; contractId?: { _id: string; reference: string; title: string } | null;
   treasuryAccountId?: { _id: string; label: string } | null; alert?: "expired" | "expiring" | null;
   direction?: "issued" | "received"; guaranteeForm?: string; loanId?: { _id: string; label: string; lender: string } | null; feeRate?: number; feePeriod?: string;
@@ -27,7 +27,7 @@ interface Guarantee {
 interface Commitments { total: number; collateral: number; count: number; received: number; receivedCount: number; byType: Record<GType, number> }
 
 const STATUS: Record<Guarantee["status"], [string, string]> = {
-  active: ["En cours", "bg-info-50 text-info"], released: ["Mainlevée", "bg-pos-50 text-pos"], called: ["Appelée", "bg-neg-50 text-neg"],
+  active: ["En cours", "bg-info-50 text-info"], released: ["Mainlevée", "bg-pos-50 text-pos"], called: ["Appelée", "bg-neg-50 text-neg"], cancelled: ["Annulée", "bg-surface2 text-ink3"],
 };
 
 /**
@@ -56,7 +56,9 @@ function CautionsScreen() {
     } else if (kind === "call") {
       const v = await promptDialog({ title: "Caution appelée par le bénéficiaire", message: "La somme payée par la banque devient une charge ; elle s'impute d'abord sur le dépôt bloqué.", label: "Montant appelé (FCFA)", defaultValue: String(g.amount), required: true, confirmLabel: "Enregistrer l'appel" });
       if (!v) return;
-      res = await apiSend("POST", `/api/cautions/${g._id}/call`, { amount: Math.round(Number(v.replace(/\s/g, "")) || 0) });
+      const real = /nantis|hypoth|gage|warrant/i.test(g.guaranteeForm ?? "") && g.direction !== "received";
+      if (real && !(await confirmDialog({ title: "Sûreté réelle", message: "La réalisation du gage se comptabilise comme une cession d'actif, sans sortie d'argent. Confirmez que l'écriture est passée en comptabilité : l'appel sera seulement constaté.", confirmLabel: "Écriture passée, constater l'appel" }))) return;
+      res = await apiSend("POST", `/api/cautions/${g._id}/call`, { amount: Math.round(Number(v.replace(/\s/g, "")) || 0), ...(real ? { manualPosting: true } : {}) });
     } else if (kind === "extend") {
       const v = await promptDialog({ title: "Proroger la caution", label: "Nouvelle échéance (AAAA-MM-JJ)", defaultValue: g.expiryDate?.slice(0, 10) ?? "", required: true, confirmLabel: "Suivant" });
       if (!v) return;
@@ -75,7 +77,7 @@ function CautionsScreen() {
       res = await apiSend("DELETE", `/api/cautions/${g._id}`);
     }
     if (!res.ok) { showToast(res.data?.error || "Opération refusée.", "error"); return; }
-    showToast("Caution mise à jour.", "success"); load();
+    showToast(res.data?.data?.warning || "Caution mise à jour.", res.data?.data?.warning ? "error" : "success"); load();
   }
 
   return (
@@ -132,7 +134,7 @@ function CautionsScreen() {
                 <p className="num font-semibold text-ink w-32 text-right">{formatMoney(g.amount)}</p>
                 {g.status === "active" && (
                   <div className="flex gap-1 w-full sm:w-auto justify-end">
-                    <button onClick={() => act(g, "extend")} className={buttonClass("secondary", "sm")} title="Proroger"><CalendarClock size={13} /></button>
+                    {canPost && <button onClick={() => act(g, "extend")} className={buttonClass("secondary", "sm")} title="Proroger"><CalendarClock size={13} /></button>}
                     {canPost && g.nextCommission && <button onClick={() => act(g, "commission")} className={buttonClass("secondary", "sm")}>Commission</button>}
                     {canPost && g.direction !== "received" && <button onClick={() => act(g, "fees")} className={buttonClass("secondary", "sm")}>Frais</button>}
                     {canPost && <button onClick={() => act(g, "release")} className={buttonClass("secondary", "sm")}><ShieldCheck size={13} /> Mainlevée</button>}
@@ -175,7 +177,7 @@ function CreateDialog({ canPost, appelId: a0, contractId: c0, onClose, onDone }:
         appelId: f.appelId || undefined, contractId: f.contractId || undefined, treasuryAccountId: f.treasuryAccountId || undefined, expiryDate: f.expiryDate || undefined,
       });
       if (!res.ok) { showToast(res.data?.error || "Enregistrement refusé.", "error"); return; }
-      showToast("Caution enregistrée.", "success"); onDone();
+      showToast(res.data?.data?.warning || "Caution enregistrée.", res.data?.data?.warning ? "error" : "success"); onDone();
     } finally { setSaving(false); }
   }
   return (
@@ -195,7 +197,7 @@ function CreateDialog({ canPost, appelId: a0, contractId: c0, onClose, onDone }:
           <FormField label="Référence de la caution"><input className={inputCls} value={f.reference} onChange={e => set("reference", e.target.value)} /></FormField>
           <FormField label="Émise le"><input type="date" className={inputCls} value={f.issueDate} onChange={e => set("issueDate", e.target.value)} /></FormField>
           <FormField label="Échéance"><input type="date" className={inputCls} value={f.expiryDate} onChange={e => set("expiryDate", e.target.value)} /></FormField>
-          <FormField label="Banque émettrice"><select className={selectCls} value={f.treasuryAccountId} onChange={e => set("treasuryAccountId", e.target.value)}><option value="">— Non précisée —</option>{banks.map(b => <option key={b._id} value={b._id}>{b.label}</option>)}</select></FormField>
+          <FormField label={x.direction === "received" ? "Compte qui recevrait un appel" : "Banque émettrice"} required={x.direction === "issued"}><select className={selectCls} value={f.treasuryAccountId} onChange={e => set("treasuryAccountId", e.target.value)}><option value="">— Non précisée —</option>{banks.map(b => <option key={b._id} value={b._id}>{b.label}</option>)}</select></FormField>
           {canPost && x.direction === "issued" && <FormField label="Commission d'émission (FCFA)" hint="Frais bancaires (631), débités de la banque"><input inputMode="numeric" className={inputCls} value={f.fee} onChange={e => set("fee", e.target.value)} /></FormField>}
           {canPost && x.direction === "issued" && <FormField label="Dépôt bloqué par la banque (FCFA)" hint="Compte 275, rendu à la mainlevée"><input inputMode="numeric" className={inputCls} value={f.collateral} onChange={e => set("collateral", e.target.value)} /></FormField>}
         </div>

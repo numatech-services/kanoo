@@ -141,7 +141,7 @@ export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: 
   const sig = (u: AccessDoc) => JSON.stringify([u?.role, [...(u?.roles ?? [])].sort(),
     Object.entries(u?.roleLevels instanceof Map ? Object.fromEntries(u.roleLevels) : (u?.roleLevels as Record<string, unknown>) ?? {}).sort(),
     (u?.siteIds ?? []).map(String).sort(), u?.isActive]);
-  const before = await UserModel.findOne({ _id: params.id, ...tenantFilter(auth) }).select("role roles roleLevels siteIds isActive").lean<AccessDoc>();
+  const before = await UserModel.findOne({ _id: params.id, ...tenantFilter(auth) }).select("role roles roleLevels siteIds isActive accessUntil").lean<AccessDoc & { accessUntil?: Date }>();
   const user = await UserModel.findOneAndUpdate(
     { _id: params.id, ...tenantFilter(auth) },
     { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}) },
@@ -155,7 +155,11 @@ export const PATCH = withAuth("users", "update", async (req: NextRequest, auth: 
   if (losesAdmin || sig(before) !== sig(user.toObject() as AccessDoc)) {
     await UserModel.updateOne({ _id: params.id }, { $inc: { sessionVersion: 1 } });
   }
-  await logAudit(auth, "UPDATE", "users", { resourceId: params.id });
+  // Droits modifiés : avant / après au journal (revue des droits du rapport d'audit).
+  const access = (u: Record<string, unknown> | null) => u ? { role: u.role, roles: u.roles, siteIds: (u.siteIds as unknown[] | undefined)?.map(String), isActive: u.isActive, accessUntil: u.accessUntil ?? null } : null;
+  const after = user.toObject() as Record<string, unknown>;
+  const changed = sig(before) !== sig(after as AccessDoc) || String(before?.accessUntil ?? "") !== String(after.accessUntil ?? "");
+  await logAudit(auth, "UPDATE", "users", { resourceId: params.id, ...(changed ? { before: access(before as Record<string, unknown> | null) ?? undefined, after: access(after) ?? undefined, metadata: { access: true } } : {}) });
   return ok(user);
 });
 

@@ -6,6 +6,10 @@ import { weeklyReport } from "@/lib/restaurant-pilotage";
 import { HygieneLogModel } from "@/models/HygieneLog";
 import { DeskInventoryModel } from "@/models/DeskInventory";
 import { BusinessRuleError } from "@/lib/errors";
+import { computeCockpit, cockpitSummary } from "@/lib/cockpit";
+import { sealTenant, verifyTenantCached } from "@/lib/audit-seal";
+import { buildAuditReport, auditSummary, snapshotAuditReport } from "@/lib/audit-report";
+import { AuditLogModel } from "@/models/AuditLog";
 import { loadAutomationSettings, claimOnce, claimEvery, releaseClaim, PLATFORM_TENANT } from "@/lib/automation-store";
 import {
   niameyDate, dayKey, dateLabel, isSendDay, payrollReminderDue, isLastDayOfMonth, packetPeriodDue,
@@ -1004,7 +1008,117 @@ async function runTenderFollowup(now = new Date()): Promise<string> {
   return summary([[sent, "relance(s) d'offre"]], errors);
 }
 
+// ─── Point mensuel du cockpit ───────────────────────────────────────────────
+
+/** Le 2 du mois au plus tôt : résultat, trésorerie, créances, dettes et emprunts, au gérant et à la comptabilité. */
+async function runCockpitMonthly(now = new Date()): Promise<string> {
+  let sent = 0;
+  const errors: string[] = [];
+  const d = niameyDate(now);
+  if (d.day < 2) return summary([[0, "point(s) mensuel(s)"]], errors);
+  for (const { tenant, settings } of await tenantsWhere((s, t) => s.accountingChecks.enabled && t.type !== "association")) {
+    void settings;
+    try {
+      if (!(await AccountingEntryModel.exists({ tenantId: tenant._id }))) continue;
+      // Arrêté à la fin du mois écoulé : le point de janvier fait le bilan de l'année précédente.
+      const p = previousMonth(d.year, d.month);
+      const key = `cockpit:${p.year}-${p.month}`;
+      if (!(await claimOnce(tenant._id, key))) continue;
+      try {
+        const asOf = new Date(Date.UTC(p.year, p.month, 1) - 1);
+        const c = await computeCockpit(String(tenant._id), p.year, now, asOf);
+        await notifyAll(tenant._id, FINANCE_ROLES, "cockpit_monthly", `Point à fin ${MONTHS_FR[p.month - 1] ?? ""} ${p.year}`, cockpitSummary(c, fcfa), `/cockpit`);
+      } catch (err) {
+        await releaseClaim(tenant._id, key);
+        throw err;
+      }
+      sent++;
+    } catch (err) {
+      errors.push(`${tenant.name} : ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return summary([[sent, "point(s) mensuel(s)"]], errors);
+}
+
+// ─── Audit : scellement quotidien, rapport du mois écoulé ───────────────────
+
+async function runAuditSeal(now = new Date()): Promise<string> {
+  let n = 0;
+  const errors: string[] = [];
+  // Toutes les organisations qui ont des écritures, actives ou non : une période sans sceau serait une période sans preuve.
+  const ids = [...new Set([...(await AccountingEntryModel.distinct("tenantId")), ...(await AuditLogModel.distinct("tenantId"))].filter(Boolean).map(String))];
+  const tenants = await TenantModel.find({ _id: { $in: ids } }).select("_id name").lean<Array<{ _id: Id; name: string }>>();
+  const d = niameyDate(now);
+  for (const tenant of tenants) {
+    try {
+      n += await sealTenant(tenant._id, "entries", now);
+      n += await sealTenant(tenant._id, "audit", now);
+      await verifyTenantCached(tenant._id, "entries", { force: true, now });
+      await verifyTenantCached(tenant._id, "audit", { force: true, now });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${tenant.name} : ${msg}`);
+      // Un scellement en échec doit se voir tout de suite (une fois par jour), pas au rapport du mois.
+      if (await claimOnce(tenant._id, `seal-error:${d.year}-${d.month}-${d.day}`)) {
+        await notifyAll(tenant._id, ["pme_admin", "asso_president", "admin_ordonnateur", "admin_daf"], "audit_seal_error", "Scellement des écritures impossible", `Le scellement quotidien a échoué : ${msg}`, "/audit?onglet=rapport").catch(() => 0);
+      }
+    }
+  }
+  return summary([[n, "pièce(s) scellée(s)"]], errors);
+}
+
+const AUDIT_ROLES = [...new Set([...FINANCE_ROLES, "pme_admin", "asso_president", "admin_ordonnateur"])];
+
+async function runAuditReport(now = new Date()): Promise<string> {
+  let sent = 0;
+  const errors: string[] = [];
+  const d = niameyDate(now);
+  if (d.day < 3) return summary([[0, "rapport(s) d'audit"]], errors);
+  const period = previousMonth(d.year, d.month);
+  const key = `audit:${period.year}-${period.month}`;
+  // Vérification complète des sceaux : trois organisations au plus par passage.
+  let budget = 3;
+  for (const tenant of await liveTenants()) {
+    if (budget <= 0) break;
+    try {
+      if (!(await claimOnce(tenant._id, key))) continue;
+      budget--;
+      try {
+        const r = await buildAuditReport(String(tenant._id), period.year, period.month, now, { forceIntegrity: true });
+        const snap = await snapshotAuditReport(String(tenant._id), r);
+        const title = `Rapport d'audit — ${MONTHS_FR[period.month - 1]} ${period.year}`;
+        const msg = auditSummary(r, snap.hash);
+        await notifyAll(tenant._id, AUDIT_ROLES, "audit_report", title, msg, "/audit?onglet=rapport");
+        // Hors de l'application : le courriel conserve l'empreinte de la chaîne, preuve de l'état des comptes à cette date.
+        // Destinataires : la direction et la comptabilité, et l'expert-comptable externe s'il est renseigné (dossier mensuel).
+        const settings = await loadAutomationSettings(tenant._id);
+        const to = new Set<string>([...(await getRecipients(tenant._id, AUDIT_ROLES)).map(u => u.email).filter(Boolean) as string[], ...(settings.accountantPacket.emails ?? [])]);
+        let delivered = 0;
+        for (const email of to) {
+          const res = await sendEmail({ to: email, subject: `${title} — ${tenant.name}`, html: mailBody(title, [esc(msg), "Conservez ce courriel : les empreintes permettent de prouver plus tard que les comptes n'ont pas été modifiés."], { href: "/audit?onglet=rapport", label: "Ouvrir le rapport" }), text: msg }).catch(() => ({ sent: false }));
+          if ((res as { sent?: boolean })?.sent) delivered++;
+        }
+        if (!delivered) {
+          errors.push(`${tenant.name} : rapport d'audit non envoyé par courriel (empreinte restée dans l'application)`);
+          await notifyAll(tenant._id, AUDIT_ROLES, "audit_report", "Rapport d'audit non envoyé", "Aucun courriel n'est parti : recopiez les empreintes du rapport hors de l'application et vérifiez la messagerie.", "/audit?onglet=rapport");
+        }
+        await AuditLogModel.create({ tenantId: tenant._id, userEmail: "système", userRole: "system", action: "EXPORT", resource: "auditReports", metadata: { year: period.year, month: period.month, hash: snap.hash, heads: r.heads }, createdAt: new Date() });
+      } catch (err) {
+        await releaseClaim(tenant._id, key);
+        throw err;
+      }
+      sent++;
+    } catch (err) {
+      errors.push(`${tenant.name} : ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return summary([[sent, "rapport(s) d'audit"]], errors);
+}
+
 export const AUTOMATION_JOBS: CronJob[] = [
+  { id: "audit-seal", label: "Scellement des écritures et du journal d'audit", cadence: "daily", schedule: "30 2 * * *", run: () => runAuditSeal() },
+  { id: "audit-report", label: "Rapport d'audit du mois écoulé", cadence: "daily", schedule: "50 7 * * *", run: () => runAuditReport() },
+  { id: "cockpit-monthly", label: "Point mensuel du cockpit (résultat, trésorerie, dettes)", cadence: "daily", schedule: "15 7 * * *", run: () => runCockpitMonthly() },
   { id: "auto-depreciation", label: "Amortissements de l'exercice écoulé", cadence: "monthly", schedule: "30 1 1 * *", run: () => runDepreciation() },
   { id: "morning-brief", label: "Brief du matin (e-mail / WhatsApp)", cadence: "daily", schedule: "0 6 * * *", run: () => runMorningBrief() },
   { id: "treasury-alert", label: "Alerte de découvert prévisionnel", cadence: "daily", schedule: "15 6 * * *", run: () => runTreasuryAlert() },
@@ -1031,4 +1145,5 @@ export const AUTOMATION_RUNNERS = {
   runDepreciation, runMorningBrief, runTreasuryAlert, runPayroll, runAccountantPacket,
   runApprovalReminders, runBudgetAlerts, runCotisationReminders, runDailyBackup, runErrorDigest,
   runComptoirMorning, runEasypayBalance, runAccountingChecks, runFiscalCalendar, runSupplierPayments, runTenderFollowup, runWeeklyInventory, runRestaurantReport, runHygieneReminders,
+  runCockpitMonthly, runAuditSeal, runAuditReport,
 };

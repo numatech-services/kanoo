@@ -9,15 +9,15 @@ import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-/** POST { amount?, date? } — caution appelée par le bénéficiaire : charge, dépôt imputé, banque débitée du reste. */
+/** POST { amount?, date?, treasuryAccountId?, manualPosting? } — caution appelée (voir callGuarantee). */
 export const POST = withAuth("appels", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   if (!hasFinanceAccess(auth)) return forbidden("Opération comptabilisée : réservée au gérant et à la comptabilité.");
   await connectDB();
   const body = await req.json().catch(() => ({}));
   try {
-    const g = await withTransaction(session => callGuarantee({ tenantId: auth.tenantId, userId: auth.userId }, params.id, body, session));
-    await logAudit(auth, "UPDATE", "appels", { resourceId: params.id, metadata: { guarantee: "call", status: g.status } });
-    return ok(g);
+    const { guarantee: g, warning } = await withTransaction(session => callGuarantee({ tenantId: auth.tenantId, userId: auth.userId }, params.id, body, session));
+    await logAudit(auth, "UPDATE", "appels", { resourceId: params.id, metadata: { guarantee: "call", status: g.status, amount: g.calledAmount, manualPosting: body.manualPosting === true } });
+    return ok({ ...(g.toObject ? g.toObject() : g), warning });
   } catch (e) {
     if (e instanceof BusinessRuleError) return badRequest(e.message);
     throw e;

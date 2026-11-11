@@ -51,6 +51,7 @@ interface NavGroup {
 const PME_NAV: NavGroup[] = [
   { section: "Pilotage", tone: "accueil", items: [
     { label: "Tableau de bord", href: "/dashboard", icon: <LayoutDashboard size={18} /> },
+    { label: "Cockpit", href: "/cockpit", icon: <Gauge size={18} /> },
     { label: "Rapports", href: "/rapports", icon: <FileSpreadsheet size={18} /> },
     { label: "Agenda", href: "/agenda", icon: <CalendarClock size={18} /> },
     { label: "Notifications", href: "/notifications", icon: <Bell size={18} /> },

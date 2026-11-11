@@ -71,7 +71,7 @@ export default function EmpruntsPage() {
 }
 
 function LoanDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const [v, setV] = useState({ lenderType: "bank", capitalAccountCode: "162000", openingRemaining: "", label: "", lender: "", reference: "", treasuryAccountId: "", principal: "", rate: "", durationMonths: "12", frequency: "monthly", method: "annuity", deferral: "0", startDate: todayLocal(), firstDueDate: "", fees: "", insurance: "", collateral: "", purpose: "", prior: false });
+  const [v, setV] = useState({ lenderType: "bank", capitalAccountCode: "162000", openingRemaining: "", label: "", lender: "", reference: "", treasuryAccountId: "", principal: "", rate: "", durationMonths: "12", frequency: "monthly", method: "annuity", deferral: "0", startDate: todayLocal(), firstDueDate: "", fees: "", insurance: "", collateral: "", purpose: "", prior: false, wh: "" });
   const free = v.method === "free";
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -94,7 +94,7 @@ function LoanDialog({ onClose, onDone }: { onClose: () => void; onDone: () => vo
       label: v.label, lender: v.lender, reference: v.reference, treasuryAccountId: v.treasuryAccountId, principal: Number(v.principal),
       annualRatePct: Number(String(v.rate).replace(",", ".")), durationMonths: Number(v.durationMonths), frequency: v.frequency, method: v.method,
       deferralPeriods: Number(v.deferral) || 0, startDate: v.startDate, firstDueDate: v.firstDueDate || undefined, fees: Number(v.fees) || 0,
-      insurancePerPeriod: Number(v.insurance) || 0, collateral: v.collateral, purpose: v.purpose, prior: v.prior,
+      insurancePerPeriod: Number(v.insurance) || 0, interestWithholdingPct: v.wh || undefined, collateral: v.collateral, purpose: v.purpose, prior: v.prior,
     });
     setSaving(false);
     if (!res.ok) { setError(res.data?.error || "Enregistrement refusé."); return; }
@@ -121,6 +121,7 @@ function LoanDialog({ onClose, onDone }: { onClose: () => void; onDone: () => vo
           <FormField label={free ? "Remboursement prévu le" : "Première échéance"} hint={free ? "Facultatif" : "Vide : une période après le déblocage"}><input type="date" className={inputCls} value={v.firstDueDate} onChange={u("firstDueDate")} /></FormField>
           <FormField label="Frais de dossier (FCFA)"><input type="number" min={0} className={inputCls} value={v.fees} onChange={u("fees")} /></FormField>
           {!free && <FormField label="Assurance par échéance (FCFA)"><input type="number" min={0} className={inputCls} value={v.insurance} onChange={u("insurance")} /></FormField>}
+          {v.lenderType !== "bank" && Number(String(v.rate).replace(",", ".")) > 0 && <FormField label="Retenue sur intérêts (%)" hint="Retenue à la source sur les intérêts versés à un prêteur non bancaire : taux à confirmer par le comptable"><input inputMode="decimal" className={inputCls} value={v.wh} onChange={u("wh")} /></FormField>}
           <FormField label="Garanties données" hint="Hypothèque, nantissement, caution…"><input className={inputCls} value={v.collateral} onChange={u("collateral")} /></FormField>
           <FormField label="Destination des fonds"><input className={inputCls} value={v.purpose} onChange={u("purpose")} /></FormField>
         </div>

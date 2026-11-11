@@ -21,6 +21,8 @@ const InstallmentSchema = new Schema({
   movementId: { type: Schema.Types.ObjectId, ref: "TreasuryMovement" },
   /** Montants ajustés à la main pour suivre le tableau remis par la banque. */
   adjusted: { type: Boolean, default: false },
+  /** Capital éteint par l'appel de la caution qui garantissait l'emprunt (écriture portée par la caution). */
+  byGuarantee: { type: Schema.Types.ObjectId, ref: "BankGuarantee" },
 }, { _id: true });
 
 const LoanSchema = new Schema({
@@ -49,6 +51,8 @@ const LoanSchema = new Schema({
   firstDueDate: Date,
   fees: { type: Number, default: 0, min: 0 },
   insurancePerPeriod: { type: Number, default: 0, min: 0 },
+  /** Retenue à la source sur les intérêts versés (prêteur non bancaire), taux à confirmer par le comptable. */
+  interestWithholdingRate: { type: Number, min: 0, max: 0.5 },
   /** Objet du financement (équipement, marché, trésorerie) : imputé au projet s'il y en a un. */
   purpose: { type: String, trim: true, maxlength: 300 },
   projectId: { type: Schema.Types.ObjectId, ref: "Project" },

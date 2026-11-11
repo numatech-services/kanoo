@@ -19,7 +19,7 @@ export const GET = withAuth("appels", "read", async (req: NextRequest, auth: Tok
   const url = new URL(req.url);
   const filter: Record<string, unknown> = { ...tenantFilter(auth) };
   const status = url.searchParams.get("status");
-  if (status && ["active", "released", "called"].includes(status)) filter.status = status;
+  if (status && ["active", "released", "called", "cancelled"].includes(status)) filter.status = status;
   for (const f of ["appelId", "contractId"]) {
     const v = url.searchParams.get(f);
     if (v && Types.ObjectId.isValid(v)) filter[f] = v;
@@ -44,7 +44,16 @@ export const POST = withAuth("appels", "create", async (req: NextRequest, auth: 
   try {
     const g = await withTransaction(session => createGuarantee({ tenantId: auth.tenantId, userId: auth.userId }, body, { canPost: hasFinanceAccess(auth) }, session));
     await logAudit(auth, "CREATE", "appels", { resourceId: String(g._id), metadata: { guarantee: g.type, amount: g.amount } });
-    return created(g);
+    // Ligne de cautions de la banque : dépassement signalé (la banque peut refuser).
+    let warning: string | undefined;
+    if (g.direction !== "received" && g.treasuryAccountId) {
+      const bank = await TreasuryAccountModel.findOne({ _id: g.treasuryAccountId, ...tenantFilter(auth) }).select("label guaranteeLimit").lean<{ label: string; guaranteeLimit?: number } | null>();
+      if (bank?.guaranteeLimit !== undefined && bank.guaranteeLimit !== null) {
+        const [u] = await BankGuaranteeModel.aggregate<{ t: number }>([{ $match: { tenantId: g.tenantId, treasuryAccountId: g.treasuryAccountId, status: "active", direction: { $ne: "received" } } }, { $group: { _id: null, t: { $sum: "$amount" } } }]);
+        if ((u?.t ?? 0) > bank.guaranteeLimit) warning = `Ligne de cautions de ${bank.label} dépassée : ${(u?.t ?? 0).toLocaleString("fr-FR")} FCFA engagés pour un plafond de ${bank.guaranteeLimit.toLocaleString("fr-FR")}.`;
+      }
+    }
+    return created({ ...(g.toObject ? g.toObject() : g), warning });
   } catch (e) {
     if (e instanceof BusinessRuleError) return badRequest(e.message);
     throw e;

@@ -27,7 +27,7 @@ export const GET = withAuth("accountingEntries", "read", async (req: NextRequest
   const fs = await financialStatements(auth.tenantId, year);
   // Cautions en cours à la clôture : émises avant, ni levées ni appelées avant.
   const guarantees = await BankGuaranteeModel.find({
-    tenantId: auth.tenantId, issueDate: { $lte: fs.asOf },
+    tenantId: auth.tenantId, issueDate: { $lte: fs.asOf }, direction: { $ne: "received" },
     $or: [{ status: "active" }, { releasedAt: { $gt: fs.asOf } }, { calledAt: { $gt: fs.asOf } }],
   }).select("type amount beneficiary expiryDate").lean<Array<{ type: string; amount: number; beneficiary: string; expiryDate?: Date }>>();
   const notes = annexNotes(fs, fs.balancesPrev, guarantees);

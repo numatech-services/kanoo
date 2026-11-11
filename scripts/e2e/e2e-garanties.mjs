@@ -79,17 +79,49 @@ const dayAgo = n => new Date(Date.now() - n * 86400000).toISOString().slice(0, 1
   check("caution reçue : aucun frais passé", r.status === 201 && D(r).fee === 0 && (await bal()) === 1895000, J(D(r)).slice(0, 120));
   check("frais sur une caution reçue : refusés", (await g.req("POST", `/api/cautions/${id(r)}/charge`, { kind: "dossier", amount: 1000 })).status === 400);
   const loan = id(await g.req("POST", "/api/loans", { label: "Prêt", lender: "Orabank", treasuryAccountId: bank, principal: 5000000, annualRatePct: 10, durationMonths: 12, startDate: dayAgo(5) }));
+  check("caution donnée sans banque : refusée", (await g.req("POST", "/api/cautions", { type: "soumission", beneficiary: "X", amount: 100000 })).status === 400);
   const ge = await g.req("POST", "/api/cautions", { type: "garantie_emprunt", guaranteeForm: "Nantissement du matériel", loanId: loan, beneficiary: "Orabank", amount: 6000000, issueDate: dayAgo(5), treasuryAccountId: bank });
   list = D(await g.req("GET", "/api/cautions"));
+  check("dépassement de la ligne de cautions signalé à la création", !!D(ge).warning, J(D(ge)).slice(0, 160));
   check("garantie d'emprunt liée à l'emprunt", ge.status === 201 && list.items.some(x => x.loanId?._id === loan), J(D(ge)).slice(0, 120));
   check("engagements : donnés 16 000 000, reçus 3 000 000", list.commitments.total === 16000000 && list.commitments.received === 3000000, J(list.commitments));
   const b = list.banks.find(x => x._id === bank);
   check("ligne de cautions : 16 000 000 utilisés pour 15 000 000 (dépassement signalé)", b?.used === 16000000 && b.limit === 15000000, J(b));
   check("autre organisation : frais refusés", [400, 403, 404].includes((await other.req("POST", `/api/cautions/${cid}/charge`, { kind: "dossier", amount: 1000 })).status));
 
+  console.log("\n▶ Appels de caution");
+  const before = await bal();
+  const rc = await g.req("POST", `/api/cautions/${id(r)}/call`, { amount: 1000000, treasuryAccountId: bank });
+  check("caution reçue appelée : banque + 1 000 000 (produit)", rc.status === 200 && (await bal()) === before + 1000000, `${rc.status} ${await bal()}`);
+  const av = id(await g.req("POST", "/api/cautions", { type: "avance_demarrage", beneficiary: "Client", amount: 400000, treasuryAccountId: bank }));
+  const avr = await g.req("POST", `/api/cautions/${av}/call`, { amount: 400000 });
+  check("caution d'avance sans marché : avertissement rendu", avr.status === 200 && !!D(avr).warning, J(avr.data).slice(0, 160));
+  const avc = await g.req("POST", `/api/cautions/${av}/call`, { amount: 400000 });
+  check("caution d'avance déjà appelée : second appel refusé", avc.status === 400);
+  const ae = (D(await g.req("GET", `/api/accounting-entries?search=${encodeURIComponent("Caution appelée")}&limit=50`)).items ?? []).find(x => x.lines.some(l => l.accountCode === "658000" && l.debit === 400000));
+  check("caution d'avance sans marché : pas de 419 sans client, charge 658", !!ae && !ae.lines.some(l => l.accountCode === "419000"), J(ae?.lines));
+  check("échéance modifiable seulement par prorogation (PATCH sans effet)", (await g.req("PATCH", `/api/cautions/${cid}`, { expiryDate: "2020-01-01" })).status < 300 && !String(D(await g.req("GET", `/api/cautions/${cid}`)).expiryDate).startsWith("2020"));
+
   console.log("\n▶ Suppression d'une saisie erronée");
   const del = await g.req("DELETE", `/api/cautions/${cid}`);
-  check("caution supprimée : commissions et frais extournés, banque rétablie", del.status < 300 && (await bal()) === 2000000, `${del.status} ${await bal()}`);
+  check("caution supprimée : commissions et frais extournés, gardée au statut annulée", del.status < 300 && (await bal()) === 2000000 + 1000000 - 400000 && D(await g.req("GET", `/api/cautions/${cid}`)).status === "cancelled", `${del.status} ${await bal()}`);
+
+  console.log("\n▶ Sûreté réelle et garantie d'emprunt appelées");
+  check("nantissement appelé : refusé sans écriture de cession", (await g.req("POST", `/api/cautions/${id(ge)}/call`, { amount: 1000000 })).status === 400);
+  const b0 = await bal();
+  const gr = await g.req("POST", `/api/cautions/${id(ge)}/call`, { amount: 1000000, manualPosting: true });
+  check("nantissement appelé avec confirmation : constaté, aucun mouvement de banque", gr.status === 200 && D(gr).status === "called" && (await bal()) === b0, `${gr.status} ${await bal()}`);
+  const loan2 = id(await g.req("POST", "/api/loans", { label: "Prêt garanti", lender: "BIA", treasuryAccountId: bank, principal: 5000000, annualRatePct: 0, durationMonths: 5, frequency: "monthly", method: "constant", startDate: dayAgo(5) }));
+  await g.req("POST", `/api/loans/${loan2}`, { action: "disburse", date: dayAgo(5) });
+  const gl = id(await g.req("POST", "/api/cautions", { type: "garantie_emprunt", guaranteeForm: "Caution bancaire", loanId: loan2, beneficiary: "BIA", amount: 6000000, issueDate: dayAgo(5), treasuryAccountId: bank }));
+  const b1 = await bal();
+  const glc = await g.req("POST", `/api/cautions/${gl}/call`, { amount: 6000000 });
+  const L2 = D(await g.req("GET", `/api/loans/${loan2}`));
+  const ce = (D(await g.req("GET", `/api/accounting-entries?search=${encodeURIComponent("Caution appelée")}&limit=50`)).items ?? []).find(x => x.lines.some(l => l.accountCode === "162000" && l.debit === 5000000));
+  check("garantie d'emprunt appelée : 162 débité du restant (5 000 000), 658 de l'excédent (1 000 000)", !!ce && ce.lines.some(l => l.accountCode === "658000" && l.debit === 1000000), J(ce?.lines));
+  check("garantie d'emprunt appelée : emprunt soldé, échéances éteintes", L2.status === "closed" && L2.installments.every(x => x.status === "paid") && (await bal()) === b1 - 6000000, `${L2.status} ${await bal()}`);
+  check("échéance éteinte par la caution : annulation refusée", (await g.req("POST", `/api/loans/${loan2}`, { action: "cancel", installmentId: L2.installments.at(-1)._id })).status === 400);
+  check("retenue sur intérêts refusée pour un prêteur bancaire", (await g.req("POST", "/api/loans", { label: "X", lender: "Banque", lenderType: "bank", treasuryAccountId: bank, principal: 100000, annualRatePct: 5, durationMonths: 12, startDate: dayAgo(1), interestWithholdingPct: 10 })).status === 400);
 
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);

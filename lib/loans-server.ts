@@ -12,6 +12,7 @@ import { OPENING_REFERENCE } from "@/lib/opening-balances";
 
 type Actor = { tenantId: string; userId: string };
 export const LOAN_ACCOUNTS = {
+  withholding: { accountCode: "447200", accountLabel: "État, retenues à la source" },
   interest: { accountCode: "671000", accountLabel: "Intérêts des emprunts" },
   insurance: { accountCode: "625000", accountLabel: "Primes d'assurance" },
   fees: { accountCode: "631000", accountLabel: "Frais bancaires" },
@@ -46,7 +47,7 @@ async function postingStart(tenantId: string) {
 export interface LoanInput {
   label?: unknown; lender?: unknown; lenderType?: unknown; capitalAccountCode?: unknown; reference?: unknown; treasuryAccountId?: unknown; principal?: unknown; annualRatePct?: unknown;
   durationMonths?: unknown; frequency?: unknown; method?: unknown; deferralPeriods?: unknown; startDate?: unknown; firstDueDate?: unknown;
-  fees?: unknown; insurancePerPeriod?: unknown; purpose?: unknown; projectId?: unknown; collateral?: unknown; prior?: unknown; openingRemaining?: unknown; notes?: unknown;
+  fees?: unknown; insurancePerPeriod?: unknown; interestWithholdingPct?: unknown; purpose?: unknown; projectId?: unknown; collateral?: unknown; prior?: unknown; openingRemaining?: unknown; notes?: unknown;
 }
 
 /** Création : tableau calculé (ou prêt libre) ; rien n'est comptabilisé avant le déblocage. */
@@ -78,6 +79,9 @@ export async function createLoan(actor: Actor, input: LoanInput) {
   if (firstDueDate && firstDueDate <= startDate) throw new BusinessRuleError("L'échéance suit le déblocage.");
   const fees = amount(input.fees ?? 0, "Frais"), insurancePerPeriod = free ? 0 : amount(input.insurancePerPeriod ?? 0, "Assurance");
   if (fees >= principal) throw new BusinessRuleError("Les frais doivent rester inférieurs au capital.");
+  const wh = input.interestWithholdingPct === undefined || input.interestWithholdingPct === "" || input.interestWithholdingPct === null ? undefined : Number(String(input.interestWithholdingPct).replace(",", ".")) / 100;
+  if (wh !== undefined && !(wh >= 0 && wh <= 0.5)) throw new BusinessRuleError("Taux de retenue sur intérêts invalide.");
+  if (wh && lenderType === "bank") throw new BusinessRuleError("Pas de retenue à la source sur les intérêts versés à une banque.");
   if (!Types.ObjectId.isValid(String(input.treasuryAccountId)) || !(await treasuryLedger(actor.tenantId, input.treasuryAccountId))) throw new BusinessRuleError("Choisissez le compte (banque ou caisse) qui reçoit les fonds.");
   if (input.projectId) { const err = await checkImputations(actor.tenantId, [{ projectId: input.projectId }]); if (err) throw new BusinessRuleError(err); }
 
@@ -101,7 +105,7 @@ export async function createLoan(actor: Actor, input: LoanInput) {
     tenantId: actor.tenantId, label: label.slice(0, 160), lender: lender.slice(0, 160), lenderType, capitalAccountCode,
     capitalAccountLabel: capitalAccountCode === LENDER_TYPES[lenderType].accountCode ? LENDER_TYPES[lenderType].accountLabel : `Emprunt — ${lender.slice(0, 80)}`,
     reference: String(input.reference ?? "").trim().slice(0, 80) || undefined, treasuryAccountId: input.treasuryAccountId, principal, annualRate: rate,
-    durationMonths, frequency, method, deferralPeriods, startDate, firstDueDate, fees, insurancePerPeriod,
+    durationMonths, frequency, method, deferralPeriods, startDate, firstDueDate, fees, insurancePerPeriod, interestWithholdingRate: wh,
     purpose: String(input.purpose ?? "").trim().slice(0, 300) || undefined, projectId: input.projectId || undefined,
     collateral: String(input.collateral ?? "").trim().slice(0, 500) || undefined, postedFrom, openingRemaining,
     notes: String(input.notes ?? "").slice(0, 2000) || undefined, installments, status, createdBy: actor.userId,
@@ -186,11 +190,14 @@ export async function payInstallment(actor: Actor, id: string, input: { installm
   const date = paymentDate(loan, input.date, inst.dueDate > today() ? today() : inst.dueDate);
   const account = input.treasuryAccountId || loan.treasuryAccountId;
   const proj = loan.projectId ? { projectId: loan.projectId } : {};
-  const total = inst.principal + inst.interest + inst.insurance;
+  const withheld = Math.round(inst.interest * (loan.interestWithholdingRate ?? 0));
+  const total = inst.principal + inst.interest + inst.insurance - withheld;
   const lines = [
     ...(inst.principal ? [{ ...capitalLine(loan), debit: inst.principal, credit: 0 }] : []),
     ...(inst.interest ? [{ ...LOAN_ACCOUNTS.interest, debit: inst.interest, credit: 0, ...proj }] : []),
     ...(inst.insurance ? [{ ...LOAN_ACCOUNTS.insurance, debit: inst.insurance, credit: 0, ...proj }] : []),
+    // Retenue à la source sur les intérêts : versée à l'État, pas au prêteur.
+    ...(withheld ? [{ ...LOAN_ACCOUNTS.withholding, debit: 0, credit: withheld }] : []),
   ];
   const r = await postFlow(actor, loan, account, date, `Échéance ${inst.n}/${loan.installments.length} — ${loan.label} (${loan.lender})`, lines, -total, session);
   inst.status = "paid"; inst.paidAt = date; inst.treasuryAccountId = account; inst.entryId = r.entryId; inst.movementId = r.movementId;
@@ -213,12 +220,49 @@ export async function repayFree(actor: Actor, id: string, input: { principal?: u
   const account = input.treasuryAccountId || loan.treasuryAccountId;
   const proj = loan.projectId ? { projectId: loan.projectId } : {};
   const n = loan.installments.length + 1;
-  const lines = [...(principal ? [{ ...capitalLine(loan), debit: principal, credit: 0 }] : []), ...(interest ? [{ ...LOAN_ACCOUNTS.interest, debit: interest, credit: 0, ...proj }] : [])];
-  const r = await postFlow(actor, loan, account, date, `Remboursement ${n} — ${loan.label} (${loan.lender})`, lines, -(principal + interest), session);
+  const withheld = Math.round(interest * (loan.interestWithholdingRate ?? 0));
+  const lines = [...(principal ? [{ ...capitalLine(loan), debit: principal, credit: 0 }] : []), ...(interest ? [{ ...LOAN_ACCOUNTS.interest, debit: interest, credit: 0, ...proj }] : []), ...(withheld ? [{ ...LOAN_ACCOUNTS.withholding, debit: 0, credit: withheld }] : [])];
+  const r = await postFlow(actor, loan, account, date, `Remboursement ${n} — ${loan.label} (${loan.lender})`, lines, -(principal + interest - withheld), session);
   loan.installments.push({ n, dueDate: date, principal, interest, insurance: 0, status: "paid", paidAt: date, treasuryAccountId: account, entryId: r.entryId, movementId: r.movementId });
   if (principal === rest) loan.status = "closed";
   await loan.save({ session });
   return { loan, paid: { n, principal, interest, date } };
+}
+
+/**
+ * Appel de la caution qui garantit l'emprunt : la banque garante paie le
+ * prêteur, le capital restant s'éteint d'autant (échéances les plus anciennes
+ * d'abord). Renvoie le capital éteint ; l'excédent éventuel est à la charge de
+ * l'appelant. L'écriture est passée par la caution.
+ */
+export async function settleByGuarantee(actor: Actor, loanId: unknown, input: { amount: number; date: Date; guaranteeId: unknown; entryId?: unknown }, session?: ClientSession) {
+  const loan = await LoanModel.findOne({ _id: loanId, tenantId: actor.tenantId }).session(session ?? null);
+  if (!loan || loan.status !== "active") return 0;
+  const applied = Math.min(input.amount, remainingOf(loan));
+  if (!(applied > 0)) return 0;
+  const mark = { status: "paid", paidAt: input.date, entryId: input.entryId, byGuarantee: input.guaranteeId };
+  if (loan.method === "free") {
+    loan.installments.push({ n: loan.installments.length + 1, dueDate: input.date, principal: applied, interest: 0, insurance: 0, ...mark });
+  } else {
+    let left = applied;
+    for (const inst of loan.installments.filter((x: { status: string }) => x.status === "due")) {
+      if (left <= 0) break;
+      if (inst.principal <= left) {
+        left -= inst.principal;
+        Object.assign(inst, mark, { interest: 0, insurance: 0, adjusted: true });
+      } else {
+        // Échéance en partie couverte : la part éteinte devient une ligne payée, le reste reste dû.
+        inst.principal -= left; inst.adjusted = true;
+        loan.installments.push({ n: inst.n, dueDate: input.date, principal: left, interest: 0, insurance: 0, adjusted: true, ...mark });
+        left = 0;
+      }
+    }
+    loan.installments.sort((a: { n: number; status: string }, b: { n: number; status: string }) => a.n - b.n || (a.status === "paid" ? -1 : 1));
+  }
+  if (remainingOf(loan) === 0) loan.status = "closed";
+  loan.markModified("installments");
+  await loan.save({ session });
+  return applied;
 }
 
 /** Paiement annulé : écriture extournée et mouvement contre-passé (le dernier d'abord). */
@@ -226,6 +270,9 @@ export async function cancelInstallment(actor: Actor, id: string, input: { insta
   const loan = await load(actor, id, session);
   const inst = loan.installments.find((x: { _id: unknown }) => String(x._id) === String(input.installmentId));
   if (!inst || inst.status !== "paid") throw new BusinessRuleError("Échéance non payée.");
+  // Double garde : la marque, et l'écriture elle-même (portée par la caution).
+  const byGuarantee = inst.byGuarantee || (inst.entryId && await AccountingEntryModel.exists({ _id: inst.entryId, tenantId: actor.tenantId, linkedDocType: "guarantee" }).session(session ?? null));
+  if (byGuarantee) throw new BusinessRuleError("Capital éteint par l'appel de la caution : il ne s'annule pas ici.");
   const later = loan.installments.find((x: { n: number; status: string }) => x.n > inst.n && x.status === "paid");
   if (later) throw new BusinessRuleError(`Annulez d'abord le paiement n° ${later.n}.`);
   await reverseCashFlow({ tenantId: actor.tenantId, userId: actor.userId, entryId: inst.entryId, movementId: inst.movementId, reason: String(input.reason ?? "paiement annulé").slice(0, 200) }, session);
@@ -272,6 +319,8 @@ export async function adjustInstallments(actor: Actor, id: string, input: { rows
 export async function deleteLoan(actor: Actor, id: string) {
   const loan = await load(actor, id);
   if (loan.disbursementEntryId || loan.installments.some((x: { status: string }) => x.status === "paid")) throw new BusinessRuleError("Des écritures existent : annulez d'abord les paiements, puis le déblocage.");
+  const { BankGuaranteeModel } = await import("@/models/BankGuarantee");
+  if (await BankGuaranteeModel.exists({ tenantId: actor.tenantId, loanId: loan._id, status: "active" })) throw new BusinessRuleError("Une garantie en cours couvre cet emprunt : obtenez d'abord sa mainlevée.");
   await LoanModel.deleteOne({ _id: loan._id });
 }
 

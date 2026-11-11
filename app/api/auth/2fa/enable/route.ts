@@ -4,6 +4,7 @@ import { getAuthContext, ok, unauthorized, badRequest } from "@/lib/api-helpers"
 import { UserModel } from "@/models/User";
 import { verifyTotp, generateBackupCodes } from "@/lib/totp";
 import { hashPassword } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 import { decryptField } from "@/lib/crypto-field";
 
 // Valide le premier code et active le 2FA ; renvoie les codes de secours (une seule fois).
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
   user.twoFactorEnabled = true;
   user.twoFactorBackupCodes = hashed;
   await user.save();
+  await logAudit(auth, "UPDATE", "users", { resourceId: String(user._id), before: { twoFactorEnabled: false }, after: { twoFactorEnabled: true } });
 
   return ok({ enabled: true, backupCodes });
 }

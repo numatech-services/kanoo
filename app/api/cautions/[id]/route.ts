@@ -19,7 +19,7 @@ export const GET = withAuth("appels", "read", async (_req: NextRequest, auth: To
   return g ? ok(g) : notFound("Caution introuvable");
 });
 
-/** PATCH { reference?, bankName?, expiryDate? (prorogation), beneficiary?, notes? } — champs sans effet comptable. */
+/** PATCH { reference?, bankName?, beneficiary?, notes? } — champs sans effet comptable (l'échéance passe par /extend). */
 export const PATCH = withAuth("appels", "update", async (req: NextRequest, auth: TokenPayload, params) => {
   await connectDB();
   const body = await req.json().catch(() => ({}));
@@ -27,11 +27,8 @@ export const PATCH = withAuth("appels", "update", async (req: NextRequest, auth:
   if (!g) return notFound("Caution introuvable");
   for (const f of ["reference", "bankName", "beneficiary", "notes"] as const) if (f in body) g.set(f, String(body[f] ?? "").trim().slice(0, f === "notes" ? 2000 : 200) || undefined);
   if (!g.beneficiary) return badRequest("Le bénéficiaire est obligatoire.");
-  if ("expiryDate" in body) {
-    const d = body.expiryDate ? new Date(body.expiryDate) : undefined;
-    if (d && (isNaN(d.getTime()) || d < g.issueDate)) return badRequest("Date d'échéance invalide.");
-    g.expiryDate = d;
-  }
+  // L'échéance ne change que par la prorogation (avec ses frais éventuels) : POST /extend.
+
   await g.save();
   await logAudit(auth, "UPDATE", "appels", { resourceId: params.id, metadata: { guarantee: true } });
   return ok(g);

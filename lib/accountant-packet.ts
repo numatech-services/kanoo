@@ -68,7 +68,7 @@ export async function buildAccountantPacket(tenantId: string, year: number, mont
   // États financiers provisoires arrêtés à la fin du mois.
   const fs = await financialStatements(tenantId, year, to);
   const guarantees = await BankGuaranteeModel.find({
-    tenantId, issueDate: { $lte: fs.asOf },
+    tenantId, issueDate: { $lte: fs.asOf }, direction: { $ne: "received" },
     $or: [{ status: "active" }, { releasedAt: { $gt: fs.asOf } }, { calledAt: { $gt: fs.asOf } }],
   }).select("type amount beneficiary expiryDate").lean<Array<{ type: string; amount: number; beneficiary: string; expiryDate?: Date }>>();
   const statements = await buildFinancialStatementsXlsx(fs, annexNotes(fs, fs.balancesPrev, guarantees), tenant ?? {});

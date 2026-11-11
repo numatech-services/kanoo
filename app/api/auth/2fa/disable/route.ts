@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { getAuthContext, ok, unauthorized, badRequest } from "@/lib/api-helpers";
 import { UserModel } from "@/models/User";
 import { comparePassword } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 import { verifyTotp } from "@/lib/totp";
 import { decryptField } from "@/lib/crypto-field";
 
@@ -25,6 +26,8 @@ export async function POST(req: NextRequest) {
   user.twoFactorPending = undefined;
   user.twoFactorBackupCodes = undefined;
   await user.save();
+  // Revue des droits : une double authentification retirée se voit au rapport d'audit du mois.
+  await logAudit(auth, "UPDATE", "users", { resourceId: String(user._id), before: { twoFactorEnabled: true }, after: { twoFactorEnabled: false } });
 
   return ok({ disabled: true });
 }

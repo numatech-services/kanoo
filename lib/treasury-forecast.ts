@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import { BankGuaranteeModel } from "@/models/BankGuarantee";
 import { nextCommission } from "@/lib/guarantees";
 import { LoanModel } from "@/models/Loan";
+import { loanState } from "@/lib/loans-server";
 import { TreasuryAccountModel } from "@/models/TreasuryAccount";
 import { InvoiceModel } from "@/models/Invoice";
 import { PurchaseModel } from "@/models/Purchase";
@@ -94,14 +95,23 @@ export async function computeForecast(tenantId: string, weeks: number, at: Date 
   // Cautions : commissions périodiques à venir, débitées par la banque.
   const guarantees = await BankGuaranteeModel.find({ tenantId, status: "active", feePeriod: { $in: ["quarterly", "semiannual", "annual"] }, direction: { $ne: "received" } })
     .select("type beneficiary amount issueDate expiryDate status direction feeRate feePeriod charges").lean<Array<Parameters<typeof nextCommission>[0] & { beneficiary: string }>>();
-  for (const g of guarantees) for (const c of nextCommission(g, 8)) flows.push({ label: `Commission de caution — ${g.beneficiary}`, amount: c.amount, kind: "out", source: "Cautions", date: c.date < now ? now : c.date });
+  // Hypothèse de prévision : mainlevée au plus tard trois mois après l'échéance.
+  const releaseBy = (g: { expiryDate?: Date | string | null }) => (g.expiryDate ? new Date(new Date(g.expiryDate).getTime() + 92 * 86_400_000) : null);
+  for (const g of guarantees) for (const c of nextCommission(g, 8).filter(c => { const h = releaseBy(g); return !h || c.date <= h; })) flows.push({ label: `Commission de caution — ${g.beneficiary}`, amount: c.amount, kind: "out", source: "Cautions", date: c.date < now ? now : c.date });
   // Emprunts : échéances non payées (capital, intérêts, assurance).
-  const loans = await LoanModel.find({ tenantId, status: { $in: ["active", "draft"] } }).select("label lender status principal fees startDate installments").lean<Array<{ label: string; lender: string; status: string; principal: number; fees: number; startDate: Date; installments: Array<{ n: number; dueDate: Date; principal: number; interest: number; insurance: number; status: string }> }>>();
+  const loans = await LoanModel.find({ tenantId, status: { $in: ["active", "draft"] } }).select("label lender status principal fees startDate installments interestWithholdingRate").lean<Array<{ label: string; lender: string; status: string; principal: number; fees: number; startDate: Date; interestWithholdingRate?: number; installments: Array<{ n: number; dueDate: Date; principal: number; interest: number; insurance: number; status: string }> }>>();
   // Emprunt pas encore débloqué : les fonds attendus entrent à la date prévue.
   for (const l of loans) if (l.status === "draft") flows.push({ label: `Déblocage attendu — ${l.label} (${l.lender})`, amount: l.principal - (l.fees || 0), kind: "in", source: "Emprunts", date: new Date(l.startDate) < now ? now : new Date(l.startDate) });
+  // Prêt libre : le reste dû à la date de remboursement prévue.
+  const freeLoans = await LoanModel.find({ tenantId, status: "active", method: "free", firstDueDate: { $exists: true } }).lean<Array<Parameters<typeof loanState>[0] & { label: string; lender: string; firstDueDate: Date }>>();
+  for (const l of freeLoans) { const rest = loanState(l).remaining; if (rest > 0) flows.push({ label: `Remboursement prévu — ${l.label} (${l.lender})`, amount: rest, kind: "out", source: "Emprunts", date: new Date(l.firstDueDate) < now ? now : new Date(l.firstDueDate) }); }
   for (const l of loans) for (const i of l.installments) {
     if (i.status !== "due") continue;
-    flows.push({ label: `Échéance ${i.n} — ${l.label} (${l.lender})`, amount: i.principal + i.interest + i.insurance, kind: "out", source: "Emprunts", date: new Date(i.dueDate) < now ? now : new Date(i.dueDate) });
+    // Retenue sur intérêts : le prêteur reçoit le net, la retenue part à l'État le 15 du mois suivant (comme les autres retenues).
+    const withheld = Math.round(i.interest * (l.interestWithholdingRate ?? 0));
+    const due = new Date(i.dueDate) < now ? now : new Date(i.dueDate);
+    flows.push({ label: `Échéance ${i.n} — ${l.label} (${l.lender})`, amount: i.principal + i.interest + i.insurance - withheld, kind: "out", source: "Emprunts", date: due });
+    if (withheld > 0) flows.push({ label: `Retenue sur intérêts à reverser — ${l.label}`, amount: withheld, kind: "out", source: "Emprunts", date: new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth() + 1, 15)) });
   }
   for (const r of reports) flows.push({ label: `Note de frais ${r.reference}`, amount: r.totalTTC, kind: "out", source: "Notes de frais", date: now, ref: r.reference });
 

@@ -1,19 +1,24 @@
 "use client";
-import { useState, useSyncExternalStore } from "react";
+import { Suspense, useState, useSyncExternalStore } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Pagination } from "@/components/ui/Pagination";
 
 import { useApi } from "@/lib/use-api";
 import { PageLoading } from "@/components/ui/PageState";
+import { useSearchParams, useRouter } from "next/navigation";
+import { AuditReportPanel } from "@/components/audit/AuditReportPanel";
 interface Log { _id: string; userEmail: string; userRole: string; action: string; resource: string; resourceId?: string; ip?: string; createdAt: string; }
 
 const ACTION_COLORS: Record<string, string> = { CREATE:"bg-pos-50 text-pos", UPDATE:"bg-info-50 text-info", DELETE:"bg-neg-50 text-neg", LOGIN:"bg-section-soft text-section", PAYMENT:"bg-warn-50 text-warn", APPROVE:"bg-teal-100 text-teal-700", REJECT:"bg-neg-50 text-neg" };
 
 const noSubscribe = () => () => {};
 
-export default function AuditPage() {
+function AuditScreen() {
   // Rendu côté navigateur uniquement (dates au format local).
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const sp = useSearchParams();
+  const router = useRouter();
+  const tab = sp.get("onglet") === "rapport" ? "rapport" : "journal";
   const [page, setPage] = useState(1);
   const [resource, setResource] = useState(""); const [from, setFrom] = useState(""); const [to, setTo] = useState(""); const LIMIT = 30;
 
@@ -41,7 +46,14 @@ export default function AuditPage() {
 
   return (
     <div className="space-y-5">
-      <div><h1 className="page-title">Journal d'audit</h1><p className="text-sm text-ink2 mt-0.5">{total} entrée{total > 1 ? "s" : ""}</p></div>
+      <div><h1 className="page-title">Journal d'audit</h1><p className="text-sm text-ink2 mt-0.5">{tab === "journal" ? `${total} entrée${total > 1 ? "s" : ""}` : "Intégrité des écritures, constats du mois, revue des droits"}</p></div>
+      <div className="flex gap-2" role="tablist">
+        {([["journal", "Journal"], ["rapport", "Rapport d'audit"]] as const).map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => router.replace(k === "rapport" ? "/audit?onglet=rapport" : "/audit")}
+            className={`px-3 py-1.5 rounded-full text-sm ${tab === k ? "bg-section text-white" : "bg-surface2 text-ink2"}`}>{l}</button>
+        ))}
+      </div>
+      {tab === "rapport" ? <AuditReportPanel /> : <>
       <div className="flex flex-wrap gap-3">
         <input placeholder="Filtrer par ressource…" value={resource} onChange={e => { setResource(e.target.value); setPage(1); }} className={inp} />
         <input type="date" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }} className={inp} />
@@ -49,6 +61,11 @@ export default function AuditPage() {
       </div>
       <DataTable columns={columns} data={logs} loading={loading} keyExtractor={(l) => l._id} emptyMessage="Aucun log d'audit" />
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
+      </>}
     </div>
   );
+}
+
+export default function AuditPage() {
+  return <Suspense fallback={<PageLoading />}><AuditScreen /></Suspense>;
 }

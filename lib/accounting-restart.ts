@@ -1,4 +1,5 @@
 import mongoose, { Types, type ClientSession } from "mongoose";
+import { archiveEntrySeals, verifyTenant, isSerious, currentSealKey } from "@/lib/audit-seal";
 import { BSON } from "mongodb";
 import { BusinessRuleError } from "@/lib/errors";
 import { TenantModel } from "@/models/Tenant";
@@ -191,9 +192,17 @@ async function changedAfter(tid: Types.ObjectId, at: Date) {
  * quand la comptable ressaisit toutes les opérations depuis cette date. Le
  * verrou est alors posé à la veille, à la place de tout verrou plus tardif.
  */
-export async function restartAccounting(auth: TokenPayload, input: { exportId?: unknown; confirm?: unknown; exportHash?: unknown }, opts: { restartDate?: Date } = {}) {
+export async function restartAccounting(auth: TokenPayload, input: { exportId?: unknown; confirm?: unknown; exportHash?: unknown }, opts: { restartDate?: Date; ignoreIntegrity?: boolean } = {}) {
   if (input.confirm !== RESTART_CONFIRM) throw new BusinessRuleError(`Confirmation manquante : tapez ${RESTART_CONFIRM}.`);
   const tid = new Types.ObjectId(auth.tenantId);
+  // La clé de scellement doit être là AVANT tout effacement : l'archive des sceaux suit l'effacement.
+  try { currentSealKey(); } catch (e) { throw new BusinessRuleError(e instanceof Error ? e.message : "Clé de scellement absente."); }
+  // Une reprise efface les écritures : elle ne doit pas servir à faire disparaître une altération constatée.
+  if (!opts.ignoreIntegrity) {
+    const check = await verifyTenant(tid, "entries");
+    const serious = check.problems.filter(p => isSerious(p) && p.type !== "late");
+    if (serious.length) throw new BusinessRuleError(`Intégrité des écritures : ${serious.length} anomalie(s) non expliquée(s) (Journal d'audit → Rapport d'audit). Faites-les examiner avant toute reprise.`);
+  }
   if (!Types.ObjectId.isValid(String(input.exportId))) throw new BusinessRuleError("Téléchargez d'abord l'export complet.");
   const record = await AccountingRestartModel.findOne({ _id: input.exportId, tenantId: tid, restartedAt: { $exists: false } });
   if (!record) throw new BusinessRuleError("Export introuvable ou déjà utilisé : téléchargez un nouvel export.");
@@ -235,6 +244,8 @@ export async function restartAccounting(auth: TokenPayload, input: { exportId?: 
     deleted[s.key] = (await m.deleteMany(exported)).deletedCount ?? 0;
     kept += await m.countDocuments({ tenantId: tid });
   }
+  // Sceaux des écritures effacées : un sceau d'archive signé, lié à l'export, s'ajoute à la chaîne.
+  await archiveEntrySeals(tid, { restartId: record._id, exportHash: record.exportHash });
   // Date de reprise : aujourd'hui. Avec une date passée, les règlements faits
   // depuis resteraient sans écriture alors que la trésorerie repart de zéro.
   const reset = await TreasuryAccountModel.updateMany({ tenantId: tid }, { $set: { openingBalance: 0, openingDate: restartDate, balance: 0 } });

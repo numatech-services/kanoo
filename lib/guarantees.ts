@@ -2,6 +2,7 @@
  * Cautions bancaires — règles pures (libellés, échéances, engagements).
  */
 import type { GuaranteeType } from "@/models/BankGuarantee";
+import { addMonths } from "@/lib/loan-schedule";
 
 export const GUARANTEE_TYPES: Record<GuaranteeType, string> = {
   soumission: "Caution de soumission",
@@ -16,7 +17,7 @@ export const CHARGE_KINDS = { commission: "Commission", prorogation: "Frais de p
 
 /**
  * Prochaine commission périodique : échéances tous les `months` mois depuis
- * l'émission, la première non encore passée (et pas au-delà de l'échéance).
+ * l'émission (à terme échu), la première non encore passée, jusqu'à la mainlevée.
  * Montant : montant garanti × taux annuel × durée de la période.
  */
 export function nextCommission(g: { amount: number; issueDate: Date | string; expiryDate?: Date | string | null; status?: string; direction?: string; feeRate?: number; feePeriod?: string; charges?: Array<{ kind: string; date: Date | string }> }, limit = 1) {
@@ -26,11 +27,8 @@ export function nextCommission(g: { amount: number; issueDate: Date | string; ex
   const amount = Math.round(g.amount * g.feeRate * p.months / 12);
   const out: Array<{ date: Date; amount: number; period: number }> = [];
   const start = new Date(g.issueDate);
-  for (let k = charged + 1; out.length < limit && k < charged + 1 + 200; k++) {
-    const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + k * p.months, start.getUTCDate()));
-    if (g.expiryDate && d > new Date(g.expiryDate)) break;
-    out.push({ date: d, amount, period: k });
-  }
+  // La banque facture tant que la mainlevée n'est pas obtenue, même après l'échéance.
+  for (let k = charged + 1; out.length < limit && k < charged + 1 + 200; k++) out.push({ date: addMonths(start, k * p.months), amount, period: k });
   return out;
 }
 
