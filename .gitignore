@@ -35,7 +35,7 @@ coverage/
 # /api/attachments/:id après contrôle du droit. Jamais versionnés.
 /var/uploads/
 /public/uploads/
-audit/
+# Dossier d'audit à la racine seulement (le code source des écrans et routes « audit » est versionné).
 /audit/
 
 # Archives de reprise de la comptabilité (données réelles)
