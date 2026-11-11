@@ -22,7 +22,7 @@ export const NAV_RESOURCE: Record<string, string> = {
   "/appels": "appels", "/cautions": "appels", "/contracts": "contracts", "/projects": "projects",
   "/documents": "documents", "/documents-administratifs": "documents", "/approbations": "approbations",
   // PME — Finance
-  "/treasury": "treasuryAccounts", "/emprunts": "accountingEntries", "/cockpit": "accountingEntries", "/accounting": "accountingEntries", "/comptoir": "comptoir", "/restauration/equipe": "payslips", "/restauration": "comptoir",
+  "/treasury": "treasuryAccounts", "/emprunts": "accountingEntries", "/cockpit": "accountingEntries", "/easypay-reseau": "accountingEntries", "/accounting": "accountingEntries", "/comptoir": "comptoir", "/restauration/equipe": "payslips", "/restauration": "comptoir",
   "/analytique": "analytics", "/marges": "accountingEntries", "/analytics": "accountingEntries", "/budget-previsionnel": "accountingEntries",
   "/recurring-expenses": "recurringCharges", "/fiscalite": "fiscalDeclarations",
   "/fixed-assets": "fixedAssets", "/depenses": "purchases", "/depenses/echeancier": "purchases", "/accounting/plan": "ledgerAccounts",

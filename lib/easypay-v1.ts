@@ -157,6 +157,10 @@ export function planV1(body: unknown): V1Plan {
       if (!(revision >= 1)) return bad("data.revision : entier à partir de 1 attendu.");
       return { kind: "day", env, businessDate: day, revision, data: d };
     }
+    case "agent_topup.recorded": case "agent_remittance.recorded": case "agent_remittance.reconciled":
+    case "partner_earning.recorded": case "partner_earning.settled": case "partner_payout.recorded": case "network_day.closed":
+      // Type de la liaison réseau arrivé sur l'adresse d'un restaurant : refusé, pour que l'erreur se voie chez EasyPay.
+      return bad("type de la liaison réseau : à envoyer à l'adresse /api/v1/easypay.");
     default:
       return { kind: "ignored", env };
   }

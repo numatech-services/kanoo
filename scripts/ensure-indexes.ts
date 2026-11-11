@@ -89,6 +89,16 @@ async function main() {
     import("../models/IsicLicense").then(m => m.IsicLicenseModel),
     import("../models/IsicPhoto").then(m => m.IsicPhotoModel),
     import("../models/IsicSettings").then(m => m.IsicSettingsModel),
+    // Achats : brouillons reçus par l'API (externalRef) et facture fournisseur jamais comptée deux fois.
+    import("../models/Purchase").then(m => m.PurchaseModel),
+    // Liaison réseau EasyPay : idempotence (événement), objet unique, bilan du jour unique.
+    import("../models/EasypayNetwork").then(m => m.EasypayNetworkEventModel),
+    import("../models/EasypayNetwork").then(m => m.EasypayNetworkFactModel),
+    import("../models/EasypayNetwork").then(m => m.EasypayNetworkDayModel),
+    // Audit : un numéro de sceau par chaîne, un contrôle et un rapport figé par mois.
+    import("../models/AuditSeal").then(m => m.AuditSealModel),
+    import("../models/AuditSeal").then(m => m.AuditCheckModel),
+    import("../models/AuditSeal").then(m => m.AuditReportSnapshotModel),
   ]);
 
   let failed = 0;

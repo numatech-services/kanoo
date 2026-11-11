@@ -18,13 +18,13 @@ export interface DraftInput {
 const MAX_LINES = 50;
 const MAX_MONTANT = 1_000_000_000;
 
-function texte(v: unknown, max: number): string | undefined {
+export function texte(v: unknown, max: number): string | undefined {
   if (typeof v !== "string") return undefined;
   const t = v.trim();
   return t === "" ? undefined : t.slice(0, max);
 }
 
-function date(v: unknown): Date | null {
+export function date(v: unknown): Date | null {
   if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
   const d = new Date(`${v}T00:00:00.000Z`);
   return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v ? null : d;

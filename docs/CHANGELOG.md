@@ -1,5 +1,22 @@
 # Kanoo — Changelog
 
+## Liaisons EasyPay réseau et ISIC (novembre 2026)
+
+**EasyPay, contrat 1.1 — liaison réseau** (`/api/v1/easypay`, clé `easypay:network`) : recharges et versements des
+agents, commissions sur les commandes des partenaires (Easy Market, Print, Shop), reversements aux assureurs et à
+l'opérateur télécom, bilan du jour du réseau. Écran Pilotage → EasyPay réseau : encours par agent (pseudonyme),
+commissions d'EasyPay, parts et restes dus aux partenaires, soldes des assureurs, rapprochement Kanoo/EasyPay de chaque
+bilan du jour, rangs manquants. Pas d'écriture comptable automatique (schéma de la monnaie électronique, des agents et
+des partenaires à valider par la comptable — non vérifié). Côté EasyPay : PR easypay-serveur #69, à fusionner après
+le déploiement de Kanoo.
+
+**ISIC — brouillons d'achat fournisseur** (`/api/v1/purchases`, droits `purchases:read` / `purchases:write`) :
+coûts d'impression, de licences et d'envoi reçus d'ISIC en brouillon (compte provisoire 608000 à imputer avant
+validation, TVA de la facture conservée), une facture fournisseur jamais enregistrée deux fois quelle que soit son
+origine (contrôle commun à la saisie, à la modification et à la validation, index unique), rejeu par empreinte du
+contenu, brouillon supprimé rendu « annulé ». Doc : `docs/API-ACHATS.md`. Côté ISIC : PR isic-niger #1
+(`KANOO_ACHATS=1` une fois Kanoo déployé et les fournisseurs créés).
+
 ## Cockpit, audit, corrections des cautions (novembre 2026)
 
 **Cockpit** (Pilotage → Cockpit) : chiffre d'affaires, EBE, résultat d'exploitation et résultat net lus dans le compte de résultat SYSCOHADA de l'application (classes 6, 7 et 8) ; trésorerie par compte, créances clients et dettes fournisseurs (dont retards), emprunts restant dus et échéances en retard, cautions données et reçues ; ratios : endettement net (emprunts + découverts − soldes positifs), BFR approché, délais clients et fournisseurs (exercice en cours seulement), couverture des intérêts (671 à 674) ; détail par secteur d'activité et mois par mois (produits 70 à 75, charges 60 à 66, 68, 69). Exercice passé : le résultat porte sur l'exercice, les soldes sont ceux du jour (signalé à l'écran). Point mensuel envoyé au gérant et à la comptabilité, arrêté à la fin du mois écoulé (celui de janvier fait le bilan de l'année précédente).

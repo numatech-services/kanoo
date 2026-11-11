@@ -8,6 +8,7 @@ import { CommandeModel } from "@/models/Commande";
 import { nextDocumentNumber } from "@/lib/numbering";
 import { buildPurchaseLines, checkSupplier, validatePurchase, payPurchase, PurchaseError } from "@/lib/purchases";
 import { logAudit } from "@/lib/audit";
+import { findSupplierInvoice, isSupplierKeyConflict } from "@/lib/purchase-dup";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,10 @@ export const POST = withAuth("purchases", "create", async (req: NextRequest, aut
     if (!supplier && !String(body.payee ?? "").trim()) throw new PurchaseError("Indiquez le fournisseur ou le bénéficiaire.");
     const date = body.date ? new Date(body.date) : new Date();
     if (isNaN(date.getTime())) throw new PurchaseError("Date invalide.");
+    if (supplier && body.supplierRef) {
+      const dup = await findSupplierInvoice(auth.tenantId, supplier._id, body.supplierRef);
+      if (dup) throw new PurchaseError(`Facture ${String(body.supplierRef)} de ce fournisseur déjà enregistrée (${dup.number ?? "pièce"}${dup.externalRef ? `, reçue par l'API ${dup.externalRef}` : ""}).`);
+    }
     const built = await buildPurchaseLines(auth.tenantId, body.lines, body);
     let sourceDesk: unknown;
     let commandeId: unknown;
@@ -97,6 +102,7 @@ export const POST = withAuth("purchases", "create", async (req: NextRequest, aut
     return created(purchase);
   } catch (e) {
     if (e instanceof PurchaseError) return badRequest(e.message);
+    if (isSupplierKeyConflict(e)) return badRequest("Cette facture de fournisseur est déjà enregistrée.");
     throw e;
   }
 });

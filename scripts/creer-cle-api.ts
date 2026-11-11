@@ -9,13 +9,16 @@ import { ApiKeyModel } from "../models/ApiKey";
 import { UserModel } from "../models/User";
 
 async function main() {
-  const [email, nom] = process.argv.slice(2);
+  const [email, nom, extra] = process.argv.slice(2);
+  // Troisième argument facultatif : droits en plus, séparés par des virgules (ex. purchases:read,purchases:write).
+  const more = (extra ?? "").split(",").map(s => s.trim()).filter(Boolean);
+  if (more.some(s => !["purchases:read", "purchases:write"].includes(s))) throw new Error("Droits en plus possibles : purchases:read, purchases:write.");
   if (!email || !nom || !process.env.MONGODB_URI) throw new Error("Usage : MONGODB_URI=… npx tsx scripts/creer-cle-api.ts <courriel> <nom>");
   await mongoose.connect(process.env.MONGODB_URI);
   const user = await UserModel.findOne({ email, isActive: { $ne: false } }).select("_id tenantId").lean<{ _id: unknown; tenantId: unknown }>();
   if (!user) throw new Error("Compte inconnu ou inactif.");
   const { key, hash, prefix } = generateApiKey();
-  await ApiKeyModel.create({ tenantId: user.tenantId, userId: user._id, name: nom.slice(0, 80), keyHash: hash, keyPrefix: prefix, scopes: ["invoices:read", "invoices:write", "clients:read"], expiresAt: new Date(Date.now() + 365 * 86_400_000) });
+  await ApiKeyModel.create({ tenantId: user.tenantId, userId: user._id, name: nom.slice(0, 80), keyHash: hash, keyPrefix: prefix, scopes: ["invoices:read", "invoices:write", "clients:read", ...more], expiresAt: new Date(Date.now() + 365 * 86_400_000) });
   console.log(key);
   await mongoose.disconnect();
 }

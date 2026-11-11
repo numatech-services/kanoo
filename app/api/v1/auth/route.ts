@@ -10,7 +10,7 @@ import { TokenPayload } from "@/lib/auth";
  * (une clé lit des données de toute l'organisation), protégé contre le CSRF
  * par withAuth. Les clés d'un comptoir (EasyPay) se créent depuis le comptoir.
  */
-const GENERAL_SCOPES = ["invoices:read", "clients:read", "invoices:write"];
+const GENERAL_SCOPES = ["invoices:read", "clients:read", "invoices:write", "purchases:read", "purchases:write", "easypay:network"];
 // Par défaut, une clé ne fait que lire : l'écriture se demande explicitement.
 const DEFAULT_SCOPES = ["invoices:read", "clients:read"];
 
@@ -19,6 +19,8 @@ export const POST = withAuth("companies", "update", async (req: NextRequest, aut
   const body = await req.json().catch(() => ({}));
   const scopes: string[] = Array.isArray(body.scopes) && body.scopes.length ? body.scopes.map(String) : DEFAULT_SCOPES;
   const unknown = scopes.filter(s => !GENERAL_SCOPES.includes(s));
+  // Le jeton de la liaison réseau est remis à l'exploitant d'EasyPay : il ne sert qu'à elle.
+  if (scopes.includes("easypay:network") && scopes.length > 1) return badRequest("Le droit easypay:network ne se combine avec aucun autre.");
   if (unknown.length) return badRequest(`Scope non autorisé : ${unknown.join(", ")}. Possibles : ${GENERAL_SCOPES.join(", ")}.`);
   const days = Math.min(365, Math.max(1, Number(body.days) || 365));
 

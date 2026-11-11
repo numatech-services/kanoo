@@ -65,6 +65,16 @@ const PurchaseSchema = new Schema({
   /** Site de restauration d'où vient la dette (réception à crédit). */
   deskId: { type: Schema.Types.ObjectId, ref: "ActivityDesk" },
   notes: { type: String, maxlength: 2000 },
+  /** Brouillon reçu par l'API v1 (ISIC…) : identifiant chez l'appelant, idempotence. */
+  externalRef: { type: String, trim: true, maxlength: 120 },
+  /** Empreinte du contenu reçu par l'API (rejeu identique ou contenu différent : 409). */
+  externalHash: { type: String, maxlength: 64 },
+  /** TVA portée par la facture du fournisseur (reçue par l'API) : conservée quand les lignes sont réimputées. */
+  sourceVat: { type: Number, min: 0 },
+  /** Achat reçu par l'API : le comptable doit choisir le compte de charge avant de valider. */
+  needsImputation: { type: Boolean },
+  /** Facture fournisseur active (fournisseur + numéro normalisé) : unique, effacée à l'annulation. */
+  activeSupplierKey: { type: String, maxlength: 120 },
   /** Validation malgré une facture supérieure à la réception (rapprochement). */
   matchOverride: { by: { type: Schema.Types.ObjectId, ref: "User" }, at: Date, gapHT: Number },
   validatedBy: { type: Schema.Types.ObjectId, ref: "User" },
@@ -79,5 +89,17 @@ PurchaseSchema.index({ tenantId: 1, supplierId: 1, date: -1 });
 PurchaseSchema.index({ tenantId: 1, "lines.projectId": 1 });
 PurchaseSchema.index({ tenantId: 1, status: 1, dueDate: 1 });
 PurchaseSchema.index({ tenantId: 1, deskId: 1, status: 1 });
+PurchaseSchema.index({ tenantId: 1, externalRef: 1 }, { unique: true, partialFilterExpression: { externalRef: { $type: "string" } } });
+PurchaseSchema.index({ tenantId: 1, supplierId: 1, supplierRef: 1 });
+PurchaseSchema.index({ tenantId: 1, activeSupplierKey: 1 }, { unique: true, partialFilterExpression: { activeSupplierKey: { $type: "string" } } });
+
+/** Numéro de facture fournisseur normalisé : majuscules, sans espaces ni séparateurs. */
+export const normSupplierRef = (ref: unknown) => String(ref ?? "").toUpperCase().replace(/[\s\-_/.]+/g, "");
+export const supplierKey = (supplierId: unknown, ref: unknown) => (supplierId && normSupplierRef(ref) ? `${String(supplierId)}|${normSupplierRef(ref)}` : undefined);
+// Clé tenue à chaque enregistrement : présente tant que la facture n'est pas annulée.
+PurchaseSchema.pre("save", function () {
+  const key = this.status === "cancelled" ? undefined : supplierKey(this.supplierId, this.supplierRef);
+  this.set("activeSupplierKey", key);
+});
 
 export const PurchaseModel = models.Purchase || model("Purchase", PurchaseSchema);

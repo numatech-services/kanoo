@@ -1,4 +1,5 @@
 import { Types, type ClientSession } from "mongoose";
+import { findSupplierInvoice } from "@/lib/purchase-dup";
 import { refuseIfRestarted } from "@/lib/accounting-restart";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { TreasuryMovementModel } from "@/models/TreasuryMovement";
@@ -109,6 +110,16 @@ export async function commandeMatch(tenantId: string, p: { commandeId?: unknown;
 
 export async function validatePurchase(auth: TokenPayload, p: PurchaseDoc, session?: ClientSession, opts: { force?: boolean } = {}) {
   if (p.status !== "draft") throw new PurchaseError("Seul un brouillon se valide.");
+  const ext = p as unknown as { needsImputation?: boolean; sourceVat?: number; supplierRef?: string };
+  // Achat reçu par l'API : lignes sur un compte provisoire tant que le comptable ne les a pas imputées.
+  if (ext.needsImputation) throw new PurchaseError("Achat reçu par l'API : choisissez le compte de charge de chaque ligne avant de valider.");
+  // La TVA déductible est celle de la facture du fournisseur, pas un recalcul.
+  if (ext.sourceVat !== undefined && ext.sourceVat !== null && p.totalTVA !== ext.sourceVat && !opts.force) {
+    throw new PurchaseError(`TVA des lignes (${p.totalTVA.toLocaleString("fr-FR")} FCFA) différente de celle de la facture du fournisseur (${ext.sourceVat.toLocaleString("fr-FR")} FCFA). Corrigez, ou validez malgré l'écart.`);
+  }
+  // Une même facture de fournisseur n'est jamais comptée deux fois, quelle que soit son origine.
+  const dup = await findSupplierInvoice(auth.tenantId, p.supplierId, ext.supplierRef, p._id, session);
+  if (dup) throw new PurchaseError(`Facture ${ext.supplierRef} de ce fournisseur déjà enregistrée (${dup.number ?? "pièce"}${dup.externalRef ? `, reçue par l'API ${dup.externalRef}` : ""}).`);
   // Une facture fournisseur ne se valide pas pour plus que ce qui a été reçu,
   // sauf décision explicite (tracée) : c'est l'écart qu'un contrôle interne
   // doit voir avant de payer.

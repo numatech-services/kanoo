@@ -23,6 +23,8 @@ export async function POST(req: NextRequest) {
   const hs = parseHandshake(read.body);
   if (!hs.ok) return invalid(hs.error);
   if (req.headers.get("x-easypay-site") !== hs.siteId) return unknownSite();
+  // La liaison réseau a sa propre adresse (/api/v1/easypay) : jamais sur le jeton d'un comptoir.
+  if (hs.siteId === "_easypay") return unknownSite();
   const key = await ApiKeyModel.findById(a.ctx.keyId).select("easypaySite").lean<{ easypaySite?: string } | null>();
   // Un jeton relié à un restaurant ne sert pas à en relier un autre.
   if (key?.easypaySite && key.easypaySite !== hs.siteId) return unknownSite();

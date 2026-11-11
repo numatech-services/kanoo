@@ -89,3 +89,22 @@ Chaque événement a la forme `{ id, type, occurred_at, data }`. L'`id` fait de 
 
 - Lancer `npm run indexes` : il crée les index uniques de `ApiKey`, `IntegrationEvent`, `DeskPreorder` et `ActivityItem.easypayId`.
 - Créer la clé dans Kanoo, puis lancer `easypay:kanoo-link` sur le serveur EasyPay.
+
+## Liaison réseau (contrat 1.1, `_easypay`)
+
+Contrat : `docs/EASYPAY-KANOO-CONTRAT-V1.1.md` (§13, copie de `docs/kanoo-contrat-v1.1.md` d'easypay-serveur, PR #69).
+Recharges et versements des agents, commissions sur les commandes des partenaires, reversements aux assureurs et à
+l'opérateur télécom, bilan du jour du réseau. Ce qui n'appartient à aucun restaurant.
+
+- Adresse de base : `https://<kanoo>/api/v1/easypay` (`/handshake`, `/events`), en-tête `X-EasyPay-Site: _easypay`.
+- Clé : Paramètres → API, droit **`easypay:network`** seul (il ne se combine avec aucun autre droit ; aucun comptoir).
+  La poignée de main d'un restaurant refuse `_easypay`, et l'adresse d'un restaurant refuse (422) les types du réseau. La transmettre à Mansour par un canal sûr ; il
+  relie sur le VPS : `deploy/bin/kanoo-link.sh _easypay <adresse>`. **Déployer Kanoo avant de faire la liaison** : un
+  Kanoo qui ne connaît pas ces types les ignore et EasyPay les compte comme reçus.
+- Suivi : Pilotage → EasyPay réseau (gérant, comptabilité). Pas d'écriture comptable automatique : comptes de la
+  monnaie électronique (soldes étudiants), des agents et des partenaires à fixer avec la comptable (non vérifié).
+- Encours d'un agent affiché = recharges − versements ; les retraits payés par les agents ne sont pas transmis en 1.1.
+- Chaque événement est enregistré en une transaction (trace, objet, rang) ; contrôles : frais ≤ recharge, reste dû ≤
+  part du partenaire, jour réel, état cohérent avec le type.
+- Rapprochement par Kanoo : pour chaque bilan du jour, les faits reçus (nombre et francs) sont comparés aux blocs du
+  bilan d'EasyPay ; les rangs de la file jamais acceptés (refusés ou perdus) sont comptés à l'écran.

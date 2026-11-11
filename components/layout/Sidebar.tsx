@@ -7,7 +7,7 @@ import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { moduleEnabled } from "@/lib/modules";
-import { HandCoins, LayoutDashboard, Calculator, Rocket, Gauge, Smartphone, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent, UtensilsCrossed, Tags, ChefHat, CookingPot, ShoppingBasket } from "lucide-react";
+import { Network, HandCoins, LayoutDashboard, Calculator, Rocket, Gauge, Smartphone, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent, UtensilsCrossed, Tags, ChefHat, CookingPot, ShoppingBasket } from "lucide-react";
 
 import { apiJson, apiSend } from "@/lib/api-client";
 import { getPendingCount, purgeOfflineData } from "@/lib/offline/sync-queue";
@@ -52,6 +52,7 @@ const PME_NAV: NavGroup[] = [
   { section: "Pilotage", tone: "accueil", items: [
     { label: "Tableau de bord", href: "/dashboard", icon: <LayoutDashboard size={18} /> },
     { label: "Cockpit", href: "/cockpit", icon: <Gauge size={18} /> },
+    { label: "EasyPay réseau", href: "/easypay-reseau", icon: <Network size={18} /> },
     { label: "Rapports", href: "/rapports", icon: <FileSpreadsheet size={18} /> },
     { label: "Agenda", href: "/agenda", icon: <CalendarClock size={18} /> },
     { label: "Notifications", href: "/notifications", icon: <Bell size={18} /> },

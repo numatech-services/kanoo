@@ -6,6 +6,8 @@ import { PurchaseModel } from "@/models/Purchase";
 import { CommandeModel } from "@/models/Commande";
 import { buildPurchaseLines, checkSupplier, PurchaseError, commandeMatch } from "@/lib/purchases";
 import { logAudit } from "@/lib/audit";
+import { findSupplierInvoice, isSupplierKeyConflict } from "@/lib/purchase-dup";
+import { distributeVat } from "@/lib/api-v1-purchase";
 import { checkImputations, pickImputation, reimputeEntry, type Imputation } from "@/lib/imputation";
 
 export const GET = withAuth("purchases", "read", async (_req: NextRequest, auth: TokenPayload, params) => {
@@ -61,6 +63,14 @@ export const PATCH = withAuth("purchases", "update", async (req: NextRequest, au
     }
     if ("lines" in body) {
       const built = await buildPurchaseLines(auth.tenantId, body.lines, body);
+      // Achat reçu par l'API : la TVA reste celle de la facture du fournisseur, répartie sur les nouvelles lignes.
+      const src = (p as unknown as { sourceVat?: number }).sourceVat;
+      if (src !== undefined && src !== null && built.totalHT > 0 && src < built.totalHT) {
+        const tva = distributeVat(built.lines.map(l => l.amountHT), src);
+        built.lines = built.lines.map((l, i) => ({ ...l, amountTVA: tva[i], tvaRate: Math.round((src / built.totalHT) * 10000) / 10000 }));
+        built.totalTVA = src; built.totalTTC = built.totalHT + src;
+      }
+      p.set("needsImputation", undefined);
       // Le type de dépense du marché survit à la modification d'un brouillon.
       const old = p.lines as Array<{ accountCode: string; costTypeId?: unknown }>;
       p.set({ ...built, lines: built.lines.map((l, i) => (old[i]?.costTypeId && old[i].accountCode === l.accountCode ? { ...l, costTypeId: old[i].costTypeId } : l)) });
@@ -68,11 +78,16 @@ export const PATCH = withAuth("purchases", "update", async (req: NextRequest, au
     if (body.date) p.date = new Date(body.date);
     if ("dueDate" in body) p.dueDate = body.dueDate ? new Date(body.dueDate) : undefined;
     if ("supplierRef" in body) p.supplierRef = String(body.supplierRef ?? "").slice(0, 80);
+    if ("supplierRef" in body || "supplierId" in body) {
+      const dup = await findSupplierInvoice(auth.tenantId, p.supplierId, p.supplierRef, p._id);
+      if (dup) throw new PurchaseError(`Facture ${p.supplierRef} de ce fournisseur déjà enregistrée (${dup.number ?? "pièce"}).`);
+    }
     if ("notes" in body) p.notes = String(body.notes ?? "").slice(0, 2000);
     if (body.kind === "cash" || body.kind === "invoice") p.kind = body.kind;
     await p.save();
   } catch (e) {
     if (e instanceof PurchaseError) return badRequest(e.message);
+    if (isSupplierKeyConflict(e)) return badRequest("Cette facture de fournisseur est déjà enregistrée.");
     throw e;
   }
   await logAudit(auth, "UPDATE", "purchases", { resourceId: params.id });
@@ -84,8 +99,11 @@ export const DELETE = withAuth("purchases", "delete", async (_req: NextRequest, 
   const p = await PurchaseModel.findOne({ _id: params.id, ...tenantFilter(auth) });
   if (!p) return notFound("Achat introuvable");
   if (p.status !== "draft") return badRequest("Seul un brouillon se supprime : un achat validé s'annule (extourne).");
-  await PurchaseModel.deleteOne({ _id: p._id });
+  // Brouillon reçu par l'API : gardé au statut annulé, pour que l'appelant (ISIC…) le voie et ne le renvoie pas.
+  if (p.externalRef) await PurchaseModel.updateOne({ _id: p._id }, { $set: { status: "cancelled", cancelledAt: new Date(), cancelReason: "Brouillon supprimé dans Kanoo" }, $unset: { activeSupplierKey: 1 } });
+  else await PurchaseModel.deleteOne({ _id: p._id });
   if (p.commandeId) await CommandeModel.updateOne({ _id: p.commandeId, purchaseId: p._id }, { $unset: { purchaseId: 1 } });
-  await logAudit(auth, "DELETE", "purchases", { resourceId: params.id, before: { number: p.number } });
+  if (p.externalRef) await logAudit(auth, "UPDATE", "purchases", { resourceId: params.id, before: { status: "draft", number: p.number }, after: { status: "cancelled", externalRef: p.externalRef }, metadata: { action: "cancel_api_draft" } });
+  else await logAudit(auth, "DELETE", "purchases", { resourceId: params.id, before: { number: p.number } });
   return noContent();
 });
