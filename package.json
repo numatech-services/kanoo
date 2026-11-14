@@ -83,6 +83,7 @@
       "^@/(.*)$": "<rootDir>/$1"
     },
     "testTimeout": 30000,
+    "globalSetup": "<rootDir>/__tests__/global-setup.js",
     "collectCoverageFrom": [
       "lib/**/*.ts",
       "app/api/**/*.ts",
@@ -95,6 +96,7 @@
     "testPathIgnorePatterns": [
       "<rootDir>/node_modules/",
       "<rootDir>/__tests__/setup.ts",
+      "<rootDir>/__tests__/global-setup.js",
       "<rootDir>/__tests__/e2e/",
       "<rootDir>/mobile/"
     ]
