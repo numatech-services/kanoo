@@ -82,8 +82,17 @@ const ent = c => c.integrity?.find(x => x.kind === "entries");
   check("rapport du mois écoulé figé avec son empreinte", /rapport/.test(rep) && /^[0-9a-f]{64}$/.test(D(snap).snapshot?.hash ?? "") && D(snap).heads?.some(h => h.seq === seq2), `${rep} ${J(D(snap).snapshot)}`);
 
   console.log("\n▶ Altérations");
-  const lab = await g.req("PATCH", `/api/accounting-entries/${e1}`, { label: "Libellé corrigé" });
-  const imp = await g.req("PATCH", `/api/accounting-entries/${e4}`, { imputations: [{}, {}] });
+  const noReason = await g.req("PATCH", `/api/accounting-entries/${e1}`, { label: "Libellé sans motif" });
+  check("modification sans motif : refusée", noReason.status === 400 && /motif/i.test(noReason.data?.error ?? ""), `${noReason.status} ${noReason.data?.error}`);
+  const shortReason = await g.req("PATCH", `/api/accounting-entries/${e1}`, { label: "Libellé corrigé", reason: "x" });
+  check("motif trop court : refusé", shortReason.status === 400 && /5 caractères/.test(shortReason.data?.error ?? ""), `${shortReason.status} ${shortReason.data?.error}`);
+  const mixed = await g.req("PATCH", `/api/accounting-entries/${e1}`, { label: "Libellé corrigé", imputations: [{}, {}], reason: "Deux corrections à la fois" });
+  check("libellé et imputation dans la même demande : refusé", mixed.status === 400 && /deux fois/.test(mixed.data?.error ?? ""), `${mixed.status} ${mixed.data?.error}`);
+  const lab = await g.req("PATCH", `/api/accounting-entries/${e1}`, { label: "Libellé corrigé", reason: "Faute de frappe sur la pièce" });
+  const sameLab = await g.req("PATCH", `/api/accounting-entries/${e1}`, { label: "Libellé corrigé", reason: "Même libellé renvoyé" });
+  check("libellé identique : refusé (pas d'entrée vide au journal)", sameLab.status === 400 && /Rien à modifier/.test(sameLab.data?.error ?? ""), `${sameLab.status} ${sameLab.data?.error}`);
+  const impSet = await g.req("PATCH", `/api/accounting-entries/${e4}`, { imputations: [{ costCenter: "admin" }, {}], reason: "Rattachement à l'administration" });
+  const imp = impSet.status === 200 ? await g.req("PATCH", `/api/accounting-entries/${e4}`, { imputations: [{}, {}], reason: "Imputation analytique retirée" }) : impSet;
   await withDb(ROOT, async db => {
     const col = db.collection("accountingentries");
     const d2 = await col.findOne({ reference: "AUD-2" });
@@ -106,6 +115,12 @@ const ent = c => c.integrity?.find(x => x.kind === "entries");
   check("écriture intacte : non signalée", !pb.some(p => p.id === e5), J(pb));
   check("constat critique d'intégrité au rapport", r.findings.some(f => f.severity === "Critique" && /Intégrité/.test(f.check)), J(r.findings.map(f => f.check)));
   void audit1;
+  const labLog = (D(await g.req("GET", `/api/audit-logs?resourceId=${e1}&limit=10`)).items ?? []).find(l => l.after?.label === "Libellé corrigé");
+  check("journal : motif, ancienne et nouvelle valeur du libellé, pièce visée", labLog?.metadata?.reason === "Faute de frappe sur la pièce" && typeof labLog?.before?.label === "string" && labLog.before.label !== "Libellé corrigé" && labLog?.metadata?.entry?.reference === "AUD-1", J(labLog));
+  const impLog = (D(await g.req("GET", `/api/audit-logs?resourceId=${e4}&limit=10`)).items ?? []).find(l => l.metadata?.action === "reimpute" && l.metadata?.reason === "Imputation analytique retirée");
+  check("journal : motif et avant / après de la réimputation", !!impLog && impLog.before?.imputations?.[0]?.costCenter === "admin", J(impLog));
+  const badId = D(await g.req("GET", `/api/audit-logs?resourceId=pas-un-id&limit=5`)).items ?? [];
+  check("historique : identifiant invalide → aucune entrée", badId.length === 0, J(badId).slice(0, 120));
 
   console.log("\n▶ Journal : ligne antidatée, changement de rôle");
   await withDb(ROOT, async db => {

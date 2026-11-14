@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import { withAuth, getPagination, paginatedResponse, tenantFilter } from "@/lib/api-helpers";
 import { AuditLogModel } from "@/models/AuditLog";
@@ -32,6 +33,12 @@ export const GET = withAuth("auditLogs", "read", async (req: NextRequest, auth: 
   if (resource) filter.resource = readable && !readable.includes(resource) ? "__aucune__" : resource;
   else if (readable) filter.resource = { $in: readable };
   if (userId) filter.userId = userId;
+  // Corrections motivées seulement (modifications, extournes, réouvertures).
+  if (url.searchParams.get("withReason") === "1") filter["metadata.reason"] = { $exists: true, $ne: "" };
+  // Historique d'une pièce (lien « Historique des modifications » d'une écriture).
+  const resourceId = url.searchParams.get("resourceId");
+  if (resourceId) // Identifiant invalide : aucun résultat (et non les entrées sans pièce).
+    filter.resourceId = Types.ObjectId.isValid(resourceId) ? new Types.ObjectId(resourceId) : new Types.ObjectId();
   if (from || to) {
     filter.createdAt = {};
     if (from) (filter.createdAt as Record<string, unknown>).$gte = new Date(from);

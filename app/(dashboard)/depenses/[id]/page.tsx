@@ -215,11 +215,13 @@ function PayDialog({ id, rest, onClose, onDone }: { id: string; rest: number; on
  */
 function ReimputeDialog({ purchase, onClose, onDone }: { purchase: Purchase; onClose: () => void; onDone: () => void }) {
   const [imps, setImps] = useState<ImputationValue[]>(() => purchase.lines.map(l => ({ projectId: idOf(l.projectId), activityId: idOf(l.activityId), costCenter: l.costCenter })));
+  const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   async function submit() {
+    if (reason.trim().length < 5) { setError("Indiquez le motif de la correction (5 caractères au moins) : il reste au journal d'audit."); return; }
     setSaving(true); setError("");
-    try { await send(`/api/achats/${purchase._id}`, "PATCH", { imputations: imps }); onDone(); }
+    try { await send(`/api/achats/${purchase._id}`, "PATCH", { imputations: imps, reason: reason.trim() }); onDone(); }
     catch (e) { setError(e instanceof Error ? e.message : "Correction impossible"); setSaving(false); }
   }
   return (
@@ -233,6 +235,9 @@ function ReimputeDialog({ purchase, onClose, onDone }: { purchase: Purchase; onC
             <ImputationFields value={imps[i]} onChange={v => setImps(all => all.map((x, k) => (k === i ? v : x)))} />
           </div>
         ))}
+        <FormField label="Motif de la correction" required hint="Conservé au journal d'audit avec l'ancienne et la nouvelle imputation.">
+          <textarea className={inputCls} rows={2} maxLength={500} value={reason} onChange={e => setReason(e.target.value)} />
+        </FormField>
         <div className="flex justify-end gap-2 pt-2 border-t border-line">
           <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
           <button onClick={submit} disabled={saving} className={buttonClass("primary", "md")}>{saving ? "Enregistrement…" : "Enregistrer"}</button>

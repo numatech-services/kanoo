@@ -40,12 +40,19 @@ export const POST = withAuth("accountingEntries", "delete", async (req: NextRequ
     const until = new Date(`${String(body.until ?? "")}T23:59:59`);
     if (isNaN(until.getTime())) return badRequest("Date de verrouillage invalide.");
     const current = tenant.accountingLockedUntil ? new Date(tenant.accountingLockedUntil) : null;
-    if (current && until < current && !admin) return forbidden("Seul le gérant peut rouvrir une période verrouillée.");
+    const reopening = !!current && until < current;
+    if (reopening && !admin) return forbidden("Seul le gérant peut rouvrir une période verrouillée.");
+    // Réouverture (TVA déposée, mois arrêté) : motif obligatoire, gardé au journal.
+    const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : "";
+    if (reopening && reason.length < 5) return badRequest("Indiquez le motif de la réouverture de la période (5 caractères au moins) : il reste au journal d'audit.");
     const lastClosed = Math.max(-Infinity, ...(tenant.closedFiscalYears ?? []));
     if (Number.isFinite(lastClosed) && until < new Date(lastClosed, 11, 31, 23, 59, 59)) return badRequest(`L'exercice ${lastClosed} est clôturé : il ne se rouvre pas.`);
     tenant.accountingLockedUntil = until;
     await tenant.save();
-    await logAudit(auth, "UPDATE", "accountingEntries", { metadata: { lockedUntil: until } });
+    await logAudit(auth, "UPDATE", "accountingEntries", {
+      before: { accountingLockedUntil: current }, after: { accountingLockedUntil: until },
+      metadata: { action: reopening ? "unlock" : "lock", lockedUntil: until, ...(reason ? { reason } : {}) },
+    });
     return ok({ lockedUntil: until });
   }
 

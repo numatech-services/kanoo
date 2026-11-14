@@ -165,8 +165,10 @@ export function DataTable<T>({
               sorted.map((row, index) => (
                 <tr
                   key={rowKey(row, index)}
-                  className={onRowClick ? "cursor-pointer" : ""}
+                  className={onRowClick ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-section/40" : ""}
                   onClick={() => onRowClick?.(row)}
+                  // Ligne cliquable atteignable au clavier, comme les cartes sur téléphone.
+                  {...(onRowClick ? { tabIndex: 0, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onRowClick(row); } } } : {})}
                 >
                   {columns.map((col) => {
                     const val = (row as Record<string, unknown>)[String(col.key)];

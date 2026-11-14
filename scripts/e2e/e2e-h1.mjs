@@ -166,14 +166,24 @@ const inv = (id) => withDb(ROOT, db => db.collection("invoices").findOne({ _id: 
   const ok1 = await g.req("POST", "/api/accounting-entries/lettrage", { entryIds: [String(saleB._id), String(payB._id)], account: "411" });
   const sb = (await entries({ _id: saleB._id }))[0];
   check("lettrage posé sur la ligne 411", ok1.status === 200 && sb.lines.some(l => l.accountCode === "411000" && l.letterRef), J({ s: ok1.status, l: sb.lines.map(l => [l.accountCode, l.letterRef]) }));
-  const ren = await g.req("PATCH", `/api/accounting-entries/${saleB._id}`, { reference: "REPRISE-OUVERTURE" });
-  check("référence d'une écriture de document non modifiable (C6)", ren.status === 400, ren.status);
+  const ren = await g.req("PATCH", `/api/accounting-entries/${saleB._id}`, { reference: "REPRISE-OUVERTURE", reason: "Essai de renommage" });
+  check("référence d'une écriture de document non modifiable (C6)", ren.status === 400 && /document/.test(ren.data?.error ?? ""), `${ren.status} ${ren.data?.error}`);
 
   console.log("\n▶ Clôture (C1, C2, C3, C4)");
   const cur = await g.req("POST", "/api/accounting/closing", { action: "close", year });
   check("l'exercice en cours ne se clôture pas", cur.status === 400, cur.status);
   // Exercice précédent sans antériorité : clôture de year-1, alors que janvier est déjà verrouillé.
+  // Janvier encore en cours (scénario lancé avant le 1er février) : écriture du 15 dans le futur, contrôle sauté.
+  const febStarted = new Date() >= new Date(`${year}-02-01`);
+  const odJan = !febStarted ? { status: 0 } : await g.req("POST", "/api/accounting-entries", { journalCode: "OD", entryDate: `${year}-01-15`, reference: "OD-VERROU", label: "Écriture de janvier", lines: [{ accountCode: "604000", accountLabel: "Achats d'études et prestations", debit: 1000, credit: 0 }, { accountCode: "401100", accountLabel: "Fournisseurs", debit: 0, credit: 1000 }] });
   await g.req("POST", "/api/accounting/closing", { action: "lock", until: `${year}-01-31` });
+  if (febStarted) {
+  const odId = D(odJan)._id;
+  const reimpLocked = await g.req("PATCH", `/api/accounting-entries/${odId}`, { imputations: [{ costCenter: "admin" }, {}], reason: "Essai en période verrouillée" });
+  check("période verrouillée : réimputation refusée", [200, 201].includes(odJan.status) && reimpLocked.status === 400 && /verrouill/i.test(reimpLocked.data?.error ?? ""), `${odJan.status} ${reimpLocked.status} ${reimpLocked.data?.error}`);
+  const labLocked = await g.req("PATCH", `/api/accounting-entries/${odId}`, { label: "Libellé changé", reason: "Essai en période verrouillée" });
+  check("période verrouillée : libellé non modifiable", labLocked.status === 400 && /verrouill/i.test(labLocked.data?.error ?? ""), `${labLocked.status} ${labLocked.data?.error}`);
+  }
   const chk = D(await g.req("POST", "/api/accounting/closing", { action: "check", year: year - 1 }));
   const blocked = await g.req("POST", "/api/accounting/closing", { action: "close", year: year - 1 });
   const closed = await g.req("POST", "/api/accounting/closing", { action: "close", year: year - 1, acknowledgeWarnings: true });
@@ -184,6 +194,13 @@ const inv = (id) => withDb(ROOT, db => db.collection("invoices").findOne({ _id: 
   const amount130 = res130 ? Math.abs(res130.credit - res130.debit) : 0;
   const alloc = await g.req("POST", "/api/accounting/closing", { action: "allocate", year: year - 1, date: today, allocations: [{ accountCode: "121000", amount: amount130 }] });
   check("affectation du résultat : 130 soldé", !res130 || alloc.status === 200, `${alloc.status} ${J(alloc.data).slice(0, 160)}`);
+
+  console.log("\n▶ Réouverture d'une période verrouillée");
+  const reopenNoReason = await g.req("POST", "/api/accounting/closing", { action: "lock", until: `${year}-01-10` });
+  check("réouverture sans motif : refusée", reopenNoReason.status === 400 && /motif de la réouverture/.test(reopenNoReason.data?.error ?? ""), `${reopenNoReason.status} ${reopenNoReason.data?.error}`);
+  const reopen = await g.req("POST", "/api/accounting/closing", { action: "lock", until: `${year}-01-10`, reason: "Facture fournisseur de janvier reçue en retard" });
+  const reopenLog = (D(await g.req("GET", `/api/audit-logs?resource=accountingEntries&withReason=1&limit=5`)).items ?? []).find(l => l.metadata?.action === "unlock");
+  check("réouverture motivée : acceptée, motif et ancienne date au journal", reopen.status === 200 && reopenLog?.metadata?.reason === "Facture fournisseur de janvier reçue en retard" && !!reopenLog?.before?.accountingLockedUntil, `${reopen.status} ${J(reopenLog)}`);
 
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);

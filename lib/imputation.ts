@@ -2,6 +2,7 @@ import { Types, type ClientSession } from "mongoose";
 import { refuseIfRestarted } from "@/lib/accounting-restart";
 import { AccountingEntryModel } from "@/models/AccountingEntry";
 import { BusinessRuleError } from "@/lib/errors";
+import { TenantModel } from "@/models/Tenant";
 import { ProjectModel } from "@/models/Project";
 import { ActivityModel } from "@/models/Activity";
 
@@ -73,7 +74,8 @@ export async function checkImputations(tenantId: string, items: Raw[]): Promise<
  * compte — c'est la correction d'une erreur de saisie, pas une écriture
  * nouvelle. `byIndex[i]` vaut pour la ligne i de l'écriture ; les lignes
  * absentes restent telles quelles. Une écriture extournée ne se réimpute
- * plus ; la période verrouillée est gardée par l'écriture elle-même.
+ * plus. Période verrouillée : refus explicite ci-dessous (le contrôle du
+ * modèle AccountingEntry la gardait déjà, avec un message moins précis).
  */
 export async function reimputeEntry(
   tenantId: string, entryId: unknown, byIndex: Map<number, Imputation>, session?: ClientSession,
@@ -85,6 +87,16 @@ export async function reimputeEntry(
     return null;
   }
   if (entry.reversedBy || entry.reverses) throw new BusinessRuleError("Écriture extournée : elle ne se réimpute plus.");
+  // Période verrouillée (TVA déposée, mois arrêté, exercice clos) : le
+  // rattachement analytique est figé comme le reste de l'écriture. Vaut aussi
+  // pour la réimputation déclenchée par une facture ou un achat : dans leur
+  // transaction, le refus annule la mise à jour du document. Même format de
+  // date (UTC) que le contrôle du modèle.
+  const t = await TenantModel.findById(tenantId).select("accountingLockedUntil").session(session ?? null)
+    .lean<{ accountingLockedUntil?: Date } | null>();
+  if (t?.accountingLockedUntil && new Date(entry.entryDate) <= new Date(t.accountingLockedUntil)) {
+    throw new BusinessRuleError(`Période verrouillée jusqu'au ${new Date(t.accountingLockedUntil).toLocaleDateString("fr-FR", { timeZone: "UTC" })} : l'imputation ne se modifie plus. Corrigez par une écriture de reclassement analytique datée de la période ouverte. Rien n'a été enregistré.`);
+  }
   const lines = entry.lines as Array<{ projectId?: unknown; activityId?: unknown; costCenter?: string; set: (k: string, v: unknown) => void }>;
   for (const [i, imp] of byIndex) {
     const l = lines[i];

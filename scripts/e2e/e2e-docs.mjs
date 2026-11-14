@@ -155,19 +155,33 @@ async function pdfCheck(label, s, path, expect) {
   console.log("\n▶ 4. Imputation après comptabilisation");
   const prj = D(await g.req("POST", "/api/projects", { code: "PRJ-DOC", name: "Salle OBEECS", budget: 5000000 }))._id;
   const pur = D(await g.req("POST", "/api/achats", { kind: "invoice", supplierId: sup._id, date: today, validate: true, lines: [{ description: "Câbles HDMI", accountCode: "605000", quantity: 1, unitPrice: 50000, tvaRate: 0 }] }));
-  const reimp = await g.req("PATCH", `/api/achats/${pur._id}`, { imputations: [{ projectId: prj }] });
+  const reimpNoReason = await g.req("PATCH", `/api/achats/${pur._id}`, { imputations: [{ projectId: prj }] });
+  check("achat validé : réimputation sans motif refusée", reimpNoReason.status === 400 && /motif/.test(reimpNoReason.data?.error ?? ""), `${reimpNoReason.status} ${reimpNoReason.data?.error}`);
+  const reimp = await g.req("PATCH", `/api/achats/${pur._id}`, { imputations: [{ projectId: prj }], reason: "Achat du chantier OBEECS" });
   const purEntry = await db(d => d.collection("accountingentries").findOne({ journalCode: "AC", reference: pur.number }));
   check("achat validé réimputé : sur l'achat et sur son écriture, montants inchangés", reimp.status === 200 && String(D(reimp).lines?.[0]?.projectId) === String(prj) && String(purEntry?.lines?.[0]?.projectId) === String(prj) && purEntry?.lines?.[0]?.debit === 50000, `${reimp.status} ${reimp.data?.error} ${J(purEntry?.lines?.[0])}`);
-  const badImp = await g.req("PATCH", `/api/achats/${pur._id}`, { imputations: [{}, {}] });
+  const sameImp = await g.req("PATCH", `/api/achats/${pur._id}`, { imputations: [{ projectId: prj }], reason: "Même imputation" });
+  check("achat : réimputation identique refusée (pas d'entrée vide au journal)", sameImp.status === 400 && /Rien à modifier/.test(sameImp.data?.error ?? ""), `${sameImp.status} ${sameImp.data?.error}`);
+  const purLog = (D(await g.req("GET", `/api/audit-logs?resourceId=${pur._id}&limit=5`)).items ?? []).find(l => l.metadata?.action === "reimpute");
+  check("achat : motif de la réimputation au journal", purLog?.metadata?.reason === "Achat du chantier OBEECS", J(purLog?.metadata));
+  const invImpNoReason = await g.req("PATCH", `/api/invoices/${inv._id}`, { projectId: prj });
+  check("facture émise : changement de projet sans motif refusé", invImpNoReason.status === 400 && /motif de la correction d'imputation/.test(invImpNoReason.data?.error ?? ""), `${invImpNoReason.status} ${invImpNoReason.data?.error}`);
+  const invImp = await g.req("PATCH", `/api/invoices/${inv._id}`, { projectId: prj, imputationReason: "Facture du projet OBEECS" });
+  const invLog = (D(await g.req("GET", `/api/audit-logs?resourceId=${inv._id}&limit=5`)).items ?? []).find(l => l.metadata?.action === "reimpute");
+  check("facture émise : projet changé, motif et avant / après au journal", invImp.status === 200 && invLog?.metadata?.reason === "Facture du projet OBEECS" && String(invLog?.after?.projectId) === String(prj), `${invImp.status} ${invImp.data?.error} ${J(invLog)}`);
+  const badImp = await g.req("PATCH", `/api/achats/${pur._id}`, { imputations: [{}, {}], reason: "Nombre de lignes faux" });
   check("une imputation par ligne, sinon refus", badImp.status === 400);
   const amountEdit = await g.req("PATCH", `/api/achats/${pur._id}`, { lines: [{ description: "x", accountCode: "605000", amountHT: 1 }] });
   check("les montants d'un achat validé ne se modifient toujours pas", amountEdit.status === 400);
   const od = await g.req("POST", "/api/accounting-entries", { journalCode: "OD", entryDate: today, reference: "OD-DOC-1", label: "Reclassement", lines: [{ accountCode: "604000", accountLabel: "Achats d'études et prestations", debit: 10000, credit: 0 }, { accountCode: "401100", accountLabel: "Fournisseurs", debit: 0, credit: 10000 }] });
   if ([200, 201].includes(od.status)) {
-    const re = await g.req("PATCH", `/api/accounting-entries/${D(od)._id}`, { imputations: [{ projectId: prj }, {}] });
+    const re = await g.req("PATCH", `/api/accounting-entries/${D(od)._id}`, { imputations: [{ projectId: prj }, {}], reason: "Rattachement au projet" });
     check("écriture manuelle réimputée", re.status === 200 && String(D(re).lines?.[0]?.projectId) === String(prj), `${re.status} ${re.data?.error}`);
+    const rv = await g.req("POST", `/api/accounting-entries/${D(od)._id}/reverse`, { reason: "Reclassement annulé" });
+    const labRev = await g.req("PATCH", `/api/accounting-entries/${D(od)._id}`, { label: "Après extourne", reason: "Essai après extourne" });
+    check("écriture extournée : libellé non modifiable", [200, 201].includes(rv.status) && labRev.status === 400 && /extourn/.test(labRev.data?.error ?? ""), `${rv.status} ${labRev.status} ${labRev.data?.error}`);
   } else check("écriture manuelle créée", false, `${od.status} ${od.data?.error}`);
-  const docEntry = await g.req("PATCH", `/api/accounting-entries/${purEntry?._id}`, { imputations: purEntry?.lines.map(() => ({})) });
+  const docEntry = await g.req("PATCH", `/api/accounting-entries/${purEntry?._id}`, { imputations: purEntry?.lines.map(() => ({})), reason: "Essai sur une écriture de document" });
   check("écriture d'un document : réimputation refusée ici (elle se fait sur le document)", docEntry.status === 400 && /document/.test(docEntry.data?.error ?? ""), `${docEntry.status}`);
 
   console.log("\n▶ 5. Note de frais approuvée par erreur");

@@ -63,3 +63,29 @@ export async function logAudit(
     console.error("[Audit] Erreur lors de l'enregistrement:", err);
   }
 }
+
+/**
+ * Trace écrite DANS la transaction de l'opération : si elle échoue, l'opération
+ * est annulée. Pour les modifications comptables, qui ne doivent jamais exister
+ * sans leur trace (auteur, motif, avant / après).
+ */
+export async function logAuditInTx(
+  auth: TokenPayload,
+  action: AuditAction,
+  resource: string,
+  options: {
+    resourceId?: string;
+    before?: Record<string, unknown>;
+    after?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+  },
+  session?: import("mongoose").ClientSession,
+): Promise<void> {
+  const { AuditLogModel } = await import("@/models/AuditLog");
+  await AuditLogModel.create([{
+    tenantId: auth.tenantId, userId: auth.userId, userEmail: auth.email, userRole: auth.role,
+    action, resource, resourceId: options.resourceId,
+    before: options.before, after: options.after, metadata: options.metadata,
+    createdAt: new Date(),
+  }], { session });
+}

@@ -2,7 +2,7 @@
 import { useState, useEffect, Fragment } from "react";
 import Link from "next/link";
 import { FlowFilterBar, useFlowFilter, type FlowTotals } from "@/components/ui/FlowFilterBar";
-import { Plus, Search, ChevronDown, ChevronRight, Undo2, Lock, FileSpreadsheet, Hash, Link2, Boxes } from "lucide-react";
+import { Plus, Search, ChevronDown, ChevronRight, Undo2, Pencil, History, Lock, FileSpreadsheet, Hash, Link2, Boxes } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
@@ -15,6 +15,7 @@ import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 import { StockVariationDialog } from "@/components/accounting/StockVariationDialog";
 import { localDay } from "@/lib/format";
+import { ImputationFields, type ImputationValue } from "@/components/shared/ImputationFields";
 interface Line { accountCode: string; accountLabel: string; debit: number; credit: number; projectId?: string; activityId?: string; costCenter?: string }
 interface Entry {
   _id: string; journalCode: string; entryDate: string; reference: string; label: string; lines: Line[];
@@ -29,6 +30,7 @@ export default function AccountingPage() {
   const me = useMe();
   const canCreate = meCanDo(me, "accountingEntries", "create");
   const canReverse = meCanDo(me, "accountingEntries", "delete");
+  const canUpdate = meCanDo(me, "accountingEntries", "update");
   const [page, setPage] = useState(1);
   const [f, setF] = useState({ journal: "", lettered: "", search: "", account: "" });
   const flowFilter = useFlowFilter();
@@ -36,6 +38,7 @@ export default function AccountingPage() {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [closingOpen, setClosingOpen] = useState(false);
   const [variationOpen, setVariationOpen] = useState(false);
+  const [editing, setEditing] = useState<Entry | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const LIMIT = 30;
 
@@ -122,7 +125,15 @@ export default function AccountingPage() {
                     <td className="text-[11px] text-ink2 whitespace-nowrap">
                       {e.reversedBy ? "extournée" : e.reverses ? "extourne" : e.isLettered ? `lettrée ${e.letterRef ?? ""}` : ""}
                     </td>
-                    <td className="text-right">
+                    <td className="text-right whitespace-nowrap">
+                      {canUpdate && (() => {
+                        const why = editBlock(e, lock.lockedUntil);
+                        return (
+                          <button onClick={ev => { ev.stopPropagation(); if (!why) setEditing(e); }} disabled={!!why} aria-disabled={!!why}
+                            title={why ?? "Modifier le libellé, la pièce ou l'imputation (motif obligatoire)"} aria-label={why ? `Modification impossible : ${why}` : `Modifier l'écriture ${e.reference}`}
+                            className="p-1.5 text-ink3 hover:text-section disabled:opacity-40 disabled:cursor-not-allowed"><Pencil size={14} /></button>
+                        );
+                      })()}
                       {canReverse && (!e.linkedDocType || e.linkedDocType === "manual") && !e.reversedBy && !e.reverses && (
                         <button onClick={ev => { ev.stopPropagation(); reverse(e); }} title="Extourner" className="p-1 text-ink3 hover:text-neg"><Undo2 size={14} /></button>
                       )}
@@ -145,6 +156,15 @@ export default function AccountingPage() {
                             ))}
                           </tbody>
                         </table></div>
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          {canUpdate && (() => {
+                            const why = editBlock(e, lock.lockedUntil);
+                            return why
+                              ? <span className="text-[11px] text-ink3">Modification impossible : {why}.</span>
+                              : <button onClick={() => setEditing(e)} className={buttonClass("secondary", "sm")}><Pencil size={13} /> Modifier</button>;
+                          })()}
+                          <Link href={`/audit?ecriture=${e._id}`} className={buttonClass("ghost", "sm")}><History size={13} /> Historique</Link>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -157,8 +177,103 @@ export default function AccountingPage() {
       <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} total={total} limit={LIMIT} onPage={setPage} />
 
       {variationOpen && <StockVariationDialog onClose={() => setVariationOpen(false)} onDone={() => { setVariationOpen(false); load(); }} />}
+      {editing && <EditEntryDialog entry={editing} onClose={() => setEditing(null)}
+        onDone={text => { setEditing(null); setMsg({ ok: true, text }); load(); }} />}
       {closingOpen && <ClosingDialog lock={lock} onClose={() => setClosingOpen(false)} onDone={() => { setClosingOpen(false); load(); }} />}
     </div>
+  );
+}
+
+/** Pourquoi une écriture ne se modifie pas (null : modifiable). */
+function editBlock(e: Entry, lockedUntil: string | null): string | null {
+  if (e.reversedBy) return "écriture extournée";
+  if (e.reverses) return "écriture d'extourne";
+  if (lockedUntil && new Date(e.entryDate) <= new Date(lockedUntil)) return `période verrouillée jusqu'au ${new Date(lockedUntil).toLocaleDateString("fr-FR", { timeZone: "UTC" })}`;
+  return null;
+}
+
+const idOf = (v: unknown): string | undefined => {
+  if (!v) return undefined;
+  const o = v as { _id?: unknown };
+  return String(o._id ?? v);
+};
+
+/**
+ * Modification d'une écriture, motif obligatoire : libellé et pièce, ou
+ * imputation analytique (écriture saisie à la main). L'ancienne valeur, la
+ * nouvelle et le motif sont gardés au journal d'audit, dans la même opération.
+ * Les montants et les comptes ne se modifient pas : ils se corrigent par extourne.
+ */
+function EditEntryDialog({ entry, onClose, onDone }: { entry: Entry; onClose: () => void; onDone: (text: string) => void }) {
+  const fromDocument = !!entry.linkedDocType && entry.linkedDocType !== "manual";
+  const [mode, setMode] = useState<"texte" | "imputation">("texte");
+  const [label, setLabel] = useState(entry.label);
+  const [reference, setReference] = useState(entry.reference);
+  const initialImps = entry.lines.map(l => ({ projectId: idOf(l.projectId), activityId: idOf(l.activityId), costCenter: l.costCenter || undefined }));
+  const [imps, setImps] = useState<ImputationValue[]>(initialImps);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const key = (i: ImputationValue) => `${i.projectId ?? ""}|${i.activityId ?? ""}|${i.costCenter ?? ""}`;
+  const changed = mode === "texte"
+    ? label.trim() !== entry.label || (!fromDocument && reference.trim() !== entry.reference)
+    : imps.some((x, i) => key(x) !== key(initialImps[i]));
+  async function save() {
+    if (!changed) { setError("Rien n'a changé."); return; }
+    if (mode === "texte" && !label.trim()) { setError("Le libellé ne peut pas être vide."); return; }
+    if (mode === "texte" && !fromDocument && !reference.trim()) { setError("La pièce ne peut pas être vide."); return; }
+    if (reason.trim().length < 5) { setError("Indiquez le motif de la modification (5 caractères au moins)."); return; }
+    setBusy(true); setError("");
+    const body: Record<string, unknown> = { reason: reason.trim() };
+    if (mode === "texte") { body.label = label.trim(); if (!fromDocument) body.reference = reference.trim(); }
+    else body.imputations = imps;
+    const res = await apiSend("PATCH", `/api/accounting-entries/${entry._id}`, body);
+    setBusy(false);
+    if (!res.ok) { setError(res.data?.error || "Modification refusée."); return; }
+    onDone(`Écriture ${mode === "texte" && !fromDocument ? reference.trim() : entry.reference} modifiée ; le motif est enregistré au journal d'audit.`);
+  }
+  const tab = (k: typeof mode, l: string) => (
+    <button type="button" role="tab" aria-selected={mode === k} onClick={() => { setMode(k); setError(""); }}
+      className={`px-3 py-1.5 rounded-full text-sm ${mode === k ? "bg-section text-white" : "bg-surface2 text-ink2"}`}>{l}</button>
+  );
+  return (
+    <Modal open onClose={onClose} title={`Modifier l'écriture ${entry.reference}`} size={mode === "imputation" ? "lg" : "md"}
+      description="Un montant ou un compte erroné ne se modifie pas : il se corrige par extourne puis nouvelle saisie."
+      footer={<>
+        <button onClick={onClose} className={buttonClass("secondary", "md")}>Annuler</button>
+        <button onClick={save} disabled={busy} className={buttonClass("primary", "md")}>{busy ? "Enregistrement…" : "Enregistrer"}</button>
+      </>}>
+      <div className="space-y-4">
+        <div className="flex gap-2" role="tablist">{tab("texte", "Libellé et pièce")}{tab("imputation", "Imputation analytique")}</div>
+        {error && <p role="alert" className="p-3 bg-neg-50 text-neg text-sm rounded-lg">{error}</p>}
+        {mode === "texte" ? <>
+          <FormField label="Libellé" required>
+            <input className={inputCls} value={label} maxLength={300} onChange={e => setLabel(e.target.value)} />
+          </FormField>
+          <FormField label="Pièce (référence)" required={!fromDocument}
+            hint={fromDocument ? "Écriture produite par un document (facture, achat…) : sa référence le relie au document et ne se modifie pas." : undefined}>
+            <input className={inputCls} value={reference} maxLength={80} disabled={fromDocument} onChange={e => setReference(e.target.value)} />
+          </FormField>
+        </> : fromDocument ? (
+          <p className="p-3 bg-surface2 text-sm text-ink2 rounded-lg">Écriture produite par un document : changez le projet ou le secteur sur le document lui-même (facture, achat, note de frais). L&apos;écriture est mise à jour en même temps ; un motif vous sera demandé.</p>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-ink2">Projet, secteur et service de chaque ligne. Les montants et les comptes restent tels quels.</p>
+            {entry.lines.map((l, i) => (
+              <div key={i} className="space-y-1.5">
+                <p className="text-sm text-ink"><span className="font-mono text-xs">{l.accountCode}</span> {l.accountLabel} <span className="text-ink3 font-mono text-xs">{fmt(l.debit || l.credit)} {l.debit ? "D" : "C"}</span></p>
+                <ImputationFields value={imps[i]} onChange={v => setImps(all => all.map((x, k) => (k === i ? v : x)))} />
+              </div>
+            ))}
+          </div>
+        )}
+        {!(mode === "imputation" && fromDocument) && (
+          <FormField label="Motif de la modification" required hint="5 caractères au moins. Conservé au journal d'audit avec l'ancienne et la nouvelle valeur.">
+            <textarea className={inputCls} rows={3} value={reason} maxLength={500} onChange={e => setReason(e.target.value)} />
+          </FormField>
+        )}
+      </div>
+    </Modal>
   );
 }
 
@@ -195,6 +310,19 @@ function ClosingDialog({ lock, onClose, onDone }: { lock: { lockedUntil: string 
       await post({ action: "close", year, acknowledgeWarnings: checks.length > 0 });
     }
   }
+  // Reculer la date rouvre une période déjà verrouillée : motif demandé, gardé au journal.
+  async function lockPeriod() {
+    const reopening = !!lock.lockedUntil && new Date(`${until}T23:59:59`) < new Date(lock.lockedUntil);
+    if (!reopening) { await post({ action: "lock", until }); return; }
+    const reason = await promptDialog({
+      title: "Rouvrir une période verrouillée ?",
+      message: `La saisie redeviendra possible après le ${new Date(`${until}T12:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC" })}. Si une déclaration de TVA a été déposée pour cette période, toute modification devra être régularisée.`,
+      label: "Motif de la réouverture (5 caractères au moins)", confirmLabel: "Rouvrir", required: true, multiline: true,
+    });
+    if (!reason?.trim()) return;
+    if (reason.trim().length < 5) { setError("Motif trop court : 5 caractères au moins."); return; }
+    await post({ action: "lock", until, reason: reason.trim() });
+  }
   async function allocate() {
     const allocations = [
       { accountCode: "111000", amount: Number(alloc.reserve) || 0 },
@@ -212,7 +340,7 @@ function ClosingDialog({ lock, onClose, onDone }: { lock: { lockedUntil: string 
           <p className="text-xs text-ink2">Plus aucune écriture ne peut être datée jusqu&apos;à cette date (TVA déposée, mois arrêté). Actuellement : {lock.lockedUntil ? new Date(lock.lockedUntil).toLocaleDateString("fr-FR") : "aucun verrou"}.</p>
           <div className="flex gap-2">
             <input type="date" className={inputCls} value={until} onChange={e => setUntil(e.target.value)} aria-label="Verrouiller jusqu'au" />
-            <button disabled={busy} onClick={() => post({ action: "lock", until })} className={buttonClass("primary", "md")}>Verrouiller</button>
+            <button disabled={busy} onClick={lockPeriod} className={buttonClass("primary", "md")}>Verrouiller</button>
           </div>
         </div>
         <div className="space-y-2 pt-4 border-t border-line">

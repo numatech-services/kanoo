@@ -73,6 +73,20 @@ export default function EditInvoicePage() {
       if (!reason?.trim()) throw new Error("Correction abandonnée : aucun motif saisi.");
       res = await apiSend("PATCH", `/api/invoices/${id}`, { ...updatedData, correctionReason: reason.trim() });
     }
+    // Facture émise dont seul le projet ou le secteur change : motif demandé, gardé au journal d'audit.
+    if (!res.ok && /motif de la correction d'imputation/.test(res.data?.error ?? "")) {
+      const reason = await promptDialog({
+        title: issued?.number ? `Corriger l'imputation de la facture ${issued.number} ?` : "Corriger l'imputation de la facture ?",
+        message: "Le projet ou le secteur change sur la facture et sur son écriture de vente ; les montants restent tels quels.",
+        label: "Motif de la correction (5 caractères au moins)",
+        confirmLabel: "Corriger l'imputation",
+        required: true,
+        multiline: true,
+      });
+      if (!reason?.trim()) throw new Error("Correction abandonnée : aucun motif saisi.");
+      if (reason.trim().length < 5) throw new Error("Motif trop court : 5 caractères au moins.");
+      res = await apiSend("PATCH", `/api/invoices/${id}`, { ...updatedData, imputationReason: reason.trim() });
+    }
 
     // Gestion sécurisée si le serveur renvoie une réponse vide (ex: status 204)
     if (!res.ok) {

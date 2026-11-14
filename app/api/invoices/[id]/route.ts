@@ -9,7 +9,7 @@ import { retentionFor } from "@/lib/retention";
 import { releaseMarketInvoice } from "@/lib/market-invoice";
 import { computeInvoiceLines, saleEntryLines, findSaleEntry, reverseSaleEntry } from "@/lib/invoice-entry";
 import { pickImputation, checkImputations, reimputeEntry } from "@/lib/imputation";
-import { logAudit } from "@/lib/audit";
+import { logAudit, logAuditInTx } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";
 import { mentionsFrom } from "@/lib/doc-mentions";
 import { hasTenantAdminRole } from "@/lib/roles-ui";
@@ -93,6 +93,12 @@ export const PATCH = withAuth("invoices", "update", async (req: NextRequest, aut
   inv.set(mentionsFrom(body));
   const impChanged = ("projectId" in body && String(body.projectId ?? "") !== String(inv.projectId ?? ""))
     || ("activityId" in body && String(body.activityId ?? "") !== String(inv.activityId ?? ""));
+  // Facture émise : le changement d'imputation touche l'écriture de vente ;
+  // motif obligatoire, gardé au journal avec l'avant / après.
+  const impReason = String(body.imputationReason ?? "").trim().slice(0, 500);
+  const impLogged = impChanged && !isDraft && !correcting;
+  if (impLogged && impReason.length < REASON_MIN) return badRequest("Indiquez le motif de la correction d'imputation (5 caractères au moins) : il reste au journal d'audit.");
+  const impBefore = { projectId: inv.projectId ? String(inv.projectId) : null, activityId: inv.activityId ? String(inv.activityId) : null };
   if (impChanged) {
     const raw = { projectId: "projectId" in body ? body.projectId : inv.projectId, activityId: "activityId" in body ? body.activityId : inv.activityId };
     const e = await checkImputations(auth.tenantId, [raw]);
@@ -146,6 +152,13 @@ export const PATCH = withAuth("invoices", "update", async (req: NextRequest, aut
         if (/^7/.test(l.accountCode)) byIndex.set(i, { ...imp, ...(l.costCenter ? { costCenter: l.costCenter as never } : {}) });
       });
       await reimputeEntry(auth.tenantId, entry._id, byIndex, session);
+    }
+    if (impLogged) {
+      await logAuditInTx(auth, "UPDATE", "invoices", {
+        resourceId: String(inv._id), before: impBefore,
+        after: { projectId: inv.projectId ? String(inv.projectId) : null, activityId: inv.activityId ? String(inv.activityId) : null },
+        metadata: { action: "reimpute", reason: impReason, number: inv.number, entryId: entry ? String(entry._id) : undefined },
+      }, session);
     }
   });
   if (!correcting) {
