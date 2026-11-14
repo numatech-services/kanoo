@@ -40,9 +40,11 @@ const id = r => D(r)?._id;
 import { withDb } from "./db.mjs";
 import { execSync } from "child_process";
 const today = new Date().toISOString().slice(0, 10);
-const KEY = /JWT_SECRET='([^']+)'/.exec(readFileSync(`${ROOT}/.claude/launch.json`, "utf-8"))?.[1] ?? "";
-// Serveur en mode production (E2E_PROD=1) : même clé de scellement que lui.
-const SEAL_KEY = process.env.E2E_PROD === "1" ? (/AUDIT_SEAL_KEY='([^']+)'/.exec(readFileSync(`${ROOT}/.claude/launch.json`, "utf-8"))?.[1] ?? "") : "";
+// Clés du serveur : son environnement (CI, run-all.sh), sinon .claude/launch.json (poste local).
+const fromLaunch = name => { try { return new RegExp(`${name}='([^']+)'`).exec(readFileSync(`${ROOT}/.claude/launch.json`, "utf-8"))?.[1] ?? ""; } catch { return ""; } };
+const KEY = process.env.JWT_SECRET || fromLaunch("JWT_SECRET");
+// Serveur en mode production (E2E_PROD=1 ou clé fournie) : même clé de scellement que lui.
+const SEAL_KEY = process.env.AUDIT_SEAL_KEY || (process.env.E2E_PROD === "1" ? fromLaunch("AUDIT_SEAL_KEY") : "");
 const run = (mode, offset) => execSync(`npx tsx scripts/e2e/audit-seal-now.ts ${mode} ${offset}`, { cwd: ROOT, env: { ...process.env, JWT_SECRET: KEY, ...(SEAL_KEY ? { AUDIT_SEAL_KEY: SEAL_KEY } : {}) }, encoding: "utf-8" }).trim();
 const SETTLE = 15 * 60 * 1000;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
