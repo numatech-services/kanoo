@@ -3,6 +3,7 @@
 import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
+import { AlertsBoardCard } from "@/components/home/AlertsBoardCard";
 
 import { BarChart3, CheckCircle2, FileEdit, ScrollText } from "lucide-react";
 import { formatMoney } from "@/lib/format";
@@ -125,6 +126,7 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
+      <AlertsBoardCard />
       <UpcomingAgenda agendaHref="/administration/agenda" />
 
       {/* Taux d'exécution budgétaire par chapitre */}

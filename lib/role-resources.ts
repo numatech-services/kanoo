@@ -460,6 +460,16 @@ const CHEF_EXTRA: Partial<Record<UserRole, ResourcePermissions>> = {
  */
 const LEVEL_DENY: Record<RoleLevel, Action[]> = { chef: [], employe: ["delete", "approve"], stagiaire: ["delete", "approve"] };
 const EMPLOYEE_KEEPS: Partial<Record<UserRole, ResourcePermissions>> = { svc_compta: { expenses: ["approve"] } };
+/**
+ * Droits ajoutés selon le niveau, quand ni la carte de l'employé ni celle du
+ * chef ne conviennent. Alertes : la comptable (employée ou chef) et le chef
+ * Administration les gèrent ; un stagiaire, ou un employé Administration, ne
+ * voit que celles qui lui sont confiées (il ne peut pas en faire taire une).
+ */
+const LEVEL_EXTRA: Partial<Record<UserRole, Partial<Record<RoleLevel, ResourcePermissions>>>> = {
+  svc_compta: { chef: { alerts: ["create"] }, employe: { alerts: ["create"] } },
+  svc_admin: { chef: { alerts: ["create"] } },
+};
 
 export const SERVICE_ROLES = ["svc_admin", "svc_comm", "svc_prosp", "svc_dev", "svc_prod", "svc_spot", "svc_secu", "svc_compta"] as const satisfies readonly UserRole[];
 export function isServiceRole(role: string): boolean {
@@ -565,6 +575,22 @@ const MESSAGES_ALL: Action[] = ["create", "read", "update", "delete"];
 for (const perms of Object.values(ROLE_PERMISSIONS)) {
   perms.messages = MESSAGES_ALL;
 }
+
+/**
+ * Alertes et échéances (« contrat à enregistrer dans le mois ») : chacun voit
+ * et marque traitées celles dont il est destinataire (l'API borne la portée) ;
+ * la direction, la comptabilité et le chef Administration les créent et les
+ * voient toutes (niveaux : LEVEL_EXTRA).
+ */
+export const ALERT_MANAGER_ROLES: UserRole[] = [
+  "pme_admin", "pme_manager", "pme_accountant", "svc_compta", "svc_admin",
+  "asso_president", "asso_treasurer", "admin_ordonnateur", "admin_daf", "admin_public_accountant", "superadmin",
+];
+for (const perms of Object.values(ROLE_PERMISSIONS)) {
+  perms.alerts = ["read", "update"];
+}
+// Rôles de service : la création dépend du niveau (LEVEL_EXTRA).
+for (const r of ALERT_MANAGER_ROLES) { if (ROLE_PERMISSIONS[r] && !isServiceRole(r)) ROLE_PERMISSIONS[r].alerts = ["create", "read", "update"]; }
 
 /**
  * Notifications : universelles, chacun lit et marque les siennes (l'API borne
@@ -706,6 +732,7 @@ function actionsFor(role: UserRole, resource: string, level?: RoleLevel): Action
   const lvl: RoleLevel = level ?? "employe";
   const base = [...(permissions[resource] ?? [])];
   if (lvl === "chef") base.push(...(CHEF_EXTRA[role]?.[resource] ?? []));
+  base.push(...(LEVEL_EXTRA[role]?.[lvl]?.[resource] ?? []));
   const keeps = lvl === "employe" ? (EMPLOYEE_KEEPS[role]?.[resource] ?? []) : [];
   return [...new Set(base)].filter(a => !LEVEL_DENY[lvl].includes(a) || keeps.includes(a));
 }

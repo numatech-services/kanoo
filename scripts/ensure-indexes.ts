@@ -99,6 +99,8 @@ async function main() {
     import("../models/AuditSeal").then(m => m.AuditSealModel),
     import("../models/AuditSeal").then(m => m.AuditCheckModel),
     import("../models/AuditSeal").then(m => m.AuditReportSnapshotModel),
+    // Alertes : une seule occurrence suivante par alerte récurrente (index unique sur previousId).
+    import("../models/Alert").then(m => m.AlertModel),
   ]);
 
   let failed = 0;

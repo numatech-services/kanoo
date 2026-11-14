@@ -29,6 +29,7 @@ const KEYWORDS: Record<string, string> = {
   "/dashboard": "accueil synthèse indicateurs",
   "/rapports": "état export synthèse rapport",
   "/agenda": "calendrier rendez-vous échéance",
+  "/alertes": "alerte rappel échéance délai pénalité enregistrement contrat",
   "/clients": "client prospect université",
   "/crm": "pipeline opportunité prospect",
   "/devis": "proforma offre",

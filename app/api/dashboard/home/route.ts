@@ -4,6 +4,7 @@ import { TokenPayload } from "@/lib/auth";
 import { authCan } from "@/lib/role-resources";
 import { loadDashboard } from "@/lib/dashboard-home";
 import { dailyBrief } from "@/lib/daily-brief-server";
+import { alertsBoard } from "@/lib/alerts-server";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +15,9 @@ export const dynamic = "force-dynamic";
  */
 export const GET = withAuth("notifications", "read", async (_req: NextRequest, auth: TokenPayload) => {
   const can = (resource: string, action: "read" | "create" | "update" | "delete" = "read") => authCan(auth, resource, action);
+  const alerts = await alertsBoard(auth, r => can(r)).catch(() => null);
   if (!can("invoices") || !can("payments")) {
-    return ok({ limited: true, brief: (await dailyBrief(auth, can, 5)).items });
+    return ok({ limited: true, brief: (await dailyBrief(auth, can, 5)).items, alerts });
   }
-  return ok({ limited: false, ...(await loadDashboard(auth, can)) });
+  return ok({ limited: false, ...(await loadDashboard(auth, can)), alerts });
 });

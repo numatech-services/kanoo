@@ -18,7 +18,7 @@ export function notificationHref(n: { type?: string; linkedTo?: string; linkedId
     case "fiscal_reminder": return n.linkedTo && /^\/fiscalite\//.test(n.linkedTo) ? n.linkedTo : "/fiscalite";
     case "guarantee_expiry": return "/cautions";
     case "retention_claimable": return id ? `/contracts/${id}` : "/contracts";
-    case "registration_due": return id ? `/contracts/${id}` : "/contracts";
+    case "registration_due": return id ? `/contracts/${id}` : n.linkedTo && /^\/contracts\/[a-f0-9]{24}$/.test(n.linkedTo) ? n.linkedTo : "/contracts";
     case "tender_deadline": return id ? `/appels/${id}` : "/appels";
     // Automatisations (lib/automation-jobs.ts).
     case "depreciation_posted": return "/fixed-assets";

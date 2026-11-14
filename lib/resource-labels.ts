@@ -22,7 +22,7 @@ export const RESOURCE_LABELS: Record<string, string> = {
   membres: "Adhérents", assemblee: "Assemblées générales", bureau: "Bureau",
   // Transversal
   notifications: "Notifications", supportTickets: "Support", auditLogs: "Journal d'audit",
-  users: "Utilisateurs", events: "Activités / billetterie", agenda: "Agenda", messages: "Messagerie",
+  users: "Utilisateurs", events: "Activités / billetterie", agenda: "Agenda", messages: "Messagerie", alerts: "Alertes et échéances",
   // ISIC
   isic: "Cartes ISIC — production", isicFinance: "Cartes ISIC — finances",
   analytics: "Comptabilité analytique (rentabilité par secteur)",

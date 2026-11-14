@@ -1,4 +1,7 @@
-import { registrationDueDate } from "@/lib/registration";
+import { registrationWatch, REGISTRATION_WATCH_FIELDS, registrationFollowUp, registrationReminderText, type RegistrationWatchLike } from "@/lib/registration";
+import { AlertModel } from "@/models/Alert";
+import { reminderStep as alertReminderStep, alertReminderMessage, alertReminderEmail, emailStep, dueWording as alertDueWording } from "@/lib/alerts";
+import { alertRecipients } from "@/lib/alerts-server";
 import { UserModel } from "@/models/User";
 import { InvoiceModel } from "@/models/Invoice";
 import { ProductModel } from "@/models/Product";
@@ -7,7 +10,7 @@ import { StockLotModel } from "@/models/StockLot";
 import { ContractModel } from "@/models/Contract";
 import { EmployeeModel } from "@/models/Employee";
 import { RecurringExpenseModel } from "@/models/RecurringExpense";
-import { claimOnce, claimEvery } from "@/lib/automation-store";
+import { claimOnce, claimEvery, releaseClaim } from "@/lib/automation-store";
 import { TenantModel } from "@/models/Tenant";
 import { CRMOpportunityModel } from "@/models/CRMOpportunity";
 import { SubscriptionPurchaseModel } from "@/models/SubscriptionPurchase";
@@ -410,29 +413,74 @@ export const CRON_JOBS: CronJob[] = [
     id: "registration-due", label: "Droits d'enregistrement des marchés",
     cadence: "daily", schedule: "58 7 * * *",
     run: async () => {
-      // Délai d'un mois après l'approbation (CGI art. 481) : rappel à J-7, J-1
-      // et le lendemain de l'échéance, tant que les droits ne sont pas payés.
+      // Délai d'un mois après l'approbation, ou la signature à défaut (CGI ;
+      // numéro d'article à confirmer sur l'édition 2026) : rappel à J-7, J-1,
+      // le jour même puis chaque semaine de retard, tant que les droits de
+      // l'acte ne sont pas payés (lib/registration, registrationFollowUp).
       const now = new Date();
-      const list = await ContractModel.find({
-        type: "client", status: { $in: ["active", "renewed"] }, amount: { $gt: 0 },
-        $or: [{ approvalDate: { $exists: true } }, { "registration.assessedAt": { $exists: true } }],
-      }).select("tenantId reference approvalDate signedDate registration")
-        .lean<Array<{ _id: Id; tenantId: Id; reference: string; approvalDate?: Date; signedDate?: Date; registration?: { assessedAt?: Date; assessed?: number; paid?: number; dueDate?: Date } }>>();
+      const list = await ContractModel.find(registrationWatch()).select(REGISTRATION_WATCH_FIELDS)
+        .lean<Array<RegistrationWatchLike & { _id: Id; tenantId: Id; reference: string }>>();
       let sent = 0;
       for (const c of list) {
-        const due = c.registration?.dueDate ?? registrationDueDate(c.approvalDate, c.signedDate);
-        if (!due) continue;
-        const paid = c.registration?.assessedAt && (c.registration.paid ?? 0) >= (c.registration.assessed ?? 0);
-        if (paid) continue;
-        const d = daysUntil(due, now);
-        if (![7, 1, -1].includes(d)) continue;
-        for (const admin of await getAdmins(c.tenantId, ["pme_admin", "pme_manager", "pme_accountant", "svc_compta"])) {
-          await notify(c.tenantId, admin._id, "registration_due", d < 0 ? "Enregistrement du marché en retard" : "Enregistrement du marché à faire",
-            `Marché ${c.reference} : droits d'enregistrement à payer ${d < 0 ? "depuis le" : "avant le"} ${new Date(due).toLocaleDateString("fr-FR")}.`, "contracts", c._id);
-          sent++;
-        }
+        const f = registrationFollowUp(c, now);
+        if (!f) continue;
+        const step = alertReminderStep(f.due, [7, 1], now);
+        if (!step) continue;
+        const recipients = await alertRecipients({ tenantId: c.tenantId, assigneeIds: [] });
+        if (!recipients.length) continue;
+        const key = `registration:${c._id}:${f.due.toISOString().slice(0, 10)}:${step.key}`;
+        if (!(await claimOnce(c.tenantId, key))) continue;
+        const late = step.left < 0;
+        const title = late ? "Enregistrement du marché en retard" : "Enregistrement du marché à faire";
+        // Sans linkedId : un rappel J-1 lu ne doit pas masquer le suivant (déduplication par message).
+        const message = `Marché ${c.reference} : échéance le ${f.due.toLocaleDateString("fr-FR")} (${alertDueWording(step.left)}). ${registrationReminderText(c.buyerType)}`;
+        let delivered = 0;
+        for (const u of recipients) { if (await notify(c.tenantId, u._id, "registration_due", title, message, `/contracts/${String(c._id)}`)) delivered++; }
+        if (!delivered) await releaseClaim(c.tenantId, key);
+        sent += delivered;
       }
       return `${sent} rappel(s) d'enregistrement`;
+    },
+  },
+  {
+    id: "alerts-due", label: "Alertes et échéances saisies",
+    cadence: "daily", schedule: "2 8 * * *",
+    run: async () => {
+      // Rappels aux délais choisis (J-7, J-1 par défaut, rattrapés si la tâche
+      // n'a pas tourné), le jour même, puis chaque semaine de retard jusqu'à
+      // ce que l'alerte soit marquée traitée. L'échéance fait partie de la clé :
+      // une date reportée repart sur ses propres rappels. Le jour J et en
+      // retard, la direction et la comptabilité sont prévenues en plus du
+      // destinataire nommé. Premier rappel, jour J et premier retard : aussi
+      // par e-mail.
+      const now = new Date();
+      const baseUrl = (process.env.APP_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+      const list = await AlertModel.find({ status: "open", dueDate: { $lte: new Date(now.getTime() + 366 * 86_400_000) } })
+        .select("tenantId title dueDate remindDays consequence assigneeIds")
+        .lean<Array<{ _id: Id; tenantId: Id; title: string; dueDate: Date; remindDays: number[]; consequence?: string; assigneeIds: Id[] }>>();
+      let sent = 0;
+      for (const a of list) {
+        const step = alertReminderStep(a.dueDate, a.remindDays, now);
+        if (!step) continue;
+        // Personne à prévenir : l'étape n'est pas consommée (elle partira dès qu'il y aura quelqu'un).
+        const recipients = await alertRecipients(a, step.left <= 0);
+        if (!recipients.length) continue;
+        const key = `alert:${a._id}:${new Date(a.dueDate).toISOString().slice(0, 10)}:${step.key}`;
+        if (!(await claimOnce(a.tenantId, key))) continue;
+        const { title, message } = alertReminderMessage(a, step.left);
+        const link = `/alertes?alerte=${String(a._id)}`;
+        const withMail = emailStep(step.key, a.remindDays);
+        let delivered = 0;
+        for (const u of recipients) {
+          if (!(await notify(a.tenantId, u._id, "alert_due", title, message, link))) continue;
+          delivered++;
+          if (withMail && u.email) await sendEmail({ to: u.email, ...alertReminderEmail(u.firstName, a, step.left, `${baseUrl}${link}`) }).catch(() => undefined);
+        }
+        // Rien n'est parti (organisation suspendue, erreur) : l'étape sera retentée.
+        if (!delivered) await releaseClaim(a.tenantId, key);
+        sent += delivered;
+      }
+      return `${sent} rappel(s) d'alerte`;
     },
   },
   {

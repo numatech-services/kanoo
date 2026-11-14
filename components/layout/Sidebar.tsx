@@ -7,7 +7,7 @@ import { useMe, meCan } from "@/lib/useMe";
 import { resourceForHref } from "@/lib/nav-resources";
 import { sectionForPath, type SectionKey } from "@/lib/sections";
 import { moduleEnabled } from "@/lib/modules";
-import { Network, HandCoins, LayoutDashboard, Calculator, Rocket, Gauge, Smartphone, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent, UtensilsCrossed, Tags, ChefHat, CookingPot, ShoppingBasket } from "lucide-react";
+import { AlarmClock, Network, HandCoins, LayoutDashboard, Calculator, Rocket, Gauge, Smartphone, Bell, MessageSquare, Users, FileText, Receipt, Truck, CreditCard, Factory, Package, Warehouse, PenTool, Folder, FolderTree, CheckCircle2, Landmark, BookOpen, RefreshCw, BarChart3, Scissors, UserCircle, Hash, Diamond, Ticket, LogOut, Building2, Gavel, Megaphone, Heart, PieChart, ClipboardCheck, Globe, Banknote, ShieldAlert, ClipboardList, TrendingUp, User, FileSpreadsheet, History, Calendar, Repeat, Layers, Link2, ShieldCheck, BellRing, ReceiptText, FileClock, Mail, ChevronDown, PackageCheck, CalendarClock, Database, Store, BookUser, Scale, Boxes, Sparkles, Zap, Bug, Percent, UtensilsCrossed, Tags, ChefHat, CookingPot, ShoppingBasket } from "lucide-react";
 
 import { apiJson, apiSend } from "@/lib/api-client";
 import { getPendingCount, purgeOfflineData } from "@/lib/offline/sync-queue";
@@ -55,6 +55,7 @@ const PME_NAV: NavGroup[] = [
     { label: "EasyPay réseau", href: "/easypay-reseau", icon: <Network size={18} /> },
     { label: "Rapports", href: "/rapports", icon: <FileSpreadsheet size={18} /> },
     { label: "Agenda", href: "/agenda", icon: <CalendarClock size={18} /> },
+    { label: "Alertes et échéances", href: "/alertes", icon: <AlarmClock size={18} /> },
     { label: "Notifications", href: "/notifications", icon: <Bell size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
     // Écran transversal (dépenses, commandes, notes de frais) : avec le pilotage.
@@ -164,6 +165,7 @@ const ASSO_NAV: NavGroup[] = [
   { section: "Pilotage", tone: "accueil", items: [
     { label: "Tableau de bord", href: "/associations/dashboard", icon: <LayoutDashboard size={18} /> },
     { label: "Agenda", href: "/associations/agenda", icon: <CalendarClock size={18} /> },
+    { label: "Alertes et échéances", href: "/alertes", icon: <AlarmClock size={18} /> },
     { label: "Événements", href: "/activites", icon: <Calendar size={18} /> },
     { label: "Notifications", href: "/notifications", icon: <Bell size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },
@@ -212,6 +214,7 @@ const ADMIN_NAV: NavGroup[] = [
   { section: "Pilotage", tone: "accueil", items: [
     { label: "Tableau de bord", href: "/administration/dashboard", icon: <LayoutDashboard size={18} /> },
     { label: "Agenda", href: "/administration/agenda", icon: <CalendarClock size={18} /> },
+    { label: "Alertes et échéances", href: "/alertes", icon: <AlarmClock size={18} /> },
     { label: "Événements", href: "/activites", icon: <Calendar size={18} /> },
     { label: "Notifications", href: "/notifications", icon: <Bell size={18} /> },
     { label: "Messages", href: "/messages", icon: <MessageSquare size={18} /> },

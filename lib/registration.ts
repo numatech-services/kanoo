@@ -113,13 +113,72 @@ export function assessRegistration(input: RegistrationInput): RegistrationAssess
   };
 }
 
-/** Échéance d'enregistrement : un mois après l'approbation (à défaut, la signature). */
+/**
+ * Échéance d'enregistrement : un mois après l'approbation (à défaut, la
+ * signature). Le quantième est borné au dernier jour du mois : un acte du
+ * 31 janvier échoit le 28 (ou 29) février, pas le 3 mars — l'ancien calcul
+ * débordait et annonçait une date postérieure au délai.
+ */
 export function registrationDueDate(approvalDate?: Date | string | null, signedDate?: Date | string | null): Date | null {
   const base = approvalDate || signedDate;
   if (!base) return null;
   const d = new Date(base);
   if (isNaN(d.getTime())) return null;
-  return new Date(d.getFullYear(), d.getMonth() + 1, d.getDate());
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 2, 0).getDate();
+  return new Date(d.getFullYear(), d.getMonth() + 1, Math.min(d.getDate(), lastDay));
+}
+
+/**
+ * Marchés clients à surveiller pour l'enregistrement : signés, approuvés ou
+ * déjà constatés, quel que soit leur statut sauf annulé — un marché suspendu
+ * ou exécuté (« expiré ») avant le paiement des droits reste redevable.
+ */
+export function registrationWatch(): Record<string, unknown> {
+  return {
+    type: "client", status: { $ne: "cancelled" }, amount: { $gt: 0 },
+    $or: [{ approvalDate: { $exists: true } }, { signedDate: { $exists: true } }, { "registration.assessedAt": { $exists: true } }],
+  };
+}
+export const REGISTRATION_WATCH_FIELDS = "tenantId reference title buyerType approvalDate signedDate registration";
+
+/** Au-delà, un marché jamais constaté dans Kanoo est réputé enregistré hors de Kanoo (reprise d'historique). */
+export const REGISTRATION_HISTORY_DAYS = 180;
+
+export interface RegistrationWatchLike {
+  buyerType?: string | null; approvalDate?: Date | string | null; signedDate?: Date | string | null;
+  registration?: { assessedAt?: Date | string | null; duty?: number; stamp?: number; paid?: number; dueDate?: Date | string | null; number?: string | null; date?: Date | string | null } | null;
+}
+
+/**
+ * Enregistrement de l'acte encore à faire, ou null. Le timbre du PV de
+ * réception définitive (constaté des mois plus tard) n'en fait pas partie :
+ * le compter faisait annoncer « enregistrement en retard » d'un marché
+ * enregistré depuis longtemps.
+ */
+export function registrationFollowUp(c: RegistrationWatchLike, now = new Date()): { due: Date; daysLeft: number; amount: number } | null {
+  const r = c.registration ?? {};
+  if (r.number || r.date) return null;
+  const act = (r.duty ?? 0) + (r.stamp ?? 0);
+  if (r.assessedAt && (r.paid ?? 0) >= act) return null;
+  const due = r.dueDate ? new Date(r.dueDate) : registrationDueDate(c.approvalDate, c.signedDate);
+  if (!due || isNaN(due.getTime())) return null;
+  const a = new Date(due); a.setHours(0, 0, 0, 0);
+  const t = new Date(now); t.setHours(0, 0, 0, 0);
+  const daysLeft = Math.round((a.getTime() - t.getTime()) / 86_400_000);
+  if (!r.assessedAt && daysLeft < -REGISTRATION_HISTORY_DAYS) return null;
+  return { due, daysLeft, amount: r.assessedAt ? Math.max(0, act - (r.paid ?? 0)) : 0 };
+}
+
+/**
+ * Rappel affiché et envoyé. Prudence voulue : le point de départ dépend de
+ * l'acheteur, et le taux de l'indemnité de retard n'est pas écrit en dur
+ * (à confirmer auprès de la recette des impôts).
+ */
+export function registrationReminderText(buyerType?: string | null): string {
+  const start = !buyerType
+    ? "suivant l'approbation (marché public) ou la signature (contrat privé)"
+    : isPublicBuyer(buyerType) ? "suivant l'approbation du marché" : "suivant la signature du contrat";
+  return `Droits d'enregistrement à payer dans le mois ${start} ; en cas de dépassement, indemnité de retard (taux à confirmer auprès de la recette des impôts).`;
 }
 
 /** Timbre sur l'original du PV de réception définitive (marché public). */

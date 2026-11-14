@@ -152,6 +152,7 @@ const ROUTE_SECTIONS: Array<[string, SectionKey]> = [
   ["/dashboard", "accueil"],
   ["/rapports", "accueil"],
   ["/agenda", "accueil"],
+  ["/alertes", "accueil"],
   ["/notifications", "accueil"],
   ["/messages", "accueil"],
 ];

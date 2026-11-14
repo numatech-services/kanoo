@@ -3,13 +3,14 @@
 import { useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { PenLine, ReceiptText, FolderKanban, Plus, Trash2, Wallet, FileText } from "lucide-react";
+import { PenLine, ReceiptText, FolderKanban, Plus, Trash2, Wallet, FileText, AlarmClock } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, inputCls, selectCls } from "@/components/ui/FormField";
 import { Pill } from "@/components/ui/Primitives";
 import { RetentionPanel } from "@/components/contracts/RetentionPanel";
 import { RegistrationPanel } from "@/components/contracts/RegistrationPanel";
+import { ContractAlerts } from "@/components/contracts/ContractAlerts";
 import { MarketTermsPanel, type TermsSettings } from "@/components/contracts/MarketTermsPanel";
 import { MarketCostsPanel } from "@/components/contracts/MarketCostsPanel";
 import { AttachmentPanel } from "@/components/shared/AttachmentPanel";
@@ -19,7 +20,8 @@ import type { MarketFinance } from "@/lib/market-finance";
 
 import { confirmDialog } from "@/components/ui/Dialogs";
 import { buttonClass } from "@/components/ui/button-class";
-import { formatMoney, todayLocal } from "@/lib/format";
+import { formatMoney, todayLocal, localDay } from "@/lib/format";
+import { nextOccurrence } from "@/lib/alerts";
 import { csrfToken as getCsrfToken } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 async function send(url: string, method: string, body?: unknown) {
@@ -37,6 +39,7 @@ interface Contract extends TermsSettings {
   milestones?: Milestone[];
   retentionRate?: number; receptionProvisoireDate?: string; receptionDefinitiveDate?: string; guaranteeMonths?: number;
   buyerType?: string; instrument?: string; approvalDate?: string; pages?: number; isSubcontract?: boolean; tvaRate?: number;
+  signedDate?: string;
 }
 
 export default function ContractDetailPage() {
@@ -82,6 +85,22 @@ export default function ContractDetailPage() {
   const isMarket = contract.type === "client";
   const billable = ["active", "renewed"].includes(contract.status);
   const invoiceNo = new Map((finance?.invoices ?? []).map(i => [i._id, i.number]));
+  // Alerte pré-remplie selon la nature du contrat. Un marché client est déjà
+  // suivi par Kanoo (droits d'enregistrement) ; pour un contrat fournisseur ou
+  // autre, l'obligation d'enregistrer dépend de l'acte (bail, cession…) : la
+  // formulation invite à le vérifier, sans l'affirmer. Point de départ : la
+  // signature (l'approbation ne vaut que pour la commande publique).
+  const alertHref = (() => {
+    const ref = contract.reference || contract.title;
+    const q = new URLSearchParams({ nouvelle: "1", contractId: id, contrat: ref, categorie: contract.type === "employment" ? "social" : "contrat" });
+    if (contract.type === "supplier" || contract.type === "other") {
+      q.set("titre", `Vérifier l'enregistrement du contrat ${ref}`);
+      q.set("consequence", "Si ce contrat doit être enregistré (bail, cession, marché…) : délai d'un mois à compter de sa signature, indemnité de retard en cas de dépassement.");
+      const due = contract.signedDate ? nextOccurrence(contract.signedDate, "monthly") : null;
+      if (due) q.set("echeance", localDay(due));
+    } else q.set("titre", `${isMarket ? "Marché" : "Contrat"} ${ref} : `);
+    return `/alertes?${q}`;
+  })();
 
   return (
     <div className="p-6 space-y-6">
@@ -96,6 +115,9 @@ export default function ContractDetailPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={contract.status} />
+          {meCanDo(me, "alerts", "create") && (
+            <Link href={alertHref} className={buttonClass("secondary", "md")}><AlarmClock size={15} /> Créer une alerte</Link>
+          )}
           {contract.status === "draft" && meCanDo(me, "contracts", "create") && (
             <button onClick={() => setSignOpen(true)} disabled={busy}
               className={buttonClass("primary", "md")}><PenLine size={15} /> Signer</button>
@@ -116,6 +138,7 @@ export default function ContractDetailPage() {
         </div>
       </div>
       {msg && <p className={`p-3 rounded-lg text-sm ${msg.ok ? "bg-pos-50 text-pos" : "bg-neg-50 text-neg"}`}>{msg.text}</p>}
+      <ContractAlerts contractId={id} />
 
       {finance && isMarket && <MarketPanel f={finance} hasProject={!!contract.projectId} />}
 

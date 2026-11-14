@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { UpcomingAgenda } from "@/components/agenda/UpcomingAgenda";
+import { AlertsBoardCard } from "@/components/home/AlertsBoardCard";
 
 import { buttonClass } from "@/components/ui/button-class";
 import { apiJson } from "@/lib/api-client";
@@ -131,6 +132,7 @@ export default function AssoDashboardPage() {
         ))}
       </div>
 
+      <AlertsBoardCard />
       <UpcomingAgenda agendaHref="/associations/agenda" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
