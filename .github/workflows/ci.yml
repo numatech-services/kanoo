@@ -49,6 +49,8 @@ jobs:
       CRON_SECRET: ci-only-cron-0123456789abcdef0123456789
       BACKUP_DIR: /tmp/kanoo-backups
       BACKUP_ENCRYPTION_KEY: ci-only-backup-key-0123456789abcdef
+      AUDIT_SEAL_KEY: ci-only-audit-seal-key-0123456789abcdef0123
+      TZ: Africa/Niamey
       # Faux services (scripts/e2e/fake-services.mjs) : API Claude et stockage S3.
       ANTHROPIC_API_KEY: ci-fake-key
       ANTHROPIC_BASE_URL: http://127.0.0.1:4599/anthropic

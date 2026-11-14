@@ -25,7 +25,7 @@ for sc in "${SCENARIOS[@]}"; do
   if node "scripts/e2e/$sc.mjs" "$ROOT" > "/tmp/$sc.log" 2>&1; then
     echo "✓ $sc : $(tail -1 "/tmp/$sc.log")"
   else
-    echo "✗ $sc : $(tail -1 "/tmp/$sc.log")"; grep "✗" "/tmp/$sc.log" | head -20; failed=1
+    echo "✗ $sc : $(tail -1 "/tmp/$sc.log")"; grep "✗" "/tmp/$sc.log" | head -20; grep -q "✗" "/tmp/$sc.log" || tail -25 "/tmp/$sc.log"; failed=1
   fi
 done
 exit $failed
