@@ -22,6 +22,8 @@ for sc in "${SCENARIOS[@]}"; do
   node -e 'const m=require("mongoose");m.connect(process.env.MONGODB_URI).then(()=>m.connection.db.dropDatabase()).then(()=>m.disconnect())'
   [ -n "${BACKUP_DIR:-}" ] && rm -rf "$BACKUP_DIR"
   if ! npx tsx scripts/seed-test.ts > "/tmp/seed-$sc.log" 2>&1; then echo "✗ $sc : ensemencement en échec"; tail -5 "/tmp/seed-$sc.log"; failed=1; continue; fi
+  # Base vidée : index (dont les uniques qui bloquent les doublons) reconstruits comme en production (npm run indexes).
+  if ! npx tsx scripts/ensure-indexes.ts > "/tmp/indexes-$sc.log" 2>&1; then echo "✗ $sc : index en échec"; tail -5 "/tmp/indexes-$sc.log"; failed=1; continue; fi
   if node "scripts/e2e/$sc.mjs" "$ROOT" > "/tmp/$sc.log" 2>&1; then
     echo "✓ $sc : $(tail -1 "/tmp/$sc.log")"
   else
