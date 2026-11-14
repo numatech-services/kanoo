@@ -36,7 +36,6 @@ async function login(email, pw) {
   }
 }
 const D = r => r.data?.data ?? {};
-const id = r => D(r)?._id;
 import { createHmac, randomBytes, randomUUID } from "crypto";
 const hmac = (k, m) => createHmac("sha256", k).update(m).digest("hex");
 async function net(key, path, obj, { secret, site = "_easypay", tampered } = {}) {

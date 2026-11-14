@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { contractScope } from "@/lib/contract-input";
 import { connectDB, withTransaction } from "@/lib/db";
-import { withAuth, forbidden, ok, tenantFilter, notFound } from "@/lib/api-helpers";
+import { withAuth, forbidden, ok, notFound } from "@/lib/api-helpers";
 import { ContractModel } from "@/models/Contract";
 import { billContractPeriod } from "@/lib/contract-billing";
 import { logAudit } from "@/lib/audit";

@@ -45,8 +45,6 @@ async function api(key, method, p, body, headers = {}) {
   const res = await fetch(`${BASE}/api/v1/spot${p}`, { method, headers: { ...(key ? { authorization: `Bearer ${key}` } : {}), "content-type": "application/json", ...headers }, body: body === undefined ? undefined : JSON.stringify(body) });
   return { status: res.status, etag: res.headers.get("etag"), data: res.status === 304 ? null : await res.json().catch(() => null) };
 }
-const ref = (id, name, extra = {}) => ({ id, name, ...extra });
-const ev = (id, type, data, occurred_at = new Date(Date.now() - 60_000).toISOString()) => ({ id, type, occurred_at, data });
 
 
 const hmac = (k, m) => createHmac("sha256", k).update(m).digest("hex");

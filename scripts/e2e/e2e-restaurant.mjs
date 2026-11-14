@@ -3,7 +3,6 @@
 // appareils, vente pendant le comptage), résultat de gestion du mois (charges,
 // personnel, consommation, rapprochement), dossier Excel, clôture qui verrouille.
 import { readFileSync } from "fs";
-import { execFileSync } from "child_process";
 import { createRequire } from "module";
 import { withDb } from "./db.mjs";
 
@@ -44,12 +43,7 @@ async function login(email, pw) {
 }
 const D = r => r.data?.data ?? {};
 const pad = n => String(n).padStart(2, "0");
-const localDay = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const now = new Date();
-const today = localDay(now);
-const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12);
-const runAt = (job, at) => JSON.parse(execFileSync("npx", ["tsx", "scripts/e2e/run-job-at.ts", job, at], { cwd: ROOT, env: process.env, encoding: "utf8" }).trim().split("\n").pop()).summary;
-const notifs = async g => { const r = await g.req("GET", "/api/notifications?limit=100"); return r.data?.data?.items ?? r.data?.data ?? []; };
 
 
 (async () => {

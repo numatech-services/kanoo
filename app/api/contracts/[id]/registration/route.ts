@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { contractScope } from "@/lib/contract-input";
 import { Types } from "mongoose";
 import { connectDB, withTransaction } from "@/lib/db";
-import { withAuth, ok, badRequest, notFound, forbidden, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, ok, badRequest, notFound, forbidden } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { hasFinanceAccess } from "@/lib/role-resources";
 import { ContractModel } from "@/models/Contract";

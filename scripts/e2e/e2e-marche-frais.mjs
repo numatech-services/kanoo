@@ -154,7 +154,7 @@ const dayAgo = n => new Date(Date.now() - n * 86400000).toISOString().slice(0, 1
   console.log("\n▶ Pénalité retenue par le client");
   const inv2 = D(await g.req("POST", `/api/contracts/${l1}/invoice`, { mode: "standard", amountHT: 1000000 })).invoice;
   await g.req("POST", `/api/invoices/${inv2._id}/send`);
-  let before2 = await fin(l1);
+  const before2 = await fin(l1);
   check("retenue sur un autre type refusée", (await g.req("POST", `/api/contracts/${l1}/costs`, { costTypeId: T("bank"), amountHT: 100, state: "withheld", invoiceId: inv2._id })).status === 400);
   check("retenue supérieure à la facture refusée", (await g.req("POST", `/api/contracts/${l1}/costs`, { costTypeId: T("penalty"), amountHT: 9000000, state: "withheld", invoiceId: inv2._id })).status === 400);
   const wh = await g.req("POST", `/api/contracts/${l1}/costs`, { costTypeId: T("penalty"), amountHT: 32282, state: "withheld", invoiceId: inv2._id, date: today });
@@ -169,7 +169,7 @@ const dayAgo = n => new Date(Date.now() - n * 86400000).toISOString().slice(0, 1
   console.log("\n▶ Dépense modifiée ou saisie ailleurs");
   const pl = D(await g.req("POST", `/api/contracts/${l2}/costs`, { costTypeId: T("regulation"), amountHT: 296600, state: "planned", payee: "Trésor", date: today }));
   await g.req("PATCH", `/api/achats/${pl._id}`, { lines: [{ description: "Redevance", accountCode: "648000", amountHT: 296600, projectId: D(await g.req("GET", `/api/contracts/${l2}`)).projectId?._id }] });
-  let f2 = await fin(l2);
+  const f2 = await fin(l2);
   check("brouillon modifié : pas de double compte", row(f2, "regulation")?.estimated === 0 && row(f2, "regulation")?.committed === 296600, J(row(f2, "regulation")));
   check("alerte : reste à régler à l'État", f2.terms?.alerts?.some(a => /Reste à régler/.test(a)), J(f2.terms?.alerts));
   const mis = await market("Saisie TTC en HT", { amount: 21521388, amountTTC: 21521388 });

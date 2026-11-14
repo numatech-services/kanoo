@@ -36,7 +36,6 @@ async function login(email, pw) {
   }
 }
 const D = r => r.data?.data ?? {};
-const id = r => D(r)?._id;
 const today = new Date().toISOString().slice(0, 10);
 const api = (key) => async (method, p, body) => { const r = await fetch(`${BASE}${p}`, { method, headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, data: await r.json().catch(() => null) }; };
 

@@ -1,6 +1,5 @@
 // Scénario de bout en bout : cautions et garanties (commissions périodiques, prorogation, reçues, garanties d'emprunt, plafonds).
 import { readFileSync } from "fs";
-import { withDb } from "./db.mjs";
 
 const BASE = "http://localhost:3099";
 const ROOT = process.argv[2];
@@ -38,7 +37,6 @@ async function login(email, pw) {
 }
 const D = r => r.data?.data ?? {};
 
-const today = new Date().toISOString().slice(0, 10);
 const id = r => D(r)?._id;
 
 
@@ -115,7 +113,7 @@ const dayAgo = n => new Date(Date.now() - n * 86400000).toISOString().slice(0, 1
   await g.req("POST", `/api/loans/${loan2}`, { action: "disburse", date: dayAgo(5) });
   const gl = id(await g.req("POST", "/api/cautions", { type: "garantie_emprunt", guaranteeForm: "Caution bancaire", loanId: loan2, beneficiary: "BIA", amount: 6000000, issueDate: dayAgo(5), treasuryAccountId: bank }));
   const b1 = await bal();
-  const glc = await g.req("POST", `/api/cautions/${gl}/call`, { amount: 6000000 });
+  await g.req("POST", `/api/cautions/${gl}/call`, { amount: 6000000 });
   const L2 = D(await g.req("GET", `/api/loans/${loan2}`));
   const ce = (D(await g.req("GET", `/api/accounting-entries?search=${encodeURIComponent("Caution appelée")}&limit=50`)).items ?? []).find(x => x.lines.some(l => l.accountCode === "162000" && l.debit === 5000000));
   check("garantie d'emprunt appelée : 162 débité du restant (5 000 000), 658 de l'excédent (1 000 000)", !!ce && ce.lines.some(l => l.accountCode === "658000" && l.debit === 1000000), J(ce?.lines));

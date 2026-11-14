@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { contractScope } from "@/lib/contract-input";
 import { connectDB } from "@/lib/db";
-import { withAuth, created, badRequest, getPagination, paginatedResponse, tenantFilter, requireFields } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, getPagination, paginatedResponse, requireFields } from "@/lib/api-helpers";
 import { ContractModel } from "@/models/Contract";
 import { logAudit } from "@/lib/audit";
 import { TokenPayload } from "@/lib/auth";

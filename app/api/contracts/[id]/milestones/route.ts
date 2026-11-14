@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import { withAuth, created, badRequest, notFound, tenantFilter } from "@/lib/api-helpers";
+import { withAuth, created, badRequest, notFound } from "@/lib/api-helpers";
 import { TokenPayload } from "@/lib/auth";
 import { ContractModel } from "@/models/Contract";
 import { contractScope, parseMilestone } from "@/lib/contract-input";
