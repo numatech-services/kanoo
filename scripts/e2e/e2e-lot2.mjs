@@ -125,7 +125,11 @@ const plusDays = n => { const d = new Date(); d.setDate(d.getDate() + n); d.setH
   const b3 = await bal();
   const del = await g.req("DELETE", `/api/cautions/${c3._id}`);
   check("saisie erronée supprimée : commission extournée, trésorerie corrigée", del.status === 204 && (await bal()) - b3 === 8000, `${del.status} ${(await bal()) - b3}`);
-  check("cautions du marché listées", (D(await g.req("GET", `/api/cautions?contractId=${ct._id}`)).items ?? []).length === 1);
+  // La caution supprimée reste listée, au statut « annulée » (piste d'audit complète).
+  const ctItems = D(await g.req("GET", `/api/cautions?contractId=${ct._id}`)).items ?? [];
+  check("cautions du marché listées, la supprimée gardée comme annulée",
+    ctItems.filter(i => i.status !== "cancelled").length === 1 && ctItems.some(i => String(i._id) === String(c3._id) && i.status === "cancelled"),
+    J(ctItems.map(i => [i.reference, i.status])));
 
   console.log(`\n${pass} vérifications réussies, ${fail} en échec`);
   process.exit(fail ? 1 : 0);
